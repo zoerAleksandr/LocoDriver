@@ -17,8 +17,10 @@ import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.str
 import com.z_company.domain.util.toDoubleOrZero
 import com.z_company.domain.util.toIntOrZero
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.cancel
@@ -264,6 +266,57 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             delay(500)
             saveSetting()
         }
+    }
+
+    override fun onCleared() {
+        autoSaveJob?.cancel()
+        // Сохраняем данные в NonCancellable-контексте, чтобы save завершился
+        // даже если ViewModel уже очищается (пользователь покинул экран раньше 500мс)
+        CoroutineScope(NonCancellable + Dispatchers.IO).launch {
+            // 1. Сохраняем SalarySetting (настройки зарплаты)
+            val state = uiState.value.settingSalaryState
+            if (state is ResultState.Success) {
+                state.data?.let { salarySetting ->
+                    salarySetting.surchargeExtendedServicePhaseList =
+                        surchargeExtendedServicePhaseListState.map { servicePhase ->
+                            SurchargeExtendedServicePhase(
+                                id = servicePhase.id,
+                                distance = servicePhase.distance,
+                                percentSurcharge = servicePhase.percentSurcharge
+                            )
+                        }.toMutableList()
+                    salarySetting.surchargeHeavyTrainsList =
+                        surchargeHeavyTrainsState.map { surcharge ->
+                            SurchargeHeavyTrains(
+                                id = surcharge.id,
+                                weight = surcharge.weight,
+                                percentSurcharge = surcharge.percentSurcharge
+                            )
+                        }.toMutableList()
+                    salarySetting.surchargeLongTrainsList =
+                        surchargeLongTrainsState.map { surcharge ->
+                            SurchargeLongTrains(
+                                id = surcharge.id,
+                                conditionalLength = surcharge.conditionalLength,
+                                percentSurcharge = surcharge.percentSurcharge
+                            )
+                        }.toMutableList()
+                    salarySettingUseCase.saveSalarySetting(salarySetting).collect {}
+                }
+            }
+            // 2. Сохраняем тарифную ставку (MonthOfYear) если она изменилась.
+            // setTariffRate() не вызывает scheduleAutoSave() — ставка хранится
+            // в MonthOfYear, а не в SalarySetting. Сохраняем для текущего месяца
+            // без диалога (тот же эффект что "Только этот месяц").
+            val month = currentMonthOfYear
+            if (month != null && initialValueTariffRate != month.tariffRate) {
+                salarySettingUseCase.updateTariffRateOnlyInOneMonthOfYear(
+                    newTariffRate = month.tariffRate,
+                    monthId = month.id
+                ).collect {}
+            }
+        }
+        super.onCleared()
     }
 
     private fun loadSalarySetting() {

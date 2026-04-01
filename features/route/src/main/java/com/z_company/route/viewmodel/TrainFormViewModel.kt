@@ -245,7 +245,8 @@ class TrainFormViewModel(
                             trainId = train.trainId,
                             stationName = state.station.data,
                             timeArrival = state.arrival.data,
-                            timeDeparture = state.departure.data
+                            timeDeparture = state.departure.data,
+                            trackNumber = state.trackNumber
                         )
                     }.toMutableList()
 
@@ -612,7 +613,8 @@ class TrainFormViewModel(
                     departure = StationFieldDate(
                         data = station.timeDeparture,
                         type = StationDataType.DEPARTURE
-                    )
+                    ),
+                    trackNumber = station.trackNumber
                 )
             )
         }
@@ -739,13 +741,14 @@ class TrainFormViewModel(
         _uiState.update { it.copy(editingStationIndex = null) }
     }
 
-    fun saveStationFromSheet(index: Int, name: String?, arrival: Long?, departure: Long?) {
+    fun saveStationFromSheet(index: Int, name: String?, arrival: Long?, departure: Long?, trackNumber: String?) {
         if (index == -1) {
             val newStation = StationFormState(
                 id = Station().stationId,
                 station = StationField(data = name, type = StationDataType.NAME),
                 arrival = StationFieldDate(data = arrival, type = StationDataType.ARRIVAL),
-                departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE)
+                departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE),
+                trackNumber = trackNumber?.ifBlank { null }
             )
             val hasServicePhase = _uiState.value.selectedServicePhase != null
             if (hasServicePhase && stationsListState.size >= 2) {
@@ -757,7 +760,8 @@ class TrainFormViewModel(
             stationsListState[index] = stationsListState[index].copy(
                 station = StationField(data = name, type = StationDataType.NAME),
                 arrival = StationFieldDate(data = arrival, type = StationDataType.ARRIVAL),
-                departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE)
+                departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE),
+                trackNumber = trackNumber?.ifBlank { null }
             )
         }
         changesHave()
@@ -794,6 +798,7 @@ class TrainFormViewModel(
         val item = stationsListState.removeAt(fromIndex)
         stationsListState.add(toIndex, item)
         changesHave()
+        checkFormValidStation()
         // reorderingStationId stays the same — follows by station ID, not index
     }
 
@@ -838,7 +843,8 @@ class TrainFormViewModel(
                             stationId = state.id,
                             stationName = state.station.data,
                             timeArrival = state.arrival.data,
-                            timeDeparture = state.departure.data
+                            timeDeparture = state.departure.data,
+                            trackNumber = state.trackNumber
                         )
                     }.toMutableList()
                 )

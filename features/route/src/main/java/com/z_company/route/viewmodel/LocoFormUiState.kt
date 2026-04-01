@@ -28,5 +28,11 @@ data class LocoFormUiState(
     var isShowResults: Boolean = false,
     var isShowNorma: Boolean = false,
     val isKiloMode: Boolean = false,
-    val isShowUpdateHint: Boolean = false
+    val isShowUpdateHint: Boolean = false,
+    val heatingAcceptedText: String = "",
+    val heatingDeliveryText: String = "",
+    val auxiliaryAcceptedText: String = "",
+    val auxiliaryDeliveryText: String = "",
+    val norma1Text: String = "",
+    val norma2Text: String = "",
 )

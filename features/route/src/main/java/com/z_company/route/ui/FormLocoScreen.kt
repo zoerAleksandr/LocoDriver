@@ -879,19 +879,15 @@ fun FormLocoScreen(
                     // отопление
                     if (userSettings?.isShowLocoHeating != false) {
                     item {
-                        val accepted =
-                            locomotive.heatingCounterAccepted?.takeIf { it != 0.0 }
-                                ?.toLong()?.toString() ?: ""
-                        val delivered =
-                            locomotive.heatingCounterDelivery?.takeIf { it != 0.0 }
-                                ?.toLong()?.toString() ?: ""
-                        val heatingResult = delivered.toIntOrNull() - accepted.toIntOrNull()
+                        val accepted = formUiState.heatingAcceptedText
+                        val delivered = formUiState.heatingDeliveryText
+                        val heatingResult: Double? = delivered.toDoubleOrNull() - accepted.toDoubleOrNull()
                         CollapsibleSection(
                             title = "Отопление",
                             expanded = formUiState.isShowHeatingCounter,
                             onToggle = viewModel::toggleHeatingCounter,
                             icon = R.drawable.nest_farsight_heat_24px,
-                            summaryText = heatingResult?.let { "Расход: $it" }
+                            summaryText = heatingResult?.let { "Расход: ${rounding(it, 2)?.str() ?: it.str()}" }
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -939,7 +935,7 @@ fun FormLocoScreen(
                                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                                     Text(
                                         modifier = Modifier.padding(end = 16.dp),
-                                        text = heatingResult.toString(),
+                                        text = rounding(heatingResult, 2)?.str() ?: heatingResult.str(),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -952,19 +948,15 @@ fun FormLocoScreen(
                     // собственные нужды
                     if (userSettings?.isShowLocoAuxiliary != false) {
                     item {
-                        val auxAccepted =
-                            locomotive.auxiliaryCounterAccepted?.takeIf { it != 0.0 }
-                                ?.toLong()?.toString() ?: ""
-                        val auxDelivered =
-                            locomotive.auxiliaryCounterDelivery?.takeIf { it != 0.0 }
-                                ?.toLong()?.toString() ?: ""
-                        val auxiliaryResult = auxDelivered.toIntOrNull() - auxAccepted.toIntOrNull()
+                        val auxAccepted = formUiState.auxiliaryAcceptedText
+                        val auxDelivered = formUiState.auxiliaryDeliveryText
+                        val auxiliaryResult: Double? = auxDelivered.toDoubleOrNull() - auxAccepted.toDoubleOrNull()
                         CollapsibleSection(
                             title = "Собственные нужды",
                             expanded = formUiState.isShowAuxiliaryCounter,
                             onToggle = viewModel::toggleAuxiliaryCounter,
                             icon = R.drawable.electric_bolt_24px,
-                            summaryText = auxiliaryResult?.let { "Расход: $it" }
+                            summaryText = auxiliaryResult?.let { "Расход: ${rounding(it, 2)?.str() ?: it.str()}" }
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -1012,7 +1004,7 @@ fun FormLocoScreen(
                                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                                     Text(
                                         modifier = Modifier.padding(end = 16.dp),
-                                        text = auxiliaryResult.toString(),
+                                        text = rounding(auxiliaryResult, 2)?.str() ?: auxiliaryResult.str(),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -1071,16 +1063,9 @@ fun FormLocoScreen(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
-                                            val norma1 =
-                                                locomotive.normaElectricCurrent1?.takeIf { it != 0 }
-                                                    ?.toString() ?: ""
-                                            val norma2 =
-                                                locomotive.normaElectricCurrent2?.takeIf { it != 0 }
-                                                    ?.toString() ?: ""
-
                                             OutlinedTextFieldApp(
                                                 modifier = Modifier.weight(1f),
-                                                value = norma1,
+                                                value = formUiState.norma1Text,
                                                 placeholder = {
                                                     Text(
                                                         text = "Ток 1",
@@ -1102,7 +1087,7 @@ fun FormLocoScreen(
                                             if (userSettings?.isShowOtherCurrent == true) {
                                                 OutlinedTextFieldApp(
                                                     modifier = Modifier.weight(1f),
-                                                    value = norma2,
+                                                    value = formUiState.norma2Text,
                                                     placeholder = {
                                                         Text(
                                                             text = "Ток 2",

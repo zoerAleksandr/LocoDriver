@@ -356,6 +356,13 @@ class RouteUseCase(private val repository: RouteRepository) {
                                 )
                             )
                         }
+                        if (station.timeArrival.lessThan(previousStation.timeDeparture)) {
+                            trySend(
+                                ResultState.Error(
+                                    ErrorEntity(message = "Прибытие на станцию $name раньше отправления со станции ${previousStation.stationName}. Невозможно сохранить данные.")
+                                )
+                            )
+                        }
                     }
                 }
             }

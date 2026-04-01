@@ -59,6 +59,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import java.util.Calendar
 
+data class VkUserInfo(val name: String, val photoUrl: String?)
+
 data class ProfileUiState(
     val userDetailsState: ResultState<UserRemote?> = ResultState.Loading(),
     val purchasesEndTime: ResultState<String> = ResultState.Loading(),
@@ -69,7 +71,7 @@ data class ProfileUiState(
     val dateAndTimeConverter: DateAndTimeConverter? = null,
     val isRefreshing: Boolean = false,
     val resentVerificationEmailButton: Boolean = false,
-    val vkUserState: ResultState<String?> = ResultState.Loading(),
+    val vkUserState: ResultState<VkUserInfo?> = ResultState.Loading(),
     val downloadRouteProgress: Pair<Int, Int>? = null,
     val updateEmailState: ResultState<Unit>? = null,
     val syncUploadProgress: Map<String, SyncStepState> = emptyMap(),  // Прогресс для upload (ключ - этап, значение - состояние)
@@ -470,7 +472,9 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         VKID.instance.getUserData(object : VKIDGetUserCallback {
             override fun onSuccess(user: VKIDUser) {
                 val fullName = "${user.firstName} ${user.lastName}"
-                _uiState.update { it.copy(vkUserState = ResultState.Success(fullName)) }
+                _uiState.update {
+                    it.copy(vkUserState = ResultState.Success(VkUserInfo(fullName, user.photo200)))
+                }
             }
 
             override fun onFail(fail: VKIDGetUserFail) {
@@ -821,13 +825,36 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         }
 
                         override fun onFail(fail: VKIDRefreshTokenFail) {
-                            val desc = when (fail) {
-                                is VKIDRefreshTokenFail.FailedApiCall -> fail.description
-                                is VKIDRefreshTokenFail.FailedOAuthState -> fail.description
-                                is VKIDRefreshTokenFail.RefreshTokenExpired -> "RefreshTokenExpired"
-                                is VKIDRefreshTokenFail.NotAuthenticated -> "NotAuthenticated"
+                            when (fail) {
+                                is VKIDRefreshTokenFail.RefreshTokenExpired,
+                                is VKIDRefreshTokenFail.NotAuthenticated -> {
+                                    // Токен истёк или сессия отозвана — сбрасываем VK ID,
+                                    // чтобы ProfileScreen показал кнопку "Войти через VK".
+                                    viewModelScope.launch {
+                                        secureTokenStorage.saveVkId("")
+                                        _uiState.update {
+                                            it.copy(vkUserState = ResultState.Success(null))
+                                        }
+                                    }
+                                }
+                                is VKIDRefreshTokenFail.FailedApiCall -> {
+                                    if (fail.description.contains("invalid_grant")) {
+                                        // invalid_grant = истёкший/отозванный refresh token,
+                                        // сбрасываем сессию VK.
+                                        viewModelScope.launch {
+                                            secureTokenStorage.saveVkId("")
+                                            _uiState.update {
+                                                it.copy(vkUserState = ResultState.Success(null))
+                                            }
+                                        }
+                                    } else {
+                                        Sentry.captureMessage("vkIdRefreshToken FailedApiCall: ${fail.description}")
+                                    }
+                                }
+                                // Неожиданная ошибка OAuth state — логируем.
+                                is VKIDRefreshTokenFail.FailedOAuthState ->
+                                    Sentry.captureMessage("vkIdRefreshToken FailedOAuthState: ${fail.description}")
                             }
-                            Sentry.captureMessage("vkIdRefreshToken onFail: $desc")
                         }
                     }
                 )

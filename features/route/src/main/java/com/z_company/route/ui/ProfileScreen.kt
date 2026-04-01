@@ -19,7 +19,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -65,6 +69,8 @@ import com.z_company.route.component.AnimationDialog
 import com.z_company.route.viewmodel.SyncType
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import coil.compose.AsyncImage
+import com.z_company.route.viewmodel.VkUserInfo
 
 const val MIN_LENGTH_PASSWORD = 4
 
@@ -539,8 +545,6 @@ fun ProfileScreen(
                                     modifier = Modifier
                                         .fillMaxWidth(),
                                     onAuth = { _, accessToken ->
-                                        Log.d("zzz", "onAuth")
-                                        Log.d("zzz", "userID ${accessToken.userID}")
                                         val vkId = accessToken.userID.toString()
                                         val email = accessToken.userData.email ?: ""
                                         viewModel.registeredUserByVKIDForMigration(
@@ -548,16 +552,8 @@ fun ProfileScreen(
                                             email = email
                                         )
                                     },
-                                    onAuthCode = { authCodeData, bool ->
-                                        Log.d("zzz", "onAuthCode")
-                                        Log.d("zzz", "authCodeData $authCodeData")
-                                        Log.d("zzz", "bool $bool")
-
-                                    },
                                     onFail = { oneTapAuth, vkIdAuthFail ->
-                                        Log.d("zzz", "onFail")
-                                        Log.d("zzz", "oneTapAuth $oneTapAuth")
-                                        Log.d("zzz", "vkIdAuthFail ${vkIdAuthFail.description}")
+                                        Log.d("zzz", "onFail migration $oneTapAuth ${vkIdAuthFail.description}")
                                     },
                                     signInAnotherAccountButtonEnabled = true,
                                 )
@@ -854,7 +850,6 @@ fun ProfileScreen(
                                                         onAuth = { _, accessToken ->
                                                             viewModel.attachVKID(accessToken.userID.toString())
                                                         },
-                                                        onAuthCode = { _, _ -> },
                                                         onFail = { oneTapAuth, vkIdAuthFail ->
                                                             Log.d(
                                                                 "zzz",
@@ -870,13 +865,29 @@ fun ProfileScreen(
                                                         snackbarHostState.showSnackbar("${it.entity.message}")
                                                     }
                                                 }
-                                            ) { name ->
-                                                if (name != null) {
-                                                    Text(
-                                                        text = name,
-                                                        style = styleData,
-                                                        color = primaryColor
-                                                    )
+                                            ) { vkUser ->
+                                                if (vkUser != null) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = vkUser.name,
+                                                            style = styleData,
+                                                            color = primaryColor
+                                                        )
+                                                        if (vkUser.photoUrl != null) {
+                                                            AsyncImage(
+                                                                model = vkUser.photoUrl,
+                                                                contentDescription = null,
+                                                                contentScale = ContentScale.Crop,
+                                                                modifier = Modifier
+                                                                    .height(with(LocalDensity.current) { styleData.fontSize.toDp() * 1.4f })
+                                                                    .aspectRatio(1f)
+                                                                    .clip(CircleShape)
+                                                            )
+                                                        }
+                                                    }
                                                 } else {
                                                     OneTap(
                                                         modifier = Modifier
@@ -884,7 +895,6 @@ fun ProfileScreen(
                                                         onAuth = { _, accessToken ->
                                                             viewModel.attachVKID(accessToken.userID.toString())
                                                         },
-                                                        onAuthCode = { _, _ -> },
                                                         onFail = { oneTapAuth, vkIdAuthFail ->
                                                             Log.d(
                                                                 "zzz",
@@ -1432,16 +1442,8 @@ fun ProfileScreen(
                                         )
                                     }
                                 },
-                                onAuthCode = { authCodeData, bool ->
-                                    Log.d("zzz", "onAuthCode")
-                                    Log.d("zzz", "authCodeData $authCodeData")
-                                    Log.d("zzz", "bool $bool")
-
-                                },
                                 onFail = { oneTapAuth, vkIdAuthFail ->
-                                    Log.d("zzz", "onFail")
-                                    Log.d("zzz", "oneTapAuth $oneTapAuth")
-                                    Log.d("zzz", "vkIdAuthFail ${vkIdAuthFail.description}")
+                                    Log.d("zzz", "onFail login $oneTapAuth ${vkIdAuthFail.description}")
                                 },
                                 signInAnotherAccountButtonEnabled = true,
                             )

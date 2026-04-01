@@ -259,8 +259,8 @@ fun FormTrainScreen(
                     )
                 },
                 onDeleteStationName = { viewModel.removeStationName(it) },
-                onSave = { name, arrival, departure ->
-                    viewModel.saveStationFromSheet(editingIndex, name, arrival, departure)
+                onSave = { name, arrival, departure, trackNumber ->
+                    viewModel.saveStationFromSheet(editingIndex, name, arrival, departure, trackNumber)
                 },
                 onDelete = if (editingIndex >= 0) {
                     { viewModel.requestDeleteStation(editingIndex) }

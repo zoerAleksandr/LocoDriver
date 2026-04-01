@@ -21,3 +21,10 @@ buildSrc/build/
 robokassa_sdk/build/
 .claude/worktrees/
 app/release/
+
+# IDE / Xcode user state
+*.xcuserstate
+.idea/gradle.xml
+
+# Compose Resources generated files
+iosApp/build/generated/
