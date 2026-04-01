@@ -19,16 +19,21 @@ actual class DatabaseDriverFactory(private val context: Context) {
     }
 
     actual fun createSettingsDriver(): SqlDriver {
-        // Проверяем ВСЕ новые столбцы из всех миграций (1.sqm, 2.sqm, 3.sqm, 4.sqm).
+        // Проверяем ВСЕ новые столбцы из всех миграций (1.sqm … 5.sqm).
         // Это покрывает Room→SQLDelight и SQLDelight→SQLDelight upgrade-пути,
-        // где какие-либо миграции могли быть пропущены (например, отсутствие 2.sqm).
+        // где какие-либо миграции могли быть пропущены.
+        // ВАЖНО: subscriptionPeriod и isDecimalTime (миграция 5) тоже должны быть
+        // здесь — иначе fixVersionIfColumnsExist выставит version=5, SQLDelight
+        // пропустит 5.sqm, и столбцы никогда не добавятся → SQLiteException.
         fixVersionIfColumnsExist("Settings.db", SettingsDatabase.Schema.version.toInt(),
             "UserSettings" to "isShowBreak",
             "UserSettings" to "isShowLocoHeating",
             "UserSettings" to "isShowLocoAuxiliary",
             "UserSettings" to "isShowLocoStatistics",
             "UserSettings" to "isShowLocoNorma",
-            "UserSettings" to "isShowOtherCurrent")
+            "UserSettings" to "isShowOtherCurrent",
+            "UserSettings" to "subscriptionPeriod",
+            "UserSettings" to "isDecimalTime")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
 
@@ -99,13 +104,15 @@ actual class DatabaseDriverFactory(private val context: Context) {
 
     companion object {
         private val COLUMN_SPECS = mapOf(
-            // Settings — все новые столбцы (миграции 1.sqm, 2.sqm, 3.sqm, 4.sqm)
+            // Settings — все новые столбцы (миграции 1.sqm … 5.sqm)
             "UserSettings.isShowBreak" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.isShowLocoHeating" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.isShowLocoAuxiliary" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.isShowLocoStatistics" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.isShowLocoNorma" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.isShowOtherCurrent" to ColumnSpec("INTEGER", false, "0"),
+            "UserSettings.subscriptionPeriod" to ColumnSpec("INTEGER", false, "0"),
+            "UserSettings.isDecimalTime" to ColumnSpec("INTEGER", false, "0"),
             // Route — BasicData
             "BasicData.timeStartBreak" to ColumnSpec("INTEGER", true, "NULL"),
             "BasicData.timeEndBreak" to ColumnSpec("INTEGER", true, "NULL"),
