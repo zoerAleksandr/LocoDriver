@@ -840,12 +840,11 @@ class GoActionCallback : ActionCallback, KoinComponent {
         // 1. Get user settings for timezone
         val userSettings = settingsUseCase.getUserSetting()
 
-        // 2. Get current Moscow time (UTC+3), then shift so it displays as Moscow when shown in app timezone
-        val rawNow = Calendar.getInstance(TimeZone.getTimeZone("GMT+3")).apply {
+        // 2. Get current Moscow time (UTC+3)
+        val now = Calendar.getInstance(TimeZone.getTimeZone("GMT+3")).apply {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
-        val now = rawNow - userSettings.timeZone
 
         // 3. Find current route
         val allRoutes = routeUseCase.getListRoutes()

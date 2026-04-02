@@ -29,13 +29,8 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.R
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.getValue
@@ -614,40 +609,24 @@ fun FullCalendar(
     }
 }
 
-class DateTimePickerViewModel(initialTimestamp: Long? = null) : ViewModel(), KoinComponent {
-    private val settingsUseCase: SettingsUseCase by inject()
+class DateTimePickerViewModel(initialTimestamp: Long? = null) : ViewModel() {
 
-    private val _timeZone = MutableStateFlow<String>("GMT+3") // default or "GMT"
+    private val _timeZone = MutableStateFlow<String>("GMT+3")
     val timeZone: StateFlow<String> = _timeZone
 
-    private val initialCalendar = Calendar.getInstance(TimeZone.getTimeZone(timeZone.value))
+    private val initialCalendar = Calendar.getInstance(TimeZone.getTimeZone("GMT+3"))
         .apply { initialTimestamp?.let { timeInMillis = it } }
-
 
     private val _uiState = MutableStateFlow(
         DateTimePickerState(
             selectedDate = initialCalendar.timeInMillis,
             currentMonth = initialCalendar.time,
             hour = initialCalendar.get(Calendar.HOUR_OF_DAY),
-            minute = initialCalendar.get(Calendar.MINUTE)
+            minute = initialCalendar.get(Calendar.MINUTE),
+            isLoading = false
         )
     )
     val uiState: StateFlow<DateTimePickerState> = _uiState
-
-    init {
-        viewModelScope.launch {
-            val setting = settingsUseCase.getUserSettingFlow().first()
-            _timeZone.value = settingsUseCase.getTimeZone(setting.timeZone)
-            initialCalendar.timeZone = TimeZone.getTimeZone(_timeZone.value)
-            _uiState.value = DateTimePickerState(
-                selectedDate = initialCalendar.timeInMillis,
-                currentMonth = initialCalendar.time,
-                hour = initialCalendar.get(Calendar.HOUR_OF_DAY),
-                minute = initialCalendar.get(Calendar.MINUTE),
-                isLoading = false
-            )
-        }
-    }
 
     fun selectDate(long: Long) {
         _uiState.value = _uiState.value.copy(selectedDate = long)

@@ -1,24 +1,16 @@
 package com.z_company.core.util
 
 import com.z_company.domain.entities.setting.UserSettings
-import com.z_company.domain.use_cases.SettingsUseCase
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.getValue
 
-class DateAndTimeConverter(userSettings: UserSettings) : KoinComponent {
-    var timeZoneText: String
-    private val settingsUseCase: SettingsUseCase by inject()
-
-    init {
-        timeZoneText = settingsUseCase.getTimeZone(userSettings.timeZone)
-    }
+class DateAndTimeConverter(userSettings: UserSettings) {
+    // Все времена отображаются в московском часовом поясе (UTC+3)
+    val timeZoneText: String = "GMT+3"
 
     fun getDate(value: Long?): String {
         if (value != null) {
