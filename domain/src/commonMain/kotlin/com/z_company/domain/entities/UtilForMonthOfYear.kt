@@ -1,5 +1,6 @@
 package com.z_company.domain.entities
 
+import com.z_company.domain.util.getTimeZone
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.DateTimeUnit
@@ -131,22 +132,23 @@ object UtilForMonthOfYear {
     fun MonthOfYear.getTimeInCurrentMonth(
         startTime: Long,
         endTime: Long,
+        offsetInMoscow: Long,
     ): Long {
-        val tz = TimeZone.currentSystemDefault()
-        val startLdt = Instant.fromEpochMilliseconds(startTime).toLocalDateTime(tz)
+        val localTZ = TimeZone.of(getTimeZone(offsetInMoscow))
+        val startLdt = Instant.fromEpochMilliseconds(startTime).toLocalDateTime(localTZ)
 
         return if (startLdt.monthNumber - 1 == this.month) {
             // End of current day = start of next day
             val nextDayStart = startLdt.date.plus(1, DateTimeUnit.DAY)
-                .atStartOfDayIn(tz)
+                .atStartOfDayIn(localTZ)
                 .toEpochMilliseconds()
             nextDayStart - startTime
         } else {
             // Start of end's day
             val dayStart = Instant.fromEpochMilliseconds(endTime)
-                .toLocalDateTime(tz)
+                .toLocalDateTime(localTZ)
                 .date
-                .atStartOfDayIn(tz)
+                .atStartOfDayIn(localTZ)
                 .toEpochMilliseconds()
             endTime - dayStart
         }

@@ -405,16 +405,16 @@ object UtilsForEntities {
         if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) {
             return false
         } else {
-            val tz = TimeZone.currentSystemDefault()
+            val localTZ = TimeZone.of(getTimeZone(offsetInMoscow))
             val startLdt = Instant.fromEpochMilliseconds(
-                this.basicData.timeStartWork!! + offsetInMoscow
-            ).toLocalDateTime(tz)
+                this.basicData.timeStartWork!!
+            ).toLocalDateTime(localTZ)
             val yearStart = startLdt.year
             val monthStart = startLdt.monthNumber - 1
 
             val endLdt = Instant.fromEpochMilliseconds(
-                this.basicData.timeEndWork!! + offsetInMoscow
-            ).toLocalDateTime(tz)
+                this.basicData.timeEndWork!!
+            ).toLocalDateTime(localTZ)
             val yearEnd = endLdt.year
             val monthEnd = endLdt.monthNumber - 1
 
@@ -432,16 +432,16 @@ object UtilsForEntities {
         if (this.timeDeparture == null || this.timeArrival == null) {
             return false
         } else {
-            val tz = TimeZone.currentSystemDefault()
+            val localTZ = TimeZone.of(getTimeZone(offsetInMoscow))
             val startLdt = Instant.fromEpochMilliseconds(
-                this.timeDeparture!! + offsetInMoscow
-            ).toLocalDateTime(tz)
+                this.timeDeparture!!
+            ).toLocalDateTime(localTZ)
             val yearStart = startLdt.year
             val monthStart = startLdt.monthNumber - 1
 
             val endLdt = Instant.fromEpochMilliseconds(
-                this.timeArrival!! + offsetInMoscow
-            ).toLocalDateTime(tz)
+                this.timeArrival!!
+            ).toLocalDateTime(localTZ)
             val yearEnd = endLdt.year
             val monthEnd = endLdt.monthNumber - 1
 
@@ -461,19 +461,19 @@ object UtilsForEntities {
         offsetInMoscow: Long,
         isLastDayOfMonth: Boolean
     ): List<Route> {
-        val tz = TimeZone.currentSystemDefault()
+        val localTZ = TimeZone.of(getTimeZone(offsetInMoscow))
 
         val firstDataInMillis = kotlinx.datetime.LocalDate(
             monthOfYear.year, monthOfYear.month + 1, days.first
-        ).atStartOfDayIn(tz).toEpochMilliseconds() + offsetInMoscow
+        ).atStartOfDayIn(localTZ).toEpochMilliseconds()
 
         val lastDate = kotlinx.datetime.LocalDate(
             monthOfYear.year, monthOfYear.month + 1, days.last
         )
         val secondDataInMillis = if (isLastDayOfMonth) {
-            lastDate.plus(1, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds() + offsetInMoscow
+            lastDate.plus(1, DateTimeUnit.DAY).atStartOfDayIn(localTZ).toEpochMilliseconds()
         } else {
-            lastDate.atStartOfDayIn(tz).toEpochMilliseconds() + offsetInMoscow
+            lastDate.atStartOfDayIn(localTZ).toEpochMilliseconds()
         }
 
         val newRouteList = mutableListOf<Route>()
@@ -501,8 +501,9 @@ object UtilsForEntities {
         this.forEach { route ->
             if (route.isTransition(offsetInMoscow)) {
                 val time = monthOfYear.getTimeInCurrentMonth(
-                    route.basicData.timeStartWork!! + offsetInMoscow,
-                    route.basicData.timeEndWork!! + offsetInMoscow
+                    route.basicData.timeStartWork!!,
+                    route.basicData.timeEndWork!!,
+                    offsetInMoscow
                 )
                 totalTime += time
             } else {
@@ -736,15 +737,16 @@ object UtilsForEntities {
                         }
                         if (this.isTransition(offsetInMoscow)) {
                             return monthOfYear.getTimeInCurrentMonth(
-                                timeStart + offsetInMoscow,
-                                timeEnd + offsetInMoscow
+                                timeStart,
+                                timeEnd,
+                                offsetInMoscow
                             )
                         }
                     }
                 }
             }
         }
-        return ((timeEndFollowing + offsetInMoscow) - (timeStartFollowing + offsetInMoscow)) ?: 0L
+        return (timeEndFollowing - timeStartFollowing) ?: 0L
     }
 
     fun Train.timeFollowingSingleLocomotive(startWork: Long?, endWork: Long?): Long {
@@ -922,7 +924,8 @@ object UtilsForEntities {
                 resultTime += if (route.isTransition(offsetInMoscow)) {
                     monthOfYear.getTimeInCurrentMonth(
                         route.basicData.timeStartWork!!,
-                        route.basicData.timeEndWork!!
+                        route.basicData.timeEndWork!!,
+                        offsetInMoscow
                     )
                 } else {
                     route.getWorkTime() ?: 0L
@@ -951,7 +954,8 @@ object UtilsForEntities {
                     resultTime += if (route.isTransition(offsetInMoscow)) {
                         monthOfYear.getTimeInCurrentMonth(
                             route.basicData.timeStartWork!!,
-                            route.basicData.timeEndWork!!
+                            route.basicData.timeEndWork!!,
+                            offsetInMoscow
                         )
                     } else {
                         route.getWorkTime() ?: 0L
@@ -982,7 +986,8 @@ object UtilsForEntities {
                     resultTime += if (route.isTransition(offsetInMoscow)) {
                         monthOfYear.getTimeInCurrentMonth(
                             route.basicData.timeStartWork!!,
-                            route.basicData.timeEndWork!!
+                            route.basicData.timeEndWork!!,
+                            offsetInMoscow
                         )
                     } else {
                         route.getWorkTime() ?: 0L
