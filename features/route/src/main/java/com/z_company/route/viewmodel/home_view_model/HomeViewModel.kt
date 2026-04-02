@@ -444,10 +444,11 @@ class HomeViewModel : ViewModel(), KoinComponent {
     fun onGoClicked() {
         viewModelScope.launch {
             val current = currentRoute?.trains?.lastOrNull()
-            val now = getInstance(TimeZone.getTimeZone("GMT+3")).apply {
+            val rawNow = getInstance(TimeZone.getTimeZone("GMT+3")).apply {
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
+            val now = rawNow - uiState.value.offsetInMoscow
 
             val updatedTrain = withContext(Dispatchers.Default) {
                 if (current == null) {

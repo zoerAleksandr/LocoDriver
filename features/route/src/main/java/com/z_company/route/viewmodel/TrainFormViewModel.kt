@@ -50,6 +50,7 @@ class TrainFormViewModel(
     private var saveTrainJob: Job? = null
 
     var timeZoneText: String = "GMT+3"
+    private var offsetFromMoscow: Long = 0L
 
     private var isNewTrain by Delegates.notNull<Boolean>()
 
@@ -171,6 +172,7 @@ class TrainFormViewModel(
                 val initJob = this.launch {
                     val setting = settingsUseCase.getUserSettingFlow().first()
                     timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
+                    offsetFromMoscow = setting.timeZone
                 }
                 initJob.join()
 
@@ -672,12 +674,13 @@ class TrainFormViewModel(
     }
 
     fun onGoClicked() {
-        val now = java.util.Calendar.getInstance(
+        val rawNow = java.util.Calendar.getInstance(
             java.util.TimeZone.getTimeZone("GMT+3")
         ).apply {
             set(java.util.Calendar.SECOND, 0)
             set(java.util.Calendar.MILLISECOND, 0)
         }.timeInMillis
+        val now = rawNow - offsetFromMoscow
 
         val hasServicePhase = _uiState.value.selectedServicePhase != null
 
