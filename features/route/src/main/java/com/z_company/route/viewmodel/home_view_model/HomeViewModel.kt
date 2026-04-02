@@ -444,8 +444,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     fun onGoClicked() {
         viewModelScope.launch {
             val current = currentRoute?.trains?.lastOrNull()
-            val timeZone = uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
-            val now = getInstance(TimeZone.getTimeZone(timeZone)).apply {
+            val now = getInstance(TimeZone.getTimeZone("GMT+3")).apply {
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis

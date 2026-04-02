@@ -673,7 +673,7 @@ class TrainFormViewModel(
 
     fun onGoClicked() {
         val now = java.util.Calendar.getInstance(
-            java.util.TimeZone.getTimeZone(timeZoneText)
+            java.util.TimeZone.getTimeZone("GMT+3")
         ).apply {
             set(java.util.Calendar.SECOND, 0)
             set(java.util.Calendar.MILLISECOND, 0)

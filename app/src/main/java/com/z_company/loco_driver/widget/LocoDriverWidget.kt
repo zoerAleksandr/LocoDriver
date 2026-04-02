@@ -509,13 +509,13 @@ object WidgetDataLoader : KoinComponent {
 
     suspend fun loadAndPush(context: Context) {
         val userSettings = settingsUseCase.getUserSetting()
-        val timeZoneText = settingsUseCase.getTimeZone(userSettings.timeZone)
         val currentTimeInMillis = Calendar.getInstance(
-            TimeZone.getTimeZone(timeZoneText)
+            TimeZone.getTimeZone("GMT+3")
         ).timeInMillis
 
         // Determine current month from system clock (not from persisted selectMonthOfYear)
-        val cal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneText))
+        // Always use Moscow time (UTC+3) so month boundary matches what user sees
+        val cal = Calendar.getInstance(TimeZone.getTimeZone("GMT+3"))
         val currentMonth = cal.get(Calendar.MONTH) // 0-based, как MonthOfYear.month
         val currentYear = cal.get(Calendar.YEAR)
         // Используем selectMonthOfYear из настроек — в нём актуальные отвлечения
@@ -544,7 +544,7 @@ object WidgetDataLoader : KoinComponent {
         val routesForMonth = if (monthOfYear != null) {
             allRoutes.filter { route ->
                 val startWork = route.basicData.timeStartWork ?: return@filter false
-                val startCal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneText)).apply {
+                val startCal = Calendar.getInstance(TimeZone.getTimeZone("GMT+3")).apply {
                     timeInMillis = startWork
                 }
                 val startInMonth = startCal.get(Calendar.MONTH) == monthOfYear.month
@@ -552,7 +552,7 @@ object WidgetDataLoader : KoinComponent {
 
                 val endWork = route.basicData.timeEndWork
                 val endInMonth = if (endWork != null) {
-                    val endCal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneText)).apply {
+                    val endCal = Calendar.getInstance(TimeZone.getTimeZone("GMT+3")).apply {
                         timeInMillis = endWork
                     }
                     endCal.get(Calendar.MONTH) == monthOfYear.month
@@ -839,10 +839,9 @@ class GoActionCallback : ActionCallback, KoinComponent {
     private suspend fun executeGoClicked(context: Context) {
         // 1. Get user settings for timezone
         val userSettings = settingsUseCase.getUserSetting()
-        val timeZoneText = settingsUseCase.getTimeZone(userSettings.timeZone)
 
-        // 2. Get current time (truncated to minutes)
-        val now = Calendar.getInstance(TimeZone.getTimeZone(timeZoneText)).apply {
+        // 2. Get current time (truncated to minutes) — always Moscow time (UTC+3)
+        val now = Calendar.getInstance(TimeZone.getTimeZone("GMT+3")).apply {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
@@ -850,7 +849,7 @@ class GoActionCallback : ActionCallback, KoinComponent {
         // 3. Find current route
         val allRoutes = routeUseCase.getListRoutes()
         val currentTimeInMillis = Calendar.getInstance(
-            TimeZone.getTimeZone(timeZoneText)
+            TimeZone.getTimeZone("GMT+3")
         ).timeInMillis
         val currentRoute = allRoutes.findCurrentRoute(
             currentTimeInMillis = currentTimeInMillis,
