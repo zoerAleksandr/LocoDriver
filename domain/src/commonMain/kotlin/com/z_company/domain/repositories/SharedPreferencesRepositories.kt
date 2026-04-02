@@ -59,4 +59,7 @@ interface SharedPreferencesRepositories {
 
     fun getRecentTimes(key: String): List<Long>
     fun addRecentTime(key: String, timeMillis: Long)
+
+    fun isTimezoneMigrationDone(): Boolean
+    fun setTimezoneMigrationDone()
 }

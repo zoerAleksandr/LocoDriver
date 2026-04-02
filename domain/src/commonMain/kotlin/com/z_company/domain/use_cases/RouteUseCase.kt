@@ -393,4 +393,57 @@ class RouteUseCase(private val repository: RouteRepository) {
     fun setFavoriteRoute(routeId: String, isFavorite: Boolean): Flow<ResultState<Boolean>> {
         return repository.setFavoriteRoute(routeId, isFavorite)
     }
+
+    /**
+     * Одноразовая миграция: сдвигает все timestamp-поля маршрутов на [offsetFromMoscow] мс.
+     *
+     * Необходима для пользователей из регионов, отличных от Москвы, которые вводили данные
+     * до переключения отображения на московское время (GMT+3). До исправления DateAndTimeConverter
+     * использовал часовой пояс телефона, поэтому, например, пользователь в Иркутске (UTC+8)
+     * вводя "21:20" сохранял 13:20 UTC вместо правильных 18:20 UTC.
+     *
+     * Формула: newEpoch = oldEpoch + offsetFromMoscow
+     * - Москва (offset=0): no-op, данные не изменяются
+     * - Иркутск (+5ч = 18_000_000 мс): 13:20 UTC + 5ч = 18:20 UTC → отображается как "21:20 MSK" ✓
+     */
+    suspend fun migrateTimestamps(offsetFromMoscow: Long): Unit = withContext(Dispatchers.Default) {
+        if (offsetFromMoscow == 0L) return@withContext
+
+        val routes = repository.loadRoutes()
+        routes.forEach { route ->
+            val migratedRoute = route.copy(
+                basicData = route.basicData.copy(
+                    timeStartWork = route.basicData.timeStartWork?.plus(offsetFromMoscow),
+                    timeEndWork = route.basicData.timeEndWork?.plus(offsetFromMoscow),
+                    timeStartBreak = route.basicData.timeStartBreak?.plus(offsetFromMoscow),
+                    timeEndBreak = route.basicData.timeEndBreak?.plus(offsetFromMoscow),
+                ),
+                locomotives = route.locomotives.map { loco ->
+                    loco.copy(
+                        timeStartOfAcceptance = loco.timeStartOfAcceptance?.plus(offsetFromMoscow),
+                        timeEndOfAcceptance = loco.timeEndOfAcceptance?.plus(offsetFromMoscow),
+                        timeStartOfDelivery = loco.timeStartOfDelivery?.plus(offsetFromMoscow),
+                        timeEndOfDelivery = loco.timeEndOfDelivery?.plus(offsetFromMoscow),
+                    )
+                }.toMutableList(),
+                trains = route.trains.map { train ->
+                    train.copy(
+                        stations = train.stations.map { station ->
+                            station.copy(
+                                timeArrival = station.timeArrival?.plus(offsetFromMoscow),
+                                timeDeparture = station.timeDeparture?.plus(offsetFromMoscow),
+                            )
+                        }.toMutableList()
+                    )
+                }.toMutableList(),
+                passengers = route.passengers.map { passenger ->
+                    passenger.copy(
+                        timeArrival = passenger.timeArrival?.plus(offsetFromMoscow),
+                        timeDeparture = passenger.timeDeparture?.plus(offsetFromMoscow),
+                    )
+                }.toMutableList(),
+            )
+            repository.saveRoute(migratedRoute).collect {}
+        }
+    }
 }
