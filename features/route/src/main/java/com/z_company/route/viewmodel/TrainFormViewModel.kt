@@ -50,7 +50,7 @@ class TrainFormViewModel(
     private var saveTrainJob: Job? = null
 
     var timeZoneText: String = "GMT+3"
-    private var offsetFromMoscow: Long = 0L
+    var offsetFromMoscow: Long = 0L
 
     private var isNewTrain by Delegates.notNull<Boolean>()
 

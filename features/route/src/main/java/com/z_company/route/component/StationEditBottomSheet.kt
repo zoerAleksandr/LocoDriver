@@ -70,7 +70,8 @@ fun StationEditBottomSheet(
     onSave: (name: String?, arrival: Long?, departure: Long?, trackNumber: String?) -> Unit,
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter?
+    dateAndTimeConverter: DateAndTimeConverter?,
+    offsetFromMoscow: Long = 0L,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusManager = LocalFocusManager.current
@@ -238,10 +239,10 @@ fun StationEditBottomSheet(
                 onFieldClick = { showArrivalPicker = true },
                 onClear = { localArrival = null },
                 onAdjust = { delta ->
-                    val base = localArrival ?: nowTruncatedToMinutes()
+                    val base = localArrival ?: nowMoscowTime(offsetFromMoscow)
                     localArrival = base + delta * 60_000L
                 },
-                onNow = { localArrival = nowTruncatedToMinutes() },
+                onNow = { localArrival = nowMoscowTime(offsetFromMoscow) },
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -268,10 +269,10 @@ fun StationEditBottomSheet(
                 onFieldClick = { showDeparturePicker = true },
                 onClear = { localDeparture = null },
                 onAdjust = { delta ->
-                    val base = localDeparture ?: nowTruncatedToMinutes()
+                    val base = localDeparture ?: nowMoscowTime(offsetFromMoscow)
                     localDeparture = base + delta * 60_000L
                 },
-                onNow = { localDeparture = nowTruncatedToMinutes() },
+                onNow = { localDeparture = nowMoscowTime(offsetFromMoscow) },
             )
 
             // ── Разделитель ──
@@ -342,7 +343,7 @@ fun StationEditBottomSheet(
                 showArrivalPicker = false
             },
             onDismiss = { showArrivalPicker = false },
-            startDateTime = localArrival
+            startDateTime = localArrival ?: nowMoscowTime(offsetFromMoscow)
         )
     }
 
@@ -355,7 +356,7 @@ fun StationEditBottomSheet(
                 showDeparturePicker = false
             },
             onDismiss = { showDeparturePicker = false },
-            startDateTime = localDeparture
+            startDateTime = localDeparture ?: nowMoscowTime(offsetFromMoscow)
         )
     }
 }
@@ -595,7 +596,8 @@ private fun formatDateShort(millis: Long): String {
     return sdf.format(Date(millis))
 }
 
-private fun nowTruncatedToMinutes(): Long {
+private fun nowMoscowTime(offsetFromMoscow: Long): Long {
     val now = System.currentTimeMillis()
-    return now - (now % 60_000L)
+    val rawNow = now - (now % 60_000L)
+    return rawNow - offsetFromMoscow
 }

@@ -266,7 +266,8 @@ fun FormTrainScreen(
                     { viewModel.requestDeleteStation(editingIndex) }
                 } else null,
                 onDismiss = { viewModel.stopEditingStation() },
-                dateAndTimeConverter = dateAndTimeConverter
+                dateAndTimeConverter = dateAndTimeConverter,
+                offsetFromMoscow = viewModel.offsetFromMoscow
             )
         }
 
