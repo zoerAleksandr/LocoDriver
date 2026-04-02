@@ -342,7 +342,7 @@ fun StationEditBottomSheet(
                 showArrivalPicker = false
             },
             onDismiss = { showArrivalPicker = false },
-            startDateTime = localArrival
+            startDateTime = localArrival ?: nowTruncatedToMinutes()
         )
     }
 
@@ -355,7 +355,7 @@ fun StationEditBottomSheet(
                 showDeparturePicker = false
             },
             onDismiss = { showDeparturePicker = false },
-            startDateTime = localDeparture
+            startDateTime = localDeparture ?: nowTruncatedToMinutes()
         )
     }
 }
@@ -591,7 +591,9 @@ private fun StopDurationDivider(stopMinutes: Int) {
 // ─── Утилиты ────────────────────────────────────────────────────────────────
 
 private fun formatDateShort(millis: Long): String {
-    val sdf = SimpleDateFormat("dd.MM.yy", Locale.getDefault())
+    val sdf = SimpleDateFormat("dd.MM.yy", Locale.getDefault()).apply {
+        timeZone = java.util.TimeZone.getTimeZone("GMT+3")
+    }
     return sdf.format(Date(millis))
 }
 

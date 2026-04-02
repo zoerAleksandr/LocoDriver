@@ -426,22 +426,8 @@ class RouteUseCase(private val repository: RouteRepository) {
                         timeEndOfDelivery = loco.timeEndOfDelivery?.plus(offsetFromMoscow),
                     )
                 }.toMutableList(),
-                trains = route.trains.map { train ->
-                    train.copy(
-                        stations = train.stations.map { station ->
-                            station.copy(
-                                timeArrival = station.timeArrival?.plus(offsetFromMoscow),
-                                timeDeparture = station.timeDeparture?.plus(offsetFromMoscow),
-                            )
-                        }.toMutableList()
-                    )
-                }.toMutableList(),
-                passengers = route.passengers.map { passenger ->
-                    passenger.copy(
-                        timeArrival = passenger.timeArrival?.plus(offsetFromMoscow),
-                        timeDeparture = passenger.timeDeparture?.plus(offsetFromMoscow),
-                    )
-                }.toMutableList(),
+                trains = route.trains.toMutableList(),
+                passengers = route.passengers.toMutableList(),
             )
             repository.saveRoute(migratedRoute).collect {}
         }

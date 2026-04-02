@@ -104,6 +104,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     init {
         if (isFirstEntry) {
             sharedPreferenceStorage.setIsMigrated(true)
+            sharedPreferenceStorage.setTimezoneMigrationDone() // новый пользователь — мигрировать нечего
             // Сразу сбрасываем флаг синхронно (commit), чтобы даже при завершении процесса
             // на Android 16 он не остался true и не сбросил настройки при следующем запуске
             sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
@@ -124,8 +125,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             sharedPreferenceStorage.setTimezoneMigrationDone()
         } catch (e: Exception) {
             e.sendToSentry("MainViewModel", "runTimezoneMigration")
-            // Не блокируем запуск приложения при ошибке миграции;
-            // флаг остаётся false → попытка повторится при следующем запуске
         }
     }
 
