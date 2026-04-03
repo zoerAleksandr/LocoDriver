@@ -46,11 +46,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.z_company.core.util.TimeManager
 import com.z_company.domain.entities.route.UtilsForEntities
 import com.z_company.route.viewmodel.StationFormState
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 // ─── Константы ──────────────────────────────────────────────────────────────
@@ -87,12 +85,9 @@ private fun formatDuration(millis: Long): String {
     }
 }
 
-private fun formatTime(millis: Long): String {
-    val sdf = SimpleDateFormat("HH:mm", Locale.getDefault()).apply {
-        timeZone = java.util.TimeZone.getTimeZone("GMT+3")
-    }
-    return sdf.format(Date(millis))
-}
+private val timeManager = TimeManager()
+
+private fun formatTime(millis: Long): String = timeManager.formatTime(millis)
 
 private fun calculateStop(item: StationTimelineItem): StopInfo? {
     val arrival = item.timeArrival ?: return null

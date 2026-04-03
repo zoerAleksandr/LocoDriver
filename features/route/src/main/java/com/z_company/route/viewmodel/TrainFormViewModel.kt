@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.TimeManager
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
@@ -38,6 +39,7 @@ class TrainFormViewModel(
     trainId: String?,
     basicId: String
 ) : ViewModel(), KoinComponent {
+    private val timeManager = TimeManager()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val trainUseCase: TrainUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
@@ -670,12 +672,7 @@ class TrainFormViewModel(
     }
 
     fun onGoClicked() {
-        val now = java.util.Calendar.getInstance(
-            java.util.TimeZone.getTimeZone(timeZoneText)
-        ).apply {
-            set(java.util.Calendar.SECOND, 0)
-            set(java.util.Calendar.MILLISECOND, 0)
-        }.timeInMillis
+        val now = timeManager.now()
 
         val hasServicePhase = _uiState.value.selectedServicePhase != null
 

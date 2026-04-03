@@ -15,6 +15,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.TimeManager
 import com.z_company.core.widget.WidgetUpdater
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.SalarySetting
@@ -93,6 +94,7 @@ import ru.rustore.sdk.appupdate.model.UpdateAvailability
 data class OpenRouteFormEvent(val basicId: String?, val isMakeCopy: Boolean)
 
 class HomeViewModel : ViewModel(), KoinComponent {
+    private val timeManager = TimeManager()
     private val routeUseCase: RouteUseCase by inject()
     private val trainUseCase: TrainUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
@@ -444,10 +446,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     fun onGoClicked() {
         viewModelScope.launch {
             val current = currentRoute?.trains?.lastOrNull()
-            val now = getInstance(TimeZone.getTimeZone("GMT+3")).apply {
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
+            val now = timeManager.now()
 
             val updatedTrain = withContext(Dispatchers.Default) {
                 if (current == null) {

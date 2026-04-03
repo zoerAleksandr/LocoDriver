@@ -57,6 +57,7 @@ import androidx.glance.unit.ColorProvider
 import com.z_company.core.ResultState
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.TimeManager
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
@@ -840,11 +841,8 @@ class GoActionCallback : ActionCallback, KoinComponent {
         // 1. Get user settings for timezone
         val userSettings = settingsUseCase.getUserSetting()
 
-        // 2. Get current Moscow time (UTC+3)
-        val now = Calendar.getInstance(TimeZone.getTimeZone("GMT+3")).apply {
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
+        // 2. Get current time
+        val now = TimeManager().now()
 
         // 3. Find current route
         val allRoutes = routeUseCase.getListRoutes()
