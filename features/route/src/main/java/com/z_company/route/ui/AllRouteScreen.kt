@@ -21,6 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.flowWithLifecycle
@@ -123,12 +124,19 @@ fun AllRouteScreen(
     val snackbarManager: ISnackbarManager = koinInject()
     val pdfViewModel: PdfViewModel = koinViewModel()
     var showPdfDialog by remember { mutableStateOf(false) }
+    val isPdfGenerating by pdfViewModel.isGenerating.collectAsState()
+    val pdfError by pdfViewModel.errorMessage.collectAsState()
 
     // Share PDF event
     LaunchedEffect(Unit) {
         pdfViewModel.shareEvent.collect { chooser ->
             context.startActivity(chooser)
         }
+    }
+
+    // Show PDF error in snackbar
+    LaunchedEffect(pdfError) {
+        pdfError?.let { snackbarHostState.showSnackbar(it) }
     }
 
     LaunchedEffect(Unit) {
@@ -495,11 +503,21 @@ fun AllRouteScreen(
 
                 // Right: pdf + expand + sort buttons
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { showPdfDialog = true }) {
-                        Icon(
-                            painter = painterResource(R.drawable.picture_as_pdf_24px),
-                            contentDescription = "PDF"
-                        )
+                    IconButton(
+                        onClick = { if (!isPdfGenerating) showPdfDialog = true },
+                        enabled = !isPdfGenerating
+                    ) {
+                        if (isPdfGenerating) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(8.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.picture_as_pdf_24px),
+                                contentDescription = "PDF"
+                            )
+                        }
                     }
                     IconButton(
                         onClick = {

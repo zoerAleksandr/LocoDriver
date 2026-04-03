@@ -2,9 +2,11 @@ package com.z_company.route.viewmodel
 
 import android.app.Application
 import android.content.Intent
+import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.sendToSentry
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.util.PdfGenerator
 import com.z_company.route.util.PdfSections
@@ -50,9 +52,12 @@ class PdfViewModel(application: Application) : AndroidViewModel(application) {
                     monthLabel = monthLabel,
                     sections = sections
                 )
+                // Authority must match the one declared in AndroidManifest.xml
+                val authority = "${getApplication<Application>().packageName}.fileprovider"
+                Log.d("PdfViewModel", "FileProvider authority: $authority, file: ${file.absolutePath}")
                 val uri = FileProvider.getUriForFile(
                     getApplication(),
-                    "${getApplication<Application>().packageName}.provider",
+                    authority,
                     file
                 )
                 val sendIntent = Intent(Intent.ACTION_SEND).apply {
@@ -63,6 +68,8 @@ class PdfViewModel(application: Application) : AndroidViewModel(application) {
                 val chooser = Intent.createChooser(sendIntent, "Поделиться PDF")
                 _shareEvent.emit(chooser)
             } catch (e: Exception) {
+                Log.e("PdfViewModel", "PDF generation failed", e)
+                e.sendToSentry("PdfViewModel", "generateAndShare")
                 _errorMessage.value = "Ошибка формирования PDF: ${e.message}"
             } finally {
                 _isGenerating.value = false

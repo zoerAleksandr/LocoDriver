@@ -32,6 +32,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,6 +75,8 @@ fun SalaryCalculationScreen(
     val context = LocalContext.current
     val pdfViewModel: PdfViewModel = koinViewModel()
     var showPdfDialog by remember { mutableStateOf(false) }
+    val isPdfGenerating by pdfViewModel.isGenerating.collectAsState()
+    val pdfError by pdfViewModel.errorMessage.collectAsState()
 
     // Update pdfViewModel with latest salary state
     LaunchedEffect(uiState) {
@@ -84,6 +87,13 @@ fun SalaryCalculationScreen(
     LaunchedEffect(Unit) {
         pdfViewModel.shareEvent.collect { chooser ->
             context.startActivity(chooser)
+        }
+    }
+
+    // Show PDF error
+    LaunchedEffect(pdfError) {
+        pdfError?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
@@ -110,12 +120,22 @@ fun SalaryCalculationScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 actions = {
-                    IconButton(onClick = { showPdfDialog = true }) {
-                        Icon(
-                            painter = painterResource(com.z_company.route.R.drawable.picture_as_pdf_24px),
-                            contentDescription = "PDF",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                    IconButton(
+                        onClick = { if (!isPdfGenerating) showPdfDialog = true },
+                        enabled = !isPdfGenerating
+                    ) {
+                        if (isPdfGenerating) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(8.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(com.z_company.route.R.drawable.picture_as_pdf_24px),
+                                contentDescription = "PDF",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                     IconButton(
                         modifier = Modifier.padding(end = 16.dp),
