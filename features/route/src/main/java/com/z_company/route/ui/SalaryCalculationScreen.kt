@@ -53,9 +53,13 @@ import com.z_company.domain.util.str2decimalSign
 import com.z_company.route.viewmodel.SalaryCalculationUIState
 import com.z_company.core.ui.component.CustomDivider
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.z_company.route.component.PdfContentDialog
+import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
+import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +70,22 @@ fun SalaryCalculationScreen(
 ) {
     val styleHint = MaterialTheme.typography.bodyMedium
     val colorPrimary = MaterialTheme.colorScheme.primary
+
+    val context = LocalContext.current
+    val pdfViewModel: PdfViewModel = koinViewModel()
+    var showPdfDialog by remember { mutableStateOf(false) }
+
+    // Update pdfViewModel with latest salary state
+    LaunchedEffect(uiState) {
+        pdfViewModel.updateSalaryState(uiState)
+    }
+
+    // Share PDF event
+    LaunchedEffect(Unit) {
+        pdfViewModel.shareEvent.collect { chooser ->
+            context.startActivity(chooser)
+        }
+    }
 
     // Состояния для информационных блоков
     var infoBlockVisible by rememberSaveable { mutableStateOf(true) }
@@ -90,6 +110,13 @@ fun SalaryCalculationScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 actions = {
+                    IconButton(onClick = { showPdfDialog = true }) {
+                        Icon(
+                            painter = painterResource(com.z_company.route.R.drawable.picture_as_pdf_24px),
+                            contentDescription = "PDF",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     IconButton(
                         modifier = Modifier.padding(end = 16.dp),
                         onClick = onSettingsSalaryClick
@@ -235,6 +262,21 @@ fun SalaryCalculationScreen(
                 item { Spacer(modifier = Modifier.height(32.dp)) } // Нижний отступ для удобства
             }
         }
+    }
+
+    // PDF dialog
+    if (showPdfDialog) {
+        PdfContentDialog(
+            onDismiss = { showPdfDialog = false },
+            onGenerate = { sections ->
+                showPdfDialog = false
+                pdfViewModel.generateAndShare(
+                    sections = sections,
+                    routes = emptyList(),
+                    monthLabel = uiState.month
+                )
+            }
+        )
     }
 }
 

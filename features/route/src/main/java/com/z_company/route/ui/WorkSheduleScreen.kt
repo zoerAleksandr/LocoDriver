@@ -90,11 +90,14 @@ import com.z_company.route.R
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ChipApp
+import com.z_company.route.component.PdfContentDialog
+import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.WorkScheduleViewModel
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.launch
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import java.util.Calendar
 import kotlin.collections.isNotEmpty
@@ -166,6 +169,15 @@ fun WorkScheduleScreen(
     val lifecycle = lifecycleOwner.lifecycle
 
     val snackbarManager: ISnackbarManager = koinInject()
+    val pdfViewModel: PdfViewModel = koinViewModel()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var showPdfDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        pdfViewModel.shareEvent.collect { chooser ->
+            context.startActivity(chooser)
+        }
+    }
 
     LaunchedEffect(Unit) {
         snackbarManager.events
@@ -467,6 +479,13 @@ fun WorkScheduleScreen(
                             )
                         }
 
+                        IconButton(onClick = { showPdfDialog = true }) {
+                            Icon(
+                                painter = painterResource(R.drawable.picture_as_pdf_24px),
+                                contentDescription = "PDF",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         IconButton(onClick = { viewModel.toggleDeleteMode() }) {
                             val tint =
                                 if (isDeleteMode) red else MaterialTheme.colorScheme.primary
@@ -1055,6 +1074,21 @@ fun WorkScheduleScreen(
             },
             recentTimes = sharedPrefs.getRecentTimes("work_duration"),
             onRecentTimeSaved = { sharedPrefs.addRecentTime("work_duration", it) }
+        )
+    }
+
+    // PDF dialog
+    if (showPdfDialog) {
+        PdfContentDialog(
+            onDismiss = { showPdfDialog = false },
+            onGenerate = { sections ->
+                showPdfDialog = false
+                val routes = routesByDay.values.flatten()
+                val monthLabel = currentMonth?.let {
+                    "${getMonthFullText(it.month)} ${it.year}"
+                } ?: ""
+                pdfViewModel.generateAndShare(sections, routes, monthLabel)
+            }
         )
     }
 }

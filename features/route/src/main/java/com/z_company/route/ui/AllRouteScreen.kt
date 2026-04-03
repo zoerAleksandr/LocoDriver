@@ -39,7 +39,9 @@ import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ChipApp
 import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.PreviewRouteDialog
+import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.component.RadioButtonWithLabel
+import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.all_route_view_model.AllRouteViewModel
 import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
 import com.z_company.route.viewmodel.all_route_view_model.SortOption
@@ -47,6 +49,7 @@ import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
 @OptIn(
@@ -118,6 +121,15 @@ fun AllRouteScreen(
     var showContextDialog by remember { mutableStateOf(false) }
 
     val snackbarManager: ISnackbarManager = koinInject()
+    val pdfViewModel: PdfViewModel = koinViewModel()
+    var showPdfDialog by remember { mutableStateOf(false) }
+
+    // Share PDF event
+    LaunchedEffect(Unit) {
+        pdfViewModel.shareEvent.collect { chooser ->
+            context.startActivity(chooser)
+        }
+    }
 
     LaunchedEffect(Unit) {
         snackbarManager.events
@@ -481,8 +493,14 @@ fun AllRouteScreen(
                     )
                 }
 
-                // Right: expand + sort buttons
+                // Right: pdf + expand + sort buttons
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showPdfDialog = true }) {
+                        Icon(
+                            painter = painterResource(R.drawable.picture_as_pdf_24px),
+                            contentDescription = "PDF"
+                        )
+                    }
                     IconButton(
                         onClick = {
                             viewModel.toggleExpandedView()
@@ -641,6 +659,21 @@ fun AllRouteScreen(
                     }
                 }
             }
+        }
+
+        // PDF dialog
+        if (showPdfDialog) {
+            PdfContentDialog(
+                onDismiss = { showPdfDialog = false },
+                onGenerate = { sections ->
+                    showPdfDialog = false
+                    val routes = displayedRoutes.map { it.route }
+                    val monthLabel = state.currentMonthOfYear?.let {
+                        "${getMonthFullText(it.month)} ${it.year}"
+                    } ?: ""
+                    pdfViewModel.generateAndShare(sections, routes, monthLabel)
+                }
+            )
         }
     }
 }
