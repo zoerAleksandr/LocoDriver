@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Route
 import com.z_company.core.ui.component.AutoSizeText
 import com.z_company.core.ui.theme.Shapes
@@ -61,6 +62,7 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeInMonth
 import com.z_company.route.R
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -87,7 +89,9 @@ fun ItemHomeScreen(
     isExtendedServicePhaseTrains: Boolean = false,
     isLongCompositionTrain: Boolean = false,
     isHolidayTimeInRoute: Boolean = false,
-    number: Int? = null
+    number: Int? = null,
+    monthOfYear: MonthOfYear? = null,
+    offsetInMoscow: Long = 0L,
 ) {
     val dismissState = rememberDismissState()
     // --- memoized texts to avoid repeated computation on recomposition ---
@@ -104,7 +108,11 @@ fun ItemHomeScreen(
             dateAndTimeConverter.getTime(route.basicData.timeEndWork)
         }
         val timeText = "$startWork - $endWork"
-        val workTimeValue = route.getWorkTime()
+        val workTimeValue = if (monthOfYear != null) {
+            route.getWorkTimeInMonth(monthOfYear, offsetInMoscow)
+        } else {
+            route.getWorkTime()
+        }
         val workTimeString = convertTimeToString(workTimeValue)
         timeText to workTimeString
     }
@@ -178,7 +186,7 @@ fun ItemHomeScreen(
                 ),
                 border = BorderStroke(
                     width = 1.dp,
-                    color = MaterialTheme.colorScheme.secondary
+                    color = containerColor
                 ),
                 colors = CardDefaults.cardColors(
                     containerColor = containerColor,

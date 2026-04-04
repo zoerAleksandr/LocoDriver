@@ -1,7 +1,6 @@
 package com.z_company.core.util
 
 import com.z_company.domain.entities.setting.UserSettings
-import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -89,18 +88,10 @@ class DateAndTimeConverter(userSettings: UserSettings) {
 
     fun isDifferenceDate(first: Long?, second: Long?): Boolean {
         return if (first != null && second != null) {
-            val firstDate = SimpleDateFormat(
-                DateAndTimeFormat.DATE_FORMAT_ONLY_DAY_OF_MONTH, Locale.getDefault()
-            ).format(
-                first
-            )
-
-            val secondDate = SimpleDateFormat(
-                DateAndTimeFormat.DATE_FORMAT_ONLY_DAY_OF_MONTH, Locale.getDefault()
-            ).format(
-                second
-            )
-            return firstDate != secondDate
+            val tz = ZoneId.of(timeZoneText)
+            val firstDate = Instant.ofEpochMilli(first).atZone(tz).toLocalDate()
+            val secondDate = Instant.ofEpochMilli(second).atZone(tz).toLocalDate()
+            firstDate != secondDate
         } else {
             false
         }

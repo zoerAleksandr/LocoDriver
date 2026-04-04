@@ -115,6 +115,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
     var todayWorkTime by mutableLongStateOf(0L)
         private set
 
+    // Все маршруты (все месяцы) для поиска следующей явки
+    private var allRoutesGlobal: List<Route> = emptyList()
+
     var isConsiderFutureRoute by mutableStateOf(false)
         private set
 
@@ -343,7 +346,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
             val timeZone =
                 uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
             val tz = TimeZone.getTimeZone(timeZone)
-            val startWorkTime: Long = startWork + uiState.value.offsetInMoscow
+            val startWorkTime: Long = startWork
 
             val currentTimeCalendar = getInstance(tz)
             val second = currentTimeCalendar.get(Calendar.SECOND)
@@ -385,7 +388,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
             val timeZone =
                 uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
             val tz = TimeZone.getTimeZone(timeZone)
-            val startWorkTime: Long = startWork + uiState.value.offsetInMoscow
+            val startWorkTime: Long = startWork
 
             val currentTimeCalendar = getInstance(tz)
             val second = currentTimeCalendar.get(Calendar.SECOND)
@@ -1080,7 +1083,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 )
 
                 // Next report text
-                val futureRoute = fullRouteList.findNextFutureRoute(currentTimeInMillis)
+                val futureRoute = allRoutesGlobal.findNextFutureRoute(currentTimeInMillis)
                 val nextReportText = if (futureRoute != null) {
                     "След. явка ${dateAndTimeConverter.getDateMiniAndTime(futureRoute.basicData.timeStartWork)}"
                 } else "След. явка неизвестна"
@@ -1328,6 +1331,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
         viewModelScope.launch(Dispatchers.IO) {
             routeUseCase.getListRoutesAsFlow().collect { allRoutes ->
+                allRoutesGlobal = allRoutes
                 val unsyncedCount = allRoutes.count { !it.basicData.isSynchronized }
                 _uiState.update { it.copy(unsyncedRoutesCount = unsyncedCount) }
             }
@@ -1433,7 +1437,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                 nextFutureRoute = null
                                 countdownTimerJob?.cancel()
                             } else {
-                                nextFutureRoute = fullRouteList.findNextFutureRoute(currentTimeInMillis)
+                                nextFutureRoute = allRoutesGlobal.findNextFutureRoute(currentTimeInMillis)
                                 nextFutureRoute?.basicData?.timeStartWork?.let { startWork ->
                                     countdownTimer(startWork)
                                 }

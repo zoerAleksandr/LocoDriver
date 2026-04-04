@@ -1314,7 +1314,9 @@ fun HomeScreen(
                                         isExtendedServicePhaseTrains = listRouteState[0].isExtendedServicePhaseTrains,
                                         isLongCompositionTrain = listRouteState[0].isLongCompositionTrain,
                                         isHolidayTimeInRoute = listRouteState[0].isHoliday,
-                                        number = listRouteState.size
+                                        number = listRouteState.size,
+                                        monthOfYear = currentMonthOfYear,
+                                        offsetInMoscow = offsetInMoscow,
                                     )
                                 } else {
                                     Text(
@@ -1359,7 +1361,9 @@ fun HomeScreen(
                                         isExtendedServicePhaseTrains = listRouteState[1].isExtendedServicePhaseTrains,
                                         isLongCompositionTrain = listRouteState[1].isLongCompositionTrain,
                                         isHolidayTimeInRoute = listRouteState[1].isHoliday,
-                                        number = listRouteState.size - 1
+                                        number = listRouteState.size - 1,
+                                        monthOfYear = currentMonthOfYear,
+                                        offsetInMoscow = offsetInMoscow,
                                     )
                                 }
                             }

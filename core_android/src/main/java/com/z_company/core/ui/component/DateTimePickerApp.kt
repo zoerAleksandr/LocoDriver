@@ -43,11 +43,12 @@ fun DateTimePickerBottomSheet(
     onDateTimeSelected: (Long) -> Unit, onDismiss: () -> Unit,
     startDateTime: Long?,
     title: String = "",
+    timeZoneStr: String = "GMT+3",
     recentTimes: List<Long> = emptyList(),
     onRecentTimeSaved: ((Long) -> Unit)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val viewModel = remember { DateTimePickerViewModel(initialTimestamp = startDateTime) }
+    val viewModel = remember { DateTimePickerViewModel(initialTimestamp = startDateTime, timeZoneStr = timeZoneStr) }
     val uiState by viewModel.uiState.collectAsState()
     val timeZoneStr by viewModel.timeZone.collectAsState()
 
@@ -337,13 +338,13 @@ fun CompactCalendar(selectedDate: Long, onDateSelected: (Long) -> Unit, timeZone
 //                set(Calendar.DAY_OF_MONTH, 1)
 //            }
 //            val firstDayOfWeek = (firstDayOfMonth.get(Calendar.DAY_OF_WEEK) - 2 + 7) % 7
-            val monthCal = Calendar.getInstance().apply { timeInMillis = selectedDate }
+            val monthCal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr)).apply { timeInMillis = selectedDate }
             val month = monthCal.get(Calendar.MONTH)
             val year = monthCal.get(Calendar.YEAR)
 
 //            val daysInMonth = firstDayOfMonth.getActualMaximum(Calendar.DAY_OF_MONTH)
             val offset = (selectedDayOfWeek - 2 + 7) % 7
-            val currentDateCal = Calendar.getInstance().apply {
+            val currentDateCal = Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr)).apply {
                 timeInMillis = selectedDate
                 add(Calendar.DAY_OF_MONTH, index - offset)
             }
@@ -420,8 +421,8 @@ fun FullCalendar(
     val daysOfWeek = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
 
     // Форматтеры для названий месяцев
-    val monthNameFormat = SimpleDateFormat("LLLL", Locale("ru"))
-    val yearFormat = SimpleDateFormat("yyyy", Locale("ru"))
+    val monthNameFormat = SimpleDateFormat("LLLL", Locale("ru")).apply { timeZone = TimeZone.getTimeZone(timeZoneStr) }
+    val yearFormat = SimpleDateFormat("yyyy", Locale("ru")).apply { timeZone = TimeZone.getTimeZone(timeZoneStr) }
 
     var currentMonth by remember {
         mutableStateOf(
@@ -436,7 +437,7 @@ fun FullCalendar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Кнопка предыдущего месяца
-            val prevMonth = Calendar.getInstance().apply {
+            val prevMonth = Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr)).apply {
                 time = currentMonth.time
                 add(Calendar.MONTH, -1)
             }
@@ -475,7 +476,7 @@ fun FullCalendar(
             )
 
             // Кнопка следующего месяца
-            val nextMonth = Calendar.getInstance().apply {
+            val nextMonth = Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr)).apply {
                 time = currentMonth.time
                 add(Calendar.MONTH, 1)
             }
@@ -609,12 +610,12 @@ fun FullCalendar(
     }
 }
 
-class DateTimePickerViewModel(initialTimestamp: Long? = null) : ViewModel() {
+class DateTimePickerViewModel(initialTimestamp: Long? = null, timeZoneStr: String = "GMT+3") : ViewModel() {
 
-    private val _timeZone = MutableStateFlow<String>("GMT+3")
+    private val _timeZone = MutableStateFlow(timeZoneStr)
     val timeZone: StateFlow<String> = _timeZone
 
-    private val initialCalendar = Calendar.getInstance(TimeZone.getTimeZone("GMT+3"))
+    private val initialCalendar = Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr))
         .apply { initialTimestamp?.let { timeInMillis = it } }
 
     private val _uiState = MutableStateFlow(
