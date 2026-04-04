@@ -50,7 +50,6 @@ import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
 @OptIn(
@@ -122,7 +121,15 @@ fun AllRouteScreen(
     var showContextDialog by remember { mutableStateOf(false) }
 
     val snackbarManager: ISnackbarManager = koinInject()
-    val pdfViewModel: PdfViewModel = koinViewModel()
+    val pdfViewModel: PdfViewModel = koinInject()
+
+    // Cache routes in shared PdfViewModel so SalaryCalculationScreen can use them
+    LaunchedEffect(displayedRoutes, state.currentMonthOfYear) {
+        val monthLabel = state.currentMonthOfYear?.let {
+            "${getMonthFullText(it.month)} ${it.year}"
+        } ?: ""
+        pdfViewModel.updateRoutes(displayedRoutes.map { it.route }, monthLabel)
+    }
     var showPdfDialog by remember { mutableStateOf(false) }
     val isPdfGenerating by pdfViewModel.isGenerating.collectAsState()
     val pdfError by pdfViewModel.errorMessage.collectAsState()

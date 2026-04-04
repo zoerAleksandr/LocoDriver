@@ -60,7 +60,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
-import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,7 +73,7 @@ fun SalaryCalculationScreen(
     val colorPrimary = MaterialTheme.colorScheme.primary
 
     val context = LocalContext.current
-    val pdfViewModel: PdfViewModel = koinViewModel()
+    val pdfViewModel: PdfViewModel = koinInject()
     var showPdfDialog by remember { mutableStateOf(false) }
     val isPdfGenerating by pdfViewModel.isGenerating.collectAsState()
     val pdfError by pdfViewModel.errorMessage.collectAsState()

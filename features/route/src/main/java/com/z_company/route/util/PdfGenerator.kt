@@ -13,7 +13,6 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.route.viewmodel.SalaryCalculationUIState
 import java.io.File
 import java.io.FileOutputStream
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
@@ -22,71 +21,62 @@ class PdfGenerator(private val context: Context) {
 
     private val pageWidth = 595
     private val pageHeight = 842
-    private val ml = 36f    // margin left
-    private val mr = 36f    // margin right
-    private val mt = 52f    // margin top (below header)
-    private val mb = 36f    // margin bottom
+    private val ml = 36f
+    private val mr = 36f
+    private val mt = 52f
+    private val mb = 40f
     private val contentWidth = pageWidth - ml - mr
+    private val tz = TimeZone.getTimeZone("GMT+3")
 
     private val timeManager = TimeManager("GMT+3")
 
-    // Paints
     private val paintHeader = Paint().apply {
-        color = Color.DKGRAY
-        textSize = 7f
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
-        isAntiAlias = true
+        color = Color.DKGRAY; textSize = 7f
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC); isAntiAlias = true
     }
     private val paintHeaderLine = Paint().apply {
-        color = Color.LTGRAY
-        strokeWidth = 0.5f
-        style = Paint.Style.STROKE
+        color = Color.LTGRAY; strokeWidth = 0.5f; style = Paint.Style.STROKE
     }
     private val paintTitle = Paint().apply {
-        color = Color.BLACK
-        textSize = 14f
-        typeface = Typeface.DEFAULT_BOLD
-        isAntiAlias = true
+        color = Color.BLACK; textSize = 13f; typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true
     }
     private val paintSection = Paint().apply {
-        color = Color.BLACK
-        textSize = 11f
-        typeface = Typeface.DEFAULT_BOLD
-        isAntiAlias = true
+        color = Color.BLACK; textSize = 10f; typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true
     }
     private val paintBody = Paint().apply {
-        color = Color.BLACK
-        textSize = 9f
-        typeface = Typeface.DEFAULT
-        isAntiAlias = true
+        color = Color.BLACK; textSize = 9f; typeface = Typeface.DEFAULT; isAntiAlias = true
     }
     private val paintBodyBold = Paint().apply {
-        color = Color.BLACK
-        textSize = 9f
-        typeface = Typeface.DEFAULT_BOLD
-        isAntiAlias = true
+        color = Color.BLACK; textSize = 9f; typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true
     }
     private val paintSmall = Paint().apply {
-        color = Color.DKGRAY
-        textSize = 7f
-        typeface = Typeface.DEFAULT
-        isAntiAlias = true
-    }
-    private val paintLine = Paint().apply {
-        color = Color.LTGRAY
-        strokeWidth = 0.5f
-        style = Paint.Style.STROKE
-    }
-    private val paintFill = Paint().apply {
-        style = Paint.Style.FILL
+        color = Color.DKGRAY; textSize = 7f; typeface = Typeface.DEFAULT; isAntiAlias = true
     }
     private val paintTableBorder = Paint().apply {
-        color = Color.GRAY
-        strokeWidth = 0.5f
-        style = Paint.Style.STROKE
+        color = Color.GRAY; strokeWidth = 0.5f; style = Paint.Style.STROKE
+    }
+    private val paintFill = Paint().apply { style = Paint.Style.FILL }
+    private val paintSectionFill = Paint().apply {
+        color = Color.argb(25, 0, 0, 0); style = Paint.Style.FILL
     }
 
-    // ─── Page manager ───────────────────────────────────────────────────────────
+    // ─── Russian month names ─────────────────────────────────────────────────────
+
+    private val russianMonths = mapOf(
+        "январь" to 0, "февраль" to 1, "март" to 2, "апрель" to 3,
+        "май" to 4, "июнь" to 5, "июль" to 6, "август" to 7,
+        "сентябрь" to 8, "октябрь" to 9, "ноябрь" to 10, "декабрь" to 11
+    )
+
+    private fun parseMonthYear(monthLabel: String): Pair<Int, Int>? {
+        val parts = monthLabel.trim().split(" ").filter { it.isNotBlank() }
+        if (parts.size < 2) return null
+        val month = russianMonths[parts[0].lowercase(Locale("ru"))] ?: return null
+        val year = parts[1].toIntOrNull() ?: return null
+        return Pair(month, year)
+    }
+
+    // ─── Page manager ────────────────────────────────────────────────────────────
 
     inner class PageManager(private val document: PdfDocument) {
         private var currentPage: PdfDocument.Page? = null
@@ -107,58 +97,148 @@ class PdfGenerator(private val context: Context) {
 
         fun finish() { currentPage?.let { document.finishPage(it) } }
 
-        fun needNewPage(nextBlockHeight: Float = 20f): Boolean =
-            y + nextBlockHeight > pageHeight - mb
+        fun needNewPage(h: Float = 20f) = y + h > pageHeight - mb
 
-        fun checkNewPage(nextBlockHeight: Float = 20f) {
-            if (needNewPage(nextBlockHeight)) newPage()
-        }
+        fun checkNewPage(h: Float = 20f) { if (needNewPage(h)) newPage() }
 
-        /** Draws a line and advances y */
-        fun drawLine() {
-            canvas.drawLine(ml, y, pageWidth - mr, y, paintLine)
+        fun sectionTitle(text: String) {
+            checkNewPage(22f)
             y += 4f
+            // background behind section title
+            canvas.drawRect(ml, y - 11f, ml + contentWidth, y + 3f, paintSectionFill)
+            canvas.drawText(text, ml + 4f, y, paintSection)
+            y += 14f  // достаточный отступ чтобы таблица не перекрывала заголовок
         }
 
-        /** Draws text with line wrap and advances y */
-        fun drawText(text: String, paint: Paint, indent: Float = 0f): Float {
+        /** Draw a separator line with proper spacing (no text overlap) */
+        fun separator() {
+            y += 3f
+            val paint = Paint().apply { color = Color.LTGRAY; strokeWidth = 0.5f; style = Paint.Style.STROKE }
+            canvas.drawLine(ml, y, ml + contentWidth, y, paint)
+            y += 5f
+        }
+
+        /** Draw text and advance y */
+        fun text(str: String, paint: Paint, indent: Float = 0f) {
+            if (str.isBlank()) return
             val x = ml + indent
-            val maxWidth = contentWidth - indent
-            val words = text.split(" ")
-            val sb = StringBuilder()
-            for (word in words) {
-                val test = if (sb.isEmpty()) word else "$sb $word"
-                if (paint.measureText(test) > maxWidth && sb.isNotEmpty()) {
-                    checkNewPage(paint.textSize + 4)
-                    canvas.drawText(sb.toString(), x, y, paint)
-                    y += paint.textSize + 2f
-                    sb.clear()
-                    sb.append(word)
-                } else {
-                    if (sb.isNotEmpty()) sb.append(" ")
-                    sb.append(word)
-                }
+            val maxW = contentWidth - indent
+            // simple word-wrap
+            var line = ""
+            for (word in str.split(" ")) {
+                val test = if (line.isEmpty()) word else "$line $word"
+                if (paint.measureText(test) > maxW && line.isNotEmpty()) {
+                    checkNewPage(paint.textSize + 3f)
+                    canvas.drawText(line, x, y, paint)
+                    y += paint.textSize + 3f
+                    line = word
+                } else line = test
             }
-            if (sb.isNotEmpty()) {
-                checkNewPage(paint.textSize + 4)
-                canvas.drawText(sb.toString(), x, y, paint)
-                y += paint.textSize + 2f
+            if (line.isNotEmpty()) {
+                checkNewPage(paint.textSize + 3f)
+                canvas.drawText(line, x, y, paint)
+                y += paint.textSize + 3f
             }
-            return y
-        }
-
-        /** Key–value row */
-        fun drawKV(key: String, value: String?, indent: Float = 8f) {
-            if (value.isNullOrBlank()) return
-            checkNewPage(12f)
-            val keyWidth = paintBodyBold.measureText("$key: ")
-            canvas.drawText("$key: ", ml + indent, y, paintBodyBold)
-            canvas.drawText(value, ml + indent + keyWidth, y, paintBody)
-            y += 12f
         }
     }
 
-    // ─── Public entry point ─────────────────────────────────────────────────────
+    // ─── Table helpers ───────────────────────────────────────────────────────────
+
+    private val col1W = contentWidth * 0.38f
+    private val col2W = contentWidth * 0.62f
+
+    /** Draw a 2-column table row: label | value */
+    private fun PageManager.tableRow(label: String, value: String?, isHeaderRow: Boolean = false, valueBold: Boolean = false) {
+        if (value.isNullOrBlank()) return
+        val rowH = 14f
+        checkNewPage(rowH + 2f)
+        val top = y - 10f
+        val bot = y + 4f
+        if (isHeaderRow) {
+            canvas.drawRect(ml, top, ml + contentWidth, bot, paintSectionFill)
+        }
+        canvas.drawRect(ml, top, ml + col1W, bot, paintTableBorder)
+        canvas.drawRect(ml + col1W, top, ml + contentWidth, bot, paintTableBorder)
+        val lPaint = if (isHeaderRow) paintBodyBold else paintSmall
+        canvas.drawText(label, ml + 3f, y, lPaint)
+        // value may need clipping
+        val valPaint = if (isHeaderRow || valueBold) paintBodyBold else paintBody
+        val maxValW = col2W - 6f
+        var valText = value ?: ""
+        while (valPaint.measureText(valText) > maxValW && valText.length > 3) {
+            valText = valText.dropLast(1)
+        }
+        canvas.drawText(valText, ml + col1W + 3f, y, valPaint)
+        y += rowH
+    }
+
+    /** Salary table: 4 columns */
+    private val sColW = floatArrayOf(
+        contentWidth * 0.50f, contentWidth * 0.16f, contentWidth * 0.14f, contentWidth * 0.20f
+    )
+
+    private fun PageManager.salaryRow(desc: String, hours: String, pct: String, amount: String, bold: Boolean = false) {
+        val rowH = 13f
+        checkNewPage(rowH + 2f)
+        val top = y - 9f; val bot = y + 3f
+        if (bold) canvas.drawRect(ml, top, ml + contentWidth, bot, paintSectionFill)
+        var x = ml
+        val p = if (bold) paintBodyBold else paintBody
+        sColW.forEachIndexed { i, w ->
+            canvas.drawRect(x, top, x + w, bot, paintTableBorder)
+            val txt = when (i) { 0 -> desc; 1 -> hours; 2 -> pct; else -> amount }
+            val tx = if (i == 0) x + 3f else x + w - p.measureText(txt) - 3f
+            canvas.drawText(txt, tx, y, p)
+            x += w
+        }
+        y += rowH
+    }
+
+    private fun PageManager.salaryHeader() {
+        checkNewPage(16f)
+        salaryRow("Вид выплаты", "Часы", "%", "Сумма", bold = true)
+    }
+
+    /** Таблица удержаний: 3 колонки (без Часы) */
+    private val rColW = floatArrayOf(
+        contentWidth * 0.66f, contentWidth * 0.14f, contentWidth * 0.20f
+    )
+
+    private fun PageManager.retentionRow(desc: String, pct: String, amount: String, bold: Boolean = false) {
+        val rowH = 13f
+        checkNewPage(rowH + 2f)
+        val top = y - 9f; val bot = y + 3f
+        if (bold) canvas.drawRect(ml, top, ml + contentWidth, bot, paintSectionFill)
+        var x = ml
+        val p = if (bold) paintBodyBold else paintBody
+        val texts = arrayOf(desc, pct, amount)
+        rColW.forEachIndexed { i, w ->
+            canvas.drawRect(x, top, x + w, bot, paintTableBorder)
+            val txt = texts[i]
+            val tx = if (i == 0) x + 3f else x + w - p.measureText(txt) - 3f
+            canvas.drawText(txt, tx, y, p)
+            x += w
+        }
+        y += rowH
+    }
+
+    private fun PageManager.retentionHeader() {
+        checkNewPage(16f)
+        retentionRow("Вид удержания", "%", "Сумма", bold = true)
+    }
+
+    // ─── Formatters ──────────────────────────────────────────────────────────────
+
+    private fun fmtTime(millis: Long?) = millis?.let { timeManager.formatTime(it) }
+    private fun fmtDate(millis: Long?) = millis?.let { timeManager.formatDate(it) }
+    private fun fmtDT(millis: Long?) = millis?.let { "${timeManager.formatDate(it)} ${timeManager.formatTime(it)}" }
+    private fun fmtDur(ms: Long?) = ms?.let { ConverterLongToTime.getTimeInStringFormat(it) }
+    private fun fmtMoney(v: Double?) = if (v == null || v == 0.0) "" else "${"%.2f".format(v)} ₽"
+    private fun fmtHours(v: Long?) = if (v == null || v == 0L) "" else ConverterLongToTime.getTimeInStringFormat(v)
+    private fun fmtPct(v: Double?) = if (v == null || v == 0.0) "" else "${v}%"
+    private fun fmtPctStr(v: String?) = if (v.isNullOrBlank() || v == "0" || v == "0.0") "" else "$v%"
+
+    // ─── Public entry point ──────────────────────────────────────────────────────
 
     fun generatePdf(
         routes: List<Route>,
@@ -168,30 +248,32 @@ class PdfGenerator(private val context: Context) {
     ): File {
         val document = PdfDocument()
         val pm = PageManager(document)
-        pm.newPage()
 
-        if (sections.includeRouteDetails && routes.isNotEmpty()) {
-            drawRouteDetailsSection(pm, routes, monthLabel)
+        if (sections.includeRouteDetails) {
+            pm.newPage()
+            drawRouteDetails(pm, routes, monthLabel)
         }
         if (sections.includeSchedule) {
-            drawScheduleSection(pm, routes, monthLabel)
+            pm.newPage()
+            drawSchedule(pm, routes, monthLabel)
         }
-        if (sections.includeSalary && salaryState != null) {
-            drawSalarySection(pm, salaryState)
-        } else if (sections.includeSalary && salaryState == null) {
-            pm.checkNewPage(60f)
-            pm.drawText("Расчётный листок", paintTitle)
-            pm.y += 6f
-            pm.drawText(
-                "Данные расчёта заработной платы недоступны. " +
-                "Откройте экран «Расчёт заработной платы» и повторите формирование PDF.",
-                paintBody
-            )
+        if (sections.includeSalary) {
+            pm.newPage()
+            if (salaryState != null) {
+                drawSalary(pm, salaryState)
+            } else {
+                pm.text("Расчётный листок", paintTitle)
+                pm.y += 4f
+                pm.text(
+                    "Данные расчёта недоступны. Откройте «Расчёт заработной платы» и повторите формирование.",
+                    paintBody
+                )
+            }
         }
 
         pm.finish()
 
-        val file = File(context.cacheDir, "mashinist_$monthLabel.pdf")
+        val file = File(context.cacheDir, "mashinist_${monthLabel.replace(" ", "_")}.pdf")
         FileOutputStream(file).use { document.writeTo(it) }
         document.close()
         return file
@@ -200,393 +282,371 @@ class PdfGenerator(private val context: Context) {
     // ─── Page header ─────────────────────────────────────────────────────────────
 
     private fun drawPageHeader(canvas: Canvas) {
-        val text = "Файл сформирован в приложении «Машинист»"
-        canvas.drawText(text, ml, 20f, paintHeader)
+        canvas.drawText("Файл сформирован в приложении «Машинист»", ml, 20f, paintHeader)
         canvas.drawLine(ml, 26f, pageWidth - mr, 26f, paintHeaderLine)
     }
 
-    // ─── Routes detail section ───────────────────────────────────────────────────
+    // ─── Route details ───────────────────────────────────────────────────────────
 
-    private fun drawRouteDetailsSection(pm: PageManager, routes: List<Route>, monthLabel: String) {
-        pm.drawText("Поездки за $monthLabel", paintTitle)
-        pm.y += 4f
-        pm.drawLine()
+    private fun drawRouteDetails(pm: PageManager, routes: List<Route>, monthLabel: String) {
+        pm.text("Поездки за $monthLabel", paintTitle)
+        pm.y += 2f
+        pm.separator()
 
-        routes.forEach { route -> drawSingleRoute(pm, route) }
+        if (routes.isEmpty()) {
+            pm.text("Нет маршрутов за период.", paintBody)
+            return
+        }
+
+        routes.forEach { route -> drawRoute(pm, route) }
     }
 
-    private fun drawSingleRoute(pm: PageManager, route: Route) {
-        pm.checkNewPage(40f)
-
-        // ── Route title
+    private fun drawRoute(pm: PageManager, route: Route) {
         val bd = route.basicData
-        val routeNum = bd.number?.takeIf { it.isNotBlank() } ?: "б/н"
-        val start = bd.timeStartWork?.let { timeManager.formatDate(it) } ?: "—"
-        pm.drawText("Маршрут №$routeNum   $start", paintSection)
-        pm.y += 2f
+        val num = bd.number?.takeIf { it.isNotBlank() } ?: "б/н"
+        val dateStr = fmtDT(bd.timeStartWork) ?: "—"
+        pm.checkNewPage(50f)
+        pm.sectionTitle("Маршрут №$num   $dateStr")
 
-        // ── BasicData
-        pm.drawKV("Явка", bd.timeStartWork?.let { timeManager.formatDateTime(it) })
-        pm.drawKV("Сдача", bd.timeEndWork?.let { timeManager.formatDateTime(it) })
-        val workTime = calcDiff(bd.timeStartWork, bd.timeEndWork)
-        pm.drawKV("Время в работе", workTime)
-        pm.drawKV("Начало перерыва", bd.timeStartBreak?.let { timeManager.formatDateTime(it) })
-        pm.drawKV("Конец перерыва", bd.timeEndBreak?.let { timeManager.formatDateTime(it) })
-        if (bd.restPointOfTurnover) pm.drawKV("Отдых в пункте оборота", "Да")
-        if (bd.isOnePersonOperation) pm.drawKV("Работа в одно лицо", "Да")
-        pm.drawKV("Примечание", bd.notes)
+        // ── BasicData table
+        val workDur = if (bd.timeStartWork != null && bd.timeEndWork != null) {
+            val breakMs = if (bd.timeStartBreak != null && bd.timeEndBreak != null)
+                (bd.timeEndBreak!! - bd.timeStartBreak!!) else 0L
+            fmtDur(maxOf(0L, bd.timeEndWork!! - bd.timeStartWork!! - breakMs))
+        } else null
+
+        pm.tableRow("Явка", fmtDT(bd.timeStartWork))
+        pm.tableRow("Сдача", fmtDT(bd.timeEndWork))
+        pm.tableRow("Время в работе", workDur, valueBold = true)
+        pm.tableRow("Начало перерыва", fmtDT(bd.timeStartBreak))
+        pm.tableRow("Окончание перерыва", fmtDT(bd.timeEndBreak))
+        if (bd.restPointOfTurnover) pm.tableRow("Отдых в пункте оборота", "Да")
+        if (bd.isOnePersonOperation) pm.tableRow("Работа в одно лицо", "Да")
+        pm.tableRow("Примечание", bd.notes)
 
         // ── Locomotives
         route.locomotives.forEachIndexed { idx, loco ->
-            pm.checkNewPage(30f)
-            pm.y += 4f
+            pm.checkNewPage(40f)
+            pm.y += 3f
             val locoType = if (loco.type == LocoType.ELECTRIC) "Электровоз" else "Тепловоз"
-            val locoNum = loco.number?.takeIf { it.isNotBlank() } ?: "—"
-            val locoSeries = loco.series?.takeIf { it.isNotBlank() } ?: ""
-            pm.drawText("  Локомотив ${idx + 1}: $locoSeries $locoNum ($locoType)", paintBodyBold)
-            pm.drawKV("Начало приёмки", loco.timeStartOfAcceptance?.let { timeManager.formatDateTime(it) }, 16f)
-            pm.drawKV("Конец приёмки", loco.timeEndOfAcceptance?.let { timeManager.formatDateTime(it) }, 16f)
-            pm.drawKV("Начало сдачи", loco.timeStartOfDelivery?.let { timeManager.formatDateTime(it) }, 16f)
-            pm.drawKV("Конец сдачи", loco.timeEndOfDelivery?.let { timeManager.formatDateTime(it) }, 16f)
+            val locoId = buildString {
+                loco.series?.takeIf { it.isNotBlank() }?.let { append(it).append(" ") }
+                loco.number?.takeIf { it.isNotBlank() }?.let { append(it).append(" ") }
+                append("($locoType)")
+            }
+            pm.tableRow("Локомотив ${idx + 1}", locoId, isHeaderRow = true)
+            pm.tableRow("Начало приёмки", fmtDT(loco.timeStartOfAcceptance))
+            pm.tableRow("Конец приёмки", fmtDT(loco.timeEndOfAcceptance))
+            pm.tableRow("Начало сдачи", fmtDT(loco.timeStartOfDelivery))
+            pm.tableRow("Конец сдачи", fmtDT(loco.timeEndOfDelivery))
 
             if (loco.type == LocoType.ELECTRIC) {
                 loco.electricSectionList.forEachIndexed { si, sec ->
-                    pm.checkNewPage(18f)
-                    pm.y += 2f
-                    pm.drawText("    Секция ${si + 1}", paintSmall)
-                    val accepted = sec.acceptedEnergy?.let { "принято: ${"%.1f".format(it)} кВт⋅ч" } ?: ""
-                    val delivered = sec.deliveryEnergy?.let { "сдано: ${"%.1f".format(it)} кВт⋅ч" } ?: ""
-                    if (accepted.isNotBlank() || delivered.isNotBlank()) {
-                        pm.drawKV("  Тяга", listOf(accepted, delivered).filter { it.isNotBlank() }.joinToString(" / "), 20f)
-                    }
-                    val accRec = sec.acceptedRecovery?.let { "принято: ${"%.1f".format(it)} кВт⋅ч" } ?: ""
-                    val delRec = sec.deliveryRecovery?.let { "сдано: ${"%.1f".format(it)} кВт⋅ч" } ?: ""
-                    if (accRec.isNotBlank() || delRec.isNotBlank()) {
-                        pm.drawKV("  Рекуперация", listOf(accRec, delRec).filter { it.isNotBlank() }.joinToString(" / "), 20f)
-                    }
+                    val vals = buildList {
+                        sec.acceptedEnergy?.takeIf { it != 0.0 }?.let { add("Тяга: пр ${"%.1f".format(it)}") }
+                        sec.deliveryEnergy?.takeIf { it != 0.0 }?.let { add("сд ${"%.1f".format(it)} кВт⋅ч") }
+                        sec.acceptedRecovery?.takeIf { it != 0.0 }?.let { add("Рек: пр ${"%.1f".format(it)}") }
+                        sec.deliveryRecovery?.takeIf { it != 0.0 }?.let { add("сд ${"%.1f".format(it)} кВт⋅ч") }
+                    }.joinToString("  ")
+                    if (vals.isNotBlank()) pm.tableRow("  Секция ${si + 1}", vals)
                 }
             } else {
                 loco.dieselSectionList.forEachIndexed { si, sec ->
-                    pm.checkNewPage(14f)
-                    pm.y += 2f
-                    pm.drawText("    Секция ${si + 1}", paintSmall)
-                    val accF = sec.acceptedFuel?.let { "принято: ${"%.2f".format(it)} л" } ?: ""
-                    val delF = sec.deliveryFuel?.let { "сдано: ${"%.2f".format(it)} л" } ?: ""
-                    if (accF.isNotBlank() || delF.isNotBlank()) {
-                        pm.drawKV("  Топливо", listOf(accF, delF).filter { it.isNotBlank() }.joinToString(" / "), 20f)
-                    }
+                    val vals = buildList {
+                        sec.acceptedFuel?.takeIf { it != 0.0 }?.let { add("пр ${"%.2f".format(it)} л") }
+                        sec.deliveryFuel?.takeIf { it != 0.0 }?.let { add("сд ${"%.2f".format(it)} л") }
+                    }.joinToString("  ")
+                    if (vals.isNotBlank()) pm.tableRow("  Секция ${si + 1} (топливо)", vals)
                 }
             }
         }
 
         // ── Trains
         route.trains.forEachIndexed { idx, train ->
-            pm.checkNewPage(30f)
-            pm.y += 4f
-            val trainNum = train.number?.takeIf { it.isNotBlank() } ?: "—"
-            pm.drawText("  Поезд ${idx + 1}: №$trainNum", paintBodyBold)
-            pm.drawKV("Масса", train.weight?.takeIf { it.isNotBlank() }, 16f)
-            pm.drawKV("Осей", train.axle?.takeIf { it.isNotBlank() }, 16f)
-            pm.drawKV("Расстояние", train.distance?.takeIf { it.isNotBlank() }?.let { "$it км" }, 16f)
+            pm.checkNewPage(40f)
+            pm.y += 3f
+            val trainId = buildString {
+                train.number?.takeIf { it.isNotBlank() }?.let { append("№$it") }
+                train.weight?.takeIf { it.isNotBlank() }?.let { append("  $it т") }
+                train.axle?.takeIf { it.isNotBlank() }?.let { append("  ${it} ос.") }
+            }.ifBlank { "—" }
+            pm.tableRow("Поезд ${idx + 1}", trainId, isHeaderRow = true)
+            train.distance?.takeIf { it.isNotBlank() }?.let { pm.tableRow("Расстояние", "$it км") }
 
-            train.stations.forEachIndexed { si, station ->
-                pm.checkNewPage(14f)
-                pm.y += 2f
-                val stName = station.stationName ?: "Станция ${si + 1}"
-                val arr = station.timeArrival?.let { timeManager.formatTime(it) } ?: "—"
-                val dep = station.timeDeparture?.let { timeManager.formatTime(it) } ?: "—"
-                pm.canvas.drawText("    $stName:  приб. $arr  отпр. $dep", ml + 20f, pm.y, paintSmall)
-                pm.y += 10f
+            train.stations.forEach { station ->
+                val name = station.stationName ?: "—"
+                val arr = fmtTime(station.timeArrival) ?: "—"
+                val dep = fmtTime(station.timeDeparture) ?: "—"
+                pm.tableRow("  $name", "приб. $arr  отпр. $dep")
             }
         }
 
         // ── Passengers
         route.passengers.forEachIndexed { idx, passenger ->
-            pm.checkNewPage(24f)
-            pm.y += 4f
-            pm.drawText("  Пассажир ${idx + 1}", paintBodyBold)
-            pm.drawKV("Поезд", passenger.trainNumber, 16f)
-            pm.drawKV("Откуда", passenger.stationDeparture, 16f)
-            pm.drawKV("Куда", passenger.stationArrival, 16f)
-            pm.drawKV("Отправление", passenger.timeDeparture?.let { timeManager.formatDateTime(it) }, 16f)
-            pm.drawKV("Прибытие", passenger.timeArrival?.let { timeManager.formatDateTime(it) }, 16f)
-            pm.drawKV("Примечание", passenger.notes, 16f)
+            pm.checkNewPage(36f)
+            pm.y += 3f
+            pm.tableRow("Пассажир ${idx + 1}", "", isHeaderRow = true)
+            pm.tableRow("Поезд", passenger.trainNumber)
+            pm.tableRow("Откуда", passenger.stationDeparture)
+            pm.tableRow("Куда", passenger.stationArrival)
+            pm.tableRow("Отправление", fmtDT(passenger.timeDeparture))
+            pm.tableRow("Прибытие", fmtDT(passenger.timeArrival))
+            pm.tableRow("Примечание", passenger.notes)
         }
 
-        pm.y += 6f
-        pm.drawLine()
+        pm.y += 4f
+        pm.separator()
     }
 
-    // ─── Schedule / Calendar section ─────────────────────────────────────────────
+    // ─── Schedule section ─────────────────────────────────────────────────────────
 
-    private fun drawScheduleSection(pm: PageManager, routes: List<Route>, monthLabel: String) {
-        // Always start schedule on new content block with page check
-        pm.checkNewPage(200f)
-        pm.drawText("График за $monthLabel", paintTitle)
-        pm.y += 4f
-        pm.drawLine()
+    private fun drawSchedule(pm: PageManager, routes: List<Route>, monthLabel: String) {
+        pm.text("График за $monthLabel", paintTitle)
+        pm.y += 2f
+        pm.separator()
 
-        // Determine month/year from monthLabel or from routes
-        val cal = parseMonthYear(monthLabel, routes)
-        if (cal == null) {
-            pm.drawText("Нет данных для формирования графика.", paintBody)
+        val (month, year) = parseMonthYear(monthLabel) ?: run {
+            pm.text("Не удалось определить период из «$monthLabel».", paintBody)
             return
         }
 
-        val year = cal.get(Calendar.YEAR)
-        val month = cal.get(Calendar.MONTH)
-
-        // Build day map: dayOfMonth -> (hasRoute, hasPassenger)
-        val dayRoutes = mutableMapOf<Int, Boolean>()
-        val dayPassengers = mutableMapOf<Int, Boolean>()
-        val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).apply {
-            timeZone = TimeZone.getTimeZone("GMT+3")
+        // Build month calendar
+        val firstDayCal = Calendar.getInstance(tz).apply {
+            set(year, month, 1, 0, 0, 0); set(Calendar.MILLISECOND, 0)
         }
+        val daysInMonth = firstDayCal.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+        // Day → (hasRoute, hasPassenger, appearance times)
+        val dayRoute = BooleanArray(daysInMonth + 1)
+        val dayPassenger = BooleanArray(daysInMonth + 1)
+        val dayAppearanceTimes = Array<MutableList<String>>(daysInMonth + 1) { mutableListOf() }
+
         routes.forEach { route ->
-            route.basicData.timeStartWork?.let { ts ->
-                val routeCal = Calendar.getInstance(TimeZone.getTimeZone("GMT+3")).apply { timeInMillis = ts }
-                if (routeCal.get(Calendar.YEAR) == year && routeCal.get(Calendar.MONTH) == month) {
-                    val day = routeCal.get(Calendar.DAY_OF_MONTH)
-                    dayRoutes[day] = true
-                }
+            val start = route.basicData.timeStartWork ?: return@forEach
+            val end = route.basicData.timeEndWork ?: (start + 86_400_000L)
+            // Явка — день начала маршрута
+            val startCal = Calendar.getInstance(tz).apply { timeInMillis = start }
+            if (startCal.get(Calendar.MONTH) == month && startCal.get(Calendar.YEAR) == year) {
+                val d = startCal.get(Calendar.DAY_OF_MONTH)
+                if (d in 1..daysInMonth) dayAppearanceTimes[d].add(timeManager.formatTime(start))
             }
-            route.passengers.forEach { passenger ->
-                passenger.timeDeparture?.let { ts ->
-                    val pCal = Calendar.getInstance(TimeZone.getTimeZone("GMT+3")).apply { timeInMillis = ts }
-                    if (pCal.get(Calendar.YEAR) == year && pCal.get(Calendar.MONTH) == month) {
-                        val day = pCal.get(Calendar.DAY_OF_MONTH)
-                        dayPassengers[day] = true
-                    }
+            for (day in 1..daysInMonth) {
+                val dayStart = dayStartMs(year, month, day)
+                val dayEnd = dayStart + 86_400_000L
+                if (start < dayEnd && end > dayStart) dayRoute[day] = true
+            }
+            route.passengers.forEach { p ->
+                val ps = p.timeDeparture ?: return@forEach
+                val pe = p.timeArrival ?: (ps + 3_600_000L)
+                for (day in 1..daysInMonth) {
+                    val dayStart = dayStartMs(year, month, day)
+                    val dayEnd = dayStart + 86_400_000L
+                    if (ps < dayEnd && pe > dayStart) dayPassenger[day] = true
                 }
             }
         }
 
-        // Calendar grid
-        val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-        cal.set(Calendar.DAY_OF_MONTH, 1)
-        // firstDow: 1=Sun,2=Mon...7=Sat; convert to 0=Mon…6=Sun
-        val firstDow = ((cal.get(Calendar.DAY_OF_WEEK) - 2 + 7) % 7)
-
+        // Grid
         val cellW = contentWidth / 7f
-        val cellH = 24f
-        val gridX = ml
-        val gridY = pm.y
+        val cellH = 34f
+        val headerH = 18f
 
-        // Need enough space: header row + up to 6 rows
-        val gridHeight = cellH + 6 * cellH + 8f
+        val totalRows = ((daysInMonth + firstDow(firstDayCal) - 1) / 7) + 1
+        val gridHeight = headerH + totalRows * cellH + 4f
         pm.checkNewPage(gridHeight + 60f)
-        val startY = pm.y
+        val gridTop = pm.y
 
         // Day-of-week headers
-        val dowLabels = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
-        dowLabels.forEachIndexed { col, label ->
-            val x = gridX + col * cellW
-            pm.canvas.drawRect(x, startY, x + cellW, startY + cellH, paintTableBorder)
-            pm.canvas.drawText(label, x + cellW / 2f - paintSmall.measureText(label) / 2f, startY + cellH - 7f, paintSmall)
+        listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс").forEachIndexed { col, label ->
+            val x = ml + col * cellW
+            pm.canvas.drawRect(x, gridTop, x + cellW, gridTop + headerH, paintTableBorder)
+            pm.canvas.drawRect(x, gridTop, x + cellW, gridTop + headerH, paintSectionFill)
+            pm.canvas.drawText(
+                label,
+                x + cellW / 2f - paintSmall.measureText(label) / 2f,
+                gridTop + headerH - 5f,
+                paintBodyBold
+            )
         }
 
-        var currentY = startY + cellH
-        var col = firstDow
+        var col = firstDow(firstDayCal)
         var row = 0
-
         for (day in 1..daysInMonth) {
-            val x = gridX + col * cellW
-            val y = currentY + row * cellH
+            val x = ml + col * cellW
+            val cellY = gridTop + headerH + row * cellH
 
-            // Cell border
-            pm.canvas.drawRect(x, y, x + cellW, y + cellH, paintTableBorder)
+            pm.canvas.drawRect(x, cellY, x + cellW, cellY + cellH, paintTableBorder)
 
-            // Background fill for route/passenger
-            val hasRoute = dayRoutes[day] == true
-            val hasPassenger = dayPassengers[day] == true
-            if (hasRoute) {
-                paintFill.color = Color.argb(60, 33, 150, 243)
-                pm.canvas.drawRect(x + 1, y + 1, x + cellW - 1, y + cellH - 1, paintFill)
-            } else if (hasPassenger) {
-                paintFill.color = Color.argb(60, 255, 152, 0)
-                pm.canvas.drawRect(x + 1, y + 1, x + cellW - 1, y + cellH - 1, paintFill)
+            when {
+                dayRoute[day] && dayPassenger[day] -> {
+                    paintFill.color = Color.argb(70, 33, 150, 243)
+                    pm.canvas.drawRect(x + 1f, cellY + 1f, x + cellW / 2f, cellY + cellH - 1f, paintFill)
+                    paintFill.color = Color.argb(70, 255, 152, 0)
+                    pm.canvas.drawRect(x + cellW / 2f, cellY + 1f, x + cellW - 1f, cellY + cellH - 1f, paintFill)
+                }
+                dayRoute[day] -> {
+                    paintFill.color = Color.argb(70, 33, 150, 243)
+                    pm.canvas.drawRect(x + 1f, cellY + 1f, x + cellW - 1f, cellY + cellH - 1f, paintFill)
+                }
+                dayPassenger[day] -> {
+                    paintFill.color = Color.argb(70, 255, 152, 0)
+                    pm.canvas.drawRect(x + 1f, cellY + 1f, x + cellW - 1f, cellY + cellH - 1f, paintFill)
+                }
             }
 
-            // Day number
+            // Число — в верхнем левом углу
             val dayStr = day.toString()
-            val dayPaint = if (hasRoute || hasPassenger) paintBodyBold else paintBody
-            pm.canvas.drawText(dayStr, x + cellW / 2f - dayPaint.measureText(dayStr) / 2f, y + cellH - 7f, dayPaint)
+            val dp = if (dayRoute[day] || dayPassenger[day]) paintBodyBold else paintBody
+            pm.canvas.drawText(dayStr, x + 3f, cellY + 11f, dp)
+
+            // Времена явки — одно под другим в нижней части ячейки
+            dayAppearanceTimes[day].forEachIndexed { i, t ->
+                pm.canvas.drawText(t, x + 3f, cellY + 22f + i * 9f, paintSmall)
+            }
 
             col++
-            if (col == 7) {
-                col = 0
-                row++
-            }
+            if (col == 7) { col = 0; row++ }
         }
 
-        pm.y = currentY + (row + (if (col > 0) 1 else 0)) * cellH + 8f
+        pm.y = gridTop + headerH + (row + if (col > 0) 1 else 0) * cellH + 8f
 
         // Legend
         pm.y += 4f
         paintFill.color = Color.argb(80, 33, 150, 243)
         pm.canvas.drawRect(ml, pm.y - 8f, ml + 12f, pm.y + 2f, paintFill)
-        pm.canvas.drawText("— Явка (маршрут)", ml + 16f, pm.y, paintSmall)
+        pm.canvas.drawText("— Явка", ml + 16f, pm.y, paintSmall)
         pm.y += 12f
         paintFill.color = Color.argb(80, 255, 152, 0)
         pm.canvas.drawRect(ml, pm.y - 8f, ml + 12f, pm.y + 2f, paintFill)
-        pm.canvas.drawText("— Отвлечение (пассажиром)", ml + 16f, pm.y, paintSmall)
-        pm.y += 16f
+        pm.canvas.drawText("— Отвлечение", ml + 16f, pm.y, paintSmall)
+        pm.y += 14f
 
         // Summary
         val totalWorkMs = routes.sumOf { r ->
             val s = r.basicData.timeStartWork ?: return@sumOf 0L
             val e = r.basicData.timeEndWork ?: return@sumOf 0L
-            val breakMs = if (r.basicData.timeStartBreak != null && r.basicData.timeEndBreak != null)
+            val brk = if (r.basicData.timeStartBreak != null && r.basicData.timeEndBreak != null)
                 (r.basicData.timeEndBreak!! - r.basicData.timeStartBreak!!) else 0L
-            maxOf(0L, e - s - breakMs)
+            maxOf(0L, e - s - brk)
         }
-        val totalPassengerMs = routes.sumOf { r ->
+        val totalPassMs = routes.sumOf { r ->
             r.passengers.sumOf { p ->
                 val s = p.timeDeparture ?: return@sumOf 0L
                 val e = p.timeArrival ?: return@sumOf 0L
                 maxOf(0L, e - s)
             }
         }
-        pm.drawKV("Всего маршрутов", "${routes.size}")
-        pm.drawKV("Отработано времени", ConverterLongToTime.getTimeInStringFormat(totalWorkMs))
-        if (totalPassengerMs > 0) {
-            pm.drawKV("Время в отвлечениях", ConverterLongToTime.getTimeInStringFormat(totalPassengerMs))
-        }
-        pm.y += 6f
-        pm.drawLine()
+
+        pm.tableRow("Маршрутов в месяце", "${routes.size}")
+        pm.tableRow("Отработано", fmtDur(totalWorkMs))
+        if (totalPassMs > 0) pm.tableRow("Время в отвлечениях", fmtDur(totalPassMs))
+        pm.y += 4f
+        pm.separator()
+    }
+
+    private fun dayStartMs(year: Int, month: Int, day: Int): Long =
+        Calendar.getInstance(tz).apply {
+            set(year, month, day, 0, 0, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+    /** firstDow: 0=Mon … 6=Sun */
+    private fun firstDow(cal: Calendar): Int {
+        val dow = cal.get(Calendar.DAY_OF_WEEK)  // 1=Sun … 7=Sat
+        return (dow - 2 + 7) % 7
     }
 
     // ─── Salary section ───────────────────────────────────────────────────────────
 
-    private fun drawSalarySection(pm: PageManager, state: SalaryCalculationUIState) {
-        pm.checkNewPage(60f)
-        pm.drawText("Расчётный листок${if (state.month.isNotBlank()) " — ${state.month}" else ""}", paintTitle)
-        pm.y += 4f
-        pm.drawLine()
-
-        // Table columns: description | hours | % | amount
-        val colW = floatArrayOf(contentWidth * 0.50f, contentWidth * 0.16f, contentWidth * 0.14f, contentWidth * 0.20f)
-
-        fun tableHeader() {
-            pm.checkNewPage(16f)
-            drawTableRow(pm, listOf("Вид выплаты", "Часы", "%", "Сумма"), colW, paintBodyBold, isHeader = true)
-        }
-
-        tableHeader()
-
-        val fmt = { v: Double? -> v?.let { "${"%.2f".format(it)} ₽" } ?: "" }
-        val fmtH = { v: Long? -> ConverterLongToTime.getTimeInStringFormat(v).takeIf { v != null } ?: "" }
-        val fmtP = { v: Double? -> v?.let { "${it}%" } ?: "" }
+    private fun drawSalary(pm: PageManager, s: SalaryCalculationUIState) {
+        pm.text("Расчётный листок${if (s.month.isNotBlank()) " — ${s.month}" else ""}", paintTitle)
+        pm.y += 2f
+        pm.separator()
 
         // Начисления
-        salaryRow(pm, colW, "Оплата по тарифу", fmtH(state.paymentAtTariffHours), "", fmt(state.paymentAtTariffMoney))
-        salaryRow(pm, colW, "Ночные часы", fmtH(state.paymentNightTimeHours), fmtP(state.paymentNightTimePercent), fmt(state.paymentNightTimeMoney))
-        salaryRow(pm, colW, "Пассажиром", fmtH(state.paymentAtPassengerHours), "", fmt(state.paymentAtPassengerMoney))
-        salaryRow(pm, colW, "Резервом", fmtH(state.paymentAtSingleLocomotiveHours), "", fmt(state.paymentAtSingleLocomotiveMoney))
-        salaryRow(pm, colW, "Праздничные", fmtH(state.paymentHolidayHours), "", fmt(state.paymentHolidayMoney))
-        salaryRow(pm, colW, "Оплата по среднему", fmtH(state.averagePaymentHours), "", fmt(state.averagePaymentMoney))
-        salaryRow(pm, colW, "По уходу за ребёнком-инвалидом", fmtH(state.caringForDisableChildrenHours), "", fmt(state.caringForDisableChildrenMoney))
-        salaryRow(pm, colW, "Зональная надбавка", "", fmtP(state.zonalSurchargePercent), fmt(state.zonalSurchargeMoney))
-        salaryRow(pm, colW, "Надбавка за класс квалификации", "", fmtP(state.surchargeQualificationClassPercent), fmt(state.surchargeQualificationClassMoney))
-        salaryRow(pm, colW, "В одно лицо (груз.)", "", fmtP(state.onePersonOperationPercent), fmt(state.onePersonOperationMoney))
-        salaryRow(pm, colW, "В одно лицо (пас.)", "", fmtP(state.onePersonOperationPassengerTrainPercent), fmt(state.onePersonOperationPassengerTrainMoney))
-        salaryRow(pm, colW, "Вредность", "", fmtP(state.harmfulnessSurchargePercent), fmt(state.harmfulnessSurchargeMoney))
-        salaryRow(pm, colW, "Районный коэффициент", "", fmtP(state.districtSurchargeCoefficient), fmt(state.districtSurchargeMoney))
-        salaryRow(pm, colW, "Северная надбавка", "", fmtP(state.nordicSurchargePercent), fmt(state.nordicSurchargeMoney))
+        pm.checkNewPage(28f)
+        pm.canvas.drawRect(ml, pm.y - 12f, ml + contentWidth, pm.y + 2f, paintSectionFill)
+        pm.canvas.drawText("Начисления", ml + 4f, pm.y, paintSection)
+        pm.y += 14f
+        pm.salaryHeader()
 
-        state.surchargeExtendedServicePhaseHour.forEachIndexed { i, h ->
-            val pct = state.surchargeExtendedServicePhasePercent.getOrNull(i)
-            val money = state.surchargeExtendedServicePhaseMoney.getOrNull(i)
-            salaryRow(pm, colW, "Удлинённое плечо ${i + 1}", fmtH(h), pct ?: "", fmt(money))
+        fun row(desc: String, h: Long?, pct: Double?, money: Double?) {
+            val hs = fmtHours(h); val ps = fmtPct(pct); val ms = fmtMoney(money)
+            if (hs.isBlank() && ps.isBlank() && ms.isBlank()) return
+            pm.salaryRow(desc, hs, ps, ms)
         }
-        state.surchargeHeavyTransHour.forEachIndexed { i, h ->
-            val pct = state.surchargeHeavyTransPercent.getOrNull(i)
-            val money = state.surchargeHeavyTransMoney.getOrNull(i)
-            salaryRow(pm, colW, "Тяжёлые поезда ${i + 1}", fmtH(h), pct ?: "", fmt(money))
+
+        row("Оплата по тарифу", s.paymentAtTariffHours, null, s.paymentAtTariffMoney)
+        row("Ночные часы", s.paymentNightTimeHours, s.paymentNightTimePercent, s.paymentNightTimeMoney)
+        row("Пассажиром", s.paymentAtPassengerHours, null, s.paymentAtPassengerMoney)
+        row("Резервом", s.paymentAtSingleLocomotiveHours, null, s.paymentAtSingleLocomotiveMoney)
+        row("Праздничные", s.paymentHolidayHours, null, s.paymentHolidayMoney)
+        row("По среднему", s.averagePaymentHours, null, s.averagePaymentMoney)
+        row("По уходу за ребёнком-инвалидом", s.caringForDisableChildrenHours, null, s.caringForDisableChildrenMoney)
+
+        // Percentage-only surcharges
+        fun rowPct(desc: String, pct: Double?, money: Double?) {
+            val ps = fmtPct(pct); val ms = fmtMoney(money)
+            if (ps.isBlank() && ms.isBlank()) return
+            pm.salaryRow(desc, "", ps, ms)
         }
-        state.surchargeLongTrainHour.forEachIndexed { i, h ->
-            val pct = state.surchargeLongTrainPercent.getOrNull(i)
-            val money = state.surchargeLongTrainMoney.getOrNull(i)
-            salaryRow(pm, colW, "Длинносост. поезда ${i + 1}", fmtH(h), pct ?: "", fmt(money))
+        rowPct("Зональная надбавка", s.zonalSurchargePercent, s.zonalSurchargeMoney)
+        rowPct("Надбавка за класс квалификации", s.surchargeQualificationClassPercent, s.surchargeQualificationClassMoney)
+        rowPct("В одно лицо (груз.)", s.onePersonOperationPercent, s.onePersonOperationMoney)
+        rowPct("В одно лицо (пас.)", s.onePersonOperationPassengerTrainPercent, s.onePersonOperationPassengerTrainMoney)
+        rowPct("Вредность", s.harmfulnessSurchargePercent, s.harmfulnessSurchargeMoney)
+        rowPct("Районный коэффициент", s.districtSurchargeCoefficient, s.districtSurchargeMoney)
+        rowPct("Северная надбавка", s.nordicSurchargePercent, s.nordicSurchargeMoney)
+
+        s.surchargeExtendedServicePhaseHour.forEachIndexed { i, h ->
+            val p = fmtPctStr(s.surchargeExtendedServicePhasePercent.getOrNull(i))
+            val m = fmtMoney(s.surchargeExtendedServicePhaseMoney.getOrNull(i))
+            if (fmtHours(h).isBlank() && p.isBlank() && m.isBlank()) return@forEachIndexed
+            pm.salaryRow("Удлинённое плечо ${i + 1}", fmtHours(h), p, m)
         }
-        salaryRow(pm, colW, "Сдвоенные (30%)", fmtH(state.surchargeDoubledTrainFirstHours), "30%", fmt(state.surchargeDoubledTrainFirstMoney))
-        salaryRow(pm, colW, "Сдвоенные (15%)", fmtH(state.surchargeDoubledTrainSecondHours), "15%", fmt(state.surchargeDoubledTrainSecondMoney))
-        salaryRow(pm, colW, "Сверхурочные", fmtH(state.paymentAtOvertimeHours), "", fmt(state.paymentAtOvertimeMoney))
-        salaryRow(pm, colW, "Доплата сверхурочные (50%)", fmtH(state.surchargeAtOvertime05Hours), "50%", fmt(state.surchargeAtOvertime05Money))
-        salaryRow(pm, colW, "Доплата сверхурочные (100%)", fmtH(state.surchargeAtOvertimeHours), "100%", fmt(state.surchargeAtOvertimeMoney))
-        salaryRow(pm, colW, "Переотдых", fmtH(state.restInExcessOfTheNormTime), "", fmt(state.restInExcessOfTheNormMoney))
+        s.surchargeHeavyTransHour.forEachIndexed { i, h ->
+            val p = fmtPctStr(s.surchargeHeavyTransPercent.getOrNull(i))
+            val m = fmtMoney(s.surchargeHeavyTransMoney.getOrNull(i))
+            if (fmtHours(h).isBlank() && p.isBlank() && m.isBlank()) return@forEachIndexed
+            pm.salaryRow("Тяжёлые поезда ${i + 1}", fmtHours(h), p, m)
+        }
+        s.surchargeLongTrainHour.forEachIndexed { i, h ->
+            val p = fmtPctStr(s.surchargeLongTrainPercent.getOrNull(i))
+            val m = fmtMoney(s.surchargeLongTrainMoney.getOrNull(i))
+            if (fmtHours(h).isBlank() && p.isBlank() && m.isBlank()) return@forEachIndexed
+            pm.salaryRow("Длинносост. поезда ${i + 1}", fmtHours(h), p, m)
+        }
+        if (fmtHours(s.surchargeDoubledTrainFirstHours).isNotBlank() || fmtMoney(s.surchargeDoubledTrainFirstMoney).isNotBlank())
+            pm.salaryRow("Сдвоенные (30%)", fmtHours(s.surchargeDoubledTrainFirstHours), "30%", fmtMoney(s.surchargeDoubledTrainFirstMoney))
+        if (fmtHours(s.surchargeDoubledTrainSecondHours).isNotBlank() || fmtMoney(s.surchargeDoubledTrainSecondMoney).isNotBlank())
+            pm.salaryRow("Сдвоенные (15%)", fmtHours(s.surchargeDoubledTrainSecondHours), "15%", fmtMoney(s.surchargeDoubledTrainSecondMoney))
+        row("Сверхурочные", s.paymentAtOvertimeHours, null, s.paymentAtOvertimeMoney)
+        if (fmtHours(s.surchargeAtOvertime05Hours).isNotBlank() || fmtMoney(s.surchargeAtOvertime05Money).isNotBlank())
+            pm.salaryRow("Доп. сверхурочные (50%)", fmtHours(s.surchargeAtOvertime05Hours), "50%", fmtMoney(s.surchargeAtOvertime05Money))
+        if (fmtHours(s.surchargeAtOvertimeHours).isNotBlank() || fmtMoney(s.surchargeAtOvertimeMoney).isNotBlank())
+            pm.salaryRow("Доп. сверхурочные (100%)", fmtHours(s.surchargeAtOvertimeHours), "100%", fmtMoney(s.surchargeAtOvertimeMoney))
+        row("Переотдых", s.restInExcessOfTheNormTime, null, s.restInExcessOfTheNormMoney)
+        if (fmtMoney(s.otherSurchargeMoney).isNotBlank())
+            pm.salaryRow("Прочие надбавки", "", fmtPct(s.otherSurchargePercent), fmtMoney(s.otherSurchargeMoney))
 
         // Total charged
-        pm.checkNewPage(14f)
-        drawTableRow(pm, listOf("Итого начислено", "", "", fmt(state.totalChargedMoney)), colW, paintBodyBold, isFooter = true)
-        pm.y += 6f
+        pm.salaryRow("Итого начислено", "", "", fmtMoney(s.totalChargedMoney), bold = true)
+        pm.y += 4f
 
-        // Uderzhaniya
-        pm.checkNewPage(20f)
-        pm.drawText("Удержания", paintSection)
-        pm.y += 2f
-        tableHeader()
-        salaryRow(pm, colW, "НДФЛ (13%)", "", "13%", fmt(state.retentionNdfl))
-        salaryRow(pm, colW, "Профсоюз", "", "", fmt(state.unionistsRetention))
-        salaryRow(pm, colW, "Прочие удержания", "", "", fmt(state.otherRetention))
-        drawTableRow(pm, listOf("Всего удержано", "", "", fmt(state.totalRetention)), colW, paintBodyBold, isFooter = true)
+        // Удержания
+        pm.checkNewPage(28f)
+        pm.canvas.drawRect(ml, pm.y - 12f, ml + contentWidth, pm.y + 2f, paintSectionFill)
+        pm.canvas.drawText("Удержания", ml + 4f, pm.y, paintSection)
+        pm.y += 14f
+        pm.retentionHeader()
+        if (fmtMoney(s.retentionNdfl).isNotBlank()) pm.retentionRow("НДФЛ (13%)", "13%", fmtMoney(s.retentionNdfl))
+        if (fmtMoney(s.unionistsRetention).isNotBlank()) pm.retentionRow("Профсоюз", "", fmtMoney(s.unionistsRetention))
+        if (fmtMoney(s.otherRetention).isNotBlank()) pm.retentionRow("Прочие удержания", "", fmtMoney(s.otherRetention))
+        pm.retentionRow("Всего удержано", "", fmtMoney(s.totalRetention), bold = true)
 
         pm.y += 8f
         pm.checkNewPage(20f)
-        pm.drawText("К выдаче: ${fmt(state.toBeCredited)}", paintTitle)
-        pm.y += 8f
-        pm.drawLine()
-    }
-
-    private fun salaryRow(pm: PageManager, colW: FloatArray, desc: String, hours: String, pct: String, amount: String) {
-        if (hours.isBlank() && pct.isBlank() && amount.isBlank()) return
-        drawTableRow(pm, listOf(desc, hours, pct, amount), colW, paintBody)
-    }
-
-    private fun drawTableRow(
-        pm: PageManager,
-        cells: List<String>,
-        colW: FloatArray,
-        paint: Paint,
-        isHeader: Boolean = false,
-        isFooter: Boolean = false
-    ) {
-        val rowH = 14f
-        pm.checkNewPage(rowH + 2f)
-        var x = ml
-        if (isHeader || isFooter) {
-            paintFill.color = if (isHeader) Color.argb(30, 0, 0, 0) else Color.argb(20, 0, 120, 200)
-            pm.canvas.drawRect(ml, pm.y - 10f, ml + contentWidth, pm.y + 4f, paintFill)
-        }
-        cells.forEachIndexed { i, text ->
-            pm.canvas.drawRect(x, pm.y - 10f, x + colW[i], pm.y + 4f, paintTableBorder)
-            val textX = if (i == 0) x + 3f else x + colW[i] - paint.measureText(text) - 3f
-            pm.canvas.drawText(text, textX, pm.y, paint)
-            x += colW[i]
-        }
-        pm.y += rowH
-    }
-
-    // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-    private fun calcDiff(start: Long?, end: Long?): String? {
-        if (start == null || end == null) return null
-        val ms = end - start
-        if (ms <= 0) return null
-        return ConverterLongToTime.getTimeInStringFormat(ms)
-    }
-
-    private fun parseMonthYear(monthLabel: String, routes: List<Route>): Calendar? {
-        // Try to derive from routes
-        val ts = routes.mapNotNull { it.basicData.timeStartWork }.minOrNull()
-        if (ts != null) {
-            return Calendar.getInstance(TimeZone.getTimeZone("GMT+3")).apply { timeInMillis = ts }
-        }
-        // Fallback: current month
-        return Calendar.getInstance(TimeZone.getTimeZone("GMT+3"))
+        pm.text("К выдаче: ${fmtMoney(s.toBeCredited)}", paintTitle)
+        pm.y += 4f
+        pm.separator()
     }
 }
-
-/** Extension to format date+time via TimeManager */
-private fun TimeManager.formatDateTime(millis: Long): String =
-    "${formatDate(millis)} ${formatTime(millis)}"

@@ -44,5 +44,5 @@ val viewModelModule = module {
     viewModel { AllRouteViewModel(androidApplication()) }
     viewModel { WorkScheduleViewModel() }
     viewModel { ProfileViewModel() }
-    viewModel { PdfViewModel(androidApplication()) }
+    single { PdfViewModel(androidApplication()) }
 }

@@ -28,11 +28,18 @@ class PdfViewModel(application: Application) : AndroidViewModel(application) {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage = _errorMessage.asStateFlow()
 
-    // Salary state is set externally by SalaryCalculationScreen
+    // State set externally by screens
     private var latestSalaryState: SalaryCalculationUIState? = null
+    private var latestRoutes: List<Route> = emptyList()
+    private var latestMonthLabel: String = ""
 
     fun updateSalaryState(state: SalaryCalculationUIState) {
         latestSalaryState = state
+    }
+
+    fun updateRoutes(routes: List<Route>, monthLabel: String) {
+        latestRoutes = routes
+        latestMonthLabel = monthLabel
     }
 
     fun generateAndShare(
@@ -46,10 +53,12 @@ class PdfViewModel(application: Application) : AndroidViewModel(application) {
             _errorMessage.value = null
             try {
                 val salaryState = if (sections.includeSalary) latestSalaryState else null
+                val effectiveRoutes = routes.ifEmpty { latestRoutes }
+                val effectiveMonthLabel = monthLabel.ifEmpty { latestMonthLabel }
                 val file = PdfGenerator(getApplication()).generatePdf(
-                    routes = routes,
+                    routes = effectiveRoutes,
                     salaryState = salaryState,
-                    monthLabel = monthLabel,
+                    monthLabel = effectiveMonthLabel,
                     sections = sections
                 )
                 // Authority must match the one declared in AndroidManifest.xml

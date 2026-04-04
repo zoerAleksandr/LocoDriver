@@ -97,7 +97,6 @@ import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.launch
 import com.z_company.domain.repositories.SharedPreferencesRepositories
-import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import java.util.Calendar
 import kotlin.collections.isNotEmpty
@@ -169,7 +168,7 @@ fun WorkScheduleScreen(
     val lifecycle = lifecycleOwner.lifecycle
 
     val snackbarManager: ISnackbarManager = koinInject()
-    val pdfViewModel: PdfViewModel = koinViewModel()
+    val pdfViewModel: PdfViewModel = koinInject()
     val context = androidx.compose.ui.platform.LocalContext.current
     var showPdfDialog by remember { mutableStateOf(false) }
 
@@ -177,6 +176,15 @@ fun WorkScheduleScreen(
         pdfViewModel.shareEvent.collect { chooser ->
             context.startActivity(chooser)
         }
+    }
+
+    // Cache routes in shared PdfViewModel so SalaryCalculationScreen can use them
+    LaunchedEffect(routesByDay, currentMonth) {
+        val routes = routesByDay.values.flatten()
+        val monthLabel = currentMonth?.let {
+            "${getMonthFullText(it.month)} ${it.year}"
+        } ?: ""
+        pdfViewModel.updateRoutes(routes, monthLabel)
     }
 
     LaunchedEffect(Unit) {
