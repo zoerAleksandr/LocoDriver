@@ -15,6 +15,7 @@ import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
 import com.z_company.repository.remote_rest.response.SaveRouteResponse
+import com.z_company.repository.remote_rest.response.ShareRouteResponse
 import com.z_company.repository.remote_rest.response.UserResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -167,4 +168,14 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             parameter("country", country)
             parameter("year", year)
         }.body()
+
+    override suspend fun createSharedRoute(token: String, data: Route): ShareRouteResponse =
+        client.post("v1/share/route") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(data)
+        }.body()
+
+    override suspend fun getSharedRoute(shareId: String): Route =
+        client.get("v1/share/route/$shareId").body()
 }

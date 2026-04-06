@@ -48,6 +48,7 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.RoutesManager
+import com.z_company.repository.remote_rest.ShareRouteManager
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
@@ -107,6 +108,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private val snackbarManager: ISnackbarManager by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
     private val routesManager: RoutesManager by inject()
+    private val shareRouteManager: ShareRouteManager by inject()
     private val syncManager: SyncManager by inject()
     private val widgetUpdater: WidgetUpdater by inject()
 
@@ -147,6 +149,16 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     private val _saveTimeEvent = MutableSharedFlow<String>(replay = 0)
     val saveTimeEvent: SharedFlow<String> = _saveTimeEvent.asSharedFlow()
+
+    // Событие с готовой публичной ссылкой для "Поделиться" — экран открывает share-sheet.
+    private val _shareLinkEvent = MutableSharedFlow<String>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val shareLinkEvent: SharedFlow<String> = _shareLinkEvent.asSharedFlow()
+
+    private val _isCreatingShareLink = MutableStateFlow(false)
+    val isCreatingShareLink: StateFlow<Boolean> = _isCreatingShareLink.asStateFlow()
 
     private val _workTimeInCurrentRoute = MutableSharedFlow<Long>(replay = 1)
     val workTimeInCurrentRoute = _workTimeInCurrentRoute.asSharedFlow()
@@ -841,6 +853,42 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * Создаёт публичную ссылку на [route] и эмитит её в [shareLinkEvent].
+     * UI-слой (HomeScreen) открывает системный share-sheet по полученной ссылке.
+     */
+    fun shareRoute(route: Route) {
+        if (_isCreatingShareLink.value) return
+        _isCreatingShareLink.value = true
+        viewModelScope.launch {
+            try {
+                val rawToken = secureTokenStorage.getAuthBearerTokenFlow().first()
+                if (rawToken.isNullOrBlank()) {
+                    snackbarManager.show("Неавторизованный пользователь")
+                    return@launch
+                }
+                val bearerToken = "Bearer $rawToken"
+                shareRouteManager.createShareLink(route, bearerToken).collect { result ->
+                    when (result) {
+                        is ResultState.Success -> _shareLinkEvent.emit(result.data)
+                        is ResultState.Error -> {
+                            val message = result.entity.message
+                                ?: result.entity.throwable?.message
+                                ?: "Не удалось создать ссылку"
+                            snackbarManager.show(message)
+                        }
+                        is ResultState.Loading -> Unit
+                    }
+                }
+            } catch (e: Exception) {
+                e.sendToSentry("HomeViewModel", "shareRoute")
+                snackbarManager.show("Ошибка создания ссылки")
+            } finally {
+                _isCreatingShareLink.value = false
             }
         }
     }

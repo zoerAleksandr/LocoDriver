@@ -29,6 +29,7 @@ import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.RemoteRestClient
 import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.repository.remote_rest.SettingManager
+import com.z_company.repository.remote_rest.ShareRouteManager
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.core.widget.WidgetUpdater
 import com.z_company.loco_driver.widget.GlanceWidgetUpdater
@@ -74,6 +75,7 @@ val repositoryModule = module {
     single { AuthManager(remoteRestApi = get(), apiForSendEmail = get()) }
     single { RoutesManager(remoteRestApi = get()) }
     single { SettingManager(remoteRestApi = get()) }
+    single { ShareRouteManager(remoteRestApi = get()) }
 
     single { RouteActionsHelper() }
     single { SubscriptionHelper() }

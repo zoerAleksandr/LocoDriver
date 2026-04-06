@@ -67,7 +67,9 @@ fun LocoDriverApp(
     pendingFormOpen: Boolean = false,
     onFormOpened: () -> Unit = {},
     pendingNavigateHome: Boolean = false,
-    onNavigatedHome: () -> Unit = {}
+    onNavigatedHome: () -> Unit = {},
+    pendingOpenFormWithId: String? = null,
+    onFormOpenedWithId: () -> Unit = {}
 ) {
     LocoDriverTheme {
         val navController = rememberNavController()
@@ -91,6 +93,17 @@ fun LocoDriverApp(
             if (pendingNavigateHome) {
                 navController.popBackStack(HomeRoute.route, inclusive = false)
                 onNavigatedHome()
+            }
+        }
+
+        // Открытие FormRoute по публичной ссылке locodriver://share/{id}
+        LaunchedEffect(pendingOpenFormWithId) {
+            val id = pendingOpenFormWithId
+            if (!id.isNullOrBlank()) {
+                navController.navigate(FormRoute.buildDetailsRoute(id, false)) {
+                    launchSingleTop = true
+                }
+                onFormOpenedWithId()
             }
         }
 

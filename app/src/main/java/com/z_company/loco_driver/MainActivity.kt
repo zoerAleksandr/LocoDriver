@@ -20,6 +20,7 @@ import com.robokassa.library.helper.toParams
 import com.robokassa.library.pay.RobokassaPayLauncher
 import com.z_company.RouteSerializer
 import com.z_company.loco_driver.ui.LocoDriverApp
+import com.z_company.repository.remote_rest.ShareRouteManager
 import com.z_company.loco_driver.ui.rememberLocoDriverAppState
 import com.z_company.loco_driver.viewmodel.MainViewModel
 import org.koin.core.component.KoinComponent
@@ -51,6 +52,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
             val pendingImportRoute by mainViewModel.pendingImportRoute.collectAsState()
             val pendingFormOpen by mainViewModel.pendingFormOpen.collectAsState()
             val pendingNavigateHome by mainViewModel.pendingNavigateHome.collectAsState()
+            val pendingOpenFormWithId by mainViewModel.pendingOpenFormWithId.collectAsState()
             LocoDriverApp(
                 appState = appState,
                 isShowUpdatePresentation = mainViewModel.showUpdatePresentation,
@@ -60,7 +62,9 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 pendingFormOpen = pendingFormOpen,
                 onFormOpened = mainViewModel::clearOpenForm,
                 pendingNavigateHome = pendingNavigateHome,
-                onNavigatedHome = mainViewModel::clearNavigateHome
+                onNavigatedHome = mainViewModel::clearNavigateHome,
+                pendingOpenFormWithId = pendingOpenFormWithId,
+                onFormOpenedWithId = mainViewModel::clearOpenFormWithId
             )
         }
         VKID.logsEnabled = true
@@ -76,6 +80,18 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 mainViewModel.handlePaymentReturn(params)
             } catch (e: Exception) {
                 // Показать ошибку
+            }
+        }
+
+        // Deep link: locodriver://share/{id} — загрузить маршрут по публичной ссылке
+        if (i?.action == Intent.ACTION_VIEW &&
+            data?.scheme == ShareRouteManager.SHARE_SCHEME &&
+            data.host == ShareRouteManager.SHARE_HOST
+        ) {
+            val shareId = ShareRouteManager.parseShareId(data.toString())
+            if (!shareId.isNullOrBlank()) {
+                mainViewModel.handleShareDeepLink(shareId)
+                return
             }
         }
 

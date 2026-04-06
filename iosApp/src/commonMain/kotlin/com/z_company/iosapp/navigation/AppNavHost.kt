@@ -2,10 +2,13 @@ package com.z_company.iosapp.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.z_company.iosapp.deeplink.SharedRouteLinkHandler
 import com.z_company.iosapp.screen.FormScreen
 import com.z_company.iosapp.screen.HomeScreen
 import com.z_company.iosapp.screen.ProfileScreen
@@ -27,6 +30,17 @@ fun AppNavHost() {
 
     LaunchedEffect(navController) {
         router.navController = navController
+    }
+
+    // Обработка deep-link locodriver://share/{id} — после импорта маршрут
+    // сохранён в БД, открываем FormRoute с новым id.
+    val pendingFormRouteId by SharedRouteLinkHandler.pendingFormRouteId.collectAsState()
+    LaunchedEffect(pendingFormRouteId) {
+        val id = pendingFormRouteId
+        if (!id.isNullOrBlank()) {
+            navController.navigate(FormRoute.buildRoute(basicId = id, isMakeCopy = false))
+            SharedRouteLinkHandler.clearPendingFormRouteId()
+        }
     }
 
     NavHost(

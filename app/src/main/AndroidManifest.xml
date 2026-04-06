@@ -67,6 +67,14 @@
                 <data android:scheme="z_company_loco_driver_scheme" />
             </intent-filter>
 
+            <!-- Публичные ссылки на маршруты: locodriver://share/{id} -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="locodriver" android:host="share" />
+            </intent-filter>
+
             <!-- Открытие .zroute файлов с кастомным MIME (прямой шаринг из приложения) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

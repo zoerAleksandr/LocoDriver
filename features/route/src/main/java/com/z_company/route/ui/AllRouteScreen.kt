@@ -431,7 +431,7 @@ fun AllRouteScreen(
                         isShowDialogConfirmRemoveRoute = showDialog
                         routeForRemove = route
                     },
-//                    shareRoute = { viewModel.shareRoute(route) }
+                    shareRoute = { viewModel.shareRoute(it) },
                 )
             }
         }

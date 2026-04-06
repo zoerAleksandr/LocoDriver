@@ -85,6 +85,7 @@ fun PreviewRouteDialog(
     setFavoriteState: (Route) -> Unit,
     onRouteClick: (String) -> Unit,
     makeCopyRoute: (String) -> Unit,
+    shareRoute: (Route) -> Unit,
     showDialogConfirmRemove: (Boolean, Route) -> Unit,
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -253,6 +254,34 @@ fun PreviewRouteDialog(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Дублировать",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = primaryColor
+                    ),
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+            // Поделиться — публичная ссылка locodriver://share/{id}
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        showContextDialog(false)
+                        shareRoute(routeForPreview)
+                    }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.share_24px),
+                    contentDescription = null,
+                    tint = primaryColor,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Поделиться",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = primaryColor
                     ),

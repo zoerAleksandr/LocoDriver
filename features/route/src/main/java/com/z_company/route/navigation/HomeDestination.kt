@@ -1,8 +1,11 @@
 package com.z_company.route.navigation
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.core.navigation.AppRoutes
 import com.z_company.domain.navigation.Router
@@ -21,6 +24,18 @@ fun HomeDestination(
     val months by homeViewModel.monthList.collectAsState()
     val years by homeViewModel.yearList.collectAsState()
 
+    val context = LocalContext.current
+    LaunchedEffect(homeViewModel) {
+        homeViewModel.shareLinkEvent.collect { url ->
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, url)
+            }
+            val chooser = Intent.createChooser(sendIntent, "Поделиться маршрутом")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+        }
+    }
 
     HomeScreen(
         viewModel = homeViewModel,
@@ -51,6 +66,7 @@ fun HomeDestination(
         offsetInMoscow = uiState.offsetInMoscow,
         timeCalculationContext = uiState.timeCalculationContext,
         syncRoute = homeViewModel::syncRoute,
+        shareRoute = homeViewModel::shareRoute,
         completeUpdateRequested = homeViewModel::completeUpdateRequested,
         updateEvent = homeViewModel.updateEvents,
         setFavoriteState = homeViewModel::setFavoriteRoute,
