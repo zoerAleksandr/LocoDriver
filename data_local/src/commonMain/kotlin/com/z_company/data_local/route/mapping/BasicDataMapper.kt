@@ -30,7 +30,8 @@ internal object BasicDataMapper {
         restPointOfTurnover = row.restPointOfTurnover != 0L,
         notes = row.notes,
         isFavorite = row.isFavorite != 0L,
-        timeStartBreak = row.timeStartBreak,
-        timeEndBreak = row.timeEndBreak
+        // 0L сохранялось в старом коде вместо null — нормализуем здесь
+        timeStartBreak = row.timeStartBreak?.takeIf { it > 0L },
+        timeEndBreak = row.timeEndBreak?.takeIf { it > 0L }
     )
 }

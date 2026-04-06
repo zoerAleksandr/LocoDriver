@@ -119,7 +119,7 @@ import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
-import java.util.Calendar
+import com.z_company.core.util.TimeManager
 
 const val LINK_TO_SALARY_SETTING = "LINK_TO_SALARY_SETTING"
 
@@ -522,7 +522,7 @@ fun FormScreen(
                         onDismiss = { showStartBreakDatePicker = false },
                         startDateTime = route.basicData.timeStartBreak
                             ?: route.basicData.timeStartWork
-                            ?: Calendar.getInstance().timeInMillis,
+                            ?: TimeManager().now(),
                         recentTimes = sharedPrefs.getRecentTimes("time_start_break"),
                         onRecentTimeSaved = { sharedPrefs.addRecentTime("time_start_break", it) }
                     )
@@ -538,7 +538,7 @@ fun FormScreen(
                         startDateTime = route.basicData.timeEndBreak
                             ?: route.basicData.timeStartBreak
                             ?: route.basicData.timeStartWork
-                            ?: Calendar.getInstance().timeInMillis,
+                            ?: TimeManager().now(),
                         recentTimes = sharedPrefs.getRecentTimes("time_end_break"),
                         onRecentTimeSaved = { sharedPrefs.addRecentTime("time_end_break", it) }
                     )
@@ -600,7 +600,7 @@ fun FormScreen(
                         },
                         onDismiss = { showStartDatePicker = false },
                         startDateTime = route.basicData.timeStartWork
-                            ?: Calendar.getInstance().timeInMillis,
+                            ?: TimeManager().now(),
                         recentTimes = sharedPrefs.getRecentTimes("time_start_work"),
                         onRecentTimeSaved = { sharedPrefs.addRecentTime("time_start_work", it) }
                     )
@@ -615,7 +615,7 @@ fun FormScreen(
                         onDismiss = { showEndDatePicker = false },
                         startDateTime = route.basicData.timeEndWork
                             ?: route.basicData.timeStartWork
-                            ?: Calendar.getInstance().timeInMillis,
+                            ?: TimeManager().now(),
                         recentTimes = sharedPrefs.getRecentTimes("time_end_work"),
                         onRecentTimeSaved = { sharedPrefs.addRecentTime("time_end_work", it) }
                     )
@@ -669,7 +669,7 @@ fun FormScreen(
                         },
                         onDismiss = { showStartDatePickerCopyRoute = false },
                         startDateTime = route.basicData.timeStartWork
-                            ?: Calendar.getInstance().timeInMillis
+                            ?: TimeManager().now()
                     )
                 }
 

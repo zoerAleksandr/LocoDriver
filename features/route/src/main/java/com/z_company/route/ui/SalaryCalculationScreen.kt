@@ -32,6 +32,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,14 +49,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.util.str2decimalSign
 import com.z_company.route.viewmodel.SalaryCalculationUIState
 import com.z_company.core.ui.component.CustomDivider
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.z_company.route.component.PdfActionSheet
+import com.z_company.route.component.PdfContentDialog
+import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +70,32 @@ fun SalaryCalculationScreen(
 ) {
     val styleHint = MaterialTheme.typography.bodyMedium
     val colorPrimary = MaterialTheme.colorScheme.primary
+
+    val context = LocalContext.current
+    val pdfViewModel: PdfViewModel = koinInject()
+    var showPdfDialog by remember { mutableStateOf(false) }
+    var pdfUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val isPdfGenerating by pdfViewModel.isGenerating.collectAsState()
+    val pdfError by pdfViewModel.errorMessage.collectAsState()
+
+    // Update pdfViewModel with latest salary state
+    LaunchedEffect(uiState) {
+        pdfViewModel.updateSalaryState(uiState)
+    }
+
+    // PDF ready event
+    LaunchedEffect(Unit) {
+        pdfViewModel.pdfReady.collect { uri ->
+            pdfUri = uri
+        }
+    }
+
+    // Show PDF error
+    LaunchedEffect(pdfError) {
+        pdfError?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
 
     // Состояния для информационных блоков
     var infoBlockVisible by rememberSaveable { mutableStateOf(true) }
@@ -90,6 +120,23 @@ fun SalaryCalculationScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 actions = {
+                    IconButton(
+                        onClick = { if (!isPdfGenerating) showPdfDialog = true },
+                        enabled = !isPdfGenerating
+                    ) {
+                        if (isPdfGenerating) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(8.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(com.z_company.route.R.drawable.picture_as_pdf_24px),
+                                contentDescription = "PDF",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                     IconButton(
                         modifier = Modifier.padding(end = 16.dp),
                         onClick = onSettingsSalaryClick
@@ -235,6 +282,29 @@ fun SalaryCalculationScreen(
                 item { Spacer(modifier = Modifier.height(32.dp)) } // Нижний отступ для удобства
             }
         }
+    }
+
+    // PDF dialog
+    if (showPdfDialog) {
+        PdfContentDialog(
+            onDismiss = { showPdfDialog = false },
+            onGenerate = { sections ->
+                showPdfDialog = false
+                pdfViewModel.generateAndShare(
+                    sections = sections,
+                    routes = emptyList(),
+                    monthLabel = uiState.month,
+                    calendarDays = emptyList()
+                )
+            }
+        )
+    }
+
+    pdfUri?.let { uri ->
+        PdfActionSheet(
+            uri = uri,
+            onDismiss = { pdfUri = null }
+        )
     }
 }
 

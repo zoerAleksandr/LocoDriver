@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.TimeManager
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
@@ -38,6 +39,7 @@ class TrainFormViewModel(
     trainId: String?,
     basicId: String
 ) : ViewModel(), KoinComponent {
+    private val timeManager = TimeManager()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val trainUseCase: TrainUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
@@ -170,7 +172,7 @@ class TrainFormViewModel(
                 }
                 val initJob = this.launch {
                     val setting = settingsUseCase.getUserSettingFlow().first()
-                    timeZoneText = settingsUseCase.getTimeZone(setting.timeZone)
+                    timeZoneText = "GMT+3"
                 }
                 initJob.join()
 
@@ -672,12 +674,7 @@ class TrainFormViewModel(
     }
 
     fun onGoClicked() {
-        val now = java.util.Calendar.getInstance(
-            java.util.TimeZone.getTimeZone(timeZoneText)
-        ).apply {
-            set(java.util.Calendar.SECOND, 0)
-            set(java.util.Calendar.MILLISECOND, 0)
-        }.timeInMillis
+        val now = timeManager.now()
 
         val hasServicePhase = _uiState.value.selectedServicePhase != null
 
@@ -748,7 +745,7 @@ class TrainFormViewModel(
                 station = StationField(data = name, type = StationDataType.NAME),
                 arrival = StationFieldDate(data = arrival, type = StationDataType.ARRIVAL),
                 departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE),
-                trackNumber = trackNumber?.ifBlank { null }
+                trackNumber = trackNumber
             )
             val hasServicePhase = _uiState.value.selectedServicePhase != null
             if (hasServicePhase && stationsListState.size >= 2) {
@@ -761,7 +758,7 @@ class TrainFormViewModel(
                 station = StationField(data = name, type = StationDataType.NAME),
                 arrival = StationFieldDate(data = arrival, type = StationDataType.ARRIVAL),
                 departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE),
-                trackNumber = trackNumber?.ifBlank { null }
+                trackNumber = trackNumber
             )
         }
         changesHave()
@@ -798,7 +795,6 @@ class TrainFormViewModel(
         val item = stationsListState.removeAt(fromIndex)
         stationsListState.add(toIndex, item)
         changesHave()
-        checkFormValidStation()
         // reorderingStationId stays the same — follows by station ID, not index
     }
 
@@ -843,8 +839,7 @@ class TrainFormViewModel(
                             stationId = state.id,
                             stationName = state.station.data,
                             timeArrival = state.arrival.data,
-                            timeDeparture = state.departure.data,
-                            trackNumber = state.trackNumber
+                            timeDeparture = state.departure.data
                         )
                     }.toMutableList()
                 )

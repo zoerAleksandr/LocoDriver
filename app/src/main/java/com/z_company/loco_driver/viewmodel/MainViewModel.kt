@@ -104,14 +104,27 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     init {
         if (isFirstEntry) {
             sharedPreferenceStorage.setIsMigrated(true)
+            sharedPreferenceStorage.setTimezoneMigrationDone() // новый пользователь — мигрировать нечего
             // Сразу сбрасываем флаг синхронно (commit), чтобы даже при завершении процесса
             // на Android 16 он не остался true и не сбросил настройки при следующем запуске
             sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
         }
         viewModelScope.launch {
+            runTimezoneMigration()
             loadCalendar()
             delay(400L)
             _appInitialized.value = true
+        }
+    }
+
+    private suspend fun runTimezoneMigration() {
+        if (sharedPreferenceStorage.isTimezoneMigrationDone()) return
+        try {
+            val offsetFromMoscow = settingsUseCase.getUserSetting().timeZone
+            routeUseCase.migrateTimestamps(offsetFromMoscow)
+            sharedPreferenceStorage.setTimezoneMigrationDone()
+        } catch (e: Exception) {
+            e.sendToSentry("MainViewModel", "runTimezoneMigration")
         }
     }
 

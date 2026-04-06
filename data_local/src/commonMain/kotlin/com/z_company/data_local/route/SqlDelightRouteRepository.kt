@@ -147,8 +147,12 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         val trainTrigger = db.trainQueries.countAll()
             .asFlow()
             .mapToOne(Dispatchers.Default)
+        // Триггер: любое изменение в таблице Passenger (отвлечения) вызывает переэмиссию
+        val passengerTrigger = db.passengerQueries.countAll()
+            .asFlow()
+            .mapToOne(Dispatchers.Default)
 
-        return combine(basicDataFlow, trainTrigger) { basicDataList, _ ->
+        return combine(basicDataFlow, trainTrigger, passengerTrigger) { basicDataList, _, _ ->
             basicDataList.map { assembleRoute(it) }
         }
     }
@@ -166,8 +170,11 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             val trainTrigger = db.trainQueries.countAll()
                 .asFlow()
                 .mapToOne(Dispatchers.Default)
+            val passengerTrigger = db.passengerQueries.countAll()
+                .asFlow()
+                .mapToOne(Dispatchers.Default)
 
-            combine(basicDataFlow, trainTrigger) { list, _ ->
+            combine(basicDataFlow, trainTrigger, passengerTrigger) { list, _, _ ->
                 ResultState.Success(list.map { assembleRoute(it) })
             }
         }
@@ -180,8 +187,11 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         val trainTrigger = db.trainQueries.countAll()
             .asFlow()
             .mapToOne(Dispatchers.Default)
+        val passengerTrigger = db.passengerQueries.countAll()
+            .asFlow()
+            .mapToOne(Dispatchers.Default)
 
-        return combine(basicDataFlow, trainTrigger) { list, _ ->
+        return combine(basicDataFlow, trainTrigger, passengerTrigger) { list, _, _ ->
             list.map { assembleRoute(it) }
         }
     }

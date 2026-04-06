@@ -46,11 +46,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.z_company.core.util.TimeManager
 import com.z_company.domain.entities.route.UtilsForEntities
 import com.z_company.route.viewmodel.StationFormState
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 // ─── Константы ──────────────────────────────────────────────────────────────
@@ -68,7 +66,7 @@ data class StationTimelineItem(
     val stationName: String,
     val timeArrival: Long?,
     val timeDeparture: Long?,
-    val trackNumber: String? = null
+    val trackNumber: String? = null,
 )
 
 private data class SegmentInfo(val durationMillis: Long)
@@ -88,10 +86,9 @@ private fun formatDuration(millis: Long): String {
     }
 }
 
-private fun formatTime(millis: Long): String {
-    val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-    return sdf.format(Date(millis))
-}
+private val timeManager = TimeManager()
+
+private fun formatTime(millis: Long): String = timeManager.formatTime(millis)
 
 private fun calculateStop(item: StationTimelineItem): StopInfo? {
     val arrival = item.timeArrival ?: return null
@@ -793,7 +790,7 @@ fun List<StationFormState>.toTimelineItems(): List<StationTimelineItem> {
             stationName = state.station.data ?: "",
             timeArrival = state.arrival.data,
             timeDeparture = state.departure.data,
-            trackNumber = state.trackNumber
+            trackNumber = state.trackNumber,
         )
     }
 }
@@ -805,7 +802,7 @@ fun List<com.z_company.domain.entities.route.Station>.toStationTimelineItems(): 
             stationName = station.stationName ?: "",
             timeArrival = station.timeArrival,
             timeDeparture = station.timeDeparture,
-            trackNumber = station.trackNumber
+            trackNumber = station.trackNumber,
         )
     }
 }

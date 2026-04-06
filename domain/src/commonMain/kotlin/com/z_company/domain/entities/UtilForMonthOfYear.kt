@@ -1,5 +1,6 @@
 package com.z_company.domain.entities
 
+import com.z_company.domain.util.getTimeZone
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.DateTimeUnit
@@ -131,24 +132,26 @@ object UtilForMonthOfYear {
     fun MonthOfYear.getTimeInCurrentMonth(
         startTime: Long,
         endTime: Long,
+        offsetInMoscow: Long,
     ): Long {
-        val tz = TimeZone.currentSystemDefault()
-        val startLdt = Instant.fromEpochMilliseconds(startTime).toLocalDateTime(tz)
+        // Всегда московское время: пользователь вводит времена в МСК (GMT+3)
+        val localTZ = TimeZone.of("GMT+3")
+        val startLdt = Instant.fromEpochMilliseconds(startTime).toLocalDateTime(localTZ)
 
         return if (startLdt.monthNumber - 1 == this.month) {
-            // End of current day = start of next day
-            val nextDayStart = startLdt.date.plus(1, DateTimeUnit.DAY)
-                .atStartOfDayIn(tz)
+            // Явка в текущем месяце → маршрут переходит в следующий.
+            // Считаем от явки до 00:00 1-го числа следующего месяца МСК.
+            val nextMonthStart = LocalDate(this.year, this.month + 1, 1)
+                .plus(1, DateTimeUnit.MONTH)
+                .atStartOfDayIn(localTZ)
                 .toEpochMilliseconds()
-            nextDayStart - startTime
+            nextMonthStart - startTime
         } else {
-            // Start of end's day
-            val dayStart = Instant.fromEpochMilliseconds(endTime)
-                .toLocalDateTime(tz)
-                .date
-                .atStartOfDayIn(tz)
+            // Явка в предыдущем месяце → считаем от 00:00 1-го числа текущего месяца МСК до сдачи.
+            val monthStart = LocalDate(this.year, this.month + 1, 1)
+                .atStartOfDayIn(localTZ)
                 .toEpochMilliseconds()
-            endTime - dayStart
+            endTime - monthStart
         }
     }
 }

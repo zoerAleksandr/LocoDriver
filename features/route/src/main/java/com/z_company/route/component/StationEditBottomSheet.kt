@@ -55,10 +55,8 @@ import com.z_company.core.ui.component.DateTimePickerBottomSheet
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeFormat
+import com.z_company.core.util.TimeManager
 import com.z_company.route.viewmodel.StationFormState
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,7 +68,7 @@ fun StationEditBottomSheet(
     onSave: (name: String?, arrival: Long?, departure: Long?, trackNumber: String?) -> Unit,
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter?
+    dateAndTimeConverter: DateAndTimeConverter?,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusManager = LocalFocusManager.current
@@ -342,7 +340,7 @@ fun StationEditBottomSheet(
                 showArrivalPicker = false
             },
             onDismiss = { showArrivalPicker = false },
-            startDateTime = localArrival
+            startDateTime = localArrival ?: nowTruncatedToMinutes()
         )
     }
 
@@ -355,7 +353,7 @@ fun StationEditBottomSheet(
                 showDeparturePicker = false
             },
             onDismiss = { showDeparturePicker = false },
-            startDateTime = localDeparture
+            startDateTime = localDeparture ?: nowTruncatedToMinutes()
         )
     }
 }
@@ -590,12 +588,8 @@ private fun StopDurationDivider(stopMinutes: Int) {
 
 // ─── Утилиты ────────────────────────────────────────────────────────────────
 
-private fun formatDateShort(millis: Long): String {
-    val sdf = SimpleDateFormat("dd.MM.yy", Locale.getDefault())
-    return sdf.format(Date(millis))
-}
+private val timeManager = TimeManager()
 
-private fun nowTruncatedToMinutes(): Long {
-    val now = System.currentTimeMillis()
-    return now - (now % 60_000L)
-}
+private fun formatDateShort(millis: Long): String = timeManager.formatDate(millis)
+
+private fun nowTruncatedToMinutes(): Long = timeManager.now()
