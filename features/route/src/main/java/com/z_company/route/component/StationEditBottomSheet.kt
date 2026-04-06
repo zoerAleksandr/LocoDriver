@@ -55,10 +55,8 @@ import com.z_company.core.ui.component.DateTimePickerBottomSheet
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeFormat
+import com.z_company.core.util.TimeManager
 import com.z_company.route.viewmodel.StationFormState
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,10 +65,10 @@ fun StationEditBottomSheet(
     menuList: List<String>,
     onFilterMenu: (String) -> Unit,
     onDeleteStationName: (String) -> Unit,
-    onSave: (name: String?, arrival: Long?, departure: Long?) -> Unit,
+    onSave: (name: String?, arrival: Long?, departure: Long?, trackNumber: String?) -> Unit,
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
-    dateAndTimeConverter: DateAndTimeConverter?
+    dateAndTimeConverter: DateAndTimeConverter?,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusManager = LocalFocusManager.current
@@ -86,6 +84,7 @@ fun StationEditBottomSheet(
             )
         )
     }
+    var localTrackNumber by remember { mutableStateOf(stationFormState?.trackNumber ?: "") }
     var localArrival by remember { mutableStateOf(stationFormState?.arrival?.data) }
     var localDeparture by remember { mutableStateOf(stationFormState?.departure?.data) }
 
@@ -122,63 +121,109 @@ fun StationEditBottomSheet(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // ── Название станции ──
-            Text(
-                text = "Название",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = primaryColor.copy(alpha = 0.5f),
-                modifier = Modifier.padding(bottom = 5.dp)
-            )
-
-            ExposedDropdownMenuBox(
-                expanded = isDropdownExpanded,
-                onExpandedChange = { isDropdownExpanded = it }
+            // ── Путь + Название станции (горизонтальный ряд) ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Top
             ) {
-                OutlinedTextFieldApp(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
-                    value = localName,
-                    onValueChange = { newValue ->
-                        localName = newValue
-                        onFilterMenu(newValue.text)
-                        isDropdownExpanded = newValue.text.isNotEmpty()
-                    },
-                    placeholder = {
-                        Text(
-                            text = "Станция",
-                            style = hintStyle,
-                            color = hintColor
+                // ── Название станции ──
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Название",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = primaryColor.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(bottom = 5.dp)
+                    )
+                    ExposedDropdownMenuBox(
+                        expanded = isDropdownExpanded,
+                        onExpandedChange = { isDropdownExpanded = it }
+                    ) {
+                        OutlinedTextFieldApp(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
+                            value = localName,
+                            onValueChange = { newValue ->
+                                localName = newValue
+                                onFilterMenu(newValue.text)
+                                isDropdownExpanded = newValue.text.isNotEmpty()
+                            },
+                            placeholder = {
+                                Text(
+                                    text = "Станция",
+                                    style = hintStyle,
+                                    color = hintColor
+                                )
+                            },
+                            textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(
+                                onDone = {
+                                    focusManager.clearFocus()
+                                    isDropdownExpanded = false
+                                }
+                            ),
+                            singleLine = true,
+                            colorBackgroundEmptyField = MaterialTheme.colorScheme.surface,
+                            colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
                         )
-                    },
-                    textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            focusManager.clearFocus()
-                            isDropdownExpanded = false
-                        }
-                    ),
-                    singleLine = true,
-                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surface,
-                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
-                )
 
-                StationDropdownMenu(
-                    expanded = isDropdownExpanded,
-                    stations = menuList,
-                    onSelect = { stationName ->
-                        localName = localName.copy(
-                            text = stationName,
-                            selection = TextRange(stationName.length)
+                        StationDropdownMenu(
+                            expanded = isDropdownExpanded,
+                            stations = menuList,
+                            onSelect = { stationName ->
+                                localName = localName.copy(
+                                    text = stationName,
+                                    selection = TextRange(stationName.length)
+                                )
+                                isDropdownExpanded = false
+                            },
+                            onDelete = onDeleteStationName,
+                            onDismiss = { isDropdownExpanded = false },
+                            textStyle = dataTextStyle
                         )
-                        isDropdownExpanded = false
-                    },
-                    onDelete = onDeleteStationName,
-                    onDismiss = { isDropdownExpanded = false },
-                    textStyle = dataTextStyle
-                )
+                    }
+                }
+
+                // ── Поле «Путь» (4 символа) ──
+                Column(modifier = Modifier.width(80.dp)) {
+                    Text(
+                        text = "Путь",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = primaryColor.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(bottom = 5.dp)
+                    )
+                    OutlinedTextFieldApp(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = TextFieldValue(
+                            text = localTrackNumber,
+                            selection = TextRange(localTrackNumber.length)
+                        ),
+                        onValueChange = { newValue ->
+                            if (newValue.text.length <= 4) {
+                                localTrackNumber = newValue.text
+                            }
+                        },
+                        placeholder = {
+                            Text(
+                                text = "№",
+                                style = hintStyle,
+                                color = hintColor
+                            )
+                        },
+                        textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = { focusManager.clearFocus() }
+                        ),
+                        singleLine = true,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.surface,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(36.dp))
@@ -246,7 +291,8 @@ fun StationEditBottomSheet(
                 ),
                 onClick = {
                     val name = localName.text.ifBlank { null }
-                    onSave(name, localArrival, localDeparture)
+                    val track = localTrackNumber.ifBlank { null }
+                    onSave(name, localArrival, localDeparture, track)
                 }
             ) {
                 Text(
@@ -294,7 +340,7 @@ fun StationEditBottomSheet(
                 showArrivalPicker = false
             },
             onDismiss = { showArrivalPicker = false },
-            startDateTime = localArrival
+            startDateTime = localArrival ?: nowTruncatedToMinutes()
         )
     }
 
@@ -307,7 +353,7 @@ fun StationEditBottomSheet(
                 showDeparturePicker = false
             },
             onDismiss = { showDeparturePicker = false },
-            startDateTime = localDeparture
+            startDateTime = localDeparture ?: nowTruncatedToMinutes()
         )
     }
 }
@@ -542,12 +588,8 @@ private fun StopDurationDivider(stopMinutes: Int) {
 
 // ─── Утилиты ────────────────────────────────────────────────────────────────
 
-private fun formatDateShort(millis: Long): String {
-    val sdf = SimpleDateFormat("dd.MM.yy", Locale.getDefault())
-    return sdf.format(Date(millis))
-}
+private val timeManager = TimeManager()
 
-private fun nowTruncatedToMinutes(): Long {
-    val now = System.currentTimeMillis()
-    return now - (now % 60_000L)
-}
+private fun formatDateShort(millis: Long): String = timeManager.formatDate(millis)
+
+private fun nowTruncatedToMinutes(): Long = timeManager.now()

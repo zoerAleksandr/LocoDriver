@@ -1,6 +1,6 @@
 package com.z_company.domain.entities.route
 
-import com.z_company.domain.entities.serializers.IntAsDoubleSerializer
+import com.z_company.domain.entities.serializers.NumberAsDoubleSerializer
 import com.z_company.domain.util.generateId
 import kotlinx.serialization.Serializable
 
@@ -18,10 +18,10 @@ data class Locomotive(
     var timeEndOfAcceptance: Long? = null,
     var timeStartOfDelivery: Long? = null,
     var timeEndOfDelivery: Long? = null,
-    @Serializable(with = IntAsDoubleSerializer::class)
-    var normaElectricCurrent1: Int? = null,
-    @Serializable(with = IntAsDoubleSerializer::class)
-    var normaElectricCurrent2: Int? = null,
+    @Serializable(with = NumberAsDoubleSerializer::class)
+    var normaElectricCurrent1: Double? = null,
+    @Serializable(with = NumberAsDoubleSerializer::class)
+    var normaElectricCurrent2: Double? = null,
     var normaDiesel: String? = null,
     var heatingCounterAccepted: Double? = null,
     var heatingCounterDelivery: Double? = null,

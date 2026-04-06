@@ -6,6 +6,7 @@ import com.z_company.route.viewmodel.FormViewModel
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.LocoFormViewModel
 import com.z_company.route.viewmodel.PassengerFormViewModel
+import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.ProfileViewModel
 import com.z_company.route.viewmodel.PurchasesViewModel
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
@@ -38,9 +39,10 @@ val viewModelModule = module {
     }
     viewModel { SearchViewModel() }
     viewModel { PurchasesViewModel() }
-    viewModel { SalaryCalculationViewModel() }
+    single(createdAtStart = true) { SalaryCalculationViewModel() }
     viewModel { SettingSalaryViewModel() }
     viewModel { AllRouteViewModel(androidApplication()) }
     viewModel { WorkScheduleViewModel() }
     viewModel { ProfileViewModel() }
+    single { PdfViewModel(androidApplication()) }
 }

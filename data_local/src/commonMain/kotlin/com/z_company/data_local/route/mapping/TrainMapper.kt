@@ -24,19 +24,23 @@ private data class StationRow(
     @SerialName("name") val stationNameNew: String? = null,
     val timeArrival: Long? = null,
     val timeDeparture: Long? = null,
-    val orderIndex: Int = 0
+    val orderIndex: Int = 0,
+    // Номер пути — новое поле. Отсутствующее значение в JSON → null (безопасная миграция).
+    @SerialName("track_number") val trackNumber: String? = null
 ) {
     fun toStation(): Station {
         val rawName = stationNameGson ?: stationNameNew
         // Сервер (Python) конвертирует null → "None" — убираем
         val cleanName = if (rawName == "None") null else rawName
+        val cleanTrack = if (trackNumber == "None") null else trackNumber
         return Station(
             stationId = stationId,
             trainId = trainId,
             stationName = cleanName,
             timeArrival = timeArrival,
             timeDeparture = timeDeparture,
-            orderIndex = orderIndex
+            orderIndex = orderIndex,
+            trackNumber = cleanTrack
         )
     }
 }

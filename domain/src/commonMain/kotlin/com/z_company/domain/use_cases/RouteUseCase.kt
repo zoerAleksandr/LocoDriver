@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
@@ -35,20 +36,30 @@ import kotlinx.datetime.toInstant
 class RouteUseCase(private val repository: RouteRepository) {
     fun routeListByMonthFlow(monthOfYear: MonthOfYear, offsetInMoscow: Long): Flow<List<Route>> {
         return callbackFlow {
-            val tz = TimeZone.currentSystemDefault()
+            // Границы месяца всегда в московском времени (GMT+3): пользователь вводит времена в МСК
+            val moscowTZ = TimeZone.of("GMT+3")
             val startDate = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
-            val startMonthInLong = startDate.atStartOfDayIn(tz).toEpochMilliseconds() - offsetInMoscow
+            val startMonthInLong = startDate.atStartOfDayIn(moscowTZ).toEpochMilliseconds()
             val maxDayOfMonth = startDate.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).dayOfMonth
-
             val endMonthInLong = LocalDateTime(
                 monthOfYear.year, monthOfYear.month + 1, maxDayOfMonth, 23, 59, 0, 0
-            ).toInstant(tz).toEpochMilliseconds() - offsetInMoscow
+            ).toInstant(moscowTZ).toEpochMilliseconds()
+            // Расширяем начало на 2 дня чтобы захватить переходные маршруты из предыдущего месяца
+            val extendedStart = startMonthInLong - 2 * 24 * 3_600_000L
 
             repository.loadRouteByPeriodFlow(
-                startPeriod = startMonthInLong,
+                startPeriod = extendedStart,
                 endPeriod = endMonthInLong
             ).collect { routes ->
-                trySend(routes)
+                // Пост-фильтр: оставляем только маршруты, реально пересекающиеся с месяцем.
+                // SQL-запрос getByPeriod использует OR-условия по timeEndWork и может захватить
+                // маршруты из прошлого месяца (например, сдача попадает в расширенный период).
+                val filtered = routes.filter { route ->
+                    val start = route.basicData.timeStartWork ?: return@filter true
+                    val end = route.basicData.timeEndWork
+                    start < endMonthInLong && (end == null || end >= startMonthInLong)
+                }
+                trySend(filtered)
             }
             awaitClose()
         }
@@ -61,16 +72,27 @@ class RouteUseCase(private val repository: RouteRepository) {
     ): Flow<ResultState<List<Route>>> = flow {
         emit(ResultState.Loading())
 
-        val tz = TimeZone.currentSystemDefault()
+        val moscowTZ = TimeZone.of("GMT+3")
         val startDate = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
-        val startMonthInLong = startDate.atStartOfDayIn(tz).toEpochMilliseconds() - offsetInMoscow
+        val startMonthInLong = startDate.atStartOfDayIn(moscowTZ).toEpochMilliseconds()
         val maxDayOfMonth = startDate.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).dayOfMonth
-
         val endMonthInLong = LocalDateTime(
             monthOfYear.year, monthOfYear.month + 1, maxDayOfMonth, 23, 59, 0, 0
-        ).toInstant(tz).toEpochMilliseconds() - offsetInMoscow
+        ).toInstant(moscowTZ).toEpochMilliseconds()
+        val extendedStart = startMonthInLong - 2 * 24 * 3_600_000L
 
-        emitAll(repository.loadRoutesByPeriod(startMonthInLong, endMonthInLong))
+        emitAll(
+            repository.loadRoutesByPeriod(extendedStart, endMonthInLong)
+                .map { state ->
+                    if (state is ResultState.Success) {
+                        ResultState.Success(state.data.filter { route ->
+                            val start = route.basicData.timeStartWork ?: return@filter true
+                            val end = route.basicData.timeEndWork
+                            start < endMonthInLong && (end == null || end >= startMonthInLong)
+                        })
+                    } else state
+                }
+        )
     }
 
     fun listRouteWithDeleting(): List<Route> {
@@ -356,6 +378,13 @@ class RouteUseCase(private val repository: RouteRepository) {
                                 )
                             )
                         }
+                        if (station.timeArrival.lessThan(previousStation.timeDeparture)) {
+                            trySend(
+                                ResultState.Error(
+                                    ErrorEntity(message = "Прибытие на станцию $name раньше отправления со станции ${previousStation.stationName}. Невозможно сохранить данные.")
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -385,5 +414,44 @@ class RouteUseCase(private val repository: RouteRepository) {
 
     fun setFavoriteRoute(routeId: String, isFavorite: Boolean): Flow<ResultState<Boolean>> {
         return repository.setFavoriteRoute(routeId, isFavorite)
+    }
+
+    /**
+     * Одноразовая миграция: сдвигает все timestamp-поля маршрутов на [offsetFromMoscow] мс.
+     *
+     * Необходима для пользователей из регионов, отличных от Москвы, которые вводили данные
+     * до переключения отображения на московское время (GMT+3). До исправления DateAndTimeConverter
+     * использовал часовой пояс телефона, поэтому, например, пользователь в Иркутске (UTC+8)
+     * вводя "21:20" сохранял 13:20 UTC вместо правильных 18:20 UTC.
+     *
+     * Формула: newEpoch = oldEpoch + offsetFromMoscow
+     * - Москва (offset=0): no-op, данные не изменяются
+     * - Иркутск (+5ч = 18_000_000 мс): 13:20 UTC + 5ч = 18:20 UTC → отображается как "21:20 MSK" ✓
+     */
+    suspend fun migrateTimestamps(offsetFromMoscow: Long): Unit = withContext(Dispatchers.Default) {
+        if (offsetFromMoscow == 0L) return@withContext
+
+        val routes = repository.loadRoutes()
+        routes.forEach { route ->
+            val migratedRoute = route.copy(
+                basicData = route.basicData.copy(
+                    timeStartWork = route.basicData.timeStartWork?.plus(offsetFromMoscow),
+                    timeEndWork = route.basicData.timeEndWork?.plus(offsetFromMoscow),
+                    timeStartBreak = route.basicData.timeStartBreak?.plus(offsetFromMoscow),
+                    timeEndBreak = route.basicData.timeEndBreak?.plus(offsetFromMoscow),
+                ),
+                locomotives = route.locomotives.map { loco ->
+                    loco.copy(
+                        timeStartOfAcceptance = loco.timeStartOfAcceptance?.plus(offsetFromMoscow),
+                        timeEndOfAcceptance = loco.timeEndOfAcceptance?.plus(offsetFromMoscow),
+                        timeStartOfDelivery = loco.timeStartOfDelivery?.plus(offsetFromMoscow),
+                        timeEndOfDelivery = loco.timeEndOfDelivery?.plus(offsetFromMoscow),
+                    )
+                }.toMutableList(),
+                trains = route.trains.toMutableList(),
+                passengers = route.passengers.toMutableList(),
+            )
+            repository.saveRoute(migratedRoute).collect {}
+        }
     }
 }

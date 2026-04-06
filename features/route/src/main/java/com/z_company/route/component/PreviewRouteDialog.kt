@@ -1258,8 +1258,12 @@ fun PreviewRoute(
                         AnimatedVisibility(visible = trainExpandItemState[index]!!) {
                             Column {
                                 train.stations.forEach { station ->
-                                    val stationNameText =
-                                        station.stationName.ifNullOrBlank { "" }
+                                    val stationNameText = buildString {
+                                        append(station.stationName.ifNullOrBlank { "" })
+                                        if (!station.trackNumber.isNullOrBlank()) {
+                                            append(" ${station.trackNumber} п.")
+                                        }
+                                    }
                                     val timeArrival =
                                         dateAndTimeConverter?.getTimeFromDateLong(station.timeArrival)
                                             ?: "..."

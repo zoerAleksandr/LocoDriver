@@ -90,6 +90,9 @@ import com.z_company.route.R
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ChipApp
+import com.z_company.route.component.PdfActionSheet
+import com.z_company.route.component.PdfContentDialog
+import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.WorkScheduleViewModel
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import kotlinx.coroutines.FlowPreview
@@ -166,6 +169,25 @@ fun WorkScheduleScreen(
     val lifecycle = lifecycleOwner.lifecycle
 
     val snackbarManager: ISnackbarManager = koinInject()
+    val pdfViewModel: PdfViewModel = koinInject()
+    var showPdfDialog by remember { mutableStateOf(false) }
+    var pdfUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    LaunchedEffect(Unit) {
+        pdfViewModel.pdfReady.collect { uri ->
+            pdfUri = uri
+        }
+    }
+
+    // Cache routes in shared PdfViewModel so SalaryCalculationScreen can use them
+    LaunchedEffect(routesByDay, currentMonth) {
+        val routes = routesByDay.values.flatten()
+        val monthLabel = currentMonth?.let {
+            "${getMonthFullText(it.month)} ${it.year}"
+        } ?: ""
+        pdfViewModel.updateRoutes(routes, monthLabel)
+        pdfViewModel.updateCalendarDays(currentMonthFull?.days ?: emptyList())
+    }
 
     LaunchedEffect(Unit) {
         snackbarManager.events
@@ -467,14 +489,23 @@ fun WorkScheduleScreen(
                             )
                         }
 
-                        IconButton(onClick = { viewModel.toggleDeleteMode() }) {
-                            val tint =
-                                if (isDeleteMode) red else MaterialTheme.colorScheme.primary
-                            Icon(
-                                painter = painterResource(R.drawable.delete_24px),
-                                contentDescription = null,
-                                tint = tint
-                            )
+                        Row {
+                            IconButton(onClick = { showPdfDialog = true }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.picture_as_pdf_24px),
+                                    contentDescription = "PDF",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(onClick = { viewModel.toggleDeleteMode() }) {
+                                val tint =
+                                    if (isDeleteMode) red else MaterialTheme.colorScheme.primary
+                                Icon(
+                                    painter = painterResource(R.drawable.delete_24px),
+                                    contentDescription = null,
+                                    tint = tint
+                                )
+                            }
                         }
                     }
                 }
@@ -1055,6 +1086,28 @@ fun WorkScheduleScreen(
             },
             recentTimes = sharedPrefs.getRecentTimes("work_duration"),
             onRecentTimeSaved = { sharedPrefs.addRecentTime("work_duration", it) }
+        )
+    }
+
+    // PDF dialog
+    if (showPdfDialog) {
+        PdfContentDialog(
+            onDismiss = { showPdfDialog = false },
+            onGenerate = { sections ->
+                showPdfDialog = false
+                val routes = routesByDay.values.flatten()
+                val monthLabel = currentMonth?.let {
+                    "${getMonthFullText(it.month)} ${it.year}"
+                } ?: ""
+                pdfViewModel.generateAndShare(sections, routes, monthLabel, currentMonthFull?.days ?: emptyList())
+            }
+        )
+    }
+
+    pdfUri?.let { uri ->
+        PdfActionSheet(
+            uri = uri,
+            onDismiss = { pdfUri = null }
         )
     }
 }

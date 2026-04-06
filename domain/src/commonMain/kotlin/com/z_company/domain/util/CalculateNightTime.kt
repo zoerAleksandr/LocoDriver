@@ -36,30 +36,28 @@ object CalculateNightTime {
             if (startMillis == null || endMillis == null) {
                 trySend(null)
             } else {
-                val startLocalMillis = startMillis + offsetInMoscow
-                val endLocalMillis = endMillis + offsetInMoscow
+                val timeZoneStr = getTimeZone(offsetInMoscow)
+                val localTZ = TimeZone.of(timeZoneStr)
 
                 val hasBreak = breakStartMillis != null && breakEndMillis != null && breakEndMillis > breakStartMillis
-                val bStart = if (hasBreak) breakStartMillis!! + offsetInMoscow else 0L
-                val bEnd = if (hasBreak) breakEndMillis!! + offsetInMoscow else 0L
+                val bStart = if (hasBreak) breakStartMillis!! else 0L
+                val bEnd = if (hasBreak) breakEndMillis!! else 0L
 
                 val dateList = mutableListOf<Long>()
-                dateList.add(startLocalMillis)
+                dateList.add(startMillis)
 
-                val tz = TimeZone.currentSystemDefault()
-                var dayOfWorkMillis = Instant.fromEpochMilliseconds(startLocalMillis)
-                    .toLocalDateTime(tz).date.atStartOfDayIn(tz).toEpochMilliseconds()
+                var dayOfWorkMillis = Instant.fromEpochMilliseconds(startMillis)
+                    .toLocalDateTime(localTZ).date.atStartOfDayIn(localTZ).toEpochMilliseconds()
 
-                while (isBeforeDay(dayOfWorkMillis, endLocalMillis)) {
+                while (isBeforeDay(dayOfWorkMillis, endMillis, localTZ)) {
                     dayOfWorkMillis = Instant.fromEpochMilliseconds(dayOfWorkMillis)
-                        .toLocalDateTime(tz).date.plus(1, DateTimeUnit.DAY)
-                        .atStartOfDayIn(tz).toEpochMilliseconds()
+                        .toLocalDateTime(localTZ).date.plus(1, DateTimeUnit.DAY)
+                        .atStartOfDayIn(localTZ).toEpochMilliseconds()
                     dateList.add(dayOfWorkMillis)
                 }
 
                 var countNightTime = 0L
                 var breakNightOverlap = 0L
-                val timeZoneStr = getTimeZone(offsetInMoscow)
 
                 dateList.forEach { calMillis ->
                     val startNightMillis = withTime(calMillis, hourStart, minuteStart, timeZoneStr)
@@ -68,7 +66,7 @@ object CalculateNightTime {
                     if (hourStart <= hourEnd) {
                         if (calMillis in startNightMillis..endNightMillis) {
                             val endNightTime =
-                                if (endNightMillis < endLocalMillis) endNightMillis else endLocalMillis
+                                if (endNightMillis < endMillis) endNightMillis else endMillis
                             val nightTime = endNightTime - calMillis
                             countNightTime += nightTime
                             if (hasBreak) {
@@ -82,15 +80,15 @@ object CalculateNightTime {
                             calMillis
                         }
                         val endTimeThisDay =
-                            if (dayOfMonthSystemTZ(calMillis) == dayOfMonthSystemTZ(endLocalMillis)) {
-                                endLocalMillis
+                            if (dayOfMonthInTZ(calMillis, localTZ) == dayOfMonthInTZ(endMillis, localTZ)) {
+                                endMillis
                             } else {
                                 Instant.fromEpochMilliseconds(calMillis)
-                                    .toLocalDateTime(tz).date.plus(1, DateTimeUnit.DAY)
-                                    .atStartOfDayIn(tz).toEpochMilliseconds()
+                                    .toLocalDateTime(localTZ).date.plus(1, DateTimeUnit.DAY)
+                                    .atStartOfDayIn(localTZ).toEpochMilliseconds()
                             }
-                        val endNightTime = if (endLocalMillis < endNightMillis) {
-                            endLocalMillis
+                        val endNightTime = if (endMillis < endNightMillis) {
+                            endMillis
                         } else {
                             endNightMillis
                         }
@@ -136,34 +134,32 @@ object CalculateNightTime {
             if (startMillis == null || endMillis == null) {
                 trySend(null)
             } else {
-                val tz = TimeZone.currentSystemDefault()
+                val timeZoneStr = getTimeZone(offsetInMoscow)
+                val localTZ = TimeZone.of(timeZoneStr)
+
                 val startWorkMonthNumber =
-                    Instant.fromEpochMilliseconds(startMillis).toLocalDateTime(tz).monthNumber - 1
+                    Instant.fromEpochMilliseconds(startMillis).toLocalDateTime(localTZ).monthNumber - 1
 
                 val hasBreak = breakStartMillis != null && breakEndMillis != null && breakEndMillis > breakStartMillis
-                val bStart = if (hasBreak) breakStartMillis!! + offsetInMoscow else 0L
-                val bEnd = if (hasBreak) breakEndMillis!! + offsetInMoscow else 0L
+                val bStart = if (hasBreak) breakStartMillis!! else 0L
+                val bEnd = if (hasBreak) breakEndMillis!! else 0L
 
                 if (startWorkMonthNumber == month) {
-                    val startLocalMillis = startMillis + offsetInMoscow
-                    val endLocalMillis = endMillis + offsetInMoscow
-
                     val dateList = mutableListOf<Long>()
-                    dateList.add(startLocalMillis)
+                    dateList.add(startMillis)
 
-                    var dayOfWorkMillis = Instant.fromEpochMilliseconds(startLocalMillis)
-                        .toLocalDateTime(tz).date.atStartOfDayIn(tz).toEpochMilliseconds()
+                    var dayOfWorkMillis = Instant.fromEpochMilliseconds(startMillis)
+                        .toLocalDateTime(localTZ).date.atStartOfDayIn(localTZ).toEpochMilliseconds()
 
-                    while (isBeforeDay(dayOfWorkMillis, endLocalMillis)) {
+                    while (isBeforeDay(dayOfWorkMillis, endMillis, localTZ)) {
                         dayOfWorkMillis = Instant.fromEpochMilliseconds(dayOfWorkMillis)
-                            .toLocalDateTime(tz).date.plus(1, DateTimeUnit.DAY)
-                            .atStartOfDayIn(tz).toEpochMilliseconds()
+                            .toLocalDateTime(localTZ).date.plus(1, DateTimeUnit.DAY)
+                            .atStartOfDayIn(localTZ).toEpochMilliseconds()
                         dateList.add(dayOfWorkMillis)
                     }
 
                     var countNightTime = 0L
                     var breakNightOverlap = 0L
-                    val timeZoneStr = getTimeZone(offsetInMoscow)
 
                     dateList.forEach { calMillis ->
                         val startNightMillis = withTime(calMillis, hourStart, minuteStart, timeZoneStr)
@@ -172,7 +168,7 @@ object CalculateNightTime {
                         if (hourStart <= hourEnd) {
                             if (calMillis in startNightMillis..endNightMillis) {
                                 val endNightTime =
-                                    if (endNightMillis < endLocalMillis) endNightMillis else endLocalMillis
+                                    if (endNightMillis < endMillis) endNightMillis else endMillis
                                 val nightTime = endNightTime - calMillis
                                 countNightTime += nightTime
                                 if (hasBreak) {
@@ -186,12 +182,12 @@ object CalculateNightTime {
                                 calMillis
                             }
                             val endTimeThisDay =
-                                if (dayOfMonthSystemTZ(calMillis) == dayOfMonthSystemTZ(endLocalMillis)) {
-                                    endLocalMillis
+                                if (dayOfMonthInTZ(calMillis, localTZ) == dayOfMonthInTZ(endMillis, localTZ)) {
+                                    endMillis
                                 } else {
                                     Instant.fromEpochMilliseconds(calMillis)
-                                        .toLocalDateTime(tz).date.plus(1, DateTimeUnit.DAY)
-                                        .atStartOfDayIn(tz).toEpochMilliseconds()
+                                        .toLocalDateTime(localTZ).date.plus(1, DateTimeUnit.DAY)
+                                        .atStartOfDayIn(localTZ).toEpochMilliseconds()
                                 }
 
                             // Second part night
@@ -209,32 +205,29 @@ object CalculateNightTime {
                     }
                     trySend(countNightTime)
                 } else {
-                    val startLocalMillis = startMillis + offsetInMoscow
-                    val endLocalMillis = endMillis + offsetInMoscow
-
                     val dateList = mutableListOf<Long>()
-                    dateList.add(startLocalMillis)
+                    dateList.add(startMillis)
 
-                    var dayOfWorkMillis = Instant.fromEpochMilliseconds(startLocalMillis)
-                        .toLocalDateTime(tz).date.atStartOfDayIn(tz).toEpochMilliseconds()
+                    var dayOfWorkMillis = Instant.fromEpochMilliseconds(startMillis)
+                        .toLocalDateTime(localTZ).date.atStartOfDayIn(localTZ).toEpochMilliseconds()
 
-                    while (isBeforeDay(dayOfWorkMillis, endLocalMillis)) {
+                    while (isBeforeDay(dayOfWorkMillis, endMillis, localTZ)) {
                         dayOfWorkMillis = Instant.fromEpochMilliseconds(dayOfWorkMillis)
-                            .toLocalDateTime(tz).date.plus(1, DateTimeUnit.DAY)
-                            .atStartOfDayIn(tz).toEpochMilliseconds()
+                            .toLocalDateTime(localTZ).date.plus(1, DateTimeUnit.DAY)
+                            .atStartOfDayIn(localTZ).toEpochMilliseconds()
                         dateList.add(dayOfWorkMillis)
                     }
 
                     var countNightTime = 0L
                     var breakNightOverlap = 0L
                     dateList.forEach { calMillis ->
-                        val startNightMillis = withTime(calMillis, hourStart, minuteStart, null)
-                        val endNightMillis = withTime(calMillis, hourEnd, minuteEnd, null)
+                        val startNightMillis = withTime(calMillis, hourStart, minuteStart, timeZoneStr)
+                        val endNightMillis = withTime(calMillis, hourEnd, minuteEnd, timeZoneStr)
 
                         if (hourStart <= hourEnd) {
                             if (calMillis in startNightMillis..endNightMillis) {
                                 val endNightTime =
-                                    if (endNightMillis < endLocalMillis) endNightMillis else endLocalMillis
+                                    if (endNightMillis < endMillis) endNightMillis else endMillis
                                 val nightTime = endNightTime - calMillis
                                 countNightTime += nightTime
                                 if (hasBreak) {
@@ -242,8 +235,8 @@ object CalculateNightTime {
                                 }
                             }
                         } else {
-                            val endNightTime = if (endLocalMillis < endNightMillis) {
-                                endLocalMillis
+                            val endNightTime = if (endMillis < endNightMillis) {
+                                endMillis
                             } else {
                                 endNightMillis
                             }
@@ -274,12 +267,11 @@ object CalculateNightTime {
             .toInstant(tz).toEpochMilliseconds()
     }
 
-    private fun dayOfMonthSystemTZ(millis: Long): Int =
-        Instant.fromEpochMilliseconds(millis).toLocalDateTime(TimeZone.currentSystemDefault()).dayOfMonth
+    private fun dayOfMonthInTZ(millis: Long, tz: TimeZone): Int =
+        Instant.fromEpochMilliseconds(millis).toLocalDateTime(tz).dayOfMonth
 }
 
-fun isBeforeDay(millis1: Long, millis2: Long): Boolean {
-    val tz = TimeZone.currentSystemDefault()
+fun isBeforeDay(millis1: Long, millis2: Long, tz: TimeZone = TimeZone.currentSystemDefault()): Boolean {
     val day1 = Instant.fromEpochMilliseconds(millis1).toLocalDateTime(tz).date
     val day2 = Instant.fromEpochMilliseconds(millis2).toLocalDateTime(tz).date
     return day1 < day2

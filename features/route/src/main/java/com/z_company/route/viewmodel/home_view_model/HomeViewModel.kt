@@ -15,6 +15,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.TimeManager
 import com.z_company.core.widget.WidgetUpdater
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.SalarySetting
@@ -93,6 +94,7 @@ import ru.rustore.sdk.appupdate.model.UpdateAvailability
 data class OpenRouteFormEvent(val basicId: String?, val isMakeCopy: Boolean)
 
 class HomeViewModel : ViewModel(), KoinComponent {
+    private val timeManager = TimeManager()
     private val routeUseCase: RouteUseCase by inject()
     private val trainUseCase: TrainUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
@@ -112,6 +114,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     var todayWorkTime by mutableLongStateOf(0L)
         private set
+
+    // Все маршруты (все месяцы) для поиска следующей явки
+    private var allRoutesGlobal: List<Route> = emptyList()
 
     var isConsiderFutureRoute by mutableStateOf(false)
         private set
@@ -149,6 +154,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
     val countdownToNextRoute = _countdownToNextRoute.asSharedFlow()
 
     private var countdownTimerJob: Job? = null
+
+    // Кэш последнего списка маршрутов — нужен для пересчёта при завершении маршрута
+    // без повторного обращения к БД (используется в handleRouteEnded).
+    private var cachedRouteList: List<Route> = emptyList()
 
     private var removeRouteJob: Job? = null
     private var setCalendarJob: Job? = null
@@ -293,28 +302,81 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     var timerJob: Job? = null
 
+    /**
+     * Вызывается когда таймер обнаружил, что timeEndWork маршрута уже наступило
+     * (пока приложение было открыто или телефон заблокирован).
+     * Сбрасывает currentRoute и пересчитывает todayWorkTime + countdown без обращения к БД.
+     */
+    private fun handleRouteEnded() {
+        currentRoute = null
+        timerJob = null
+
+        val userSettings = currentUserSetting ?: return
+        val monthOfYear = currentMonthOfYear ?: return
+        val routeList = cachedRouteList
+
+        val currentTimeInMillis = Calendar.getInstance().timeInMillis
+
+        // Пересчитываем время, отработанное за сегодня, с учётом только завершённых маршрутов
+        if (isConsiderFutureRoute) {
+            val completedRoutes = routeList.filter { route ->
+                val end = route.basicData.timeEndWork ?: return@filter false
+                end <= currentTimeInMillis
+            }
+            todayWorkTime = completedRoutes.getWorkTime(monthOfYear, userSettings.timeZone)
+        }
+
+        // Запускаем обратный отсчёт до следующего маршрута
+        val next = routeList.findNextFutureRoute(currentTimeInMillis)
+        nextFutureRoute = next
+        next?.basicData?.timeStartWork?.let { startWork ->
+            countdownTimer(startWork)
+        }
+    }
+
+    fun refreshTimer() {
+        val route = currentRoute ?: return
+        val startWork = route.basicData.timeStartWork ?: return
+        workTimer(startWork)
+    }
+
     fun workTimer(startWork: Long) {
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
             val timeZone =
                 uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
-            val currentTimeCalendar = getInstance(TimeZone.getTimeZone(timeZone))
-            val currentTime: Long = currentTimeCalendar.timeInMillis
-            val startWorkTime: Long = startWork + uiState.value.offsetInMoscow
+            val tz = TimeZone.getTimeZone(timeZone)
+            val startWorkTime: Long = startWork
 
-            val second = currentTimeCalendar
-                .get(Calendar.SECOND)
+            val currentTimeCalendar = getInstance(tz)
+            val second = currentTimeCalendar.get(Calendar.SECOND)
+            val firstIncreasingTimeInMillis = (60 - second) * 1000L
 
-            val remainingSecond = 60 - second
+            // Первый тик: если маршрут уже завершился до старта таймера — сразу обрабатываем
+            val initEndWork = currentRoute?.basicData?.timeEndWork
+            val initNow = currentTimeCalendar.timeInMillis
+            if (initEndWork != null && initNow >= initEndWork) {
+                _workTimeInCurrentRoute.tryEmit(initEndWork - startWorkTime)
+                handleRouteEnded()
+                return@launch
+            }
 
-            val firstIncreasingTimeInMillis = remainingSecond * 1000L
-            var difference = currentTime - startWorkTime
-
-            _workTimeInCurrentRoute.tryEmit(difference)
+            _workTimeInCurrentRoute.tryEmit(initNow - startWorkTime)
             delay(firstIncreasingTimeInMillis)
             while (currentRoute != null) {
-                difference += 60_000L
-                _workTimeInCurrentRoute.tryEmit(difference)
+                // Пересчитываем от реального времени — delay() может быть длиннее 60 сек
+                // при блокировке экрана (Doze mode), поэтому накопительное += 60_000 даёт отставание.
+                val now = getInstance(tz).timeInMillis
+                val endWork = currentRoute?.basicData?.timeEndWork
+
+                if (endWork != null && now >= endWork) {
+                    // Маршрут завершился пока приложение было открыто / телефон заблокирован
+                    _workTimeInCurrentRoute.tryEmit(endWork - startWorkTime)
+                    handleRouteEnded()
+                    break
+                }
+
+                _workTimeInCurrentRoute.tryEmit(now - startWorkTime)
                 delay(60_000L)
             }
         }
@@ -325,15 +387,14 @@ class HomeViewModel : ViewModel(), KoinComponent {
         countdownTimerJob = viewModelScope.launch {
             val timeZone =
                 uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
-            val currentTimeCalendar = getInstance(TimeZone.getTimeZone(timeZone))
-            val currentTime: Long = currentTimeCalendar.timeInMillis
-            val startWorkTime: Long = startWork + uiState.value.offsetInMoscow
+            val tz = TimeZone.getTimeZone(timeZone)
+            val startWorkTime: Long = startWork
 
+            val currentTimeCalendar = getInstance(tz)
             val second = currentTimeCalendar.get(Calendar.SECOND)
-            val remainingSecond = 60 - second
-            val firstTickDelayMillis = remainingSecond * 1000L
+            val firstTickDelayMillis = (60 - second) * 1000L
 
-            var difference = startWorkTime - currentTime
+            var difference = startWorkTime - currentTimeCalendar.timeInMillis
             if (difference <= 0) {
                 _countdownToNextRoute.tryEmit(0L)
                 return@launch
@@ -343,7 +404,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
             delay(firstTickDelayMillis)
 
             while (difference > 0) {
-                difference -= 60_000L
+                // Пересчитываем от реального времени — без накопительного -= 60_000,
+                // чтобы не отставать после блокировки экрана (Doze mode).
+                difference = startWorkTime - getInstance(tz).timeInMillis
                 if (difference <= 0) {
                     _countdownToNextRoute.tryEmit(0L)
                     nextFutureRoute = null
@@ -386,11 +449,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     fun onGoClicked() {
         viewModelScope.launch {
             val current = currentRoute?.trains?.lastOrNull()
-            val timeZone = uiState.value.dateAndTimeConverter?.timeZoneText ?: "GMT+3"
-            val now = getInstance(TimeZone.getTimeZone(timeZone)).apply {
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
+            val now = timeManager.now()
 
             val updatedTrain = withContext(Dispatchers.Default) {
                 if (current == null) {
@@ -1024,7 +1083,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 )
 
                 // Next report text
-                val futureRoute = fullRouteList.findNextFutureRoute(currentTimeInMillis)
+                val futureRoute = allRoutesGlobal.findNextFutureRoute(currentTimeInMillis)
                 val nextReportText = if (futureRoute != null) {
                     "След. явка ${dateAndTimeConverter.getDateMiniAndTime(futureRoute.basicData.timeStartWork)}"
                 } else "След. явка неизвестна"
@@ -1272,6 +1331,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
         viewModelScope.launch(Dispatchers.IO) {
             routeUseCase.getListRoutesAsFlow().collect { allRoutes ->
+                allRoutesGlobal = allRoutes
                 val unsyncedCount = allRoutes.count { !it.basicData.isSynchronized }
                 _uiState.update { it.copy(unsyncedRoutesCount = unsyncedCount) }
             }
@@ -1332,6 +1392,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
                     is ResultState.Success -> {
                         val fullRouteList = result.data
+                        cachedRouteList = fullRouteList
                         val userSettings = currentUserSetting
                         val salarySetting = currentSalarySetting
                         if (userSettings != null && salarySetting != null) {
@@ -1376,7 +1437,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                 nextFutureRoute = null
                                 countdownTimerJob?.cancel()
                             } else {
-                                nextFutureRoute = fullRouteList.findNextFutureRoute(currentTimeInMillis)
+                                nextFutureRoute = allRoutesGlobal.findNextFutureRoute(currentTimeInMillis)
                                 nextFutureRoute?.basicData?.timeStartWork?.let { startWork ->
                                     countdownTimer(startWork)
                                 }

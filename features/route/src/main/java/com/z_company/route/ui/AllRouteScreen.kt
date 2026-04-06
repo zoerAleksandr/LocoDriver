@@ -21,6 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.flowWithLifecycle
@@ -38,8 +39,11 @@ import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ChipApp
 import com.z_company.route.component.ItemHomeScreen
+import com.z_company.route.component.PdfActionSheet
+import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.component.PreviewRouteDialog
 import com.z_company.route.component.RadioButtonWithLabel
+import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.all_route_view_model.AllRouteViewModel
 import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
 import com.z_company.route.viewmodel.all_route_view_model.SortOption
@@ -118,6 +122,31 @@ fun AllRouteScreen(
     var showContextDialog by remember { mutableStateOf(false) }
 
     val snackbarManager: ISnackbarManager = koinInject()
+    val pdfViewModel: PdfViewModel = koinInject()
+
+    // Cache routes in shared PdfViewModel so SalaryCalculationScreen can use them
+    LaunchedEffect(displayedRoutes, state.currentMonthOfYear) {
+        val monthLabel = state.currentMonthOfYear?.let {
+            "${getMonthFullText(it.month)} ${it.year}"
+        } ?: ""
+        pdfViewModel.updateRoutes(displayedRoutes.map { it.route }, monthLabel)
+    }
+    var showPdfDialog by remember { mutableStateOf(false) }
+    var pdfUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val isPdfGenerating by pdfViewModel.isGenerating.collectAsState()
+    val pdfError by pdfViewModel.errorMessage.collectAsState()
+
+    // PDF ready event
+    LaunchedEffect(Unit) {
+        pdfViewModel.pdfReady.collect { uri ->
+            pdfUri = uri
+        }
+    }
+
+    // Show PDF error in snackbar
+    LaunchedEffect(pdfError) {
+        pdfError?.let { snackbarHostState.showSnackbar(it) }
+    }
 
     LaunchedEffect(Unit) {
         snackbarManager.events
@@ -481,8 +510,24 @@ fun AllRouteScreen(
                     )
                 }
 
-                // Right: expand + sort buttons
+                // Right: pdf + expand + sort buttons
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = { if (!isPdfGenerating) showPdfDialog = true },
+                        enabled = !isPdfGenerating
+                    ) {
+                        if (isPdfGenerating) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(8.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.picture_as_pdf_24px),
+                                contentDescription = "PDF"
+                            )
+                        }
+                    }
                     IconButton(
                         onClick = {
                             viewModel.toggleExpandedView()
@@ -641,6 +686,28 @@ fun AllRouteScreen(
                     }
                 }
             }
+        }
+
+        // PDF dialog
+        if (showPdfDialog) {
+            PdfContentDialog(
+                onDismiss = { showPdfDialog = false },
+                onGenerate = { sections ->
+                    showPdfDialog = false
+                    val routes = displayedRoutes.map { it.route }
+                    val monthLabel = state.currentMonthOfYear?.let {
+                        "${getMonthFullText(it.month)} ${it.year}"
+                    } ?: ""
+                    pdfViewModel.generateAndShare(sections, routes, monthLabel, emptyList())
+                }
+            )
+        }
+
+        pdfUri?.let { uri ->
+            PdfActionSheet(
+                uri = uri,
+                onDismiss = { pdfUri = null }
+            )
         }
     }
 }

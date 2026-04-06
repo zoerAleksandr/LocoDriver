@@ -22,5 +22,9 @@ robokassa_sdk/build/
 .claude/worktrees/
 app/release/
 
-# Xcode user state (бинарный, не нужен в git)
+# IDE / Xcode user state
 *.xcuserstate
+.idea/gradle.xml
+
+# Compose Resources generated files
+iosApp/build/generated/

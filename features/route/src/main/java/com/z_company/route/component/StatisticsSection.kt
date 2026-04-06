@@ -64,19 +64,19 @@ fun ElectricStatisticsSection(
         // Ток 1
         StatRow(
             label = "Расход",
-            value = overResult?.toLong()?.toString() ?: "—"
+            value = rounding(overResult, 2)?.str() ?: "—"
         )
         StatRow(
             label = "Норма",
-            value = locomotive.normaElectricCurrent1?.toString() ?: "—",
+            value = locomotive.normaElectricCurrent1?.str() ?: "—",
             valueColor = NormaColor,
             onClick = onSettingsClick
         )
         if (locomotive.normaElectricCurrent1 != null) {
-            val result = locomotive.normaElectricCurrent1!! -
-                    (overResult?.toLong()?.toInt() ?: 0)
-            val resultText = if (result > 0) "+$result" else "$result"
-            val resultColor = if (result < 0) {
+            val result = locomotive.normaElectricCurrent1!! - (overResult ?: 0.0)
+            val rounded = rounding(result, 2) ?: result
+            val resultText = if (rounded > 0) "+${rounded.str()}" else rounded.str()
+            val resultColor = if (rounded < 0) {
                 MaterialTheme.colorScheme.error
             } else {
                 MaterialTheme.colorScheme.primary
@@ -85,7 +85,7 @@ fun ElectricStatisticsSection(
         }
         StatRow(
             label = "Рекуперация",
-            value = overRecovery?.toLong()?.toString() ?: "—"
+            value = rounding(overRecovery, 2)?.str() ?: "—"
         )
 
         // Ток 2
@@ -98,19 +98,19 @@ fun ElectricStatisticsSection(
             )
             StatRow(
                 label = "Расход",
-                value = overResult2?.toLong()?.toString() ?: "—"
+                value = rounding(overResult2, 2)?.str() ?: "—"
             )
             StatRow(
                 label = "Норма",
-                value = locomotive.normaElectricCurrent2?.toString() ?: "—",
+                value = locomotive.normaElectricCurrent2?.str() ?: "—",
                 valueColor = NormaColor,
                 onClick = onSettingsClick
             )
             if (locomotive.normaElectricCurrent2 != null) {
-                val result2 = locomotive.normaElectricCurrent2!! -
-                        (overResult2?.toLong()?.toInt() ?: 0)
-                val resultText2 = if (result2 > 0) "+$result2" else "$result2"
-                val resultColor2 = if (result2 < 0) {
+                val result2 = locomotive.normaElectricCurrent2!! - (overResult2 ?: 0.0)
+                val rounded2 = rounding(result2, 2) ?: result2
+                val resultText2 = if (rounded2 > 0) "+${rounded2.str()}" else rounded2.str()
+                val resultColor2 = if (rounded2 < 0) {
                     MaterialTheme.colorScheme.error
                 } else {
                     MaterialTheme.colorScheme.primary
@@ -119,7 +119,7 @@ fun ElectricStatisticsSection(
             }
             StatRow(
                 label = "Рекуперация",
-                value = overRecovery2?.toLong()?.toString() ?: "—"
+                value = rounding(overRecovery2, 2)?.str() ?: "—"
             )
         }
     }

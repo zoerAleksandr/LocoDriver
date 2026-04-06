@@ -81,7 +81,7 @@ sqldelight {
         create("RouteDatabase") {
             packageName.set("com.z_company.data_local.route.db")
             srcDirs.setFrom("src/commonMain/sqldelight/RouteDatabase")
-            version = 4
+            version = 5
             verifyMigrations.set(false)
         }
         create("SettingsDatabase") {

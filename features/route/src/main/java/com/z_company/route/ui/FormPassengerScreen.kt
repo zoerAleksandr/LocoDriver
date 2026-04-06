@@ -88,7 +88,7 @@ import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.viewmodel.PassengerFormUiState
 import com.z_company.route.viewmodel.PassengerFormViewModel
-import java.util.Calendar
+import com.z_company.core.util.TimeManager
 
 @OptIn(
     ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class,
@@ -481,12 +481,6 @@ fun FormPassengerScreen(
                             mutableStateOf(false)
                         }
 
-                        val departureTime = Calendar.getInstance().also { calendar ->
-                            passenger.timeDeparture?.let { millis ->
-                                calendar.timeInMillis = millis
-                            }
-                        }
-
                         if (showDepartureDatePicker) {
                             DateTimePickerBottomSheet(
                                 title = "Отправление",
@@ -494,7 +488,7 @@ fun FormPassengerScreen(
                                     onTimeDepartureChanged(timestamp)
                                 },
                                 onDismiss = { showDepartureDatePicker = false },
-                                startDateTime = departureTime.timeInMillis,
+                                startDateTime = passenger.timeDeparture ?: TimeManager().now(),
                             )
                         }
 
@@ -627,12 +621,6 @@ fun FormPassengerScreen(
                             mutableStateOf(false)
                         }
 
-                        val arrivalTime = Calendar.getInstance().also { calendar ->
-                            passenger.timeArrival?.let { millis ->
-                                calendar.timeInMillis = millis
-                            }
-                        }
-
                         if (showArrivalDatePicker) {
                             DateTimePickerBottomSheet(
                                 title = "Отправление",
@@ -640,7 +628,7 @@ fun FormPassengerScreen(
                                     onTimeArrivalChanged(timestamp)
                                 },
                                 onDismiss = { showArrivalDatePicker = false },
-                                startDateTime = arrivalTime.timeInMillis,
+                                startDateTime = passenger.timeArrival ?: TimeManager().now(),
                             )
                         }
 

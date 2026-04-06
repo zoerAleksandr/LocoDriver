@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.flow
 import kotlin.time.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
@@ -61,8 +62,8 @@ object UtilsForEntities {
                 ).plus(1, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
 
                 route.timeInLongInPeriod(
-                    startDate = startHolidayInLong - userSetting.timeZone,
-                    endDate = endHolidayInLong - userSetting.timeZone
+                    startDate = startHolidayInLong,
+                    endDate = endHolidayInLong
                 )?.let { timeInPeriod ->
                     if (timeInPeriod > 0) {
                         holidayTime += timeInPeriod
@@ -92,9 +93,9 @@ object UtilsForEntities {
 
     fun isExtendedServicePhaseTrains(salarySetting: SalarySetting, route: Route): Boolean {
         val phaseList =
-            salarySetting.surchargeExtendedServicePhaseList.sortedBy {
-                it.distance
-            }
+            salarySetting.surchargeExtendedServicePhaseList
+                .filter { it.distance.toIntOrNull()?.let { d -> d > 0 } == true }
+                .sortedBy { it.distance.toIntOrNull() ?: 0 }
 
         val timeList: MutableList<Long> = mutableListOf()
         phaseList.forEachIndexed { index, _ ->
@@ -153,6 +154,24 @@ object UtilsForEntities {
         } else {
             null
         }
+    }
+
+    /**
+     * Рабочее время маршрута в пределах указанного месяца.
+     * Для переходных маршрутов возвращает только ту часть, что принадлежит [monthOfYear].
+     * Для обычных — то же, что [getWorkTime].
+     */
+    fun Route.getWorkTimeInMonth(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long? {
+        if (!isTransition(offsetInMoscow)) return getWorkTime()
+        val (clippedStart, clippedEnd) = clipToMonthMoscow(monthOfYear) ?: return null
+        val breakStart = basicData.timeStartBreak
+        val breakEnd = basicData.timeEndBreak
+        val breakDuration = if (breakStart != null && breakEnd != null && breakEnd > breakStart) {
+            val bStart = maxOf(breakStart, clippedStart)
+            val bEnd = minOf(breakEnd, clippedEnd)
+            if (bEnd > bStart) bEnd - bStart else 0L
+        } else 0L
+        return clippedEnd - clippedStart - breakDuration
     }
 
     fun Route.getWorkTimeFlow(): Flow<Long?> {
@@ -405,16 +424,17 @@ object UtilsForEntities {
         if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) {
             return false
         } else {
-            val tz = TimeZone.currentSystemDefault()
+            // Месяц определяется по московскому времени — пользователь вводит времена в МСК
+            val localTZ = TimeZone.of("GMT+3")
             val startLdt = Instant.fromEpochMilliseconds(
-                this.basicData.timeStartWork!! + offsetInMoscow
-            ).toLocalDateTime(tz)
+                this.basicData.timeStartWork!!
+            ).toLocalDateTime(localTZ)
             val yearStart = startLdt.year
             val monthStart = startLdt.monthNumber - 1
 
             val endLdt = Instant.fromEpochMilliseconds(
-                this.basicData.timeEndWork!! + offsetInMoscow
-            ).toLocalDateTime(tz)
+                this.basicData.timeEndWork!!
+            ).toLocalDateTime(localTZ)
             val yearEnd = endLdt.year
             val monthEnd = endLdt.monthNumber - 1
 
@@ -432,16 +452,16 @@ object UtilsForEntities {
         if (this.timeDeparture == null || this.timeArrival == null) {
             return false
         } else {
-            val tz = TimeZone.currentSystemDefault()
+            val localTZ = TimeZone.of("GMT+3")
             val startLdt = Instant.fromEpochMilliseconds(
-                this.timeDeparture!! + offsetInMoscow
-            ).toLocalDateTime(tz)
+                this.timeDeparture!!
+            ).toLocalDateTime(localTZ)
             val yearStart = startLdt.year
             val monthStart = startLdt.monthNumber - 1
 
             val endLdt = Instant.fromEpochMilliseconds(
-                this.timeArrival!! + offsetInMoscow
-            ).toLocalDateTime(tz)
+                this.timeArrival!!
+            ).toLocalDateTime(localTZ)
             val yearEnd = endLdt.year
             val monthEnd = endLdt.monthNumber - 1
 
@@ -455,25 +475,43 @@ object UtilsForEntities {
         }
     }
 
+    /**
+     * Обрезает переходной маршрут по границам месяца (00:00 МСК).
+     * Возвращает [clippedStart, clippedEnd] — часть маршрута, принадлежащую monthOfYear.
+     */
+    fun Route.clipToMonthMoscow(monthOfYear: MonthOfYear): Pair<Long, Long>? {
+        val start = basicData.timeStartWork ?: return null
+        val end = basicData.timeEndWork ?: return null
+        val moscowTZ = TimeZone.of("GMT+3")
+        val monthStart = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
+            .atStartOfDayIn(moscowTZ).toEpochMilliseconds()
+        val nextMonthStart = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
+            .plus(1, DateTimeUnit.MONTH)
+            .atStartOfDayIn(moscowTZ).toEpochMilliseconds()
+        val clippedStart = maxOf(start, monthStart)
+        val clippedEnd = minOf(end, nextMonthStart)
+        return if (clippedEnd > clippedStart) clippedStart to clippedEnd else null
+    }
+
     fun List<Route>.getNewRoutesToDayRange(
         days: IntRange,
         monthOfYear: MonthOfYear,
         offsetInMoscow: Long,
         isLastDayOfMonth: Boolean
     ): List<Route> {
-        val tz = TimeZone.currentSystemDefault()
+        val localTZ = TimeZone.of(getTimeZone(offsetInMoscow))
 
         val firstDataInMillis = kotlinx.datetime.LocalDate(
             monthOfYear.year, monthOfYear.month + 1, days.first
-        ).atStartOfDayIn(tz).toEpochMilliseconds() + offsetInMoscow
+        ).atStartOfDayIn(localTZ).toEpochMilliseconds()
 
         val lastDate = kotlinx.datetime.LocalDate(
             monthOfYear.year, monthOfYear.month + 1, days.last
         )
         val secondDataInMillis = if (isLastDayOfMonth) {
-            lastDate.plus(1, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds() + offsetInMoscow
+            lastDate.plus(1, DateTimeUnit.DAY).atStartOfDayIn(localTZ).toEpochMilliseconds()
         } else {
-            lastDate.atStartOfDayIn(tz).toEpochMilliseconds() + offsetInMoscow
+            lastDate.atStartOfDayIn(localTZ).toEpochMilliseconds()
         }
 
         val newRouteList = mutableListOf<Route>()
@@ -501,8 +539,9 @@ object UtilsForEntities {
         this.forEach { route ->
             if (route.isTransition(offsetInMoscow)) {
                 val time = monthOfYear.getTimeInCurrentMonth(
-                    route.basicData.timeStartWork!! + offsetInMoscow,
-                    route.basicData.timeEndWork!! + offsetInMoscow
+                    route.basicData.timeStartWork!!,
+                    route.basicData.timeEndWork!!,
+                    offsetInMoscow
                 )
                 totalTime += time
             } else {
@@ -523,19 +562,20 @@ object UtilsForEntities {
 
         this.forEach { route ->
             if (route.isTransition(userSettings.timeZone)) {
-                val nightTimeInRoute =
-                    CalculateNightTime.getNightTimeTransitionRoute(
-                        month = userSettings.selectMonthOfYear.month,
-                        startMillis = route.basicData.timeStartWork,
-                        endMillis = route.basicData.timeEndWork,
-                        hourStart = startNightHour,
-                        minuteStart = startNightMinute,
-                        hourEnd = endNightHour,
-                        minuteEnd = endNightMinute,
-                        offsetInMoscow = userSettings.timeZone,
-                        breakStartMillis = route.basicData.timeStartBreak,
-                        breakEndMillis = route.basicData.timeEndBreak
-                    ).first()
+                // Берём только кусок переходного маршрута, попавший в текущий месяц (МСК)
+                val (clippedStart, clippedEnd) =
+                    route.clipToMonthMoscow(userSettings.selectMonthOfYear) ?: return@forEach
+                val nightTimeInRoute = CalculateNightTime.getNightTime(
+                    startMillis = clippedStart,
+                    endMillis = clippedEnd,
+                    hourStart = startNightHour,
+                    minuteStart = startNightMinute,
+                    hourEnd = endNightHour,
+                    minuteEnd = endNightMinute,
+                    offsetInMoscow = userSettings.timeZone,
+                    breakStartMillis = route.basicData.timeStartBreak,
+                    breakEndMillis = route.basicData.timeEndBreak
+                ).first()
                 nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
             } else {
                 val nightTimeInRoute = CalculateNightTime.getNightTime(
@@ -591,8 +631,7 @@ object UtilsForEntities {
         return channelFlow {
             var holidayTime = 0L
 
-            val timeZoneStr = getTimeZone(offsetInMoscow)
-            val tz = TimeZone.of(timeZoneStr)
+            val tz = TimeZone.of(getTimeZone(offsetInMoscow))
             val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
             if (holidayList.isNotEmpty()) {
                 holidayList.forEach { day ->
@@ -605,14 +644,21 @@ object UtilsForEntities {
                     ).plus(1, DateTimeUnit.DAY).atStartOfDayIn(tz).toEpochMilliseconds()
 
                     this@getWorkingTimeOnAHoliday.forEach { route ->
-                        route.timeInLongInPeriod(
-                            startDate = startHolidayInLong - offsetInMoscow,
-                            endDate = endHolidayInLong - offsetInMoscow
-                        )?.let { timeInPeriod ->
-                            if (timeInPeriod > 0) {
-                                holidayTime += timeInPeriod
-                            }
+                        // Для переходных маршрутов считаем только кусок, попавший в текущий месяц (МСК)
+                        val (effectiveStart, effectiveEnd) = if (route.isTransition(offsetInMoscow)) {
+                            route.clipToMonthMoscow(monthOfYear) ?: return@forEach
+                        } else {
+                            val s = route.basicData.timeStartWork ?: return@forEach
+                            val e = route.basicData.timeEndWork ?: return@forEach
+                            s to e
                         }
+                        val overlap = overlapDuration(effectiveStart, effectiveEnd, startHolidayInLong, endHolidayInLong)
+                        val breakInPeriod = route.getBreakInPeriod(
+                            maxOf(effectiveStart, startHolidayInLong),
+                            minOf(effectiveEnd, endHolidayInLong)
+                        )
+                        val timeInPeriod = overlap - breakInPeriod
+                        if (timeInPeriod > 0) holidayTime += timeInPeriod
                     }
                 }
             }
@@ -736,15 +782,16 @@ object UtilsForEntities {
                         }
                         if (this.isTransition(offsetInMoscow)) {
                             return monthOfYear.getTimeInCurrentMonth(
-                                timeStart + offsetInMoscow,
-                                timeEnd + offsetInMoscow
+                                timeStart,
+                                timeEnd,
+                                offsetInMoscow
                             )
                         }
                     }
                 }
             }
         }
-        return ((timeEndFollowing + offsetInMoscow) - (timeStartFollowing + offsetInMoscow)) ?: 0L
+        return (timeEndFollowing - timeStartFollowing) ?: 0L
     }
 
     fun Train.timeFollowingSingleLocomotive(startWork: Long?, endWork: Long?): Long {
@@ -922,7 +969,8 @@ object UtilsForEntities {
                 resultTime += if (route.isTransition(offsetInMoscow)) {
                     monthOfYear.getTimeInCurrentMonth(
                         route.basicData.timeStartWork!!,
-                        route.basicData.timeEndWork!!
+                        route.basicData.timeEndWork!!,
+                        offsetInMoscow
                     )
                 } else {
                     route.getWorkTime() ?: 0L
@@ -951,7 +999,8 @@ object UtilsForEntities {
                     resultTime += if (route.isTransition(offsetInMoscow)) {
                         monthOfYear.getTimeInCurrentMonth(
                             route.basicData.timeStartWork!!,
-                            route.basicData.timeEndWork!!
+                            route.basicData.timeEndWork!!,
+                            offsetInMoscow
                         )
                     } else {
                         route.getWorkTime() ?: 0L
@@ -982,7 +1031,8 @@ object UtilsForEntities {
                     resultTime += if (route.isTransition(offsetInMoscow)) {
                         monthOfYear.getTimeInCurrentMonth(
                             route.basicData.timeStartWork!!,
-                            route.basicData.timeEndWork!!
+                            route.basicData.timeEndWork!!,
+                            offsetInMoscow
                         )
                     } else {
                         route.getWorkTime() ?: 0L

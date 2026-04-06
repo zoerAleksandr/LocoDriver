@@ -40,6 +40,7 @@ private const val TOKEN_PASSENGER_12H_DONT_ASK = "TOKEN_PASSENGER_12H_DONT_ASK"
 private const val TOKEN_PASSENGER_12H_ACCEPTED = "TOKEN_PASSENGER_12H_ACCEPTED"
 
 private const val TOKEN_LAST_SYNC_TIME = "TOKEN_LAST_SYNC_TIME"
+private const val TOKEN_TIMEZONE_MIGRATION = "TOKEN_TIMEZONE_MIGRATION"
 class SharedPreferenceStorage(application: Application) : SharedPreferencesRepositories,
     KoinComponent {
     private val sharedpref: SharedPreferences =
@@ -253,6 +254,13 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun setPassenger12hAutoAccepted(value: Boolean) {
         editor.putBoolean(TOKEN_PASSENGER_12H_ACCEPTED, value).apply()
+    }
+
+    override fun isTimezoneMigrationDone(): Boolean =
+        sharedpref.getBoolean(TOKEN_TIMEZONE_MIGRATION, false)
+
+    override fun setTimezoneMigrationDone() {
+        editor.putBoolean(TOKEN_TIMEZONE_MIGRATION, true).apply()
     }
 
     override fun getRecentTimes(key: String): List<Long> {

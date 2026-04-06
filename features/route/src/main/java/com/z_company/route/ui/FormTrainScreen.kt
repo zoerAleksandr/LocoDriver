@@ -259,8 +259,8 @@ fun FormTrainScreen(
                     )
                 },
                 onDeleteStationName = { viewModel.removeStationName(it) },
-                onSave = { name, arrival, departure ->
-                    viewModel.saveStationFromSheet(editingIndex, name, arrival, departure)
+                onSave = { name, arrival, departure, trackNumber ->
+                    viewModel.saveStationFromSheet(editingIndex, name, arrival, departure, trackNumber)
                 },
                 onDelete = if (editingIndex >= 0) {
                     { viewModel.requestDeleteStation(editingIndex) }
@@ -1044,7 +1044,11 @@ fun FormTrainScreen(
                             OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .weight(1f),
-                                value = train.conditionalLength?.takeIf { it != "0" } ?: "",
+                                value = train.conditionalLength?.takeIf { it != "0" }
+                                    ?.let { s ->
+                                        val d = s.toDoubleOrNull()
+                                        if (d != null && d == kotlin.math.floor(d)) d.toLong().toString() else s
+                                    } ?: "",
                                 onValueChange = {
                                     onLengthChanged(it)
                                 },

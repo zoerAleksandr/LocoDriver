@@ -18,8 +18,10 @@ import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -258,6 +260,22 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 }
             }
         }
+    }
+
+    override fun onCleared() {
+        autoSaveJob?.cancel()
+        saveSettingsJob?.cancel()
+        // Гарантируем сохранение даже если пользователь покинул экран раньше 300мс
+        CoroutineScope(NonCancellable + Dispatchers.IO).launch {
+            val state = uiState.value.settingDetails
+            if (state is ResultState.Success) {
+                state.data?.let { settings ->
+                    settings.servicePhases = servicePhases.toMutableList()
+                    settingsUseCase.saveSetting(settings).collect {}
+                }
+            }
+        }
+        super.onCleared()
     }
 
     fun saveServicePhases() {
