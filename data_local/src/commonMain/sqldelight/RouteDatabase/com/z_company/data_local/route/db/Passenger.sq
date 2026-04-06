@@ -28,3 +28,6 @@ DELETE FROM Passenger WHERE passengerId = :passengerId;
 
 setRemoteObjectId:
 UPDATE Passenger SET remoteObjectId = :remoteObjectId WHERE passengerId = :passengerId;
+
+countAll:
+SELECT COUNT(*) FROM Passenger;

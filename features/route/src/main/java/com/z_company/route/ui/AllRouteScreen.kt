@@ -698,7 +698,7 @@ fun AllRouteScreen(
                     val monthLabel = state.currentMonthOfYear?.let {
                         "${getMonthFullText(it.month)} ${it.year}"
                     } ?: ""
-                    pdfViewModel.generateAndShare(sections, routes, monthLabel)
+                    pdfViewModel.generateAndShare(sections, routes, monthLabel, emptyList())
                 }
             )
         }

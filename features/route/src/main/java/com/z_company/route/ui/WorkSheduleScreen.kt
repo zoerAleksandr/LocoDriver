@@ -186,6 +186,7 @@ fun WorkScheduleScreen(
             "${getMonthFullText(it.month)} ${it.year}"
         } ?: ""
         pdfViewModel.updateRoutes(routes, monthLabel)
+        pdfViewModel.updateCalendarDays(currentMonthFull?.days ?: emptyList())
     }
 
     LaunchedEffect(Unit) {
@@ -1098,7 +1099,7 @@ fun WorkScheduleScreen(
                 val monthLabel = currentMonth?.let {
                     "${getMonthFullText(it.month)} ${it.year}"
                 } ?: ""
-                pdfViewModel.generateAndShare(sections, routes, monthLabel)
+                pdfViewModel.generateAndShare(sections, routes, monthLabel, currentMonthFull?.days ?: emptyList())
             }
         )
     }

@@ -49,14 +49,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.theme.Shapes
-import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.util.str2decimalSign
 import com.z_company.route.viewmodel.SalaryCalculationUIState
 import com.z_company.core.ui.component.CustomDivider
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.viewmodel.PdfViewModel
@@ -295,7 +293,8 @@ fun SalaryCalculationScreen(
                 pdfViewModel.generateAndShare(
                     sections = sections,
                     routes = emptyList(),
-                    monthLabel = uiState.month
+                    monthLabel = uiState.month,
+                    calendarDays = emptyList()
                 )
             }
         )

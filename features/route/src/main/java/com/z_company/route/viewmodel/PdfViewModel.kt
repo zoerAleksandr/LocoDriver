@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.sendToSentry
+import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.util.PdfGenerator
 import com.z_company.route.util.PdfSections
@@ -39,6 +40,7 @@ class PdfViewModel(application: Application) : AndroidViewModel(application), Ko
     private var latestSalaryState: SalaryCalculationUIState? = null
     private var latestRoutes: List<Route> = emptyList()
     private var latestMonthLabel: String = ""
+    private var latestCalendarDays: List<Day> = emptyList()
 
     fun updateSalaryState(state: SalaryCalculationUIState) {
         latestSalaryState = state
@@ -49,10 +51,15 @@ class PdfViewModel(application: Application) : AndroidViewModel(application), Ko
         latestMonthLabel = monthLabel
     }
 
+    fun updateCalendarDays(days: List<Day>) {
+        latestCalendarDays = days
+    }
+
     fun generateAndShare(
         sections: PdfSections,
         routes: List<Route>,
-        monthLabel: String
+        monthLabel: String,
+        calendarDays: List<Day> = emptyList()
     ) {
         if (_isGenerating.value) return
         viewModelScope.launch(Dispatchers.IO) {
@@ -72,7 +79,8 @@ class PdfViewModel(application: Application) : AndroidViewModel(application), Ko
                     routes = effectiveRoutes,
                     salaryState = salaryState,
                     monthLabel = effectiveMonthLabel,
-                    sections = sections
+                    sections = sections,
+                    calendarDays = calendarDays.ifEmpty { latestCalendarDays }
                 )
                 // Authority must match the one declared in AndroidManifest.xml
                 val authority = "${getApplication<Application>().packageName}.fileprovider"

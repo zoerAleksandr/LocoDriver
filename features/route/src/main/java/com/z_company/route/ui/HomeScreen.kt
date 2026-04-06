@@ -324,7 +324,7 @@ fun HomeScreen(
             onDismiss = { showPdfDialog = false },
             onGenerate = { sections ->
                 showPdfDialog = false
-                pdfViewModel.generateAndShare(sections, routes, monthLabel)
+                pdfViewModel.generateAndShare(sections, routes, monthLabel, currentMonthOfYear?.days ?: emptyList())
             }
         )
     }
