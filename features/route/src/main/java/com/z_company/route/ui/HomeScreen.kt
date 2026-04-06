@@ -105,6 +105,8 @@ import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.util.minus
 import com.z_company.route.R
+import android.net.Uri
+import androidx.compose.runtime.collectAsState
 import com.z_company.route.component.AnimatedCounter
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.AppBottomSheet
@@ -112,7 +114,10 @@ import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ChipApp
 import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.LinearPagerIndicator
+import com.z_company.route.component.PdfActionSheet
+import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.component.PreviewRouteDialog
+import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.home_view_model.ItemState
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
@@ -207,6 +212,22 @@ fun HomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     val snackbarManager: ISnackbarManager = koinInject()
+    val pdfViewModel: PdfViewModel = koinInject()
+
+    var showPdfDialog by remember { mutableStateOf(false) }
+    var pdfUri by remember { mutableStateOf<Uri?>(null) }
+    val isPdfGenerating by pdfViewModel.isGenerating.collectAsState()
+    val pdfError by pdfViewModel.errorMessage.collectAsState()
+
+    LaunchedEffect(Unit) {
+        pdfViewModel.pdfReady.collect { uri ->
+            pdfUri = uri
+        }
+    }
+
+    LaunchedEffect(pdfError) {
+        pdfError?.let { snackbarHostState.showSnackbar(it) }
+    }
 
     LaunchedEffect(Unit) {
         snackbarManager.events
@@ -294,6 +315,25 @@ fun HomeScreen(
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             viewModel.refreshTimer()
         }
+    }
+
+    if (showPdfDialog) {
+        val routes = listRouteState.map { it.route }
+        val monthLabel = currentMonthOfYear?.let { "${getMonthFullText(it.month)} ${it.year}" } ?: ""
+        PdfContentDialog(
+            onDismiss = { showPdfDialog = false },
+            onGenerate = { sections ->
+                showPdfDialog = false
+                pdfViewModel.generateAndShare(sections, routes, monthLabel)
+            }
+        )
+    }
+
+    pdfUri?.let { uri ->
+        PdfActionSheet(
+            uri = uri,
+            onDismiss = { pdfUri = null }
+        )
     }
 
     // Диалог синхронизации
@@ -506,6 +546,21 @@ fun HomeScreen(
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
+                        }
+                        IconButton(
+                            modifier = Modifier
+                                .background(
+                                    color = Color.Transparent,
+                                    shape = Shapes.medium
+                                ),
+                            onClick = { showPdfDialog = true },
+                            enabled = !isPdfGenerating
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.picture_as_pdf_24px),
+                                contentDescription = "Сформировать PDF",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
                         }
                         IconButton(
                             modifier = Modifier

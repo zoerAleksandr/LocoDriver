@@ -90,6 +90,7 @@ import com.z_company.route.R
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ChipApp
+import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.WorkScheduleViewModel
@@ -169,12 +170,12 @@ fun WorkScheduleScreen(
 
     val snackbarManager: ISnackbarManager = koinInject()
     val pdfViewModel: PdfViewModel = koinInject()
-    val context = androidx.compose.ui.platform.LocalContext.current
     var showPdfDialog by remember { mutableStateOf(false) }
+    var pdfUri by remember { mutableStateOf<android.net.Uri?>(null) }
 
     LaunchedEffect(Unit) {
-        pdfViewModel.shareEvent.collect { chooser ->
-            context.startActivity(chooser)
+        pdfViewModel.pdfReady.collect { uri ->
+            pdfUri = uri
         }
     }
 
@@ -487,21 +488,23 @@ fun WorkScheduleScreen(
                             )
                         }
 
-                        IconButton(onClick = { showPdfDialog = true }) {
-                            Icon(
-                                painter = painterResource(R.drawable.picture_as_pdf_24px),
-                                contentDescription = "PDF",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        IconButton(onClick = { viewModel.toggleDeleteMode() }) {
-                            val tint =
-                                if (isDeleteMode) red else MaterialTheme.colorScheme.primary
-                            Icon(
-                                painter = painterResource(R.drawable.delete_24px),
-                                contentDescription = null,
-                                tint = tint
-                            )
+                        Row {
+                            IconButton(onClick = { showPdfDialog = true }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.picture_as_pdf_24px),
+                                    contentDescription = "PDF",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(onClick = { viewModel.toggleDeleteMode() }) {
+                                val tint =
+                                    if (isDeleteMode) red else MaterialTheme.colorScheme.primary
+                                Icon(
+                                    painter = painterResource(R.drawable.delete_24px),
+                                    contentDescription = null,
+                                    tint = tint
+                                )
+                            }
                         }
                     }
                 }
@@ -1097,6 +1100,13 @@ fun WorkScheduleScreen(
                 } ?: ""
                 pdfViewModel.generateAndShare(sections, routes, monthLabel)
             }
+        )
+    }
+
+    pdfUri?.let { uri ->
+        PdfActionSheet(
+            uri = uri,
+            onDismiss = { pdfUri = null }
         )
     }
 }

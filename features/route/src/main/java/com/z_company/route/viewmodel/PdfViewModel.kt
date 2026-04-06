@@ -1,11 +1,12 @@
 package com.z_company.route.viewmodel
 
 import android.app.Application
-import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.ResultState
 import com.z_company.core.sendToSentry
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.util.PdfGenerator
@@ -15,12 +16,18 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
-class PdfViewModel(application: Application) : AndroidViewModel(application) {
+class PdfViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
 
-    private val _shareEvent = MutableSharedFlow<Intent>()
-    val shareEvent = _shareEvent.asSharedFlow()
+    private val salaryViewModel: SalaryCalculationViewModel by inject()
+
+    private val _pdfReady = MutableSharedFlow<Uri>()
+    val pdfReady = _pdfReady.asSharedFlow()
 
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating = _isGenerating.asStateFlow()
@@ -52,7 +59,13 @@ class PdfViewModel(application: Application) : AndroidViewModel(application) {
             _isGenerating.value = true
             _errorMessage.value = null
             try {
-                val salaryState = if (sections.includeSalary) latestSalaryState else null
+                // Используем latestSalaryState (если задан), иначе ждём завершения расчёта
+                // в singleton SalaryCalculationViewModel (до 8 секунд)
+                val salaryState = if (sections.includeSalary) {
+                    latestSalaryState ?: withTimeoutOrNull(8_000L) {
+                        salaryViewModel.uiState.first { it.screenState is ResultState.Success }
+                    }
+                } else null
                 val effectiveRoutes = routes.ifEmpty { latestRoutes }
                 val effectiveMonthLabel = monthLabel.ifEmpty { latestMonthLabel }
                 val file = PdfGenerator(getApplication()).generatePdf(
@@ -69,13 +82,7 @@ class PdfViewModel(application: Application) : AndroidViewModel(application) {
                     authority,
                     file
                 )
-                val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "application/pdf"
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                val chooser = Intent.createChooser(sendIntent, "Поделиться PDF")
-                _shareEvent.emit(chooser)
+                _pdfReady.emit(uri)
             } catch (e: Exception) {
                 Log.e("PdfViewModel", "PDF generation failed", e)
                 e.sendToSentry("PdfViewModel", "generateAndShare")

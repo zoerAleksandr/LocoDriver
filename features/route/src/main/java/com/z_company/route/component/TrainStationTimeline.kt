@@ -66,6 +66,7 @@ data class StationTimelineItem(
     val stationName: String,
     val timeArrival: Long?,
     val timeDeparture: Long?,
+    val trackNumber: String? = null,
 )
 
 private data class SegmentInfo(val durationMillis: Long)
@@ -399,9 +400,15 @@ private fun StationRow(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // ── Название станции ──
+            // ── Название станции (+ номер пути если задан) ──
+            val stationDisplayText = buildString {
+                append(item.stationName.ifBlank { "—" })
+                if (!item.trackNumber.isNullOrBlank()) {
+                    append(" ${item.trackNumber} п.")
+                }
+            }
             Text(
-                text = item.stationName.ifBlank { "—" },
+                text = stationDisplayText,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = if (isFirst || isLast) FontWeight.SemiBold else FontWeight.Normal,
                 color = colors.stationNameColor,
@@ -783,6 +790,7 @@ fun List<StationFormState>.toTimelineItems(): List<StationTimelineItem> {
             stationName = state.station.data ?: "",
             timeArrival = state.arrival.data,
             timeDeparture = state.departure.data,
+            trackNumber = state.trackNumber,
         )
     }
 }
@@ -794,6 +802,7 @@ fun List<com.z_company.domain.entities.route.Station>.toStationTimelineItems(): 
             stationName = station.stationName ?: "",
             timeArrival = station.timeArrival,
             timeDeparture = station.timeDeparture,
+            trackNumber = station.trackNumber,
         )
     }
 }

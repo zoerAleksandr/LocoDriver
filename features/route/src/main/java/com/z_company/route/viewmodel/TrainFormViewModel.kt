@@ -247,7 +247,8 @@ class TrainFormViewModel(
                             trainId = train.trainId,
                             stationName = state.station.data,
                             timeArrival = state.arrival.data,
-                            timeDeparture = state.departure.data
+                            timeDeparture = state.departure.data,
+                            trackNumber = state.trackNumber
                         )
                     }.toMutableList()
 
@@ -614,7 +615,8 @@ class TrainFormViewModel(
                     departure = StationFieldDate(
                         data = station.timeDeparture,
                         type = StationDataType.DEPARTURE
-                    )
+                    ),
+                    trackNumber = station.trackNumber
                 )
             )
         }
@@ -755,7 +757,8 @@ class TrainFormViewModel(
             stationsListState[index] = stationsListState[index].copy(
                 station = StationField(data = name, type = StationDataType.NAME),
                 arrival = StationFieldDate(data = arrival, type = StationDataType.ARRIVAL),
-                departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE)
+                departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE),
+                trackNumber = trackNumber
             )
         }
         changesHave()

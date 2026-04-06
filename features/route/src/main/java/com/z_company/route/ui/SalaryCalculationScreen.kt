@@ -57,6 +57,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
@@ -75,6 +76,7 @@ fun SalaryCalculationScreen(
     val context = LocalContext.current
     val pdfViewModel: PdfViewModel = koinInject()
     var showPdfDialog by remember { mutableStateOf(false) }
+    var pdfUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val isPdfGenerating by pdfViewModel.isGenerating.collectAsState()
     val pdfError by pdfViewModel.errorMessage.collectAsState()
 
@@ -83,10 +85,10 @@ fun SalaryCalculationScreen(
         pdfViewModel.updateSalaryState(uiState)
     }
 
-    // Share PDF event
+    // PDF ready event
     LaunchedEffect(Unit) {
-        pdfViewModel.shareEvent.collect { chooser ->
-            context.startActivity(chooser)
+        pdfViewModel.pdfReady.collect { uri ->
+            pdfUri = uri
         }
     }
 
@@ -296,6 +298,13 @@ fun SalaryCalculationScreen(
                     monthLabel = uiState.month
                 )
             }
+        )
+    }
+
+    pdfUri?.let { uri ->
+        PdfActionSheet(
+            uri = uri,
+            onDismiss = { pdfUri = null }
         )
     }
 }

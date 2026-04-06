@@ -39,8 +39,9 @@ import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ChipApp
 import com.z_company.route.component.ItemHomeScreen
-import com.z_company.route.component.PreviewRouteDialog
+import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
+import com.z_company.route.component.PreviewRouteDialog
 import com.z_company.route.component.RadioButtonWithLabel
 import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.all_route_view_model.AllRouteViewModel
@@ -131,13 +132,14 @@ fun AllRouteScreen(
         pdfViewModel.updateRoutes(displayedRoutes.map { it.route }, monthLabel)
     }
     var showPdfDialog by remember { mutableStateOf(false) }
+    var pdfUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val isPdfGenerating by pdfViewModel.isGenerating.collectAsState()
     val pdfError by pdfViewModel.errorMessage.collectAsState()
 
-    // Share PDF event
+    // PDF ready event
     LaunchedEffect(Unit) {
-        pdfViewModel.shareEvent.collect { chooser ->
-            context.startActivity(chooser)
+        pdfViewModel.pdfReady.collect { uri ->
+            pdfUri = uri
         }
     }
 
@@ -698,6 +700,13 @@ fun AllRouteScreen(
                     } ?: ""
                     pdfViewModel.generateAndShare(sections, routes, monthLabel)
                 }
+            )
+        }
+
+        pdfUri?.let { uri ->
+            PdfActionSheet(
+                uri = uri,
+                onDismiss = { pdfUri = null }
             )
         }
     }

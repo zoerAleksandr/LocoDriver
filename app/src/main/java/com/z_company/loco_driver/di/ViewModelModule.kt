@@ -39,7 +39,7 @@ val viewModelModule = module {
     }
     viewModel { SearchViewModel() }
     viewModel { PurchasesViewModel() }
-    viewModel { SalaryCalculationViewModel() }
+    single(createdAtStart = true) { SalaryCalculationViewModel() }
     viewModel { SettingSalaryViewModel() }
     viewModel { AllRouteViewModel(androidApplication()) }
     viewModel { WorkScheduleViewModel() }

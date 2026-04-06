@@ -52,6 +52,9 @@ class PdfGenerator(private val context: Context) {
     private val paintSmall = Paint().apply {
         color = Color.DKGRAY; textSize = 7f; typeface = Typeface.DEFAULT; isAntiAlias = true
     }
+    private val paintTiny = Paint().apply {
+        color = Color.DKGRAY; textSize = 7.5f; typeface = Typeface.DEFAULT; isAntiAlias = true
+    }
     private val paintTableBorder = Paint().apply {
         color = Color.GRAY; strokeWidth = 0.5f; style = Paint.Style.STROKE
     }
@@ -102,12 +105,11 @@ class PdfGenerator(private val context: Context) {
         fun checkNewPage(h: Float = 20f) { if (needNewPage(h)) newPage() }
 
         fun sectionTitle(text: String) {
-            checkNewPage(22f)
-            y += 4f
-            // background behind section title
+            checkNewPage(26f)
+            y += 14f  // достаточный отступ от предыдущего разделителя
             canvas.drawRect(ml, y - 11f, ml + contentWidth, y + 3f, paintSectionFill)
             canvas.drawText(text, ml + 4f, y, paintSection)
-            y += 14f  // достаточный отступ чтобы таблица не перекрывала заголовок
+            y += 14f
         }
 
         /** Draw a separator line with proper spacing (no text overlap) */
@@ -229,11 +231,13 @@ class PdfGenerator(private val context: Context) {
 
     // ─── Formatters ──────────────────────────────────────────────────────────────
 
-    private fun fmtTime(millis: Long?) = millis?.let { timeManager.formatTime(it) }
-    private fun fmtDate(millis: Long?) = millis?.let { timeManager.formatDate(it) }
-    private fun fmtDT(millis: Long?) = millis?.let { "${timeManager.formatDate(it)} ${timeManager.formatTime(it)}" }
+    // 0L трактуется как отсутствующее значение (старый код мог сохранять 0 вместо null)
+    private fun fmtTime(millis: Long?) = millis?.takeIf { it > 0L }?.let { timeManager.formatTime(it) }
+    private fun fmtDate(millis: Long?) = millis?.takeIf { it > 0L }?.let { timeManager.formatDate(it) }
+    private fun fmtDT(millis: Long?) = millis?.takeIf { it > 0L }?.let { "${timeManager.formatDate(it)} ${timeManager.formatTime(it)}" }
     private fun fmtDur(ms: Long?) = ms?.let { ConverterLongToTime.getTimeInStringFormat(it) }
-    private fun fmtMoney(v: Double?) = if (v == null || v == 0.0) "" else "${"%.2f".format(v)} ₽"
+    // Значения, которые после округления до 2 знаков дают 0.00, не отображаем
+    private fun fmtMoney(v: Double?) = if (v == null || kotlin.math.abs(v) < 0.005) "" else "${"%.2f".format(v)} ₽"
     private fun fmtHours(v: Long?) = if (v == null || v == 0L) "" else ConverterLongToTime.getTimeInStringFormat(v)
     private fun fmtPct(v: Double?) = if (v == null || v == 0.0) "" else "${v}%"
     private fun fmtPctStr(v: String?) = if (v.isNullOrBlank() || v == "0" || v == "0.0") "" else "$v%"
@@ -246,6 +250,10 @@ class PdfGenerator(private val context: Context) {
         monthLabel: String,
         sections: PdfSections
     ): File {
+        // Удаляем старые PDF-файлы из кеша
+        context.cacheDir.listFiles { f -> f.name.startsWith("mashinist_") && f.name.endsWith(".pdf") }
+            ?.forEach { it.delete() }
+
         val document = PdfDocument()
         val pm = PageManager(document)
 
@@ -273,7 +281,8 @@ class PdfGenerator(private val context: Context) {
 
         pm.finish()
 
-        val file = File(context.cacheDir, "mashinist_${monthLabel.replace(" ", "_")}.pdf")
+        // Уникальное имя — PDF-вьювер не будет кешировать старую версию
+        val file = File(context.cacheDir, "mashinist_${monthLabel.replace(" ", "_")}_${System.currentTimeMillis()}.pdf")
         FileOutputStream(file).use { document.writeTo(it) }
         document.close()
         return file
@@ -301,104 +310,300 @@ class PdfGenerator(private val context: Context) {
         routes.forEach { route -> drawRoute(pm, route) }
     }
 
+    // ─── Multi-column row helper ─────────────────────────────────────────────────
+
+    /** Draw a row with N cells of given widths. If [bold] — draws background tint. */
+    private fun PageManager.multiRow(
+        cells: List<String>,
+        ws: FloatArray,
+        paint: Paint = paintBody,
+        bold: Boolean = false,
+        rowH: Float = 14f
+    ) {
+        checkNewPage(rowH + 2f)
+        val top = y - rowH + 4f
+        val bot = y + 4f
+        if (bold) canvas.drawRect(ml, top, ml + contentWidth, bot, paintSectionFill)
+        var x = ml
+        cells.forEachIndexed { i, text ->
+            val w = ws.getOrElse(i) { 0f }
+            canvas.drawRect(x, top, x + w, bot, paintTableBorder)
+            if (text.isNotBlank()) {
+                val p = if (bold) paintBodyBold else paint
+                val avail = w - 6f
+                var t = text
+                while (p.measureText(t) > avail && t.length > 3) t = t.dropLast(1)
+                canvas.drawText(t, x + 3f, y, p)
+            }
+            x += w
+        }
+        y += rowH
+    }
+
     private fun drawRoute(pm: PageManager, route: Route) {
         val bd = route.basicData
         val num = bd.number?.takeIf { it.isNotBlank() } ?: "б/н"
-        val dateStr = fmtDT(bd.timeStartWork) ?: "—"
-        pm.checkNewPage(50f)
-        pm.sectionTitle("Маршрут №$num   $dateStr")
+        val dateStr = fmtDate(bd.timeStartWork) ?: "—"
+        pm.checkNewPage(60f)
+        pm.y += 10f
+        pm.multiRow(listOf("Маршрут №$num   $dateStr"), floatArrayOf(contentWidth), bold = true, rowH = 16f)
 
-        // ── BasicData table
-        val workDur = if (bd.timeStartWork != null && bd.timeEndWork != null) {
-            val breakMs = if (bd.timeStartBreak != null && bd.timeEndBreak != null)
-                (bd.timeEndBreak!! - bd.timeStartBreak!!) else 0L
-            fmtDur(maxOf(0L, bd.timeEndWork!! - bd.timeStartWork!! - breakMs))
-        } else null
+        // ── Явка / Сдача / Рабочее время — 3 равные колонки
+        val w3 = floatArrayOf(contentWidth / 3f, contentWidth / 3f, contentWidth / 3f)
+        val breakMs = if (bd.timeStartBreak != null && bd.timeEndBreak != null &&
+            bd.timeEndBreak!! > bd.timeStartBreak!!)
+            (bd.timeEndBreak!! - bd.timeStartBreak!!) else 0L
+        val workDur = if (bd.timeStartWork != null && bd.timeEndWork != null)
+            fmtDur(maxOf(0L, bd.timeEndWork!! - bd.timeStartWork!! - breakMs)) else "—"
 
-        pm.tableRow("Явка", fmtDT(bd.timeStartWork))
-        pm.tableRow("Сдача", fmtDT(bd.timeEndWork))
-        pm.tableRow("Время в работе", workDur, valueBold = true)
-        pm.tableRow("Начало перерыва", fmtDT(bd.timeStartBreak))
-        pm.tableRow("Окончание перерыва", fmtDT(bd.timeEndBreak))
-        if (bd.restPointOfTurnover) pm.tableRow("Отдых в пункте оборота", "Да")
-        if (bd.isOnePersonOperation) pm.tableRow("Работа в одно лицо", "Да")
-        pm.tableRow("Примечание", bd.notes)
+        pm.multiRow(listOf("Явка", "Сдача", "Рабочее время"), w3, paint = paintSmall, bold = true)
+        pm.multiRow(
+            listOf(
+                fmtDT(bd.timeStartWork) ?: "—",
+                fmtDT(bd.timeEndWork) ?: "—",
+                workDur ?: "—"
+            ), w3, paint = paintBodyBold
+        )
 
-        // ── Locomotives
+        // ── Перерыв (если задан и != 0 — 0L означает «не задан» в старом коде)
+        if ((bd.timeStartBreak ?: 0L) > 0L || (bd.timeEndBreak ?: 0L) > 0L) {
+            val w2h = floatArrayOf(contentWidth / 2f, contentWidth / 2f)
+            pm.multiRow(listOf("Начало перерыва", "Окончание перерыва"), w2h, paint = paintSmall, bold = true)
+            pm.multiRow(
+                listOf(
+                    fmtDT(bd.timeStartBreak) ?: "—",
+                    fmtDT(bd.timeEndBreak) ?: "—"
+                ), w2h
+            )
+        }
+
+        // Дополнительные флаги
+        if (bd.restPointOfTurnover) {
+            pm.y += 2f
+            pm.text("• Отдых в пункте оборота", paintSmall)
+        }
+        if (bd.isOnePersonOperation) pm.text("• Работа в одно лицо", paintSmall)
+        if (!bd.notes.isNullOrBlank()) pm.text("Примечание: ${bd.notes}", paintSmall)
+
+        // ── Локомотивы
         route.locomotives.forEachIndexed { idx, loco ->
-            pm.checkNewPage(40f)
-            pm.y += 3f
+            pm.checkNewPage(50f)
+            pm.y += 4f
             val locoType = if (loco.type == LocoType.ELECTRIC) "Электровоз" else "Тепловоз"
-            val locoId = buildString {
-                loco.series?.takeIf { it.isNotBlank() }?.let { append(it).append(" ") }
-                loco.number?.takeIf { it.isNotBlank() }?.let { append(it).append(" ") }
-                append("($locoType)")
-            }
-            pm.tableRow("Локомотив ${idx + 1}", locoId, isHeaderRow = true)
-            pm.tableRow("Начало приёмки", fmtDT(loco.timeStartOfAcceptance))
-            pm.tableRow("Конец приёмки", fmtDT(loco.timeEndOfAcceptance))
-            pm.tableRow("Начало сдачи", fmtDT(loco.timeStartOfDelivery))
-            pm.tableRow("Конец сдачи", fmtDT(loco.timeEndOfDelivery))
+            val locoSeries = loco.series?.takeIf { it.isNotBlank() } ?: "—"
+            val locoNum   = loco.number?.takeIf { it.isNotBlank() } ?: "—"
+            // "Локомотив" | серия | номер — 3 колонки
+            val wLoco = floatArrayOf(contentWidth * 0.35f, contentWidth * 0.40f, contentWidth * 0.25f)
+            pm.multiRow(listOf("Локомотив ${idx + 1} ($locoType)", locoSeries, locoNum), wLoco, bold = true)
 
+            // Приёмка / сдача — 4 колонки
+            val w4 = floatArrayOf(contentWidth / 4f, contentWidth / 4f, contentWidth / 4f, contentWidth / 4f)
+            pm.multiRow(listOf("Нач. приёмки", "Оконч. приёмки", "Нач. сдачи", "Оконч. сдачи"), w4, paint = paintSmall, bold = true)
+            pm.multiRow(
+                listOf(
+                    fmtDT(loco.timeStartOfAcceptance) ?: "—",
+                    fmtDT(loco.timeEndOfAcceptance) ?: "—",
+                    fmtDT(loco.timeStartOfDelivery) ?: "—",
+                    fmtDT(loco.timeEndOfDelivery) ?: "—"
+                ), w4
+            )
+
+            // Норма
+            val w2loco = floatArrayOf(contentWidth * 0.50f, contentWidth * 0.50f)
+            if (loco.type == LocoType.ELECTRIC) {
+                val n1 = loco.normaElectricCurrent1
+                val n2 = loco.normaElectricCurrent2
+                if (n1 != null) pm.multiRow(listOf("Норма тяги", "${"%.1f".format(n1)}"), w2loco, paint = paintSmall)
+                if (n2 != null) pm.multiRow(listOf("Норма тяги (РТ)", "${"%.1f".format(n2)}"), w2loco, paint = paintSmall)
+            } else {
+                loco.normaDiesel?.takeIf { it.isNotBlank() }?.let {
+                    pm.multiRow(listOf("Норма дизель", it), w2loco, paint = paintSmall)
+                }
+            }
+            // Отопление счётчик
+            val hcA = loco.heatingCounterAccepted; val hcD = loco.heatingCounterDelivery
+            if (hcA != null || hcD != null) {
+                pm.multiRow(listOf("Отопление (счётчик)", "Принял", "Сдал", "Расход"), w4, paint = paintSmall, bold = true)
+                val hcRes = if (hcA != null && hcD != null) "${"%.1f".format(hcA - hcD)}" else "—"
+                pm.multiRow(listOf("", hcA?.let { "${"%.1f".format(it)}" } ?: "—", hcD?.let { "${"%.1f".format(it)}" } ?: "—", hcRes), w4)
+            }
+            // Собственные нужды
+            val acA = loco.auxiliaryCounterAccepted; val acD = loco.auxiliaryCounterDelivery
+            if (acA != null || acD != null) {
+                pm.multiRow(listOf("Собственные нужды", "Принял", "Сдал", "Расход"), w4, paint = paintSmall, bold = true)
+                val acRes = if (acA != null && acD != null) "${"%.1f".format(acA - acD)}" else "—"
+                pm.multiRow(listOf("", acA?.let { "${"%.1f".format(it)}" } ?: "—", acD?.let { "${"%.1f".format(it)}" } ?: "—", acRes), w4)
+            }
+
+            // ── Секции
             if (loco.type == LocoType.ELECTRIC) {
                 loco.electricSectionList.forEachIndexed { si, sec ->
-                    val vals = buildList {
-                        sec.acceptedEnergy?.takeIf { it != 0.0 }?.let { add("Тяга: пр ${"%.1f".format(it)}") }
-                        sec.deliveryEnergy?.takeIf { it != 0.0 }?.let { add("сд ${"%.1f".format(it)} кВт⋅ч") }
-                        sec.acceptedRecovery?.takeIf { it != 0.0 }?.let { add("Рек: пр ${"%.1f".format(it)}") }
-                        sec.deliveryRecovery?.takeIf { it != 0.0 }?.let { add("сд ${"%.1f".format(it)} кВт⋅ч") }
-                    }.joinToString("  ")
-                    if (vals.isNotBlank()) pm.tableRow("  Секция ${si + 1}", vals)
+                    val hasData = listOf(sec.acceptedEnergy, sec.deliveryEnergy,
+                        sec.acceptedRecovery, sec.deliveryRecovery).any { (it ?: 0.0) != 0.0 }
+                    if (!hasData) return@forEachIndexed
+                    pm.checkNewPage(30f)
+                    pm.y += 2f
+                    // Header: Секция N | Принял | Сдал | Результат
+                    pm.multiRow(listOf("Секция ${si + 1}", "Принял", "Сдал", "Результат"), w4, paint = paintSmall, bold = true)
+                    // Тяга
+                    if ((sec.acceptedEnergy ?: 0.0) != 0.0 || (sec.deliveryEnergy ?: 0.0) != 0.0) {
+                        val accept = sec.acceptedEnergy?.let { "%.1f".format(it) } ?: "—"
+                        val deliv  = sec.deliveryEnergy?.let { "%.1f".format(it) } ?: "—"
+                        val res    = sec.deliveryEnergy?.let { d ->
+                            sec.acceptedEnergy?.let { a -> "%.1f".format(d - a) }
+                        } ?: "—"
+                        pm.multiRow(listOf("Расход тяги", accept, deliv, res), w4)
+                    }
+                    // Рекуперация
+                    if ((sec.acceptedRecovery ?: 0.0) != 0.0 || (sec.deliveryRecovery ?: 0.0) != 0.0) {
+                        val accept = sec.acceptedRecovery?.let { "%.1f".format(it) } ?: "—"
+                        val deliv  = sec.deliveryRecovery?.let { "%.1f".format(it) } ?: "—"
+                        val res    = sec.deliveryRecovery?.let { d ->
+                            sec.acceptedRecovery?.let { a -> "%.1f".format(d - a) }
+                        } ?: "—"
+                        pm.multiRow(listOf("Рекуперация", accept, deliv, res), w4)
+                    }
+                }
+                // Итого по электросекциям (если секций > 1)
+                if (loco.electricSectionList.count { sec ->
+                        listOf(sec.acceptedEnergy, sec.deliveryEnergy, sec.acceptedRecovery, sec.deliveryRecovery).any { (it ?: 0.0) != 0.0 }
+                    } > 1) {
+                    val totalExpend = loco.electricSectionList.sumOf { sec ->
+                        (sec.deliveryEnergy ?: 0.0) - (sec.acceptedEnergy ?: 0.0)
+                    }
+                    val totalRecov = loco.electricSectionList.sumOf { sec ->
+                        (sec.deliveryRecovery ?: 0.0) - (sec.acceptedRecovery ?: 0.0)
+                    }
+                    if (totalExpend != 0.0 || totalRecov != 0.0) {
+                        pm.y += 2f
+                        pm.multiRow(listOf("ИТОГО", "", "", "Результат"), w4, paint = paintSmall, bold = true)
+                        if (totalExpend != 0.0) pm.multiRow(listOf("Расход тяги", "", "", "${"%.1f".format(totalExpend)}"), w4)
+                        if (totalRecov != 0.0) pm.multiRow(listOf("Рекуперация", "", "", "${"%.1f".format(totalRecov)}"), w4)
+                    }
                 }
             } else {
                 loco.dieselSectionList.forEachIndexed { si, sec ->
-                    val vals = buildList {
-                        sec.acceptedFuel?.takeIf { it != 0.0 }?.let { add("пр ${"%.2f".format(it)} л") }
-                        sec.deliveryFuel?.takeIf { it != 0.0 }?.let { add("сд ${"%.2f".format(it)} л") }
-                    }.joinToString("  ")
-                    if (vals.isNotBlank()) pm.tableRow("  Секция ${si + 1} (топливо)", vals)
+                    val hasData = (sec.acceptedFuel ?: 0.0) != 0.0 || (sec.deliveryFuel ?: 0.0) != 0.0
+                    if (!hasData) return@forEachIndexed
+                    pm.checkNewPage(28f)
+                    pm.y += 2f
+                    pm.multiRow(listOf("Секция ${si + 1}", "Принял", "Сдал", "Результат"), w4, paint = paintSmall, bold = true)
+                    val accept = sec.acceptedFuel?.let { "${"%.2f".format(it)} л" } ?: "—"
+                    val deliv  = sec.deliveryFuel?.let { "${"%.2f".format(it)} л" } ?: "—"
+                    val expendLitres = sec.deliveryFuel?.let { d -> sec.acceptedFuel?.let { a -> a - d } }
+                    val res    = expendLitres?.let { "${"%.2f".format(it)} л" } ?: "—"
+                    pm.multiRow(listOf("Топливо", accept, deliv, res), w4)
+                    // Показываем и в кг, если указан коэффициент
+                    sec.coefficient?.let { coeff ->
+                        val expendKg = expendLitres?.let { it * coeff }
+                        if (expendKg != null && expendKg > 0.0) {
+                            val acceptKg = sec.acceptedFuel?.let { "${"%.1f".format(it * coeff)} кг" } ?: "—"
+                            val delivKg  = sec.deliveryFuel?.let { "${"%.1f".format(it * coeff)} кг" } ?: "—"
+                            val resKg    = "${"%.1f".format(expendKg)} кг"
+                            pm.multiRow(listOf("", acceptKg, delivKg, resKg), w4)
+                        }
+                    }
+                }
+                // Итого по дизельным секциям (если секций > 1)
+                if (loco.dieselSectionList.count { (it.acceptedFuel ?: 0.0) != 0.0 || (it.deliveryFuel ?: 0.0) != 0.0 } > 1) {
+                    val totalExpend = loco.dieselSectionList.sumOf { sec ->
+                        (sec.acceptedFuel ?: 0.0) - (sec.deliveryFuel ?: 0.0)
+                    }
+                    if (totalExpend > 0.0) {
+                        pm.y += 2f
+                        pm.multiRow(listOf("ИТОГО", "", "", "Результат"), w4, paint = paintSmall, bold = true)
+                        pm.multiRow(listOf("Топливо", "", "", "${"%.2f".format(totalExpend)} л"), w4)
+                    }
                 }
             }
         }
 
-        // ── Trains
+        // ── Поезда
         route.trains.forEachIndexed { idx, train ->
-            pm.checkNewPage(40f)
-            pm.y += 3f
-            val trainId = buildString {
-                train.number?.takeIf { it.isNotBlank() }?.let { append("№$it") }
-                train.weight?.takeIf { it.isNotBlank() }?.let { append("  $it т") }
-                train.axle?.takeIf { it.isNotBlank() }?.let { append("  ${it} ос.") }
-            }.ifBlank { "—" }
-            pm.tableRow("Поезд ${idx + 1}", trainId, isHeaderRow = true)
-            train.distance?.takeIf { it.isNotBlank() }?.let { pm.tableRow("Расстояние", "$it км") }
+            pm.checkNewPage(50f)
+            pm.y += 4f
+            // Строка-заголовок поезда: Поезд N | № | Вес | Оси | у.д.
+            val wTrain = floatArrayOf(
+                contentWidth * 0.22f, contentWidth * 0.20f,
+                contentWidth * 0.20f, contentWidth * 0.18f, contentWidth * 0.20f
+            )
+            pm.multiRow(
+                listOf(
+                    "Поезд ${idx + 1}",
+                    train.number?.let { "№$it" } ?: "б/н",
+                    train.weight?.let { "Вес $it т" } ?: "",
+                    train.axle?.let { "Оси $it" } ?: "",
+                    train.distance?.let { "у.д. $it" } ?: ""
+                ), wTrain, bold = true
+            )
 
-            train.stations.forEach { station ->
-                val name = station.stationName ?: "—"
-                val arr = fmtTime(station.timeArrival) ?: "—"
-                val dep = fmtTime(station.timeDeparture) ?: "—"
-                pm.tableRow("  $name", "приб. $arr  отпр. $dep")
+            // Станции: Станция | Прибытие | Отправление — 3 колонки
+            val wSt = floatArrayOf(contentWidth * 0.36f, contentWidth * 0.32f, contentWidth * 0.32f)
+            if (train.stations.isNotEmpty()) {
+                pm.multiRow(listOf("Станция", "Прибытие", "Отправление"), wSt, paint = paintSmall, bold = true)
+                train.stations.forEach { station ->
+                    pm.multiRow(
+                        listOf(
+                            station.stationName ?: "—",
+                            fmtDT(station.timeArrival) ?: "—",
+                            fmtDT(station.timeDeparture) ?: "—"
+                        ), wSt
+                    )
+                }
             }
         }
 
-        // ── Passengers
+        // ── Пассажиры
         route.passengers.forEachIndexed { idx, passenger ->
-            pm.checkNewPage(36f)
-            pm.y += 3f
-            pm.tableRow("Пассажир ${idx + 1}", "", isHeaderRow = true)
-            pm.tableRow("Поезд", passenger.trainNumber)
-            pm.tableRow("Откуда", passenger.stationDeparture)
-            pm.tableRow("Куда", passenger.stationArrival)
-            pm.tableRow("Отправление", fmtDT(passenger.timeDeparture))
-            pm.tableRow("Прибытие", fmtDT(passenger.timeArrival))
-            pm.tableRow("Примечание", passenger.notes)
+            pm.checkNewPage(50f)
+            pm.y += 4f
+            // Заголовок: Пассажир N | номер поезда
+            val wPass2 = floatArrayOf(contentWidth * 0.5f, contentWidth * 0.5f)
+            pm.multiRow(
+                listOf("Пассажиром ${idx + 1}", passenger.trainNumber?.let { "Поезд №$it" } ?: ""),
+                wPass2, bold = true
+            )
+            // Отправление | Прибытие | В пути — 3 колонки
+            val wPass3 = floatArrayOf(contentWidth / 3f, contentWidth / 3f, contentWidth / 3f)
+            pm.multiRow(listOf("Отправление", "Прибытие", "В пути"), wPass3, paint = paintSmall, bold = true)
+            val passTime = if (passenger.timeDeparture != null && passenger.timeArrival != null)
+                fmtDur(maxOf(0L, passenger.timeArrival!! - passenger.timeDeparture!!)) else "—"
+            pm.multiRow(
+                listOf(
+                    fmtDT(passenger.timeDeparture) ?: "—",
+                    fmtDT(passenger.timeArrival) ?: "—",
+                    passTime ?: "—"
+                ), wPass3
+            )
+            // Станции
+            val stFrom = passenger.stationDeparture?.takeIf { it.isNotBlank() }
+            val stTo   = passenger.stationArrival?.takeIf { it.isNotBlank() }
+            if (stFrom != null || stTo != null) {
+                pm.multiRow(listOf("Откуда", "Куда", ""), wPass3, paint = paintSmall, bold = true)
+                pm.multiRow(listOf(stFrom ?: "—", stTo ?: "—", ""), wPass3)
+            }
+            if (!passenger.notes.isNullOrBlank()) pm.text("Примечание: ${passenger.notes}", paintSmall)
         }
 
-        pm.y += 4f
-        pm.separator()
+        pm.y += 8f
     }
 
     // ─── Schedule section ─────────────────────────────────────────────────────────
+
+    /** Info shown under the day number in a schedule cell */
+    private data class ScheduleEntry(
+        val line1: String   // e.g. "17:01-05:01 (12:00)" or "←-09:20 (09:20)"
+    )
+
+    /** Overlap of route's break with [from, to) window (in ms). 0L treated as null. */
+    private fun calcBreakOverlap(route: Route, from: Long, to: Long): Long {
+        val bs = route.basicData.timeStartBreak?.takeIf { it > 0L } ?: return 0L
+        val be = route.basicData.timeEndBreak?.takeIf { it > 0L } ?: return 0L
+        if (be <= bs) return 0L
+        val bFrom = maxOf(bs, from)
+        val bTo = minOf(be, to)
+        return if (bTo > bFrom) bTo - bFrom else 0L
+    }
 
     private fun drawSchedule(pm: PageManager, routes: List<Route>, monthLabel: String) {
         pm.text("График за $monthLabel", paintTitle)
@@ -416,39 +621,99 @@ class PdfGenerator(private val context: Context) {
         }
         val daysInMonth = firstDayCal.getActualMaximum(Calendar.DAY_OF_MONTH)
 
-        // Day → (hasRoute, hasPassenger, appearance times)
+        // Month boundaries in MSK for transition route clipping
+        val monthStartMs = dayStartMs(year, month, 1)
+        val nextMonthStartMs = Calendar.getInstance(tz).apply {
+            set(year, month, 1, 0, 0, 0); set(Calendar.MILLISECOND, 0)
+            add(Calendar.MONTH, 1)
+        }.timeInMillis
+
+        // Day → presence flags, schedule entries, passenger durations
         val dayRoute = BooleanArray(daysInMonth + 1)
         val dayPassenger = BooleanArray(daysInMonth + 1)
-        val dayAppearanceTimes = Array<MutableList<String>>(daysInMonth + 1) { mutableListOf() }
+        val dayEntries = Array<MutableList<ScheduleEntry>>(daysInMonth + 1) { mutableListOf() }
+        val dayPassDurations = Array<MutableList<String>>(daysInMonth + 1) { mutableListOf() }
 
         routes.forEach { route ->
             val start = route.basicData.timeStartWork ?: return@forEach
-            val end = route.basicData.timeEndWork ?: (start + 86_400_000L)
-            // Явка — день начала маршрута
+            val endRaw = route.basicData.timeEndWork
+            val endForColoring = endRaw ?: (start + 86_400_000L)
+
             val startCal = Calendar.getInstance(tz).apply { timeInMillis = start }
-            if (startCal.get(Calendar.MONTH) == month && startCal.get(Calendar.YEAR) == year) {
+            val startMonth = startCal.get(Calendar.MONTH)
+            val startYear = startCal.get(Calendar.YEAR)
+
+            // ── Cell entry for явка day (if in current month)
+            if (startMonth == month && startYear == year) {
                 val d = startCal.get(Calendar.DAY_OF_MONTH)
-                if (d in 1..daysInMonth) dayAppearanceTimes[d].add(timeManager.formatTime(start))
+                if (d in 1..daysInMonth) {
+                    val startStr = timeManager.formatTime(start)
+                    val isTransitionOut = endRaw != null && run {
+                        val ec = Calendar.getInstance(tz).apply { timeInMillis = endRaw }
+                        ec.get(Calendar.MONTH) != month || ec.get(Calendar.YEAR) != year
+                    }
+                    val endStr = when {
+                        endRaw == null -> ""
+                        isTransitionOut -> "→"
+                        else -> timeManager.formatTime(endRaw)
+                    }
+                    val durStr = if (endRaw != null) {
+                        val effectiveEnd = if (isTransitionOut) nextMonthStartMs else endRaw
+                        val brk = calcBreakOverlap(route, start, effectiveEnd)
+                        val workedMs = maxOf(0L, effectiveEnd - start - brk)
+                        if (workedMs > 0) " (${fmtDur(workedMs)})" else ""
+                    } else ""
+                    dayEntries[d].add(ScheduleEntry(line1 = "$startStr-$endStr$durStr"))
+                }
             }
+
+            // ── Cell entry for сдача day when явка was in previous month (transition in)
+            if (endRaw != null) {
+                val endCal = Calendar.getInstance(tz).apply { timeInMillis = endRaw }
+                if ((endCal.get(Calendar.MONTH) == month && endCal.get(Calendar.YEAR) == year) &&
+                    (startMonth != month || startYear != year)
+                ) {
+                    val endDay = endCal.get(Calendar.DAY_OF_MONTH).coerceIn(1, daysInMonth)
+                    val endStr = timeManager.formatTime(endRaw)
+                    val clippedStart = maxOf(start, monthStartMs)
+                    val brk = calcBreakOverlap(route, clippedStart, endRaw)
+                    val workedMs = maxOf(0L, endRaw - clippedStart - brk)
+                    val durStr = if (workedMs > 0) " (${fmtDur(workedMs)})" else ""
+                    dayEntries[endDay].add(ScheduleEntry(line1 = "←-$endStr$durStr"))
+                }
+            }
+
+            // ── Mark route days (for cell coloring)
             for (day in 1..daysInMonth) {
                 val dayStart = dayStartMs(year, month, day)
                 val dayEnd = dayStart + 86_400_000L
-                if (start < dayEnd && end > dayStart) dayRoute[day] = true
+                if (start < dayEnd && endForColoring > dayStart) dayRoute[day] = true
             }
+
+            // ── Passengers
             route.passengers.forEach { p ->
-                val ps = p.timeDeparture ?: return@forEach
-                val pe = p.timeArrival ?: (ps + 3_600_000L)
+                val ps = p.timeDeparture?.takeIf { it > 0L } ?: return@forEach
+                val pe = p.timeArrival?.takeIf { it > 0L } ?: (ps + 3_600_000L)
                 for (day in 1..daysInMonth) {
                     val dayStart = dayStartMs(year, month, day)
                     val dayEnd = dayStart + 86_400_000L
                     if (ps < dayEnd && pe > dayStart) dayPassenger[day] = true
+                }
+                // Show duration on departure day
+                val psCal = Calendar.getInstance(tz).apply { timeInMillis = ps }
+                if (psCal.get(Calendar.MONTH) == month && psCal.get(Calendar.YEAR) == year) {
+                    val d = psCal.get(Calendar.DAY_OF_MONTH)
+                    if (d in 1..daysInMonth) {
+                        val dur = fmtDur(pe - ps) ?: ""
+                        if (dur.isNotBlank()) dayPassDurations[d].add(dur)
+                    }
                 }
             }
         }
 
         // Grid
         val cellW = contentWidth / 7f
-        val cellH = 34f
+        val cellH = 48f
         val headerH = 18f
 
         val totalRows = ((daysInMonth + firstDow(firstDayCal) - 1) / 7) + 1
@@ -469,6 +734,11 @@ class PdfGenerator(private val context: Context) {
             )
         }
 
+        // Paint for centered явка time in cell
+        val paintCellTime = Paint().apply {
+            color = Color.BLACK; textSize = 11f; typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true
+        }
+
         var col = firstDow(firstDayCal)
         var row = 0
         for (day in 1..daysInMonth) {
@@ -477,31 +747,31 @@ class PdfGenerator(private val context: Context) {
 
             pm.canvas.drawRect(x, cellY, x + cellW, cellY + cellH, paintTableBorder)
 
-            when {
-                dayRoute[day] && dayPassenger[day] -> {
-                    paintFill.color = Color.argb(70, 33, 150, 243)
-                    pm.canvas.drawRect(x + 1f, cellY + 1f, x + cellW / 2f, cellY + cellH - 1f, paintFill)
-                    paintFill.color = Color.argb(70, 255, 152, 0)
-                    pm.canvas.drawRect(x + cellW / 2f, cellY + 1f, x + cellW - 1f, cellY + cellH - 1f, paintFill)
-                }
-                dayRoute[day] -> {
-                    paintFill.color = Color.argb(70, 33, 150, 243)
-                    pm.canvas.drawRect(x + 1f, cellY + 1f, x + cellW - 1f, cellY + cellH - 1f, paintFill)
-                }
-                dayPassenger[day] -> {
-                    paintFill.color = Color.argb(70, 255, 152, 0)
-                    pm.canvas.drawRect(x + 1f, cellY + 1f, x + cellW - 1f, cellY + cellH - 1f, paintFill)
-                }
+            // Оранжевая заливка для дней отвлечения (только если нет явки в этот день)
+            if (dayPassenger[day] && dayEntries[day].isEmpty()) {
+                paintFill.color = Color.argb(70, 255, 152, 0)
+                pm.canvas.drawRect(x + 1f, cellY + 1f, x + cellW - 1f, cellY + cellH - 1f, paintFill)
             }
 
-            // Число — в верхнем левом углу
-            val dayStr = day.toString()
-            val dp = if (dayRoute[day] || dayPassenger[day]) paintBodyBold else paintBody
-            pm.canvas.drawText(dayStr, x + 3f, cellY + 11f, dp)
+            // Day number — top-left
+            pm.canvas.drawText(day.toString(), x + 3f, cellY + 10f, paintBody)
 
-            // Времена явки — одно под другим в нижней части ячейки
-            dayAppearanceTimes[day].forEachIndexed { i, t ->
-                pm.canvas.drawText(t, x + 3f, cellY + 22f + i * 9f, paintSmall)
+            // Если есть явка — показываем только её, по центру, крупно
+            val entry = dayEntries[day].firstOrNull()
+            if (entry != null) {
+                val text = entry.line1
+                val textW = paintCellTime.measureText(text)
+                val textX = (x + (cellW - textW) / 2f).coerceAtLeast(x + 2f)
+                val textY = cellY + cellH / 2f + paintCellTime.textSize / 2f - 2f
+                pm.canvas.drawText(text, textX, textY, paintCellTime)
+            } else {
+                // Нет явки — показываем длительность отвлечения по центру
+                dayPassDurations[day].firstOrNull()?.let { pDur ->
+                    val textW = paintTiny.measureText(pDur)
+                    val textX = (x + (cellW - textW) / 2f).coerceAtLeast(x + 2f)
+                    val textY = cellY + cellH / 2f + paintTiny.textSize / 2f - 2f
+                    pm.canvas.drawText(pDur, textX, textY, paintTiny)
+                }
             }
 
             col++
@@ -510,24 +780,27 @@ class PdfGenerator(private val context: Context) {
 
         pm.y = gridTop + headerH + (row + if (col > 0) 1 else 0) * cellH + 8f
 
-        // Legend
-        pm.y += 4f
-        paintFill.color = Color.argb(80, 33, 150, 243)
-        pm.canvas.drawRect(ml, pm.y - 8f, ml + 12f, pm.y + 2f, paintFill)
-        pm.canvas.drawText("— Явка", ml + 16f, pm.y, paintSmall)
-        pm.y += 12f
-        paintFill.color = Color.argb(80, 255, 152, 0)
-        pm.canvas.drawRect(ml, pm.y - 8f, ml + 12f, pm.y + 2f, paintFill)
-        pm.canvas.drawText("— Отвлечение", ml + 16f, pm.y, paintSmall)
-        pm.y += 14f
+        pm.y += 8f
 
-        // Summary
+        // Summary — total work time with month clipping for transitions
         val totalWorkMs = routes.sumOf { r ->
             val s = r.basicData.timeStartWork ?: return@sumOf 0L
             val e = r.basicData.timeEndWork ?: return@sumOf 0L
-            val brk = if (r.basicData.timeStartBreak != null && r.basicData.timeEndBreak != null)
-                (r.basicData.timeEndBreak!! - r.basicData.timeStartBreak!!) else 0L
-            maxOf(0L, e - s - brk)
+            val sCal = Calendar.getInstance(tz).apply { timeInMillis = s }
+            val eCal = Calendar.getInstance(tz).apply { timeInMillis = e }
+            val isTransition = sCal.get(Calendar.MONTH) != month || sCal.get(Calendar.YEAR) != year ||
+                eCal.get(Calendar.MONTH) != month || eCal.get(Calendar.YEAR) != year
+            if (isTransition) {
+                val clippedStart = maxOf(s, monthStartMs)
+                val clippedEnd = minOf(e, nextMonthStartMs)
+                if (clippedEnd > clippedStart) {
+                    val brk = calcBreakOverlap(r, clippedStart, clippedEnd)
+                    maxOf(0L, clippedEnd - clippedStart - brk)
+                } else 0L
+            } else {
+                val brk = calcBreakOverlap(r, s, e)
+                maxOf(0L, e - s - brk)
+            }
         }
         val totalPassMs = routes.sumOf { r ->
             r.passengers.sumOf { p ->
@@ -538,7 +811,7 @@ class PdfGenerator(private val context: Context) {
         }
 
         pm.tableRow("Маршрутов в месяце", "${routes.size}")
-        pm.tableRow("Отработано", fmtDur(totalWorkMs))
+        pm.tableRow("Отработано в месяце", fmtDur(totalWorkMs))
         if (totalPassMs > 0) pm.tableRow("Время в отвлечениях", fmtDur(totalPassMs))
         pm.y += 4f
         pm.separator()
@@ -564,15 +837,16 @@ class PdfGenerator(private val context: Context) {
 
         // Начисления
         pm.checkNewPage(28f)
+        pm.y += 8f
         pm.canvas.drawRect(ml, pm.y - 12f, ml + contentWidth, pm.y + 2f, paintSectionFill)
         pm.canvas.drawText("Начисления", ml + 4f, pm.y, paintSection)
         pm.y += 14f
         pm.salaryHeader()
 
         fun row(desc: String, h: Long?, pct: Double?, money: Double?) {
-            val hs = fmtHours(h); val ps = fmtPct(pct); val ms = fmtMoney(money)
-            if (hs.isBlank() && ps.isBlank() && ms.isBlank()) return
-            pm.salaryRow(desc, hs, ps, ms)
+            val ms = fmtMoney(money)
+            if (ms.isBlank()) return   // скрываем строки с нулевой/пустой суммой
+            pm.salaryRow(desc, fmtHours(h), fmtPct(pct), ms)
         }
 
         row("Оплата по тарифу", s.paymentAtTariffHours, null, s.paymentAtTariffMoney)
@@ -585,9 +859,9 @@ class PdfGenerator(private val context: Context) {
 
         // Percentage-only surcharges
         fun rowPct(desc: String, pct: Double?, money: Double?) {
-            val ps = fmtPct(pct); val ms = fmtMoney(money)
-            if (ps.isBlank() && ms.isBlank()) return
-            pm.salaryRow(desc, "", ps, ms)
+            val ms = fmtMoney(money)
+            if (ms.isBlank()) return   // скрываем строки с нулевой/пустой суммой
+            pm.salaryRow(desc, "", fmtPct(pct), ms)
         }
         rowPct("Зональная надбавка", s.zonalSurchargePercent, s.zonalSurchargeMoney)
         rowPct("Надбавка за класс квалификации", s.surchargeQualificationClassPercent, s.surchargeQualificationClassMoney)
@@ -598,35 +872,37 @@ class PdfGenerator(private val context: Context) {
         rowPct("Северная надбавка", s.nordicSurchargePercent, s.nordicSurchargeMoney)
 
         s.surchargeExtendedServicePhaseHour.forEachIndexed { i, h ->
-            val p = fmtPctStr(s.surchargeExtendedServicePhasePercent.getOrNull(i))
             val m = fmtMoney(s.surchargeExtendedServicePhaseMoney.getOrNull(i))
-            if (fmtHours(h).isBlank() && p.isBlank() && m.isBlank()) return@forEachIndexed
-            pm.salaryRow("Удлинённое плечо ${i + 1}", fmtHours(h), p, m)
+            if (m.isBlank()) return@forEachIndexed
+            pm.salaryRow("Удлинённое плечо ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeExtendedServicePhasePercent.getOrNull(i)), m)
         }
         s.surchargeHeavyTransHour.forEachIndexed { i, h ->
-            val p = fmtPctStr(s.surchargeHeavyTransPercent.getOrNull(i))
             val m = fmtMoney(s.surchargeHeavyTransMoney.getOrNull(i))
-            if (fmtHours(h).isBlank() && p.isBlank() && m.isBlank()) return@forEachIndexed
-            pm.salaryRow("Тяжёлые поезда ${i + 1}", fmtHours(h), p, m)
+            if (m.isBlank()) return@forEachIndexed
+            pm.salaryRow("Тяжёлые поезда ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeHeavyTransPercent.getOrNull(i)), m)
         }
         s.surchargeLongTrainHour.forEachIndexed { i, h ->
-            val p = fmtPctStr(s.surchargeLongTrainPercent.getOrNull(i))
             val m = fmtMoney(s.surchargeLongTrainMoney.getOrNull(i))
-            if (fmtHours(h).isBlank() && p.isBlank() && m.isBlank()) return@forEachIndexed
-            pm.salaryRow("Длинносост. поезда ${i + 1}", fmtHours(h), p, m)
+            if (m.isBlank()) return@forEachIndexed
+            pm.salaryRow("Длинносост. поезда ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeLongTrainPercent.getOrNull(i)), m)
         }
-        if (fmtHours(s.surchargeDoubledTrainFirstHours).isNotBlank() || fmtMoney(s.surchargeDoubledTrainFirstMoney).isNotBlank())
-            pm.salaryRow("Сдвоенные (30%)", fmtHours(s.surchargeDoubledTrainFirstHours), "30%", fmtMoney(s.surchargeDoubledTrainFirstMoney))
-        if (fmtHours(s.surchargeDoubledTrainSecondHours).isNotBlank() || fmtMoney(s.surchargeDoubledTrainSecondMoney).isNotBlank())
-            pm.salaryRow("Сдвоенные (15%)", fmtHours(s.surchargeDoubledTrainSecondHours), "15%", fmtMoney(s.surchargeDoubledTrainSecondMoney))
+        fmtMoney(s.surchargeDoubledTrainFirstMoney).takeIf { it.isNotBlank() }?.let { m ->
+            pm.salaryRow("Сдвоенные (30%)", fmtHours(s.surchargeDoubledTrainFirstHours), "30%", m)
+        }
+        fmtMoney(s.surchargeDoubledTrainSecondMoney).takeIf { it.isNotBlank() }?.let { m ->
+            pm.salaryRow("Сдвоенные (15%)", fmtHours(s.surchargeDoubledTrainSecondHours), "15%", m)
+        }
         row("Сверхурочные", s.paymentAtOvertimeHours, null, s.paymentAtOvertimeMoney)
-        if (fmtHours(s.surchargeAtOvertime05Hours).isNotBlank() || fmtMoney(s.surchargeAtOvertime05Money).isNotBlank())
-            pm.salaryRow("Доп. сверхурочные (50%)", fmtHours(s.surchargeAtOvertime05Hours), "50%", fmtMoney(s.surchargeAtOvertime05Money))
-        if (fmtHours(s.surchargeAtOvertimeHours).isNotBlank() || fmtMoney(s.surchargeAtOvertimeMoney).isNotBlank())
-            pm.salaryRow("Доп. сверхурочные (100%)", fmtHours(s.surchargeAtOvertimeHours), "100%", fmtMoney(s.surchargeAtOvertimeMoney))
+        fmtMoney(s.surchargeAtOvertime05Money).takeIf { it.isNotBlank() }?.let { m ->
+            pm.salaryRow("Доп. сверхурочные (50%)", fmtHours(s.surchargeAtOvertime05Hours), "50%", m)
+        }
+        fmtMoney(s.surchargeAtOvertimeMoney).takeIf { it.isNotBlank() }?.let { m ->
+            pm.salaryRow("Доп. сверхурочные (100%)", fmtHours(s.surchargeAtOvertimeHours), "100%", m)
+        }
         row("Переотдых", s.restInExcessOfTheNormTime, null, s.restInExcessOfTheNormMoney)
-        if (fmtMoney(s.otherSurchargeMoney).isNotBlank())
-            pm.salaryRow("Прочие надбавки", "", fmtPct(s.otherSurchargePercent), fmtMoney(s.otherSurchargeMoney))
+        fmtMoney(s.otherSurchargeMoney).takeIf { it.isNotBlank() }?.let { m ->
+            pm.salaryRow("Прочие надбавки", "", fmtPct(s.otherSurchargePercent), m)
+        }
 
         // Total charged
         pm.salaryRow("Итого начислено", "", "", fmtMoney(s.totalChargedMoney), bold = true)
@@ -634,6 +910,7 @@ class PdfGenerator(private val context: Context) {
 
         // Удержания
         pm.checkNewPage(28f)
+        pm.y += 8f
         pm.canvas.drawRect(ml, pm.y - 12f, ml + contentWidth, pm.y + 2f, paintSectionFill)
         pm.canvas.drawText("Удержания", ml + 4f, pm.y, paintSection)
         pm.y += 14f
