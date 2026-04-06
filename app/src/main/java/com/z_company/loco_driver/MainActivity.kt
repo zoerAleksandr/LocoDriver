@@ -83,11 +83,10 @@ class MainActivity : ComponentActivity(), KoinComponent {
             }
         }
 
-        // Deep link: locodriver://share/{id} — загрузить маршрут по публичной ссылке
-        if (i?.action == Intent.ACTION_VIEW &&
-            data?.scheme == ShareRouteManager.SHARE_SCHEME &&
-            data.host == ShareRouteManager.SHARE_HOST
-        ) {
+        // Deep link: публичная ссылка на маршрут.
+        //  - https://locodriver.ru/r/{id}      (App Link, кликабелен в Telegram и т.п.)
+        //  - locodriver://share/{id}            (fallback / iOS, кастомная схема)
+        if (i?.action == Intent.ACTION_VIEW && data != null && isShareDeepLink(data)) {
             val shareId = ShareRouteManager.parseShareId(data.toString())
             if (!shareId.isNullOrBlank()) {
                 mainViewModel.handleShareDeepLink(shareId)
@@ -114,6 +113,21 @@ class MainActivity : ComponentActivity(), KoinComponent {
         if (i?.getBooleanExtra("widget_open_home", false) == true) {
             mainViewModel.requestNavigateHome()
         }
+    }
+
+    private fun isShareDeepLink(uri: Uri): Boolean {
+        // Кастомная схема: locodriver://share/...
+        if (uri.scheme == ShareRouteManager.SHARE_SCHEME &&
+            uri.host == ShareRouteManager.SHARE_HOST
+        ) return true
+        // App Link: https://locodriver.ru/r/...
+        val isHttps = uri.scheme == "https" || uri.scheme == "http"
+        val isOurHost = uri.host == ShareRouteManager.SHARE_HTTPS_HOST
+        val firstSegment = uri.pathSegments.firstOrNull()
+        val isSharePath =
+            firstSegment == ShareRouteManager.SHARE_HTTPS_PATH ||
+                firstSegment == ShareRouteManager.SHARE_HOST
+        return isHttps && isOurHost && isSharePath
     }
 
     private fun isZrouteFile(uri: Uri): Boolean {

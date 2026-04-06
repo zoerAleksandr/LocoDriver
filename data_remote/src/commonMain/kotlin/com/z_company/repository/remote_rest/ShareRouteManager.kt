@@ -78,27 +78,49 @@ class ShareRouteManager(
         }
 
     companion object {
-        /** Префикс кастомной URI-схемы. */
+        /** Кастомная URI-схема (fallback и iOS-распространение без Apple Developer Program). */
         const val SHARE_SCHEME: String = "locodriver"
-        /** Хост пути. */
+        /** Хост для кастомной схемы (`locodriver://share/{id}`). */
         const val SHARE_HOST: String = "share"
 
-        /** Собирает полную ссылку вида `locodriver://share/{id}`. */
-        fun buildShareUrl(id: String): String = "$SHARE_SCHEME://$SHARE_HOST/$id"
+        /**
+         * HTTPS-домен для App Links / Universal Links и для редирект-страницы,
+         * раскатанной на Cloudflare Pages из репозитория `locodriver-site`.
+         */
+        const val SHARE_HTTPS_HOST: String = "locodriver.ru"
+        /** Префикс пути на HTTPS-домене для shared-маршрутов. */
+        const val SHARE_HTTPS_PATH: String = "r"
 
         /**
-         * Извлекает shareId из ссылки формата `locodriver://share/{id}`
-         * или `https://*/share/{id}` (для будущего варианта с Universal Links).
-         * Возвращает null, если формат не распознан.
+         * Собирает публичную ссылку. Используется HTTPS-вариант, потому что только он
+         * кликабелен в Telegram/WhatsApp и поддерживает Android App Links.
+         * Старый формат `locodriver://share/{id}` остаётся валидным для входящих deep-link-ов.
+         */
+        fun buildShareUrl(id: String): String =
+            "https://$SHARE_HTTPS_HOST/$SHARE_HTTPS_PATH/$id"
+
+        /**
+         * Извлекает shareId из любого поддерживаемого формата ссылки:
+         *  - `https://locodriver.ru/r/{id}`           — основной (App Links)
+         *  - `https://locodriver.ru/share/{id}`       — на случай редиректа со старого пути
+         *  - `locodriver://share/{id}`                — кастомная схема (fallback / iOS)
+         *  - `locodriver://r/{id}`                    — на случай ручного формирования
+         *
+         * Возвращает null, если ни один маркер не распознан или id пустой.
          */
         fun parseShareId(url: String): String? {
             if (url.isBlank()) return null
-            val marker = "$SHARE_HOST/"
-            val idx = url.indexOf(marker)
-            if (idx < 0) return null
-            val tail = url.substring(idx + marker.length)
-            val id = tail.substringBefore('?').substringBefore('#').trim('/').trim()
-            return id.ifEmpty { null }
+            // /r/   — основной формат: https://locodriver.ru/r/{id}
+            // /share/ — кастомная схема: locodriver://share/{id} (содержит "/share/" из-за "://")
+            val markers = listOf("/$SHARE_HTTPS_PATH/", "/$SHARE_HOST/")
+            for (marker in markers) {
+                val idx = url.indexOf(marker)
+                if (idx < 0) continue
+                val tail = url.substring(idx + marker.length)
+                val id = tail.substringBefore('?').substringBefore('#').trim('/').trim()
+                if (id.isNotEmpty()) return id
+            }
+            return null
         }
     }
 }
