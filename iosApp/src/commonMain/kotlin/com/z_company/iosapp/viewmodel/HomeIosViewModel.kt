@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.iosapp.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -15,7 +17,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -28,7 +29,6 @@ import kotlinx.datetime.toLocalDateTime
  *  - удаление маршрута (deleteRoute)
  *  - копирование маршрута (copyRoute)
  */
-@OptIn(ExperimentalTime::class)
 class HomeIosViewModel(
     private val routeUseCase: RouteUseCase,
     private val settingsUseCase: SettingsUseCase,

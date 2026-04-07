@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.iosapp.screen
 
 import androidx.compose.foundation.layout.Arrangement
@@ -171,7 +173,6 @@ internal fun FormScreen(
     }
 }
 
-@OptIn(kotlin.time.ExperimentalTime::class)
 private fun formatEpochMs(ms: Long): String {
     val instant = Instant.fromEpochMilliseconds(ms)
     val ldt = instant.toLocalDateTime(TimeZone.currentSystemDefault())

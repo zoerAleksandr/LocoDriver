@@ -18,6 +18,7 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var lastSyncTimestamp: Long = 0L
     private var subscriptionExpiration: Long = 0L
     private var isMigrated: Boolean = false
+    private var timezoneMigrationDone: Boolean = true // iOS не нуждается в миграции временных меток
     private var opKeyRobokassa: String? = null
     private var showUpdatePresentation: Boolean = true
     private var tokenIsChangesHave: Boolean = false
@@ -51,6 +52,8 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setOPKeyRobokassa(opKey: String?) { opKeyRobokassa = opKey }
     override fun isMigrated(): Boolean = isMigrated
     override fun setIsMigrated(value: Boolean) { isMigrated = value }
+    override fun isTimezoneMigrationDone(): Boolean = timezoneMigrationDone
+    override fun setTimezoneMigrationDone() { timezoneMigrationDone = true }
     override fun isShowUpdatePresentation(): Boolean = showUpdatePresentation
     override fun enableShowingUpdatePresentation() { showUpdatePresentation = true }
     override fun getSubscriptionExpiration(): Long = subscriptionExpiration
