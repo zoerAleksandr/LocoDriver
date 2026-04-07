@@ -3,6 +3,8 @@ package com.z_company.repository.remote_rest
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.ProductionCalendarDay
+import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import kotlinx.coroutines.flow.Flow
@@ -76,6 +78,42 @@ class SettingManager(
         emit(ResultState.Loading())
         val months = remoteRestApi.getMonthOfYearList(token = bearerToken)
         emit(ResultState.Success(months))
+    }.catch { e ->
+        emit(ResultState.Error(ErrorEntity(throwable = e)))
+    }
+
+    // --- ReleaseDay ---
+
+    fun saveReleaseDaysInRemote(
+        days: List<ReleaseDay>,
+        bearerToken: String
+    ): Flow<ResultState<Unit>> = flow {
+        emit(ResultState.Loading())
+        remoteRestApi.saveReleaseDays(token = bearerToken, body = days)
+        emit(ResultState.Success(Unit))
+    }.catch { e ->
+        emit(ResultState.Error(ErrorEntity(throwable = e)))
+    }
+
+    fun getReleaseDaysFromRemote(
+        bearerToken: String
+    ): Flow<ResultState<List<ReleaseDay>>> = flow {
+        emit(ResultState.Loading())
+        val days = remoteRestApi.getReleaseDays(token = bearerToken)
+        emit(ResultState.Success(days))
+    }.catch { e ->
+        emit(ResultState.Error(ErrorEntity(throwable = e)))
+    }
+
+    // --- ProductionCalendar ---
+
+    fun getProductionCalendarFromRemote(
+        country: String,
+        year: Int
+    ): Flow<ResultState<List<ProductionCalendarDay>>> = flow {
+        emit(ResultState.Loading())
+        val days = remoteRestApi.getProductionCalendar(country = country, year = year)
+        emit(ResultState.Success(days))
     }.catch { e ->
         emit(ResultState.Error(ErrorEntity(throwable = e)))
     }

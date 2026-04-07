@@ -62,4 +62,8 @@ interface SharedPreferencesRepositories {
 
     fun isTimezoneMigrationDone(): Boolean
     fun setTimezoneMigrationDone()
+
+    /** Флаг одноразовой миграции отвлечений из MonthOfYear.days → таблицу ReleaseDay */
+    fun isReleaseDayMigrationDone(): Boolean
+    fun setReleaseDayMigrationDone()
 }

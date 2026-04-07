@@ -147,7 +147,7 @@ class ProfileIosViewModel(
             if (dl != null && dl.routesLoadedCount >= 0) {
                 _syncMessage.value = buildString {
                     append("Загружено: маршрутов ${dl.routesLoadedCount}")
-                    if (!dl.userSettingsLoaded || !dl.salarySettingsLoaded || !dl.monthsLoaded) {
+                    if (!dl.userSettingsLoaded || !dl.salarySettingsLoaded || !dl.releaseDaysLoaded) {
                         append(" (часть данных не загружена)")
                     }
                 }

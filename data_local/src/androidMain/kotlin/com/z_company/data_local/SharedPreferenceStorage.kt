@@ -41,6 +41,7 @@ private const val TOKEN_PASSENGER_12H_ACCEPTED = "TOKEN_PASSENGER_12H_ACCEPTED"
 
 private const val TOKEN_LAST_SYNC_TIME = "TOKEN_LAST_SYNC_TIME"
 private const val TOKEN_TIMEZONE_MIGRATION = "TOKEN_TIMEZONE_MIGRATION"
+private const val TOKEN_RELEASE_DAY_MIGRATION = "TOKEN_RELEASE_DAY_MIGRATION"
 class SharedPreferenceStorage(application: Application) : SharedPreferencesRepositories,
     KoinComponent {
     private val sharedpref: SharedPreferences =
@@ -273,6 +274,13 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         } catch (_: Exception) {
             emptyList()
         }
+    }
+
+    override fun isReleaseDayMigrationDone(): Boolean =
+        sharedpref.getBoolean(TOKEN_RELEASE_DAY_MIGRATION, false)
+
+    override fun setReleaseDayMigrationDone() {
+        editor.putBoolean(TOKEN_RELEASE_DAY_MIGRATION, true).apply()
     }
 
     override fun addRecentTime(key: String, timeMillis: Long) {

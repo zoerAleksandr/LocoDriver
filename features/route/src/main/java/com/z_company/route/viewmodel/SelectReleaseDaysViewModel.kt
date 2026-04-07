@@ -1,6 +1,5 @@
 package com.z_company.route.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
@@ -9,8 +8,8 @@ import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
-import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,14 +18,13 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDate
 import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import kotlin.collections.find
 
 class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
+    private val releaseDayUseCase: ReleaseDayUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
 
     private val _uiState = MutableStateFlow(SelectReleaseDaysUIState())
@@ -66,13 +64,13 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
         setCalendarJob?.cancel()
         setCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
-                result.find {
-                    it.year == yearAndMonth.first && it.month == yearAndMonth.second
-                }?.let { selectMonthOfYear ->
-                    currentMonthOfYear = selectMonthOfYear
-                    saveCurrentMonthInLocal(selectMonthOfYear)
-                    setReleasePeriodState(selectMonthOfYear)
-                }
+            result.find {
+                it.year == yearAndMonth.first && it.month == yearAndMonth.second
+            }?.let { selectMonthOfYear ->
+                currentMonthOfYear = selectMonthOfYear
+                saveCurrentMonthInLocal(selectMonthOfYear)
+                setReleasePeriodState(selectMonthOfYear)
+            }
         }.launchIn(viewModelScope)
     }
 
@@ -87,97 +85,58 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
         saveCurrentMonthJob?.join()
     }
 
+    /** Добавить период отвлечения — сохраняет в ReleaseDayRepository. */
     fun addReleasePeriod(period: ReleasePeriod) {
-        releasePeriodListState.add(period)
-        testAddPeriodInMonthOfYear(period)
+        viewModelScope.launch {
+            try {
+                releaseDayUseCase.savePeriod(period).collect { state ->
+                    _uiState.update { it.copy(saveReleaseDaysState = state) }
+                }
+            } catch (e: Exception) {
+                e.sendToSentry("SelectReleaseDaysViewModel", "addReleasePeriod")
+            }
+        }
     }
 
+    /** Удалить период отвлечения — удаляет из ReleaseDayRepository. */
     fun deleteReleasePeriod(period: ReleasePeriod) {
-        releasePeriodListState.remove(period)
-        testRemovePeriodInMonthOfYear(period)
+        viewModelScope.launch {
+            try {
+                releaseDayUseCase.deletePeriod(period).collect { state ->
+                    _uiState.update { it.copy(saveReleaseDaysState = state) }
+                }
+            } catch (e: Exception) {
+                e.sendToSentry("SelectReleaseDaysViewModel", "deleteReleasePeriod")
+            }
+        }
     }
 
     private fun loadMonthList() {
         loadCalendarJob?.cancel()
         loadCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
-                allMonthOfYear = result
-                _uiState.update { state ->
-                    state.copy(
-                        monthList = result.map { it.month }.distinct().sorted(),
-                        yearList = result.map { it.year }.distinct().sorted()
-                    )
-                }
-                newMonthList = result.toMutableList()
+            allMonthOfYear = result
+            _uiState.update { state ->
+                state.copy(
+                    monthList = result.map { it.month }.distinct().sorted(),
+                    yearList = result.map { it.year }.distinct().sorted()
+                )
+            }
+            newMonthList = result.toMutableList()
         }.launchIn(viewModelScope)
     }
 
-    private fun testAddPeriodInMonthOfYear(period: ReleasePeriod) {
-        period.days.forEach { releaseDay ->
-            val searchMonth = newMonthList.find {
-                it.month == releaseDay.monthNumber - 1 && it.year == releaseDay.year
-            }
-            searchMonth?.let {
-                val indexMonthList = newMonthList.indexOf(searchMonth)
-                if (indexMonthList != -1) {
-                    val day = newMonthList[indexMonthList].days.find { d ->
-                        d.dayOfMonth == releaseDay.dayOfMonth
-                    }
-                    day?.let {
-                        val indexDay = newMonthList[indexMonthList].days.indexOf(it)
-                        val days = newMonthList[indexMonthList].days.toMutableList()
-                        days[indexDay] = day.copy(isReleaseDay = true, releaseType = period.type)
-                        val newMonth = newMonthList[indexMonthList].copy(
-                            days = days
-                        )
-                        newMonthList[indexMonthList] = newMonth
-                        if (newMonth.month == currentMonthOfYear?.month && newMonth.year == currentMonthOfYear?.year) {
-                            currentMonthOfYear = newMonth
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private fun testRemovePeriodInMonthOfYear(period: ReleasePeriod) {
-        period.days.forEach { releaseDay ->
-            val searchMonth = newMonthList.find {
-                it.month == releaseDay.monthNumber - 1 && it.year == releaseDay.year
-            }
-            searchMonth?.let {
-                val indexMonthList = newMonthList.indexOf(searchMonth)
-                if (indexMonthList != -1) {
-                    val day = newMonthList[indexMonthList].days.find { d ->
-                        d.dayOfMonth == releaseDay.dayOfMonth
-                    }
-                    day?.let {
-                        val indexDay = newMonthList[indexMonthList].days.indexOf(it)
-                        val days = newMonthList[indexMonthList].days.toMutableList()
-                        days[indexDay] = day.copy(isReleaseDay = false, releaseType = null)
-                        val newMonth = newMonthList[indexMonthList].copy(
-                            days = days
-                        )
-                        newMonthList[indexMonthList] = newMonth
-                        if (newMonth.month == currentMonthOfYear?.month && newMonth.year == currentMonthOfYear?.year) {
-                            currentMonthOfYear = newMonth
-                        }
-                    }
-                }
-            }
-        }
-    }
-
+    /** Сохранить ставку тарифа и прочие поля MonthOfYear (не касается отвлечений). */
     fun saveNormaHours() {
         viewModelScope.launch {
             try {
                 currentMonthOfYear?.let { monthOfYear ->
-                    newMonthList.forEach {
-                        if (it.month == monthOfYear.month && it.year == monthOfYear.year) {
-                            saveCurrentMonthInLocal(it)
+                    newMonthList.forEach { month ->
+                        if (month.month == monthOfYear.month && month.year == monthOfYear.year) {
+                            saveCurrentMonthInLocal(month)
                         }
                         saveCurrentMonthJob?.cancel()
                         saveCurrentMonthJob =
-                            calendarUseCase.updateMonthOfYear(it).onEach { resultState ->
+                            calendarUseCase.updateMonthOfYear(month).onEach { resultState ->
                                 _uiState.update {
                                     it.copy(saveReleaseDaysState = resultState)
                                 }
@@ -216,59 +175,24 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    /**
+     * Строит список ReleasePeriod из дней MonthOfYear.
+     * Дни уже обогащены release-флагами через SqlDelightCalendarRepository.combine().
+     */
     private fun setReleasePeriodState(monthOfYear: MonthOfYear) {
-        releasePeriodListState.clear()
-        val listReleasePeriod = mutableListOf<LocalDate>()
-        var isBegunCounting = false
-        var currentType: ReleaseType? = null
-        monthOfYear.days.forEachIndexed { index, day ->
-            if (day.isReleaseDay) {
-                if (isBegunCounting && currentType != day.releaseType) {
-                    val copyList = mutableListOf<LocalDate>()
-                    copyList.addAll(listReleasePeriod)
-                    releasePeriodListState.add(
-                        ReleasePeriod(
-                            days = copyList,
-                            type = currentType
-                        )
-                    )
-                    listReleasePeriod.clear()
-                    currentType = day.releaseType
-                }
-                if (!isBegunCounting) {
-                    isBegunCounting = true
-                    currentType = day.releaseType
-                }
-                listReleasePeriod.add(
-                    LocalDate(monthOfYear.year, monthOfYear.month + 1, day.dayOfMonth)
+        val releaseDays = monthOfYear.days.filter { it.isReleaseDay && it.releaseType != null }
+            .map { day ->
+                com.z_company.domain.entities.ReleaseDay(
+                    year = monthOfYear.year,
+                    month = monthOfYear.month,
+                    dayOfMonth = day.dayOfMonth,
+                    releaseType = day.releaseType!!
                 )
-            } else {
-                if (isBegunCounting) {
-                    isBegunCounting = false
-                    val copyList = mutableListOf<LocalDate>()
-                    copyList.addAll(listReleasePeriod)
-                    releasePeriodListState.add(
-                        ReleasePeriod(
-                            days = copyList,
-                            type = currentType
-                        )
-                    )
-                    currentType = null
-                    listReleasePeriod.clear()
-                }
             }
-        }
-        if (isBegunCounting) {
-            val copyList = mutableListOf<LocalDate>()
-            copyList.addAll(listReleasePeriod)
-            releasePeriodListState.add(
-                ReleasePeriod(
-                    days = copyList,
-                    type = currentType
-                )
-            )
-            listReleasePeriod.clear()
-        }
+        val periods = releaseDayUseCase.toReleasePeriods(releaseDays)
+        val newList = mutableStateListOf<ReleasePeriod>()
+        newList.addAll(periods)
+        releasePeriodListState = newList
     }
 
     init {

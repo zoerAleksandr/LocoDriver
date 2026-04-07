@@ -1,0 +1,28 @@
+CREATE TABLE IF NOT EXISTS ReleaseDay (
+    id TEXT NOT NULL PRIMARY KEY,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    dayOfMonth INTEGER NOT NULL,
+    releaseType TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_release_day_year_month ON ReleaseDay(year, month);
+
+insertOrReplace:
+INSERT OR REPLACE INTO ReleaseDay (id, year, month, dayOfMonth, releaseType)
+VALUES (?, ?, ?, ?, ?);
+
+getAll:
+SELECT * FROM ReleaseDay ORDER BY year, month, dayOfMonth;
+
+getByYearMonth:
+SELECT * FROM ReleaseDay WHERE year = :year AND month = :month ORDER BY dayOfMonth;
+
+deleteById:
+DELETE FROM ReleaseDay WHERE id = :id;
+
+deleteByYearMonth:
+DELETE FROM ReleaseDay WHERE year = :year AND month = :month;
+
+deleteAll:
+DELETE FROM ReleaseDay;

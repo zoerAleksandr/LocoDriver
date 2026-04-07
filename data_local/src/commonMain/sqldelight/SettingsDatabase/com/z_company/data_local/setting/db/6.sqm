@@ -1,0 +1,27 @@
+-- Миграция v6: разделение MonthOfYear.days на отдельные таблицы.
+-- 1. Личные отвлечения пользователя (ReleaseDay) — синхронизируются с сервером.
+-- 2. Производственный календарь (ProductionCalendarDay) — загружается с сервера, только чтение.
+--
+-- MonthOfYear.days (старая колонка) СОХРАНЯЕТСЯ для одноразовой миграции данных
+-- при запуске приложения (ReleaseDayMigration.kt). После миграции не используется.
+
+CREATE TABLE IF NOT EXISTS ReleaseDay (
+    id TEXT NOT NULL PRIMARY KEY,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    dayOfMonth INTEGER NOT NULL,
+    releaseType TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_release_day_year_month ON ReleaseDay(year, month);
+
+CREATE TABLE IF NOT EXISTS ProductionCalendarDay (
+    country TEXT NOT NULL,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    dayOfMonth INTEGER NOT NULL,
+    tag TEXT NOT NULL,
+    PRIMARY KEY (country, year, month, dayOfMonth)
+);
+
+CREATE INDEX IF NOT EXISTS idx_prod_cal_country_year ON ProductionCalendarDay(country, year);

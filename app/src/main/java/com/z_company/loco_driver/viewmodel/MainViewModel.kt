@@ -13,6 +13,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -40,6 +41,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val loadCalendarFromStorage: LoadCalendarFromStorage by inject()
     private val calendarUseCase: CalendarUseCase by inject()
+    private val releaseDayUseCase: ReleaseDayUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val routeUseCase: RouteUseCase by inject()
@@ -105,12 +107,14 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         if (isFirstEntry) {
             sharedPreferenceStorage.setIsMigrated(true)
             sharedPreferenceStorage.setTimezoneMigrationDone() // новый пользователь — мигрировать нечего
+            sharedPreferenceStorage.setReleaseDayMigrationDone() // новый пользователь — мигрировать нечего
             // Сразу сбрасываем флаг синхронно (commit), чтобы даже при завершении процесса
             // на Android 16 он не остался true и не сбросил настройки при следующем запуске
             sharedPreferenceStorage.setTokenIsFirstAppEntry(false)
         }
         viewModelScope.launch {
             runTimezoneMigration()
+            runReleaseDayMigration()
             loadCalendar()
             delay(400L)
             _appInitialized.value = true
@@ -125,6 +129,36 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             sharedPreferenceStorage.setTimezoneMigrationDone()
         } catch (e: Exception) {
             e.sendToSentry("MainViewModel", "runTimezoneMigration")
+        }
+    }
+
+    /**
+     * Одноразовая миграция: переносит дни отвлечений из MonthOfYear.days (isReleaseDay=true)
+     * в отдельную таблицу ReleaseDay. Запускается один раз при обновлении.
+     */
+    private suspend fun runReleaseDayMigration() {
+        if (sharedPreferenceStorage.isReleaseDayMigrationDone()) return
+        try {
+            val months = calendarUseCase.loadMonthOfYearList()
+            val releaseDays = months.flatMap { month ->
+                month.days
+                    .filter { day -> day.isReleaseDay && day.releaseType != null }
+                    .map { day ->
+                        com.z_company.domain.entities.ReleaseDay(
+                            year = month.year,
+                            month = month.month,
+                            dayOfMonth = day.dayOfMonth,
+                            releaseType = day.releaseType!!
+                        )
+                    }
+            }
+            if (releaseDays.isNotEmpty()) {
+                releaseDayUseCase.replaceAllFromRemote(releaseDays)
+                    .collect { /* ожидаем завершения */ }
+            }
+            sharedPreferenceStorage.setReleaseDayMigrationDone()
+        } catch (e: Exception) {
+            e.sendToSentry("MainViewModel", "runReleaseDayMigration")
         }
     }
 

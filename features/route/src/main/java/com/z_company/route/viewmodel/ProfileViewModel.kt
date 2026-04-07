@@ -26,6 +26,7 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.repository.SecureTokenStorage
@@ -118,6 +119,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
+    private val releaseDayUseCase: ReleaseDayUseCase by inject()
     private val authManager: AuthManager by inject()
     private val routesManager: RoutesManager by inject()
     private val syncManager: SyncManager by inject()
@@ -218,7 +220,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     syncUploadProgress = mapOf(  // Инициализируем шаги с Loading
                         "UserSettings" to SyncStepState.Loading,
                         "SalarySettings" to SyncStepState.Loading,
-                        "Months" to SyncStepState.Loading,
+                        "ReleaseDays" to SyncStepState.Loading,
                         "Routes" to SyncStepState.Loading
                     ),
                     isSyncComplete = false,
@@ -238,7 +240,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
                             if (result.userSettingsSaved) newProgress["UserSettings"] = SyncStepState.Success("загружены")
                             if (result.salarySettingsSaved) newProgress["SalarySettings"] = SyncStepState.Success("загружены")
-                            if (result.monthsSaved) newProgress["Months"] = SyncStepState.Success("загружены")
+                            if (result.releaseDaysSaved) newProgress["ReleaseDays"] = SyncStepState.Success("загружены")
                             val routeErrors = result.routeErrors
                             if (result.routesSavedCount >= 0) {
                                 if (routeErrors.isNotEmpty()) {
@@ -317,7 +319,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     private fun parseSyncUploadStep(message: String): String? = when {
         message.contains("UserSettings") -> "UserSettings"
         message.contains("SalarySetting") -> "SalarySettings"
-        message.contains("MonthOfYearList") -> "Months"
+        message.contains("отвлечений") -> "ReleaseDays"
         else -> null
     }
 
@@ -325,10 +327,10 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         val prefixes = listOf(
             "Ошибка сохранения UserSettings: ",
             "Ошибка сохранения SalarySetting: ",
-            "Ошибка сохранения MonthOfYearList: ",
+            "Ошибка сохранения дней отвлечений: ",
             "Ошибка загрузки UserSettings: ",
             "Ошибка загрузки SalarySetting: ",
-            "Ошибка загрузки MonthOfYearList: "
+            "Ошибка загрузки дней отвлечений: "
         )
         for (prefix in prefixes) {
             if (message.startsWith(prefix)) return message.removePrefix(prefix)
@@ -368,7 +370,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     showSyncDialog = true,
                     syncType = SyncType.Download,
                     syncDownloadProgress = mapOf(  // Инициализируем шаги с Loading
-                        "Months" to SyncStepState.Loading,
+                        "ReleaseDays" to SyncStepState.Loading,
                         "SalarySettings" to SyncStepState.Loading,
                         "UserSettings" to SyncStepState.Loading,
                         "Routes" to SyncStepState.Loading
@@ -388,13 +390,13 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                             val result = state.data
                             val newProgress = _uiState.value.syncDownloadProgress.toMutableMap()
 
-                            if (result.monthsLoaded) newProgress["Months"] = SyncStepState.Success("загружены")
+                            if (result.releaseDaysLoaded) newProgress["ReleaseDays"] = SyncStepState.Success("загружены")
                             if (result.salarySettingsLoaded) newProgress["SalarySettings"] = SyncStepState.Success("загружены")
                             if (result.userSettingsLoaded) newProgress["UserSettings"] = SyncStepState.Success("загружены")
                             if (result.routesLoadedCount >= 0) newProgress["Routes"] = SyncStepState.Success("загружены ${result.routesLoadedCount}(шт)")
 
                             val isFullSuccess = result.userSettingsLoaded && result.salarySettingsLoaded &&
-                                result.monthsLoaded && result.routesLoadedCount >= 0
+                                result.releaseDaysLoaded && result.routesLoadedCount >= 0
                             _uiState.update {
                                 it.copy(
                                     syncDownloadProgress = newProgress,
@@ -442,7 +444,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     private fun parseSyncDownloadStep(message: String): String? = when {
         message.contains("UserSettings") -> "UserSettings"
         message.contains("SalarySetting") -> "SalarySettings"
-        message.contains("MonthOfYearList") -> "Months"
+        message.contains("отвлечений") -> "ReleaseDays"
         message.contains("маршрут") -> "Routes"
         else -> null
     }
@@ -1046,23 +1048,21 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                                     }
                                 }
 
-                            // 3. Сохранение MonthOfYearList
-                            val localMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
-                            settingManager.saveMonthOfYearListInRemote(localMonths, fullToken)
+                            // 3. Сохранение дней отвлечений (ReleaseDay)
+                            val localReleaseDays = releaseDayUseCase.getAll()
+                            settingManager.saveReleaseDaysInRemote(localReleaseDays, fullToken)
                                 .collect { saveState ->
                                     when (saveState) {
                                         is ResultState.Success -> {
-                                            _migrationUiState.update { it.copy(settingsProgress = 1.0f) } // Прогресс: 100% после SalarySetting
+                                            _migrationUiState.update { it.copy(settingsProgress = 1.0f) }
                                         }
 
                                         is ResultState.Error -> {
                                             hasSettingsError = true
                                             Log.e(
                                                 "Migration",
-                                                "Ошибка сохранения MonthOfYearList: ${saveState.entity.message}"
+                                                "Ошибка сохранения дней отвлечений: ${saveState.entity.message}"
                                             )
-                                            Log.e("Migration","migration  \nsave MonthOfYearList \n userId $userId \nuser bearer token \n$token ${saveState.entity} \n $localMonths")
-
                                         }
 
                                         else -> {} // Loading игнорируем

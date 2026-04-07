@@ -1,0 +1,29 @@
+CREATE TABLE IF NOT EXISTS ProductionCalendarDay (
+    country TEXT NOT NULL,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    dayOfMonth INTEGER NOT NULL,
+    tag TEXT NOT NULL,
+    PRIMARY KEY (country, year, month, dayOfMonth)
+);
+
+CREATE INDEX IF NOT EXISTS idx_prod_cal_country_year ON ProductionCalendarDay(country, year);
+
+insertOrReplace:
+INSERT OR REPLACE INTO ProductionCalendarDay (country, year, month, dayOfMonth, tag)
+VALUES (?, ?, ?, ?, ?);
+
+getByYearMonth:
+SELECT * FROM ProductionCalendarDay
+WHERE country = :country AND year = :year AND month = :month
+ORDER BY dayOfMonth;
+
+hasDataForYear:
+SELECT COUNT(*) FROM ProductionCalendarDay
+WHERE country = :country AND year = :year;
+
+clearAll:
+DELETE FROM ProductionCalendarDay;
+
+clearByCountry:
+DELETE FROM ProductionCalendarDay WHERE country = :country;

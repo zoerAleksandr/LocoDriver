@@ -7,6 +7,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.sendToSentry
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -26,7 +27,7 @@ import kotlinx.datetime.toLocalDateTime
 data class SyncUploadResult(
     var userSettingsSaved: Boolean = false,
     var salarySettingsSaved: Boolean = false,
-    var monthsSaved: Boolean = false,
+    var releaseDaysSaved: Boolean = false,
     var routesSavedCount: Int = -1,
     var timestamp: Long? = null,
     var routeWarnings: List<String> = emptyList(),
@@ -37,7 +38,7 @@ data class SyncUploadResult(
 data class SyncDownloadResult(
     var userSettingsLoaded: Boolean = false,
     var salarySettingsLoaded: Boolean = false,
-    var monthsLoaded: Boolean = false,
+    var releaseDaysLoaded: Boolean = false,
     var routesLoadedCount: Int = -1
 )
 
@@ -49,6 +50,7 @@ class SyncManager(
     private val settingsUseCase: SettingsUseCase,
     private val salarySettingUseCase: SalarySettingUseCase,
     private val calendarUseCase: CalendarUseCase,
+    private val releaseDayUseCase: ReleaseDayUseCase,
     private val routeUseCase: RouteUseCase,
     private val routesManager: RoutesManager,
     private val settingManager: SettingManager,
@@ -107,19 +109,19 @@ class SyncManager(
                 }
             }
 
-        // 3. Сохранение MonthOfYearList
-        val localMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
-        settingManager.saveMonthOfYearListInRemote(localMonths, bearerToken)
+        // 3. Сохранение дней отвлечений (ReleaseDay)
+        val localReleaseDays = releaseDayUseCase.getAll()
+        settingManager.saveReleaseDaysInRemote(localReleaseDays, bearerToken)
             .catch { e ->
-                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
+                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения дней отвлечений: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                 return@catch
             }
             .collect { saveState ->
                 if (saveState is ResultState.Success) {
-                    result.monthsSaved = true
+                    result.releaseDaysSaved = true
                     emit(ResultState.Success(result.copy()))
                 } else if (saveState is ResultState.Error) {
-                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${saveState.entity.message ?: "Нет соединения"}")))
+                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения дней отвлечений: ${saveState.entity.message ?: "Нет соединения"}")))
                     return@collect
                 }
             }
@@ -184,7 +186,7 @@ class SyncManager(
         result.routeErrors = allErrors
         emit(ResultState.Success(result.copy()))
 
-        if (result.userSettingsSaved && result.salarySettingsSaved && result.monthsSaved && result.routesSavedCount >= 0) {
+        if (result.userSettingsSaved && result.salarySettingsSaved && result.releaseDaysSaved && result.routesSavedCount >= 0) {
             val timestamp = Clock.System.now().toEpochMilliseconds()
             sharedPrefs.setLastSyncTimestamp(timestamp)
             emit(ResultState.Success(result.copy(timestamp = timestamp)))
@@ -200,23 +202,24 @@ class SyncManager(
 
         val result = SyncDownloadResult()
 
-        settingManager.getMonthOfYearListFromRemote(bearerToken)
+        // 1. Загрузка дней отвлечений (ReleaseDay)
+        settingManager.getReleaseDaysFromRemote(bearerToken)
             .catch { e ->
-                emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки MonthOfYearList: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
+                emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки дней отвлечений: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                 return@catch
             }
             .collect { loadState ->
                 when (loadState) {
                     is ResultState.Success -> {
-                        calendarUseCase.saveCalendar(loadState.data)
+                        releaseDayUseCase.replaceAllFromRemote(loadState.data)
                             .collect { saveResult ->
                                 when (saveResult) {
                                     is ResultState.Success -> {
-                                        result.monthsLoaded = true
+                                        result.releaseDaysLoaded = true
                                         emit(ResultState.Success(result.copy()))
                                     }
                                     is ResultState.Error -> {
-                                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList локально: ${saveResult.entity.message ?: "Нет соединения"}")))
+                                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения дней отвлечений локально: ${saveResult.entity.message ?: "Нет соединения"}")))
                                         return@collect
                                     }
                                     else -> {}
@@ -224,7 +227,7 @@ class SyncManager(
                             }
                     }
                     is ResultState.Error -> {
-                        emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки MonthOfYearList: ${loadState.entity.message ?: "Нет соединения"}")))
+                        emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки дней отвлечений: ${loadState.entity.message ?: "Нет соединения"}")))
                         return@collect
                     }
                     else -> {}
@@ -351,7 +354,7 @@ class SyncManager(
                 }
             }
 
-        if (result.userSettingsLoaded && result.salarySettingsLoaded && result.monthsLoaded && result.routesLoadedCount >= 0) {
+        if (result.userSettingsLoaded && result.salarySettingsLoaded && result.releaseDaysLoaded && result.routesLoadedCount >= 0) {
             emit(ResultState.Success(result))
         } else {
             emit(ResultState.Error(ErrorEntity(message = "Не все данные загружены успешно")))
@@ -406,19 +409,19 @@ class SyncManager(
                 }
             }
 
-        // 3. Сохранение MonthOfYearList
-        val localMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
-        settingManager.saveMonthOfYearListInRemote(localMonths, bearerToken)
+        // 3. Сохранение дней отвлечений (ReleaseDay)
+        val localReleaseDaysFirst = releaseDayUseCase.getAll()
+        settingManager.saveReleaseDaysInRemote(localReleaseDaysFirst, bearerToken)
             .catch { e ->
-                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
+                emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения дней отвлечений: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                 return@catch
             }
             .collect { saveState ->
                 if (saveState is ResultState.Success) {
-                    result.monthsSaved = true
+                    result.releaseDaysSaved = true
                     emit(ResultState.Success(result.copy()))
                 } else if (saveState is ResultState.Error) {
-                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения MonthOfYearList: ${saveState.entity.message ?: "Нет соединения"}")))
+                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения дней отвлечений: ${saveState.entity.message ?: "Нет соединения"}")))
                     return@collect
                 }
             }
@@ -455,7 +458,7 @@ class SyncManager(
         result.routeErrors = allErrors2
         emit(ResultState.Success(result.copy()))
 
-        if (result.userSettingsSaved && result.salarySettingsSaved && result.monthsSaved && result.routesSavedCount >= 0) {
+        if (result.userSettingsSaved && result.salarySettingsSaved && result.releaseDaysSaved && result.routesSavedCount >= 0) {
             val timestamp = Clock.System.now().toEpochMilliseconds()
             sharedPrefs.setLastSyncTimestamp(timestamp)
             emit(ResultState.Success(result.copy(timestamp = timestamp)))

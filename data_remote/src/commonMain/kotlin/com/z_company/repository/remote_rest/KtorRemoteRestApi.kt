@@ -1,6 +1,8 @@
 package com.z_company.repository.remote_rest
 
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.ProductionCalendarDay
+import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
@@ -23,6 +25,7 @@ import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.request.parameter
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 
@@ -145,4 +148,23 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             setBody(body)
         }.bodyAsText()
     }
+
+    override suspend fun saveReleaseDays(token: String, body: List<ReleaseDay>) {
+        client.post("v1/release_days/") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(body)
+        }.bodyAsText()
+    }
+
+    override suspend fun getReleaseDays(token: String): List<ReleaseDay> =
+        client.get("v1/release_days/") {
+            header("Authorization", token)
+        }.body()
+
+    override suspend fun getProductionCalendar(country: String, year: Int): List<ProductionCalendarDay> =
+        client.get("v1/production_calendar/") {
+            parameter("country", country)
+            parameter("year", year)
+        }.body()
 }

@@ -856,7 +856,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         syncUploadProgress = mapOf(
                             "UserSettings" to com.z_company.route.viewmodel.SyncStepState.Error("Неавторизованный пользователь"),
                             "SalarySettings" to com.z_company.route.viewmodel.SyncStepState.Error(""),
-                            "Months" to com.z_company.route.viewmodel.SyncStepState.Error(""),
+                            "ReleaseDays" to com.z_company.route.viewmodel.SyncStepState.Error(""),
                             "Routes" to com.z_company.route.viewmodel.SyncStepState.Error("")
                         ),
                         isSyncComplete = true
@@ -871,7 +871,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     syncUploadProgress = mapOf(
                         "UserSettings" to com.z_company.route.viewmodel.SyncStepState.Loading,
                         "SalarySettings" to com.z_company.route.viewmodel.SyncStepState.Loading,
-                        "Months" to com.z_company.route.viewmodel.SyncStepState.Loading,
+                        "ReleaseDays" to com.z_company.route.viewmodel.SyncStepState.Loading,
                         "Routes" to com.z_company.route.viewmodel.SyncStepState.Loading
                     ),
                     isSyncComplete = false,
@@ -890,7 +890,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                             val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
                             if (result.userSettingsSaved) newProgress["UserSettings"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
                             if (result.salarySettingsSaved) newProgress["SalarySettings"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
-                            if (result.monthsSaved) newProgress["Months"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
+                            if (result.releaseDaysSaved) newProgress["ReleaseDays"] = com.z_company.route.viewmodel.SyncStepState.Success("загружены")
                             val routeErrors = result.routeErrors
                             if (result.routesSavedCount >= 0) {
                                 if (routeErrors.isNotEmpty()) {
@@ -981,7 +981,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private fun parseSyncStep(message: String): String? = when {
         message.contains("UserSettings") -> "UserSettings"
         message.contains("SalarySetting") -> "SalarySettings"
-        message.contains("MonthOfYearList") -> "Months"
+        message.contains("отвлечений") -> "ReleaseDays"
         else -> null
     }
 
@@ -989,7 +989,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         val prefixes = listOf(
             "Ошибка сохранения UserSettings: ",
             "Ошибка сохранения SalarySetting: ",
-            "Ошибка сохранения MonthOfYearList: "
+            "Ошибка сохранения дней отвлечений: "
         )
         for (prefix in prefixes) {
             if (message.startsWith(prefix)) return message.removePrefix(prefix)

@@ -178,7 +178,7 @@ fun SyncProgressDialog(
                             text = when (step) {
                                 "UserSettings" -> "Настройки пользователя"
                                 "SalarySettings" -> "Настройки зарплаты"
-                                "Months" -> "Календарь"
+                                "ReleaseDays" -> "Отвлечения"
                                 "Routes" -> "Маршруты"
                                 else -> step
                             },
@@ -280,7 +280,7 @@ fun SyncProgressDialog(
                                             val stepName = when (step) {
                                                 "UserSettings" -> "Настройки пользователя"
                                                 "SalarySettings" -> "Настройки зарплаты"
-                                                "Months" -> "Календарь"
+                                                "ReleaseDays" -> "Отвлечения"
                                                 "Routes" -> "Маршруты"
                                                 else -> step
                                             }

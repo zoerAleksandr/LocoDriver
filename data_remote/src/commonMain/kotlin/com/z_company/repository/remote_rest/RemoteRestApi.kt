@@ -1,6 +1,8 @@
 package com.z_company.repository.remote_rest
 
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.ProductionCalendarDay
+import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
@@ -56,4 +58,17 @@ interface RemoteRestApi {
     suspend fun updateEmail(token: String, data: UpdateEmailRequest)
 
     suspend fun addEmailToUser(token: String, body: AddEmailRequest)
+
+    // --- ReleaseDay (отвлечения пользователя) ---
+
+    /** Сохранить список дней отвлечений на сервере (полная замена) */
+    suspend fun saveReleaseDays(token: String, body: List<ReleaseDay>)
+
+    /** Получить список дней отвлечений с сервера */
+    suspend fun getReleaseDays(token: String): List<ReleaseDay>
+
+    // --- ProductionCalendar (производственный календарь) ---
+
+    /** Получить производственный календарь для страны и года (без авторизации) */
+    suspend fun getProductionCalendar(country: String, year: Int): List<ProductionCalendarDay>
 }
