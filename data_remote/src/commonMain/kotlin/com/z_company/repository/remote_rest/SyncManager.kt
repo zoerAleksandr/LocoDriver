@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.repository.remote_rest
 
 import com.z_company.core.ErrorEntity

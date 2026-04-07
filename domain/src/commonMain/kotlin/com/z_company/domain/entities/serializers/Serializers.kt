@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.domain.entities.serializers
 
 import kotlin.time.Clock

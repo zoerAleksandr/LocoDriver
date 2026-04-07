@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.data_local.route.mapping
 
 import com.zcompany.datalocal.route.db.BasicData as BasicDataRow
