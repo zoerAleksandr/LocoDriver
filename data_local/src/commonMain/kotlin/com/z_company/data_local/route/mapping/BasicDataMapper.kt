@@ -1,8 +1,10 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.data_local.route.mapping
 
 import com.zcompany.datalocal.route.db.BasicData as BasicDataRow
 import com.z_company.domain.entities.route.BasicData
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 
 internal object BasicDataMapper {
 

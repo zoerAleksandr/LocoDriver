@@ -5,16 +5,19 @@ import ComposeApp
 struct iOSApp: App {
 
     init() {
-        // Инициализируем Sentry для отслеживания ошибок.
-        SentryInitKt.initSentry(dsn: "https://a0e7493da038dce47d7b82f449bad50b@o4511036722642944.ingest.de.sentry.io/4511036736077904")
+        // TODO: Sentry KMP 0.23.x скомпилирован с Kotlin 2.1.21 и несовместим с
+        // Kotlin 2.2.20 runtime — вызов падает в wrapUnhandledExceptionHook.
+        // Включить обратно после выхода Sentry KMP с поддержкой Kotlin 2.2.x.
+        // SentryInitKt.doInitSentry(dsn: "https://a0e7493da038dce47d7b82f449bad50b@o4511036722642944.ingest.de.sentry.io/4511036736077904")
 
         // Инициализируем Koin перед стартом UI.
-        // Передаём модули data_local (SQLDelight) и domain (UseCases).
-        // Модуль data_remote (iosRepositoryModule) регистрируется внутри initKoin().
+        // initKoin уже включает iosRepositoryModule (Ktor + Keychain).
+        // iosUseCaseModule содержит SQLDelight-драйверы, базы данных,
+        // репозитории, UseCases и ViewModels — всё в одном модуле,
+        // так как data_local не экспортируется из ComposeApp.framework
+        // и его символы недоступны Swift напрямую.
         IosKoinHelperKt.doInitKoin(additionalModules: [
-            SqlDelightRouteModuleKt.sqlDelightRouteModule,       // RouteDatabase, SearchResponseDatabase
-            SqlDelightSettingModuleKt.sqlDelightSettingsModule,  // SettingsDatabase, SalarySettingDatabase
-            IosUseCaseModuleKt.iosUseCaseModule,                 // Repositories, UseCases, iOS ViewModels
+            IosUseCaseModuleKt.iosUseCaseModule,
         ])
     }
 

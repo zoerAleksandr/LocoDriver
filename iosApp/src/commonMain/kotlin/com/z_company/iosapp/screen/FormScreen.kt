@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.iosapp.screen
 
 import androidx.compose.foundation.layout.Arrangement

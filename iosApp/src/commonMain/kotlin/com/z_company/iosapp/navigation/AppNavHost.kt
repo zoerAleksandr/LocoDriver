@@ -38,7 +38,7 @@ fun AppNavHost() {
         }
         // FormRoute: "FormRoute?routeId={routeId}/?makeCopy={makeCopy}"
         composable(FormRoute.route) { backStackEntry ->
-            val routeId = backStackEntry.arguments?.getString("routeId")
+            val routeId = backStackEntry.savedStateHandle.get<String>("routeId")
             FormScreen(router = router, routeId = routeId)
         }
         composable(FormLoco.route) {

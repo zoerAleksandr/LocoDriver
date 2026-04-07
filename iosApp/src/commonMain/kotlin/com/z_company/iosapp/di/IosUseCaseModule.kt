@@ -1,44 +1,91 @@
 package com.z_company.iosapp.di
 
+import com.z_company.data_local.DatabaseDriverFactory
+import com.z_company.data_local.calendar.SqlDelightCalendarRepository
 import com.z_company.data_local.route.SqlDelightRouteRepository
+import com.z_company.data_local.route.db.RouteDatabase
+import com.z_company.data_local.route.searchdb.SearchResponseDatabase
+import com.z_company.data_local.setting.SqlDelightSalarySettingRepository
 import com.z_company.data_local.setting.SqlDelightSettingRepository
+import com.z_company.data_local.setting.db.SettingsDatabase
+import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
+import com.z_company.domain.repositories.CalendarRepositories
 import com.z_company.domain.repositories.RouteRepository
+import com.z_company.domain.repositories.SalarySettingRepository
 import com.z_company.domain.repositories.SettingsRepository
+import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
+import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.iosapp.repository.IosSharedPreferencesRepository
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
+import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
+import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
+import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
+import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
+import com.z_company.repository.remote_rest.SyncManager
 import org.koin.dsl.module
 
 /**
- * Koin-модуль iOS: репозитории, UseCases и ViewModels.
+ * Единый Koin-модуль iOS: SQLDelight-драйверы, репозитории, UseCases, ViewModels.
  *
- * Регистрируется в initKoin() поверх:
- *   sqlDelightRouteModule    — DatabaseDriverFactory, RouteDatabase, SearchResponseDatabase
- *   sqlDelightSettingsModule — SettingsDatabase, SalarySettingDatabase
+ * data_local не экспортируется из ComposeApp.framework, поэтому
+ * sqlDelightRouteModule / sqlDelightSettingsModule недоступны Swift напрямую.
+ * Всё собрано здесь — Swift передаёт только этот модуль в doInitKoin().
  *
  * Цепочка зависимостей:
- *   RouteDatabase        → SqlDelightRouteRepository  → RouteUseCase → HomeIosViewModel
- *                                                                     → FormIosViewModel
- *                                                                     → SalaryCalculationIosViewModel
- *   SettingsDatabase     → SqlDelightSettingRepository → SettingsUseCase → HomeIosViewModel
- *                                                                        → SettingsIosViewModel
- *                                                                        → SalaryCalculationIosViewModel
+ *   DatabaseDriverFactory → RouteDatabase / SearchResponseDatabase
+ *                        → SettingsDatabase / SalarySettingDatabase
+ *   RouteDatabase        → SqlDelightRouteRepository  → RouteUseCase → ViewModels
+ *   SettingsDatabase     → SqlDelightSettingRepository → SettingsUseCase → ViewModels
  */
 val iosUseCaseModule = module {
-    // Репозитории (KoinComponent внутри — получают DB из Koin-контекста)
+
+    // ── SQLDelight: драйвер и базы данных ────────────────────────────────
+    single { DatabaseDriverFactory() }
+
+    single { RouteDatabase(get<DatabaseDriverFactory>().createRouteDriver()) }
+    single { SearchResponseDatabase(get<DatabaseDriverFactory>().createSearchResponseDriver()) }
+    single { SettingsDatabase(get<DatabaseDriverFactory>().createSettingsDriver()) }
+    single { SalarySettingDatabase(get<DatabaseDriverFactory>().createSalarySettingDriver()) }
+
+    // ── Репозитории ───────────────────────────────────────────────────────
     single<RouteRepository> { SqlDelightRouteRepository() }
     single<SettingsRepository> { SqlDelightSettingRepository() }
+    single<CalendarRepositories> { SqlDelightCalendarRepository() }
+    single<SalarySettingRepository> { SqlDelightSalarySettingRepository() }
+    single<SharedPreferencesRepositories> { IosSharedPreferencesRepository() }
 
-    // UseCases
+    // ── UseCases ──────────────────────────────────────────────────────────
     single { RouteUseCase(get()) }
     single { SettingsUseCase(get()) }
+    single { CalendarUseCase(get()) }
+    single { SalarySettingUseCase(get(), get()) }
 
-    // ViewModels (single — живут на протяжении жизни приложения)
+    // ── Remote managers (SyncManager нужны все UseCases + remote managers) ─
+    single {
+        SyncManager(
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            calendarUseCase = get(),
+            routeUseCase = get(),
+            routesManager = get(),
+            settingManager = get(),
+            sharedPrefs = get(),
+        )
+    }
+
+    // ── ViewModels (single — живут на протяжении жизни приложения) ────────
     single { HomeIosViewModel(get(), get()) }
     single { SettingsIosViewModel(get()) }
     single { FormIosViewModel(get()) }
     single { SalaryCalculationIosViewModel(get(), get()) }
+    single { LocoFormIosViewModel(get()) }
+    single { TrainFormIosViewModel(get()) }
+    single { PassengerFormIosViewModel(get()) }
+    single { ProfileIosViewModel(authManager = get(), syncManager = get(), secureTokenStorage = get()) }
 }

@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.work_manager
 // SyncWorker.kt
 // Описание: Класс Worker для выполнения фоновой синхронизации данных. Вызывается периодически WorkManager.
@@ -18,7 +20,7 @@ import com.z_company.repository.remote_rest.SyncManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 

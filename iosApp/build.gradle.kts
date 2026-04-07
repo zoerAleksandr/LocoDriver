@@ -7,6 +7,16 @@ plugins {
     id(Plugins.sentry_kmp)
 }
 
+// Конфигурация Compose-компилятора:
+// Помечаем классы compose-runtime/animation как стабильные через конфиг-файл,
+// чтобы компилятор генерировал константу STABLE вместо вызова $stableprop_getter$artificial
+// (несовместимость символов между Kotlin 2.2.20 и compose klib)
+composeCompiler {
+    stabilityConfigurationFiles.add(
+        project.layout.projectDirectory.file("compose_stability.conf")
+    )
+}
+
 kotlin {
     iosArm64()
     iosX64()

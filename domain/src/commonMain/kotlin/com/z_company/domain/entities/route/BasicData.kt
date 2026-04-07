@@ -1,8 +1,10 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.domain.entities.route
 
 import com.z_company.domain.entities.serializers.DateAsLongSerializer
 import com.z_company.domain.util.generateId
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlinx.serialization.Serializable
 
 @Serializable

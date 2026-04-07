@@ -87,6 +87,22 @@ class FormIosViewModel(
         )
     }
 
+    /** Устанавливает время начала работы (миллисекунды UTC). Null — сбрасывает значение. */
+    fun setTimeStartWork(ms: Long?) {
+        val current = _route.value ?: return
+        _route.value = current.copy(
+            basicData = current.basicData.copy(timeStartWork = ms)
+        )
+    }
+
+    /** Устанавливает время окончания работы (миллисекунды UTC). Null — сбрасывает значение. */
+    fun setTimeEndWork(ms: Long?) {
+        val current = _route.value ?: return
+        _route.value = current.copy(
+            basicData = current.basicData.copy(timeEndWork = ms)
+        )
+    }
+
     /** Сохраняет текущий маршрут в БД. */
     fun saveRoute() {
         val currentRoute = _route.value ?: return
@@ -100,5 +116,23 @@ class FormIosViewModel(
                 }
             }
         }
+    }
+
+    // ── watchState helpers ────────────────────────────────────────────────────
+
+    fun watchRoute(callback: (Route?) -> Unit) {
+        viewModelScope.launch { route.collect { callback(it) } }
+    }
+
+    fun watchIsLoading(callback: (Boolean) -> Unit) {
+        viewModelScope.launch { isLoading.collect { callback(it) } }
+    }
+
+    fun watchIsSaved(callback: (Boolean) -> Unit) {
+        viewModelScope.launch { isSaved.collect { callback(it) } }
+    }
+
+    fun watchErrorMessage(callback: (String?) -> Unit) {
+        viewModelScope.launch { errorMessage.collect { callback(it) } }
     }
 }
