@@ -39,7 +39,8 @@ data class UserSettings(
     val isShowLocoAuxiliary: Boolean = true,
     val isShowLocoStatistics: Boolean = true,
     val isShowLocoNorma: Boolean = true,
-    val isShowOtherCurrent: Boolean = false
+    val isShowOtherCurrent: Boolean = false,
+    val country: String = "RU",
 )
 
 @Serializable

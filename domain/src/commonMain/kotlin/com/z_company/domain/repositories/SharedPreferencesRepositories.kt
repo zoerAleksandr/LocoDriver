@@ -66,4 +66,8 @@ interface SharedPreferencesRepositories {
     /** Флаг одноразовой миграции отвлечений из MonthOfYear.days → таблицу ReleaseDay */
     fun isReleaseDayMigrationDone(): Boolean
     fun setReleaseDayMigrationDone()
+
+    /** Флаг одноразовой миграции тегов дней из MonthOfYear → ProductionCalendarDay */
+    fun isProductionCalendarMigrationDone(): Boolean
+    fun setProductionCalendarMigrationDone()
 }

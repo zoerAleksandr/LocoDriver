@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.route.viewmodel
 
 import androidx.compose.runtime.getValue
@@ -17,7 +19,9 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.ProductionCalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.repository.remote_rest.SettingManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -38,6 +42,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
+    private val productionCalendarUseCase: ProductionCalendarUseCase by inject()
+    private val settingManager: SettingManager by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
@@ -411,6 +417,46 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         currentSettings = currentSettings?.copy(
             timeZone = timeZone
         )
+    }
+
+    /** Изменить страну календаря — сохраняет настройку и загружает производственный календарь */
+    fun changeCountry(country: String) {
+        currentSettings = currentSettings?.copy(country = country)
+        viewModelScope.launch {
+            try {
+                val now = kotlinx.datetime.Clock.System.now()
+                    .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+                val currentYear = now.year
+                val currentMonth = now.monthNumber
+
+                // Загружаем текущий год
+                if (productionCalendarUseCase.needsFetch(country, currentYear)) {
+                    fetchAndApplyCalendar(country, currentYear)
+                }
+                // С декабря — следующий год
+                productionCalendarUseCase.nextYearToFetchIfDecember(currentMonth, currentYear)?.let { nextYear ->
+                    if (productionCalendarUseCase.needsFetch(country, nextYear)) {
+                        fetchAndApplyCalendar(country, nextYear)
+                    }
+                }
+            } catch (e: Exception) {
+                e.sendToSentry("SettingsViewModel", "changeCountry")
+            }
+        }
+    }
+
+    private suspend fun fetchAndApplyCalendar(country: String, year: Int) {
+        try {
+            settingManager.getProductionCalendarFromRemote(country, year).collect { state ->
+                if (state is com.z_company.core.ResultState.Success) {
+                    val days = state.data
+                    productionCalendarUseCase.saveCalendar(days).collect {}
+                    calendarUseCase.applyProductionCalendar(days).collect {}
+                }
+            }
+        } catch (e: Exception) {
+            e.sendToSentry("SettingsViewModel", "fetchAndApplyCalendar")
+        }
     }
 
     private val _passenger12hOption = MutableStateFlow(resolvePassenger12hOption())

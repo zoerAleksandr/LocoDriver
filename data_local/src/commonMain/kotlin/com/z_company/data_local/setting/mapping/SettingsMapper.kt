@@ -67,7 +67,8 @@ internal object SettingsMapper {
         isShowLocoAuxiliary = row.isShowLocoAuxiliary != 0L,
         isShowLocoStatistics = row.isShowLocoStatistics != 0L,
         isShowLocoNorma = row.isShowLocoNorma != 0L,
-        isShowOtherCurrent = row.isShowOtherCurrent != 0L
+        isShowOtherCurrent = row.isShowOtherCurrent != 0L,
+        country = row.country
     )
 }
 

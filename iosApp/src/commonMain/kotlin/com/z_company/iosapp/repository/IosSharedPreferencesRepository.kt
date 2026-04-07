@@ -20,6 +20,7 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var isMigrated: Boolean = false
     private var timezoneMigrationDone: Boolean = true // iOS не нуждается в миграции временных меток
     private var releaseDayMigrationDone: Boolean = true // iOS не нуждается в миграции отвлечений
+    private var productionCalendarMigrationDone: Boolean = true // iOS — нет старых данных для миграции
     private var opKeyRobokassa: String? = null
     private var showUpdatePresentation: Boolean = true
     private var tokenIsChangesHave: Boolean = false
@@ -57,6 +58,8 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setTimezoneMigrationDone() { timezoneMigrationDone = true }
     override fun isReleaseDayMigrationDone(): Boolean = releaseDayMigrationDone
     override fun setReleaseDayMigrationDone() { releaseDayMigrationDone = true }
+    override fun isProductionCalendarMigrationDone(): Boolean = productionCalendarMigrationDone
+    override fun setProductionCalendarMigrationDone() { productionCalendarMigrationDone = true }
     override fun isShowUpdatePresentation(): Boolean = showUpdatePresentation
     override fun enableShowingUpdatePresentation() { showUpdatePresentation = true }
     override fun getSubscriptionExpiration(): Long = subscriptionExpiration

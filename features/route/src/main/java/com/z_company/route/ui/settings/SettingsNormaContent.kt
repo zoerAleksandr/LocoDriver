@@ -40,6 +40,7 @@ fun SettingsNormaContent(
     showReleaseDaySelectScreen: () -> Unit,
     timeZoneRussiaList: List<TimeZoneRussia>,
     setTimeZone: (Long) -> Unit,
+    setCountry: (String) -> Unit,
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
     val styleHint = MaterialTheme.typography.bodyMedium
@@ -104,6 +105,72 @@ fun SettingsNormaContent(
                     color = MaterialTheme.colorScheme.tertiary,
                     style = MaterialTheme.typography.bodySmall
                 )
+            }
+        }
+
+        // Страна производственного календаря
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
+                text = "Производственный календарь",
+                style = styleTitle,
+                color = primaryColor,
+            )
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = Shapes.medium
+                    )
+                    .fillMaxWidth()
+            ) {
+                data class CountryOption(val code: String, val name: String, val flag: String)
+                val countries = listOf(
+                    CountryOption("RU", "Россия", "🇷🇺"),
+                    CountryOption("KZ", "Казахстан", "🇰🇿"),
+                    CountryOption("BY", "Беларусь", "🇧🇾"),
+                )
+
+                var expanded by remember { mutableStateOf(false) }
+                val selected = countries.find { it.code == currentSettings.country } ?: countries[0]
+
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    OutlinedTextFieldApp(
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                        value = "${selected.flag} ${selected.name}",
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                        },
+                        textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        countries.forEach { option ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = "${option.flag} ${option.name}",
+                                        color = primaryColor,
+                                        style = styleHint
+                                    )
+                                },
+                                onClick = {
+                                    setCountry(option.code)
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
 

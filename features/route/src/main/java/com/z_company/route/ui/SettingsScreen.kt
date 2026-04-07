@@ -232,6 +232,7 @@ fun SettingsScreen(
                                 showReleaseDaySelectScreen = showReleaseDaySelectScreen,
                                 timeZoneRussiaList = timeZoneRussiaList,
                                 setTimeZone = setTimeZone,
+                                setCountry = viewModel::changeCountry,
                             )
                         }
 
