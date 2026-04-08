@@ -233,6 +233,8 @@ fun SettingsScreen(
                                 timeZoneRussiaList = timeZoneRussiaList,
                                 setTimeZone = setTimeZone,
                                 setCountry = viewModel::changeCountry,
+                                countryLoadingState = settingsUiState.countryLoadingState,
+                                onDismissCountryDialog = viewModel::clearCountryLoadingState,
                             )
                         }
 

@@ -44,6 +44,10 @@ class SqlDelightProductionCalendarRepository : ProductionCalendarRepository, Koi
         db.productionCalendarDayQueries.clearAll()
     }
 
+    override fun clearByCountry(country: String): Flow<ResultState<Unit>> = flowRequest {
+        db.productionCalendarDayQueries.clearByCountry(country)
+    }
+
     override fun hasDataForYear(country: String, year: Int): Boolean =
         db.productionCalendarDayQueries.hasDataForYear(country, year.toLong())
             .executeAsOne() > 0

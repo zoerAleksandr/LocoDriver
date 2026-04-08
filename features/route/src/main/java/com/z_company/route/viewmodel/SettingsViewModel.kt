@@ -421,6 +421,13 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     /** Изменить страну календаря — сохраняет настройку и загружает производственный календарь */
     fun changeCountry(country: String) {
+        val countryName = when (country) {
+            "RU" -> "Россия"
+            "KZ" -> "Казахстан"
+            "BY" -> "Беларусь"
+            else -> country
+        }
+        _uiState.update { it.copy(countryLoadingState = CountryLoadingState.Loading(countryName)) }
         currentSettings = currentSettings?.copy(country = country)
         viewModelScope.launch {
             try {
@@ -429,33 +436,55 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 val currentYear = now.year
                 val currentMonth = now.monthNumber
 
-                // Загружаем текущий год
-                if (productionCalendarUseCase.needsFetch(country, currentYear)) {
-                    fetchAndApplyCalendar(country, currentYear)
-                }
+                // Всегда загружаем текущий год при явной смене страны
+                fetchAndApplyCalendar(country, currentYear)
                 // С декабря — следующий год
                 productionCalendarUseCase.nextYearToFetchIfDecember(currentMonth, currentYear)?.let { nextYear ->
-                    if (productionCalendarUseCase.needsFetch(country, nextYear)) {
-                        fetchAndApplyCalendar(country, nextYear)
-                    }
+                    fetchAndApplyCalendar(country, nextYear)
                 }
+
+                // Очищаем данные других стран
+                val allCountries = listOf("RU", "KZ", "BY")
+                allCountries.filter { it != country }.forEach { otherCountry ->
+                    productionCalendarUseCase.clearByCountry(otherCountry).collect {}
+                }
+
+                _uiState.update { it.copy(countryLoadingState = CountryLoadingState.Success) }
             } catch (e: Exception) {
+                val msg = e.message ?: ""
+                if (isNetworkErrorMessage(msg) || e is java.net.UnknownHostException || e is java.net.ConnectException || e is java.io.IOException) {
+                    _uiState.update { it.copy(countryLoadingState = CountryLoadingState.NoInternet) }
+                } else {
+                    _uiState.update { it.copy(countryLoadingState = CountryLoadingState.Error) }
+                }
                 e.sendToSentry("SettingsViewModel", "changeCountry")
             }
         }
     }
 
+    fun clearCountryLoadingState() {
+        _uiState.update { it.copy(countryLoadingState = null) }
+    }
+
+    private fun isNetworkErrorMessage(msg: String): Boolean =
+        msg.contains("Unable to resolve", ignoreCase = true) ||
+        msg.contains("Connection refused", ignoreCase = true) ||
+        msg.contains("timeout", ignoreCase = true) ||
+        msg.contains("Failed to connect", ignoreCase = true) ||
+        msg.contains("Network is unreachable", ignoreCase = true) ||
+        msg.contains("ECONNREFUSED", ignoreCase = true) ||
+        msg.contains("UnknownHostException", ignoreCase = true) ||
+        msg.contains("ConnectException", ignoreCase = true)
+
     private suspend fun fetchAndApplyCalendar(country: String, year: Int) {
-        try {
-            settingManager.getProductionCalendarFromRemote(country, year).collect { state ->
-                if (state is com.z_company.core.ResultState.Success) {
-                    val days = state.data
-                    productionCalendarUseCase.saveCalendar(days).collect {}
-                    calendarUseCase.applyProductionCalendar(days).collect {}
-                }
+        settingManager.getProductionCalendarFromRemote(country, year).collect { state ->
+            if (state is com.z_company.core.ResultState.Success) {
+                val days = state.data
+                productionCalendarUseCase.saveCalendar(days).collect {}
+                calendarUseCase.applyProductionCalendar(days).collect {}
+            } else if (state is com.z_company.core.ResultState.Error) {
+                throw state.entity
             }
-        } catch (e: Exception) {
-            e.sendToSentry("SettingsViewModel", "fetchAndApplyCalendar")
         }
     }
 

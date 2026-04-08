@@ -24,6 +24,8 @@ class ProductionCalendarUseCase(private val repository: ProductionCalendarReposi
 
     fun clearAll(): Flow<ResultState<Unit>> = repository.clearAll()
 
+    fun clearByCountry(country: String): Flow<ResultState<Unit>> = repository.clearByCountry(country)
+
     /**
      * Возвращает год следующего года для загрузки (если сейчас декабрь — возвращает следующий год,
      * иначе null).

@@ -19,4 +19,7 @@ interface ProductionCalendarRepository {
 
     /** Есть ли данные за год */
     fun hasDataForYear(country: String, year: Int): Boolean
+
+    /** Удалить все записи для конкретной страны */
+    fun clearByCountry(country: String): Flow<ResultState<Unit>>
 }

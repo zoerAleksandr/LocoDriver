@@ -9,19 +9,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.component.CustomDivider
@@ -30,7 +34,9 @@ import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.OutlinedTextFieldApp
+import com.z_company.route.viewmodel.CountryLoadingState
 import com.z_company.route.viewmodel.TimeZoneRussia
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,11 +47,73 @@ fun SettingsNormaContent(
     timeZoneRussiaList: List<TimeZoneRussia>,
     setTimeZone: (Long) -> Unit,
     setCountry: (String) -> Unit,
+    countryLoadingState: CountryLoadingState? = null,
+    onDismissCountryDialog: () -> Unit = {},
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
     val styleHint = MaterialTheme.typography.bodyMedium
     val styleTitle = MaterialTheme.typography.titleSmall
     val primaryColor = MaterialTheme.colorScheme.primary
+
+    countryLoadingState?.let { state ->
+        AnimationDialog(
+            showDialog = true,
+            onDismissRequest = {
+                if (state !is CountryLoadingState.Loading) onDismissCountryDialog()
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                when (state) {
+                    is CountryLoadingState.Loading -> {
+                        CircularProgressIndicator()
+                        Text(
+                            text = "Загружаем производственный календарь для ${state.countryName}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    CountryLoadingState.Success -> {
+                        Text(
+                            text = "Календарь успешно загружен",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                        TextButton(onClick = onDismissCountryDialog) {
+                            Text("OK")
+                        }
+                    }
+                    CountryLoadingState.Error -> {
+                        Text(
+                            text = "Ошибка загрузки",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        TextButton(onClick = onDismissCountryDialog) {
+                            Text("OK")
+                        }
+                    }
+                    CountryLoadingState.NoInternet -> {
+                        Text(
+                            text = "Нет интернета",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        TextButton(onClick = onDismissCountryDialog) {
+                            Text("OK")
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier

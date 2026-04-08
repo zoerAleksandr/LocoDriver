@@ -9,6 +9,13 @@ import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.setting.UserSettings
 
+sealed class CountryLoadingState {
+    data class Loading(val countryName: String) : CountryLoadingState()
+    object Success : CountryLoadingState()
+    object Error : CountryLoadingState()
+    object NoInternet : CountryLoadingState()
+}
+
 data class SettingsUiState(
     val settingDetails: ResultState<UserSettings?> = ResultState.Loading(),
     val userDetailsState: ResultState<User?> = ResultState.Loading(),
@@ -26,5 +33,6 @@ data class SettingsUiState(
     val showDialogAddServicePhase: Boolean = false,
     val selectedServicePhase: Pair<ServicePhase, Int>? = null,
     val servicePhases: SnapshotStateList<ServicePhase>? = mutableStateListOf(),
-    val dateAndTimeConverter: DateAndTimeConverter? = null
+    val dateAndTimeConverter: DateAndTimeConverter? = null,
+    val countryLoadingState: CountryLoadingState? = null,
 )
