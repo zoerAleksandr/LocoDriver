@@ -151,6 +151,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
      * в отдельную таблицу ReleaseDay. Запускается один раз при обновлении.
      */
     private suspend fun runReleaseDayMigration() {
+        if (sharedPreferenceStorage.isReleaseDayMigrationDone()) return
         try {
             // Собираем старые дни отвлечений из MonthOfYear.days (isReleaseDay=true)
             val months = calendarUseCase.loadMonthOfYearList()
