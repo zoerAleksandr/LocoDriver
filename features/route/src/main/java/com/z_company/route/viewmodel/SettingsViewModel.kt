@@ -34,6 +34,9 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -431,8 +434,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         currentSettings = currentSettings?.copy(country = country)
         viewModelScope.launch {
             try {
-                val now = kotlinx.datetime.Clock.System.now()
-                    .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+                val now = Clock.System.now()
+                    .toLocalDateTime(TimeZone.currentSystemDefault())
                 val currentYear = now.year
                 val currentMonth = now.monthNumber
 
@@ -482,8 +485,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 val days = state.data
                 productionCalendarUseCase.saveCalendar(days).collect {}
                 calendarUseCase.applyProductionCalendar(days).collect {}
-            } else if (state is com.z_company.core.ResultState.Error) {
-                throw state.entity
+            } else if (state is ResultState.Error) {
+                throw RuntimeException(state.entity.message ?: state.entity.throwable?.message ?: "Ошибка загрузки")
             }
         }
     }
