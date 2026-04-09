@@ -129,6 +129,7 @@ dependencies {
     implementation(Libs.ui_tooling_preview)
     implementation(Libs.compose_material3)
     implementation(Libs.kotlin_x_serialization_json)
+    implementation(Libs.kotlinx_date_time)
 
     implementation(Libs.accompanist_navigation_animation)
 
