@@ -19,12 +19,13 @@ actual class DatabaseDriverFactory(private val context: Context) {
     }
 
     actual fun createSettingsDriver(): SqlDriver {
-        // Проверяем ВСЕ новые столбцы из всех миграций (1.sqm … 5.sqm).
+        // Проверяем ВСЕ новые столбцы из всех миграций (1.sqm … 7.sqm).
         // Это покрывает Room→SQLDelight и SQLDelight→SQLDelight upgrade-пути,
         // где какие-либо миграции могли быть пропущены.
         // ВАЖНО: subscriptionPeriod и isDecimalTime (миграция 5) тоже должны быть
         // здесь — иначе fixVersionIfColumnsExist выставит version=5, SQLDelight
         // пропустит 5.sqm, и столбцы никогда не добавятся → SQLiteException.
+        ensureSettingsTablesV6("Settings.db")
         fixVersionIfColumnsExist("Settings.db", SettingsDatabase.Schema.version.toInt(),
             "UserSettings" to "isShowBreak",
             "UserSettings" to "isShowLocoHeating",
@@ -33,8 +34,49 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "isShowLocoNorma",
             "UserSettings" to "isShowOtherCurrent",
             "UserSettings" to "subscriptionPeriod",
-            "UserSettings" to "isDecimalTime")
+            "UserSettings" to "isDecimalTime",
+            "UserSettings" to "country")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
+    }
+
+    /**
+     * Создаёт таблицы ReleaseDay и ProductionCalendarDay если они не существуют.
+     * Необходимо для пользователей, обновившихся с версии до 6.sqm — fixVersionIfColumnsExist
+     * выставляет версию сразу в targetVersion, обходя SQLDelight-миграции.
+     */
+    private fun ensureSettingsTablesV6(dbName: String) {
+        val dbFile = context.getDatabasePath(dbName)
+        if (!dbFile.exists()) return
+        val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
+        try {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS ReleaseDay (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    year INTEGER NOT NULL,
+                    month INTEGER NOT NULL,
+                    dayOfMonth INTEGER NOT NULL,
+                    releaseType TEXT NOT NULL
+                )
+            """.trimIndent())
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_release_day_year_month ON ReleaseDay(year, month)"
+            )
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS ProductionCalendarDay (
+                    country TEXT NOT NULL,
+                    year INTEGER NOT NULL,
+                    month INTEGER NOT NULL,
+                    dayOfMonth INTEGER NOT NULL,
+                    tag TEXT NOT NULL,
+                    PRIMARY KEY (country, year, month, dayOfMonth)
+                )
+            """.trimIndent())
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_prod_cal_country_year ON ProductionCalendarDay(country, year)"
+            )
+        } finally {
+            db.close()
+        }
     }
 
     actual fun createSalarySettingDriver(): SqlDriver {
@@ -113,6 +155,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.isShowOtherCurrent" to ColumnSpec("INTEGER", false, "0"),
             "UserSettings.subscriptionPeriod" to ColumnSpec("INTEGER", false, "0"),
             "UserSettings.isDecimalTime" to ColumnSpec("INTEGER", false, "0"),
+            "UserSettings.country" to ColumnSpec("TEXT", false, "'RU'"),
             // Route — BasicData
             "BasicData.timeStartBreak" to ColumnSpec("INTEGER", true, "NULL"),
             "BasicData.timeEndBreak" to ColumnSpec("INTEGER", true, "NULL"),
