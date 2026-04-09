@@ -61,6 +61,10 @@ class ReleaseDayUseCase(private val repository: ReleaseDayRepository) {
         }
     }
 
+    /** Добавить/обновить список дней без удаления существующих */
+    fun saveAll(days: List<ReleaseDay>): Flow<ResultState<Unit>> =
+        repository.saveAll(days)
+
     /** Загрузить с сервера и полностью заменить локальные данные */
     fun replaceAllFromRemote(days: List<ReleaseDay>): Flow<ResultState<Unit>> =
         repository.replaceAll(days)

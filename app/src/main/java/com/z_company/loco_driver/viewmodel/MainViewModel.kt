@@ -152,8 +152,9 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
      */
     private suspend fun runReleaseDayMigration() {
         try {
+            // Собираем старые дни отвлечений из MonthOfYear.days (isReleaseDay=true)
             val months = calendarUseCase.loadMonthOfYearList()
-            val releaseDays = months.flatMap { month ->
+            val oldReleaseDays = months.flatMap { month ->
                 month.days
                     .filter { day -> day.isReleaseDay && day.releaseType != null }
                     .map { day ->
@@ -165,20 +166,22 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                         )
                     }
             }
-            // Если в MonthOfYear нет дней с isReleaseDay — миграция не нужна, выходим
-            if (releaseDays.isEmpty()) {
+            // Если в MonthOfYear нет дней с isReleaseDay — мигрировать нечего
+            if (oldReleaseDays.isEmpty()) {
                 sharedPreferenceStorage.setReleaseDayMigrationDone()
                 return
             }
-            // Если в таблице ReleaseDay уже есть данные — миграция уже выполнена
-            val alreadyMigrated = releaseDayUseCase.getAll().isNotEmpty()
-            if (alreadyMigrated) {
-                sharedPreferenceStorage.setReleaseDayMigrationDone()
-                return
+            // Сравниваем по year/month/dayOfMonth — добавляем только отсутствующие.
+            // Нельзя использовать replaceAll: это удалит дни, добавленные после обновления.
+            val existingKeys = releaseDayUseCase.getAll()
+                .map { Triple(it.year, it.month, it.dayOfMonth) }
+                .toSet()
+            val daysToAdd = oldReleaseDays.filter { day ->
+                Triple(day.year, day.month, day.dayOfMonth) !in existingKeys
             }
-            // Переносим дни из MonthOfYear.days → ReleaseDay
-            releaseDayUseCase.replaceAllFromRemote(releaseDays)
-                .collect { /* ожидаем завершения */ }
+            if (daysToAdd.isNotEmpty()) {
+                releaseDayUseCase.saveAll(daysToAdd).collect {}
+            }
             sharedPreferenceStorage.setReleaseDayMigrationDone()
         } catch (e: Exception) {
             e.sendToSentry("MainViewModel", "runReleaseDayMigration")
