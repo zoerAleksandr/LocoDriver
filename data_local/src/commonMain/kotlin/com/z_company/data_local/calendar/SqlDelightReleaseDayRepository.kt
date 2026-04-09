@@ -69,7 +69,7 @@ class SqlDelightReleaseDayRepository : ReleaseDayRepository, KoinComponent {
         }
     }
 
-    private fun com.z_company.data_local.setting.db.ReleaseDay.toDomain(): ReleaseDay =
+    private fun com.zcompany.datalocal.setting.db.ReleaseDay.toDomain(): ReleaseDay =
         ReleaseDay(
             id = id,
             year = year.toInt(),

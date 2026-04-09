@@ -5,7 +5,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import com.z_company.core.ResultState
 import com.z_company.core.ResultState.Companion.flowRequest
 import com.z_company.data_local.setting.db.SettingsDatabase
-import com.z_company.data_local.setting.db.ProductionCalendarDay as DbProductionCalendarDay
+import com.zcompany.datalocal.setting.db.ProductionCalendarDay as DbProductionCalendarDay
 import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.repositories.ProductionCalendarRepository
