@@ -151,7 +151,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
      * в отдельную таблицу ReleaseDay. Запускается один раз при обновлении.
      */
     private suspend fun runReleaseDayMigration() {
-        if (sharedPreferenceStorage.isReleaseDayMigrationDone()) return
         try {
             val months = calendarUseCase.loadMonthOfYearList()
             val releaseDays = months.flatMap { month ->
@@ -166,10 +165,20 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                         )
                     }
             }
-            if (releaseDays.isNotEmpty()) {
-                releaseDayUseCase.replaceAllFromRemote(releaseDays)
-                    .collect { /* ожидаем завершения */ }
+            // Если в MonthOfYear нет дней с isReleaseDay — миграция не нужна, выходим
+            if (releaseDays.isEmpty()) {
+                sharedPreferenceStorage.setReleaseDayMigrationDone()
+                return
             }
+            // Если в таблице ReleaseDay уже есть данные — миграция уже выполнена
+            val alreadyMigrated = releaseDayUseCase.getAll().isNotEmpty()
+            if (alreadyMigrated) {
+                sharedPreferenceStorage.setReleaseDayMigrationDone()
+                return
+            }
+            // Переносим дни из MonthOfYear.days → ReleaseDay
+            releaseDayUseCase.replaceAllFromRemote(releaseDays)
+                .collect { /* ожидаем завершения */ }
             sharedPreferenceStorage.setReleaseDayMigrationDone()
         } catch (e: Exception) {
             e.sendToSentry("MainViewModel", "runReleaseDayMigration")
