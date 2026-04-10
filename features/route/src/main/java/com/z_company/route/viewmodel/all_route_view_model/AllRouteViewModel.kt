@@ -29,6 +29,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.isHeavyTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isHolidayTimeInRoute
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.RoutesManager
@@ -127,6 +128,11 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     private val latestRawRoutes = MutableStateFlow<List<ItemState>>(emptyList())
 
     var offsetInMoscow: Long = 0L
+    var timeCalculationContext: TimeCalculationContext = TimeCalculationContext(
+        localTZ = kotlinx.datetime.TimeZone.of("GMT+3"),
+        crossMonthTZ = kotlinx.datetime.TimeZone.of("GMT+3")
+    )
+        private set
     var dateAndTimeConverter: DateAndTimeConverter? = null
     var minTimeRest: Long = 0L
     var minTimeHomeRest: Long = 0L
@@ -190,6 +196,8 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 }
 
                 dateAndTimeConverter = DateAndTimeConverter(user)
+                offsetInMoscow = user.timeZone
+                timeCalculationContext = TimeCalculationContext.from(user)
                 minTimeRest = user.minTimeRestPointOfTurnover
                 minTimeHomeRest = user.minTimeHomeRest
 
@@ -437,7 +445,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
 
     fun loadRoutes(userSettings: UserSettings): Job {
         return viewModelScope.launch(Dispatchers.IO) {
-            routeUseCase.listRoutesByMonth(userSettings.selectMonthOfYear, userSettings.timeZone)
+            routeUseCase.listRoutesByMonth(userSettings.selectMonthOfYear, timeCalculationContext)
                 .collect { result ->
                     when (result) {
                         is ResultState.Loading -> {

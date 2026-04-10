@@ -326,7 +326,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 val end = route.basicData.timeEndWork ?: return@filter false
                 end <= currentTimeInMillis
             }
-            todayWorkTime = completedRoutes.getWorkTime(monthOfYear, userSettings.timeZone)
+            todayWorkTime = completedRoutes.getWorkTime(monthOfYear, TimeCalculationContext.from(userSettings))
         }
 
         // Запускаем обратный отсчёт до следующего маршрута
@@ -556,7 +556,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    private fun calculationPassengerTime(routes: List<Route>, offsetInMoscow: Long) {
+    private fun calculationPassengerTime(routes: List<Route>, context: TimeCalculationContext) {
         _uiState.update {
             it.copy(
                 passengerTimeInRouteList = ResultState.Loading()
@@ -564,7 +564,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
         try {
             currentMonthOfYear?.let { monthOfYear ->
-                val passengerTime = routes.getPassengerTime(monthOfYear, offsetInMoscow)
+                val passengerTime = routes.getPassengerTime(monthOfYear, context)
                 _uiState.update {
                     it.copy(
                         passengerTimeInRouteList = ResultState.Success(passengerTime)
@@ -664,6 +664,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private fun calculationOfOnePersonOperationTime(
         routes: List<Route>, userSettings: UserSettings
     ) {
+        val context = TimeCalculationContext.from(userSettings)
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update {
                 it.copy(
@@ -673,10 +674,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
             try {
                 currentMonthOfYear?.let { monthOfYear ->
                     val passengerTime = routes.getOnePersonOperationTimePassengerTrain(
-                        monthOfYear, userSettings.timeZone
+                        monthOfYear, context
                     )
                     val time = routes.getOnePersonOperationTime(
-                        monthOfYear, userSettings.timeZone
+                        monthOfYear, context
                     )
                     val resultTIme = time + passengerTime
                     _uiState.update {
@@ -754,7 +755,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     }
 
 
-    private fun calculationHolidayTime(routes: List<Route>, offsetInMoscow: Long) {
+    private fun calculationHolidayTime(routes: List<Route>, context: TimeCalculationContext) {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update {
                 it.copy(
@@ -764,7 +765,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
             try {
                 currentMonthOfYear?.let { monthOfYear ->
                     val holidayTime =
-                        routes.getWorkingTimeOnAHoliday(monthOfYear, offsetInMoscow).first()
+                        routes.getWorkingTimeOnAHoliday(monthOfYear, context).first()
                     _uiState.update {
                         it.copy(
                             holidayHours = ResultState.Success(holidayTime)
@@ -808,9 +809,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }.launchIn(viewModelScope)
     }
 
-    private suspend fun calculationOfTimeWithoutHoliday(routes: List<Route>, offsetInMoscow: Long) {
+    private suspend fun calculationOfTimeWithoutHoliday(routes: List<Route>, context: TimeCalculationContext) {
         currentMonthOfYear?.let { monthOfYear ->
-            timeWithoutHoliday = routes.getWorkTimeWithoutHoliday(monthOfYear, offsetInMoscow)
+            timeWithoutHoliday = routes.getWorkTimeWithoutHoliday(monthOfYear, context)
         }
     }
 
@@ -1000,7 +1001,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         return message
     }
 
-    private fun calculationTotalTime(routes: List<Route>, offsetInMoscow: Long) {
+    private fun calculationTotalTime(routes: List<Route>, context: TimeCalculationContext) {
         _uiState.update {
             it.copy(
                 totalTimeWithHoliday = ResultState.Loading()
@@ -1010,7 +1011,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
             val stateSettings = uiState.value.settingState
             if (stateSettings is ResultState.Success) {
                 stateSettings.data?.let { settings ->
-                    val totalTime = routes.getWorkTime(settings.selectMonthOfYear, offsetInMoscow)
+                    val totalTime = routes.getWorkTime(settings.selectMonthOfYear, context)
                     _uiState.update {
                         it.copy(
                             totalTimeWithHoliday = ResultState.Success(totalTime)
@@ -1369,6 +1370,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         it.copy(
                             uiState = ResultState.Success(Unit),
                             offsetInMoscow = userSettings.timeZone,
+                            timeCalculationContext = TimeCalculationContext.from(userSettings),
                             dateAndTimeConverter = dateAndTimeConverter,
                             minTimeRest = userSettings.minTimeRestPointOfTurnover,
                             minTimeHomeRest = userSettings.minTimeHomeRest,
@@ -1473,7 +1475,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                     }
                                     todayWorkTime = completedRoutes.getWorkTime(
                                         monthOfYear,
-                                        userSettings.timeZone
+                                        TimeCalculationContext.from(userSettings)
                                     )
                                 }
                             }
@@ -1491,22 +1493,23 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                     calculationOfLongDistanceTrainsTime(salaryCalculationHelper)
                                     calculationOfHeavyTrainsTime(salaryCalculationHelper)
 
+                                    val calcContext = TimeCalculationContext.from(userSettings)
                                     calculationOfOnePersonOperationTime(
                                         filteredRouteList,
                                         userSettings
                                     )
-                                    calculationTotalTime(filteredRouteList, userSettings.timeZone)
+                                    calculationTotalTime(filteredRouteList, calcContext)
                                     calculationOfTimeWithoutHoliday(
                                         filteredRouteList,
-                                        userSettings.timeZone
+                                        calcContext
                                     )
                                     calculationOfNightTime(filteredRouteList, userSettings)
                                     calculationOfSingleLocomotiveTime(filteredRouteList)
                                     calculationPassengerTime(
                                         filteredRouteList,
-                                        userSettings.timeZone
+                                        calcContext
                                     )
-                                    calculationHolidayTime(filteredRouteList, userSettings.timeZone)
+                                    calculationHolidayTime(filteredRouteList, calcContext)
                                 }
                                 // Update widget after all calculations complete
                                 pushWidgetData(

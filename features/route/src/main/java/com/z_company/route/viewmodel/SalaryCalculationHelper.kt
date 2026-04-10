@@ -21,6 +21,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getTotalOverRestTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTravelTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
+import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toDoubleOrZero
 import com.z_company.domain.util.toIntOrZero
@@ -38,6 +39,7 @@ class SalaryCalculationHelper(
 ) {
     val currentMonthOfYear = userSettings.selectMonthOfYear
     val dateSetTariffRate = currentMonthOfYear.dateSetTariffRate
+    private val timeCalculationContext = TimeCalculationContext.from(userSettings)
 
     val date = userSettings.selectMonthOfYear.dateSetTariffRate?.dateNewRate ?: 1
     val firstDate = 1
@@ -473,7 +475,7 @@ class SalaryCalculationHelper(
     fun getTimeOnePersonOperationPassengerTrainFlow(routes: List<Route> = routeList): Flow<Long> {
         return channelFlow {
             val time = routes.getOnePersonOperationTimePassengerTrain(
-                currentMonthOfYear, userSettings.timeZone
+                currentMonthOfYear, timeCalculationContext
             )
             trySend(time)
             awaitClose()
@@ -521,7 +523,7 @@ class SalaryCalculationHelper(
     fun getTimeOnePersonOperationFlow(routes: List<Route> = routeList): Flow<Long> {
         return channelFlow {
             val time = routes.getOnePersonOperationTime(
-                currentMonthOfYear, userSettings.timeZone
+                currentMonthOfYear, timeCalculationContext
             )
             trySend(time)
             awaitClose()
@@ -1236,14 +1238,14 @@ class SalaryCalculationHelper(
             val firstRoutes = routeList.getNewRoutesToDayRange(
                 days = firstDate..date,
                 monthOfYear = userSettings.selectMonthOfYear,
-                offsetInMoscow = userSettings.timeZone,
+                context = timeCalculationContext,
                 isLastDayOfMonth = false
             )
 
             val secondRoutes = routeList.getNewRoutesToDayRange(
                 days = date..lastDate,
                 monthOfYear = userSettings.selectMonthOfYear,
-                offsetInMoscow = userSettings.timeZone,
+                context = timeCalculationContext,
                 isLastDayOfMonth = true
             )
             emit(Pair(firstRoutes, secondRoutes))
@@ -1308,18 +1310,18 @@ class SalaryCalculationHelper(
     }
 
     fun getTotalWorkTime(routes: List<Route> = routeList) = flow {
-        val time = routes.getWorkTime(currentMonthOfYear, userSettings.timeZone)
+        val time = routes.getWorkTime(currentMonthOfYear, timeCalculationContext)
         emit(time)
     }
 
     private fun getPassengerTime(routeList: List<Route>) =
-        routeList.getPassengerTime(currentMonthOfYear, userSettings.timeZone)
+        routeList.getPassengerTime(currentMonthOfYear, timeCalculationContext)
 
     private fun getSingleLocomotiveTime(routeList: List<Route>) =
         routeList.getSingleLocomotiveTime()
 
     private suspend fun getHolidayTime(routeList: List<Route>) =
-        routeList.getWorkingTimeOnAHoliday(currentMonthOfYear, userSettings.timeZone).first()
+        routeList.getWorkingTimeOnAHoliday(currentMonthOfYear, timeCalculationContext).first()
 
     private fun getOvertime(totalWorkTime: Long, holidayTime: Long, personalNormaHoursInLong: Int) =
         if (totalWorkTime - holidayTime > personalNormaHoursInLong) {

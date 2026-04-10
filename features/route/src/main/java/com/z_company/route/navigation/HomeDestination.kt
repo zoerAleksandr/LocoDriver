@@ -49,6 +49,7 @@ fun HomeDestination(
         calculationHomeRest = homeViewModel::calculationHomeRest,
         homeRestValue = previewRouteUiState.homeRest,
         offsetInMoscow = uiState.offsetInMoscow,
+        timeCalculationContext = uiState.timeCalculationContext,
         syncRoute = homeViewModel::syncRoute,
         completeUpdateRequested = homeViewModel::completeUpdateRequested,
         updateEvent = homeViewModel.updateEvents,

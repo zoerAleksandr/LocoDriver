@@ -5,6 +5,7 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.route.viewmodel.SyncStepState
 import com.z_company.route.viewmodel.SyncType
 
@@ -33,6 +34,7 @@ data class HomeUiState(
     val isLoadingStateAddButton: Boolean = false,
     val showConfirmRemoveRoute: Boolean = false,
     val offsetInMoscow: Long = 0L,
+    val timeCalculationContext: TimeCalculationContext? = null,
     val listItemState: MutableList<ItemState> = mutableListOf<ItemState>(),
     var dateAndTimeConverter: DateAndTimeConverter? = null,
     val showSnackbar: Boolean = false,

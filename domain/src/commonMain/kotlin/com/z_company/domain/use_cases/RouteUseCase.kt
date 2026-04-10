@@ -124,6 +124,35 @@ class RouteUseCase(private val repository: RouteRepository) {
         )
     }
 
+    fun listRoutesByMonth(
+        monthOfYear: MonthOfYear,
+        context: TimeCalculationContext
+    ): Flow<ResultState<List<Route>>> = flow {
+        emit(ResultState.Loading())
+
+        val tz = context.crossMonthTZ
+        val startDate = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
+        val startMonthInLong = startDate.atStartOfDayIn(tz).toEpochMilliseconds()
+        val maxDayOfMonth = startDate.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).dayOfMonth
+        val endMonthInLong = LocalDateTime(
+            monthOfYear.year, monthOfYear.month + 1, maxDayOfMonth, 23, 59, 0, 0
+        ).toInstant(tz).toEpochMilliseconds()
+        val extendedStart = startMonthInLong - 2 * 24 * 3_600_000L
+
+        emitAll(
+            repository.loadRoutesByPeriod(extendedStart, endMonthInLong)
+                .map { state ->
+                    if (state is ResultState.Success) {
+                        ResultState.Success(state.data.filter { route ->
+                            val start = route.basicData.timeStartWork ?: return@filter true
+                            val end = route.basicData.timeEndWork
+                            start < endMonthInLong && (end == null || end >= startMonthInLong)
+                        })
+                    } else state
+                }
+        )
+    }
+
     fun listRouteWithDeleting(): List<Route> {
         return repository.loadRoutesWithDeleting()
     }

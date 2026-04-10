@@ -63,6 +63,8 @@ import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeInMonth
+import com.z_company.domain.util.TimeCalculationContext
+import com.z_company.domain.util.getTimeZone
 import com.z_company.route.R
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -92,6 +94,7 @@ fun ItemHomeScreen(
     number: Int? = null,
     monthOfYear: MonthOfYear? = null,
     offsetInMoscow: Long = 0L,
+    timeCalculationContext: TimeCalculationContext? = null,
 ) {
     val dismissState = rememberDismissState()
     // --- memoized texts to avoid repeated computation on recomposition ---
@@ -109,7 +112,11 @@ fun ItemHomeScreen(
         }
         val timeText = "$startWork - $endWork"
         val workTimeValue = if (monthOfYear != null) {
-            route.getWorkTimeInMonth(monthOfYear, offsetInMoscow)
+            val ctx = timeCalculationContext ?: TimeCalculationContext(
+                localTZ = kotlinx.datetime.TimeZone.of(getTimeZone(offsetInMoscow)),
+                crossMonthTZ = kotlinx.datetime.TimeZone.of(getTimeZone(offsetInMoscow))
+            )
+            route.getWorkTimeInMonth(monthOfYear, ctx)
         } else {
             route.getWorkTime()
         }

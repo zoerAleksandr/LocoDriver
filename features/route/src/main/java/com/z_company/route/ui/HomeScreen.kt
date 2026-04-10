@@ -103,6 +103,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.isTransition
+import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.minus
 import com.z_company.route.R
 import android.net.Uri
@@ -161,6 +162,7 @@ fun HomeScreen(
     calculationHomeRest: (Route?) -> Unit,
     homeRestValue: Long?,
     offsetInMoscow: Long,
+    timeCalculationContext: TimeCalculationContext? = null,
     syncRoute: (Route) -> Unit,
     updateEvent: SharedFlow<UpdateEvent>,
     completeUpdateRequested: () -> Unit,
@@ -1372,6 +1374,7 @@ fun HomeScreen(
                                         number = listRouteState.size,
                                         monthOfYear = currentMonthOfYear,
                                         offsetInMoscow = offsetInMoscow,
+                                        timeCalculationContext = timeCalculationContext,
                                     )
                                 } else {
                                     Text(
@@ -1419,6 +1422,7 @@ fun HomeScreen(
                                         number = listRouteState.size - 1,
                                         monthOfYear = currentMonthOfYear,
                                         offsetInMoscow = offsetInMoscow,
+                                        timeCalculationContext = timeCalculationContext,
                                     )
                                 }
                             }
