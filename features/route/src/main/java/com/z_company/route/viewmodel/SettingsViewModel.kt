@@ -473,7 +473,17 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             "BY" -> 0L           // Minsk UTC+3 = Moscow
             else -> currentSettings?.timeZone ?: 0L  // RU: keep user's existing timezone
         }
-        currentSettings = currentSettings?.copy(country = country, timeZone = autoTimeZone)
+        // Для КЗ и BY меню переходных маршрутов скрыто — сбрасываем в LOCAL
+        val autoCrossMonthTimezone = if (country == "RU") {
+            currentSettings?.crossMonthTimezone ?: CrossMonthTimezone.LOCAL
+        } else {
+            CrossMonthTimezone.LOCAL
+        }
+        currentSettings = currentSettings?.copy(
+            country = country,
+            timeZone = autoTimeZone,
+            crossMonthTimezone = autoCrossMonthTimezone
+        )
         viewModelScope.launch {
             try {
                 val now = Clock.System.now()

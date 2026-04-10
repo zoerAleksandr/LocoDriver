@@ -262,52 +262,74 @@ fun SettingsNormaContent(
                         )
                         .fillMaxWidth()
                 ) {
-                    val currentTimeZone: TimeZoneRussia =
-                        timeZoneRussiaList.find {
-                            it.offsetOfMoscow == currentSettings.timeZone
-                        } ?: timeZoneRussiaList[1]
+                    when (currentSettings.country) {
+                        "KZ" -> {
+                            OutlinedTextFieldApp(
+                                modifier = Modifier.fillMaxWidth(),
+                                value = "UTC+5 (Kazakhstan Time, KZT)",
+                                onValueChange = {},
+                                readOnly = true,
+                                textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
+                            )
+                        }
+                        "BY" -> {
+                            OutlinedTextFieldApp(
+                                modifier = Modifier.fillMaxWidth(),
+                                value = "UTC+3 (Минск)",
+                                onValueChange = {},
+                                readOnly = true,
+                                textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
+                            )
+                        }
+                        else -> {
+                            val currentTimeZone: TimeZoneRussia =
+                                timeZoneRussiaList.find {
+                                    it.offsetOfMoscow == currentSettings.timeZone
+                                } ?: timeZoneRussiaList[1]
 
-                    var selectedTimeZone by remember {
-                        mutableStateOf(currentTimeZone)
-                    }
-                    var expanded by remember { mutableStateOf(false) }
+                            var selectedTimeZone by remember(currentSettings.timeZone) {
+                                mutableStateOf(currentTimeZone)
+                            }
+                            var expanded by remember { mutableStateOf(false) }
 
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = !expanded }
-                    ) {
-                        OutlinedTextFieldApp(
-                            modifier = Modifier
-                                .menuAnchor()
-                                .fillMaxWidth(),
-                            value = selectedTimeZone.description,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                            },
-                            textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
-                        )
-
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            timeZoneRussiaList.forEach { item ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = item.description,
-                                            color = primaryColor,
-                                            style = styleHint
-                                        )
+                            ExposedDropdownMenuBox(
+                                expanded = expanded,
+                                onExpandedChange = { expanded = !expanded }
+                            ) {
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier
+                                        .menuAnchor()
+                                        .fillMaxWidth(),
+                                    value = selectedTimeZone.description,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = {
+                                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                                     },
-                                    onClick = {
-                                        selectedTimeZone = item
-                                        setTimeZone(item.offsetOfMoscow)
-                                        expanded = false
-                                    }
+                                    textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
                                 )
+
+                                ExposedDropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false }
+                                ) {
+                                    timeZoneRussiaList.forEach { item ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    text = item.description,
+                                                    color = primaryColor,
+                                                    style = styleHint
+                                                )
+                                            },
+                                            onClick = {
+                                                selectedTimeZone = item
+                                                setTimeZone(item.offsetOfMoscow)
+                                                expanded = false
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -322,69 +344,71 @@ fun SettingsNormaContent(
             }
         }
 
-        // Переходные маршруты — часовой пояс
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
-                text = "Переходные маршруты",
-                style = styleTitle,
-                color = primaryColor,
-            )
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Box(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surface, shape = Shapes.medium)
-                        .fillMaxWidth()
-                ) {
-                    var expanded by remember { mutableStateOf(false) }
-                    val options = listOf(
-                        CrossMonthTimezone.LOCAL to "По местному времени",
-                        CrossMonthTimezone.MOSCOW to "По московскому времени"
-                    )
-                    val current = options.find { it.first == currentSettings.crossMonthTimezone } ?: options[0]
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = !expanded }
+        // Переходные маршруты — только для России с часовым поясом, отличным от московского
+        if (currentSettings.country == "RU" && currentSettings.timeZone != 0L) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
+                    text = "Переходные маршруты",
+                    style = styleTitle,
+                    color = primaryColor,
+                )
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                            .fillMaxWidth()
                     ) {
-                        OutlinedTextFieldApp(
-                            modifier = Modifier
-                                .menuAnchor()
-                                .fillMaxWidth(),
-                            value = current.second,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                            },
-                            textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
+                        var expanded by remember { mutableStateOf(false) }
+                        val options = listOf(
+                            CrossMonthTimezone.LOCAL to "По местному времени",
+                            CrossMonthTimezone.MOSCOW to "По московскому времени"
                         )
-                        ExposedDropdownMenu(
+                        val current = options.find { it.first == currentSettings.crossMonthTimezone } ?: options[0]
+                        ExposedDropdownMenuBox(
                             expanded = expanded,
-                            onDismissRequest = { expanded = false }
+                            onExpandedChange = { expanded = !expanded }
                         ) {
-                            options.forEach { (value, label) ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = label,
-                                            color = primaryColor,
-                                            style = styleHint
-                                        )
-                                    },
-                                    onClick = {
-                                        setCrossMonthTimezone(value)
-                                        expanded = false
-                                    }
-                                )
+                            OutlinedTextFieldApp(
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth(),
+                                value = current.second,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                                },
+                                textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                options.forEach { (value, label) ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = label,
+                                                color = primaryColor,
+                                                style = styleHint
+                                            )
+                                        },
+                                        onClick = {
+                                            setCrossMonthTimezone(value)
+                                            expanded = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
+                    Text(
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                        text = "Определяет по какому времени считается к какому месяцу относится переходной маршрут.",
+                        style = styleHint,
+                    )
                 }
-                Text(
-                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                    text = "Определяет по какому времени считается к какому месяцу относится переходной маршрут.",
-                    style = styleHint,
-                )
             }
         }
     }
