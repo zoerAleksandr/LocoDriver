@@ -30,6 +30,7 @@ import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.domain.util.CalculateNightTime
+import com.z_company.domain.util.SharedRouteHolder
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.repository.SecureDataStore
@@ -132,6 +133,12 @@ class FormViewModel(
     private val _showPassenger12hSheet = MutableStateFlow(false)
     val showPassenger12hSheet: StateFlow<Boolean> = _showPassenger12hSheet.asStateFlow()
 
+    // Маршрут загружен по публичной ссылке и ещё не сохранён — показать шторку
+    private val _isSharedPreview = MutableStateFlow(false)
+    val isSharedPreview: StateFlow<Boolean> = _isSharedPreview.asStateFlow()
+
+    fun dismissSharedPreviewSheet() { _isSharedPreview.value = false }
+
     var timeZoneText: String = "GMT+3"
 
     private var isNewRoute = routeId == NULLABLE_ID
@@ -217,6 +224,15 @@ class FormViewModel(
     private fun loadData() {
         loadRouteJob?.cancel()
         loadRouteJob = viewModelScope.launch(Dispatchers.IO) {
+            // Проверяем SharedRouteHolder — маршрут по публичной ссылке (ещё не в БД)
+            val sharedRoute = SharedRouteHolder.consume()
+            if (sharedRoute != null && sharedRoute.basicData.id == routeId) {
+                _currentRoute.value = sharedRoute
+                _isSharedPreview.value = true
+                _uiState.update { it.copy(routeDetailState = ResultState.Success(sharedRoute)) }
+                return@launch
+            }
+
             if (isNewRoute) {
                 _currentRoute.value =
                     Route(basicData = BasicData(id = UUID.randomUUID().toString()))

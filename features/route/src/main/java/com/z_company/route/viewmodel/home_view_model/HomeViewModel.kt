@@ -874,7 +874,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 val bearerToken = "Bearer $rawToken"
                 shareRouteManager.createShareLink(route, bearerToken).collect { result ->
                     when (result) {
-                        is ResultState.Success -> _shareLinkEvent.emit(result.data)
+                        is ResultState.Success -> {
+                            val shareText = buildShareText(route, result.data)
+                            _shareLinkEvent.emit(shareText)
+                        }
                         is ResultState.Error -> {
                             val message = result.entity.message
                                 ?: result.entity.throwable?.message
@@ -890,6 +893,28 @@ class HomeViewModel : ViewModel(), KoinComponent {
             } finally {
                 _isCreatingShareLink.value = false
             }
+        }
+    }
+
+    private fun buildShareText(route: Route, url: String): String {
+        return buildString {
+            append("Вам отправлен маршрут в приложении «Машинист»")
+            // Дата и время
+            route.basicData.timeStartWork?.let { ms ->
+                val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
+                append(" от ${sdf.format(java.util.Date(ms))}")
+            }
+            // Маршрут следования: первая и последняя станция первого поезда
+            val stations = route.trains
+                .flatMap { it.stations }
+                .sortedBy { it.orderIndex }
+            val firstStation = stations.firstOrNull()?.stationName?.takeIf { it.isNotBlank() }
+            val lastStation = stations.lastOrNull()?.stationName?.takeIf { it.isNotBlank() }
+            if (firstStation != null && lastStation != null && firstStation != lastStation) {
+                append(", $firstStation — $lastStation")
+            }
+            append("\n")
+            append(url)
         }
     }
 

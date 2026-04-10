@@ -253,9 +253,10 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 shareRouteManager.createShareLink(route, bearerToken).collect { result ->
                     when (result) {
                         is ResultState.Success -> {
+                            val shareText = buildShareText(route, result.data)
                             val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, result.data)
+                                putExtra(Intent.EXTRA_TEXT, shareText)
                             }
                             val chooser = Intent.createChooser(sendIntent, "Поделиться маршрутом")
                             _shareRouteEvent.emit(chooser)
@@ -274,6 +275,26 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 Log.e("ShareRoute", "Ошибка шаринга: ${e.message}")
                 snackbarManager.show("Ошибка создания ссылки")
             }
+        }
+    }
+
+    private fun buildShareText(route: Route, url: String): String {
+        return buildString {
+            append("Вам отправлен маршрут в приложении «Машинист»")
+            route.basicData.timeStartWork?.let { ms ->
+                val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
+                append(" от ${sdf.format(java.util.Date(ms))}")
+            }
+            val stations = route.trains
+                .flatMap { it.stations }
+                .sortedBy { it.orderIndex }
+            val firstStation = stations.firstOrNull()?.stationName?.takeIf { it.isNotBlank() }
+            val lastStation = stations.lastOrNull()?.stationName?.takeIf { it.isNotBlank() }
+            if (firstStation != null && lastStation != null && firstStation != lastStation) {
+                append(", $firstStation — $lastStation")
+            }
+            append("\n")
+            append(url)
         }
     }
 

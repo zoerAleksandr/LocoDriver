@@ -176,6 +176,39 @@ fun FormScreen(
         mutableStateOf(false)
     }
 
+    val isSharedPreview by viewModel.isSharedPreview.collectAsState()
+
+    // Шторка «Вы получили новый маршрут» для маршрутов по публичной ссылке
+    if (isSharedPreview) {
+        AppBottomSheet(
+            onDismissRequest = { viewModel.dismissSharedPreviewSheet() },
+            sheetState = sheetState,
+            headerContent = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "Вы получили новый маршрут",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            actions = listOf(
+                BottomSheetAction(text = "Просмотр") {
+                    viewModel.dismissSharedPreviewSheet()
+                },
+                BottomSheetAction(text = "Сохранить") {
+                    viewModel.onSaveClick()
+                }
+            ),
+            cancelText = "Отмена",
+            onCancel = { exitScreen() }
+        )
+    }
+
     var isShowAlertSubscribeDialog by remember {
         mutableStateOf(false)
     }

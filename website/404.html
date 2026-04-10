@@ -41,7 +41,6 @@
             letter-spacing: -0.5px;
             margin-bottom: 8px;
         }
-        .logo span { color: var(--accent); }
         h1 {
             font-size: 18px;
             font-weight: 500;
@@ -81,32 +80,32 @@
             color: var(--fg);
         }
         .fallback p { color: var(--muted); margin-bottom: 16px; }
+        .fallback iframe {
+            display: block;
+            margin: 0 auto 8px;
+        }
         .btn {
             display: inline-block;
-            background: var(--accent);
-            color: #fff;
+            background: transparent;
+            color: var(--accent);
             text-decoration: none;
-            padding: 12px 22px;
+            padding: 10px 20px;
             border-radius: 10px;
             font-size: 14px;
             font-weight: 600;
             margin: 6px 4px;
-            transition: background .15s;
-        }
-        .btn:hover, .btn:active { background: var(--accent-hover); }
-        .btn.secondary {
-            background: transparent;
-            color: var(--accent);
             border: 1px solid var(--border);
+            transition: border-color .15s;
         }
+        .btn:hover { border-color: var(--accent); }
         .footer {
             margin-top: auto;
             padding-top: 32px;
             font-size: 12px;
             color: var(--muted);
         }
-        .footer a { color: var(--muted); text-decoration: underline; }
-        /* 404 mode */
+        .footer a { color: var(--muted); text-decoration: underline; margin: 0 8px; }
+        .footer a:hover { color: var(--fg); }
         .not-found { display: none; }
         .not-found.show { display: block; }
         .share-mode { display: block; }
@@ -124,7 +123,7 @@
 </head>
 <body>
     <div class="wrap">
-        <div class="logo">Loco<span>Driver</span></div>
+        <div class="logo">Машинист</div>
 
         <!-- Share redirect mode -->
         <div class="share-mode" id="share-mode">
@@ -134,12 +133,12 @@
 
             <div class="fallback" id="fallback">
                 <h2>Приложение не открылось?</h2>
-                <p>Установите LocoDriver, чтобы открывать маршруты по ссылке.</p>
-                <a class="btn" href="https://www.rustore.ru/catalog/app/com.z_company.loco_driver">
-                    Скачать в RuStore
-                </a>
+                <p>Установите приложение «Машинист», чтобы открывать маршруты по ссылке.</p>
+                <iframe
+                    src="https://www.rustore.ru/external/simple-selection/buttons?theme=coloredDark&orientation=vertical&stores=rustore%3Ahttps%3A%2F%2Fwww.rustore.ru%2Fcatalog%2Fapp%2Fcom.z_company.loco_driver%3Futm_source%3Davailable_in_rustore%26utm_medium%3Dcom.z_company.loco_driver%26rsm%3D1%26mt_link_id%3Diios36%26mt_sub1%3Dcom.z_company.loco_driver"
+                    width="200" height="64" frameborder="0" style="border:none;overflow:hidden;"></iframe>
                 <br>
-                <a class="btn secondary" id="btn-retry" href="#">Попробовать снова</a>
+                <a class="btn" id="btn-retry" href="#">Попробовать снова</a>
             </div>
         </div>
 
@@ -152,6 +151,8 @@
 
         <div class="footer">
             <a href="/">На главную</a>
+            <a href="https://www.consultant.ru/cons/cgi/online.cgi?req=doc&base=LAW&n=499769&dst=100001#uhadW7VIGL823YPg">Политика конфиденциальности</a>
+            <a href="mailto:locodriver.app@yandex.ru?subject=%D0%92%D0%BE%D0%BF%D1%80%D0%BE%D1%81%20%D0%BF%D0%BE%20%D0%BF%D1%80%D0%B8%D0%BB%D0%BE%D0%B6%D0%B5%D0%BD%D0%B8%D1%8E%20%22%D0%9C%D0%B0%D1%88%D0%B8%D0%BD%D0%B8%D1%81%D1%82%22">Поддержка</a>
         </div>
     </div>
 
@@ -160,18 +161,14 @@
             var path = window.location.pathname.replace(/\/+$/, '');
             var segments = path.split('/').filter(Boolean);
 
-            // Проверяем, что URL начинается с /r/ — это share deep link.
-            // Если нет — показываем обычную 404 страницу.
             var rIdx = segments.indexOf('r');
             if (rIdx < 0 || segments.length <= rIdx + 1) {
-                // Не share-ссылка → показываем 404
                 document.getElementById('share-mode').className = 'share-mode hide';
                 document.getElementById('not-found').className = 'not-found show';
                 return;
             }
 
-            // Share mode — извлекаем id
-            document.getElementById('page-title').textContent = 'Открываем маршрут в LocoDriver…';
+            document.getElementById('page-title').textContent = 'Открываем маршрут в Машинист…';
             var shareId = segments[rIdx + 1].split('?')[0].split('#')[0];
 
             if (!shareId) {
@@ -188,12 +185,10 @@
                 window.location.href = deepLink;
             });
 
-            // Попытка открыть приложение через кастомную схему.
             try {
                 window.location.replace(deepLink);
             } catch (_) {}
 
-            // Через 1.5 секунды показываем fallback.
             setTimeout(function () {
                 document.getElementById('fallback').className = 'fallback show';
             }, 1500);
