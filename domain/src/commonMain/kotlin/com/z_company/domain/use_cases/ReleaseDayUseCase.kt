@@ -8,6 +8,8 @@ import com.z_company.domain.repositories.ReleaseDayRepository
 import com.z_company.domain.util.generateId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.plus
 
 class ReleaseDayUseCase(private val repository: ReleaseDayRepository) {
 
@@ -81,13 +83,17 @@ class ReleaseDayUseCase(private val repository: ReleaseDayRepository) {
         var currentType = sorted.first().releaseType
 
         for (day in sorted) {
-            if (day.releaseType == currentType) {
-                currentDays.add(day.toLocalDate())
+            val dayDate = day.toLocalDate()
+            // Период продолжается только если: тот же тип И дата идёт сразу после предыдущей
+            val isConsecutive = currentDays.isEmpty() ||
+                    dayDate == currentDays.last().plus(1, DateTimeUnit.DAY)
+            if (day.releaseType == currentType && isConsecutive) {
+                currentDays.add(dayDate)
             } else {
                 if (currentDays.isNotEmpty()) {
                     periods.add(ReleasePeriod(days = currentDays.toList(), type = currentType))
                 }
-                currentDays = mutableListOf(day.toLocalDate())
+                currentDays = mutableListOf(dayDate)
                 currentType = day.releaseType
             }
         }

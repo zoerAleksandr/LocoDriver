@@ -235,12 +235,25 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
         viewModelScope.launch {
             try {
-                calendarUseCase.loadFlowMonthOfYearListState().collect { result ->
+                calendarUseCase.loadFlowMonthOfYearListState().collect { months ->
                     currentSettings?.let { setting ->
+                        val current = setting.selectMonthOfYear
+                        // Ищем актуальный месяц в обновлённых данных (после смены страны
+                        // или применения производственного календаря MonthOfYear обновляется)
+                        val updatedMonth = months.find {
+                            it.year == current.year && it.month == current.month
+                        } ?: current
+
+                        // Если теги изменились (смена RU→BY/KZ или наоборот) — обновляем
+                        // selectMonthOfYear в settings, чтобы норма пересчиталась везде
+                        if (updatedMonth.days.map { it.tag } != current.days.map { it.tag } ||
+                            updatedMonth.days.map { it.isReleaseDay } != current.days.map { it.isReleaseDay }
+                        ) {
+                            currentSettings = setting.copy(selectMonthOfYear = updatedMonth)
+                        }
+
                         _uiState.update {
-                            it.copy(
-                                calendarState = ResultState.Success(setting.selectMonthOfYear)
-                            )
+                            it.copy(calendarState = ResultState.Success(updatedMonth))
                         }
                     }
                 }
@@ -422,6 +435,25 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    /**
+     * Обновляет selectMonthOfYear в настройках из актуальной таблицы MonthOfYear.
+     * Вызывается после смены страны производственного календаря.
+     * Синхронно читает текущие данные после applyProductionCalendar.
+     */
+    private fun refreshSelectMonthOfYear() {
+        currentSettings?.let { setting ->
+            val current = setting.selectMonthOfYear
+            val allMonths = calendarUseCase.loadMonthOfYearList()
+            // Берём месяц с наибольшим количеством дней (дедупликация по year+month)
+            val refreshed = allMonths
+                .filter { it.year == current.year && it.month == current.month }
+                .maxByOrNull { it.days.size }
+            if (refreshed != null && refreshed.days.isNotEmpty()) {
+                currentSettings = setting.copy(selectMonthOfYear = refreshed)
+            }
+        }
+    }
+
     /** Изменить страну календаря — сохраняет настройку и загружает производственный календарь */
     fun changeCountry(country: String) {
         val countryName = when (country) {
@@ -451,6 +483,11 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 allCountries.filter { it != country }.forEach { otherCountry ->
                     productionCalendarUseCase.clearByCountry(otherCountry).collect {}
                 }
+
+                // После применения нового календаря сразу обновляем selectMonthOfYear
+                // в настройках, чтобы норма пересчиталась без ожидания реактивного потока.
+                // Реактивный поток в loadSettings() дополнительно обновит isReleaseDay.
+                refreshSelectMonthOfYear()
 
                 _uiState.update { it.copy(countryLoadingState = CountryLoadingState.Success) }
             } catch (e: Exception) {

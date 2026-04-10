@@ -25,5 +25,8 @@ WHERE country = :country AND year = :year;
 clearAll:
 DELETE FROM ProductionCalendarDay;
 
+getAll:
+SELECT * FROM ProductionCalendarDay ORDER BY country, year, month, dayOfMonth;
+
 clearByCountry:
 DELETE FROM ProductionCalendarDay WHERE country = :country;

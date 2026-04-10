@@ -32,10 +32,53 @@ class SqlDelightCalendarRepository : CalendarRepositories, KoinComponent {
             .asFlow()
             .mapToList(Dispatchers.Default)
 
-        return combine(monthsFlow, releaseFlow) { months, releaseRows ->
+        // Производственный календарь: реактивный источник тегов (страна хранится в таблице).
+        // Это позволяет теги дней обновляться сразу при смене страны — без записи в MonthOfYear.days.
+        val productionFlow = db.productionCalendarDayQueries.getAll()
+            .asFlow()
+            .mapToList(Dispatchers.Default)
+
+        return combine(monthsFlow, releaseFlow, productionFlow) { months, releaseRows, prodRows ->
             val releaseByMonthKey = releaseRows.groupBy { it.year to it.month }
-            months.map { month ->
+
+            // Группируем производственный календарь по (year, month).
+            // Если в месяце данные ровно одной страны — применяем её теги.
+            // Если нескольких (переходный момент при смене страны) — используем теги из MonthOfYear.
+            val prodByMonthKey = prodRows.groupBy { it.year to it.month }
+
+            // Дедублируем MonthOfYear по (year, month): берём с наибольшим числом дней.
+            // Сортируем по (year, month) для стабильного порядка на каждом emission.
+            val deduplicatedMonths = months
+                .groupBy { it.year to it.month }
+                .map { (_, dupes) -> dupes.maxByOrNull { it.days.size } ?: dupes.first() }
+                .sortedWith(compareBy({ it.year }, { it.month }))
+
+            deduplicatedMonths.map { month ->
                 val key = month.year.toLong() to month.month.toLong()
+
+                // Применяем теги производственного календаря
+                val prodForMonth = prodByMonthKey[month.year.toLong() to month.month.toLong()]
+                val monthWithProdTags = if (prodForMonth != null) {
+                    val countries = prodForMonth.map { it.country }.toSet()
+                    if (countries.size == 1) {
+                        // Одна страна → теги актуальны, применяем
+                        val tagByDay = prodForMonth.associateBy { it.dayOfMonth }
+                        val updatedDays = month.days.map { day ->
+                            val prodTag = tagByDay[day.dayOfMonth.toLong()]?.tag
+                                ?.let { runCatching { TagForDay.valueOf(it) }.getOrNull() }
+                            if (prodTag != null) day.copy(tag = prodTag) else day
+                        }
+                        month.copy(days = updatedDays)
+                    } else {
+                        // Несколько стран — идёт переход, используем теги из MonthOfYear
+                        month
+                    }
+                } else {
+                    // Нет данных производственного календаря — используем теги из MonthOfYear
+                    month
+                }
+
+                // Применяем флаги отвлечений (isReleaseDay) из таблицы ReleaseDay
                 val releaseDaysForMonth = releaseByMonthKey[key]?.map { row ->
                     ReleaseDay(
                         id = row.id,
@@ -46,13 +89,7 @@ class SqlDelightCalendarRepository : CalendarRepositories, KoinComponent {
                     )
                 } ?: emptyList()
 
-                if (releaseDaysForMonth.isEmpty()) {
-                    // Ещё не мигрировано — старые days из MonthOfYear содержат isReleaseDay
-                    month
-                } else {
-                    // Мигрировано — мержим теги из MonthOfYear.days и флаги из ReleaseDay
-                    mergeReleaseDays(month, releaseDaysForMonth)
-                }
+                mergeReleaseDays(monthWithProdTags, releaseDaysForMonth)
             }
         }
     }

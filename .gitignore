@@ -25,6 +25,9 @@ app/release/
 # IDE / Xcode user state
 *.xcuserstate
 .idea/gradle.xml
+.idea/deploymentTargetSelector.xml
 
-# Compose Resources generated files
+# Build artifacts
+iosApp/build/
 iosApp/build/generated/
+iosApp/build/kotlin/

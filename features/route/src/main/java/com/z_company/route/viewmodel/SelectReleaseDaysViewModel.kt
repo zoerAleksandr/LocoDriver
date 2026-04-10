@@ -61,17 +61,35 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     var allMonthOfYear: List<MonthOfYear> = listOf()
     private var newMonthList: MutableList<MonthOfYear> = mutableListOf()
 
+    // null — месяц ещё не выбран явно, управление через loadSettings
+    private var activeYearAndMonth: Pair<Int, Int>? = null
+
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
+        if (activeYearAndMonth == yearAndMonth) return  // уже на этом месяце — не перезапускаем
+        activeYearAndMonth = yearAndMonth
+
         setCalendarJob?.cancel()
         setCalendarJob = calendarUseCase.loadFlowMonthOfYearListState().onEach { result ->
             result.find {
                 it.year == yearAndMonth.first && it.month == yearAndMonth.second
             }?.let { selectMonthOfYear ->
                 currentMonthOfYear = selectMonthOfYear
-                saveCurrentMonthInLocal(selectMonthOfYear)
+                // saveCurrentMonthInLocal здесь НЕ вызываем — только при явной смене месяца ниже
                 setReleasePeriodState(selectMonthOfYear)
             }
         }.launchIn(viewModelScope)
+
+        // Сохраняем в UserSettings только один раз при явном выборе месяца пользователем
+        viewModelScope.launch {
+            try {
+                val found = allMonthOfYear.find {
+                    it.year == yearAndMonth.first && it.month == yearAndMonth.second
+                }
+                found?.let { saveCurrentMonthInLocal(it) }
+            } catch (e: Exception) {
+                e.sendToSentry("SelectReleaseDaysViewModel", "setCurrentMonth:save")
+            }
+        }
     }
 
     private suspend fun saveCurrentMonthInLocal(monthOfYear: MonthOfYear) {
@@ -89,9 +107,9 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     fun addReleasePeriod(period: ReleasePeriod) {
         viewModelScope.launch {
             try {
-                releaseDayUseCase.savePeriod(period).collect { state ->
-                    _uiState.update { it.copy(saveReleaseDaysState = state) }
-                }
+                // Не обновляем saveReleaseDaysState — список обновится автоматически
+                // через реактивный flow в getFlowMonthOfYearListState (combine).
+                releaseDayUseCase.savePeriod(period).collect {}
             } catch (e: Exception) {
                 e.sendToSentry("SelectReleaseDaysViewModel", "addReleasePeriod")
             }
@@ -102,9 +120,9 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     fun deleteReleasePeriod(period: ReleasePeriod) {
         viewModelScope.launch {
             try {
-                releaseDayUseCase.deletePeriod(period).collect { state ->
-                    _uiState.update { it.copy(saveReleaseDaysState = state) }
-                }
+                // Не обновляем saveReleaseDaysState — список обновится автоматически
+                // через реактивный flow в getFlowMonthOfYearListState (combine).
+                releaseDayUseCase.deletePeriod(period).collect {}
             } catch (e: Exception) {
                 e.sendToSentry("SelectReleaseDaysViewModel", "deleteReleasePeriod")
             }
@@ -159,13 +177,18 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
                 settingsUseCase.getFlowCurrentSettingsState().collect { result ->
                     if (result is ResultState.Success) {
                         result.data?.let { setting ->
+                            // dateAndTimeConverter обновляем всегда
                             _uiState.update {
-                                it.copy(
-                                    currentMonthOfYearState = ResultState.Success(setting.selectMonthOfYear),
-                                    dateAndTimeConverter = DateAndTimeConverter(setting)
-                                )
+                                it.copy(dateAndTimeConverter = DateAndTimeConverter(setting))
                             }
-                            setReleasePeriodState(setting.selectMonthOfYear)
+                            // currentMonthOfYearState обновляем только если пользователь ещё не выбрал
+                            // месяц явно через setCurrentMonth — иначе loadSettings перебьёт выбранный месяц
+                            if (activeYearAndMonth == null) {
+                                _uiState.update {
+                                    it.copy(currentMonthOfYearState = ResultState.Success(setting.selectMonthOfYear))
+                                }
+                                setReleasePeriodState(setting.selectMonthOfYear)
+                            }
                         }
                     }
                 }

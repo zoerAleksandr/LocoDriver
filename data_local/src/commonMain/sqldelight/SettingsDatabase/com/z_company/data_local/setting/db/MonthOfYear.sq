@@ -12,7 +12,7 @@ INSERT OR REPLACE INTO MonthOfYear (id, year, month, days, tariffRate, dateSetTa
 VALUES (?, ?, ?, ?, ?, ?);
 
 getAll:
-SELECT * FROM MonthOfYear;
+SELECT * FROM MonthOfYear ORDER BY year, month;
 
 getById:
 SELECT * FROM MonthOfYear WHERE id = :id;
