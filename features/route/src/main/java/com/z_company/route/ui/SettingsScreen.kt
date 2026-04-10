@@ -69,7 +69,7 @@ import androidx.core.net.toUri
 
 enum class SettingsSubScreen(val title: String) {
     HUB("Настройки"),
-    NORMA("Норма"),
+    NORMA("Норма/Регион"),
     ACCOUNTING("Учёт"),
     REST("Отдых"),
     ROUTE("Маршрут"),
@@ -316,7 +316,7 @@ private fun SettingsHubContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         SettingsNavItem(
-            title = "Норма",
+            title = "Норма/Регион",
             onClick = { onNavigate(SettingsSubScreen.NORMA) }
         )
         SettingsNavItem(

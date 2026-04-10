@@ -66,50 +66,70 @@ fun SettingsNormaContent(
         ) {
             Column(
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                    .padding(horizontal = 24.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.secondary,
+                        shape = Shapes.medium
+                    )
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 when (state) {
                     is CountryLoadingState.Loading -> {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
                         Text(
                             text = "Загружаем производственный календарь для ${state.countryName}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
                             textAlign = TextAlign.Center
                         )
                     }
                     CountryLoadingState.Success -> {
                         Text(
                             text = "Календарь успешно загружен",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
                             textAlign = TextAlign.Center
                         )
                         TextButton(onClick = onDismissCountryDialog) {
-                            Text("OK")
+                            Text(
+                                text = "OK",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
                         }
                     }
                     CountryLoadingState.Error -> {
                         Text(
                             text = "Ошибка загрузки",
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.error
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center
                         )
                         TextButton(onClick = onDismissCountryDialog) {
-                            Text("OK")
+                            Text(
+                                text = "OK",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
                         }
                     }
                     CountryLoadingState.NoInternet -> {
                         Text(
                             text = "Нет интернета",
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.error
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center
                         )
                         TextButton(onClick = onDismissCountryDialog) {
-                            Text("OK")
+                            Text(
+                                text = "OK",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
                         }
                     }
                 }

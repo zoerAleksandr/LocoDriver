@@ -178,26 +178,24 @@ fun FormScreen(
 
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
-    // Диалог подтверждения удаления
+    // Шторка подтверждения удаления (такая же, как в HomeScreen)
     if (showDeleteConfirmDialog) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showDeleteConfirmDialog = false },
-            shape = com.z_company.core.ui.theme.Shapes.medium,
-            title = { Text("Удалить маршрут?", style = MaterialTheme.typography.titleMedium) },
-            text = { Text("Маршрут будет удалён. Это действие нельзя отменить.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteConfirmDialog = false
-                    viewModel.onDeleteRoute()
-                }) {
-                    Text("Удалить", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text("Отмена")
-                }
+        val deleteTitle = buildString {
+            append("Удалить маршрут?")
+            currentRoute?.basicData?.timeStartWork?.let { ms ->
+                val dateText = dateAndTimeConverter?.getDateMiniAndTime(value = ms)
+                if (!dateText.isNullOrBlank()) append("\nот $dateText")
             }
+        }
+        AppBottomSheet(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            sheetState = sheetState,
+            title = deleteTitle,
+            actions = listOf(
+                BottomSheetAction(text = "Да, удалить") {
+                    viewModel.onDeleteRoute()
+                }
+            )
         )
     }
 
