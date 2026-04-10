@@ -898,12 +898,14 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     private fun buildShareText(route: Route, url: String): String {
         return buildString {
-            append("Маршрут из приложении «Машинист»")
+            append("Маршрут из приложения «Машинист» \uD83D\uDE82")
+            append("\n")
             // Дата и время
             route.basicData.timeStartWork?.let { ms ->
                 val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
                 append(" от ${sdf.format(java.util.Date(ms))}")
             }
+            append("\n")
             // Маршрут следования: первая и последняя станция первого поезда
             val stations = route.trains
                 .flatMap { it.stations }
@@ -913,7 +915,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
             if (firstStation != null && lastStation != null && firstStation != lastStation) {
                 append(", $firstStation — $lastStation")
             }
-            append("\n")
+            append("\n\n")
+            append("Чтобы открыть маршрут, нажмите на ссылку внизу")
+            append("\n\n")
             append(url)
         }
     }
