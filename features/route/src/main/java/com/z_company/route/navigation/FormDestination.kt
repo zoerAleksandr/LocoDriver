@@ -1,10 +1,12 @@
 package com.z_company.route.navigation
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.flowWithLifecycle
 import androidx.navigation.NavBackStackEntry
@@ -43,6 +45,20 @@ fun FormDestination(
     val currentRoute by viewModel.currentRoute.collectAsState()
     val dateAndTimeConverter by viewModel.dateAndTimeConverter.collectAsState()
     val userSetting by viewModel.userSetting.collectAsState()
+
+    // Share intent из overflow-меню FormScreen
+    val context = LocalContext.current
+    LaunchedEffect(viewModel) {
+        viewModel.shareLinkEvent.collect { shareText ->
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, shareText)
+            }
+            val chooser = Intent.createChooser(sendIntent, "Поделиться маршрутом")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+        }
+    }
 
     LaunchedEffect(Unit) {
         scope.launch {

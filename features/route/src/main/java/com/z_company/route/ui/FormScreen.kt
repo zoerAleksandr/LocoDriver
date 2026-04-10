@@ -176,6 +176,52 @@ fun FormScreen(
         mutableStateOf(false)
     }
 
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    // Диалог подтверждения удаления
+    if (showDeleteConfirmDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            shape = com.z_company.core.ui.theme.Shapes.medium,
+            title = { Text("Удалить маршрут?", style = MaterialTheme.typography.titleMedium) },
+            text = { Text("Маршрут будет удалён. Это действие нельзя отменить.", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirmDialog = false
+                    viewModel.onDeleteRoute()
+                }) {
+                    Text("Удалить", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Отмена")
+                }
+            }
+        )
+    }
+
+    val isSharedPreview by viewModel.isSharedPreview.collectAsState()
+
+    // Шторка «Вы получили новый маршрут» для маршрутов по публичной ссылке
+    if (isSharedPreview) {
+        AppBottomSheet(
+            onDismissRequest = { viewModel.dismissSharedPreviewSheet() },
+            sheetState = sheetState,
+            title = "Получен новый маршрут",
+            actions = listOf(
+                BottomSheetAction(text = "Просмотр") {
+                    viewModel.dismissSharedPreviewSheet()
+                },
+                BottomSheetAction(text = "Сохранить") {
+                    viewModel.saveSharedRouteAndExit()
+                }
+            ),
+            cancelText = "Отмена",
+            onCancel = { exitScreen() }
+        )
+    }
+
     var isShowAlertSubscribeDialog by remember {
         mutableStateOf(false)
     }
@@ -318,28 +364,6 @@ fun FormScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         AnimatedContent(
-                            targetState = currentRoute?.basicData?.isFavorite == true,
-                            label = ""
-                        ) {
-                            IconButton(
-                                onClick = {
-                                    setFavoriteState()
-                                    val textSnackbar =
-                                        if (it) "Убрали из избранного" else "Маршрут добавлен в избранное"
-                                    scope.launch {
-                                        snackbarManager.show(textSnackbar)
-                                    }
-                                }
-                            ) {
-                                Icon(
-                                    tint = if (it) MaterialTheme.colorScheme.error else LocalContentColor.current,
-                                    painter = if (it) painterResource(R.drawable.favorite_fill_24px) else painterResource(R.drawable.favorite_24px),
-                                    contentDescription = null
-                                )
-                            }
-                        }
-
-                        AnimatedContent(
                             targetState = currentRoute?.basicData?.isOnePersonOperation == true,
                             label = ""
                         ) {
@@ -382,6 +406,84 @@ fun FormScreen(
                                     tint = MaterialTheme.colorScheme.primary,
                                     painter = painterResource(painter),
                                     contentDescription = null
+                                )
+                            }
+                        }
+
+                        // Overflow menu (три точки)
+                        var showOverflowMenu by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = { showOverflowMenu = true }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.more_vert_24px),
+                                    contentDescription = "Меню",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            androidx.compose.material3.DropdownMenu(
+                                expanded = showOverflowMenu,
+                                onDismissRequest = { showOverflowMenu = false }
+                            ) {
+                                val isFavorite = currentRoute?.basicData?.isFavorite == true
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = if (isFavorite) "Убрать из избранного" else "В избранное",
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = if (isFavorite) painterResource(R.drawable.favorite_fill_24px) else painterResource(R.drawable.favorite_24px),
+                                            contentDescription = null,
+                                            tint = if (isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        setFavoriteState()
+                                        val textSnackbar =
+                                            if (isFavorite) "Убрали из избранного" else "Маршрут добавлен в избранное"
+                                        scope.launch { snackbarManager.show(textSnackbar) }
+                                    }
+                                )
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "Поделиться",
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(R.drawable.share_24px),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        viewModel.onShareClick()
+                                    }
+                                )
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "Удалить",
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            painter = painterResource(R.drawable.delete_24px),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showDeleteConfirmDialog = true
+                                    }
                                 )
                             }
                         }

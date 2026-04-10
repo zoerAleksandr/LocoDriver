@@ -14,6 +14,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.reidentifyForImport
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.util.SharedRouteHolder
 import com.z_company.repository.remote_rest.ShareRouteManager
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
@@ -83,7 +84,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     fun requestOpenForm() { _pendingFormOpen.value = true }
     fun clearOpenForm() { _pendingFormOpen.value = false }
 
-    // Открыть FormRoute с конкретным routeId (после импорта маршрута по публичной ссылке)
+    // Открыть FormRoute с конкретным routeId (shared route через SharedRouteHolder)
     private val _pendingOpenFormWithId = MutableStateFlow<String?>(null)
     val pendingOpenFormWithId: StateFlow<String?> = _pendingOpenFormWithId.asStateFlow()
 
@@ -125,9 +126,10 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     /**
      * Обрабатывает deep-link `locodriver://share/{shareId}`:
      * 1. Загружает Route с сервера
-     * 2. Переприсваивает идентификаторы (важно, чтобы не пересекаться с отправителем)
-     * 3. Сохраняет в локальную БД получателя
-     * 4. Эмитит basicData.id в [pendingOpenFormWithId], чтобы навигация открыла FormRoute
+     * 2. Переприсваивает идентификаторы
+     * 3. Помещает Route в [SharedRouteHolder] (не сохраняя в БД)
+     * 4. Навигирует на FormScreen через [pendingOpenFormWithId]
+     * FormViewModel при загрузке проверит SharedRouteHolder и покажет шторку.
      */
     fun handleShareDeepLink(shareId: String) {
         if (shareId.isBlank()) return
@@ -137,7 +139,8 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                     when (result) {
                         is ResultState.Success -> {
                             val imported = result.data.reidentifyForImport()
-                            saveImportedSharedRoute(imported)
+                            SharedRouteHolder.set(imported)
+                            _pendingOpenFormWithId.value = imported.basicData.id
                         }
                         is ResultState.Error -> {
                             snackbarManager.show(
@@ -151,29 +154,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                 e.sendToSentry("MainViewModel", "handleShareDeepLink")
                 snackbarManager.show("Ошибка загрузки общего маршрута")
             }
-        }
-    }
-
-    private suspend fun saveImportedSharedRoute(route: Route) {
-        val newBasicId = route.basicData.id
-        try {
-            routeUseCase.saveRoute(route).collect { state ->
-                when (state) {
-                    is ResultState.Success -> {
-                        _pendingOpenFormWithId.value = newBasicId
-                        snackbarManager.show("Маршрут импортирован")
-                    }
-                    is ResultState.Error -> {
-                        snackbarManager.show(
-                            state.entity.message ?: "Ошибка импорта маршрута"
-                        )
-                    }
-                    is ResultState.Loading -> Unit
-                }
-            }
-        } catch (e: Exception) {
-            e.sendToSentry("MainViewModel", "saveImportedSharedRoute")
-            snackbarManager.show("Ошибка импорта маршрута")
         }
     }
 

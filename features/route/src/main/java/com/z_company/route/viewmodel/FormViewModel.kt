@@ -30,6 +30,7 @@ import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.domain.util.CalculateNightTime
+import com.z_company.domain.util.SharedRouteHolder
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.repository.SecureDataStore
@@ -78,6 +79,8 @@ class FormViewModel(
     private val snackbarManager: ISnackbarManager by inject()
     private val subscriptionHelper: SubscriptionHelper by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
+    private val shareRouteManager: com.z_company.repository.remote_rest.ShareRouteManager by inject()
+    private val secureTokenStorage: com.z_company.repository.SecureTokenStorage by inject()
 
     val reviewManager = RuStoreReviewManagerFactory.create(application.applicationContext)
 
@@ -101,6 +104,13 @@ class FormViewModel(
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     val events: SharedFlow<FormScreenEvent> = _events.asSharedFlow()
+
+    // Ссылка для "Поделиться" из overflow-меню
+    private val _shareLinkEvent = MutableSharedFlow<String>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val shareLinkEvent: SharedFlow<String> = _shareLinkEvent.asSharedFlow()
 
     private val _alertBeforePurchasesEvent = MutableSharedFlow<AlertBeforePurchasesEvent>(
         extraBufferCapacity = 1,
@@ -131,6 +141,12 @@ class FormViewModel(
 
     private val _showPassenger12hSheet = MutableStateFlow(false)
     val showPassenger12hSheet: StateFlow<Boolean> = _showPassenger12hSheet.asStateFlow()
+
+    // Маршрут загружен по публичной ссылке и ещё не сохранён — показать шторку
+    private val _isSharedPreview = MutableStateFlow(false)
+    val isSharedPreview: StateFlow<Boolean> = _isSharedPreview.asStateFlow()
+
+    fun dismissSharedPreviewSheet() { _isSharedPreview.value = false }
 
     var timeZoneText: String = "GMT+3"
 
@@ -217,6 +233,15 @@ class FormViewModel(
     private fun loadData() {
         loadRouteJob?.cancel()
         loadRouteJob = viewModelScope.launch(Dispatchers.IO) {
+            // Проверяем SharedRouteHolder — маршрут по публичной ссылке (ещё не в БД)
+            val sharedRoute = SharedRouteHolder.consume()
+            if (sharedRoute != null && sharedRoute.basicData.id == routeId) {
+                _currentRoute.value = sharedRoute
+                _isSharedPreview.value = true
+                _uiState.update { it.copy(routeDetailState = ResultState.Success(sharedRoute)) }
+                return@launch
+            }
+
             if (isNewRoute) {
                 _currentRoute.value =
                     Route(basicData = BasicData(id = UUID.randomUUID().toString()))
@@ -746,6 +771,82 @@ class FormViewModel(
             route?.copy(basicData = route.basicData.copy(isFavorite = !route.basicData.isFavorite))
         }
         changesHave()
+    }
+
+    /** Поделиться маршрутом — создаёт публичную ссылку и эмитит в shareLinkEvent. */
+    fun onShareClick() {
+        val route = _currentRoute.value ?: return
+        viewModelScope.launch {
+            try {
+                val rawToken = secureTokenStorage.getAuthBearerTokenFlow().first()
+                if (rawToken.isNullOrBlank()) {
+                    snackbarManager.show("Войдите в аккаунт, чтобы делиться маршрутами")
+                    return@launch
+                }
+                val bearerToken = "Bearer $rawToken"
+                shareRouteManager.createShareLink(route, bearerToken).collect { result ->
+                    when (result) {
+                        is ResultState.Success -> {
+                            val shareText = buildShareText(route, result.data)
+                            _shareLinkEvent.emit(shareText)
+                        }
+                        is ResultState.Error -> snackbarManager.show(
+                            result.entity.message ?: "Не удалось создать ссылку"
+                        )
+                        is ResultState.Loading -> Unit
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("FormViewModel", "onShareClick", e)
+                snackbarManager.show("Ошибка создания ссылки")
+            }
+        }
+    }
+
+    private fun buildShareText(route: Route, url: String): String {
+        return buildString {
+            append("Маршрут из приложении «Машинист»")
+            route.basicData.timeStartWork?.let { ms ->
+                val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
+                append(" от ${sdf.format(java.util.Date(ms))}")
+            }
+            val stations = route.trains
+                .flatMap { it.stations }
+                .sortedBy { it.orderIndex }
+            val firstStation = stations.firstOrNull()?.stationName?.takeIf { it.isNotBlank() }
+            val lastStation = stations.lastOrNull()?.stationName?.takeIf { it.isNotBlank() }
+            if (firstStation != null && lastStation != null && firstStation != lastStation) {
+                append(", $firstStation — $lastStation")
+            }
+            append("\n")
+            append(url)
+        }
+    }
+
+    /** Удалить маршрут (пометить как удалённый). */
+    fun onDeleteRoute() {
+        val route = _currentRoute.value ?: return
+        viewModelScope.launch {
+            routeUseCase.markAsRemoved(route).collect { result ->
+                if (result is ResultState.Success) {
+                    _uiState.update { it.copy(exitFromScreen = true) }
+                }
+            }
+        }
+    }
+
+    /**
+     * Сохранить shared-маршрут и выйти без мерцания.
+     * Сразу ставит exitFromScreen=true, сохранение идёт в фоне.
+     */
+    fun saveSharedRouteAndExit() {
+        _isSharedPreview.value = false
+        _currentRoute.value?.let { route ->
+            viewModelScope.launch(Dispatchers.IO) {
+                routeUseCase.saveRoute(route).collect {}
+            }
+        }
+        _uiState.update { it.copy(exitFromScreen = true) }
     }
 
     // предложение пользователю оценить приложение
