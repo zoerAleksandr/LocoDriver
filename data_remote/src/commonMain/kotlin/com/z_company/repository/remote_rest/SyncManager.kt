@@ -135,6 +135,14 @@ class SyncManager(
         for (route in deletedRoutes) {
             val routeId = route.basicData.id
             val label = routeLabel(route)
+            // Если маршрут никогда не был загружен на сервер (remoteRouteId is null/blank) —
+            // не трогаем его: сервер о нём ничего не знает, а локально он уже помечен
+            // isDeleted=true и скрыт из списков. Это защищает shared-preview маршруты
+            // (импортированные по публичной ссылке и ожидающие решения пользователя)
+            // от случайного удаления во время sync-а.
+            if (route.basicData.remoteRouteId.isNullOrBlank()) {
+                continue
+            }
             try {
                 routesManager.deleteRouteInRemote(routeId, bearerToken)
                     .collect { deleteResult ->

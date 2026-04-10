@@ -127,9 +127,10 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
      * Обрабатывает deep-link `locodriver://share/{shareId}`:
      * 1. Загружает Route с сервера
      * 2. Переприсваивает идентификаторы
-     * 3. Помещает Route в [SharedRouteHolder] (не сохраняя в БД)
-     * 4. Навигирует на FormScreen через [pendingOpenFormWithId]
-     * FormViewModel при загрузке проверит SharedRouteHolder и покажет шторку.
+     * 3. Сохраняет Route в локальную БД с флагом [isDeleted = true] — «tentative»
+     *    (не отображается в списках, но доступен по id, child-сущности работают)
+     * 4. Помечает id в [SharedRouteHolder] для FormViewModel (покажет шторку)
+     * 5. Навигирует на FormScreen через [pendingOpenFormWithId]
      */
     fun handleShareDeepLink(shareId: String) {
         if (shareId.isBlank()) return
@@ -138,9 +139,23 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                 shareRouteManager.getSharedRoute(shareId).collect { result ->
                     when (result) {
                         is ResultState.Success -> {
+                            // Переприсваиваем id + ставим isDeleted = true (tentative)
                             val imported = result.data.reidentifyForImport()
-                            SharedRouteHolder.set(imported)
-                            _pendingOpenFormWithId.value = imported.basicData.id
+                            val tentative = imported.copy(
+                                basicData = imported.basicData.copy(isDeleted = true)
+                            )
+                            // Сохраняем в БД (tentative)
+                            routeUseCase.saveRoute(tentative).collect { saveState ->
+                                if (saveState is ResultState.Success) {
+                                    SharedRouteHolder.markSharedPreview(tentative.basicData.id)
+                                    _pendingOpenFormWithId.value = tentative.basicData.id
+                                } else if (saveState is ResultState.Error) {
+                                    snackbarManager.show(
+                                        saveState.entity.message
+                                            ?: "Ошибка импорта маршрута"
+                                    )
+                                }
+                            }
                         }
                         is ResultState.Error -> {
                             snackbarManager.show(

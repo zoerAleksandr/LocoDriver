@@ -233,13 +233,10 @@ class FormViewModel(
     private fun loadData() {
         loadRouteJob?.cancel()
         loadRouteJob = viewModelScope.launch(Dispatchers.IO) {
-            // Проверяем SharedRouteHolder — маршрут по публичной ссылке (ещё не в БД)
-            val sharedRoute = SharedRouteHolder.consume()
-            if (sharedRoute != null && sharedRoute.basicData.id == routeId) {
-                _currentRoute.value = sharedRoute
+            // Проверяем: это маршрут импортированный по публичной ссылке (tentative preview)
+            // Маршрут уже лежит в БД с isDeleted=true, грузится как обычно ниже.
+            if (routeId != null && SharedRouteHolder.consume(routeId)) {
                 _isSharedPreview.value = true
-                _uiState.update { it.copy(routeDetailState = ResultState.Success(sharedRoute)) }
-                return@launch
             }
 
             if (isNewRoute) {
@@ -676,10 +673,18 @@ class FormViewModel(
         saveRouteJob?.cancel()
         saveRouteJob = viewModelScope.launch(Dispatchers.IO) {
             currentRoute.value?.let { route ->
-                routeUseCase.saveRoute(route).collectLatest { result ->
+                // Если это shared preview (tentative с isDeleted=true) — снимаем флаг,
+                // маршрут становится обычным сохранённым.
+                val routeToSave = if (_isSharedPreview.value || route.basicData.isDeleted) {
+                    route.copy(basicData = route.basicData.copy(isDeleted = false))
+                } else {
+                    route
+                }
+                routeUseCase.saveRoute(routeToSave).collectLatest { result ->
                     Log.d("zzz", "saveResult $result")
                     _uiState.update { it.copy(saveRouteState = result) }
                     if (result is ResultState.Success) {
+                        _isSharedPreview.value = false
                         deletedLocoList.forEach { loco ->
                             locoUseCase.removeLoco(loco).collect {}
                         }
@@ -840,14 +845,17 @@ class FormViewModel(
     }
 
     /**
-     * Сохранить shared-маршрут и выйти без мерцания.
+     * Сохранить shared-маршрут (снять флаг isDeleted) и выйти без мерцания.
      * Сразу ставит exitFromScreen=true, сохранение идёт в фоне.
      */
     fun saveSharedRouteAndExit() {
         _isSharedPreview.value = false
         _currentRoute.value?.let { route ->
+            val confirmed = route.copy(
+                basicData = route.basicData.copy(isDeleted = false)
+            )
             viewModelScope.launch(Dispatchers.IO) {
-                routeUseCase.saveRoute(route).collect {}
+                routeUseCase.saveRoute(confirmed).collect {}
             }
         }
         _uiState.update { it.copy(exitFromScreen = true) }
