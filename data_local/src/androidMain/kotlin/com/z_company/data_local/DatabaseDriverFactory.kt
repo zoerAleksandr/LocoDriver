@@ -35,7 +35,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "isShowOtherCurrent",
             "UserSettings" to "subscriptionPeriod",
             "UserSettings" to "isDecimalTime",
-            "UserSettings" to "country")
+            "UserSettings" to "country",
+            "UserSettings" to "crossMonthTimezone")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
 
@@ -156,6 +157,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.subscriptionPeriod" to ColumnSpec("INTEGER", false, "0"),
             "UserSettings.isDecimalTime" to ColumnSpec("INTEGER", false, "0"),
             "UserSettings.country" to ColumnSpec("TEXT", false, "'RU'"),
+            "UserSettings.crossMonthTimezone" to ColumnSpec("TEXT", false, "'LOCAL'"),
             // Route — BasicData
             "BasicData.timeStartBreak" to ColumnSpec("INTEGER", true, "NULL"),
             "BasicData.timeEndBreak" to ColumnSpec("INTEGER", true, "NULL"),

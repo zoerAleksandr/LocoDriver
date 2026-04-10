@@ -33,6 +33,7 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
+import com.z_company.domain.entities.setting.CrossMonthTimezone
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.OutlinedTextFieldApp
@@ -49,6 +50,7 @@ fun SettingsNormaContent(
     setCountry: (String) -> Unit,
     countryLoadingState: CountryLoadingState? = null,
     onDismissCountryDialog: () -> Unit = {},
+    setCrossMonthTimezone: (CrossMonthTimezone) -> Unit = {},
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
     val styleHint = MaterialTheme.typography.bodyMedium
@@ -316,6 +318,72 @@ fun SettingsNormaContent(
                     style = styleHint,
                     maxLines = Int.MAX_VALUE,
                     overflow = TextOverflow.Visible
+                )
+            }
+        }
+
+        // Переходные маршруты — часовой пояс
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
+                text = "Переходные маршруты",
+                style = styleTitle,
+                color = primaryColor,
+            )
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                Box(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+                        .fillMaxWidth()
+                ) {
+                    var expanded by remember { mutableStateOf(false) }
+                    val options = listOf(
+                        CrossMonthTimezone.LOCAL to "По местному времени",
+                        CrossMonthTimezone.MOSCOW to "По московскому времени"
+                    )
+                    val current = options.find { it.first == currentSettings.crossMonthTimezone } ?: options[0]
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded }
+                    ) {
+                        OutlinedTextFieldApp(
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth(),
+                            value = current.second,
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                            },
+                            textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            options.forEach { (value, label) ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = label,
+                                            color = primaryColor,
+                                            style = styleHint
+                                        )
+                                    },
+                                    onClick = {
+                                        setCrossMonthTimezone(value)
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                Text(
+                    modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                    text = "Определяет по какому времени считается к какому месяцу относится переходной маршрут.",
+                    style = styleHint,
                 )
             }
         }

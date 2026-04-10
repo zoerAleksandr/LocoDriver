@@ -20,6 +20,7 @@ import com.z_company.core.widget.WidgetUpdater
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHours
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
@@ -123,15 +124,17 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     var currentRoute by mutableStateOf<Route?>(null)
 
-    private val routeParams = MutableStateFlow<Pair<MonthOfYear, Long>?>(null)
+    private val routeParams = MutableStateFlow<Pair<MonthOfYear, TimeCalculationContext>?>(null)
 
     // will switch to the latest listRoutesByMonth when routeParams changes
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     private val routesFlow = routeParams
         .filterNotNull()
         .debounce(300)
-        .flatMapLatest { (month, tz) ->
-            routeUseCase.listRoutesByMonth(month, tz)
+        .flatMapLatest { (month, context) ->
+            routeUseCase.routeListByMonthFlow(month, context)
+                .map<List<Route>, ResultState<List<Route>>> { ResultState.Success(it) }
+                .onStart { emit(ResultState.Loading()) }
         }
         .stateIn(
             scope = viewModelScope,
@@ -1373,7 +1376,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     }
 
                     // Update params that drive routesFlow. flatMapLatest on routesFlow will switch to the new month/timezone.
-                    routeParams.value = userSettings.selectMonthOfYear to userSettings.timeZone
+                    routeParams.value = userSettings.selectMonthOfYear to TimeCalculationContext.from(userSettings)
                 } else {
                     // If settings or salary not ready, clear route params
                     routeParams.value = null

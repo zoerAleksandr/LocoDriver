@@ -15,6 +15,9 @@ const val hourInMillis8 = oneHourInMillis * 8L
 const val hourInMillis20 = oneHourInMillis * 20L
 
 @Serializable
+enum class CrossMonthTimezone { LOCAL, MOSCOW }
+
+@Serializable
 data class UserSettings(
     var key: String = SETTINGS_KEY,
     var minTimeRestPointOfTurnover: Long = 10_800_000L,
@@ -41,6 +44,7 @@ data class UserSettings(
     val isShowLocoNorma: Boolean = true,
     val isShowOtherCurrent: Boolean = false,
     val country: String = "RU",
+    val crossMonthTimezone: CrossMonthTimezone = CrossMonthTimezone.LOCAL,
 )
 
 @Serializable

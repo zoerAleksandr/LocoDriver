@@ -9,6 +9,7 @@ import com.z_company.domain.entities.TimePeriod
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getTimeInCurrentMonth
 import com.z_company.domain.util.CalculateNightTime
+import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.div
 import com.z_company.domain.util.getTimeZone
 import com.z_company.domain.util.lessThan
@@ -164,8 +165,21 @@ object UtilsForEntities {
      * Для обычных — то же, что [getWorkTime].
      */
     fun Route.getWorkTimeInMonth(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long? {
-        if (!isTransition(offsetInMoscow)) return getWorkTime()
-        val (clippedStart, clippedEnd) = clipToMonthMoscow(monthOfYear) ?: return null
+        val context = TimeCalculationContext(
+            localTZ = kotlinx.datetime.TimeZone.of(getTimeZone(offsetInMoscow)),
+            crossMonthTZ = kotlinx.datetime.TimeZone.of(getTimeZone(offsetInMoscow))
+        )
+        return getWorkTimeInMonth(monthOfYear, context)
+    }
+
+    /**
+     * Рабочее время маршрута в пределах указанного месяца с учётом [TimeCalculationContext].
+     * Для переходных маршрутов возвращает только ту часть, что принадлежит [monthOfYear].
+     * Для обычных — то же, что [getWorkTime].
+     */
+    fun Route.getWorkTimeInMonth(monthOfYear: MonthOfYear, context: TimeCalculationContext): Long? {
+        if (!isTransition(context)) return getWorkTime()
+        val (clippedStart, clippedEnd) = clipToMonth(monthOfYear, context) ?: return null
         val breakStart = basicData.timeStartBreak
         val breakEnd = basicData.timeEndBreak
         val breakDuration = if (breakStart != null && breakEnd != null && breakEnd > breakStart) {
@@ -426,8 +440,7 @@ object UtilsForEntities {
         if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) {
             return false
         } else {
-            // Месяц определяется по московскому времени — пользователь вводит времена в МСК
-            val localTZ = TimeZone.of("GMT+3")
+            val localTZ = TimeZone.of(getTimeZone(offsetInMoscow))
             val startLdt = Instant.fromEpochMilliseconds(
                 this.basicData.timeStartWork!!
             ).toLocalDateTime(localTZ)
@@ -450,11 +463,19 @@ object UtilsForEntities {
         }
     }
 
+    fun Route.isTransition(context: TimeCalculationContext): Boolean {
+        if (this.basicData.timeStartWork == null || this.basicData.timeEndWork == null) return false
+        val startLdt = Instant.fromEpochMilliseconds(basicData.timeStartWork!!).toLocalDateTime(context.crossMonthTZ)
+        val endLdt = Instant.fromEpochMilliseconds(basicData.timeEndWork!!).toLocalDateTime(context.crossMonthTZ)
+        return (startLdt.monthNumber != endLdt.monthNumber && startLdt.year == endLdt.year) ||
+                (startLdt.monthNumber > endLdt.monthNumber && startLdt.year < endLdt.year)
+    }
+
     fun Passenger.isTransition(offsetInMoscow: Long): Boolean {
         if (this.timeDeparture == null || this.timeArrival == null) {
             return false
         } else {
-            val localTZ = TimeZone.of("GMT+3")
+            val localTZ = TimeZone.of(getTimeZone(offsetInMoscow))
             val startLdt = Instant.fromEpochMilliseconds(
                 this.timeDeparture!!
             ).toLocalDateTime(localTZ)
@@ -490,6 +511,24 @@ object UtilsForEntities {
         val nextMonthStart = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
             .plus(1, DateTimeUnit.MONTH)
             .atStartOfDayIn(moscowTZ).toEpochMilliseconds()
+        val clippedStart = maxOf(start, monthStart)
+        val clippedEnd = minOf(end, nextMonthStart)
+        return if (clippedEnd > clippedStart) clippedStart to clippedEnd else null
+    }
+
+    /**
+     * Обрезает переходной маршрут по границам месяца используя часовой пояс из [context].
+     * Возвращает [clippedStart, clippedEnd] — часть маршрута, принадлежащую monthOfYear.
+     */
+    fun Route.clipToMonth(monthOfYear: MonthOfYear, context: TimeCalculationContext): Pair<Long, Long>? {
+        val start = basicData.timeStartWork ?: return null
+        val end = basicData.timeEndWork ?: return null
+        val tz = context.crossMonthTZ
+        val monthStart = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
+            .atStartOfDayIn(tz).toEpochMilliseconds()
+        val nextMonthStart = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
+            .plus(1, DateTimeUnit.MONTH)
+            .atStartOfDayIn(tz).toEpochMilliseconds()
         val clippedStart = maxOf(start, monthStart)
         val clippedEnd = minOf(end, nextMonthStart)
         return if (clippedEnd > clippedStart) clippedStart to clippedEnd else null

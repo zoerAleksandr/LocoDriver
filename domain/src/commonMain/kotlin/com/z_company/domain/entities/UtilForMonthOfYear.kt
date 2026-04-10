@@ -1,6 +1,7 @@
 package com.z_company.domain.entities
 
 import com.z_company.domain.util.getTimeZone
+import com.z_company.domain.util.TimeCalculationContext
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.DateTimeUnit
@@ -132,24 +133,40 @@ object UtilForMonthOfYear {
     fun MonthOfYear.getTimeInCurrentMonth(
         startTime: Long,
         endTime: Long,
-        offsetInMoscow: Long,
+        offsetInMoscow: Long = 0L,
     ): Long {
-        // Всегда московское время: пользователь вводит времена в МСК (GMT+3)
-        val localTZ = TimeZone.of("GMT+3")
+        val localTZ = TimeZone.of(getTimeZone(offsetInMoscow))
         val startLdt = Instant.fromEpochMilliseconds(startTime).toLocalDateTime(localTZ)
 
         return if (startLdt.monthNumber - 1 == this.month) {
             // Явка в текущем месяце → маршрут переходит в следующий.
-            // Считаем от явки до 00:00 1-го числа следующего месяца МСК.
             val nextMonthStart = LocalDate(this.year, this.month + 1, 1)
                 .plus(1, DateTimeUnit.MONTH)
                 .atStartOfDayIn(localTZ)
                 .toEpochMilliseconds()
             nextMonthStart - startTime
         } else {
-            // Явка в предыдущем месяце → считаем от 00:00 1-го числа текущего месяца МСК до сдачи.
+            // Явка в предыдущем месяце → считаем от 00:00 1-го числа текущего месяца до сдачи.
             val monthStart = LocalDate(this.year, this.month + 1, 1)
                 .atStartOfDayIn(localTZ)
+                .toEpochMilliseconds()
+            endTime - monthStart
+        }
+    }
+
+    // Context-based overload (preferred for new code)
+    fun MonthOfYear.getTimeInCurrentMonth(startTime: Long, endTime: Long, context: TimeCalculationContext): Long {
+        val tz = context.crossMonthTZ
+        val startLdt = Instant.fromEpochMilliseconds(startTime).toLocalDateTime(tz)
+        return if (startLdt.monthNumber - 1 == this.month) {
+            val nextMonthStart = LocalDate(this.year, this.month + 1, 1)
+                .plus(1, DateTimeUnit.MONTH)
+                .atStartOfDayIn(tz)
+                .toEpochMilliseconds()
+            nextMonthStart - startTime
+        } else {
+            val monthStart = LocalDate(this.year, this.month + 1, 1)
+                .atStartOfDayIn(tz)
                 .toEpochMilliseconds()
             endTime - monthStart
         }

@@ -31,3 +31,4 @@ app/release/
 iosApp/build/
 iosApp/build/generated/
 iosApp/build/kotlin/
+features/tracking/build/

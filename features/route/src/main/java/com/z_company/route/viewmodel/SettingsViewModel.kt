@@ -13,6 +13,7 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.isEmailValid
+import com.z_company.domain.entities.setting.CrossMonthTimezone
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.setting.UserSettings
@@ -435,6 +436,10 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    fun setCrossMonthTimezone(value: CrossMonthTimezone) {
+        currentSettings = currentSettings?.copy(crossMonthTimezone = value)
+    }
+
     /**
      * Обновляет selectMonthOfYear в настройках из актуальной таблицы MonthOfYear.
      * Вызывается после смены страны производственного календаря.
@@ -463,7 +468,12 @@ class SettingsViewModel : ViewModel(), KoinComponent {
             else -> country
         }
         _uiState.update { it.copy(countryLoadingState = CountryLoadingState.Loading(countryName)) }
-        currentSettings = currentSettings?.copy(country = country)
+        val autoTimeZone = when (country) {
+            "KZ" -> 7_200_000L  // Yekaterinburg UTC+5 = Moscow+2h
+            "BY" -> 0L           // Minsk UTC+3 = Moscow
+            else -> currentSettings?.timeZone ?: 0L  // RU: keep user's existing timezone
+        }
+        currentSettings = currentSettings?.copy(country = country, timeZone = autoTimeZone)
         viewModelScope.launch {
             try {
                 val now = Clock.System.now()

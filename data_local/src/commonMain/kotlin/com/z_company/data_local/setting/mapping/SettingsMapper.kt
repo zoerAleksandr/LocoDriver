@@ -5,6 +5,7 @@ import com.zcompany.datalocal.setting.db.MonthOfYear as MonthOfYearRow
 import com.z_company.domain.entities.DateSetTariffRate
 import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.setting.CrossMonthTimezone
 import com.z_company.domain.entities.setting.NightTime
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.setting.UserSettings
@@ -68,7 +69,10 @@ internal object SettingsMapper {
         isShowLocoStatistics = row.isShowLocoStatistics != 0L,
         isShowLocoNorma = row.isShowLocoNorma != 0L,
         isShowOtherCurrent = row.isShowOtherCurrent != 0L,
-        country = row.country
+        country = row.country,
+        crossMonthTimezone = runCatching {
+            CrossMonthTimezone.valueOf(row.crossMonthTimezone)
+        }.getOrElse { CrossMonthTimezone.LOCAL },
     )
 }
 
