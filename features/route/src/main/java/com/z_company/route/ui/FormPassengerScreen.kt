@@ -119,6 +119,7 @@ fun FormPassengerScreen(
     onChangedDropDownContentArrivalStation: (String) -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
+    val displayTz = dateAndTimeConverter?.timeZoneText ?: "GMT+3"
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollState = rememberLazyListState()
@@ -489,6 +490,7 @@ fun FormPassengerScreen(
                                 },
                                 onDismiss = { showDepartureDatePicker = false },
                                 startDateTime = passenger.timeDeparture ?: TimeManager().now(),
+                                timeZoneStr = displayTz,
                             )
                         }
 
@@ -629,6 +631,7 @@ fun FormPassengerScreen(
                                 },
                                 onDismiss = { showArrivalDatePicker = false },
                                 startDateTime = passenger.timeArrival ?: TimeManager().now(),
+                                timeZoneStr = displayTz,
                             )
                         }
 

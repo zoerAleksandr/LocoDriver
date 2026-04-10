@@ -72,6 +72,7 @@ fun StationEditBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusManager = LocalFocusManager.current
+    val displayTz = dateAndTimeConverter?.timeZoneText ?: "GMT+3"
 
     val isNewStation = stationFormState == null
     val title = if (isNewStation) "Новая станция" else "Редактировать станцию"
@@ -340,7 +341,8 @@ fun StationEditBottomSheet(
                 showArrivalPicker = false
             },
             onDismiss = { showArrivalPicker = false },
-            startDateTime = localArrival ?: nowTruncatedToMinutes()
+            startDateTime = localArrival ?: nowTruncatedToMinutes(),
+            timeZoneStr = displayTz
         )
     }
 
@@ -353,7 +355,8 @@ fun StationEditBottomSheet(
                 showDeparturePicker = false
             },
             onDismiss = { showDeparturePicker = false },
-            startDateTime = localDeparture ?: nowTruncatedToMinutes()
+            startDateTime = localDeparture ?: nowTruncatedToMinutes(),
+            timeZoneStr = displayTz
         )
     }
 }

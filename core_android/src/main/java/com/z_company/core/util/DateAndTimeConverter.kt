@@ -1,6 +1,7 @@
 package com.z_company.core.util
 
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.util.displayTimeZone
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -8,8 +9,9 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class DateAndTimeConverter(userSettings: UserSettings) {
-    // Все времена отображаются в московском часовом поясе (UTC+3)
-    val timeZoneText: String = "GMT+3"
+    // Timezone определяется через единый центр displayTimeZone():
+    // Россия/Беларусь → GMT+3 (московское), Казахстан → GMT+5 (местное KZT)
+    val timeZoneText: String = userSettings.displayTimeZone()
 
     fun getDate(value: Long?): String {
         if (value != null) {

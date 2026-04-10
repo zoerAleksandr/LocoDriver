@@ -66,6 +66,7 @@ fun Passenger12hBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusManager = LocalFocusManager.current
+    val displayTz = dateAndTimeConverter?.timeZoneText ?: "GMT+3"
 
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintColor = primaryColor.copy(alpha = 0.5f)
@@ -469,7 +470,8 @@ fun Passenger12hBottomSheet(
                 timeDeparture = timestamp - timestamp % 60_000L
             },
             onDismiss = { showDeparturePicker = false },
-            startDateTime = timeDeparture
+            startDateTime = timeDeparture,
+            timeZoneStr = displayTz
         )
     }
 
@@ -480,7 +482,8 @@ fun Passenger12hBottomSheet(
                 timeArrival = timestamp - timestamp % 60_000L
             },
             onDismiss = { showArrivalPicker = false },
-            startDateTime = timeArrival
+            startDateTime = timeArrival,
+            timeZoneStr = displayTz
         )
     }
 }

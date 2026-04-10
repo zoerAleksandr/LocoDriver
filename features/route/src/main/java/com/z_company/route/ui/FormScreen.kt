@@ -162,6 +162,7 @@ fun FormScreen(
     dateAndTimeConverter: DateAndTimeConverter?,
     showPurchasesScreen: () -> Unit
 ) {
+    val displayTz = dateAndTimeConverter?.timeZoneText ?: "GMT+3"
     val scope = rememberCoroutineScope()
     val scrollState = rememberLazyListState()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -523,6 +524,7 @@ fun FormScreen(
                         startDateTime = route.basicData.timeStartBreak
                             ?: route.basicData.timeStartWork
                             ?: TimeManager().now(),
+                        timeZoneStr = displayTz,
                         recentTimes = sharedPrefs.getRecentTimes("time_start_break"),
                         onRecentTimeSaved = { sharedPrefs.addRecentTime("time_start_break", it) }
                     )
@@ -539,6 +541,7 @@ fun FormScreen(
                             ?: route.basicData.timeStartBreak
                             ?: route.basicData.timeStartWork
                             ?: TimeManager().now(),
+                        timeZoneStr = displayTz,
                         recentTimes = sharedPrefs.getRecentTimes("time_end_break"),
                         onRecentTimeSaved = { sharedPrefs.addRecentTime("time_end_break", it) }
                     )
@@ -601,6 +604,7 @@ fun FormScreen(
                         onDismiss = { showStartDatePicker = false },
                         startDateTime = route.basicData.timeStartWork
                             ?: TimeManager().now(),
+                        timeZoneStr = displayTz,
                         recentTimes = sharedPrefs.getRecentTimes("time_start_work"),
                         onRecentTimeSaved = { sharedPrefs.addRecentTime("time_start_work", it) }
                     )
@@ -616,6 +620,7 @@ fun FormScreen(
                         startDateTime = route.basicData.timeEndWork
                             ?: route.basicData.timeStartWork
                             ?: TimeManager().now(),
+                        timeZoneStr = displayTz,
                         recentTimes = sharedPrefs.getRecentTimes("time_end_work"),
                         onRecentTimeSaved = { sharedPrefs.addRecentTime("time_end_work", it) }
                     )
@@ -669,7 +674,8 @@ fun FormScreen(
                         },
                         onDismiss = { showStartDatePickerCopyRoute = false },
                         startDateTime = route.basicData.timeStartWork
-                            ?: TimeManager().now()
+                            ?: TimeManager().now(),
+                        timeZoneStr = displayTz
                     )
                 }
 

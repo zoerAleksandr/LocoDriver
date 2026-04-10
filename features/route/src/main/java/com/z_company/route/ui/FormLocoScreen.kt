@@ -154,6 +154,7 @@ fun FormLocoScreen(
     userSettings: UserSettings? = null,
     onSettingsClick: () -> Unit = {}
 ) {
+    val displayTz = dateAndTimeConverter?.timeZoneText ?: "GMT+3"
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val sharedPrefs: SharedPreferencesRepositories = koinInject()
@@ -574,6 +575,7 @@ fun FormLocoScreen(
                                         onDismiss = { showStartAcceptedDatePicker = false },
                                         startDateTime = locomotive.timeStartOfAcceptance
                                             ?: Calendar.getInstance().timeInMillis,
+                                        timeZoneStr = displayTz,
                                         recentTimes = sharedPrefs.getRecentTimes("time_start_acceptance"),
                                         onRecentTimeSaved = { sharedPrefs.addRecentTime("time_start_acceptance", it) }
                                     )
@@ -592,6 +594,7 @@ fun FormLocoScreen(
                                         onDismiss = { showEndAcceptedDatePicker = false },
                                         startDateTime = locomotive.timeEndOfAcceptance
                                             ?: Calendar.getInstance().timeInMillis,
+                                        timeZoneStr = displayTz,
                                         recentTimes = sharedPrefs.getRecentTimes("time_end_acceptance"),
                                         onRecentTimeSaved = { sharedPrefs.addRecentTime("time_end_acceptance", it) }
                                     )
@@ -731,6 +734,7 @@ fun FormLocoScreen(
                                         onDismiss = { showStartDeliveryDatePicker = false },
                                         startDateTime = locomotive.timeStartOfDelivery
                                             ?: Calendar.getInstance().timeInMillis,
+                                        timeZoneStr = displayTz,
                                         recentTimes = sharedPrefs.getRecentTimes("time_start_delivery"),
                                         onRecentTimeSaved = { sharedPrefs.addRecentTime("time_start_delivery", it) }
                                     )
@@ -749,6 +753,7 @@ fun FormLocoScreen(
                                         onDismiss = { showEndDeliveryDatePicker = false },
                                         startDateTime = locomotive.timeEndOfDelivery
                                             ?: Calendar.getInstance().timeInMillis,
+                                        timeZoneStr = displayTz,
                                         recentTimes = sharedPrefs.getRecentTimes("time_end_delivery"),
                                         onRecentTimeSaved = { sharedPrefs.addRecentTime("time_end_delivery", it) }
                                     )
