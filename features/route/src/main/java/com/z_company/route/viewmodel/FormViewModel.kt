@@ -805,11 +805,13 @@ class FormViewModel(
 
     private fun buildShareText(route: Route, url: String): String {
         return buildString {
-            append("Маршрут из приложении «Машинист»")
+            append("Маршрут из приложения «Машинист» \uD83D\uDE82")
+            append("\n")
             route.basicData.timeStartWork?.let { ms ->
                 val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
                 append(" от ${sdf.format(java.util.Date(ms))}")
             }
+            append("\n")
             val stations = route.trains
                 .flatMap { it.stations }
                 .sortedBy { it.orderIndex }
@@ -818,7 +820,9 @@ class FormViewModel(
             if (firstStation != null && lastStation != null && firstStation != lastStation) {
                 append(", $firstStation — $lastStation")
             }
-            append("\n")
+            append("\n\n")
+            append("Чтобы открыть маршрут нажмите на ссылку внизу")
+            append("\n\n")
             append(url)
         }
     }

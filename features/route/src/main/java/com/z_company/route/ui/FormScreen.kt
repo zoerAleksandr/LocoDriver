@@ -422,7 +422,8 @@ fun FormScreen(
                             }
                             androidx.compose.material3.DropdownMenu(
                                 expanded = showOverflowMenu,
-                                onDismissRequest = { showOverflowMenu = false }
+                                onDismissRequest = { showOverflowMenu = false },
+                                modifier = Modifier.padding(horizontal = 12.dp)
                             ) {
                                 val isFavorite = currentRoute?.basicData?.isFavorite == true
                                 androidx.compose.material3.DropdownMenuItem(
