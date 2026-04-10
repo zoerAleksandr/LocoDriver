@@ -24,6 +24,12 @@ struct iOSApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onOpenURL { url in
+                    // Deep link: locodriver://share/{id}
+                    // Обрабатываем в Kotlin-слое: загрузить Route, сохранить локально,
+                    // AppNavHost переключится на FormRoute с новым id.
+                    SharedRouteLinkHandler.shared.handle(urlString: url.absoluteString)
+                }
         }
     }
 }

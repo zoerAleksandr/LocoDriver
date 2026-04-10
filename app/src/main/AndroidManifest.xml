@@ -67,6 +67,31 @@
                 <data android:scheme="z_company_loco_driver_scheme" />
             </intent-filter>
 
+            <!-- Публичные ссылки на маршруты — основной HTTPS-формат:
+                 https://locodriver.ru/r/{id}
+                 autoVerify=true → Android при первом запуске проверяет
+                 /.well-known/assetlinks.json на домене locodriver.ru и регистрирует
+                 App Link, чтобы такие ссылки открывались напрямую в приложении,
+                 минуя браузер и диалог "Open with…". -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https"
+                      android:host="locodriver.ru"
+                      android:pathPrefix="/r/" />
+            </intent-filter>
+
+            <!-- Fallback: кастомная схема locodriver://share/{id}.
+                 Используется как резерв (например, со старых ссылок и для iOS,
+                 где Universal Links не настроены — нет Apple Developer Program). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="locodriver" android:host="share" />
+            </intent-filter>
+
             <!-- Открытие .zroute файлов с кастомным MIME (прямой шаринг из приложения) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

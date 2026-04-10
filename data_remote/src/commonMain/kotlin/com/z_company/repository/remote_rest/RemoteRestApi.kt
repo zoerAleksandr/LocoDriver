@@ -15,6 +15,7 @@ import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
 import com.z_company.repository.remote_rest.response.SaveRouteResponse
+import com.z_company.repository.remote_rest.response.ShareRouteResponse
 import com.z_company.repository.remote_rest.response.UserResponse
 
 /**
@@ -71,4 +72,20 @@ interface RemoteRestApi {
 
     /** Получить производственный календарь для страны и года (без авторизации) */
     suspend fun getProductionCalendar(country: String, year: Int): List<ProductionCalendarDay>
+
+    // --- Shared Routes (публичные ссылки на маршруты) ---
+
+    /**
+     * Создаёт публичную ссылку на маршрут.
+     * Эндпоинт: POST /v1/share/route — принимает Route, возвращает [ShareRouteResponse.id].
+     * Требует авторизации.
+     */
+    suspend fun createSharedRoute(token: String, data: Route): ShareRouteResponse
+
+    /**
+     * Получает маршрут по короткому идентификатору публичной ссылки.
+     * Эндпоинт: GET /v1/share/route/{shareId} — возвращает Route целиком.
+     * Не требует авторизации: получатель может не иметь аккаунта.
+     */
+    suspend fun getSharedRoute(shareId: String): Route
 }

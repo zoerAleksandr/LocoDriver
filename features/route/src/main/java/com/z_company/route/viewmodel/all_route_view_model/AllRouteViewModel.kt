@@ -4,11 +4,8 @@ import android.app.Application
 import android.content.Intent
 import android.util.Log
 import com.z_company.core.sendToSentry
-import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
-import com.z_company.RouteSerializer
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import com.z_company.domain.entities.MonthOfYear
@@ -33,6 +30,7 @@ import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.RoutesManager
+import com.z_company.repository.remote_rest.ShareRouteManager
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
@@ -46,7 +44,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.io.File
 
 enum class RouteFilter {
     ALL,
@@ -96,6 +93,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     private val snackbarManager: ISnackbarManager by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
     private val routesManager: RoutesManager by inject()
+    private val shareRouteManager: ShareRouteManager by inject()
 
     private var removeRouteJob: Job? = null
     private var loadRoutesJob: Job? = null
@@ -239,43 +237,42 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     val shareRouteEvent: SharedFlow<Intent> =
         _shareRouteEvent.asSharedFlow()  // Новый: Публичный SharedFlow для подписки в UI.
 
-    // Изменено: Метод shareRoute теперь генерирует Intent и эмитирует его в Flow, вместо запуска startActivity.
-    // Для чего: Переносим запуск в UI, чтобы использовать правильный контекст и избежать ошибки. Это делает код чище и testable.
+    /**
+     * Создаёт публичную ссылку на маршрут и эмитит share-sheet Intent в [shareRouteEvent].
+     * UI-слой (AllRouteScreen) подписывается и запускает startActivity из Activity-контекста.
+     */
     fun shareRoute(route: Route) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             try {
-                // Создаём временный файл в cache (без изменений)
-                val file = File(application.cacheDir, "${route.basicData.id}.zroute")
-                file.writeText(RouteSerializer.serialize(route))
-
-                // Получаем URI через FileProvider (без изменений)
-                val uri = FileProvider.getUriForFile(
-                    application,
-                    "${application.packageName}.provider",
-                    file
-                )
-
-                // Intent для шаринга (без изменений)
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    // application/octet-stream используется намеренно:
-                    // кастомный MIME-тип игнорируется мессенджерами (Telegram и др.) при пересылке.
-                    // Получатель открывает файл через intent-filter в AndroidManifest, где
-                    // MainActivity проверяет расширение .zroute через ContentResolver.DISPLAY_NAME.
-                    type = "application/octet-stream"
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val rawToken = secureTokenStorage.getAuthBearerTokenFlow().first()
+                if (rawToken.isNullOrBlank()) {
+                    snackbarManager.show("Неавторизованный пользователь")
+                    return@launch
                 }
-
-                // Chooser (без изменений)
-                val chooser = Intent.createChooser(shareIntent, "Поделиться маршрутом")
-
-                // Новый: Эмитируем chooser в Flow вместо запуска.
-                // Для чего: UI подхватит это и запустит startActivity из своего контекста.
-                _shareRouteEvent.emit(chooser)
+                val bearerToken = "Bearer $rawToken"
+                shareRouteManager.createShareLink(route, bearerToken).collect { result ->
+                    when (result) {
+                        is ResultState.Success -> {
+                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, result.data)
+                            }
+                            val chooser = Intent.createChooser(sendIntent, "Поделиться маршрутом")
+                            _shareRouteEvent.emit(chooser)
+                        }
+                        is ResultState.Error -> {
+                            val message = result.entity.message
+                                ?: result.entity.throwable?.message
+                                ?: "Не удалось создать ссылку"
+                            snackbarManager.show(message)
+                        }
+                        is ResultState.Loading -> Unit
+                    }
+                }
             } catch (e: Exception) {
                 e.sendToSentry("AllRouteViewModel", "shareRoute")
                 Log.e("ShareRoute", "Ошибка шаринга: ${e.message}")
-                // Можно добавить snackbar или другой event для ошибки
+                snackbarManager.show("Ошибка создания ссылки")
             }
         }
     }

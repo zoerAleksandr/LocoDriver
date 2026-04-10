@@ -20,6 +20,7 @@ import com.robokassa.library.helper.toParams
 import com.robokassa.library.pay.RobokassaPayLauncher
 import com.z_company.RouteSerializer
 import com.z_company.loco_driver.ui.LocoDriverApp
+import com.z_company.repository.remote_rest.ShareRouteManager
 import com.z_company.loco_driver.ui.rememberLocoDriverAppState
 import com.z_company.loco_driver.viewmodel.MainViewModel
 import org.koin.core.component.KoinComponent
@@ -51,6 +52,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
             val pendingImportRoute by mainViewModel.pendingImportRoute.collectAsState()
             val pendingFormOpen by mainViewModel.pendingFormOpen.collectAsState()
             val pendingNavigateHome by mainViewModel.pendingNavigateHome.collectAsState()
+            val pendingOpenFormWithId by mainViewModel.pendingOpenFormWithId.collectAsState()
             LocoDriverApp(
                 appState = appState,
                 isShowUpdatePresentation = mainViewModel.showUpdatePresentation,
@@ -60,7 +62,9 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 pendingFormOpen = pendingFormOpen,
                 onFormOpened = mainViewModel::clearOpenForm,
                 pendingNavigateHome = pendingNavigateHome,
-                onNavigatedHome = mainViewModel::clearNavigateHome
+                onNavigatedHome = mainViewModel::clearNavigateHome,
+                pendingOpenFormWithId = pendingOpenFormWithId,
+                onFormOpenedWithId = mainViewModel::clearOpenFormWithId
             )
         }
         VKID.logsEnabled = true
@@ -76,6 +80,17 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 mainViewModel.handlePaymentReturn(params)
             } catch (e: Exception) {
                 // Показать ошибку
+            }
+        }
+
+        // Deep link: публичная ссылка на маршрут.
+        //  - https://locodriver.ru/r/{id}      (App Link, кликабелен в Telegram и т.п.)
+        //  - locodriver://share/{id}            (fallback / iOS, кастомная схема)
+        if (i?.action == Intent.ACTION_VIEW && data != null && isShareDeepLink(data)) {
+            val shareId = ShareRouteManager.parseShareId(data.toString())
+            if (!shareId.isNullOrBlank()) {
+                mainViewModel.handleShareDeepLink(shareId)
+                return
             }
         }
 
@@ -98,6 +113,21 @@ class MainActivity : ComponentActivity(), KoinComponent {
         if (i?.getBooleanExtra("widget_open_home", false) == true) {
             mainViewModel.requestNavigateHome()
         }
+    }
+
+    private fun isShareDeepLink(uri: Uri): Boolean {
+        // Кастомная схема: locodriver://share/...
+        if (uri.scheme == ShareRouteManager.SHARE_SCHEME &&
+            uri.host == ShareRouteManager.SHARE_HOST
+        ) return true
+        // App Link: https://locodriver.ru/r/...
+        val isHttps = uri.scheme == "https" || uri.scheme == "http"
+        val isOurHost = uri.host == ShareRouteManager.SHARE_HTTPS_HOST
+        val firstSegment = uri.pathSegments.firstOrNull()
+        val isSharePath =
+            firstSegment == ShareRouteManager.SHARE_HTTPS_PATH ||
+                firstSegment == ShareRouteManager.SHARE_HOST
+        return isHttps && isOurHost && isSharePath
     }
 
     private fun isZrouteFile(uri: Uri): Boolean {

@@ -164,6 +164,7 @@ fun HomeScreen(
     offsetInMoscow: Long,
     timeCalculationContext: TimeCalculationContext? = null,
     syncRoute: (Route) -> Unit,
+    shareRoute: (Route) -> Unit,
     updateEvent: SharedFlow<UpdateEvent>,
     completeUpdateRequested: () -> Unit,
     setFavoriteState: (Route) -> Unit,
@@ -375,7 +376,7 @@ fun HomeScreen(
                     routeForRemove = route
                     isShowDialogConfirmRemoveRoute = true
                 },
-//                shareRoute = {}
+                shareRoute = shareRoute,
             )
         }
     }

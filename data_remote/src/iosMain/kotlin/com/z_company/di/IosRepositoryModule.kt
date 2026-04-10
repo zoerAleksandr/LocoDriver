@@ -7,6 +7,7 @@ import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.RemoteRestClient
 import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.repository.remote_rest.SettingManager
+import com.z_company.repository.remote_rest.ShareRouteManager
 import org.koin.dsl.module
 
 /**
@@ -32,4 +33,5 @@ val iosRepositoryModule = module {
     single { AuthManager(remoteRestApi = get(), apiForSendEmail = get()) }
     single { RoutesManager(remoteRestApi = get()) }
     single { SettingManager(remoteRestApi = get()) }
+    single { ShareRouteManager(remoteRestApi = get()) }
 }
