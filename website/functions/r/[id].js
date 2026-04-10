@@ -1,4 +1,22 @@
-<!DOCTYPE html>
+/**
+ * Cloudflare Pages Function — обрабатывает запросы /r/{id}.
+ *
+ * Возвращает HTML redirect-страницу с уже подставленным server-side
+ * идентификатором маршрута. Страница через JavaScript пытается открыть
+ * deep link locodriver://share/{id}, а через 1.5 секунды показывает
+ * fallback-кнопку «Скачать в RuStore».
+ *
+ * Почему HTML внутри функции, а не отдельный файл:
+ *  - Cloudflare Pages free tier не поддерживает dynamic splat rewrites в _redirects
+ *  - env.ASSETS.fetch с rewrite-ом URL работает нестабильно
+ *  - Подход с одной функцией, содержащей весь HTML, гарантированно работает
+ *    и не требует дополнительной инфраструктуры
+ *
+ * Cloudflare автоматически парсит [id] из имени файла и кладёт его
+ * в context.params.id при запросе вида /r/{что_угодно}.
+ */
+
+const HTML_TEMPLATE = `<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -127,7 +145,7 @@
         <div class="fallback" id="fallback">
             <h2>Приложение не открылось?</h2>
             <p>Установите LocoDriver, чтобы открывать маршруты по ссылке.</p>
-            <a class="btn" id="btn-rustore" href="https://www.rustore.ru/catalog/app/com.z_company.loco_driver">
+            <a class="btn" href="https://www.rustore.ru/catalog/app/com.z_company.loco_driver">
                 Скачать в RuStore
             </a>
             <br>
@@ -140,21 +158,10 @@
     </div>
 
     <script>
-        // Извлекаем shareId из последнего сегмента пути.
-        // Поддерживаем форматы /r/{id} и /r/{id}?... — query/hash отбрасываются.
+        // shareId уже подставлен на сервере — без парсинга window.location.
         (function () {
-            const path = window.location.pathname.replace(/\/+$/, '');
-            const segments = path.split('/').filter(Boolean);
-            // Ожидаем, что путь начинается с /r/, поэтому id — это второй сегмент.
-            let shareId = '';
-            const rIdx = segments.indexOf('r');
-            if (rIdx >= 0 && segments.length > rIdx + 1) {
-                shareId = segments[rIdx + 1];
-            }
-            // Очищаем от случайных query-параметров (на всякий случай)
-            shareId = shareId.split('?')[0].split('#')[0];
+            const shareId = "__SHARE_ID__";
 
-            // Если id не нашли — сразу показываем fallback и не пытаемся открыть приложение.
             if (!shareId) {
                 document.getElementById('hint').textContent = 'Ссылка повреждена.';
                 document.getElementById('fallback').classList.add('show');
@@ -169,20 +176,41 @@
                 window.location.href = deepLink;
             });
 
-            // Пытаемся открыть приложение через кастомную схему.
-            // На Android с настроенными App Links эта страница вообще не загрузится —
-            // ОС перехватит ссылку и откроет приложение напрямую.
-            // Здесь мы окажемся, только если App Links не сработали (старая версия Android,
-            // приложение не установлено, или открытие через десктопный браузер).
+            // Попытка открыть приложение через кастомную схему.
+            // На Android с настроенными App Links эта страница вообще не
+            // загрузится — ОС перехватит ссылку и откроет приложение напрямую.
             try {
                 window.location.replace(deepLink);
             } catch (_) { /* ignore */ }
 
-            // Через 1.5 секунды показываем fallback с кнопками магазинов.
+            // Через 1.5 секунды показываем fallback с кнопкой магазина.
             setTimeout(function () {
                 document.getElementById('fallback').classList.add('show');
             }, 1500);
         })();
     </script>
 </body>
-</html>
+</html>`;
+
+export async function onRequest(context) {
+    // Cloudflare Pages автоматически парсит [id] из имени файла функции
+    // и кладёт его в context.params.id при запросах /r/{что_угодно}.
+    const rawId = context.params.id ?? "";
+    // На случай, если id содержит подпуть (из-за catch-all в других настройках)
+    const id = Array.isArray(rawId) ? rawId[0] : String(rawId);
+
+    // Экранируем id, чтобы не сломать строку в JS и не позволить XSS.
+    // Разрешаем только безопасные символы UUID/id: буквы, цифры, дефис,
+    // подчёркивание, точка. Остальное заменяем на пустую строку.
+    const safeId = id.replace(/[^A-Za-z0-9._-]/g, "");
+
+    const html = HTML_TEMPLATE.replace("__SHARE_ID__", safeId);
+
+    return new Response(html, {
+        status: 200,
+        headers: {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "public, max-age=60",
+        },
+    });
+}
