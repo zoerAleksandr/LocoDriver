@@ -898,7 +898,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     private fun buildShareText(route: Route, url: String): String {
         return buildString {
-            append("Вам отправлен маршрут в приложении «Машинист»")
+            append("Маршрут из приложении «Машинист»")
             // Дата и время
             route.basicData.timeStartWork?.let { ms ->
                 val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())

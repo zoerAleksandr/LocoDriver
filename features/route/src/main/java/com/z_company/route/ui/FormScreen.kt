@@ -208,19 +208,7 @@ fun FormScreen(
         AppBottomSheet(
             onDismissRequest = { viewModel.dismissSharedPreviewSheet() },
             sheetState = sheetState,
-            headerContent = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = "Вы получили новый маршрут",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            },
+            title = "Получен новый маршрут",
             actions = listOf(
                 BottomSheetAction(text = "Просмотр") {
                     viewModel.dismissSharedPreviewSheet()
