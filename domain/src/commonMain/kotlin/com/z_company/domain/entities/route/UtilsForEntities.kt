@@ -1165,7 +1165,7 @@ object UtilsForEntities {
                     }
                 }
                 if (isNotPassengerTrain) {
-                    resultTime += if (route.isTransition(context)) {
+                    val routeTime = if (route.isTransition(context)) {
                         monthOfYear.getTimeInCurrentMonth(
                             route.basicData.timeStartWork!!,
                             route.basicData.timeEndWork!!,
@@ -1174,6 +1174,10 @@ object UtilsForEntities {
                     } else {
                         route.getWorkTime() ?: 0L
                     }
+                    // Вычитаем время следования пассажиром: оно не считается работой в одно лицо,
+                    // доплата начисляется только на чистое время управления локомотивом.
+                    val passengerTime = route.getPassengerTime() ?: 0L
+                    resultTime += (routeTime - passengerTime).coerceAtLeast(0L)
                 }
                 isNotPassengerTrain = true
             }
@@ -1208,7 +1212,7 @@ object UtilsForEntities {
                     }
                 }
                 if (isPassengerTrain) {
-                    resultTime += if (route.isTransition(context)) {
+                    val routeTime = if (route.isTransition(context)) {
                         monthOfYear.getTimeInCurrentMonth(
                             route.basicData.timeStartWork!!,
                             route.basicData.timeEndWork!!,
@@ -1217,6 +1221,10 @@ object UtilsForEntities {
                     } else {
                         route.getWorkTime() ?: 0L
                     }
+                    // Аналогично — вычитаем время следования пассажиром из времени работы
+                    // в одно лицо в пассажирском движении.
+                    val passengerTime = route.getPassengerTime() ?: 0L
+                    resultTime += (routeTime - passengerTime).coerceAtLeast(0L)
                 }
                 isPassengerTrain = false
             }
