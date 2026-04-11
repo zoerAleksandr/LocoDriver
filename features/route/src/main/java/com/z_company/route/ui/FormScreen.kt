@@ -137,6 +137,7 @@ fun FormScreen(
     isCopy: Boolean,
     exitScreen: () -> Unit,
     onSettingClick: () -> Unit,
+    onRestSettingClick: () -> Unit,
     resetSaveState: () -> Unit,
     onNumberChanged: (String) -> Unit,
     checkedOnePersonOperation: (Boolean) -> Unit,
@@ -1281,14 +1282,14 @@ fun FormScreen(
                                             fullTimeDuration = dialogRestUiState.fullTimeDuration,
                                             timeEndMinTimeRest = dialogRestUiState.timeEndMinTimeRestPointOfTurnover,
                                             timeEndFullTimeRest = dialogRestUiState.timeEndFullTimeRestPointOfTurnover,
-                                            onSettingClick = onSettingClick,
+                                            onSettingClick = onRestSettingClick,
                                             dateAndTimeConverter = dateAndTimeConverter
                                         )
                                     } else {
                                         InfoRestOfHomeOfTime(
                                             restDuration = dialogRestUiState.homeRestDuration,
                                             timeEndHomeRest = dialogRestUiState.timeEndHomeRest,
-                                            onSettingClick = onSettingClick,
+                                            onSettingClick = onRestSettingClick,
                                             dateAndTimeConverter = dateAndTimeConverter
                                         )
                                     }

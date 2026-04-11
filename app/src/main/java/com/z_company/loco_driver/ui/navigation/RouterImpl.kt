@@ -171,4 +171,8 @@ class RouterImpl(
     override fun showSettingsLoco() {
         requireNavController().navigate(SettingsScreenRoute.buildRoute("LOCOMOTIVE"))
     }
+
+    override fun showSettingsRest() {
+        requireNavController().navigate(SettingsScreenRoute.buildRoute("REST"))
+    }
 }
