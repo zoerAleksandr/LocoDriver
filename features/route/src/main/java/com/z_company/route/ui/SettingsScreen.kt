@@ -128,8 +128,17 @@ fun SettingsScreen(
         mutableStateOf(initial)
     }
 
+    // Если пользователь попал сразу на под-экран (через deep link из FormLocoScreen
+    // и т.п.) — back должен возвращать по backstack, а не в HUB настроек.
+    // Если пользователь открыл настройки с HUB и перешёл во вложенный — back возвращает в HUB.
+    val enteredDirectly = remember { initialSubScreen != null }
+
     BackHandler(currentSubScreen != SettingsSubScreen.HUB) {
-        currentSubScreen = SettingsSubScreen.HUB
+        if (enteredDirectly) {
+            onBack()
+        } else {
+            currentSubScreen = SettingsSubScreen.HUB
+        }
     }
 
     Scaffold(
@@ -142,7 +151,13 @@ fun SettingsScreen(
             TopAppBar(
                 navigationIcon = {
                     if (currentSubScreen != SettingsSubScreen.HUB) {
-                        IconButton(onClick = { currentSubScreen = SettingsSubScreen.HUB }) {
+                        IconButton(onClick = {
+                            if (enteredDirectly) {
+                                onBack()
+                            } else {
+                                currentSubScreen = SettingsSubScreen.HUB
+                            }
+                        }) {
                             Icon(
                                 painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
                                 contentDescription = "Назад",

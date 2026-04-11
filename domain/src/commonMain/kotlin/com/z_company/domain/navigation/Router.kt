@@ -16,6 +16,7 @@ interface Router {
     fun showSettings()
     fun showSettingsRoute() { showSettings() }
     fun showSettingsLoco() { showSettings() }
+    fun showSettingsRest() { showSettings() }
     fun showSearch()
     fun back()
     fun navigationUp(): Boolean

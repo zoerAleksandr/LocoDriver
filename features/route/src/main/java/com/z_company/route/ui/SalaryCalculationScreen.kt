@@ -378,7 +378,7 @@ private fun EarningsTable(uiState: SalaryCalculationUIState, convertTimeToString
         uiState.onePersonOperationPercent?.let {
             EarningsRow(
                 "В одно лицо (грузовые)",
-                null,
+                uiState.onePersonOperationHours,
                 it,
                 uiState.onePersonOperationMoney
             )
@@ -386,7 +386,7 @@ private fun EarningsTable(uiState: SalaryCalculationUIState, convertTimeToString
         uiState.onePersonOperationPassengerTrainPercent?.let {
             EarningsRow(
                 "В одно лицо (пассажирские)",
-                null,
+                uiState.onePersonOperationPassengerTrainHours,
                 it,
                 uiState.onePersonOperationPassengerTrainMoney
             )

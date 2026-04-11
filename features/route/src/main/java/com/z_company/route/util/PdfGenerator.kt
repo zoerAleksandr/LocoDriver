@@ -314,7 +314,13 @@ class PdfGenerator(private val context: Context) {
             return
         }
 
-        routes.forEach { route ->
+        // Сортируем по времени явки (timeStartWork) по возрастанию.
+        // Маршруты без явки (null) уходят в конец списка.
+        val sortedRoutes = routes.sortedWith(
+            compareBy(nullsLast()) { it.basicData.timeStartWork }
+        )
+
+        sortedRoutes.forEach { route ->
             val needed = minOf(estimateRouteHeight(route), (pageHeight - mt - mb) * 0.85f)
             if (pm.needNewPage(needed)) pm.newPage()
             drawRoute(pm, route)
@@ -1062,8 +1068,8 @@ class PdfGenerator(private val context: Context) {
         }
         rowPct("Зональная надбавка", s.zonalSurchargePercent, s.zonalSurchargeMoney)
         rowPct("Надбавка за класс квалификации", s.surchargeQualificationClassPercent, s.surchargeQualificationClassMoney)
-        rowPct("В одно лицо (груз.)", s.onePersonOperationPercent, s.onePersonOperationMoney)
-        rowPct("В одно лицо (пас.)", s.onePersonOperationPassengerTrainPercent, s.onePersonOperationPassengerTrainMoney)
+        row("В одно лицо (груз.)", s.onePersonOperationHours, s.onePersonOperationPercent, s.onePersonOperationMoney)
+        row("В одно лицо (пас.)", s.onePersonOperationPassengerTrainHours, s.onePersonOperationPassengerTrainPercent, s.onePersonOperationPassengerTrainMoney)
         rowPct("Вредность", s.harmfulnessSurchargePercent, s.harmfulnessSurchargeMoney)
         rowPct("Районный коэффициент", s.districtSurchargeCoefficient, s.districtSurchargeMoney)
         rowPct("Северная надбавка", s.nordicSurchargePercent, s.nordicSurchargeMoney)

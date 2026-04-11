@@ -137,6 +137,7 @@ fun FormScreen(
     isCopy: Boolean,
     exitScreen: () -> Unit,
     onSettingClick: () -> Unit,
+    onRestSettingClick: () -> Unit,
     resetSaveState: () -> Unit,
     onNumberChanged: (String) -> Unit,
     checkedOnePersonOperation: (Boolean) -> Unit,
@@ -194,6 +195,27 @@ fun FormScreen(
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") {
                     viewModel.onDeleteRoute()
+                }
+            )
+        )
+    }
+
+    // Шторка о дублирующем маршруте по явке
+    val duplicateRouteState by viewModel.duplicateRouteSheet.collectAsState()
+    duplicateRouteState?.let { capturedDupState ->
+        // Захватываем state в локальную переменную, потому что AppBottomSheet
+        // авто-вызывает onDismissRequest до нашего action callback — к этому
+        // моменту viewModel.duplicateRouteSheet.value уже null.
+        AppBottomSheet(
+            onDismissRequest = { viewModel.dismissDuplicateSheet() },
+            sheetState = sheetState,
+            title = "Маршрут с такой явкой уже сохранён.",
+            actions = listOf(
+                BottomSheetAction(text = "Заменить") {
+                    viewModel.confirmReplaceDuplicate(capturedDupState)
+                },
+                BottomSheetAction(text = "Оставить оба") {
+                    viewModel.confirmKeepBothDuplicates(capturedDupState)
                 }
             )
         )
@@ -1281,14 +1303,14 @@ fun FormScreen(
                                             fullTimeDuration = dialogRestUiState.fullTimeDuration,
                                             timeEndMinTimeRest = dialogRestUiState.timeEndMinTimeRestPointOfTurnover,
                                             timeEndFullTimeRest = dialogRestUiState.timeEndFullTimeRestPointOfTurnover,
-                                            onSettingClick = onSettingClick,
+                                            onSettingClick = onRestSettingClick,
                                             dateAndTimeConverter = dateAndTimeConverter
                                         )
                                     } else {
                                         InfoRestOfHomeOfTime(
                                             restDuration = dialogRestUiState.homeRestDuration,
                                             timeEndHomeRest = dialogRestUiState.timeEndHomeRest,
-                                            onSettingClick = onSettingClick,
+                                            onSettingClick = onRestSettingClick,
                                             dateAndTimeConverter = dateAndTimeConverter
                                         )
                                     }
