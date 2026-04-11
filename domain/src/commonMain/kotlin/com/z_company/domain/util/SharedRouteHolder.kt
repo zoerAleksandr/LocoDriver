@@ -12,7 +12,7 @@ package com.z_company.domain.util
  * помечает `isSharedPreview = true`, чтобы показать шторку.
  */
 object SharedRouteHolder {
-    @Volatile
+    @kotlin.concurrent.Volatile
     private var _sharedRouteId: String? = null
 
     /** Пометить маршрут как импортированный по публичной ссылке. */
