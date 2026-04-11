@@ -225,10 +225,14 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                             ?: acc.districtSurchargeCoefficient,
                         districtSurchargeMoney = partial.districtSurchargeMoney
                             ?: acc.districtSurchargeMoney,
+                        onePersonOperationHours = partial.onePersonOperationHours
+                            ?: acc.onePersonOperationHours,
                         onePersonOperationPercent = partial.onePersonOperationPercent
                             ?: acc.onePersonOperationPercent,
                         onePersonOperationMoney = partial.onePersonOperationMoney
                             ?: acc.onePersonOperationMoney,
+                        onePersonOperationPassengerTrainHours = partial.onePersonOperationPassengerTrainHours
+                            ?: acc.onePersonOperationPassengerTrainHours,
                         onePersonOperationPassengerTrainPercent = partial.onePersonOperationPassengerTrainPercent
                             ?: acc.onePersonOperationPassengerTrainPercent,
                         onePersonOperationPassengerTrainMoney = partial.onePersonOperationPassengerTrainMoney
@@ -312,8 +316,10 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         nordicSurchargeMoney = combinedPartial.nordicSurchargeMoney,
                         districtSurchargeCoefficient = combinedPartial.districtSurchargeCoefficient,
                         districtSurchargeMoney = combinedPartial.districtSurchargeMoney,
+                        onePersonOperationHours = combinedPartial.onePersonOperationHours,
                         onePersonOperationPercent = combinedPartial.onePersonOperationPercent,
                         onePersonOperationMoney = combinedPartial.onePersonOperationMoney,
+                        onePersonOperationPassengerTrainHours = combinedPartial.onePersonOperationPassengerTrainHours,
                         onePersonOperationPassengerTrainPercent = combinedPartial.onePersonOperationPassengerTrainPercent,
                         onePersonOperationPassengerTrainMoney = combinedPartial.onePersonOperationPassengerTrainMoney,
                         restInExcessOfTheNormTime = combinedPartial.restInExcessOfTheNormTime,
@@ -452,23 +458,27 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         )
     }
 
-    // Метод для установки данных по надбавке за управление одним лицом (процент, сумма).
+    // Метод для установки данных по надбавке за управление одним лицом (часы, процент, сумма).
     private suspend fun setSurchargeOnePersonOperationData(helper: SalaryCalculationHelper): PartialState {
+        val hours = helper.getTimeOnePersonOperationFlow().first()
         val percent = helper.getPercentOnePersonOperationFlow().first()
         val money = helper.getMoneyOnePersonOperationFlow().first()
 
         return PartialState(
+            onePersonOperationHours = hours,
             onePersonOperationPercent = percent,
             onePersonOperationMoney = money
         )
     }
 
-    // Метод для установки данных по надбавке за управление одним лицом в пассажирском поезде (процент, сумма).
+    // Метод для установки данных по надбавке за управление одним лицом в пассажирском поезде (часы, процент, сумма).
     private suspend fun setSurchargeOnePersonOperationPassengerTrainData(helper: SalaryCalculationHelper): PartialState {
+        val hours = helper.getTimeOnePersonOperationPassengerTrainFlow().first()
         val percent = helper.getPercentOnePersonOperationPassengerTrainFlow().first()
         val money = helper.getMoneyOnePersonOperationPassengerTrainFlow().first()
 
         return PartialState(
+            onePersonOperationPassengerTrainHours = hours,
             onePersonOperationPassengerTrainPercent = percent,
             onePersonOperationPassengerTrainMoney = money
         )
@@ -708,8 +718,10 @@ data class PartialState(
     val nordicSurchargeMoney: Double? = null,
     val districtSurchargeCoefficient: Double? = null,
     val districtSurchargeMoney: Double? = null,
+    val onePersonOperationHours: Long? = null,
     val onePersonOperationPercent: Double? = null,
     val onePersonOperationMoney: Double? = null,
+    val onePersonOperationPassengerTrainHours: Long? = null,
     val onePersonOperationPassengerTrainPercent: Double? = null,
     val onePersonOperationPassengerTrainMoney: Double? = null,
     val restInExcessOfTheNormTime: Long? = null,

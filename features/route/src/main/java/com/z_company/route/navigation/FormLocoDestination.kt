@@ -1,8 +1,12 @@
 package com.z_company.route.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavBackStackEntry
 import com.z_company.domain.navigation.Router
 import com.z_company.route.Const.NULLABLE_ID
@@ -21,6 +25,21 @@ fun FormLocoDestination(
     val viewModel = koinViewModel<LocoFormViewModel>(
         parameters = { parametersOf(locoId, basicId) }
     )
+
+    // При возврате из SettingsScreen (LOCOMOTIVE subscreen) перечитываем
+    // per-section флаги видимости из SharedPreferences — чтобы изменения,
+    // сделанные в SettingsViewModel, мгновенно отразились на экране.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.reloadSettingsFromPrefs()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     val formUiState by viewModel.uiState.collectAsState()
     val currentLocomotive by viewModel.currentLoco.collectAsState()
     val locoSeriesList by viewModel.seriesList.collectAsState()

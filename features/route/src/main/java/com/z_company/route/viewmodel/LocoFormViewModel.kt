@@ -403,6 +403,23 @@ class LocoFormViewModel(
         _uiState.update { it.copy(isShowUpdateHint = false) }
     }
 
+    /**
+     * Перечитывает per-section флаги видимости из SharedPreferences.
+     * Вызывается при возврате на экран из настроек локомотива (ON_RESUME),
+     * чтобы изменения, внесённые в SettingsViewModel, мгновенно применились
+     * в LocoFormViewModel без пересоздания экрана.
+     */
+    fun reloadSettingsFromPrefs() {
+        val current = _settings.value ?: return
+        _settings.value = current.copy(
+            isShowLocoHeating = sharedPreferenceStorage.isShowLocoHeating(),
+            isShowLocoAuxiliary = sharedPreferenceStorage.isShowLocoAuxiliary(),
+            isShowLocoStatistics = sharedPreferenceStorage.isShowLocoStatistics(),
+            isShowLocoNorma = sharedPreferenceStorage.isShowLocoNorma(),
+            isShowOtherCurrent = sharedPreferenceStorage.isShowOtherCurrent()
+        )
+    }
+
     fun changeShowLocoHeating(value: Boolean) {
         sharedPreferenceStorage.setShowLocoHeating(value)
         _settings.value = _settings.value?.copy(isShowLocoHeating = value)
