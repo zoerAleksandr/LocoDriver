@@ -12,7 +12,7 @@ import com.z_company.domain.entities.setting.UserSettings
 fun getTimeZone(timeZoneInMillis: Long = 0L): String {
     val offsetInMillis = timeZoneInMillis + 10_800_000L
     val offset = offsetInMillis / 3_600_000L
-    return "GMT+$offset"
+    return if (offset >= 0) "GMT+$offset" else "GMT$offset"
 }
 
 /**
