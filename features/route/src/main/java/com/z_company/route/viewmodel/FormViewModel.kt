@@ -148,6 +148,23 @@ class FormViewModel(
 
     fun dismissSharedPreviewSheet() { _isSharedPreview.value = false }
 
+    /**
+     * Дубль по timeStartWork при попытке сохранения.
+     * Когда non-null — FormScreen показывает шторку «Маршрут с такой явкой уже сохранён»
+     * с действиями «Заменить» / «Оставить оба» / «Отмена».
+     * exitAfterSave — если true, после сохранения (из обоих действий) вызывается exit
+     * (используется при сохранении shared-маршрута из шторки приветствия).
+     */
+    data class DuplicateRouteState(
+        val existingRoute: Route,
+        val exitAfterSave: Boolean
+    )
+
+    private val _duplicateRouteSheet = MutableStateFlow<DuplicateRouteState?>(null)
+    val duplicateRouteSheet: StateFlow<DuplicateRouteState?> = _duplicateRouteSheet.asStateFlow()
+
+    fun dismissDuplicateSheet() { _duplicateRouteSheet.value = null }
+
     var timeZoneText: String = "GMT+3"
 
     private var isNewRoute = routeId == NULLABLE_ID
@@ -668,17 +685,95 @@ class FormViewModel(
         changesHave()
     }
 
-    // Сохранение
-    fun saveRoute() {
+    /**
+     * Нормализует timeStartWork до минутной точности для сравнения дублей.
+     * DateTimePickerApp уже обнуляет секунды/миллисекунды, но дополнительная
+     * нормализация защищает от случаев, когда время могло попасть с precision > минута
+     * (например, из import-а с сервера).
+     */
+    private fun normalizeToMinute(timeMs: Long): Long = (timeMs / 60_000L) * 60_000L
+
+    /**
+     * Ищет в локальной БД маршрут с таким же timeStartWork, что и у текущего.
+     * Возвращает найденный маршрут или null.
+     * Исключает сам текущий маршрут (по basicData.id). Удалённые (isDeleted=true)
+     * автоматически отфильтрованы getListRoutes() через SQL-запрос.
+     */
+    private fun findDuplicateByStartWork(current: Route): Route? {
+        val currentStart = current.basicData.timeStartWork ?: return null
+        val currentMinute = normalizeToMinute(currentStart)
+        val all = routeUseCase.getListRoutes()
+        return all.firstOrNull { other ->
+            other.basicData.id != current.basicData.id &&
+                other.basicData.timeStartWork?.let { normalizeToMinute(it) == currentMinute } == true
+        }
+    }
+
+    /**
+     * Проверка на дубль перед сохранением. Если дубль найден — показывает шторку
+     * (FormScreen реагирует на _duplicateRouteSheet), иначе сохраняет сразу.
+     * Вызывается из onSaveClick (топ-бар) и из обработчика «Сохранить» в shared-preview шторке.
+     *
+     * @param exitAfterSave если true — после успешного сохранения ставит exitFromScreen=true
+     *                      (используется shared-preview потоком, чтобы не мерцало окно)
+     */
+    fun checkDuplicateAndSave(exitAfterSave: Boolean = false) {
+        val route = _currentRoute.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val duplicate = findDuplicateByStartWork(route)
+            if (duplicate != null) {
+                _duplicateRouteSheet.value = DuplicateRouteState(
+                    existingRoute = duplicate,
+                    exitAfterSave = exitAfterSave
+                )
+            } else {
+                performSave(exitAfterSave = exitAfterSave)
+            }
+        }
+    }
+
+    /**
+     * Действие «Заменить» в шторке дубля: удалить старый маршрут, затем сохранить текущий.
+     * Принимает state явно, так как AppBottomSheet авто-вызывает onDismissRequest перед
+     * action callback-ом, и _duplicateRouteSheet.value к моменту вызова уже null.
+     */
+    fun confirmReplaceDuplicate(state: DuplicateRouteState) {
+        _duplicateRouteSheet.value = null
+        viewModelScope.launch(Dispatchers.IO) {
+            routeUseCase.removeRoute(state.existingRoute).collect { /* ignore */ }
+            performSave(exitAfterSave = state.exitAfterSave)
+        }
+    }
+
+    /** Действие «Оставить оба» в шторке дубля: просто сохранить текущий, оставив оба. */
+    fun confirmKeepBothDuplicates(state: DuplicateRouteState) {
+        _duplicateRouteSheet.value = null
+        viewModelScope.launch(Dispatchers.IO) {
+            performSave(exitAfterSave = state.exitAfterSave)
+        }
+    }
+
+    /**
+     * Фактическое сохранение текущего маршрута. Применяет снятие isDeleted
+     * для shared preview, вычищает удалённые child-сущности, эмитит событие
+     * FormScreenEvent.RouteSaved. Если exitAfterSave=true — дополнительно
+     * сразу ставит exitFromScreen=true (используется в shared-preview потоке
+     * для предотвращения мерцания).
+     */
+    private fun performSave(exitAfterSave: Boolean) {
         saveRouteJob?.cancel()
         saveRouteJob = viewModelScope.launch(Dispatchers.IO) {
             currentRoute.value?.let { route ->
-                // Если это shared preview (tentative с isDeleted=true) — снимаем флаг,
-                // маршрут становится обычным сохранённым.
                 val routeToSave = if (_isSharedPreview.value || route.basicData.isDeleted) {
                     route.copy(basicData = route.basicData.copy(isDeleted = false))
                 } else {
                     route
+                }
+                if (exitAfterSave) {
+                    _isSharedPreview.value = false
+                    _uiState.update { it.copy(exitFromScreen = true) }
+                    routeUseCase.saveRoute(routeToSave).collect { /* ignore */ }
+                    return@let
                 }
                 routeUseCase.saveRoute(routeToSave).collectLatest { result ->
                     Log.d("zzz", "saveResult $result")
@@ -699,6 +794,12 @@ class FormViewModel(
                 }
             }
         }
+    }
+
+    // Сохранение — публичный метод для обратной совместимости (вызывается из onSaveClick
+    // после subscription check). Делегирует на checkDuplicateAndSave.
+    fun saveRoute() {
+        checkDuplicateAndSave(exitAfterSave = false)
     }
 
     fun resetSaveState() {
@@ -845,20 +946,16 @@ class FormViewModel(
     }
 
     /**
-     * Сохранить shared-маршрут (снять флаг isDeleted) и выйти без мерцания.
-     * Сразу ставит exitFromScreen=true, сохранение идёт в фоне.
+     * Сохранить shared-маршрут и выйти без мерцания.
+     * Перед сохранением проверяет дубль по timeStartWork — если найден, показывает
+     * шторку «Маршрут с такой явкой уже сохранён». Если дубля нет — сразу сохраняет
+     * и выходит.
+     *
+     * Дубль может быть найден, т.к. shared preview уже лежит в БД с isDeleted=true
+     * (скрыт из getListRoutes), а реальный дубль — с isDeleted=false (виден).
      */
     fun saveSharedRouteAndExit() {
-        _isSharedPreview.value = false
-        _currentRoute.value?.let { route ->
-            val confirmed = route.copy(
-                basicData = route.basicData.copy(isDeleted = false)
-            )
-            viewModelScope.launch(Dispatchers.IO) {
-                routeUseCase.saveRoute(confirmed).collect {}
-            }
-        }
-        _uiState.update { it.copy(exitFromScreen = true) }
+        checkDuplicateAndSave(exitAfterSave = true)
     }
 
     // предложение пользователю оценить приложение

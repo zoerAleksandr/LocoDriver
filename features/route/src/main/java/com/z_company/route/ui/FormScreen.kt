@@ -200,6 +200,27 @@ fun FormScreen(
         )
     }
 
+    // Шторка о дублирующем маршруте по явке
+    val duplicateRouteState by viewModel.duplicateRouteSheet.collectAsState()
+    duplicateRouteState?.let { capturedDupState ->
+        // Захватываем state в локальную переменную, потому что AppBottomSheet
+        // авто-вызывает onDismissRequest до нашего action callback — к этому
+        // моменту viewModel.duplicateRouteSheet.value уже null.
+        AppBottomSheet(
+            onDismissRequest = { viewModel.dismissDuplicateSheet() },
+            sheetState = sheetState,
+            title = "Маршрут с такой явкой уже сохранён.",
+            actions = listOf(
+                BottomSheetAction(text = "Заменить") {
+                    viewModel.confirmReplaceDuplicate(capturedDupState)
+                },
+                BottomSheetAction(text = "Оставить оба") {
+                    viewModel.confirmKeepBothDuplicates(capturedDupState)
+                }
+            )
+        )
+    }
+
     val isSharedPreview by viewModel.isSharedPreview.collectAsState()
 
     // Шторка «Вы получили новый маршрут» для маршрутов по публичной ссылке
