@@ -7,8 +7,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -94,11 +98,18 @@ fun SettingsNormaContent(
                             color = MaterialTheme.colorScheme.primary,
                             textAlign = TextAlign.Center
                         )
-                        TextButton(onClick = onDismissCountryDialog) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            ),
+                            shape = Shapes.medium,
+                            onClick = onDismissCountryDialog) {
                             Text(
-                                text = "OK",
+                                text = "ОК",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.tertiary
+                                color = MaterialTheme.colorScheme.secondary
                             )
                         }
                     }
