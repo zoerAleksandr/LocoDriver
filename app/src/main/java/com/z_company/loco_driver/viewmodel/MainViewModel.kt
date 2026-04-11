@@ -272,10 +272,11 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             // Ограничиваем допустимым диапазоном для поддерживаемых стран:
             // RU: от Калининграда (MSK-1) до Камчатки (MSK+9) → [-1h, +9h] от Москвы
             // KZ/BY: фиксированное значение, не зависит от устройства
+            // Вне диапазона (VPN, неверный авто-пояс) → Москва (0L)
             val roundedOffset = when (country) {
                 "KZ" -> 7_200_000L   // UTC+5 = MSK+2, всегда
                 "BY" -> 0L           // UTC+3 = MSK, всегда
-                else -> rawOffset.coerceIn(-1 * oneHour, 9 * oneHour) // RU: MSK-1..MSK+9
+                else -> if (rawOffset in (-1 * oneHour)..(9 * oneHour)) rawOffset else 0L
             }
 
             viewModelScope.launch {
