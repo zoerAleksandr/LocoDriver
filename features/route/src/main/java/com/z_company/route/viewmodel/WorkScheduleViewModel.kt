@@ -213,7 +213,7 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
         val converter = _dateAndTimeConverter.value ?: return
         val context = TimeCalculationContext.from(settings)
         withContext(Dispatchers.IO) {
-            routeUseCase.listRoutesByMonth(month, context.crossMonthTZ).collect { result ->
+            routeUseCase.listRoutesByMonth(month, context).collect { result ->
                 when (result) {
                     is ResultState.Success -> {
                         val routes = result.data
