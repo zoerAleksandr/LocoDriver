@@ -8,6 +8,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -53,11 +55,11 @@ fun TimePickerApp(
     onCancelButton: () -> Unit = onDismiss,
     recentTimes: List<Long> = emptyList(),
     onRecentTimeSaved: ((Long) -> Unit)? = null,
+    showTimeLabel: Boolean = true,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val viewModel = remember { TimePickerViewModel(initialTimeMillis) }
     val uiState by viewModel.uiState.collectAsState()
-    val heightScreen = LocalConfiguration.current.screenHeightDp
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -80,67 +82,69 @@ fun TimePickerApp(
         },
         containerColor = MaterialTheme.colorScheme.secondary
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height((heightScreen / 2).dp)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
+            // Скроллируемая часть: заголовок + барабан + лейбл + чипы
             Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState())
             ) {
-                Column(modifier = Modifier) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    // Заголовок
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
+                // Заголовок
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Сам пикер времени
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TimeScrollPicker(
+                        currentHour = uiState.hour,
+                        currentMinute = uiState.minute,
+                        isEditing = uiState.isEditingTime,
+                        onHourChange = { viewModel.setHour(it) },
+                        onMinuteChange = { viewModel.setMinute(it) },
+                        onChangeEditTime = viewModel::toggleEditMode
+                    )
+
+                    // Оверлей для ручного ввода
+                    if (uiState.isEditingTime) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(
+                                    onClick = { viewModel.toggleEditMode() },
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() }
+                                )
                         )
-                    }
-
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    // Сам пикер времени
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        TimeScrollPicker(
-                            currentHour = uiState.hour,
-                            currentMinute = uiState.minute,
-                            isEditing = uiState.isEditingTime,
+                        TimeInputOverlay(
                             onHourChange = { viewModel.setHour(it) },
                             onMinuteChange = { viewModel.setMinute(it) },
-                            onChangeEditTime = viewModel::toggleEditMode
+                            onDone = { viewModel.toggleEditMode() },
                         )
-
-                        // Оверлей для ручного ввода
-                        if (uiState.isEditingTime) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(
-                                        onClick = { viewModel.toggleEditMode() },
-                                        indication = null,
-                                        interactionSource = remember { MutableInteractionSource() }
-                                    )
-                            )
-                            TimeInputOverlay(
-                                onHourChange = { viewModel.setHour(it) },
-                                onMinuteChange = { viewModel.setMinute(it) },
-                                onDone = { viewModel.toggleEditMode() },
-                            )
-                        }
                     }
+                }
 
-                    // Текущее выбранное время под барабаном
+                // Текущее выбранное время под барабаном (опционально)
+                if (showTimeLabel) {
                     Text(
                         text = "%02d:%02d".format(uiState.hour, uiState.minute),
                         style = MaterialTheme.typography.bodyMedium,
@@ -150,87 +154,83 @@ fun TimePickerApp(
                             .padding(top = 12.dp),
                         textAlign = TextAlign.Center
                     )
-
-                    // Быстрый выбор из последних значений
-                    if (recentTimes.isNotEmpty()) {
-                        FlowRow(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            recentTimes.forEach { timeMillis ->
-                                val h = (timeMillis / 3_600_000).toInt()
-                                val m = ((timeMillis % 3_600_000) / 60_000).toInt()
-                                SuggestionChip(
-                                    onClick = {
-                                        onTimeSelected(timeMillis)
-                                        onRecentTimeSaved?.invoke(timeMillis)
-                                        onDismiss()
-                                    },
-                                    label = {
-                                        Text(
-                                            text = "%02d:%02d".format(h, m),
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
-                                    },
-                                    colors = SuggestionChipDefaults.suggestionChipColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.3f),
-                                        labelColor = MaterialTheme.colorScheme.primary
-                                    ),
-                                    border = null
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(if (recentTimes.isEmpty()) 36.dp else 8.dp))
-
                 }
-                // Кнопки внизу
 
-                Column(modifier = Modifier) {
-                    Row(
+                // Быстрый выбор из последних значений
+                if (recentTimes.isNotEmpty()) {
+                    FlowRow(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        TextButton(onClick = onCancelButton) {
-                            Text(
-                                text = cancelButtonText,
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-
-                        Button(
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                            ),
-                            shape = Shapes.medium,
-                            onClick = {
-                                val selectedMillis =
-                                    (uiState.hour * 3_600_000L) + (uiState.minute * 60_000L)
-                                onTimeSelected(selectedMillis)
-                                onRecentTimeSaved?.invoke(selectedMillis)
-                                onDismiss()
-                            }
-                        ) {
-                            Text(
-                                text = "Применить",
-                                color = MaterialTheme.colorScheme.secondary,
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                        recentTimes.forEach { timeMillis ->
+                            val h = (timeMillis / 3_600_000).toInt()
+                            val m = ((timeMillis % 3_600_000) / 60_000).toInt()
+                            SuggestionChip(
+                                onClick = {
+                                    onTimeSelected(timeMillis)
+                                    onRecentTimeSaved?.invoke(timeMillis)
+                                    onDismiss()
+                                },
+                                label = {
+                                    Text(
+                                        text = "%02d:%02d".format(h, m),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                },
+                                colors = SuggestionChipDefaults.suggestionChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.3f),
+                                    labelColor = MaterialTheme.colorScheme.primary
+                                ),
+                                border = null
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
                 }
 
+                Spacer(modifier = Modifier.height(if (recentTimes.isEmpty()) 36.dp else 8.dp))
             }
+
+            // Кнопки — всегда внизу, не скроллируются
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                TextButton(onClick = onCancelButton) {
+                    Text(
+                        text = cancelButtonText,
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Button(
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    shape = Shapes.medium,
+                    onClick = {
+                        val selectedMillis =
+                            (uiState.hour * 3_600_000L) + (uiState.minute * 60_000L)
+                        onTimeSelected(selectedMillis)
+                        onRecentTimeSaved?.invoke(selectedMillis)
+                        onDismiss()
+                    }
+                ) {
+                    Text(
+                        text = "Применить",
+                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
