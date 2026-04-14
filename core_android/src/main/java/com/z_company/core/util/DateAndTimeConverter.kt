@@ -3,6 +3,7 @@ package com.z_company.core.util
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.util.displayTimeZone
 import java.time.Instant
+import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -87,6 +88,30 @@ class DateAndTimeConverter(userSettings: UserSettings) {
             time.format(formatterWithThreeDecimals)
         } ?: ""
     }
+
+    /**
+     * Преобразует локальную дату и время в epoch-миллисекунды с учётом timezone отображения.
+     * Используется при сохранении явки в разделе График.
+     *
+     * @param year      год
+     * @param month     месяц (0-based, как в Calendar / MonthOfYear.month)
+     * @param day       день месяца (1-based)
+     * @param hour      часы (0..23)
+     * @param minute    минуты (0..59)
+     */
+    fun toEpochMillis(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long {
+        val zone = ZoneId.of(timeZoneText)
+        val local = LocalDateTime.of(year, month + 1, day, hour, minute, 0)
+        return local.atZone(zone).toInstant().toEpochMilli()
+    }
+
+    /** Возвращает день месяца из epoch-миллисекунд в timezone отображения. */
+    fun getDayOfMonth(millis: Long): Int =
+        Instant.ofEpochMilli(millis).atZone(ZoneId.of(timeZoneText)).dayOfMonth
+
+    /** Возвращает месяц (0-based) из epoch-миллисекунд в timezone отображения. */
+    fun getMonthIndex(millis: Long): Int =
+        Instant.ofEpochMilli(millis).atZone(ZoneId.of(timeZoneText)).monthValue - 1
 
     fun isDifferenceDate(first: Long?, second: Long?): Boolean {
         return if (first != null && second != null) {

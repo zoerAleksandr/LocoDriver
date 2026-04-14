@@ -18,7 +18,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.util.Calendar
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import androidx.compose.material3.SnackbarDuration
 import com.z_company.core.util.DateAndTimeConverter
@@ -184,7 +183,7 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
                 _currentMonth.value = month
                 _dateAndTimeConverter.value = DateAndTimeConverter(setting)
                 loadMonthYearLists()
-                loadRoutesForCurrentMonth(setting.timeZone)
+                loadRoutesForCurrentMonth()
 
             } catch (t: Throwable) {
                 if (t is CancellationException) throw t
@@ -208,24 +207,23 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    private suspend fun loadRoutesForCurrentMonth(timeZone: Long) {
+    private suspend fun loadRoutesForCurrentMonth() {
         val month = _currentMonth.value ?: return
-        // collect first ResultState from routeUseCase.listRoutesByMonth
+        val settings = _userSettings.value ?: return
+        val converter = _dateAndTimeConverter.value ?: return
+        val context = TimeCalculationContext.from(settings)
         withContext(Dispatchers.IO) {
-            routeUseCase.listRoutesByMonth(month, timeZone).collect { result ->
+            routeUseCase.listRoutesByMonth(month, context.crossMonthTZ).collect { result ->
                 when (result) {
                     is ResultState.Success -> {
                         val routes = result.data
-                        // Map routes by day-of-month: use timezone offset provided
-                        val map =
-                            mutableMapOf<Int, MutableList<Route>>()
+                        val map = mutableMapOf<Int, MutableList<Route>>()
                         routes.forEach { route ->
                             val start = route.basicData.timeStartWork
                             if (start != null) {
-                                val cal = Calendar.getInstance()
-                                    .also { it.timeInMillis = start + timeZone }
-                                val day = cal.get(Calendar.DAY_OF_MONTH)
-                                if (cal.get(Calendar.MONTH) == currentMonth.value?.month) {
+                                // Определяем день через DateAndTimeConverter — тот же TZ, что при сохранении
+                                val day = converter.getDayOfMonth(start)
+                                if (converter.getMonthIndex(start) == currentMonth.value?.month) {
                                     map.getOrPut(day) { mutableListOf() }.add(route)
                                 }
                             }
@@ -390,7 +388,7 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
                             try {
                                 val userSettings = settingsUseCase.getUserSettingFlow().first()
                                 _selectedDays.value = emptyMap()
-                                loadRoutesForCurrentMonth(userSettings.timeZone)
+                                loadRoutesForCurrentMonth()
                             } catch (t: Throwable) {
                                 if (t is CancellationException) throw t
                                 snackbarManager.show(
@@ -439,6 +437,10 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
             return
         }
 
+        val converter = _dateAndTimeConverter.value ?: run {
+            snackbarManager.show(message = "Ошибка: настройки не загружены")
+            return
+        }
         _isLoading.value = true
         viewModelScope.launch {
             try {
@@ -447,18 +449,15 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
                         val hour = ConverterLongToTime.getHour(time)
                         val minute = ConverterLongToTime.getRemainingMinuteFromHour(time)
 
-                        val cal = Calendar.getInstance().also {
-                            it.set(Calendar.YEAR, month.year)
-                            it.set(Calendar.MONTH, month.month)
-                            it.set(Calendar.DAY_OF_MONTH, day)
-                            it.set(Calendar.HOUR_OF_DAY, hour)
-                            it.set(Calendar.MINUTE, minute)
-                            it.set(Calendar.SECOND, 0)
-                            it.set(Calendar.MILLISECOND, 0)
-                        }
-                        val startMillis =
-                            cal.timeInMillis // or adjust with tzOffset if your codebase needs (startMillis - tzOffset or +tz)
-
+                        // Конвертируем дату+время в epoch через DateAndTimeConverter —
+                        // тот же TZ (displayTimeZone), что используется в DateTimePickerBottomSheet
+                        val startMillis = converter.toEpochMillis(
+                            year = month.year,
+                            month = month.month,
+                            day = day,
+                            hour = hour,
+                            minute = minute
+                        )
                         val endMillis = workDuration.plus(startMillis)
                         val routeToSave =
                             createRouteForStartTime(startMillis, endMillis)
