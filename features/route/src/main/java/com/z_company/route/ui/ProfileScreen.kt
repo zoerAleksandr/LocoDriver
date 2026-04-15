@@ -866,6 +866,10 @@ fun ProfileScreen(
                                                     }
                                                 }
                                             ) { vkUser ->
+                                                // serverVkId != "" означает VK уже привязан на сервере
+                                                val serverVkId = (uiState.userDetailsState as? ResultState.Success)?.data?.vkId
+                                                val isVkLinkedOnServer = !serverVkId.isNullOrEmpty()
+
                                                 if (vkUser != null) {
                                                     Row(
                                                         verticalAlignment = Alignment.CenterVertically,
@@ -893,7 +897,15 @@ fun ProfileScreen(
                                                         modifier = Modifier
                                                             .fillMaxWidth(),
                                                         onAuth = { _, accessToken ->
-                                                            viewModel.attachVKID(accessToken.userID.toString())
+                                                            val vkId = accessToken.userID.toString()
+                                                            if (isVkLinkedOnServer) {
+                                                                // VK уже привязан на сервере — не нужно повторно
+                                                                // вызывать attachVKID. Просто сохраняем SDK-сессию
+                                                                // и берём данные пользователя.
+                                                                viewModel.onVkAuthForLinkedAccount(vkId)
+                                                            } else {
+                                                                viewModel.attachVKID(vkId)
+                                                            }
                                                         },
                                                         onFail = { oneTapAuth, vkIdAuthFail ->
                                                             Log.d(

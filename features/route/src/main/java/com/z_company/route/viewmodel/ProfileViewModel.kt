@@ -800,6 +800,15 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    // Вызывается из OneTap когда VK уже привязан на сервере, но SDK-сессии не было.
+    // После успешной авторизации VK SDK сохраняем vkId локально и сразу берём данные.
+    fun onVkAuthForLinkedAccount(vkid: String) {
+        viewModelScope.launch {
+            secureTokenStorage.saveVkId(vkid)
+            getVkUserInfo()
+        }
+    }
+
     // Для чего: Вызывается из OneTap в профиле, когда VK не привязан. Предполагаем, что AuthManager имеет метод attachVKID (аналогичный registerByVKID, но для привязки). После успеха сохраняем VK ID и обновляем данные.
     fun attachVKID(vkid: String) {
         viewModelScope.launch {
