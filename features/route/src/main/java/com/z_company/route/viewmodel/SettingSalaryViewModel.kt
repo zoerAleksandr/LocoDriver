@@ -313,16 +313,14 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     salarySettingUseCase.saveSalarySetting(salarySetting).collect {}
                 }
             }
-            // 2. Сохраняем тарифную ставку (MonthOfYear) если она изменилась.
-            // setTariffRate() не вызывает scheduleAutoSave() — ставка хранится
-            // в MonthOfYear, а не в SalarySetting. Сохраняем для текущего месяца
-            // без диалога (тот же эффект что "Только этот месяц").
+            // 2. Сохраняем MonthOfYear целиком (tariffRate + dateSetTariffRate).
+            // Важно: saveSetting(updateMonthOfYear = true) запускает inner-корутину на
+            // viewModelScope, которая отменяется при onCleared. Поэтому здесь сохраняем
+            // полный MonthOfYear через NonCancellable-scope, чтобы dateSetTariffRate
+            // не терялась при быстром уходе с экрана.
             val month = currentMonthOfYear
-            if (month != null && initialValueTariffRate != month.tariffRate) {
-                salarySettingUseCase.updateTariffRateOnlyInOneMonthOfYear(
-                    newTariffRate = month.tariffRate,
-                    monthId = month.id
-                ).collect {}
+            if (month != null) {
+                calendarUseCase.updateMonthOfYear(month).collect {}
             }
         }
         super.onCleared()
@@ -422,7 +420,8 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                         currentMonthOfYear?.copy(
                             dateSetTariffRate = DateSetTariffRate(
                                 dateNewRate = dayOfMonth,
-                                oldRate = 0.0,
+                                // oldRate = ставка за начало месяца (до даты смены тарифа)
+                                oldRate = initialValueTariffRate ?: 0.0,
                             )
                         )
                     } else {
