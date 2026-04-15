@@ -109,8 +109,11 @@ actual class DatabaseDriverFactory(private val context: Context) {
 
         val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
         try {
-            // Добавляем недостающие столбцы (безопасно — если уже есть, пропускаем)
+            // Добавляем недостающие столбцы (безопасно — если уже есть, пропускаем).
+            // Если таблица ещё не существует — пропускаем ALTER: SQLDelight создаст
+            // её заново со всеми столбцами через Schema.create().
             for ((table, column) in checks) {
+                if (!hasTable(db, table)) continue
                 if (!hasColumn(db, table, column)) {
                     val spec = COLUMN_SPECS["$table.$column"]
                         ?: ColumnSpec("INTEGER", true, "NULL")
@@ -126,6 +129,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             for ((table, column) in checks) {
                 val spec = COLUMN_SPECS["$table.$column"] ?: continue
                 if (!spec.nullable) {
+                    if (!hasTable(db, table)) continue
                     db.execSQL(
                         "UPDATE $table SET $column = ${spec.defaultValue} WHERE $column IS NULL"
                     )
@@ -174,6 +178,14 @@ actual class DatabaseDriverFactory(private val context: Context) {
             // SalarySetting
             "SalarySetting.surchargeLongTrainsList" to ColumnSpec("TEXT", false, "'[]'")
         )
+    }
+
+    private fun hasTable(db: SQLiteDatabase, table: String): Boolean {
+        val cursor = db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            arrayOf(table)
+        )
+        return cursor.use { it.count > 0 }
     }
 
     private fun hasColumn(db: SQLiteDatabase, table: String, column: String): Boolean {
