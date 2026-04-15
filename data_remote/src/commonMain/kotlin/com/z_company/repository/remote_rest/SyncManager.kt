@@ -109,6 +109,14 @@ class SyncManager(
                 }
             }
 
+        // 2.5. Сохранение списка MonthOfYear (тарифные ставки) — best-effort
+        val localMonthOfYearList = calendarUseCase.loadFlowMonthOfYearListState().first()
+        if (localMonthOfYearList.isNotEmpty()) {
+            settingManager.saveMonthOfYearListInRemote(localMonthOfYearList, bearerToken)
+                .catch { /* Не прерываем синхронизацию */ }
+                .collect {}
+        }
+
         // 3. Сохранение дней отвлечений (ReleaseDay)
         val localReleaseDays = releaseDayUseCase.getAll()
         settingManager.saveReleaseDaysInRemote(localReleaseDays, bearerToken)
@@ -324,6 +332,16 @@ class SyncManager(
                 }
             }
 
+        // 3.5. Загрузка MonthOfYear (тарифные ставки) — best-effort
+        // Обновляем только те месяцы, которые пришли с сервера; локальные не трогаем
+        settingManager.getMonthOfYearListFromRemote(bearerToken)
+            .catch { /* Не прерываем синхронизацию */ }
+            .collect { loadState ->
+                if (loadState is ResultState.Success && loadState.data.isNotEmpty()) {
+                    calendarUseCase.saveCalendar(loadState.data).collect {}
+                }
+            }
+
         // 4. Загрузка всех маршрутов
         routesManager.getRoutesFromRemote(bearerToken)
             .catch { e ->
@@ -416,6 +434,14 @@ class SyncManager(
                     return@collect
                 }
             }
+
+        // 2.5. Сохранение списка MonthOfYear (тарифные ставки) — best-effort
+        val localMonthOfYearListFirst = calendarUseCase.loadFlowMonthOfYearListState().first()
+        if (localMonthOfYearListFirst.isNotEmpty()) {
+            settingManager.saveMonthOfYearListInRemote(localMonthOfYearListFirst, bearerToken)
+                .catch { /* Не прерываем синхронизацию */ }
+                .collect {}
+        }
 
         // 3. Сохранение дней отвлечений (ReleaseDay)
         val localReleaseDaysFirst = releaseDayUseCase.getAll()
