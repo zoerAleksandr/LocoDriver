@@ -120,20 +120,29 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val userSettings = this.async { userSettingUseCase.getUserSetting() }.await()
-                val tariffRate =
-                    this.async { salarySettingUseCase.getTariffRateFromCurrentMonthOfYear(userSettings.selectMonthOfYear) }
-                        .await()
+                val selectedMonth = userSettings.selectMonthOfYear
+
+                // Ищем MonthOfYear в таблице по году+месяцу — это надёжнее чем поиск по ID,
+                // т.к. ID в UserSettings.selectMonthOfYear может не совпадать с ID в таблице
+                // (например, после syncFromRemote на новом устройстве).
+                val allMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
+                val monthFromTable = allMonths.find {
+                    it.year == selectedMonth.year && it.month == selectedMonth.month
+                }
+                val actualMonth = monthFromTable ?: selectedMonth
+                val tariffRate = actualMonth.tariffRate
+
                 withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
-                            oldTariffRate = ResultState.Success(userSettings.selectMonthOfYear.dateSetTariffRate?.oldRate.str()),
+                            oldTariffRate = ResultState.Success(actualMonth.dateSetTariffRate?.oldRate.str()),
                             tariffRate = ResultState.Success(tariffRate.str()),
-                            currentMonthOfYear = userSettings.selectMonthOfYear
+                            currentMonthOfYear = actualMonth
                         )
                     }
                 }
                 initialValueTariffRate = tariffRate
-                currentMonthOfYear = userSettings.selectMonthOfYear
+                currentMonthOfYear = actualMonth
             } catch (e: Exception) {
                 e.sendToSentry("SettingSalaryViewModel", "loadUserSetting")
             }
