@@ -11,7 +11,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TimePickerDefaults
@@ -32,8 +31,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import com.z_company.core.ui.component.DateTimePickerBottomSheet
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.SettingsUseCase
 import org.koin.compose.koinInject
 import java.util.Calendar
@@ -60,6 +61,7 @@ fun AppDateTimePicker(
     onRecentTimeSaved: ((Long) -> Unit)? = null,
 ) {
     val settingsUseCase: SettingsUseCase = koinInject()
+    val sharedPrefs: SharedPreferencesRepositories = koinInject()
     val settings by settingsUseCase.getUserSettingFlow()
         .collectAsStateWithLifecycle(initialValue = UserSettings())
 
@@ -127,14 +129,14 @@ fun AppDateTimePicker(
                         todayContentColor = primaryColor,
                         todayDateBorderColor = selectedColor,
                         dividerColor = surfaceColor,
-                        inputFieldColors = TextFieldDefaults.colors(
+                        dateTextFieldColors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = surfaceColor,
                             unfocusedContainerColor = surfaceColor,
                             focusedTextColor = primaryColor,
                             unfocusedTextColor = primaryColor,
                             cursorColor = selectedColor,
-                            focusedIndicatorColor = selectedColor,
-                            unfocusedIndicatorColor = primaryColor,
+                            focusedBorderColor = selectedColor,
+                            unfocusedBorderColor = primaryColor,
                             focusedLabelColor = selectedColor,
                             unfocusedLabelColor = primaryColor,
                         )
@@ -151,7 +153,7 @@ fun AppDateTimePicker(
                 initialMinute = cal.get(Calendar.MINUTE),
                 is24Hour = true
             )
-            var useKeyboardInput by remember { mutableStateOf(false) }
+            var useKeyboardInput by remember { mutableStateOf(sharedPrefs.isTimePickerKeyboardInput()) }
 
             val timePickerColors = TimePickerDefaults.colors(
                 clockDialColor = surfaceColor,
@@ -192,7 +194,11 @@ fun AppDateTimePicker(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(text = title, color = primaryColor)
-                        IconButton(onClick = { useKeyboardInput = !useKeyboardInput }) {
+                        IconButton(onClick = {
+                            val newValue = !useKeyboardInput
+                            sharedPrefs.setTimePickerKeyboardInput(newValue)
+                            useKeyboardInput = newValue
+                        }) {
                             Icon(
                                 painter = painterResource(
                                     if (useKeyboardInput)

@@ -24,6 +24,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.z_company.core.ui.component.TimePickerApp
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.SettingsUseCase
 import org.koin.compose.koinInject
 
@@ -50,6 +51,7 @@ fun AppTimePicker(
     showTimeLabel: Boolean = true,
 ) {
     val settingsUseCase: SettingsUseCase = koinInject()
+    val sharedPrefs: SharedPreferencesRepositories = koinInject()
     val settings by settingsUseCase.getUserSettingFlow()
         .collectAsStateWithLifecycle(initialValue = UserSettings())
 
@@ -61,7 +63,7 @@ fun AppTimePicker(
             initialMinute = initialMinute,
             is24Hour = true
         )
-        var useKeyboardInput by remember { mutableStateOf(false) }
+        var useKeyboardInput by remember { mutableStateOf(sharedPrefs.isTimePickerKeyboardInput()) }
 
         val containerColor = MaterialTheme.colorScheme.secondary
         val primaryColor = MaterialTheme.colorScheme.primary
@@ -100,7 +102,11 @@ fun AppTimePicker(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(text = title, color = primaryColor)
-                    IconButton(onClick = { useKeyboardInput = !useKeyboardInput }) {
+                    IconButton(onClick = {
+                        val newValue = !useKeyboardInput
+                        sharedPrefs.setTimePickerKeyboardInput(newValue)
+                        useKeyboardInput = newValue
+                    }) {
                         Icon(
                             painter = painterResource(
                                 if (useKeyboardInput)

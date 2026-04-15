@@ -43,6 +43,7 @@ private const val TOKEN_LAST_SYNC_TIME = "TOKEN_LAST_SYNC_TIME"
 private const val TOKEN_TIMEZONE_MIGRATION = "TOKEN_TIMEZONE_MIGRATION"
 private const val TOKEN_RELEASE_DAY_MIGRATION = "TOKEN_RELEASE_DAY_MIGRATION"
 private const val TOKEN_PRODUCTION_CALENDAR_MIGRATION = "TOKEN_PRODUCTION_CALENDAR_MIGRATION"
+private const val TOKEN_TIME_PICKER_KEYBOARD_INPUT = "TOKEN_TIME_PICKER_KEYBOARD_INPUT"
 class SharedPreferenceStorage(application: Application) : SharedPreferencesRepositories,
     KoinComponent {
     private val sharedpref: SharedPreferences =
@@ -289,6 +290,13 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun setProductionCalendarMigrationDone() {
         editor.putBoolean(TOKEN_PRODUCTION_CALENDAR_MIGRATION, true).apply()
+    }
+
+    override fun isTimePickerKeyboardInput(): Boolean =
+        sharedpref.getBoolean(TOKEN_TIME_PICKER_KEYBOARD_INPUT, false)
+
+    override fun setTimePickerKeyboardInput(value: Boolean) {
+        editor.putBoolean(TOKEN_TIME_PICKER_KEYBOARD_INPUT, value).apply()
     }
 
     override fun addRecentTime(key: String, timeMillis: Long) {
