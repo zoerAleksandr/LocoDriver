@@ -21,8 +21,11 @@ import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.str
 import com.z_company.route.Const.NULLABLE_ID
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -47,6 +50,7 @@ class LocoFormViewModel(
     private var loadLocoJob: Job? = null
     private var saveLocoJob: Job? = null
     private var saveCoefficientJob: Job? = null
+    private var autoSaveJob: Job? = null
 
     var timeZoneText: String = "GMT+3"
 
@@ -1099,5 +1103,56 @@ class LocoFormViewModel(
         if (!_uiState.value.changesHaveState) {
             _uiState.update { it.copy(changesHaveState = true) }
         }
+        triggerAutoSave()
+    }
+
+    private fun triggerAutoSave() {
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(500)
+            saveLoco()
+        }
+    }
+
+    override fun onCleared() {
+        autoSaveJob?.cancel()
+        saveLocoJob?.cancel()
+        // Гарантированное сохранение при уходе с экрана (NonCancellable —
+        // save завершится даже после того, как ViewModel уже очищена)
+        CoroutineScope(NonCancellable + Dispatchers.IO).launch {
+            _currentLoco.value?.let { loco ->
+                val updatedLoco = loco.copy(
+                    dieselSectionList = _dieselSectionListState.value.map { state ->
+                        SectionDiesel(
+                            sectionId = state.sectionId,
+                            acceptedFuel = state.accepted.data?.toDoubleOrNull(),
+                            deliveryFuel = state.delivery.data?.toDoubleOrNull(),
+                            coefficient = state.coefficient.data?.toDoubleOrNull(),
+                            fuelSupply = state.refuel.data?.toDoubleOrNull(),
+                            fuelSupplyInKilo = state.refuelInKilo.data?.toDoubleOrNull(),
+                            coefficientSupply = state.refuelCoefficient.data?.toDoubleOrNull(),
+                        )
+                    }.toMutableStateList(),
+                    electricSectionList = _electricSectionListState.value.map { state ->
+                        SectionElectric(
+                            sectionId = state.sectionId,
+                            acceptedEnergy = state.accepted.data?.toDoubleOrNull(),
+                            deliveryEnergy = state.delivery.data?.toDoubleOrNull(),
+                            acceptedRecovery = state.recoveryAccepted.data?.toDoubleOrNull(),
+                            deliveryRecovery = state.recoveryDelivery.data?.toDoubleOrNull(),
+                            acceptedEnergyOtherCurrent = state.accepted2.data?.toDoubleOrNull(),
+                            deliveryEnergyOtherCurrent = state.delivery2.data?.toDoubleOrNull(),
+                            acceptedRecoveryOtherCurrent = state.recoveryAccepted2.data?.toDoubleOrNull(),
+                            deliveryRecoveryOtherCurrent = state.recoveryDelivery2.data?.toDoubleOrNull(),
+                        )
+                    }.toMutableList()
+                )
+                updatedLoco.series?.let { series ->
+                    settingsUseCase.setLocomotiveSeries(series)
+                }
+                locomotiveUseCase.saveLocomotive(updatedLoco).collect {}
+            }
+        }
+        super.onCleared()
     }
 }

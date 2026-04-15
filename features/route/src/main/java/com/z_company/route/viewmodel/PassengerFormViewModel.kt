@@ -25,8 +25,11 @@ import kotlinx.coroutines.flow.update
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import com.z_company.domain.util.minus
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
@@ -56,6 +59,7 @@ class PassengerFormViewModel(
 
     private var loadPassengerJob: Job? = null
     private var savePassengerJob: Job? = null
+    private var autoSaveJob: Job? = null
 
     private var isNewPassenger by Delegates.notNull<Boolean>()
 
@@ -146,6 +150,29 @@ class PassengerFormViewModel(
                 )
             }
         }
+        triggerAutoSave()
+    }
+
+    private fun triggerAutoSave() {
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(500)
+            savePassenger()
+        }
+    }
+
+    override fun onCleared() {
+        autoSaveJob?.cancel()
+        savePassengerJob?.cancel()
+        CoroutineScope(NonCancellable + Dispatchers.IO).launch {
+            val state = _uiState.value.passengerDetailState
+            if (state is ResultState.Success) {
+                state.data?.let { passenger ->
+                    passengerUseCase.savePassenger(passenger).collect {}
+                }
+            }
+        }
+        super.onCleared()
     }
 
     fun exitWithoutSaving() {

@@ -147,8 +147,7 @@ fun FormPassengerScreen(
                 title = {},
                 navigationIcon = {
                     TextButton(
-                        onClick = viewModel::savePassenger,
-                        enabled = formUiState.errorMessage == null,
+                        onClick = onPassengerSaved,
                         colors = ButtonDefaults.buttonColors(
                             disabledContainerColor = Color.Transparent,
                             disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
@@ -170,23 +169,14 @@ fun FormPassengerScreen(
             )
         }
     ) { paddingValues ->
-        when (val state = formUiState.savePassengerState) {
-            is ResultState.Success -> {
-                LaunchedEffect(formUiState.savePassengerState) {
-                    onPassengerSaved()
+        if (formUiState.savePassengerState is ResultState.Error) {
+            val errorState = formUiState.savePassengerState as ResultState.Error
+            LaunchedEffect(Unit) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Ошибка: ${errorState.entity.message}")
                 }
+                resetSaveState()
             }
-
-            is ResultState.Error -> {
-                LaunchedEffect(Unit) {
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Ошибка: ${state.entity.message}")
-                    }
-                    resetSaveState()
-                }
-            }
-
-            else -> {}
         }
 
         var showBottomSheetRemoveTimeDeparture by remember {

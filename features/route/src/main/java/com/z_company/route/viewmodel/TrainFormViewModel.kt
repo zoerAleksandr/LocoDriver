@@ -20,8 +20,11 @@ import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
 import com.z_company.route.Const.NULLABLE_ID
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -50,6 +53,7 @@ class TrainFormViewModel(
 
     private var loadTrainJob: Job? = null
     private var saveTrainJob: Job? = null
+    private var autoSaveJob: Job? = null
 
     var timeZoneText: String = "GMT+3"
 
@@ -215,6 +219,61 @@ class TrainFormViewModel(
                 )
             }
         }
+        triggerAutoSave()
+    }
+
+    private fun triggerAutoSave() {
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(500)
+            saveTrainSilently()
+        }
+    }
+
+    /** Автосохранение без диалога service-phase — вызывается только из triggerAutoSave/onCleared */
+    private fun saveTrainSilently() {
+        val state = _uiState.value.trainDetailState
+        if (state is ResultState.Success) {
+            state.data?.let { train ->
+                train.servicePhase = uiState.value.selectedServicePhase
+                train.stations = stationsListState.map { s ->
+                    Station(
+                        stationId = s.id,
+                        trainId = train.trainId,
+                        stationName = s.station.data,
+                        timeArrival = s.arrival.data,
+                        timeDeparture = s.departure.data,
+                        trackNumber = s.trackNumber
+                    )
+                }.toMutableList()
+                performSave(train)
+            }
+        }
+    }
+
+    override fun onCleared() {
+        autoSaveJob?.cancel()
+        saveTrainJob?.cancel()
+        CoroutineScope(NonCancellable + Dispatchers.IO).launch {
+            val state = _uiState.value.trainDetailState
+            if (state is ResultState.Success) {
+                state.data?.let { train ->
+                    train.servicePhase = uiState.value.selectedServicePhase
+                    train.stations = stationsListState.map { s ->
+                        Station(
+                            stationId = s.id,
+                            trainId = train.trainId,
+                            stationName = s.station.data,
+                            timeArrival = s.arrival.data,
+                            timeDeparture = s.departure.data,
+                            trackNumber = s.trackNumber
+                        )
+                    }.toMutableList()
+                    trainUseCase.saveTrain(train).collect {}
+                }
+            }
+        }
+        super.onCleared()
     }
 
     private fun loadTrain(id: String) {

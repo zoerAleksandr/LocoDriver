@@ -194,17 +194,14 @@ fun FormLocoScreen(
                 title = {},
                 navigationIcon = {
                     TextButton(
-                        onClick = viewModel::saveLoco,
-                        enabled = formUiState.errorMessage == null,
+                        onClick = onLocoSaved,
                         colors = ButtonDefaults.buttonColors(
-                            disabledContainerColor = Color.Transparent,
-                            disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                             contentColor = MaterialTheme.colorScheme.tertiary,
                             containerColor = Color.Transparent
                         )
                     ) {
                         Text(
-                            text = "Сохранить",
+                            text = "Готово",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -229,11 +226,6 @@ fun FormLocoScreen(
             }
         }
     ) { paddingValues ->
-        if (formUiState.saveLocoState is ResultState.Success) {
-            LaunchedEffect(formUiState.saveLocoState) {
-                onLocoSaved()
-            }
-        }
         if (formUiState.saveLocoState is ResultState.Error) {
             LaunchedEffect(Unit) {
                 scope.launch {

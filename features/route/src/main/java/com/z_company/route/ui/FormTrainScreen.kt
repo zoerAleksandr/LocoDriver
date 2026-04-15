@@ -171,8 +171,7 @@ fun FormTrainScreen(
                 title = {},
                 navigationIcon = {
                     TextButton(
-                        onClick = viewModel::saveTrain,
-                        enabled = formUiState.errorMessage == null,
+                        onClick = onTrainSaved,
                         colors = ButtonDefaults.buttonColors(
                             disabledContainerColor = Color.Transparent,
                             disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
@@ -215,23 +214,13 @@ fun FormTrainScreen(
             )
         }
     ) { paddingValues ->
-        when (formUiState.saveTrainState) {
-            is ResultState.Success -> {
-                LaunchedEffect(formUiState.saveTrainState) {
-                    onTrainSaved()
+        if (formUiState.saveTrainState is ResultState.Error) {
+            LaunchedEffect(Unit) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Ошибка: ${(formUiState.saveTrainState as ResultState.Error).entity.message}")
                 }
+                resetSaveState()
             }
-
-            is ResultState.Error -> {
-                LaunchedEffect(Unit) {
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Ошибка: ${formUiState.saveTrainState.entity.message}")
-                    }
-                    resetSaveState()
-                }
-            }
-
-            else -> {}
         }
 
         var isTrainInfoVisible by remember {
