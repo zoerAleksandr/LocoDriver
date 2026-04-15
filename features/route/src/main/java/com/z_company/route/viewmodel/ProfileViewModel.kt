@@ -756,6 +756,17 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                             )
                         }
                         subscriptionHelper.restorePurchases(null, token)
+
+                        // Если сервер знает о привязанном VK-аккаунте — сохраняем vkId локально.
+                        // Наблюдатель getVkIdFlow() в init {} автоматически вызовет
+                        // vkIdRefreshToken() → getVkUserInfo() и покажет имя/фото пользователя.
+                        val serverVkId = state.user.vkId
+                        if (serverVkId.isNotEmpty()) {
+                            val localVkId = secureTokenStorage.getVkIdFlow().first()
+                            if (localVkId.isNullOrEmpty()) {
+                                secureTokenStorage.saveVkId(serverVkId)
+                            }
+                        }
                     }
                     if (state is GetUserProfileState.Error) {
                         if (state.code == 401) {
@@ -828,10 +839,19 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
                         override fun onFail(fail: VKIDRefreshTokenFail) {
                             when (fail) {
-                                is VKIDRefreshTokenFail.RefreshTokenExpired,
                                 is VKIDRefreshTokenFail.NotAuthenticated -> {
-                                    // Токен истёк или сессия отозвана — сбрасываем VK ID,
-                                    // чтобы ProfileScreen показал кнопку "Войти через VK".
+                                    // Нет VK-сессии на этом устройстве (пользователь входил
+                                    // через email, а VK привязан через другое устройство).
+                                    // НЕ очищаем vkId из storage — он нужен чтобы знать,
+                                    // что VK привязан на сервере. Просто показываем кнопку
+                                    // OneTap для однократной авторизации VK SDK на устройстве.
+                                    _uiState.update {
+                                        it.copy(vkUserState = ResultState.Success(null))
+                                    }
+                                }
+                                is VKIDRefreshTokenFail.RefreshTokenExpired -> {
+                                    // Токен явно отозван VK — сессия больше не действительна,
+                                    // сбрасываем vkId чтобы не пытаться обновить снова.
                                     viewModelScope.launch {
                                         secureTokenStorage.saveVkId("")
                                         _uiState.update {
