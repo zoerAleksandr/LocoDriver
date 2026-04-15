@@ -250,13 +250,18 @@ fun ItemHomeScreen(
                         }
                     }
 
+                    // Сортировка: поезда с временем отправления первой станции — по убыванию
+                    // (последний отправившийся сверху), поезда без времени — в порядке добавления.
+                    val sortedTrains = route.trains
+                        .filter { it.stations.firstOrNull()?.timeDeparture != null }
+                        .sortedByDescending { it.stations.firstOrNull()?.timeDeparture } +
+                        route.trains.filter { it.stations.firstOrNull()?.timeDeparture == null }
+
                     // If expanded -> show all locomotives/trains/passengers; else show last ones only
                     if (isExpand) {
-                        if (route.trains.isNotEmpty()) {
+                        if (sortedTrains.isNotEmpty()) {
                             Column(modifier = Modifier.fillMaxWidth()) {
-                                route.trains
-                                    .sortedBy { it.stations.firstOrNull()?.timeDeparture }
-                                    .forEach { train ->
+                                sortedTrains.forEach { train ->
                                         val trainNumber = if (!train.number.isNullOrBlank()) {
                                             "\u2116${train.number} "
                                         } else {
@@ -322,7 +327,7 @@ fun ItemHomeScreen(
                         }
                     } else {
                         // compact: show only last locomotive/train/passenger (if any)
-                        route.trains.firstOrNull()?.let { train ->
+                        sortedTrains.firstOrNull()?.let { train ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth(),

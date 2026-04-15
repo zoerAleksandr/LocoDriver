@@ -321,6 +321,11 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             val month = currentMonthOfYear
             if (month != null) {
                 calendarUseCase.updateMonthOfYear(month).collect {}
+                // КРИТИЧНО: обновляем selectMonthOfYear в UserSettings, чтобы
+                // SalaryCalculationViewModel получил актуальный tariffRate/dateSetTariffRate
+                // через getUserSettingFlow(). Без этого flow не эмитит новое значение
+                // и расчёт ЗП остаётся на старых данных.
+                userSettingUseCase.updateMonthOfYearInUserSetting(month).collect {}
             }
         }
         super.onCleared()

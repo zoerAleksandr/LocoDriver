@@ -109,8 +109,10 @@ class SyncManager(
                 }
             }
 
-        // 2.5. Сохранение тарифных ставок (MonthOfYear без days) — best-effort
-        // days хранятся отдельно в ProductionCalendarDay — не дублируем их в /year/
+        // 2.5. Сохранение тарифных ставок в Calendar (эндпоинт /v1/year/).
+        // В Calendar хранятся ТОЛЬКО tariffRate и dateSetTariffRate для каждого месяца.
+        // Производственный календарь (days) хранится отдельно в ProductionCalendarDay
+        // и в /year/ не попадает — поэтому зануляем days перед отправкой.
         val localMonthOfYearList = calendarUseCase.loadFlowMonthOfYearListState().first()
         if (localMonthOfYearList.isNotEmpty()) {
             val tariffOnlyList = localMonthOfYearList.map { it.copy(days = emptyList()) }
@@ -284,11 +286,11 @@ class SyncManager(
                 }
             }
 
-        // 2.5. Загрузка MonthOfYear (тарифные ставки) — ПЕРЕД UserSettings!
-        // Порядок важен: UserSettings при сохранении ищет selectMonthOfYear в локальной
-        // таблице MonthOfYear по году+месяцу. Если загрузить MonthOfYear сначала,
-        // selectMonthOfYear получит правильный ID и tariffRate.
-        // Стратегия мержа: не перезаписываем days (они вычисляются из ProductionCalendarDay).
+        // 2.5. Загрузка тарифных ставок из Calendar (эндпоинт /v1/year/) — ПЕРЕД UserSettings!
+        // В Calendar хранятся ТОЛЬКО tariffRate и dateSetTariffRate — из серверных данных
+        // берём только эти два поля, остальное (days и т.д.) берётся из локальной БД.
+        // Порядок важен: UserSettings ищет selectMonthOfYear по году+месяцу в локальной
+        // таблице MonthOfYear — загружаем сначала, чтобы selectMonthOfYear нашёл актуальный tariffRate.
         settingManager.getMonthOfYearListFromRemote(bearerToken)
             .catch { /* Не прерываем синхронизацию */ }
             .collect { loadState ->
@@ -454,8 +456,10 @@ class SyncManager(
                 }
             }
 
-        // 2.5. Сохранение тарифных ставок (MonthOfYear без days) — best-effort
-        // days хранятся отдельно в ProductionCalendarDay — не дублируем их в /year/
+        // 2.5. Сохранение тарифных ставок в Calendar (эндпоинт /v1/year/).
+        // В Calendar хранятся ТОЛЬКО tariffRate и dateSetTariffRate для каждого месяца.
+        // Производственный календарь (days) хранится отдельно в ProductionCalendarDay
+        // и в /year/ не попадает — поэтому зануляем days перед отправкой.
         val localMonthOfYearListFirst = calendarUseCase.loadFlowMonthOfYearListState().first()
         if (localMonthOfYearListFirst.isNotEmpty()) {
             val tariffOnlyListFirst = localMonthOfYearListFirst.map { it.copy(days = emptyList()) }

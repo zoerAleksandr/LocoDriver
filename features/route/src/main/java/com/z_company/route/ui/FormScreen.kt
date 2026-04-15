@@ -1704,7 +1704,12 @@ fun FormScreen(
                             }
                             ItemAddingScreen(
                                 title = stringResource(id = R.string.train),
-                                contentList = route.trains,
+                                // Сортировка: поезда с временем отправления первой станции — по убыванию
+                                // (последний отправившийся сверху), поезда без времени — в порядке добавления.
+                                contentList = route.trains
+                                    .filter { it.stations.firstOrNull()?.timeDeparture != null }
+                                    .sortedByDescending { it.stations.firstOrNull()?.timeDeparture } +
+                                    route.trains.filter { it.stations.firstOrNull()?.timeDeparture == null },
                                 onChangeElementClick = onChangeTrainClick,
                                 onNewElementClick = onNewTrainClick,
                                 basicId = basicId,

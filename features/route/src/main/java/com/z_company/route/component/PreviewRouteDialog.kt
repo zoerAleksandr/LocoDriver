@@ -1185,7 +1185,14 @@ fun PreviewRoute(
             }
 
             // Trains section
-            if (route.trains.isNotEmpty()) {
+            // Сортировка: поезда с временем отправления первой станции — по убыванию
+            // (последний отправившийся сверху), поезда без времени — в порядке добавления.
+            val sortedTrains = route.trains
+                .filter { it.stations.firstOrNull()?.timeDeparture != null }
+                .sortedByDescending { it.stations.firstOrNull()?.timeDeparture } +
+                route.trains.filter { it.stations.firstOrNull()?.timeDeparture == null }
+
+            if (sortedTrains.isNotEmpty()) {
                 item {
                     Column(
                         modifier = Modifier
@@ -1202,7 +1209,7 @@ fun PreviewRoute(
                 }
             }
             itemsIndexed(
-                route.trains,
+                sortedTrains,
                 key = { _, train -> train.trainId }
             ) { index, train ->
                 if (trainExpandItemState[index] == null) {
