@@ -6,10 +6,14 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
@@ -17,10 +21,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import com.z_company.core.ui.component.DateTimePickerBottomSheet
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -116,6 +127,17 @@ fun AppDateTimePicker(
                         todayContentColor = primaryColor,
                         todayDateBorderColor = selectedColor,
                         dividerColor = surfaceColor,
+                        inputFieldColors = TextFieldDefaults.colors(
+                            focusedContainerColor = surfaceColor,
+                            unfocusedContainerColor = surfaceColor,
+                            focusedTextColor = primaryColor,
+                            unfocusedTextColor = primaryColor,
+                            cursorColor = selectedColor,
+                            focusedIndicatorColor = selectedColor,
+                            unfocusedIndicatorColor = primaryColor,
+                            focusedLabelColor = selectedColor,
+                            unfocusedLabelColor = primaryColor,
+                        )
                     )
                 )
             }
@@ -129,6 +151,20 @@ fun AppDateTimePicker(
                 initialMinute = cal.get(Calendar.MINUTE),
                 is24Hour = true
             )
+            var useKeyboardInput by remember { mutableStateOf(false) }
+
+            val timePickerColors = TimePickerDefaults.colors(
+                clockDialColor = surfaceColor,
+                selectorColor = selectedColor,
+                clockDialSelectedContentColor = containerColor,
+                clockDialUnselectedContentColor = primaryColor,
+                containerColor = containerColor,
+                timeSelectorSelectedContainerColor = selectedColor,
+                timeSelectorUnselectedContainerColor = surfaceColor,
+                timeSelectorSelectedContentColor = containerColor,
+                timeSelectorUnselectedContentColor = primaryColor,
+            )
+
             AlertDialog(
                 onDismissRequest = onDismiss,
                 containerColor = containerColor,
@@ -143,27 +179,39 @@ fun AppDateTimePicker(
                         }.timeInMillis
                         onRecentTimeSaved?.invoke(result)
                         onDateTimeSelected(result)
+                        onDismiss()
                     }) { Text("ОК") }
                 },
                 dismissButton = {
                     TextButton(onClick = { step = 0 }) { Text("Назад") }
                 },
-                title = { Text(text = title, color = primaryColor) },
+                title = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = title, color = primaryColor)
+                        IconButton(onClick = { useKeyboardInput = !useKeyboardInput }) {
+                            Icon(
+                                painter = painterResource(
+                                    if (useKeyboardInput)
+                                        com.z_company.core.R.drawable.outline_access_time_24
+                                    else
+                                        com.z_company.core.R.drawable.outline_keyboard_24
+                                ),
+                                contentDescription = if (useKeyboardInput) "Циферблат" else "Клавиатура",
+                                tint = primaryColor
+                            )
+                        }
+                    }
+                },
                 text = {
-                    TimePicker(
-                        state = timePickerState,
-                        colors = TimePickerDefaults.colors(
-                            clockDialColor = surfaceColor,
-                            selectorColor = selectedColor,
-                            clockDialSelectedContentColor = containerColor,
-                            clockDialUnselectedContentColor = primaryColor,
-                            containerColor = containerColor,
-                            timeSelectorSelectedContainerColor = selectedColor,
-                            timeSelectorUnselectedContainerColor = surfaceColor,
-                            timeSelectorSelectedContentColor = containerColor,
-                            timeSelectorUnselectedContentColor = primaryColor,
-                        )
-                    )
+                    if (useKeyboardInput) {
+                        TimeInput(state = timePickerState, colors = timePickerColors)
+                    } else {
+                        TimePicker(state = timePickerState, colors = timePickerColors)
+                    }
                 }
             )
         }
