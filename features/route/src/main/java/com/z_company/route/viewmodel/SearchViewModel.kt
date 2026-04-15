@@ -20,6 +20,7 @@ import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.data_local.route.SearchRouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.safetySubList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -27,12 +28,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 private const val COUNT_HINTS = 5
+private const val SEARCH_DEBOUNCE_MS = 200L
 
 class SearchViewModel : ViewModel(), KoinComponent {
     private val searchRouteUseCase: SearchRouteUseCase by inject()
@@ -40,6 +41,7 @@ class SearchViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
 
     private var loadSettingJob: Job? = null
+    private var searchJob: Job? = null
 
     private val _uiState = MutableStateFlow(SearchUIState())
     val uiState = _uiState.asStateFlow()
@@ -58,78 +60,84 @@ class SearchViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    /**
+     * Публичный API для немедленного поиска (без дебаунса).
+     * Используется при явном нажатии «Поиск» и из внешних вызовов.
+     */
     fun sendRequest(value: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                // ADDED: Wait for settings to load if not initialized
-                if (entityString == null) {
-                    delay(100) // Small delay to allow loading; better to use a StateFlow signal if possible
-                    if (entityString == null) {
-                        Log.e("SearchViewModel", "EntityString not initialized; aborting request")
-                        return@launch
-                    }
-                }
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch(Dispatchers.IO) {
+            executeSearch(value)
+        }
+    }
 
-                val correctValue = value.trim()
-                if (correctValue.isNotEmpty()) {
-                    searchRouteUseCase.searchRoute(
-                        correctValue,
-                        uiState.value.searchFilter,
-                        uiState.value.preliminarySearch,
-                        entityString!!
-                    ).collect { result ->
-                        if (result is SearchStateScreen.Loading) {
-                            withContext(Dispatchers.Main) {
-                                _uiState.update {
-                                    it.copy(
-                                        searchState = result,
-                                    )
-                                }
-                            }
+    /**
+     * Suspend-реализация поиска. Правильно обрабатывает CancellationException
+     * чтобы отмена корутины (дебаунс) не попадала в Sentry.
+     */
+    private suspend fun executeSearch(value: String) {
+        try {
+            if (entityString == null) {
+                delay(100)
+                if (entityString == null) {
+                    Log.e("SearchViewModel", "EntityString not initialized; aborting request")
+                    return
+                }
+            }
+
+            val correctValue = value.trim()
+            if (correctValue.isNotEmpty()) {
+                searchRouteUseCase.searchRoute(
+                    correctValue,
+                    uiState.value.searchFilter,
+                    uiState.value.preliminarySearch,
+                    entityString!!
+                ).collect { result ->
+                    when (result) {
+                        is SearchStateScreen.Loading -> {
+                            _uiState.update { it.copy(searchState = result) }
                         }
-                        if (result is SearchStateScreen.Input) {
-                            val resultList: MutableList<String> = result.hints
-                                .toMutableList()
+                        is SearchStateScreen.Input -> {
+                            val resultList = result.hints.toMutableList()
                             resultList.removeAll { it.isBlank() }
                             val newList = resultList.safetySubList(0, COUNT_HINTS)
-                            withContext(Dispatchers.Main) {
-                                _uiState.update {
-                                    it.copy(
-                                        isVisibleHistory = true,
-                                        isVisibleHints = true,
-                                        searchState = result,
-                                        hints = newList
-                                    )
-                                }
+                            _uiState.update {
+                                it.copy(
+                                    isVisibleHistory = true,
+                                    isVisibleHints = true,
+                                    searchState = result,
+                                    hints = newList
+                                )
                             }
                         }
-                        if (result is SearchStateScreen.Success) {
+                        is SearchStateScreen.Success -> {
                             Log.d("ZZZ", "$result")
-                            withContext(Dispatchers.Main) {
-                                _uiState.update {
-                                    it.copy(
-                                        isVisibleHistory = false,
-                                        isVisibleHints = false,
-                                        isVisibleResult = true,
-                                        searchState = result
-                                    )
-                                }
+                            _uiState.update {
+                                it.copy(
+                                    isVisibleHistory = false,
+                                    isVisibleHints = false,
+                                    isVisibleResult = true,
+                                    searchState = result
+                                )
                             }
                         }
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        _uiState.update {
-                            it.copy(
-                                searchState = SearchStateScreen.Success(null),
-                                isVisibleHistory = true
-                            )
+                        is SearchStateScreen.Failure -> {
+                            Log.e("SearchViewModel", "Search error: ${result.entity}")
                         }
                     }
                 }
-            } catch (e: Exception) {
-                e.sendToSentry("SearchViewModel", "sendRequest")
+            } else {
+                _uiState.update {
+                    it.copy(
+                        searchState = SearchStateScreen.Success(null),
+                        isVisibleHistory = true
+                    )
+                }
             }
+        } catch (e: CancellationException) {
+            throw e // Re-throw — ожидаемая отмена при дебаунсе, не ошибка
+        } catch (e: Exception) {
+            e.sendToSentry("SearchViewModel", "executeSearch")
         }
     }
 
@@ -232,13 +240,16 @@ class SearchViewModel : ViewModel(), KoinComponent {
     }
 
     fun setQueryValue(newValue: TextFieldValue) {
-        _uiState.update {
-            it.copy(
-                preliminarySearch = true
-            )
-        }
+        _uiState.update { it.copy(preliminarySearch = true) }
         query = newValue.copy(selection = TextRange(newValue.text.length))
-        sendRequest(query.text)
+
+        // Отменяем предыдущий (ещё не завершённый) поиск и запускаем дебаунс 200мс.
+        // Если пользователь продолжает печатать — предыдущий запрос к БД отменяется.
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(SEARCH_DEBOUNCE_MS)
+            executeSearch(query.text)
+        }
     }
 
     fun loadSetting() {

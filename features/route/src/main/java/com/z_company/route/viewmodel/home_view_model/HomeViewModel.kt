@@ -1528,7 +1528,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 //                            withContext(Dispatchers.Main) {
                             _uiState.update {
                                 it.copy(
-                                    listItemState = routeStateList
+                                    listItemState = routeStateList.toList()
                                 )
 //                                }
                             }
@@ -1600,7 +1600,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                             // settings not ready - update UI accordingly if needed
 //                            withContext(Dispatchers.Main) {
                             _uiState.update {
-                                it.copy(listItemState = mutableListOf())
+                                it.copy(listItemState = emptyList())
                             }
 //                            }
                         }

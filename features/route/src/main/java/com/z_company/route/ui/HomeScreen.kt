@@ -73,7 +73,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
@@ -118,6 +118,7 @@ import com.z_company.route.component.LinearPagerIndicator
 import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.component.PreviewRouteDialog
+import com.z_company.route.component.HomeScreenSkeleton
 import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.home_view_model.ItemState
@@ -141,7 +142,7 @@ import java.util.Calendar
 fun HomeScreen(
     viewModel: HomeViewModel,
     uiState: ResultState<Unit>,
-    listRouteState: MutableList<ItemState>,
+    listRouteState: List<ItemState>,
     onRouteClick: (String) -> Unit,
     onMoreInfoClick: (String) -> Unit,
     makeCopyRoute: (String) -> Unit,
@@ -575,7 +576,7 @@ fun HomeScreen(
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.search_24px),
-                                contentDescription = null,
+                                contentDescription = "Поиск",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -586,7 +587,10 @@ fun HomeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         val pagerState = rememberPagerState(pageCount = { 3 })
-        AsyncData(uiState) {
+        AsyncData(
+            resultState = uiState,
+            loadingContent = { HomeScreenSkeleton(contentPadding = padding) }
+        ) {
             LazyColumn(
                 Modifier
                     .fillMaxSize()
@@ -732,10 +736,9 @@ fun HomeScreen(
                                 item {
                                     Card(
                                         modifier = Modifier
-                                            .onGloballyPositioned { coordinates ->
-                                                val currentHeight = coordinates.size.height
-                                                if (currentHeight > maxHeightBox) {
-                                                    maxHeightBox = currentHeight
+                                            .onSizeChanged { size ->
+                                                if (size.height > maxHeightBox) {
+                                                    maxHeightBox = size.height
                                                 }
                                             }
                                             .padding(start = 12.dp)
@@ -786,10 +789,9 @@ fun HomeScreen(
                                 item {
                                     Card(
                                         modifier = Modifier
-                                            .onGloballyPositioned { coordinates ->
-                                                val currentHeight = coordinates.size.height
-                                                if (currentHeight > maxHeightBox) {
-                                                    maxHeightBox = currentHeight
+                                            .onSizeChanged { size ->
+                                                if (size.height > maxHeightBox) {
+                                                    maxHeightBox = size.height
                                                 }
                                             }
                                             .defaultMinSize(
@@ -895,10 +897,9 @@ fun HomeScreen(
                                 item {
                                     Card(
                                         modifier = Modifier
-                                            .onGloballyPositioned { coordinates ->
-                                                val currentHeight = coordinates.size.height
-                                                if (currentHeight > maxHeightBox) {
-                                                    maxHeightBox = currentHeight
+                                            .onSizeChanged { size ->
+                                                if (size.height > maxHeightBox) {
+                                                    maxHeightBox = size.height
                                                 }
                                             }
                                             .defaultMinSize(
@@ -1052,10 +1053,9 @@ fun HomeScreen(
                                 item {
                                     Card(
                                         modifier = Modifier
-                                            .onGloballyPositioned { coordinates ->
-                                                val currentHeight = coordinates.size.height
-                                                if (currentHeight > maxHeightBox) {
-                                                    maxHeightBox = currentHeight
+                                            .onSizeChanged { size ->
+                                                if (size.height > maxHeightBox) {
+                                                    maxHeightBox = size.height
                                                 }
                                             }
                                             .defaultMinSize(
@@ -1453,10 +1453,9 @@ fun HomeScreen(
                             item {
                                 Card(
                                     modifier = Modifier
-                                        .onGloballyPositioned { coordinates ->
-                                            val currentHeight = coordinates.size.height
-                                            if (currentHeight > maxHeightBox) {
-                                                maxHeightBox = currentHeight
+                                        .onSizeChanged { size ->
+                                            if (size.height > maxHeightBox) {
+                                                maxHeightBox = size.height
                                             }
                                         }
                                         .padding(start = 12.dp)
@@ -1515,10 +1514,9 @@ fun HomeScreen(
                             item {
                                 Card(
                                     modifier = Modifier
-                                        .onGloballyPositioned { coordinates ->
-                                            val currentHeight = coordinates.size.height
-                                            if (currentHeight > maxHeightBox) {
-                                                maxHeightBox = currentHeight
+                                        .onSizeChanged { size ->
+                                            if (size.height > maxHeightBox) {
+                                                maxHeightBox = size.height
                                             }
                                         }
                                         .padding(end = 12.dp)

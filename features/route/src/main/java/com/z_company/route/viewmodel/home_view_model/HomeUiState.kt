@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel.home_view_model
 
+import androidx.compose.runtime.Stable
 import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.MonthOfYear
@@ -35,8 +36,8 @@ data class HomeUiState(
     val showConfirmRemoveRoute: Boolean = false,
     val offsetInMoscow: Long = 0L,
     val timeCalculationContext: TimeCalculationContext? = null,
-    val listItemState: MutableList<ItemState> = mutableListOf<ItemState>(),
-    var dateAndTimeConverter: DateAndTimeConverter? = null,
+    val listItemState: List<ItemState> = emptyList(),
+    val dateAndTimeConverter: DateAndTimeConverter? = null,
     val showSnackbar: Boolean = false,
     val unsyncedRoutesCount: Int = 0,
     val showSyncDialog: Boolean = false,
@@ -51,6 +52,7 @@ data class HomeUiState(
     val isNetworkError: Boolean = false
 )
 
+@Stable
 data class ItemState(
     val route: Route,
     val isHoliday: Boolean = false,
