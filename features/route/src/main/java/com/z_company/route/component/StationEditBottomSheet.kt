@@ -85,7 +85,14 @@ fun StationEditBottomSheet(
             )
         )
     }
-    var localTrackNumber by remember { mutableStateOf(stationFormState?.trackNumber ?: "") }
+    var localTrackNumber by remember {
+        mutableStateOf(
+            TextFieldValue(
+                text = stationFormState?.trackNumber ?: "",
+                selection = TextRange(stationFormState?.trackNumber?.length ?: 0)
+            )
+        )
+    }
     var localArrival by remember { mutableStateOf(stationFormState?.arrival?.data) }
     var localDeparture by remember { mutableStateOf(stationFormState?.departure?.data) }
 
@@ -199,13 +206,10 @@ fun StationEditBottomSheet(
                     )
                     OutlinedTextFieldApp(
                         modifier = Modifier.fillMaxWidth(),
-                        value = TextFieldValue(
-                            text = localTrackNumber,
-                            selection = TextRange(localTrackNumber.length)
-                        ),
+                        value = localTrackNumber,
                         onValueChange = { newValue ->
                             if (newValue.text.length <= 4) {
-                                localTrackNumber = newValue.text
+                                localTrackNumber = newValue
                             }
                         },
                         placeholder = {
@@ -292,7 +296,7 @@ fun StationEditBottomSheet(
                 ),
                 onClick = {
                     val name = localName.text.ifBlank { null }
-                    val track = localTrackNumber.ifBlank { null }
+                    val track = localTrackNumber.text.ifBlank { null }
                     onSave(name, localArrival, localDeparture, track)
                 }
             ) {
