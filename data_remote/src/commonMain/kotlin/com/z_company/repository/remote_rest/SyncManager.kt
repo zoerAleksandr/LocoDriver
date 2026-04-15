@@ -333,12 +333,31 @@ class SyncManager(
             }
 
         // 3.5. Загрузка MonthOfYear (тарифные ставки) — best-effort
-        // Обновляем только те месяцы, которые пришли с сервера; локальные не трогаем
+        // Стратегия мержа: не перезаписываем days (они вычисляются из ProductionCalendarDay),
+        // обновляем только tariffRate и dateSetTariffRate.
+        // На свежей установке (localMonths пуст) — сохраняем с сервера напрямую.
         settingManager.getMonthOfYearListFromRemote(bearerToken)
             .catch { /* Не прерываем синхронизацию */ }
             .collect { loadState ->
                 if (loadState is ResultState.Success && loadState.data.isNotEmpty()) {
-                    calendarUseCase.saveCalendar(loadState.data).collect {}
+                    val serverMonths = loadState.data
+                    val localMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
+                    val toSave = if (localMonths.isEmpty()) {
+                        // Свежая установка — сохраняем с сервера как есть;
+                        // days будут заново заполнены при применении ProductionCalendar
+                        serverMonths
+                    } else {
+                        // Обновляем только tariffRate/dateSetTariffRate в существующих месяцах
+                        val serverByYearMonth = serverMonths.associateBy { it.year to it.month }
+                        localMonths.map { local ->
+                            val server = serverByYearMonth[local.year to local.month]
+                            if (server != null) local.copy(
+                                tariffRate = server.tariffRate,
+                                dateSetTariffRate = server.dateSetTariffRate
+                            ) else local
+                        }
+                    }
+                    calendarUseCase.saveCalendar(toSave).collect {}
                 }
             }
 
