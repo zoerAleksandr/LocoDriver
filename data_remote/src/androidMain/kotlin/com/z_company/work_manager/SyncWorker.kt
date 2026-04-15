@@ -18,7 +18,9 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.SyncManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.lastOrNull
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 import org.koin.core.component.KoinComponent
@@ -48,13 +50,29 @@ class SyncWorker(
                 }
                 val bearerToken = "Bearer $token"
 
-                val uploadResult = syncManager.syncToRemote(bearerToken).first { it !is ResultState.Loading }
-                if (uploadResult is ResultState.Success) {
-                    sharedPrefs.setLastSyncTimestamp(System.currentTimeMillis())
-                    Result.success()
-                } else {
-                    Result.retry()
+                // Загружаем все данные на сервер.
+                // ВАЖНО: собираем ВЕСЬ flow через lastOrNull() — syncToRemote эмитит
+                // промежуточные Success после каждого шага (UserSettings, SalarySetting,
+                // маршруты и т.д.). .first() забирал только первый Success и отменял
+                // остальные шаги, из-за чего синхронизировался только UserSettings.
+                val uploadResult = syncManager.syncToRemote(bearerToken)
+                    .filter { it !is ResultState.Loading }
+                    .lastOrNull()
+
+                if (uploadResult !is ResultState.Success) {
+                    return@withContext Result.retry()
                 }
+
+                // Загружаем данные с сервера (обновляем локальную БД).
+                // Best-effort: если download не удался — не делаем retry, upload уже выполнен.
+                try {
+                    syncManager.syncFromRemote(bearerToken)
+                        .filter { it !is ResultState.Loading }
+                        .lastOrNull()
+                } catch (_: Exception) { /* best-effort */ }
+
+                sharedPrefs.setLastSyncTimestamp(Clock.System.now().toEpochMilliseconds())
+                Result.success()
             } catch (e: Exception) {
                 Result.retry()
             }

@@ -62,10 +62,13 @@ class StartApp : Application() {
             .setConstraints(constraints)
             .build()
 
+        // UPDATE (вместо KEEP): обновляет параметры задачи при каждом запуске приложения.
+        // Это позволяет применять изменения конфигурации (интервал, constraints) после
+        // обновления приложения без переустановки. Расписание при этом сохраняется.
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
                 "sync_work",
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 periodicWorkRequest
             )
     }
