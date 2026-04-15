@@ -86,7 +86,7 @@ import androidx.lifecycle.flowWithLifecycle
 import coil.compose.AsyncImagePainter.State.Empty.painter
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.CustomSnackBar
-import com.z_company.core.ui.component.DateTimePickerBottomSheet
+import com.z_company.route.component.AppDateTimePicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
@@ -638,7 +638,7 @@ fun FormScreen(
                 }
 
                 if (showStartBreakDatePicker) {
-                    DateTimePickerBottomSheet(
+                    AppDateTimePicker(
                         title = "Начало перерыва",
                         onDateTimeSelected = { timestamp ->
                             onTimeStartBreakChanged(timestamp)
@@ -654,7 +654,7 @@ fun FormScreen(
                 }
 
                 if (showEndBreakDatePicker) {
-                    DateTimePickerBottomSheet(
+                    AppDateTimePicker(
                         title = "Окончание перерыва",
                         onDateTimeSelected = { timestamp ->
                             onTimeEndBreakChanged(timestamp)
@@ -719,7 +719,7 @@ fun FormScreen(
                 }
 
                 if (showStartDatePicker) {
-                    DateTimePickerBottomSheet(
+                    AppDateTimePicker(
                         title = "Явка",
                         onDateTimeSelected = { timestamp ->
                             onTimeStartWorkChanged(timestamp)
@@ -734,7 +734,7 @@ fun FormScreen(
                 }
 
                 if (showEndDatePicker) {
-                    DateTimePickerBottomSheet(
+                    AppDateTimePicker(
                         title = "Сдача",
                         onDateTimeSelected = { timestamp ->
                             onTimeEndWorkChanged(timestamp)
@@ -785,7 +785,7 @@ fun FormScreen(
 
                 // Диалог при копировании маршрута
                 if (showStartDatePickerCopyRoute) {
-                    DateTimePickerBottomSheet(
+                    AppDateTimePicker(
                         title = "Явка",
                         onDateTimeSelected = { timestamp ->
                             showStartDatePickerCopyRoute = false

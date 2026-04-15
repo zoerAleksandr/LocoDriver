@@ -37,7 +37,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "isDecimalTime",
             "UserSettings" to "country",
             "UserSettings" to "crossMonthTimezone",
-            "UserSettings" to "standardTimesStartWork")
+            "UserSettings" to "standardTimesStartWork",
+            "UserSettings" to "useStandardTimePicker")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
 
@@ -163,6 +164,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.isDecimalTime" to ColumnSpec("INTEGER", false, "0"),
             "UserSettings.country" to ColumnSpec("TEXT", false, "'RU'"),
             "UserSettings.crossMonthTimezone" to ColumnSpec("TEXT", false, "'LOCAL'"),
+            "UserSettings.useStandardTimePicker" to ColumnSpec("INTEGER", false, "0"),
             "UserSettings.standardTimesStartWork" to ColumnSpec("TEXT", false, "'[28800000, 72000000]'"),
             // Route — BasicData
             "BasicData.timeStartBreak" to ColumnSpec("INTEGER", true, "NULL"),

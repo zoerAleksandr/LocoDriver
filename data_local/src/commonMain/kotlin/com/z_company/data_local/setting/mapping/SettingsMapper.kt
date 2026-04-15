@@ -73,6 +73,7 @@ internal object SettingsMapper {
         crossMonthTimezone = runCatching {
             CrossMonthTimezone.valueOf(row.crossMonthTimezone)
         }.getOrElse { CrossMonthTimezone.LOCAL },
+        useStandardTimePicker = row.useStandardTimePicker != 0L,
     )
 }
 

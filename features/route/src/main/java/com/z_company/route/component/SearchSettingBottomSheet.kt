@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.z_company.core.ui.component.DateTimePickerBottomSheet
+import com.z_company.route.component.AppDateTimePicker
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.FilterNames
@@ -58,7 +58,7 @@ fun SearchSettingBottomSheet(
     }
 
     if (showDatePickerStart) {
-        DateTimePickerBottomSheet(
+        AppDateTimePicker(
             title = "Начало периода",
             onDateTimeSelected = { timestamp ->
                 startDate = timestamp
@@ -79,7 +79,7 @@ fun SearchSettingBottomSheet(
     }
 
     if (showDatePickerEnd) {
-        DateTimePickerBottomSheet(
+        AppDateTimePicker(
             title = "Конец периода",
             onDateTimeSelected = { timestamp ->
                 endDate = timestamp

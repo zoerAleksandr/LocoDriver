@@ -106,6 +106,14 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    fun changeTimePickerStyle() {
+        currentSettings?.let {
+            currentSettings = it.copy(
+                useStandardTimePicker = !it.useStandardTimePicker
+            )
+        }
+    }
+
     fun showDialogAddServicePhase(servicePhase: ServicePhase) {
         _uiState.update {
             it.copy(

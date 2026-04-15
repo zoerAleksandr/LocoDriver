@@ -81,7 +81,7 @@ import com.z_company.route.component.BottomShadow
 import com.z_company.route.extention.isScrollInInitialState
 import kotlinx.coroutines.launch
 import com.z_company.core.ui.component.CustomSnackBar
-import com.z_company.core.ui.component.DateTimePickerBottomSheet
+import com.z_company.route.component.AppDateTimePicker
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
@@ -483,7 +483,7 @@ fun FormPassengerScreen(
                         }
 
                         if (showDepartureDatePicker) {
-                            DateTimePickerBottomSheet(
+                            AppDateTimePicker(
                                 title = "Отправление",
                                 onDateTimeSelected = { timestamp ->
                                     onTimeDepartureChanged(timestamp)
@@ -624,7 +624,7 @@ fun FormPassengerScreen(
                         }
 
                         if (showArrivalDatePicker) {
-                            DateTimePickerBottomSheet(
+                            AppDateTimePicker(
                                 title = "Отправление",
                                 onDateTimeSelected = { timestamp ->
                                     onTimeArrivalChanged(timestamp)

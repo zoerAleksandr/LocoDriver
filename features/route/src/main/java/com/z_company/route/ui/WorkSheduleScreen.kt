@@ -76,8 +76,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ui.component.AutoSizeText
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.core.ui.component.CustomSnackBar
-import com.z_company.core.ui.component.TimePickerApp
+import com.z_company.route.component.AppTimePicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
@@ -169,6 +170,7 @@ fun WorkScheduleScreen(
 
     val snackbarManager: ISnackbarManager = koinInject()
     val pdfViewModel: PdfViewModel = koinInject()
+    val sharedPrefs: SharedPreferencesRepositories = koinInject()
     var showPdfDialog by remember { mutableStateOf(false) }
     var pdfUri by remember { mutableStateOf<android.net.Uri?>(null) }
 
@@ -1052,7 +1054,7 @@ fun WorkScheduleScreen(
 
     // Custom time sheet
     if (showCustomTimeSheet) {
-        TimePickerApp(
+        AppTimePicker(
             onTimeSelected = { millis ->
                 viewModel.addCustomTime(millis)
                 showCustomTimeSheet = false
@@ -1060,11 +1062,13 @@ fun WorkScheduleScreen(
             onDismiss = { showCustomTimeSheet = false },
             title = "Время явки",
             showTimeLabel = false,
+            recentTimes = sharedPrefs.getRecentTimes("appearance_time"),
+            onRecentTimeSaved = { sharedPrefs.addRecentTime("appearance_time", it) }
         )
     }
 
     if (showEndTimeSheet) {
-        TimePickerApp(
+        AppTimePicker(
             onTimeSelected = { millis ->
                 scope.launch {
                     viewModel.newRouteClick(millis)
@@ -1081,6 +1085,8 @@ fun WorkScheduleScreen(
                 }
                 showEndTimeSheet = false
             },
+            recentTimes = sharedPrefs.getRecentTimes("work_duration"),
+            onRecentTimeSaved = { sharedPrefs.addRecentTime("work_duration", it) }
         )
     }
 

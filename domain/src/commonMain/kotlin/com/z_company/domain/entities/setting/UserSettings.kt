@@ -45,6 +45,7 @@ data class UserSettings(
     val isShowOtherCurrent: Boolean = false,
     val country: String = "RU",
     val crossMonthTimezone: CrossMonthTimezone = CrossMonthTimezone.LOCAL,
+    val useStandardTimePicker: Boolean = false,
 )
 
 @Serializable

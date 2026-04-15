@@ -45,7 +45,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
-import com.z_company.core.ui.component.DateTimePickerBottomSheet
+import com.z_company.route.component.AppDateTimePicker
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 
@@ -464,7 +464,7 @@ fun Passenger12hBottomSheet(
 
     // -- Пикеры времени --
     if (showDeparturePicker) {
-        DateTimePickerBottomSheet(
+        AppDateTimePicker(
             title = "Отправление пассажиром",
             onDateTimeSelected = { timestamp ->
                 timeDeparture = timestamp - timestamp % 60_000L
@@ -476,7 +476,7 @@ fun Passenger12hBottomSheet(
     }
 
     if (showArrivalPicker) {
-        DateTimePickerBottomSheet(
+        AppDateTimePicker(
             title = "Прибытие пассажиром",
             onDateTimeSelected = { timestamp ->
                 timeArrival = timestamp - timestamp % 60_000L

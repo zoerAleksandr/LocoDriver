@@ -51,7 +51,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
-import com.z_company.core.ui.component.DateTimePickerBottomSheet
+import com.z_company.route.component.AppDateTimePicker
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.DateAndTimeFormat
@@ -338,7 +338,7 @@ fun StationEditBottomSheet(
 
     // Arrival DateTimePicker
     if (showArrivalPicker) {
-        DateTimePickerBottomSheet(
+        AppDateTimePicker(
             title = "Прибытие",
             onDateTimeSelected = { time ->
                 localArrival = time
@@ -352,7 +352,7 @@ fun StationEditBottomSheet(
 
     // Departure DateTimePicker
     if (showDeparturePicker) {
-        DateTimePickerBottomSheet(
+        AppDateTimePicker(
             title = "Отправление",
             onDateTimeSelected = { time ->
                 localDeparture = time

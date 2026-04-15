@@ -19,7 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.z_company.core.ui.component.TimePickerApp
+import com.z_company.route.component.AppTimePicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
@@ -46,7 +46,7 @@ fun SettingsAccountingContent(
         val initHour = currentSettings.nightTime.startNightHour
         val initMinute = currentSettings.nightTime.startNightMinute
         val initMillis = (initHour.times(3600000) + initMinute.times(60000)).toLong()
-        TimePickerApp(
+        AppTimePicker(
             initialTimeMillis = initMillis,
             onTimeSelected = { millis ->
                 val hour = ConverterLongToTime.getHour(millis)
@@ -66,7 +66,7 @@ fun SettingsAccountingContent(
         val initHour = currentSettings.nightTime.endNightHour
         val initMinute = currentSettings.nightTime.endNightMinute
         val initMillis = (initHour.times(3600000) + initMinute.times(60000)).toLong()
-        TimePickerApp(
+        AppTimePicker(
             initialTimeMillis = initMillis,
             onTimeSelected = { millis ->
                 val hour = ConverterLongToTime.getHour(millis)

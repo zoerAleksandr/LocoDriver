@@ -20,7 +20,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.component.CustomDivider
-import com.z_company.core.ui.component.TimePickerApp
+import com.z_company.route.component.AppTimePicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
@@ -43,7 +43,7 @@ fun SettingsRestContent(
     var showHomeRestDialog by remember { mutableStateOf(false) }
 
     if (showRestDialog) {
-        TimePickerApp(
+        AppTimePicker(
             initialTimeMillis = currentSettings.minTimeRestPointOfTurnover,
             onTimeSelected = { millis ->
                 restTimeChanged(millis)
@@ -57,7 +57,7 @@ fun SettingsRestContent(
     }
 
     if (showHomeRestDialog) {
-        TimePickerApp(
+        AppTimePicker(
             initialTimeMillis = currentSettings.minTimeHomeRest,
             onTimeSelected = { millis ->
                 homeRestTimeChanged(millis)

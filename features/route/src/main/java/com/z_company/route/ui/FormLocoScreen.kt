@@ -83,7 +83,7 @@ import com.z_company.domain.util.CalculationEnergy
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.DieselSectionItem
 import com.z_company.core.ui.component.CustomSnackBar
-import com.z_company.core.ui.component.DateTimePickerBottomSheet
+import com.z_company.route.component.AppDateTimePicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import org.koin.compose.koinInject
@@ -567,7 +567,7 @@ fun FormLocoScreen(
                                 }
 
                                 if (showStartAcceptedDatePicker) {
-                                    DateTimePickerBottomSheet(
+                                    AppDateTimePicker(
                                         title = "Начало приемки",
                                         onDateTimeSelected = { timestamp ->
                                             onStartAcceptedTimeChanged(timestamp)
@@ -586,7 +586,7 @@ fun FormLocoScreen(
                                 }
 
                                 if (showEndAcceptedDatePicker) {
-                                    DateTimePickerBottomSheet(
+                                    AppDateTimePicker(
                                         title = "Окончание приемки",
                                         onDateTimeSelected = { timestamp ->
                                             onEndAcceptedTimeChanged(timestamp)
@@ -726,7 +726,7 @@ fun FormLocoScreen(
                                 }
 
                                 if (showStartDeliveryDatePicker) {
-                                    DateTimePickerBottomSheet(
+                                    AppDateTimePicker(
                                         title = "Начало сдачи",
                                         onDateTimeSelected = { timestamp ->
                                             onStartDeliveryTimeChanged(timestamp)
@@ -745,7 +745,7 @@ fun FormLocoScreen(
                                 }
 
                                 if (showEndDeliveryDatePicker) {
-                                    DateTimePickerBottomSheet(
+                                    AppDateTimePicker(
                                         title = "Окончание сдачи",
                                         onDateTimeSelected = { timestamp ->
                                             onEndDeliveryTimeChanged(timestamp)

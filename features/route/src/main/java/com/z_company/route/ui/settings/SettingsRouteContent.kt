@@ -32,7 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.component.CustomDivider
-import com.z_company.core.ui.component.TimePickerApp
+import com.z_company.route.component.AppTimePicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
@@ -60,7 +60,7 @@ fun SettingsRouteContent(
     var showWorkTimeDialog by remember { mutableStateOf(false) }
 
     if (showWorkTimeDialog) {
-        TimePickerApp(
+        AppTimePicker(
             initialTimeMillis = currentSettings.defaultWorkTime,
             onTimeSelected = { millis ->
                 workTimeChanged(millis)
@@ -142,6 +142,36 @@ fun SettingsRouteContent(
                     Text(
                         modifier = Modifier.padding(end = 12.dp),
                         text = text,
+                        style = styleData,
+                        color = primaryColor,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 2
+                    )
+                }
+
+                CustomDivider(orientation = Orientation.Horizontal)
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .noRippleEffect { viewModel.changeTimePickerStyle() },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .weight(1f),
+                        text = "Стиль выбора времени",
+                        style = styleData,
+                        color = primaryColor,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 2
+                    )
+                    val pickerText = if (currentSettings.useStandardTimePicker) "Системный" else "Кастомный"
+                    Text(
+                        modifier = Modifier.padding(end = 12.dp),
+                        text = pickerText,
                         style = styleData,
                         color = primaryColor,
                         overflow = TextOverflow.Ellipsis,
