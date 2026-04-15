@@ -640,7 +640,12 @@ class PdfGenerator(private val context: Context) {
                     train.number?.let { "№$it" } ?: "б/н",
                     train.weight?.let { "Вес $it т" } ?: "",
                     train.axle?.let { "Оси $it" } ?: "",
-                    train.distance?.let { "у.д. $it" } ?: ""
+                    train.conditionalLength?.let { raw ->
+                        val fmt = raw.toDoubleOrNull()
+                            ?.let { d -> if (d == kotlin.math.floor(d)) d.toLong().toString() else raw }
+                            ?: raw
+                        "у.д. $fmt"
+                    } ?: ""
                 ), wTrain, bold = true
             )
 
