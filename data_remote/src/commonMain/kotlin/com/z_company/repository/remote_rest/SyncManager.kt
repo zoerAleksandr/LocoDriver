@@ -109,10 +109,12 @@ class SyncManager(
                 }
             }
 
-        // 2.5. Сохранение списка MonthOfYear (тарифные ставки) — best-effort
+        // 2.5. Сохранение тарифных ставок (MonthOfYear без days) — best-effort
+        // days хранятся отдельно в ProductionCalendarDay — не дублируем их в /year/
         val localMonthOfYearList = calendarUseCase.loadFlowMonthOfYearListState().first()
         if (localMonthOfYearList.isNotEmpty()) {
-            settingManager.saveMonthOfYearListInRemote(localMonthOfYearList, bearerToken)
+            val tariffOnlyList = localMonthOfYearList.map { it.copy(days = emptyList()) }
+            settingManager.saveMonthOfYearListInRemote(tariffOnlyList, bearerToken)
                 .catch { /* Не прерываем синхронизацию */ }
                 .collect {}
         }
@@ -454,10 +456,12 @@ class SyncManager(
                 }
             }
 
-        // 2.5. Сохранение списка MonthOfYear (тарифные ставки) — best-effort
+        // 2.5. Сохранение тарифных ставок (MonthOfYear без days) — best-effort
+        // days хранятся отдельно в ProductionCalendarDay — не дублируем их в /year/
         val localMonthOfYearListFirst = calendarUseCase.loadFlowMonthOfYearListState().first()
         if (localMonthOfYearListFirst.isNotEmpty()) {
-            settingManager.saveMonthOfYearListInRemote(localMonthOfYearListFirst, bearerToken)
+            val tariffOnlyListFirst = localMonthOfYearListFirst.map { it.copy(days = emptyList()) }
+            settingManager.saveMonthOfYearListInRemote(tariffOnlyListFirst, bearerToken)
                 .catch { /* Не прерываем синхронизацию */ }
                 .collect {}
         }
