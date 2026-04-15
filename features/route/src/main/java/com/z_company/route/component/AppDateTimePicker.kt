@@ -1,12 +1,16 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -14,7 +18,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.z_company.core.ui.component.DateTimePickerBottomSheet
 import com.z_company.domain.entities.setting.UserSettings
@@ -54,6 +59,11 @@ fun AppDateTimePicker(
             mutableLongStateOf(startDateTime ?: System.currentTimeMillis())
         }
 
+        val containerColor = MaterialTheme.colorScheme.secondary
+        val primaryColor = MaterialTheme.colorScheme.primary
+        val surfaceColor = MaterialTheme.colorScheme.surface
+        val selectedColor = MaterialTheme.colorScheme.surfaceContainerLow
+
         if (step == 0) {
             val datePickerState = rememberDatePickerState(
                 initialSelectedDateMillis = startDateTime ?: System.currentTimeMillis()
@@ -69,9 +79,45 @@ fun AppDateTimePicker(
                 },
                 dismissButton = {
                     TextButton(onClick = onDismiss) { Text("Отмена") }
-                }
+                },
+                colors = DatePickerDefaults.colors(containerColor = containerColor)
             ) {
-                DatePicker(state = datePickerState, title = { Text(title) })
+                DatePicker(
+                    state = datePickerState,
+                    title = {
+                        if (title.isNotEmpty()) {
+                            Text(
+                                text = title,
+                                modifier = Modifier.padding(
+                                    start = 24.dp,
+                                    end = 12.dp,
+                                    top = 16.dp,
+                                    bottom = 4.dp
+                                ),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = primaryColor
+                            )
+                        }
+                    },
+                    colors = DatePickerDefaults.colors(
+                        containerColor = containerColor,
+                        titleContentColor = primaryColor,
+                        headlineContentColor = primaryColor,
+                        weekdayContentColor = primaryColor,
+                        subheadContentColor = primaryColor,
+                        navigationContentColor = primaryColor,
+                        yearContentColor = primaryColor,
+                        currentYearContentColor = primaryColor,
+                        selectedYearContainerColor = selectedColor,
+                        selectedYearContentColor = containerColor,
+                        dayContentColor = primaryColor,
+                        selectedDayContainerColor = selectedColor,
+                        selectedDayContentColor = containerColor,
+                        todayContentColor = primaryColor,
+                        todayDateBorderColor = selectedColor,
+                        dividerColor = surfaceColor,
+                    )
+                )
             }
         } else {
             val zone = TimeZone.getTimeZone(timeZoneStr)
@@ -85,6 +131,7 @@ fun AppDateTimePicker(
             )
             AlertDialog(
                 onDismissRequest = onDismiss,
+                containerColor = containerColor,
                 confirmButton = {
                     TextButton(onClick = {
                         val result = Calendar.getInstance(zone).apply {
@@ -94,14 +141,30 @@ fun AppDateTimePicker(
                             set(Calendar.SECOND, 0)
                             set(Calendar.MILLISECOND, 0)
                         }.timeInMillis
+                        onRecentTimeSaved?.invoke(result)
                         onDateTimeSelected(result)
                     }) { Text("ОК") }
                 },
                 dismissButton = {
                     TextButton(onClick = { step = 0 }) { Text("Назад") }
                 },
-                title = { Text(title) },
-                text = { TimePicker(state = timePickerState) }
+                title = { Text(text = title, color = primaryColor) },
+                text = {
+                    TimePicker(
+                        state = timePickerState,
+                        colors = TimePickerDefaults.colors(
+                            clockDialColor = surfaceColor,
+                            selectorColor = selectedColor,
+                            clockDialSelectedContentColor = containerColor,
+                            clockDialUnselectedContentColor = primaryColor,
+                            containerColor = containerColor,
+                            timeSelectorSelectedContainerColor = selectedColor,
+                            timeSelectorUnselectedContainerColor = surfaceColor,
+                            timeSelectorSelectedContentColor = containerColor,
+                            timeSelectorUnselectedContentColor = primaryColor,
+                        )
+                    )
+                }
             )
         }
     } else {

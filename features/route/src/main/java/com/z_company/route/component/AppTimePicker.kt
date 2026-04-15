@@ -2,9 +2,11 @@ package com.z_company.route.component
 
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,19 +50,42 @@ fun AppTimePicker(
             initialMinute = initialMinute,
             is24Hour = true
         )
+
+        val containerColor = MaterialTheme.colorScheme.secondary
+        val primaryColor = MaterialTheme.colorScheme.primary
+        val surfaceColor = MaterialTheme.colorScheme.surface
+        val selectedColor = MaterialTheme.colorScheme.surfaceContainerLow
+
         AlertDialog(
             onDismissRequest = onDismiss,
+            containerColor = containerColor,
             confirmButton = {
                 TextButton(onClick = {
                     val ms = timePickerState.hour * 3_600_000L + timePickerState.minute * 60_000L
+                    onRecentTimeSaved?.invoke(ms)
                     onTimeSelected(ms)
                 }) { Text("ОК") }
             },
             dismissButton = {
                 TextButton(onClick = onCancelButton) { Text(cancelButtonText) }
             },
-            title = { Text(title) },
-            text = { TimePicker(state = timePickerState) }
+            title = { Text(text = title, color = primaryColor) },
+            text = {
+                TimePicker(
+                    state = timePickerState,
+                    colors = TimePickerDefaults.colors(
+                        clockDialColor = surfaceColor,
+                        selectorColor = selectedColor,
+                        clockDialSelectedContentColor = containerColor,
+                        clockDialUnselectedContentColor = primaryColor,
+                        containerColor = containerColor,
+                        timeSelectorSelectedContainerColor = selectedColor,
+                        timeSelectorUnselectedContainerColor = surfaceColor,
+                        timeSelectorSelectedContentColor = containerColor,
+                        timeSelectorUnselectedContentColor = primaryColor,
+                    )
+                )
+            }
         )
     } else {
         TimePickerApp(
