@@ -73,9 +73,10 @@ fun FormDestination(
                     }
 
                     FormScreenEvent.RouteSaved -> {
-                        // Toast буферизуется в SnackbarManager (extraBufferCapacity=64):
-                        // после навигации его подхватит HomeScreen's коллектор.
-                        snackbarManager.show(message = "Маршрут сохранен")
+                        // Не показываем тост здесь: FormScreen ещё активен и его
+                        // SnackbarHost поглотит событие из Channel до того как HomeScreen
+                        // станет активным коллектором. Тост «Маршрут сохранен» показывается
+                        // из FormViewModel после завершения навигации (delay + sync).
                         launch { viewModel.prepareReviewDialog() }
                         router.showHome(HomeRoute.route)
                     }

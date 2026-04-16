@@ -888,22 +888,23 @@ class FormViewModel(
                             passengerUseCase.removePassenger(passenger).collect {}
                         }
                         _events.emit(FormScreenEvent.RouteSaved)
-                        // Синхронизация в scope, не привязанном к ViewModel:
-                        // после RouteSaved навигируем на HomeScreen → ViewModel
-                        // уничтожается → viewModelScope отменяется до завершения sync.
+                        // Оба тоста показываем из этого scope ПОСЛЕ навигации:
+                        // FormScreen ещё активен как SnackbarManager-коллектор в момент
+                        // RouteSaved — он поглощает событие из Channel и исчезает вместе
+                        // с экраном. Delay даёт навигации завершиться (~300мс анимация),
+                        // после чего HomeScreen становится активным коллектором.
                         val savedRouteId = routeToSave.basicData.id
                         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                            delay(400)
+                            snackbarManager.show("Маршрут сохранен")
                             val rawToken = secureTokenStorage.getAuthBearerTokenFlow().first()
-                            if (!rawToken.isNullOrBlank()) {
-                                syncManager.syncRoute(savedRouteId, "Bearer $rawToken")
-                                    .collect { result ->
-                                        if (result is ResultState.Success) {
-                                            // SnackbarManager singleton — после навигации
-                                            // toast подхватит HomeScreen's коллектор
-                                            snackbarManager.show("Маршрут сохранен в облаке")
-                                        }
+                            if (rawToken.isNullOrBlank()) return@launch
+                            syncManager.syncRoute(savedRouteId, "Bearer $rawToken")
+                                .collect { result ->
+                                    if (result is ResultState.Success) {
+                                        snackbarManager.show("Маршрут сохранен в облаке")
                                     }
-                            }
+                                }
                         }
                     }
                 }
