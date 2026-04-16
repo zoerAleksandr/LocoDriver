@@ -1,9 +1,9 @@
 package com.z_company.core.ui.snackbar
 
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.Flow
 
 interface ISnackbarManager {
-    val events: SharedFlow<SnackbarEvent>
+    val events: Flow<SnackbarEvent>
     fun show(
         message: String,
         actionLabel: String? = null,

@@ -151,7 +151,7 @@ fun AllRouteScreen(
     LaunchedEffect(Unit) {
         snackbarManager.events
             .flowWithLifecycle(lifecycle)
-            .collectLatest { event ->
+            .collect { event ->
                 val result = snackbarHostState.showSnackbar(
                     message = event.message,
                     actionLabel = event.actionLabel,
