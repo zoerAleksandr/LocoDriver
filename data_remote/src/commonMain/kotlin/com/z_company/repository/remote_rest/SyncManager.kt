@@ -416,8 +416,17 @@ class SyncManager(
                 when (loadState) {
                     is ResultState.Success -> {
                         val routes = loadState.data
+                        // Маршруты, помеченные локально как удалённые (isDeleted = true),
+                        // не перезаписываем данными с сервера — сервер мог ещё не получить
+                        // команду DELETE (сеть, тайм-аут). Следующий syncToRemote
+                        // повторит удаление.
+                        val localDeletedIds = routeUseCase.listRouteWithDeleting()
+                            .filter { it.basicData.isDeleted }
+                            .map { it.basicData.id }
+                            .toSet()
                         var savedCount = 0
                         for (route in routes) {
+                            if (route.basicData.id in localDeletedIds) continue
                             val r = route.copy(
                                 basicData = route.basicData.copy(isSynchronized = true)
                             )
