@@ -750,7 +750,13 @@ class FormViewModel(
         _currentRoute.update { route ->
             route?.copy(locomotives = route.locomotives.filter { it != locomotive } as MutableList<Locomotive>)
         }
+        // Сразу удаляем из БД: подписка routeDetails вернёт актуальный список без этого элемента.
+        // Отложенное удаление через deletedLocoList приводило к тому, что DB emit
+        // от autosave восстанавливал элемент обратно в UI до явного «Сохранить».
         deletedLocoList.add(locomotive)
+        viewModelScope.launch(Dispatchers.IO) {
+            locoUseCase.removeLoco(locomotive).collect {}
+        }
         changesHave()
     }
 
@@ -759,6 +765,9 @@ class FormViewModel(
             route?.copy(trains = route.trains.filter { it != train } as MutableList<Train>)
         }
         deletedTrainList.add(train)
+        viewModelScope.launch(Dispatchers.IO) {
+            trainUseCase.removeTrain(train).collect {}
+        }
         changesHave()
     }
 
@@ -767,6 +776,9 @@ class FormViewModel(
             route?.copy(passengers = route.passengers.filter { it != passenger } as MutableList<Passenger>)
         }
         deletedPassengerList.add(passenger)
+        viewModelScope.launch(Dispatchers.IO) {
+            passengerUseCase.removePassenger(passenger).collect {}
+        }
         changesHave()
     }
 
