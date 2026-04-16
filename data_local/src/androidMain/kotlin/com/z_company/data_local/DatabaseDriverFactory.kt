@@ -350,6 +350,30 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_Locomotive_basicId ON Locomotive(basicId)")
             }
 
+            // Создаём BasicData, если она ещё не существует
+            // (критическая таблица; без неё любой SELECT упадёт с "no such table/column")
+            if (!hasTable(db, "BasicData")) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS BasicData (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        remoteRouteId TEXT DEFAULT NULL,
+                        isOnePersonOperation INTEGER NOT NULL DEFAULT 0,
+                        isSynchronized INTEGER NOT NULL DEFAULT 0,
+                        remoteObjectId TEXT,
+                        isDeleted INTEGER NOT NULL DEFAULT 0,
+                        updatedAt TEXT NOT NULL DEFAULT '',
+                        number TEXT,
+                        timeStartWork INTEGER,
+                        timeEndWork INTEGER,
+                        restPointOfTurnover INTEGER NOT NULL DEFAULT 0,
+                        notes TEXT,
+                        isFavorite INTEGER NOT NULL DEFAULT 0,
+                        timeStartBreak INTEGER,
+                        timeEndBreak INTEGER
+                    )
+                """.trimIndent())
+            }
+
             // Создаём Locomotive, если она ещё не существует
             // (случай: Room→SQLDelight, версия выставлена без прохождения миграций 1-3)
             if (!hasTable(db, "Locomotive")) {
