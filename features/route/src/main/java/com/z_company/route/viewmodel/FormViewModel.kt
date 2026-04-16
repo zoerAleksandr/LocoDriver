@@ -281,7 +281,6 @@ class FormViewModel(
                                     id = UUID.randomUUID().toString()
                                 )
                             ) else result.data
-                            _currentRoute.value = loadedRoute
                             _uiState.update { it.copy(routeDetailState = result) }
                             countLoadRoute += 1
                             if (isCopy && countLoadRoute == 1) {
@@ -289,8 +288,25 @@ class FormViewModel(
                                 // перехода в подразделы — пользователь может их не открывать
                                 loadedRoute?.let { performInitialSave(it) }
                             }
-                            if (countLoadRoute > 1) {
-                                changesHave()
+                            if (countLoadRoute == 1) {
+                                // Первая загрузка: устанавливаем весь маршрут из БД
+                                _currentRoute.value = loadedRoute
+                            } else {
+                                // Возврат с подэкрана (Loco/Train/Passenger/Photo):
+                                // обновляем только подразделы, BasicData берём из памяти —
+                                // чтобы не затирать то, что пользователь ввёл в поля.
+                                // changesHave() НЕ вызываем — это DB-событие, а не ввод пользователя,
+                                // иначе возникает бесконечный цикл: autosave→DB emit→changesHave→autosave
+                                loadedRoute?.let { dbRoute ->
+                                    _currentRoute.update { inMemory ->
+                                        inMemory?.copy(
+                                            locomotives = dbRoute.locomotives,
+                                            trains = dbRoute.trains,
+                                            passengers = dbRoute.passengers,
+                                            photos = dbRoute.photos
+                                        ) ?: dbRoute
+                                    }
+                                }
                             }
                         } else {
                             _uiState.update { it.copy(routeDetailState = result) }
@@ -914,8 +930,6 @@ class FormViewModel(
     // Изменения
     private fun changesHave() {
         sharedPreferenceStorage.setTokenIsChangeHave(true)
-        // Сбрасываем флаг синхронизации — данные изменились
-        _currentRoute.update { it?.copy(basicData = it.basicData.copy(isSynchronized = false)) }
         if (!_uiState.value.changesHaveState) {
             _uiState.update { it.copy(changesHaveState = true) }
         }
@@ -1105,7 +1119,18 @@ class FormViewModel(
         loadRouteJob = routeUseCase.routeDetails(routeId).onEach { routeState ->
             _uiState.update { it.copy(routeDetailState = routeState) }
             if (routeState is ResultState.Success) {
-                _currentRoute.value = routeState.data
+                val dbRoute = routeState.data ?: return@onEach
+                // Обновляем только подразделы из БД.
+                // BasicData (номер, времена, примечания) хранится в памяти —
+                // перезапись из БД затирает текущий ввод пользователя.
+                _currentRoute.update { inMemory ->
+                    inMemory?.copy(
+                        locomotives = dbRoute.locomotives,
+                        trains = dbRoute.trains,
+                        passengers = dbRoute.passengers,
+                        photos = dbRoute.photos
+                    ) ?: dbRoute
+                }
             }
         }.launchIn(viewModelScope)
     }
