@@ -134,6 +134,15 @@ object DoubleAsStringSerializer : KSerializer<Double> {
     }
 
     override fun deserialize(decoder: Decoder): Double {
+        // Принимаем и строку ("1783.32") и JSON-число (1783.32 или 1783).
+        // Без этого уже сохранённые на сервере целые числа (из-за старого бага) не читались бы.
+        if (decoder is JsonDecoder) {
+            val element = decoder.decodeJsonElement()
+            if (element is JsonPrimitive) {
+                element.doubleOrNull?.let { return it }
+                return element.content.toDouble()
+            }
+        }
         return decoder.decodeString().toDouble()
     }
 }

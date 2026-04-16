@@ -5,10 +5,22 @@ import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.SectionDiesel
 import com.z_company.domain.entities.route.SectionElectric
+import com.z_company.domain.entities.serializers.DoubleAsStringSerializer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.contextual
 
-private val json = Json { ignoreUnknownKeys = true; isLenient = true; encodeDefaults = true }
+private val json = Json {
+    ignoreUnknownKeys = true
+    isLenient = true
+    encodeDefaults = true
+    // Нужен для @Contextual Double? в SectionElectric — без этого
+    // encodeToString/decodeFromString выбросят SerializerNotFoundException
+    serializersModule = SerializersModule {
+        contextual(DoubleAsStringSerializer)
+    }
+}
 
 internal object LocomotiveMapper {
 

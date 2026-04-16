@@ -2,6 +2,7 @@ package com.z_company.domain.entities.route
 
 import com.z_company.domain.entities.serializers.NumberAsDoubleSerializer
 import com.z_company.domain.util.generateId
+import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -34,14 +35,17 @@ data class SectionElectric(
     var sectionId: String = generateId(),
     var locoId: String = "",
     var type: LocoType = LocoType.ELECTRIC,
-    var acceptedEnergy: Double? = null,
-    var deliveryEnergy: Double? = null,
-    var acceptedRecovery: Double? = null,
-    var deliveryRecovery: Double? = null,
-    var acceptedEnergyOtherCurrent: Double? = null,
-    var deliveryEnergyOtherCurrent: Double? = null,
-    var acceptedRecoveryOtherCurrent: Double? = null,
-    var deliveryRecoveryOtherCurrent: Double? = null
+    // @Contextual — использует DoubleAsStringSerializer через RemoteRestClient.appJson.
+    // Числа отправляются на сервер как строки ("1783.32"), что предотвращает
+    // потерю дробной части при хранении на сервере.
+    @Contextual var acceptedEnergy: Double? = null,
+    @Contextual var deliveryEnergy: Double? = null,
+    @Contextual var acceptedRecovery: Double? = null,
+    @Contextual var deliveryRecovery: Double? = null,
+    @Contextual var acceptedEnergyOtherCurrent: Double? = null,
+    @Contextual var deliveryEnergyOtherCurrent: Double? = null,
+    @Contextual var acceptedRecoveryOtherCurrent: Double? = null,
+    @Contextual var deliveryRecoveryOtherCurrent: Double? = null
 )
 
 @Serializable
