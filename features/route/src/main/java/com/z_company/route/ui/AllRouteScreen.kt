@@ -20,10 +20,8 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
@@ -49,7 +47,6 @@ import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
 import com.z_company.route.viewmodel.all_route_view_model.SortOption
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -84,7 +81,6 @@ fun AllRouteScreen(
 
     val redOrange = Color(0xFFf1642e)
 
-    val isExpandedView by viewModel.uiState.map { it.isExpandedView }.collectAsState(initial = false)
     var isFilterSheetVisible by remember { mutableStateOf(false) }
 
     var isMonthSheetVisible by remember { mutableStateOf(false) }
@@ -171,27 +167,25 @@ fun AllRouteScreen(
             }
     }
 
+    // выбор диалога о рекомендации или необходимости подписки
+    LaunchedEffect(Unit) {
+        viewModel.alertBeforePurchasesEvent.flowWithLifecycle(lifecycle).collect { event ->
+            when (event) {
+                is AlertBeforePurchasesEvent.ShowDialogNeedSubscribe -> {
+                    isShowNeedSubscribeDialog = true
+                }
+
+                is AlertBeforePurchasesEvent.ShowDialogAlertSubscribe -> {
+                    isShowAlertSubscribeDialog = true
+                }
+            }
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         modifier = modifier.fillMaxSize()
     ) { padding ->
-        // выбор диалога о рекомендации или необходимости подписки
-        LaunchedEffect(viewModel.alertBeforePurchasesEvent) {
-            coroutineScope.launch {
-                viewModel.alertBeforePurchasesEvent.flowWithLifecycle(lifecycle).collect { event ->
-                    when (event) {
-                        is AlertBeforePurchasesEvent.ShowDialogNeedSubscribe -> {
-                            isShowNeedSubscribeDialog = true
-                        }
-
-                        is AlertBeforePurchasesEvent.ShowDialogAlertSubscribe -> {
-                            isShowAlertSubscribeDialog = true
-                        }
-                    }
-                }
-            }
-        }
-
         // Month selection bottom sheet
         if (isMonthSheetVisible) {
             state.currentMonthOfYear?.let { monthOfYear ->
@@ -533,14 +527,14 @@ fun AllRouteScreen(
                             viewModel.toggleExpandedView()
                         }
                     ) {
-                        AnimatedContent(targetState = isExpandedView) { isExpand ->
+                        AnimatedContent(targetState = state.isExpandedView) { isExpand ->
                             val icon =
                                 if (isExpand) painterResource(R.drawable.collapse_content_24px) else painterResource(
                                     R.drawable.expand_content_24px
                                 )
                             Icon(
                                 painter = icon,
-                                contentDescription = if (isExpandedView) "Свернуть" else "Развернуть"
+                                contentDescription = if (state.isExpandedView) "Свернуть" else "Развернуть"
                             )
                         }
                     }
@@ -590,18 +584,6 @@ fun AllRouteScreen(
                 }
 
                 else -> {
-                    var background = MaterialTheme.colorScheme.secondary
-
-                    var requiredSize by remember {
-                        mutableStateOf(22.sp)
-                    }
-
-                    fun changingTextSize(value: TextUnit) {
-                        if (requiredSize > value) {
-                            requiredSize = value
-                        }
-                    }
-
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(8.dp)
@@ -612,40 +594,44 @@ fun AllRouteScreen(
                                 key = { _, it -> it.route.basicData.id }
                             ) { index, routeState ->
                                 val route = routeState.route
-                                background =
-                                    if (route.isFuture(viewModel.offsetInMoscow)) {
-                                        MaterialTheme.colorScheme.surfaceBright
+                                val background = if (route.isFuture(viewModel.offsetInMoscow)) {
+                                    MaterialTheme.colorScheme.surfaceBright
+                                } else {
+                                    if (route.isTransition(viewModel.offsetInMoscow)) {
+                                        MaterialTheme.colorScheme.surfaceDim
                                     } else {
-                                        if (route.isTransition(viewModel.offsetInMoscow)) {
-                                            MaterialTheme.colorScheme.surfaceDim
-                                        } else {
-                                            MaterialTheme.colorScheme.secondary
-                                        }
+                                        MaterialTheme.colorScheme.secondary
                                     }
-
+                                }
+                                val routeId = route.basicData.id
+                                val onClickMemo = remember(routeId) { { onRouteClick(routeId) } }
+                                val onRequestDeleteMemo: (Route) -> Unit = remember(route) {
+                                    { _ ->
+                                        isShowDialogConfirmRemoveRoute = true
+                                        routeForRemove = route
+                                    }
+                                }
+                                val onLongClickMemo = remember(route) {
+                                    {
+                                        routeForPreview = route
+                                        showContextDialog = true
+                                    }
+                                }
 
                                 ItemHomeScreen(
                                     modifier = Modifier.animateItem(),
                                     route = route,
                                     convertTimeToString = viewModel::convertTimeToStringFormat,
-                                    onClick = { onRouteClick(route.basicData.id) },
-                                    onRequestDelete = {
-                                        isShowDialogConfirmRemoveRoute = true
-                                        routeForRemove = route
-                                    },
-                                    requiredSizeText = requiredSize,
-                                    isExpand = isExpandedView,
-                                    changingTextSize = ::changingTextSize,
-                                    onLongClick = {
-                                        routeForPreview = route
-                                        showContextDialog = true
-                                    },
+                                    onClick = onClickMemo,
+                                    onRequestDelete = onRequestDeleteMemo,
+                                    isExpand = state.isExpandedView,
+                                    onLongClick = onLongClickMemo,
                                     containerColor = background,
                                     dateAndTimeConverter = converter,
                                     isHeavyTrains = routeState.isHeavyTrains,
                                     isHolidayTimeInRoute = routeState.isHoliday,
                                     isExtendedServicePhaseTrains = routeState.isExtendedServicePhaseTrains,
-                                    number = displayedRoutes.size - displayedRoutes.indexOf(routeState)
+                                    number = displayedRoutes.size - index
                                 )
 
                                 val showRestLine = if (index + 1 < displayedRoutes.size) {

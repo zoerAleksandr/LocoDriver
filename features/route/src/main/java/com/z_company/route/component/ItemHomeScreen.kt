@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Route
 import com.z_company.core.ui.component.AutoSizeText
@@ -81,8 +82,8 @@ fun ItemHomeScreen(
     convertTimeToString: (Long?) -> String,
     isExpand: Boolean = false,
     onRequestDelete: (Route) -> Unit,
-    requiredSizeText: TextUnit,
-    changingTextSize: (TextUnit) -> Unit,
+    requiredSizeText: TextUnit = 22.sp,
+    changingTextSize: (TextUnit) -> Unit = {},
     onLongClick: () -> Unit = {},
     containerColor: Color,
     onClick: () -> Unit,
@@ -97,6 +98,18 @@ fun ItemHomeScreen(
     timeCalculationContext: TimeCalculationContext? = null,
 ) {
     val dismissState = rememberDismissState()
+
+    // --- мемоизируем тяжёлые вычисления по route ---
+    val sortedTrains = remember(route) {
+        route.trains
+            .filter { it.stations.firstOrNull()?.timeDeparture != null }
+            .sortedByDescending { it.stations.firstOrNull()?.timeDeparture } +
+            route.trains.filter { it.stations.firstOrNull()?.timeDeparture == null }
+    }
+    val breakDuration = remember(route) { route.getBreakDuration() }
+    val passengerTime = remember(route) { route.getPassengerTime() }
+    val workTime = remember(route) { route.getWorkTime() }
+
     // --- memoized texts to avoid repeated computation on recomposition ---
     val (timeTextMemo, workTimeStringMemo) = remember(route, dateAndTimeConverter) {
         val startWork =
@@ -250,14 +263,8 @@ fun ItemHomeScreen(
                         }
                     }
 
-                    // Сортировка: поезда с временем отправления первой станции — по убыванию
-                    // (последний отправившийся сверху), поезда без времени — в порядке добавления.
-                    val sortedTrains = route.trains
-                        .filter { it.stations.firstOrNull()?.timeDeparture != null }
-                        .sortedByDescending { it.stations.firstOrNull()?.timeDeparture } +
-                        route.trains.filter { it.stations.firstOrNull()?.timeDeparture == null }
-
                     // If expanded -> show all locomotives/trains/passengers; else show last ones only
+                    // sortedTrains мемоизирован выше через remember(route)
                     if (isExpand) {
                         if (sortedTrains.isNotEmpty()) {
                             Column(modifier = Modifier.fillMaxWidth()) {
@@ -686,7 +693,7 @@ fun ItemHomeScreen(
                                         contentDescription = null
                                     )
                                 }
-                                if (route.getBreakDuration() > 0L) {
+                                if (breakDuration > 0L) {
                                     Icon(
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp),
@@ -718,7 +725,7 @@ fun ItemHomeScreen(
                                         contentDescription = null
                                     )
                                 }
-                                route.getPassengerTime()?.let { time ->
+                                passengerTime?.let { time ->
                                     if (time > 0L) {
                                         Icon(
                                             tint = MaterialTheme.colorScheme.primary,
@@ -728,7 +735,7 @@ fun ItemHomeScreen(
                                         )
                                     }
                                 }
-                                route.getWorkTime()?.let { time ->
+                                workTime?.let { time ->
                                     val oneHourInMillis = 3600000
                                     val normaHours = 12
                                     if (time > normaHours * oneHourInMillis) {

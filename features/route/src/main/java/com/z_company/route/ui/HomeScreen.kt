@@ -125,6 +125,7 @@ import com.z_company.route.viewmodel.home_view_model.ItemState
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import java.util.Calendar
@@ -293,21 +294,17 @@ fun HomeScreen(
         mutableStateOf(false)
     }
 
-    val currentRouteWorkTime by produceState(initialValue = "") {
+    val currentRouteWorkTime by remember(lifecycle) {
         currentRouteTimeWork
             .flowWithLifecycle(lifecycle)
-            .collect { time ->
-                value = ConverterLongToTime.getTimeInStringFormat(time)
-            }
-    }
+            .map { ConverterLongToTime.getTimeInStringFormat(it) }
+    }.collectAsState(initial = "")
 
-    val countdownText by produceState(initialValue = "") {
+    val countdownText by remember(lifecycle) {
         countdownToNextRoute
             .flowWithLifecycle(lifecycle)
-            .collect { time ->
-                value = ConverterLongToTime.getTimeInStringFormat(time)
-            }
-    }
+            .map { ConverterLongToTime.getTimeInStringFormat(it) }
+    }.collectAsState(initial = "")
 
     LaunchedEffect(saveTimeEvent) {
         saveTimeEvent.collectLatest {
@@ -1327,15 +1324,6 @@ fun HomeScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             dateAndTimeConverter?.let {
-                                var requiredSize by remember {
-                                    mutableStateOf(20.sp)
-                                }
-
-                                fun changingTextSize(value: TextUnit) {
-                                    if (requiredSize > value) {
-                                        requiredSize = value
-                                    }
-                                }
                                 if (listRouteState.isNotEmpty()) {
                                     val route = listRouteState.first().route
                                     var background = MaterialTheme.colorScheme.secondary
@@ -1353,14 +1341,11 @@ fun HomeScreen(
                                     ItemHomeScreen(
                                         modifier = Modifier.animateItem(),
                                         convertTimeToString = viewModel::convertTimeToStringFormat,
-//                                        dismissState = dismissState,
                                         route = route,
                                         onRequestDelete = {
                                             routeForRemove = route
                                             isShowDialogConfirmRemoveRoute = true
                                         },
-                                        requiredSizeText = requiredSize,
-                                        changingTextSize = ::changingTextSize,
                                         onLongClick = {
                                             showContextDialog = true
                                             routeForPreview = route
@@ -1409,8 +1394,6 @@ fun HomeScreen(
                                             routeForRemove = route
                                             isShowDialogConfirmRemoveRoute = true
                                         },
-                                        requiredSizeText = requiredSize,
-                                        changingTextSize = ::changingTextSize,
                                         onLongClick = {
                                             showContextDialog = true
                                             routeForPreview = route
