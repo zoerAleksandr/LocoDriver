@@ -332,7 +332,12 @@ class FormViewModel(
 
     override fun onCleared() {
         autoSaveJob?.cancel()
+        loadRouteJob?.cancel()
         saveRouteJob?.cancel()
+        loadSettingsJob?.cancel()
+        deleteLocoJob?.cancel()
+        deleteTrainJob?.cancel()
+        deletePassengerJob?.cancel()
         // Гарантированное финальное сохранение при уходе с экрана
         if (isPersistedToDb) {
             CoroutineScope(NonCancellable + Dispatchers.IO).launch {
@@ -1100,13 +1105,4 @@ class FormViewModel(
 //        }
 //    }
 
-    override fun onCleared() {
-        super.onCleared()
-        loadRouteJob?.cancel()
-        saveRouteJob?.cancel()
-        loadSettingsJob?.cancel()
-        deleteLocoJob?.cancel()
-        deleteTrainJob?.cancel()
-        deletePassengerJob?.cancel()
-    }
 }
