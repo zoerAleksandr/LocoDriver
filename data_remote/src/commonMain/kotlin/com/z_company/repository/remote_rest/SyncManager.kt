@@ -416,11 +416,31 @@ class SyncManager(
                 when (loadState) {
                     is ResultState.Success -> {
                         val routes = loadState.data
+                        // Серверный эндпоинт POST /v1/route/ делает upsert подразделов —
+                        // он добавляет/обновляет вложенные записи, но НЕ удаляет те,
+                        // которых нет в теле запроса. Поэтому при загрузке с сервера
+                        // для маршрутов, уже синхронизированных локально, используем
+                        // локальные подразделы как источник истины, чтобы удалённые
+                        // локально записи не восстановились из облака.
+                        val localRouteMap = routeUseCase.listRouteWithDeleting()
+                            .associateBy { it.basicData.id }
                         var savedCount = 0
                         for (route in routes) {
-                            val r = route.copy(
-                                basicData = route.basicData.copy(isSynchronized = true)
-                            )
+                            val localRoute = localRouteMap[route.basicData.id]
+                            val r = if (localRoute != null && localRoute.basicData.isSynchronized) {
+                                // Маршрут уже синхронизирован: берём подразделы из локальной БД,
+                                // чтобы не вернуть то, что пользователь удалил.
+                                route.copy(
+                                    basicData = route.basicData.copy(isSynchronized = true),
+                                    locomotives = localRoute.locomotives,
+                                    trains = localRoute.trains,
+                                    passengers = localRoute.passengers,
+                                    photos = localRoute.photos
+                                )
+                            } else {
+                                // Новый или ещё не синхронизированный маршрут — берём с сервера полностью.
+                                route.copy(basicData = route.basicData.copy(isSynchronized = true))
+                            }
                             routeUseCase.saveRouteAfterLoading(r)
                                 .collect { saveResult ->
                                     when (saveResult) {
