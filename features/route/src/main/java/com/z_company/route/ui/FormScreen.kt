@@ -529,11 +529,8 @@ fun FormScreen(
             }
         }
 
-        if (formUiState.saveRouteState is ResultState.Success) {
-            LaunchedEffect(formUiState.saveRouteState) {
-                exitScreen()
-            }
-        }
+        // Навигация при успешном сохранении обрабатывается через FormScreenEvent.RouteSaved
+        // в FormDestination.kt — там же показывается toast «Маршрут сохранен».
 
         if (formUiState.exitFromScreen) {
             LaunchedEffect(Unit) {

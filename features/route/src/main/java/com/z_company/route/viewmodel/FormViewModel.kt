@@ -888,15 +888,21 @@ class FormViewModel(
                             passengerUseCase.removePassenger(passenger).collect {}
                         }
                         _events.emit(FormScreenEvent.RouteSaved)
-                        // Запускаем синхронизацию в scope, не привязанном к ViewModel:
-                        // exitScreen() вызывается сразу после RouteSaved → ViewModel
+                        // Синхронизация в scope, не привязанном к ViewModel:
+                        // после RouteSaved навигируем на HomeScreen → ViewModel
                         // уничтожается → viewModelScope отменяется до завершения sync.
                         val savedRouteId = routeToSave.basicData.id
                         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
                             val rawToken = secureTokenStorage.getAuthBearerTokenFlow().first()
                             if (!rawToken.isNullOrBlank()) {
                                 syncManager.syncRoute(savedRouteId, "Bearer $rawToken")
-                                    .collect { }
+                                    .collect { result ->
+                                        if (result is ResultState.Success) {
+                                            // SnackbarManager singleton — после навигации
+                                            // toast подхватит HomeScreen's коллектор
+                                            snackbarManager.show("Маршрут сохранен в облаке")
+                                        }
+                                    }
                             }
                         }
                     }

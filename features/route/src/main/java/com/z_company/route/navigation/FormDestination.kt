@@ -73,8 +73,11 @@ fun FormDestination(
                     }
 
                     FormScreenEvent.RouteSaved -> {
+                        // Toast буферизуется в SnackbarManager (extraBufferCapacity=64):
+                        // после навигации его подхватит HomeScreen's коллектор.
                         snackbarManager.show(message = "Маршрут сохранен")
-                        viewModel::prepareReviewDialog
+                        launch { viewModel.prepareReviewDialog() }
+                        router.showHome(HomeRoute.route)
                     }
 
                     is FormScreenEvent.NavigateToChildForm -> {
