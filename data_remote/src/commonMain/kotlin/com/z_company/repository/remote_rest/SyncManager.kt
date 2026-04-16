@@ -67,9 +67,20 @@ class SyncManager(
             .first { it is ResultState.Success || it is ResultState.Error }
         if (localUserSettingsState is ResultState.Success) {
             val localUserSettings = localUserSettingsState.data
-            val subscriptionPeriod = localUserSettings.subscriptionPeriod
-            if (subscriptionPeriod > Clock.System.now().toEpochMilliseconds()) {
-                settingManager.saveUserSettingInRemote(localUserSettings, bearerToken)
+            val localSubscriptionPeriod = localUserSettings.subscriptionPeriod
+            // Защита подписки при выгрузке: запрашиваем серверное значение и берём максимум,
+            // чтобы не перезаписать более длинную подписку, оформленную на другом устройстве.
+            val remoteSubscriptionPeriod = try {
+                val remoteState = settingManager.getUserSettingFromRemote(bearerToken)
+                    .first { it is ResultState.Success || it is ResultState.Error }
+                (remoteState as? ResultState.Success)?.data?.subscriptionPeriod ?: 0L
+            } catch (e: Exception) {
+                0L
+            }
+            val mergedSubscriptionPeriod = maxOf(localSubscriptionPeriod, remoteSubscriptionPeriod)
+            if (mergedSubscriptionPeriod > Clock.System.now().toEpochMilliseconds()) {
+                val settingsToUpload = localUserSettings.copy(subscriptionPeriod = mergedSubscriptionPeriod)
+                settingManager.saveUserSettingInRemote(settingsToUpload, bearerToken)
                     .catch { e ->
                         emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
                         return@catch
@@ -451,7 +462,17 @@ class SyncManager(
         if (localUserSettingsState is ResultState.Success) {
             val localUserSettings = localUserSettingsState.data
             val endTimeSubscription = sharedPrefs.getSubscriptionExpiration()
-            val l = localUserSettings.copy(subscriptionPeriod = endTimeSubscription)
+            // Защита подписки при первой выгрузке: берём максимум из SharedPrefs и сервера,
+            // чтобы не перезаписать более длинную подписку, ранее сохранённую на сервере.
+            val remoteSubscriptionPeriodFirst = try {
+                val remoteState = settingManager.getUserSettingFromRemote(bearerToken)
+                    .first { it is ResultState.Success || it is ResultState.Error }
+                (remoteState as? ResultState.Success)?.data?.subscriptionPeriod ?: 0L
+            } catch (e: Exception) {
+                0L
+            }
+            val mergedSubscriptionPeriodFirst = maxOf(endTimeSubscription, remoteSubscriptionPeriodFirst)
+            val l = localUserSettings.copy(subscriptionPeriod = mergedSubscriptionPeriodFirst)
             settingManager.saveUserSettingInRemote(l, bearerToken)
                 .catch { e ->
                     emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${e.message ?: e.cause?.message ?: "Нет соединения"}")))
