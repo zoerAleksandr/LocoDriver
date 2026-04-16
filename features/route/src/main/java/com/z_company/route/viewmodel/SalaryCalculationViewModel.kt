@@ -24,8 +24,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import com.z_company.domain.entities.route.Route
 import kotlinx.coroutines.launch
 import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
@@ -53,9 +57,15 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                 ) { userRes, salaryRes ->
                     _userSetting.value = userRes
                     Pair(userRes, salaryRes)
-                }.collectLatest { (userRes, salaryRes) ->
+                }.flatMapLatest { (userRes, salaryRes) ->
+                    // Реактивная подписка на маршруты: при добавлении/удалении маршрута
+                    // автоматически пересчитывается зарплата без смены настроек.
+                    routeUseCase.listRoutesByMonth(userRes.selectMonthOfYear, userRes.timeZone)
+                        .filter { it is ResultState.Success }
+                        .map { Triple(userRes, salaryRes, (it as ResultState.Success).data) }
+                }.collectLatest { (userRes, salaryRes, routes) ->
                     _uiState.update { it.copy(screenState = ResultState.Loading("Пересчет...")) }
-                    calculationSalary(userRes, salaryRes)
+                    calculationSalary(userRes, salaryRes, routes)
                 }
             } catch (e: Exception) {
                 e.sendToSentry("SalaryCalculationViewModel", "init")
@@ -81,20 +91,17 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
     private suspend fun calculationSalary(
         userSettings: UserSettings,
-        salarySetting: SalarySetting
+        salarySetting: SalarySetting,
+        allRoutes: List<Route>
     ) {
         val currentTimeInMillis = Calendar.getInstance().timeInMillis
         val currentMonthOfYear = userSettings.selectMonthOfYear
-        val loadRouteState =
-            routeUseCase.listRoutesByMonth(currentMonthOfYear, userSettings.timeZone)
-                .first { it is ResultState.Success }
-
-        if (loadRouteState is ResultState.Success) {
-            val routeList = if (userSettings.isConsiderFutureRoute) {
-                loadRouteState.data
-            } else {
-                loadRouteState.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
-            }
+        val routeList = if (userSettings.isConsiderFutureRoute) {
+            allRoutes
+        } else {
+            allRoutes.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
+        }
+        run {
             val salaryCalculationHelper = SalaryCalculationHelper(
                 userSettings = userSettings,
                 salarySetting = salarySetting,
@@ -342,10 +349,6 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                 }
 
             }
-        } else if (loadRouteState is ResultState.Error) {
-            _uiState.update { it.copy(screenState = ResultState.Error(ErrorEntity(message = loadRouteState.entity.message))) }
-        } else {
-            _uiState.update { it.copy(screenState = ResultState.Error(ErrorEntity(message = "Ошибка загрузки маршрутов"))) }
         }
     }
 
