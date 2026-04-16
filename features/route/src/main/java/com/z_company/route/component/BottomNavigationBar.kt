@@ -19,7 +19,8 @@ import com.z_company.route.navigation.NavigationItem
 
 @Composable
 fun BottomNavigationBar(
-    navController: NavController
+    navController: NavController,
+    onAddClick: (() -> Unit)? = null
 ) {
     val items = listOf(
         NavigationItem.Home,
@@ -58,6 +59,11 @@ fun BottomNavigationBar(
                 alwaysShowLabel = false,
                 selected = currentRoute == item.route.route,
                 onClick = {
+                    // Кнопка «+» — перехватывается для проверки подписки до навигации
+                    if (item is NavigationItem.Add && onAddClick != null) {
+                        onAddClick()
+                        return@BottomNavigationItem
+                    }
                     if (currentRoute != item.route.route) {
                         val startDest = navController.graph.findStartDestination()
                         if (item.route.route == startDest.route) {

@@ -39,8 +39,10 @@ import com.z_company.route.Const.NULLABLE_ID
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import com.z_company.use_case.SubscriptionHelper
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
@@ -169,6 +171,11 @@ class FormViewModel(
 
     private var isNewRoute = routeId == NULLABLE_ID
 
+    // true — маршрут уже записан в БД, автосейв разрешён
+    // Для существующих маршрутов (не новых и не копий) — сразу true
+    private var isPersistedToDb = !isNewRoute && !isCopy
+    private var autoSaveJob: Job? = null
+
     private var loadRouteJob: Job? = null
     private var saveRouteJob: Job? = null
     private var loadSettingsJob: Job? = null
@@ -257,8 +264,10 @@ class FormViewModel(
             }
 
             if (isNewRoute) {
-                _currentRoute.value =
-                    Route(basicData = BasicData(id = UUID.randomUUID().toString()))
+                val newRoute = Route(basicData = BasicData(id = UUID.randomUUID().toString()))
+                _currentRoute.value = newRoute
+                // Сразу сохраняем в БД — автосейв будет работать с первого изменения поля
+                performInitialSave(newRoute)
             } else {
                 routeId?.let { id ->
                     routeUseCase.routeDetails(id).collectLatest { result ->
@@ -271,6 +280,11 @@ class FormViewModel(
                             _currentRoute.value = loadedRoute
                             _uiState.update { it.copy(routeDetailState = result) }
                             countLoadRoute += 1
+                            if (isCopy && countLoadRoute == 1) {
+                                // Копия: сохраняем в БД сразу после загрузки, не ждём
+                                // перехода в подразделы — пользователь может их не открывать
+                                loadedRoute?.let { performInitialSave(it) }
+                            }
                             if (countLoadRoute > 1) {
                                 changesHave()
                             }
@@ -281,6 +295,56 @@ class FormViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * Первичное сохранение нового маршрута в БД сразу при открытии FormScreen.
+     * После успеха — подписываемся на изменения через Flow и включаем автосейв.
+     * Не вызывает changesHave() — не помечает состояние «есть несохранённые правки».
+     */
+    private fun performInitialSave(route: Route) {
+        viewModelScope.launch(Dispatchers.IO) {
+            routeUseCase.saveRoute(route).collect { result ->
+                if (result is ResultState.Success) {
+                    isPersistedToDb = true
+                    subscribeToChanges(route.basicData.id)
+                }
+            }
+        }
+    }
+
+    /** Автосейв с debounce 500 мс. Запускается только если маршрут уже в БД. */
+    private fun triggerAutoSave() {
+        if (!isPersistedToDb) return
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(500)
+            performAutoSave()
+        }
+    }
+
+    /** Тихое сохранение текущего маршрута без дублирование-проверки и без событий UI. */
+    private fun performAutoSave() {
+        saveRouteJob?.cancel()
+        saveRouteJob = viewModelScope.launch(Dispatchers.IO) {
+            currentRoute.value?.let { route ->
+                routeUseCase.saveRoute(route).collect { /* тихий автосейв */ }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        autoSaveJob?.cancel()
+        saveRouteJob?.cancel()
+        // Гарантированное финальное сохранение при уходе с экрана
+        if (isPersistedToDb) {
+            CoroutineScope(NonCancellable + Dispatchers.IO).launch {
+                currentRoute.value?.let { route ->
+                    routeUseCase.saveRoute(route).collect {}
+                }
+            }
+        }
+        super.onCleared()
     }
 
     // передаем время в нужном формате в зависимости от выбора пользователя
@@ -779,6 +843,7 @@ class FormViewModel(
                     Log.d("zzz", "saveResult $result")
                     _uiState.update { it.copy(saveRouteState = result) }
                     if (result is ResultState.Success) {
+                        isPersistedToDb = true
                         _isSharedPreview.value = false
                         deletedLocoList.forEach { loco ->
                             locoUseCase.removeLoco(loco).collect {}
@@ -836,6 +901,7 @@ class FormViewModel(
         if (!_uiState.value.changesHaveState) {
             _uiState.update { it.copy(changesHaveState = true) }
         }
+        triggerAutoSave()
     }
 
     fun restorePurchases() {
@@ -847,28 +913,15 @@ class FormViewModel(
 
     fun onSaveClick() {
         viewModelScope.launch {
-            // Sentry-лог для пользователя VKID 17260416: значение подписки при попытке сохранить маршрут
+            // Sentry-лог для пользователя VKID 17260416
             val vkId = SecureDataStore.getVkIdFlow(application).first()
             if (vkId == "17260416") {
                 val setting = settingsUseCase.getUserSettingFlow().first()
                 val subscriptionPeriod = setting.subscriptionPeriod
                 Sentry.captureMessage("[VKID:$vkId] onSaveClick: subscriptionPeriod=$subscriptionPeriod (${java.util.Date(subscriptionPeriod)})")
             }
-            when (routeHelper.newRouteClick()) {
-                is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
-                    _alertBeforePurchasesEvent.emit(AlertBeforePurchasesEvent.ShowDialogNeedSubscribe)
-                }
-
-                is RouteActionsHelper.NewRouteResult.AlertSubscribeDialog -> {
-                    _alertBeforePurchasesEvent.emit(AlertBeforePurchasesEvent.ShowDialogAlertSubscribe)
-                }
-
-                is RouteActionsHelper.NewRouteResult.ShowNewRouteScreen -> {
-                    saveRoute()
-                }
-
-                is RouteActionsHelper.NewRouteResult.Error -> {}
-            }
+            // Подписка проверена до входа на экран (кнопка + нижнего меню навигации)
+            checkDuplicateAndSave(exitAfterSave = false)
         }
     }
 
@@ -1011,6 +1064,7 @@ class FormViewModel(
             saveRouteJob?.cancel()
             saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
                 if (saveRouteState is ResultState.Success) {
+                    isPersistedToDb = true
                     subscribeToChanges(route.basicData.id)
                     changesHave()
                 }
@@ -1019,24 +1073,12 @@ class FormViewModel(
     }
 
     fun onAddChildEntity(basicId: String, entityType: ChildEntityType) {
+        // Подписка проверена до входа на экран (кнопка + нижнего меню навигации).
+        // Перед переходом сохраняем маршрут, чтобы дочерний раздел (Локо/Поезд/Пассажир)
+        // гарантированно нашёл родительскую запись в БД по basicId.
+        preSaveRoute()
         viewModelScope.launch {
-            when (routeHelper.newRouteClick()) {
-                is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
-                    _alertBeforePurchasesEvent.emit(AlertBeforePurchasesEvent.ShowDialogNeedSubscribe)
-                }
-
-                is RouteActionsHelper.NewRouteResult.AlertSubscribeDialog -> {
-                    preSaveRoute()
-                    _events.emit(FormScreenEvent.NavigateToChildForm(basicId, entityType))
-                }
-
-                is RouteActionsHelper.NewRouteResult.ShowNewRouteScreen -> {
-                    preSaveRoute()
-                    _events.emit(FormScreenEvent.NavigateToChildForm(basicId, entityType))
-                }
-
-                is RouteActionsHelper.NewRouteResult.Error -> {}
-            }
+            _events.emit(FormScreenEvent.NavigateToChildForm(basicId, entityType))
         }
     }
 

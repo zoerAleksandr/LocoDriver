@@ -415,13 +415,25 @@ class LocoFormViewModel(
      */
     fun reloadSettingsFromPrefs() {
         val current = _settings.value ?: return
+        val newIsShowOtherCurrent = sharedPreferenceStorage.isShowOtherCurrent()
         _settings.value = current.copy(
             isShowLocoHeating = sharedPreferenceStorage.isShowLocoHeating(),
             isShowLocoAuxiliary = sharedPreferenceStorage.isShowLocoAuxiliary(),
             isShowLocoStatistics = sharedPreferenceStorage.isShowLocoStatistics(),
             isShowLocoNorma = sharedPreferenceStorage.isShowLocoNorma(),
-            isShowOtherCurrent = sharedPreferenceStorage.isShowOtherCurrent()
+            isShowOtherCurrent = newIsShowOtherCurrent
         )
+        // Сразу обновляем UI-флаг, чтобы поля второго рода тока появились/исчезли
+        // без повторного входа на экран. Флаг остаётся true, если в секциях есть данные.
+        val hasOtherCurrentData = _electricSectionListState.value.any { section ->
+            section.accepted2.data != null ||
+            section.delivery2.data != null ||
+            section.recoveryAccepted2.data != null ||
+            section.recoveryDelivery2.data != null
+        }
+        _uiState.update { state ->
+            state.copy(isShowOtherCurrent = newIsShowOtherCurrent || hasOtherCurrentData)
+        }
     }
 
     fun changeShowLocoHeating(value: Boolean) {

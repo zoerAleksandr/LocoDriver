@@ -21,6 +21,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import com.z_company.route.viewmodel.RouteActionsHelper
+import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.route.Route
@@ -73,6 +80,99 @@ fun LocoDriverApp(
 ) {
     LocoDriverTheme {
         val navController = rememberNavController()
+        val scope = rememberCoroutineScope()
+        val routeHelper: RouteActionsHelper = koinInject()
+
+        // Диалоги проверки подписки (показываются до навигации на FormScreen)
+        var showNeedSubscribeDialog by remember { mutableStateOf(false) }
+        var showAlertSubscribeDialog by remember { mutableStateOf(false) }
+
+        if (showNeedSubscribeDialog) {
+            AlertDialog(
+                onDismissRequest = { showNeedSubscribeDialog = false },
+                containerColor = MaterialTheme.colorScheme.secondary,
+                shape = Shapes.medium,
+                title = {
+                    Text(
+                        text = "Подписка завершена",
+                        style = AppTypography.getType().titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Для добавления новых маршрутов оформите подписку.",
+                        style = AppTypography.getType().bodyLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        shape = Shapes.medium,
+                        onClick = {
+                            showNeedSubscribeDialog = false
+                            appState.router.showPurchasesScreen()
+                        }
+                    ) {
+                        Text(text = "Оформить подписку")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showNeedSubscribeDialog = false }) {
+                        Text(
+                            text = "Отмена",
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            )
+        }
+
+        if (showAlertSubscribeDialog) {
+            AlertDialog(
+                onDismissRequest = { showAlertSubscribeDialog = false },
+                containerColor = MaterialTheme.colorScheme.secondary,
+                shape = Shapes.medium,
+                title = {
+                    Text(
+                        text = "Пробный период",
+                        style = AppTypography.getType().titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Вам доступно 20 бесплатных маршрутов. Оформите подписку для неограниченного использования.",
+                        style = AppTypography.getType().bodyLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        shape = Shapes.medium,
+                        onClick = {
+                            showAlertSubscribeDialog = false
+                            navController.navigate(FormRoute.buildDetailsRoute(null, false)) {
+                                launchSingleTop = true
+                            }
+                        }
+                    ) {
+                        Text(text = "Продолжить")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showAlertSubscribeDialog = false
+                        appState.router.showPurchasesScreen()
+                    }) {
+                        Text(
+                            text = "Оформить подписку",
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            )
+        }
 
         LaunchedEffect(navController) {
             (appState.router as? RouterImpl)?.updateNavController(navController)
@@ -175,7 +275,27 @@ fun LocoDriverApp(
                 Scaffold(
                     bottomBar = {
                         if (showBottomBar) {
-                            BottomNavigationBar(navController = navController)
+                            BottomNavigationBar(
+                                navController = navController,
+                                onAddClick = {
+                                    scope.launch {
+                                        when (routeHelper.newRouteClick()) {
+                                            is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
+                                                showNeedSubscribeDialog = true
+                                            }
+                                            is RouteActionsHelper.NewRouteResult.AlertSubscribeDialog -> {
+                                                showAlertSubscribeDialog = true
+                                            }
+                                            is RouteActionsHelper.NewRouteResult.ShowNewRouteScreen -> {
+                                                navController.navigate(
+                                                    FormRoute.buildDetailsRoute(null, false)
+                                                ) { launchSingleTop = true }
+                                            }
+                                            is RouteActionsHelper.NewRouteResult.Error -> Unit
+                                        }
+                                    }
+                                }
+                            )
                         }
                     },
                 ) { paddingValues ->

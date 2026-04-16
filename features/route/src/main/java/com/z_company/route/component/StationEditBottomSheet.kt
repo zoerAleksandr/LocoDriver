@@ -107,8 +107,23 @@ fun StationEditBottomSheet(
     val fieldColor = MaterialTheme.colorScheme.surface
     val fieldShape = RoundedCornerShape(14.dp)
 
+    val saveAndDismiss: () -> Unit = {
+        val allBlank = localName.text.isBlank() &&
+                localTrackNumber.text.isBlank() &&
+                localArrival == null &&
+                localDeparture == null
+        if (isNewStation && allBlank) {
+            onDismiss()
+        } else {
+            val name = localName.text.ifBlank { null }
+            val track = localTrackNumber.text.ifBlank { null }
+            onSave(name, localArrival, localDeparture, track)
+            onDismiss()
+        }
+    }
+
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = saveAndDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.secondary,
         shape = Shapes.large
@@ -286,7 +301,7 @@ fun StationEditBottomSheet(
                     .background(primaryColor.copy(alpha = 0.1f))
             )
 
-            // ── Кнопка «Сохранить» ──
+            // ── Кнопка «Готово» ──
             Button(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
@@ -294,14 +309,10 @@ fun StationEditBottomSheet(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                     contentColor = MaterialTheme.colorScheme.secondary
                 ),
-                onClick = {
-                    val name = localName.text.ifBlank { null }
-                    val track = localTrackNumber.text.ifBlank { null }
-                    onSave(name, localArrival, localDeparture, track)
-                }
+                onClick = saveAndDismiss
             ) {
                 Text(
-                    text = "Сохранить",
+                    text = "Готово",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onTertiary,
