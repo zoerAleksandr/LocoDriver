@@ -60,6 +60,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import ru.rustore.sdk.review.RuStoreReviewManagerFactory
@@ -313,22 +314,18 @@ class FormViewModel(
         }
     }
 
-    /** Автосейв с debounce 500 мс. Запускается только если маршрут уже в БД. */
+    /** Автосейв с debounce 500 мс. Запускается только если маршрут уже в БД.
+     *  Сохранение выполняется внутри autoSaveJob — не трогает saveRouteJob,
+     *  который используется для явных сохранений (performSave, preSaveRoute). */
     private fun triggerAutoSave() {
         if (!isPersistedToDb) return
         autoSaveJob?.cancel()
         autoSaveJob = viewModelScope.launch {
             delay(500)
-            performAutoSave()
-        }
-    }
-
-    /** Тихое сохранение текущего маршрута без дублирование-проверки и без событий UI. */
-    private fun performAutoSave() {
-        saveRouteJob?.cancel()
-        saveRouteJob = viewModelScope.launch(Dispatchers.IO) {
-            currentRoute.value?.let { route ->
-                routeUseCase.saveRoute(route).collect { /* тихий автосейв */ }
+            withContext(Dispatchers.IO) {
+                currentRoute.value?.let { route ->
+                    routeUseCase.saveRoute(route).collect { /* тихий автосейв */ }
+                }
             }
         }
     }
