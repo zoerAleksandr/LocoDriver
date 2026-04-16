@@ -1,3 +1,25 @@
+-- Создаём SalarySetting, если таблица ещё не существует (защитная миграция)
+CREATE TABLE IF NOT EXISTS SalarySetting (
+    salarySettingKey TEXT NOT NULL PRIMARY KEY,
+    nightTimePercent REAL NOT NULL DEFAULT 40.0,
+    zonalSurcharge REAL NOT NULL DEFAULT 0.0,
+    averagePaymentHour REAL NOT NULL DEFAULT 0.0,
+    districtCoefficient REAL NOT NULL DEFAULT 0.0,
+    nordicCoefficient REAL NOT NULL DEFAULT 0.0,
+    onePersonOperationPercent REAL NOT NULL DEFAULT 0.0,
+    onePersonOperationPassengerTrainPercent REAL NOT NULL DEFAULT 50.0,
+    harmfulnessPercent REAL NOT NULL DEFAULT 0.0,
+    surchargeQualificationClass REAL NOT NULL DEFAULT 0.0,
+    surchargeExtendedServicePhaseList TEXT NOT NULL DEFAULT '[]',
+    surchargeHeavyTrainsList TEXT NOT NULL DEFAULT '[]',
+    surchargeLongTrain REAL NOT NULL DEFAULT 0.0,
+    lengthLongDistanceTrain INTEGER NOT NULL DEFAULT 0,
+    otherSurcharge REAL NOT NULL DEFAULT 0.0,
+    ndfl REAL NOT NULL DEFAULT 0.0,
+    unionistsRetention REAL NOT NULL DEFAULT 0.0,
+    otherRetention REAL NOT NULL DEFAULT 0.0
+);
+
 ALTER TABLE SalarySetting ADD COLUMN surchargeLongTrainsList TEXT NOT NULL DEFAULT '[]';
 
 -- Миграция: перенос старой одиночной доплаты за длинносоставные в новый список
