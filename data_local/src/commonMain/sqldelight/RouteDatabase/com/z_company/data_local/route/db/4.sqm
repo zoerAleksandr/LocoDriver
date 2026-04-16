@@ -1,2 +1,24 @@
+-- Создаём Locomotive, если таблица ещё не существует
+-- (случай Room→SQLDelight, когда версия была выставлена без прохождения предыдущих миграций)
+CREATE TABLE IF NOT EXISTS Locomotive (
+    locoId TEXT NOT NULL PRIMARY KEY,
+    basicId TEXT NOT NULL,
+    series TEXT,
+    number TEXT,
+    type INTEGER NOT NULL,
+    electricSectionList TEXT NOT NULL,
+    dieselSectionList TEXT NOT NULL,
+    timeStartOfAcceptance INTEGER,
+    timeEndOfAcceptance INTEGER,
+    timeStartOfDelivery INTEGER,
+    timeEndOfDelivery INTEGER,
+    normaElectricCurrent1 INTEGER DEFAULT NULL,
+    normaElectricCurrent2 INTEGER DEFAULT NULL,
+    normaDiesel TEXT DEFAULT NULL,
+    heatingCounterAccepted TEXT DEFAULT NULL,
+    heatingCounterDelivery TEXT DEFAULT NULL,
+    FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
 ALTER TABLE Locomotive ADD COLUMN auxiliaryCounterAccepted TEXT DEFAULT NULL;
 ALTER TABLE Locomotive ADD COLUMN auxiliaryCounterDelivery TEXT DEFAULT NULL;

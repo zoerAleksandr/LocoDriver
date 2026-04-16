@@ -1,0 +1,3 @@
+-- Миграция 2: добавление nightTimePercent, который присутствовал в схеме SalarySetting.sq,
+-- но не был добавлен через миграцию — вызывало SQLiteException у существующих пользователей.
+ALTER TABLE SalarySetting ADD COLUMN nightTimePercent REAL NOT NULL DEFAULT 40.0;

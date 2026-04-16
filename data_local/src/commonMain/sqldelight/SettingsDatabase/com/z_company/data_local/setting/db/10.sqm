@@ -1,0 +1,35 @@
+-- Миграция 10: добавление столбцов, которые были добавлены в схему без миграций.
+-- locomotiveSeriesList, servicePhases — в UserSettings.
+-- tariffRate, dateSetTariffRate — в MonthOfYear.
+
+ALTER TABLE UserSettings ADD COLUMN locomotiveSeriesList TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE UserSettings ADD COLUMN servicePhases TEXT NOT NULL DEFAULT '[]';
+
+-- Пересоздаём MonthOfYear, чтобы безопасно добавить tariffRate и dateSetTariffRate
+-- независимо от того, существует ли таблица и есть ли в ней эти столбцы.
+-- Шаг 1: создаём MonthOfYear_10 с полной схемой.
+CREATE TABLE IF NOT EXISTS MonthOfYear_10 (
+    id TEXT NOT NULL PRIMARY KEY,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    days TEXT NOT NULL,
+    tariffRate REAL NOT NULL DEFAULT 0.0,
+    dateSetTariffRate TEXT DEFAULT NULL
+);
+
+-- Шаг 2: создаём MonthOfYear с базовой схемой, если её ещё нет
+--        (чтобы INSERT ниже не упал с "no such table").
+CREATE TABLE IF NOT EXISTS MonthOfYear (
+    id TEXT NOT NULL PRIMARY KEY,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    days TEXT NOT NULL
+);
+
+-- Шаг 3: копируем данные (базовые столбцы; tariffRate получает DEFAULT 0.0).
+INSERT OR IGNORE INTO MonthOfYear_10 (id, year, month, days)
+SELECT id, year, month, days FROM MonthOfYear;
+
+-- Шаг 4: заменяем старую таблицу новой.
+DROP TABLE MonthOfYear;
+ALTER TABLE MonthOfYear_10 RENAME TO MonthOfYear;

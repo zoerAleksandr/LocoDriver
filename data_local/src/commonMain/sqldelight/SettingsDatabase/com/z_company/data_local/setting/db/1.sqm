@@ -1,1 +1,19 @@
+-- Создаём UserSettings, если таблица ещё не существует
+-- (случай Room→SQLDelight для устройств, где таблица отсутствовала при выставлении версии)
+CREATE TABLE IF NOT EXISTS UserSettings (
+    settingsKey TEXT NOT NULL PRIMARY KEY,
+    minTimeRest INTEGER NOT NULL,
+    minTimeHomeRest INTEGER NOT NULL,
+    lastEnteredDieselCoefficient REAL NOT NULL,
+    nightTime TEXT NOT NULL,
+    updateAt INTEGER NOT NULL,
+    defaultLocoType TEXT NOT NULL,
+    defaultWorkTime INTEGER NOT NULL,
+    usingDefaultWorkTime INTEGER NOT NULL,
+    isConsiderFutureRoute INTEGER NOT NULL DEFAULT 1,
+    monthOfYear TEXT NOT NULL,
+    stationList TEXT NOT NULL DEFAULT '[]',
+    timeZone INTEGER NOT NULL DEFAULT 0
+);
+
 ALTER TABLE UserSettings ADD COLUMN isShowBreak INTEGER NOT NULL DEFAULT 1;

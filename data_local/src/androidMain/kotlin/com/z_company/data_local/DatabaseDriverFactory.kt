@@ -19,14 +19,16 @@ actual class DatabaseDriverFactory(private val context: Context) {
     }
 
     actual fun createSettingsDriver(): SqlDriver {
-        // Проверяем ВСЕ новые столбцы из всех миграций (1.sqm … 7.sqm).
+        // Проверяем ВСЕ новые столбцы из всех миграций (1.sqm … 10.sqm).
         // Это покрывает Room→SQLDelight и SQLDelight→SQLDelight upgrade-пути,
         // где какие-либо миграции могли быть пропущены.
         // ВАЖНО: subscriptionPeriod и isDecimalTime (миграция 5) тоже должны быть
         // здесь — иначе fixVersionIfColumnsExist выставит version=5, SQLDelight
         // пропустит 5.sqm, и столбцы никогда не добавятся → SQLiteException.
         ensureSettingsTablesV6("Settings.db")
-        fixVersionIfColumnsExist("Settings.db", SettingsDatabase.Schema.version.toInt(),
+        fixVersionIfColumnsExist(
+            "Settings.db",
+            SettingsDatabase.Schema.version.toInt(),
             "UserSettings" to "isShowBreak",
             "UserSettings" to "isShowLocoHeating",
             "UserSettings" to "isShowLocoAuxiliary",
@@ -38,7 +40,12 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "country",
             "UserSettings" to "crossMonthTimezone",
             "UserSettings" to "standardTimesStartWork",
-            "UserSettings" to "useStandardTimePicker")
+            "UserSettings" to "useStandardTimePicker",
+            "UserSettings" to "locomotiveSeriesList",
+            "UserSettings" to "servicePhases",
+            "MonthOfYear" to "tariffRate",
+            "MonthOfYear" to "dateSetTariffRate",
+            primaryTable = "UserSettings")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
 
@@ -83,8 +90,12 @@ actual class DatabaseDriverFactory(private val context: Context) {
     }
 
     actual fun createSalarySettingDriver(): SqlDriver {
-        fixVersionIfColumnsExist("SalarySetting.db", SalarySettingDatabase.Schema.version.toInt(),
-            "SalarySetting" to "surchargeLongTrainsList")
+        fixVersionIfColumnsExist(
+            "SalarySetting.db",
+            SalarySettingDatabase.Schema.version.toInt(),
+            "SalarySetting" to "nightTimePercent",
+            "SalarySetting" to "surchargeLongTrainsList",
+            primaryTable = "SalarySetting")
         return createDriver(SalarySettingDatabase.Schema, "SalarySetting.db")
     }
 
@@ -99,11 +110,16 @@ actual class DatabaseDriverFactory(private val context: Context) {
      * - Room → SQLDelight (любая Room-версия): добавляет недостающие столбцы
      * - SQLDelight → SQLDelight (повторный апгрейд после даунгрейда): пропускает существующие
      * - Свежая установка (файла нет): ничего не делает
+     *
+     * @param primaryTable Если указана — версия выставляется только когда эта таблица существует.
+     *                     Если таблица отсутствует — позволяем SQLDelight выполнить миграции.
+     *                     Пустая строка = всегда выставлять версию (прежнее поведение).
      */
     private fun fixVersionIfColumnsExist(
         dbName: String,
         targetVersion: Int,
-        vararg checks: Pair<String, String> // tableName to columnName
+        vararg checks: Pair<String, String>, // tableName to columnName
+        primaryTable: String = ""
     ) {
         val dbFile = context.getDatabasePath(dbName)
         if (!dbFile.exists()) return
@@ -136,8 +152,12 @@ actual class DatabaseDriverFactory(private val context: Context) {
                     )
                 }
             }
-            // Выставляем целевую версию, чтобы SQLDelight-миграции не падали
-            if (db.version != targetVersion) {
+            // Выставляем целевую версию, чтобы SQLDelight-миграции не падали.
+            // Если задана primaryTable — версию выставляем только когда эта таблица существует.
+            // Если таблица отсутствует — пусть SQLDelight прогоняет миграции самостоятельно,
+            // а первая миграция (1.sqm) создаст таблицу через CREATE TABLE IF NOT EXISTS.
+            val canBumpVersion = primaryTable.isEmpty() || hasTable(db, primaryTable)
+            if (canBumpVersion && db.version != targetVersion) {
                 db.version = targetVersion
             }
         } finally {
@@ -153,7 +173,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
 
     companion object {
         private val COLUMN_SPECS = mapOf(
-            // Settings — все новые столбцы (миграции 1.sqm … 5.sqm)
+            // Settings — все новые столбцы (миграции 1.sqm … 10.sqm)
             "UserSettings.isShowBreak" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.isShowLocoHeating" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.isShowLocoAuxiliary" to ColumnSpec("INTEGER", false, "1"),
@@ -166,6 +186,11 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.crossMonthTimezone" to ColumnSpec("TEXT", false, "'LOCAL'"),
             "UserSettings.useStandardTimePicker" to ColumnSpec("INTEGER", false, "0"),
             "UserSettings.standardTimesStartWork" to ColumnSpec("TEXT", false, "'[28800000, 72000000]'"),
+            "UserSettings.locomotiveSeriesList" to ColumnSpec("TEXT", false, "'[]'"),
+            "UserSettings.servicePhases" to ColumnSpec("TEXT", false, "'[]'"),
+            // Settings — MonthOfYear
+            "MonthOfYear.tariffRate" to ColumnSpec("REAL", false, "0.0"),
+            "MonthOfYear.dateSetTariffRate" to ColumnSpec("TEXT", true, "NULL"),
             // Route — BasicData
             "BasicData.timeStartBreak" to ColumnSpec("INTEGER", true, "NULL"),
             "BasicData.timeEndBreak" to ColumnSpec("INTEGER", true, "NULL"),
@@ -178,6 +203,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "Train.doubleTraction" to ColumnSpec("TEXT", true, "NULL"),
             "Train.doubledTrain" to ColumnSpec("TEXT", true, "NULL"),
             // SalarySetting
+            "SalarySetting.nightTimePercent" to ColumnSpec("REAL", false, "40.0"),
             "SalarySetting.surchargeLongTrainsList" to ColumnSpec("TEXT", false, "'[]'")
         )
     }
@@ -324,7 +350,37 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_Locomotive_basicId ON Locomotive(basicId)")
             }
 
-            // Добавляем недостающие столбцы (для случаев когда таблицы не пересоздавались)
+            // Создаём Locomotive, если она ещё не существует
+            // (случай: Room→SQLDelight, версия выставлена без прохождения миграций 1-3)
+            if (!hasTable(db, "Locomotive")) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS Locomotive (
+                        locoId TEXT NOT NULL PRIMARY KEY,
+                        basicId TEXT NOT NULL,
+                        series TEXT,
+                        number TEXT,
+                        type INTEGER NOT NULL,
+                        electricSectionList TEXT NOT NULL,
+                        dieselSectionList TEXT NOT NULL,
+                        timeStartOfAcceptance INTEGER,
+                        timeEndOfAcceptance INTEGER,
+                        timeStartOfDelivery INTEGER,
+                        timeEndOfDelivery INTEGER,
+                        normaElectricCurrent1 REAL DEFAULT NULL,
+                        normaElectricCurrent2 REAL DEFAULT NULL,
+                        normaDiesel TEXT DEFAULT NULL,
+                        heatingCounterAccepted TEXT DEFAULT NULL,
+                        heatingCounterDelivery TEXT DEFAULT NULL,
+                        auxiliaryCounterAccepted TEXT DEFAULT NULL,
+                        auxiliaryCounterDelivery TEXT DEFAULT NULL,
+                        FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_Locomotive_basicId ON Locomotive(basicId)")
+            }
+
+            // Добавляем недостающие столбцы (для случаев когда таблицы не пересоздавались).
+            // hasTable-проверка: если таблица отсутствует — пропускаем, не кидаем исключение.
             val routeChecks = arrayOf(
                 "BasicData" to "timeStartBreak",
                 "BasicData" to "timeEndBreak",
@@ -336,6 +392,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 "Train" to "doubledTrain"
             )
             for ((table, column) in routeChecks) {
+                if (!hasTable(db, table)) continue
                 if (!hasColumn(db, table, column)) {
                     val spec = COLUMN_SPECS["$table.$column"]
                         ?: ColumnSpec("INTEGER", true, "NULL")
