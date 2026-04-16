@@ -335,7 +335,7 @@ fun FormScreen(
     LaunchedEffect(Unit) {
         snackbarManager.events
             .flowWithLifecycle(lifecycle)
-            .collectLatest { event ->
+            .collect { event ->
                 val result = snackbarHostState.showSnackbar(
                     message = event.message,
                     actionLabel = event.actionLabel,
@@ -343,7 +343,6 @@ fun FormScreen(
                 )
                 if (result == SnackbarResult.ActionPerformed) {
                     event.onAction?.let { onAction ->
-                        // запускаем suspend-колбек в scope
                         launch {
                             try {
                                 onAction()

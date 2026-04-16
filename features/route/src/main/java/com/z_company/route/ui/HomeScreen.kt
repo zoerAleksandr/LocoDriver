@@ -236,7 +236,10 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         snackbarManager.events
             .flowWithLifecycle(lifecycle)
-            .collectLatest { event ->
+            .collect { event ->
+                // collect вместо collectLatest: события показываются последовательно.
+                // collectLatest отменял showSnackbar() первого тоста при появлении второго —
+                // «Маршрут сохранен» обрывался при приходе «Маршрут сохранен в облаке».
                 val result = snackbarHostState.showSnackbar(
                     message = event.message,
                     actionLabel = event.actionLabel,
@@ -244,7 +247,6 @@ fun HomeScreen(
                 )
                 if (result == SnackbarResult.ActionPerformed) {
                     event.onAction?.let { onAction ->
-                        // запускаем suspend-колбек в scope
                         launch {
                             try {
                                 onAction()
