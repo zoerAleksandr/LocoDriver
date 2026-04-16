@@ -34,6 +34,7 @@ import com.z_company.domain.util.SharedRouteHolder
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.repository.SecureDataStore
+import com.z_company.repository.remote_rest.SyncManager
 import io.sentry.kotlin.multiplatform.Sentry
 import com.z_company.route.Const.NULLABLE_ID
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
@@ -84,6 +85,7 @@ class FormViewModel(
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val shareRouteManager: com.z_company.repository.remote_rest.ShareRouteManager by inject()
     private val secureTokenStorage: com.z_company.repository.SecureTokenStorage by inject()
+    private val syncManager: SyncManager by inject()
 
     val reviewManager = RuStoreReviewManagerFactory.create(application.applicationContext)
 
@@ -857,6 +859,15 @@ class FormViewModel(
                             passengerUseCase.removePassenger(passenger).collect {}
                         }
                         _events.emit(FormScreenEvent.RouteSaved)
+                        // Запускаем синхронизацию маршрута в фоне — не блокируем UI
+                        val savedRouteId = routeToSave.basicData.id
+                        viewModelScope.launch(Dispatchers.IO) {
+                            val rawToken = secureTokenStorage.getAuthBearerTokenFlow().first()
+                            if (!rawToken.isNullOrBlank()) {
+                                syncManager.syncRoute(savedRouteId, "Bearer $rawToken")
+                                    .collect { /* молча игнорируем — синхронизация фоновая */ }
+                            }
+                        }
                     }
                 }
             }

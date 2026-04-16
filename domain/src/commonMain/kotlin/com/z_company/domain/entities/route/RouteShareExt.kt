@@ -20,7 +20,7 @@ fun Route.reidentifyForImport(): Route {
     val newBasicId = generateId()
     val newBasicData = basicData.copy(
         id = newBasicId,
-        isSynchronizedRoute = false,
+//        isSynchronizedRoute = false,
         remoteRouteId = null,
         isSynchronized = false,
         remoteObjectId = null,

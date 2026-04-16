@@ -217,6 +217,38 @@ class SyncManager(
         }
     }.flowOn(Dispatchers.Default)
 
+    /**
+     * Синхронизирует один маршрут на сервер.
+     * Вызывается после явного нажатия «Сохранить» на FormScreen.
+     * Если маршрут уже синхронизирован — возвращает Success без лишних запросов.
+     */
+    fun syncRoute(routeId: String, bearerToken: String): Flow<ResultState<Unit>> = flow {
+        emit(ResultState.Loading())
+        val route = routeUseCase.getListRoutes().find { it.basicData.id == routeId }
+        if (route == null) {
+            emit(ResultState.Error(ErrorEntity(message = "Маршрут $routeId не найден")))
+            return@flow
+        }
+        if (route.basicData.isSynchronized) {
+            emit(ResultState.Success(Unit))
+            return@flow
+        }
+        routesManager.saveRouteInRemote(route, bearerToken)
+            .catch { e ->
+                emit(ResultState.Error(ErrorEntity(message = e.message ?: e.cause?.message ?: "Ошибка синхронизации")))
+            }
+            .collect { saveResult ->
+                when (saveResult) {
+                    is ResultState.Success -> {
+                        routeUseCase.setSynchronizedRoute(routeId).collect {}
+                        emit(ResultState.Success(Unit))
+                    }
+                    is ResultState.Error -> emit(ResultState.Error(saveResult.entity))
+                    else -> {}
+                }
+            }
+    }.flowOn(Dispatchers.Default)
+
     fun syncFromRemote(bearerToken: String): Flow<ResultState<SyncDownloadResult>> = flow {
         emit(ResultState.Loading())
 

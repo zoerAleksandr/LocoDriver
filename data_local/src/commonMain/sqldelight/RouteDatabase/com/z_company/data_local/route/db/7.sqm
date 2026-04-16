@@ -1,0 +1,33 @@
+-- Миграция 6→7: повторное удаление isSynchronizedRoute из BasicData.
+-- Необходима для устройств, у которых DB уже была обновлена до версии 6
+-- без файла миграции (схема обновилась, но ALTER TABLE не выполнялся).
+-- Безопасна для обоих вариантов: INSERT SELECT перечисляет только нужные столбцы.
+-- SQLite < 3.35 не поддерживает DROP COLUMN, поэтому пересоздаём таблицу.
+
+CREATE TABLE BasicData_new (
+    id TEXT NOT NULL PRIMARY KEY,
+    remoteRouteId TEXT DEFAULT NULL,
+    isOnePersonOperation INTEGER NOT NULL DEFAULT 0,
+    isSynchronized INTEGER NOT NULL,
+    remoteObjectId TEXT,
+    isDeleted INTEGER NOT NULL,
+    updatedAt TEXT NOT NULL,
+    number TEXT,
+    timeStartWork INTEGER,
+    timeEndWork INTEGER,
+    restPointOfTurnover INTEGER NOT NULL,
+    notes TEXT,
+    isFavorite INTEGER NOT NULL DEFAULT 0,
+    timeStartBreak INTEGER,
+    timeEndBreak INTEGER
+);
+
+INSERT INTO BasicData_new SELECT
+    id, remoteRouteId, isOnePersonOperation, isSynchronized, remoteObjectId,
+    isDeleted, updatedAt, number, timeStartWork, timeEndWork, restPointOfTurnover,
+    notes, isFavorite, timeStartBreak, timeEndBreak
+FROM BasicData;
+
+DROP TABLE BasicData;
+
+ALTER TABLE BasicData_new RENAME TO BasicData;
