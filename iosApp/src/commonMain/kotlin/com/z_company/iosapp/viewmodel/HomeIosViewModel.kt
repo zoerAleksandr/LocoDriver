@@ -112,7 +112,6 @@ class HomeIosViewModel(
                     remoteObjectId = null,
                     remoteRouteId = null,
                     isSynchronized = false,
-                    isSynchronizedRoute = false,
                     isDeleted = false,
                 ),
                 locomotives = original.locomotives.map { loco ->
