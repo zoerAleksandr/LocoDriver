@@ -242,6 +242,10 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.setSynchronizedRoute(basicId)
     }
 
+    fun markUnsynchronized(basicId: String): Flow<ResultState<Unit>> {
+        return repository.markUnsynchronized(basicId)
+    }
+
     fun setRemoteRouteIdRoute(
         basicId: String,
         remoteRouteId: String?

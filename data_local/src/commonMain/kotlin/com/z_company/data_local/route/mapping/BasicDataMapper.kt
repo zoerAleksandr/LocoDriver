@@ -19,7 +19,6 @@ internal object BasicDataMapper {
 
     fun toData(row: BasicDataRow): BasicData = BasicData(
         id = row.id,
-        isSynchronizedRoute = row.isSynchronizedRoute != 0L,
         remoteRouteId = row.remoteRouteId,
         isSynchronized = row.isSynchronized != 0L,
         remoteObjectId = row.remoteObjectId,

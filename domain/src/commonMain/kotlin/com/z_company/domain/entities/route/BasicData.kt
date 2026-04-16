@@ -10,7 +10,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class BasicData(
     var id: String = generateId(),
-    var isSynchronizedRoute: Boolean = false,
     var remoteRouteId: String? = null,
     var isSynchronized: Boolean = false,
     var remoteObjectId: String? = null,

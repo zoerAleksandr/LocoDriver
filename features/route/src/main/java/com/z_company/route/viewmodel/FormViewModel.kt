@@ -900,6 +900,8 @@ class FormViewModel(
     // Изменения
     private fun changesHave() {
         sharedPreferenceStorage.setTokenIsChangeHave(true)
+        // Сбрасываем флаг синхронизации — данные изменились
+        _currentRoute.update { it?.copy(basicData = it.basicData.copy(isSynchronized = false)) }
         if (!_uiState.value.changesHaveState) {
             _uiState.update { it.copy(changesHaveState = true) }
         }

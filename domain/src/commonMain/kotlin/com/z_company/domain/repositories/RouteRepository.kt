@@ -42,6 +42,8 @@ interface RouteRepository {
     fun savePhoto(photo: Photo): Flow<ResultState<Unit>>
     fun markAsRemoved(route: Route): Flow<ResultState<Unit>>
     fun setSynchronizedRoute(basicId: String): Flow<ResultState<Unit>>
+    /** Сбрасывает isSynchronized = false для маршрута. Вызывается при изменении подразделов. */
+    fun markUnsynchronized(basicId: String): Flow<ResultState<Unit>>
     fun clearRepository(): Flow<ResultState<Unit>>
     fun setFavoriteRoute(basicId: String, isFavorite: Boolean): Flow<ResultState<Boolean>>
 }

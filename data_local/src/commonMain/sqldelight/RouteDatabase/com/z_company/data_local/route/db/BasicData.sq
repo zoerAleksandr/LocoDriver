@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS BasicData (
     id TEXT NOT NULL PRIMARY KEY,
-    isSynchronizedRoute INTEGER NOT NULL DEFAULT 0,
     remoteRouteId TEXT DEFAULT NULL,
     isOnePersonOperation INTEGER NOT NULL DEFAULT 0,
     isSynchronized INTEGER NOT NULL,
@@ -18,8 +17,8 @@ CREATE TABLE IF NOT EXISTS BasicData (
 );
 
 insertOrReplace:
-INSERT OR REPLACE INTO BasicData (id, isSynchronizedRoute, remoteRouteId, isOnePersonOperation, isSynchronized, remoteObjectId, isDeleted, updatedAt, number, timeStartWork, timeEndWork, restPointOfTurnover, notes, isFavorite, timeStartBreak, timeEndBreak)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO BasicData (id, remoteRouteId, isOnePersonOperation, isSynchronized, remoteObjectId, isDeleted, updatedAt, number, timeStartWork, timeEndWork, restPointOfTurnover, notes, isFavorite, timeStartBreak, timeEndBreak)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getById:
 SELECT * FROM BasicData WHERE id = :id;
@@ -57,4 +56,7 @@ setRemoteRouteId:
 UPDATE BasicData SET remoteRouteId = :remoteRouteId WHERE id = :id;
 
 setFavorite:
-UPDATE BasicData SET isFavorite = :favorite, isSynchronizedRoute = 0 WHERE id = :id;
+UPDATE BasicData SET isFavorite = :favorite WHERE id = :id;
+
+markUnsynchronized:
+UPDATE BasicData SET isSynchronized = 0 WHERE id = :id;

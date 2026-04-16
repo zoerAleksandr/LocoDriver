@@ -55,7 +55,6 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         val updatedBasic = if (route.basicData.id.isBlank()) route.basicData.copy(id = basicId) else route.basicData
         db.basicDataQueries.insertOrReplace(
             id = updatedBasic.id,
-            isSynchronizedRoute = if (updatedBasic.isSynchronizedRoute) 1L else 0L,
             remoteRouteId = updatedBasic.remoteRouteId,
             isOnePersonOperation = if (updatedBasic.isOnePersonOperation) 1L else 0L,
             isSynchronized = if (updatedBasic.isSynchronized) 1L else 0L,
@@ -322,6 +321,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 auxiliaryCounterAccepted = locomotive.auxiliaryCounterAccepted?.toString(),
                 auxiliaryCounterDelivery = locomotive.auxiliaryCounterDelivery?.toString()
             )
+            db.basicDataQueries.markUnsynchronized(locomotive.basicId)
         }
     }
 
@@ -343,6 +343,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 doubleTraction = TrainMapper.encodeTrainAssist(train.doubleTraction),
                 doubledTrain = TrainMapper.encodeTrainAssist(train.doubledTrain)
             )
+            db.basicDataQueries.markUnsynchronized(train.basicId)
         }
     }
 
@@ -361,6 +362,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 timeDeparture = passenger.timeDeparture,
                 notes = passenger.notes
             )
+            db.basicDataQueries.markUnsynchronized(passenger.basicId)
         }
     }
 
@@ -430,6 +432,10 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
 
     override fun setSynchronizedRoute(basicId: String): Flow<ResultState<Unit>> {
         return flowRequest { db.basicDataQueries.setSynchronized(basicId) }
+    }
+
+    override fun markUnsynchronized(basicId: String): Flow<ResultState<Unit>> {
+        return flowRequest { db.basicDataQueries.markUnsynchronized(basicId) }
     }
 
     override fun clearRepository(): Flow<ResultState<Unit>> {
