@@ -7,6 +7,13 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Помечаем domain Route-классы как стабильные → ItemHomeScreen становится skippable
+composeCompiler {
+    stabilityConfigurationFiles.add(
+        project.layout.projectDirectory.file("compose_compiler_config.conf")
+    )
+}
+
 android {
     namespace = "com.z_company.route"
     compileSdk = Apps.compile_sdk_version

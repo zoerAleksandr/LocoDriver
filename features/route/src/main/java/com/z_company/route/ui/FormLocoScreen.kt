@@ -64,6 +64,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -158,6 +159,8 @@ fun FormLocoScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val sharedPrefs: SharedPreferencesRepositories = koinInject()
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val topLevelFocusManager = LocalFocusManager.current
 
     val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
 
@@ -194,7 +197,11 @@ fun FormLocoScreen(
                 title = {},
                 navigationIcon = {
                     TextButton(
-                        onClick = onLocoSaved,
+                        onClick = {
+                            keyboardController?.hide()
+                            topLevelFocusManager.clearFocus()
+                            onLocoSaved()
+                        },
                         colors = ButtonDefaults.buttonColors(
                             contentColor = MaterialTheme.colorScheme.tertiary,
                             containerColor = Color.Transparent

@@ -29,8 +29,6 @@ import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
-import com.z_company.domain.entities.route.UtilsForEntities.isFuture
-import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.route.R
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.AppBottomSheet
@@ -594,14 +592,12 @@ fun AllRouteScreen(
                                 key = { _, it -> it.route.basicData.id }
                             ) { index, routeState ->
                                 val route = routeState.route
-                                val background = if (route.isFuture(viewModel.offsetInMoscow)) {
+                                val background = if (routeState.isFuture) {
                                     MaterialTheme.colorScheme.surfaceBright
+                                } else if (routeState.isTransition) {
+                                    MaterialTheme.colorScheme.surfaceDim
                                 } else {
-                                    if (route.isTransition(viewModel.offsetInMoscow)) {
-                                        MaterialTheme.colorScheme.surfaceDim
-                                    } else {
-                                        MaterialTheme.colorScheme.secondary
-                                    }
+                                    MaterialTheme.colorScheme.secondary
                                 }
                                 val routeId = route.basicData.id
                                 val onClickMemo = remember(routeId) { { onRouteClick(routeId) } }
@@ -631,6 +627,7 @@ fun AllRouteScreen(
                                     isHeavyTrains = routeState.isHeavyTrains,
                                     isHolidayTimeInRoute = routeState.isHoliday,
                                     isExtendedServicePhaseTrains = routeState.isExtendedServicePhaseTrains,
+                                    isLongCompositionTrain = routeState.isLongCompositionTrain,
                                     number = displayedRoutes.size - index
                                 )
 

@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberBasicTooltipState
 import androidx.compose.material.DismissDirection
 import androidx.compose.material.ExperimentalMaterialApi
@@ -392,7 +391,7 @@ fun ItemHomeScreen(
                                 .wrapContentWidth(),
                             positionProvider = tooltipPosition,
                             tooltip = {
-                                LazyColumn(
+                                Column(
                                     modifier = Modifier
                                         .padding(horizontal = 8.dp)
                                         .wrapContentWidth()
@@ -403,269 +402,245 @@ fun ItemHomeScreen(
                                         .padding(horizontal = 16.dp, vertical = 24.dp),
                                     verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    item {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Image(
-                                                modifier = Modifier.size(20.dp),
-                                                painter = painterResource(id = R.drawable.icon_holiday),
-                                                contentDescription = null
-                                            )
-
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = " - ",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = "Работа в праздничный день",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                        }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Image(
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.icon_holiday),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = "Работа в праздничный день",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
                                     }
-                                    item {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp),
-                                                painter = painterResource(id = R.drawable.pause_24px),
-                                                contentDescription = null
-                                            )
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = " - ",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = "Перерыв в работе",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                        }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.pause_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = "Перерыв в работе",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
                                     }
-                                    item {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp),
-                                                painter = painterResource(id = R.drawable.long_distance_24px),
-                                                contentDescription = null
-                                            )
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = " - ",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = "Поезда повышенной длины",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                        }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.long_distance_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = "Поезда повышенной длины",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
                                     }
-                                    item {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp),
-                                                painter = painterResource(id = R.drawable.weight_24px),
-                                                contentDescription = null
-                                            )
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = " - ",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                            Text(
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                overflow = TextOverflow.Visible,
-                                                text = "Поезда повышенной массы",
-                                            )
-                                        }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.weight_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Поезда повышенной массы",
+                                        )
                                     }
-                                    item {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp),
-                                                painter = painterResource(id = R.drawable.person_24px),
-                                                contentDescription = null
-                                            )
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = " - ",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                            Text(
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                overflow = TextOverflow.Visible,
-                                                text = "Работа в одно лицо",
-                                            )
-                                        }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.person_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Работа в одно лицо",
+                                        )
                                     }
-                                    item {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp),
-                                                painter = painterResource(id = R.drawable.passenger_24px),
-                                                contentDescription = null
-                                            )
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = " - ",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                            Text(
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                overflow = TextOverflow.Visible,
-                                                text = "Следование пассажиром",
-                                            )
-                                        }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.passenger_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Следование пассажиром",
+                                        )
                                     }
-                                    item {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Image(
-                                                modifier = Modifier.size(20.dp),
-                                                painter = painterResource(id = R.drawable.orden),
-                                                contentDescription = null,
-                                            )
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = " - ",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                            Text(
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                overflow = TextOverflow.Visible,
-                                                text = "Работа свыше 12-ти часов",
-                                            )
-                                        }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Image(
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.orden),
+                                            contentDescription = null,
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Работа свыше 12-ти часов",
+                                        )
                                     }
-                                    item {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp),
-                                                painter = painterResource(id = R.drawable.ic_pusher_24px),
-                                                contentDescription = null
-                                            )
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = " - ",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                            Text(
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                overflow = TextOverflow.Visible,
-                                                text = "Толкач",
-                                            )
-                                        }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.ic_pusher_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Толкач",
+                                        )
                                     }
-                                    item {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp),
-                                                painter = painterResource(id = R.drawable.ic_double_traction_24px),
-                                                contentDescription = null
-                                            )
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = " - ",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                            Text(
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                overflow = TextOverflow.Visible,
-                                                text = "Двойная тяга",
-                                            )
-                                        }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.ic_double_traction_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Двойная тяга",
+                                        )
                                     }
-                                    item {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp),
-                                                painter = painterResource(id = R.drawable.ic_doubled_train_24px),
-                                                contentDescription = null
-                                            )
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = " - ",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                            Text(
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                overflow = TextOverflow.Visible,
-                                                text = "Сдвоенный поезд",
-                                            )
-                                        }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.ic_doubled_train_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Сдвоенный поезд",
+                                        )
                                     }
-                                    item {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Image(
-                                                modifier = Modifier.size(20.dp),
-                                                painter = painterResource(id = R.drawable.sync_on_icon),
-                                                contentDescription = null,
-                                            )
-                                            Text(
-                                                overflow = TextOverflow.Visible,
-                                                text = " - ",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                            Text(
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                overflow = TextOverflow.Visible,
-                                                text = "Статус синхронизации маршрута",
-                                            )
-                                        }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Image(
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.sync_on_icon),
+                                            contentDescription = null,
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Статус синхронизации маршрута",
+                                        )
                                     }
                                 }
                             },

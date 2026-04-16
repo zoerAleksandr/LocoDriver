@@ -24,6 +24,9 @@ import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
 import com.z_company.domain.entities.route.UtilsForEntities.isExtendedServicePhaseTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isHeavyTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isHolidayTimeInRoute
+import com.z_company.domain.entities.route.UtilsForEntities.isLongCompositionTrain
+import com.z_company.domain.entities.route.UtilsForEntities.isFuture
+import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.util.TimeCalculationContext
@@ -491,7 +494,10 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                                         isExtendedServicePhaseTrains = isExtendedServicePhaseTrains(
                                             salarySetting!!,
                                             route
-                                        )
+                                        ),
+                                        isLongCompositionTrain = isLongCompositionTrain(route),
+                                        isFuture = route.isFuture(offsetInMoscow),
+                                        isTransition = route.isTransition(offsetInMoscow)
                                     )
                                     routeStateList.add(routeState)
                                 }

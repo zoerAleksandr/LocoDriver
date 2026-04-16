@@ -64,6 +64,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -124,6 +125,7 @@ fun FormPassengerScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val hintStyle = MaterialTheme.typography.bodyMedium
     val dataTextStyle = MaterialTheme.typography.bodyLarge
 
@@ -147,7 +149,11 @@ fun FormPassengerScreen(
                 title = {},
                 navigationIcon = {
                     TextButton(
-                        onClick = onPassengerSaved,
+                        onClick = {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                            onPassengerSaved()
+                        },
                         colors = ButtonDefaults.buttonColors(
                             disabledContainerColor = Color.Transparent,
                             disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
