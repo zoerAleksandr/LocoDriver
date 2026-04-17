@@ -1311,9 +1311,12 @@ fun HomeScreen(
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            TextButton(onClick = {
-                                onAllRouteClick()
-                            }) {
+                            TextButton(
+                                modifier = Modifier.testTag("home_all_routes_button"),
+                                onClick = {
+                                    onAllRouteClick()
+                                }
+                            ) {
                                 Text(
                                     color = MaterialTheme.colorScheme.tertiary,
                                     style = MaterialTheme.typography.bodySmall,
@@ -1338,7 +1341,9 @@ fun HomeScreen(
 //                                    val dismissState = rememberDismissState()
 
                                     ItemHomeScreen(
-                                        modifier = Modifier.animateItem(),
+                                        modifier = Modifier
+                                            .animateItem()
+                                            .testTag("home_first_route_card"),
                                         convertTimeToString = viewModel::convertTimeToStringFormat,
                                         route = route,
                                         onRequestDelete = {

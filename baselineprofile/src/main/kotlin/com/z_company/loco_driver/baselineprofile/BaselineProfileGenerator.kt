@@ -51,20 +51,41 @@ class BaselineProfileGenerator {
     ) {
         // ===== STARTUP =====
         pressHome()
-        startActivityAndWait()
+        // Workaround для Android 14+ бага в Macrobenchmark:
+        // startActivityAndWait иногда не получает подтверждения от system,
+        // хотя activity успешно отображается.
+        // https://issuetracker.google.com/issues/250063945
+        try {
+            startActivityAndWait()
+        } catch (e: IllegalStateException) {
+            // Игнорируем — на Android 13+ это часто ложная ошибка,
+            // активити фактически уже запущена. Просто ждём её UI.
+            Thread.sleep(3000)
+        }
 
-        device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 20_000)
+        device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 30_000)
         Thread.sleep(3000)
 
         // ===== HOME SCROLL =====
         scrollList("home_lazy_column", times = 2)
 
         // ===== HOME → ALL ROUTES → BACK =====
-        navigateAndScroll(
-            buttonText = "Все",
-            destinationTag = "all_route_lazy_column",
-            scrollTimes = 3
-        )
+        // Используем testTag вместо текста (текст "Все" может быть в нескольких местах)
+        val allBtn = device.findObject(By.res(pkg, "home_all_routes_button"))
+        if (allBtn != null) {
+            allBtn.click()
+            val opened = device.wait(
+                Until.hasObject(By.res(pkg, "all_route_lazy_column")),
+                10_000
+            )
+            if (opened) {
+                Thread.sleep(1500)
+                scrollList("all_route_lazy_column", times = 3)
+            }
+            device.pressBack()
+            device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 5000)
+            Thread.sleep(500)
+        }
 
         // ===== HOME → WORK SCHEDULE → BACK =====
         navigateAndScroll(
@@ -107,20 +128,12 @@ class BaselineProfileGenerator {
         Thread.sleep(800)
 
         // ===== HOME → FORM (открытие первого маршрута) → SUB-FORMS =====
-        // Тапаем по первой карточке маршрута на HomeScreen
-        // (есть 2 ItemHomeScreen-карточки в начале списка)
-        val homeList = device.findObject(By.res(pkg, "home_lazy_column"))
-        // Скроллим к первой карточке (если она ниже в списке)
-        homeList?.scroll(Direction.UP, 1.0f)
-        Thread.sleep(300)
+        // Скроллим к началу списка (если ниже)
+        device.findObject(By.res(pkg, "home_lazy_column"))?.scroll(Direction.UP, 1.0f)
+        Thread.sleep(500)
 
-        // Долгое нажатие для preview-диалога — НЕ делаем (не нужно для профиля)
-        // Вместо этого ищем карточку с временем работы (это уникальный признак ItemHomeScreen)
-        // и тапаем
-        val firstRouteCard = device.findObjects(By.res(pkg, "home_lazy_column"))
-            .firstOrNull()
-            ?.children
-            ?.firstOrNull { it.children.isNotEmpty() }
+        // Тапаем по первой карточке маршрута через явный testTag
+        val firstRouteCard = device.findObject(By.res(pkg, "home_first_route_card"))
         firstRouteCard?.click()
 
         val formOpened = device.wait(Until.hasObject(By.res(pkg, "form_lazy_column")), 8000)
