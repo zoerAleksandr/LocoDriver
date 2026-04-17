@@ -32,22 +32,17 @@ android {
         }
     }
 
-    @Suppress("UnstableApiUsage")
-    testOptions.managedDevices.allDevices {
-        // Эмулятор Pixel 6 API 34 — Gradle создаст автоматически.
-        // Baseline Profile collection требует API 33+, а Samsung A12 = API 31.
-        create<com.android.build.api.dsl.ManagedVirtualDevice>("pixel6Api34") {
-            device = "Pixel 6"
-            apiLevel = 34
-            systemImageSource = "aosp"
-        }
-    }
 }
 
 baselineProfile {
-    // Используем managed device pixel6Api34 (Samsung A12 = API 31, не подходит)
-    managedDevices += "pixel6Api34"
-    useConnectedDevices = false
+    // Используем подключённый эмулятор с Android 13+ и реальными данными
+    // (Samsung A12 = API 31, для Baseline Profile нужен API 33+).
+    // Подготовка эмулятора:
+    //   1. Запустить Pixel 5/6 API 33+ через AVD Manager
+    //   2. Установить release APK: adb install app/build/outputs/apk/release/app-release.apk
+    //   3. Войти в приложении (VK ID) — данные подгрузятся с сервера
+    //   4. ./gradlew :app:generateReleaseBaselineProfile
+    useConnectedDevices = true
 }
 
 dependencies {
