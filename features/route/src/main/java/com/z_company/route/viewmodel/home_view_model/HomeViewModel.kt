@@ -37,9 +37,11 @@ import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.isExtendedServicePhaseTrains
+import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.isHeavyTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isHolidayTimeInRoute
 import com.z_company.domain.entities.route.UtilsForEntities.isLongCompositionTrain
+import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.RouteUseCase
@@ -1487,6 +1489,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
                             val routeStateList = mutableListOf<ItemState>()
                             currentMonthOfYear?.let { monthOfYear ->
+                                val offsetMs = userSettings.timeZone
                                 fullRouteList.forEach { route ->
                                     val routeState = ItemState(
                                         route = route,
@@ -1503,7 +1506,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                             salarySetting,
                                             route
                                         ),
-                                        isLongCompositionTrain = isLongCompositionTrain(route)
+                                        isLongCompositionTrain = isLongCompositionTrain(route),
+                                        isFuture = route.isFuture(offsetMs),
+                                        isTransition = route.isTransition(offsetMs)
                                     )
                                     routeStateList.add(routeState)
                                 }

@@ -13,8 +13,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.robokassa.library.helper.toParams
 import com.robokassa.library.pay.RobokassaPayLauncher
@@ -53,6 +58,11 @@ class MainActivity : ComponentActivity(), KoinComponent {
             val pendingFormOpen by mainViewModel.pendingFormOpen.collectAsState()
             val pendingNavigateHome by mainViewModel.pendingNavigateHome.collectAsState()
             val pendingOpenFormWithId by mainViewModel.pendingOpenFormWithId.collectAsState()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .semantics { testTagsAsResourceId = true }
+            ) {
             LocoDriverApp(
                 appState = appState,
                 isShowUpdatePresentation = mainViewModel.showUpdatePresentation,
@@ -66,6 +76,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 pendingOpenFormWithId = pendingOpenFormWithId,
                 onFormOpenedWithId = mainViewModel::clearOpenFormWithId
             )
+            } // Box
         }
         VKID.logsEnabled = true
     }

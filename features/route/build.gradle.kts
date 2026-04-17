@@ -12,6 +12,13 @@ composeCompiler {
     stabilityConfigurationFiles.add(
         project.layout.projectDirectory.file("compose_compiler_config.conf")
     )
+    // Включается только при -Pcompose.compiler.reports=true:
+    // ./gradlew :features:route:assembleRelease -Pcompose.compiler.reports=true
+    // Отчёты появятся в features/route/build/compose_compiler/
+    if (project.findProperty("compose.compiler.reports") == "true") {
+        reportsDestination = layout.buildDirectory.dir("compose_compiler")
+        metricsDestination = layout.buildDirectory.dir("compose_compiler")
+    }
 }
 
 android {

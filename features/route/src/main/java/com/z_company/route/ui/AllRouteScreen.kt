@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -583,7 +584,9 @@ fun AllRouteScreen(
 
                 else -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("all_route_lazy_column"),
                         contentPadding = PaddingValues(8.dp)
                     ) {
                         viewModel.dateAndTimeConverter?.let { converter ->
@@ -626,7 +629,6 @@ fun AllRouteScreen(
                                     dateAndTimeConverter = converter,
                                     isHeavyTrains = routeState.isHeavyTrains,
                                     isHolidayTimeInRoute = routeState.isHoliday,
-                                    isExtendedServicePhaseTrains = routeState.isExtendedServicePhaseTrains,
                                     isLongCompositionTrain = routeState.isLongCompositionTrain,
                                     number = displayedRoutes.size - index
                                 )

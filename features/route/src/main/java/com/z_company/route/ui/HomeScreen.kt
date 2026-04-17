@@ -76,6 +76,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -593,7 +594,8 @@ fun HomeScreen(
             LazyColumn(
                 Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .testTag("home_lazy_column"),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(32.dp)
             ) {
@@ -1325,15 +1327,12 @@ fun HomeScreen(
                         ) {
                             dateAndTimeConverter?.let {
                                 if (listRouteState.isNotEmpty()) {
-                                    val route = listRouteState.first().route
-                                    var background = MaterialTheme.colorScheme.secondary
-
-                                    if (route.isFuture(offsetInMoscow)) {
-                                        background = MaterialTheme.colorScheme.surfaceBright
-                                    } else {
-                                        if (route.isTransition(offsetInMoscow)) {
-                                            background = MaterialTheme.colorScheme.surfaceDim
-                                        }
+                                    val firstItem = listRouteState.first()
+                                    val route = firstItem.route
+                                    val background = when {
+                                        firstItem.isFuture -> MaterialTheme.colorScheme.surfaceBright
+                                        firstItem.isTransition -> MaterialTheme.colorScheme.surfaceDim
+                                        else -> MaterialTheme.colorScheme.secondary
                                     }
 
 //                                    val dismissState = rememberDismissState()
@@ -1356,7 +1355,6 @@ fun HomeScreen(
                                         },
                                         dateAndTimeConverter = dateAndTimeConverter,
                                         isHeavyTrains = listRouteState[0].isHeavyTrains,
-                                        isExtendedServicePhaseTrains = listRouteState[0].isExtendedServicePhaseTrains,
                                         isLongCompositionTrain = listRouteState[0].isLongCompositionTrain,
                                         isHolidayTimeInRoute = listRouteState[0].isHoliday,
                                         number = listRouteState.size,
@@ -1375,15 +1373,12 @@ fun HomeScreen(
                                     )
                                 }
                                 if (listRouteState.size > 1) {
-                                    val route = listRouteState[1].route
-                                    var background = MaterialTheme.colorScheme.secondary
-
-                                    if (route.isFuture(offsetInMoscow)) {
-                                        background = MaterialTheme.colorScheme.surfaceBright
-                                    } else {
-                                        if (route.isTransition(offsetInMoscow)) {
-                                            background = MaterialTheme.colorScheme.surfaceDim
-                                        }
+                                    val secondItem = listRouteState[1]
+                                    val route = secondItem.route
+                                    val background = when {
+                                        secondItem.isFuture -> MaterialTheme.colorScheme.surfaceBright
+                                        secondItem.isTransition -> MaterialTheme.colorScheme.surfaceDim
+                                        else -> MaterialTheme.colorScheme.secondary
                                     }
 
                                     ItemHomeScreen(
@@ -1402,7 +1397,6 @@ fun HomeScreen(
                                         onClick = { onRouteClick(route.basicData.id) },
                                         dateAndTimeConverter = dateAndTimeConverter,
                                         isHeavyTrains = listRouteState[1].isHeavyTrains,
-                                        isExtendedServicePhaseTrains = listRouteState[1].isExtendedServicePhaseTrains,
                                         isLongCompositionTrain = listRouteState[1].isLongCompositionTrain,
                                         isHolidayTimeInRoute = listRouteState[1].isHoliday,
                                         number = listRouteState.size - 1,
