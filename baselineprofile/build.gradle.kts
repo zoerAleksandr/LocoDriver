@@ -14,9 +14,7 @@ android {
         minSdk = 28          // Baseline Profile API доступен с Android 9+
         targetSdk = Apps.target_sdk_version
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        // Запускать только на Samsung A12 (R58R625VJBP), не на эмуляторах:
-        // в эмуляторах нет реальных данных и SplashScreen долго стартует
+        // Подавить ошибки про эмулятор и debuggable — мы запускаемся в managed device
         testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] =
             "EMULATOR,LOW-BATTERY,UNLOCKED,DEBUGGABLE"
     }
@@ -33,11 +31,23 @@ android {
             jvmTarget = JvmTarget.fromTarget(Apps.jvm_target_version)
         }
     }
+
+    @Suppress("UnstableApiUsage")
+    testOptions.managedDevices.allDevices {
+        // Эмулятор Pixel 6 API 34 — Gradle создаст автоматически.
+        // Baseline Profile collection требует API 33+, а Samsung A12 = API 31.
+        create<com.android.build.api.dsl.ManagedVirtualDevice>("pixel6Api34") {
+            device = "Pixel 6"
+            apiLevel = 34
+            systemImageSource = "aosp"
+        }
+    }
 }
 
 baselineProfile {
-    // Использовать подключённое устройство (Samsung) для генерации
-    useConnectedDevices = true
+    // Используем managed device pixel6Api34 (Samsung A12 = API 31, не подходит)
+    managedDevices += "pixel6Api34"
+    useConnectedDevices = false
 }
 
 dependencies {
