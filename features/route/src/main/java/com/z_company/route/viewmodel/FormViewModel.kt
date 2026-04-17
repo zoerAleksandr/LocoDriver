@@ -270,8 +270,10 @@ class FormViewModel(
             if (isNewRoute) {
                 val newRoute = Route(basicData = BasicData(id = UUID.randomUUID().toString()))
                 _currentRoute.value = newRoute
-                // Сразу сохраняем в БД — автосейв будет работать с первого изменения поля
-                performInitialSave(newRoute)
+                // НЕ сохраняем сразу — пустой маршрут не должен попадать в БД,
+                // если пользователь передумал и закрыл форму без изменений.
+                // Initial save произойдёт автоматически при первом изменении в поле
+                // (через triggerAutoSave) или при переходе в подраздел (preSaveRoute).
             } else {
                 routeId?.let { id ->
                     routeUseCase.routeDetails(id).collectLatest { result ->
@@ -283,11 +285,8 @@ class FormViewModel(
                             ) else result.data
                             _uiState.update { it.copy(routeDetailState = result) }
                             countLoadRoute += 1
-                            if (isCopy && countLoadRoute == 1) {
-                                // Копия: сохраняем в БД сразу после загрузки, не ждём
-                                // перехода в подразделы — пользователь может их не открывать
-                                loadedRoute?.let { performInitialSave(it) }
-                            }
+                            // Копию НЕ сохраняем сразу — ждём первого изменения от пользователя
+                            // (та же логика что и для нового маршрута).
                             if (countLoadRoute == 1) {
                                 // Первая загрузка: устанавливаем весь маршрут из БД
                                 _currentRoute.value = loadedRoute
@@ -317,33 +316,25 @@ class FormViewModel(
         }
     }
 
-    /**
-     * Первичное сохранение нового маршрута в БД сразу при открытии FormScreen.
-     * После успеха — подписываемся на изменения через Flow и включаем автосейв.
-     * Не вызывает changesHave() — не помечает состояние «есть несохранённые правки».
-     */
-    private fun performInitialSave(route: Route) {
-        viewModelScope.launch(Dispatchers.IO) {
-            routeUseCase.saveRoute(route).collect { result ->
-                if (result is ResultState.Success) {
-                    isPersistedToDb = true
-                    subscribeToChanges(route.basicData.id)
-                }
-            }
-        }
-    }
-
-    /** Автосейв с debounce 500 мс. Запускается только если маршрут уже в БД.
+    /** Автосейв с debounce 500 мс.
+     *  - Если маршрут ещё не в БД (новый или копия) — первый вызов делает initial save
+     *    и подписывается на изменения от БД.
+     *  - Если уже в БД — просто обновляет существующую запись.
      *  Сохранение выполняется внутри autoSaveJob — не трогает saveRouteJob,
      *  который используется для явных сохранений (performSave, preSaveRoute). */
     private fun triggerAutoSave() {
-        if (!isPersistedToDb) return
         autoSaveJob?.cancel()
         autoSaveJob = viewModelScope.launch {
             delay(500)
             withContext(Dispatchers.IO) {
                 currentRoute.value?.let { route ->
-                    routeUseCase.saveRoute(route).collect { /* тихий автосейв */ }
+                    val wasInDb = isPersistedToDb
+                    routeUseCase.saveRoute(route).collect { result ->
+                        if (!wasInDb && result is ResultState.Success) {
+                            isPersistedToDb = true
+                            subscribeToChanges(route.basicData.id)
+                        }
+                    }
                 }
             }
         }
@@ -357,8 +348,11 @@ class FormViewModel(
         deleteLocoJob?.cancel()
         deleteTrainJob?.cancel()
         deletePassengerJob?.cancel()
-        // Гарантированное финальное сохранение при уходе с экрана
-        if (isPersistedToDb) {
+        // Финальное сохранение при уходе с экрана —
+        // ТОЛЬКО если маршрут уже в БД И были несохранённые изменения.
+        // Без этого условия пустой/неизменённый маршрут перезаписывался бы при каждом
+        // открытии формы, оставляя в БД пустые черновики.
+        if (isPersistedToDb && _uiState.value.changesHaveState) {
             CoroutineScope(NonCancellable + Dispatchers.IO).launch {
                 currentRoute.value?.let { route ->
                     routeUseCase.saveRoute(route).collect {}
@@ -1111,6 +1105,10 @@ class FormViewModel(
     }
 
     fun preSaveRoute() {
+        // Если маршрут уже в БД и нет несохранённых изменений — переход в подраздел
+        // (Локомотив/Поезд/Пассажир) не требует записи. Это убирает лишние save при
+        // открытии существующего маршрута и тапе по «Локомотив».
+        if (isPersistedToDb && !_uiState.value.changesHaveState) return
         currentRoute.value?.let { route ->
             saveRouteJob?.cancel()
             saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
