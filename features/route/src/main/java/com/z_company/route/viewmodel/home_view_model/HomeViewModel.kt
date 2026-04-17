@@ -571,228 +571,136 @@ class HomeViewModel : ViewModel(), KoinComponent {
     }
 
     private fun calculationPassengerTime(routes: List<Route>, context: TimeCalculationContext) {
-        _uiState.update {
-            it.copy(
-                passengerTimeInRouteList = ResultState.Loading()
-            )
-        }
         try {
             currentMonthOfYear?.let { monthOfYear ->
                 val passengerTime = routes.getPassengerTime(monthOfYear, context)
                 _uiState.update {
-                    it.copy(
-                        passengerTimeInRouteList = ResultState.Success(passengerTime)
-                    )
+                    it.copy(passengerTimeInRouteList = ResultState.Success(passengerTime))
                 }
             }
         } catch (e: Exception) {
             e.sendToSentry("HomeViewModel", "calculationPassengerTime")
             _uiState.update {
-                it.copy(
-                    passengerTimeInRouteList = ResultState.Error(ErrorEntity(e))
-                )
+                it.copy(passengerTimeInRouteList = ResultState.Error(ErrorEntity(e)))
             }
         }
     }
 
     @SuppressLint("SuspiciousIndentation")
-    private fun calculationOfNightTime(routes: List<Route>, settings: UserSettings) {
-        viewModelScope.launch(Dispatchers.IO) {
+    private suspend fun calculationOfNightTime(routes: List<Route>, settings: UserSettings) {
+        try {
+            val nightTimeState = routes.getNightTime(settings)
             _uiState.update {
-                it.copy(
-                    nightTimeInRouteList = ResultState.Loading()
-                )
+                it.copy(nightTimeInRouteList = ResultState.Success(nightTimeState))
             }
-            try {
-                val nightTimeState = routes.getNightTime(settings)
-                _uiState.update {
-                    it.copy(
-                        nightTimeInRouteList = ResultState.Success(nightTimeState)
-                    )
-                }
-            } catch (e: Exception) {
-                e.sendToSentry("HomeViewModel", "calculationOfNightTime")
-                _uiState.update {
-                    it.copy(
-                        nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
-                    )
-                }
+        } catch (e: Exception) {
+            e.sendToSentry("HomeViewModel", "calculationOfNightTime")
+            _uiState.update {
+                it.copy(nightTimeInRouteList = ResultState.Error(ErrorEntity(e)))
             }
         }
     }
 
-    private fun calculationOfSingleLocomotiveTime(routes: List<Route>) {
-        viewModelScope.launch(Dispatchers.IO) {
+    private suspend fun calculationOfSingleLocomotiveTime(routes: List<Route>) {
+        try {
+            val timeState = routes.getSingleLocomotiveTime()
             _uiState.update {
-                it.copy(
-                    singleLocomotiveTimeState = ResultState.Loading()
-                )
+                it.copy(singleLocomotiveTimeState = ResultState.Success(timeState))
             }
-            try {
-                val timeState = routes.getSingleLocomotiveTime()
-                _uiState.update {
-                    it.copy(
-                        singleLocomotiveTimeState = ResultState.Success(timeState)
-                    )
-                }
-            } catch (e: Exception) {
-                e.sendToSentry("HomeViewModel", "calculationOfSingleLocomotiveTime")
-                _uiState.update {
-                    it.copy(
-                        singleLocomotiveTimeState = ResultState.Error(ErrorEntity(e))
-                    )
-                }
+        } catch (e: Exception) {
+            e.sendToSentry("HomeViewModel", "calculationOfSingleLocomotiveTime")
+            _uiState.update {
+                it.copy(singleLocomotiveTimeState = ResultState.Error(ErrorEntity(e)))
             }
         }
     }
 
-    private fun calculationOfExtendedServicePhaseTime(
+    private suspend fun calculationOfExtendedServicePhaseTime(
         salaryCalculationHelper: SalaryCalculationHelper
     ) {
-        viewModelScope.launch(Dispatchers.IO) {
+        try {
+            val timeState =
+                salaryCalculationHelper.getTotalTimeSurchargeServicePhaseFlow().first()
             _uiState.update {
-                it.copy(
-                    extendedServicePhaseTime = ResultState.Loading()
-                )
+                it.copy(extendedServicePhaseTime = ResultState.Success(timeState))
             }
-            try {
-                val timeState =
-                    salaryCalculationHelper.getTotalTimeSurchargeServicePhaseFlow().first()
-                _uiState.update {
-                    it.copy(
-                        extendedServicePhaseTime = ResultState.Success(timeState)
-                    )
-                }
-
-            } catch (e: Exception) {
-                e.sendToSentry("HomeViewModel", "calculationOfExtendedServicePhaseTime")
-                _uiState.update {
-                    it.copy(
-                        extendedServicePhaseTime = ResultState.Error(ErrorEntity(e))
-                    )
-                }
+        } catch (e: Exception) {
+            e.sendToSentry("HomeViewModel", "calculationOfExtendedServicePhaseTime")
+            _uiState.update {
+                it.copy(extendedServicePhaseTime = ResultState.Error(ErrorEntity(e)))
             }
         }
     }
 
-    private fun calculationOfOnePersonOperationTime(
+    private suspend fun calculationOfOnePersonOperationTime(
         routes: List<Route>, userSettings: UserSettings
     ) {
         val context = TimeCalculationContext.from(userSettings)
-        viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update {
-                it.copy(
-                    onePersonOperationTime = ResultState.Loading()
+        try {
+            currentMonthOfYear?.let { monthOfYear ->
+                val passengerTime = routes.getOnePersonOperationTimePassengerTrain(
+                    monthOfYear, context
                 )
-            }
-            try {
-                currentMonthOfYear?.let { monthOfYear ->
-                    val passengerTime = routes.getOnePersonOperationTimePassengerTrain(
-                        monthOfYear, context
-                    )
-                    val time = routes.getOnePersonOperationTime(
-                        monthOfYear, context
-                    )
-                    val resultTIme = time + passengerTime
-                    _uiState.update {
-                        it.copy(
-                            onePersonOperationTime = ResultState.Success(resultTIme)
-                        )
-                    }
-                }
-
-            } catch (e: Exception) {
-                e.sendToSentry("HomeViewModel", "calculationOfOnePersonOperationTime")
+                val time = routes.getOnePersonOperationTime(monthOfYear, context)
+                val resultTIme = time + passengerTime
                 _uiState.update {
-                    it.copy(
-                        onePersonOperationTime = ResultState.Error(ErrorEntity(e))
-                    )
+                    it.copy(onePersonOperationTime = ResultState.Success(resultTIme))
                 }
+            }
+        } catch (e: Exception) {
+            e.sendToSentry("HomeViewModel", "calculationOfOnePersonOperationTime")
+            _uiState.update {
+                it.copy(onePersonOperationTime = ResultState.Error(ErrorEntity(e)))
             }
         }
     }
 
-    private fun calculationOfLongDistanceTrainsTime(
+    private suspend fun calculationOfLongDistanceTrainsTime(
         salaryCalculationHelper: SalaryCalculationHelper
     ) {
-        viewModelScope.launch(Dispatchers.IO) {
+        try {
+            val timeState = salaryCalculationHelper.getTotalTimeLongTrainsFlow().first()
             _uiState.update {
-                it.copy(
-                    longDistanceTrainsTime = ResultState.Loading()
-                )
+                it.copy(longDistanceTrainsTime = ResultState.Success(timeState))
             }
-            try {
-                val timeState = salaryCalculationHelper.getTotalTimeLongTrainsFlow().first()
-                _uiState.update {
-                    it.copy(
-                        longDistanceTrainsTime = ResultState.Success(timeState)
-                    )
-                }
-
-            } catch (e: Exception) {
-                e.sendToSentry("HomeViewModel", "calculationOfLongDistanceTrainsTime")
-                _uiState.update {
-                    it.copy(
-                        longDistanceTrainsTime = ResultState.Error(ErrorEntity(e))
-                    )
-                }
+        } catch (e: Exception) {
+            e.sendToSentry("HomeViewModel", "calculationOfLongDistanceTrainsTime")
+            _uiState.update {
+                it.copy(longDistanceTrainsTime = ResultState.Error(ErrorEntity(e)))
             }
         }
     }
 
-    private fun calculationOfHeavyTrainsTime(
+    private suspend fun calculationOfHeavyTrainsTime(
         salaryCalculationHelper: SalaryCalculationHelper
     ) {
-        viewModelScope.launch(Dispatchers.IO) {
+        try {
+            val timeState = salaryCalculationHelper.getTotalTimeHeavyTrainsFlow().first()
             _uiState.update {
-                it.copy(
-                    heavyTrainsTime = ResultState.Loading()
-                )
+                it.copy(heavyTrainsTime = ResultState.Success(timeState))
             }
-            try {
-                val timeState = salaryCalculationHelper.getTotalTimeHeavyTrainsFlow().first()
-                _uiState.update {
-                    it.copy(
-                        heavyTrainsTime = ResultState.Success(timeState)
-                    )
-                }
-
-            } catch (e: Exception) {
-                e.sendToSentry("HomeViewModel", "calculationOfHeavyTrainsTime")
-                _uiState.update {
-                    it.copy(
-                        heavyTrainsTime = ResultState.Error(ErrorEntity(e))
-                    )
-                }
+        } catch (e: Exception) {
+            e.sendToSentry("HomeViewModel", "calculationOfHeavyTrainsTime")
+            _uiState.update {
+                it.copy(heavyTrainsTime = ResultState.Error(ErrorEntity(e)))
             }
         }
     }
 
 
-    private fun calculationHolidayTime(routes: List<Route>, context: TimeCalculationContext) {
-        viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update {
-                it.copy(
-                    holidayHours = ResultState.Loading()
-                )
-            }
-            try {
-                currentMonthOfYear?.let { monthOfYear ->
-                    val holidayTime =
-                        routes.getWorkingTimeOnAHoliday(monthOfYear, context).first()
-                    _uiState.update {
-                        it.copy(
-                            holidayHours = ResultState.Success(holidayTime)
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                e.sendToSentry("HomeViewModel", "calculationHolidayTime")
+    private suspend fun calculationHolidayTime(routes: List<Route>, context: TimeCalculationContext) {
+        try {
+            currentMonthOfYear?.let { monthOfYear ->
+                val holidayTime =
+                    routes.getWorkingTimeOnAHoliday(monthOfYear, context).first()
                 _uiState.update {
-                    it.copy(
-                        nightTimeInRouteList = ResultState.Error(ErrorEntity(e))
-                    )
+                    it.copy(holidayHours = ResultState.Success(holidayTime))
                 }
+            }
+        } catch (e: Exception) {
+            e.sendToSentry("HomeViewModel", "calculationHolidayTime")
+            _uiState.update {
+                it.copy(nightTimeInRouteList = ResultState.Error(ErrorEntity(e)))
             }
         }
     }
@@ -1081,29 +989,20 @@ class HomeViewModel : ViewModel(), KoinComponent {
     }
 
     private fun calculationTotalTime(routes: List<Route>, context: TimeCalculationContext) {
-        _uiState.update {
-            it.copy(
-                totalTimeWithHoliday = ResultState.Loading()
-            )
-        }
         try {
             val stateSettings = uiState.value.settingState
             if (stateSettings is ResultState.Success) {
                 stateSettings.data?.let { settings ->
                     val totalTime = routes.getWorkTime(settings.selectMonthOfYear, context)
                     _uiState.update {
-                        it.copy(
-                            totalTimeWithHoliday = ResultState.Success(totalTime)
-                        )
+                        it.copy(totalTimeWithHoliday = ResultState.Success(totalTime))
                     }
                 }
             }
         } catch (e: Exception) {
             e.sendToSentry("HomeViewModel", "calculationTotalTime")
             _uiState.update {
-                it.copy(
-                    totalTimeWithHoliday = ResultState.Error(ErrorEntity(e))
-                )
+                it.copy(totalTimeWithHoliday = ResultState.Error(ErrorEntity(e)))
             }
         }
     }
@@ -1568,30 +1467,23 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                 routeList = filteredRouteList
                             )
 
-                            // launch background jobs for calculations (same as before)
-                            viewModelScope.launch(Dispatchers.Default) { // Default лучше для CPU-intensive
+                            // Все calculation-функции теперь suspend.
+                            // Запускаем их как child-coroutines в одном coroutineScope —
+                            // это устраняет nested viewModelScope.launch и lock contention на StateFlow.
+                            viewModelScope.launch(Dispatchers.Default) {
+                                val calcContext = TimeCalculationContext.from(userSettings)
                                 coroutineScope {
-                                    calculationOfExtendedServicePhaseTime(salaryCalculationHelper)
-                                    calculationOfLongDistanceTrainsTime(salaryCalculationHelper)
-                                    calculationOfHeavyTrainsTime(salaryCalculationHelper)
-
-                                    val calcContext = TimeCalculationContext.from(userSettings)
-                                    calculationOfOnePersonOperationTime(
-                                        filteredRouteList,
-                                        userSettings
-                                    )
+                                    launch { calculationOfExtendedServicePhaseTime(salaryCalculationHelper) }
+                                    launch { calculationOfLongDistanceTrainsTime(salaryCalculationHelper) }
+                                    launch { calculationOfHeavyTrainsTime(salaryCalculationHelper) }
+                                    launch { calculationOfOnePersonOperationTime(filteredRouteList, userSettings) }
+                                    launch { calculationOfNightTime(filteredRouteList, userSettings) }
+                                    launch { calculationOfSingleLocomotiveTime(filteredRouteList) }
+                                    launch { calculationHolidayTime(filteredRouteList, calcContext) }
+                                    // Эти 3 функции синхронные/легкие — запускаем последовательно
                                     calculationTotalTime(filteredRouteList, calcContext)
-                                    calculationOfTimeWithoutHoliday(
-                                        filteredRouteList,
-                                        calcContext
-                                    )
-                                    calculationOfNightTime(filteredRouteList, userSettings)
-                                    calculationOfSingleLocomotiveTime(filteredRouteList)
-                                    calculationPassengerTime(
-                                        filteredRouteList,
-                                        calcContext
-                                    )
-                                    calculationHolidayTime(filteredRouteList, calcContext)
+                                    calculationOfTimeWithoutHoliday(filteredRouteList, calcContext)
+                                    calculationPassengerTime(filteredRouteList, calcContext)
                                 }
                                 // Update widget after all calculations complete
                                 pushWidgetData(

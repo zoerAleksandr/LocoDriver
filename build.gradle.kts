@@ -15,6 +15,9 @@ plugins {
     id(Plugins.sentry_kmp) version Versions.sentry_kmp_plugin_ver apply false
     id(Plugins.vkIdManifest) version Versions.vkIdManifestPluginVer apply true
     id("org.jetbrains.kotlin.plugin.serialization") version Versions.kotlin_version
+    // Baseline Profile генерация (для AOT-компиляции горячих путей)
+    id("com.android.test") version Versions.android_plugin_id apply false
+    id("androidx.baselineprofile") version "1.3.4" apply false
 }
 
 

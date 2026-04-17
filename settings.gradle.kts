@@ -25,6 +25,7 @@ dependencyResolutionManagement {
 
     rootProject.name = "LocoDriver"
     include(":app")
+    include(":baselineprofile")
     include(":core_android")
     include(":data_local")
     include(":core")

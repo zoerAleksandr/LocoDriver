@@ -11,6 +11,7 @@ plugins {
     id(Plugins.compose_compiler)
     id(Plugins.vkIdManifest)
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("androidx.baselineprofile")
 }
 
 android {
@@ -58,11 +59,20 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        // BuildType для генерации Baseline Profile.
+        // Использует release-конфиги (R8 minify + profileable),
+        // но debug-подпись чтобы не конфликтовать с установленной release-версией.
+        create("benchmark") {
+            initWith(buildTypes.getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += "release"
         }
     }
 
@@ -147,6 +157,11 @@ dependencies {
     debugImplementation(Libs.ui_tooling)
     debugImplementation(Libs.ui_test_manifest)
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
+
+    // ProfileInstaller — встраивает Baseline Profile в APK,
+    // ART использует его для AOT-компиляции при установке
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+    "baselineProfile"(project(":baselineprofile"))
 }
 configurations.all {
     exclude (group = "com.squareup.okhttp3", module = "okhttp-bom")
