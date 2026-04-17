@@ -65,6 +65,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -386,6 +387,7 @@ fun FormLocoScreen(
 
                 LazyColumn(
                     state = scrollState,
+                    modifier = Modifier.testTag("form_loco_lazy_column"),
                     horizontalAlignment = Alignment.End,
                 ) {
                     item {

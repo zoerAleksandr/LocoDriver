@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -327,7 +328,8 @@ private fun SettingsHubContent(
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 12.dp)
-            .padding(bottom = 24.dp),
+            .padding(bottom = 24.dp)
+            .testTag("settings_scroll_column"),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         SettingsNavItem(

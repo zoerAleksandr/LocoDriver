@@ -83,6 +83,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
@@ -672,6 +673,7 @@ fun FormTrainScreen(
             currentTrain?.let { train ->
                 LazyColumn(
                     state = scrollState,
+                    modifier = Modifier.testTag("form_train_lazy_column"),
                     horizontalAlignment = Alignment.End,
                     contentPadding = PaddingValues(16.dp)
                 ) {
