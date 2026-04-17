@@ -66,13 +66,18 @@ android {
                 "proguard-rules.pro"
             )
         }
-        // BuildType для генерации Baseline Profile.
-        // Использует release-конфиги (R8 minify + profileable),
-        // но debug-подпись чтобы не конфликтовать с установленной release-версией.
-        create("benchmark") {
+        // BuildTypes для Baseline Profile generation (создаются плагином,
+        // но мы переопределяем подпись на debug, чтобы не было конфликта
+        // подписи с release-версией приложения уже установленной на устройстве).
+        create("nonMinifiedRelease") {
             initWith(buildTypes.getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
-            matchingFallbacks += "release"
+            matchingFallbacks += listOf("release")
+        }
+        create("benchmarkRelease") {
+            initWith(buildTypes.getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
         }
     }
 

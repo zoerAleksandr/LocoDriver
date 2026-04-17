@@ -14,18 +14,14 @@ android {
         minSdk = 28          // Baseline Profile API доступен с Android 9+
         targetSdk = Apps.target_sdk_version
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Запускать только на Samsung A12 (R58R625VJBP), не на эмуляторах:
+        // в эмуляторах нет реальных данных и SplashScreen долго стартует
+        testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] =
+            "EMULATOR,LOW-BATTERY,UNLOCKED,DEBUGGABLE"
     }
 
     targetProjectPath = ":app"
-
-    // Используем тот же signing что и debug — чтобы профиль ставился без конфликта подписи
-    buildTypes {
-        create("benchmark") {
-            isDebuggable = true
-            signingConfig = signingConfigs.getByName("debug")
-            matchingFallbacks += "release"
-        }
-    }
 
     compileOptions {
         sourceCompatibility = Apps.java_compatibility_version

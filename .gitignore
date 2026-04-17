@@ -19,6 +19,8 @@ secret.properties
 *.class
 buildSrc/build/
 robokassa_sdk/build/
+baselineprofile/build/
+benchmark/build/
 .claude/worktrees/
 app/release/
 
