@@ -62,6 +62,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -458,6 +459,7 @@ fun WorkScheduleScreen(
             LazyColumn(
                 modifier = modifier
                     .padding(12.dp)
+                    .testTag("work_schedule_lazy_column")
             ) {
                 item {
                     Row(

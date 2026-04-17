@@ -12,14 +12,20 @@ import org.junit.runner.RunWith
 /**
  * Генерирует Baseline Profile для критических путей приложения.
  *
- * Запуск: ./gradlew :app:generateReleaseBaselineProfile
+ * Запуск: ANDROID_SERIAL=R58R625VJBP ./gradlew :app:generateReleaseBaselineProfile
  *
  * Профиль сохраняется в: app/src/main/baselineProfiles/baseline-prof.txt
  * При следующей сборке release APK профиль автоматически встраивается,
  * и ART использует его для AOT-компиляции при установке.
  *
- * Эффект: cold start −30-40%, first-frame значительно быстрее,
- * исчезают JIT-spike (которые мы видели в трейсе на 154ms).
+ * Покрываемые сценарии:
+ *   1. Cold start
+ *   2. Скролл HomeScreen
+ *   3. Переход HomeScreen → AllRouteScreen → скролл → возврат
+ *   4. Переход HomeScreen → WorkScheduleScreen → скролл → возврат
+ *   5. Переход HomeScreen → SelectReleaseDaysScreen (отвлечения) → скролл → возврат
+ *
+ * Эффект: cold start −30-40%, исчезают JIT-spike (которые мы видели в трейсе на 154ms).
  */
 @RunWith(AndroidJUnit4::class)
 class BaselineProfileGenerator {
@@ -27,69 +33,83 @@ class BaselineProfileGenerator {
     @get:Rule
     val rule = BaselineProfileRule()
 
+    private val pkg = "com.z_company.loco_driver"
+
     @Test
     fun generate() = rule.collect(
-        packageName = "com.z_company.loco_driver",
+        packageName = pkg,
         includeInStartupProfile = true,
         maxIterations = 5,
     ) {
         // ===== STARTUP =====
-        // Прогревает: класс-загрузка, Koin DI, splash screen, MainActivity, первый Compose-tree
         pressHome()
         startActivityAndWait()
 
-        // Ждём появления списка с реальными данными (на Samsung — есть данные)
-        // или просто надолго ждём чтобы прогрелась инициализация Koin/Room/Ktor
-        device.wait(
-            Until.hasObject(By.res("com.z_company.loco_driver", "home_lazy_column")),
-            20_000
-        )
-        Thread.sleep(3000)  // дополнительная пауза для асинхронной загрузки данных
+        device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 20_000)
+        Thread.sleep(3000)
 
         // ===== HOME SCROLL =====
-        // Прогревает: ItemHomeScreen, LazyColumn, Modifier-цепочки, кешированные ресурсы
-        val homeList = device.findObject(By.res("com.z_company.loco_driver", "home_lazy_column"))
-        if (homeList != null) {
-            repeat(2) {
-                homeList.scroll(Direction.DOWN, 0.8f)
-                Thread.sleep(300)
-                homeList.scroll(Direction.UP, 0.8f)
-                Thread.sleep(300)
-            }
+        scrollList("home_lazy_column", times = 2)
+
+        // ===== HOME → ALL ROUTES → BACK =====
+        navigateAndScroll(
+            buttonText = "Все",
+            destinationTag = "all_route_lazy_column",
+            scrollTimes = 3
+        )
+
+        // ===== HOME → WORK SCHEDULE → BACK =====
+        // Карточка «График» на HomeScreen открывает WorkScheduleScreen (календарь графика работы)
+        navigateAndScroll(
+            buttonText = "График",
+            destinationTag = "work_schedule_lazy_column",
+            scrollTimes = 2
+        )
+
+        // ===== HOME → RELEASE DAYS (отвлечения) → BACK =====
+        // Карточка «Отвлечения» открывает SelectReleaseDaysScreen
+        navigateAndScroll(
+            buttonText = "Отвлечения",
+            destinationTag = "release_days_lazy_column",
+            scrollTimes = 2
+        )
+    }
+
+    /**
+     * Тапает кнопку с текстом, ждёт открытия экрана с testTag, скроллит,
+     * возвращается на HomeScreen.
+     */
+    private fun androidx.benchmark.macro.MacrobenchmarkScope.navigateAndScroll(
+        buttonText: String,
+        destinationTag: String,
+        scrollTimes: Int
+    ) {
+        val btn = device.findObject(By.text(buttonText))
+        if (btn == null) return
+        btn.click()
+
+        val opened = device.wait(Until.hasObject(By.res(pkg, destinationTag)), 10_000)
+        if (opened) {
+            Thread.sleep(1000)
+            scrollList(destinationTag, times = scrollTimes)
         }
 
-        // ===== NAVIGATION HOME → ALL ROUTES =====
-        // Прогревает: NavController, переход экранов, AllRouteViewModel, AllRouteScreen
-        val btnVse = device.findObject(By.text("Все"))
-        if (btnVse != null) {
-            btnVse.click()
-            val hasAllRouteList = device.wait(
-                Until.hasObject(By.res("com.z_company.loco_driver", "all_route_lazy_column")),
-                10_000
-            )
-            if (hasAllRouteList) {
-                Thread.sleep(1500)
-                val allRouteList = device.findObject(
-                    By.res("com.z_company.loco_driver", "all_route_lazy_column")
-                )
+        // Возврат на HomeScreen
+        device.pressBack()
+        device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 5000)
+        Thread.sleep(500)
+    }
 
-                // ===== ALL ROUTES SCROLL =====
-                // Прогревает: ItemHomeScreen в контексте списка, scroll-механика
-                repeat(3) {
-                    allRouteList?.scroll(Direction.DOWN, 0.8f)
-                    Thread.sleep(200)
-                    allRouteList?.scroll(Direction.UP, 0.8f)
-                    Thread.sleep(200)
-                }
-            }
-
-            // ===== BACK NAVIGATION =====
-            // Прогревает: возврат на HomeScreen — самая больная точка
-            device.pressBack()
-            device.wait(
-                Until.hasObject(By.res("com.z_company.loco_driver", "home_lazy_column")),
-                5000
-            )
+    private fun androidx.benchmark.macro.MacrobenchmarkScope.scrollList(
+        tag: String,
+        times: Int
+    ) {
+        val list = device.findObject(By.res(pkg, tag)) ?: return
+        repeat(times) {
+            list.scroll(Direction.DOWN, 0.8f)
+            Thread.sleep(250)
+            list.scroll(Direction.UP, 0.8f)
+            Thread.sleep(250)
         }
     }
 }
