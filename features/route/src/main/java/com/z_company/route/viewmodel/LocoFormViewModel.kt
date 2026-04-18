@@ -425,11 +425,14 @@ class LocoFormViewModel(
         )
         // Сразу обновляем UI-флаг, чтобы поля второго рода тока появились/исчезли
         // без повторного входа на экран. Флаг остаётся true, если в секциях есть данные.
+        // Важно: data это String?, но в setSelectedLocomotive он инициализируется через
+        // `?: ""` — поэтому НЕ null, а пустая строка. Проверка != null всегда возвращала
+        // true → второй счётчик показывался даже без данных и без настройки.
         val hasOtherCurrentData = _electricSectionListState.value.any { section ->
-            section.accepted2.data != null ||
-            section.delivery2.data != null ||
-            section.recoveryAccepted2.data != null ||
-            section.recoveryDelivery2.data != null
+            !section.accepted2.data.isNullOrBlank() ||
+            !section.delivery2.data.isNullOrBlank() ||
+            !section.recoveryAccepted2.data.isNullOrBlank() ||
+            !section.recoveryDelivery2.data.isNullOrBlank()
         }
         _uiState.update { state ->
             state.copy(isShowOtherCurrent = newIsShowOtherCurrent || hasOtherCurrentData)

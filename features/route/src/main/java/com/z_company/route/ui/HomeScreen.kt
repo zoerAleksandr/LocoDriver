@@ -1720,11 +1720,6 @@ fun MainInfo(
                     val remainingMillis = if (isOvertime) diff else -diff
                     val timeStr = convertTimeToString(remainingMillis)
                     val chipText = if (isOvertime) "сверх $timeStr" else "еще $timeStr"
-                    val chipColor = if (isOvertime) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.tertiary
-                    }
                     Surface(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -1736,7 +1731,7 @@ fun MainInfo(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                             text = chipText,
                             style = MaterialTheme.typography.labelMedium,
-                            color = chipColor,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                 }
