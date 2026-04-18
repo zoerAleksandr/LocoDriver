@@ -706,6 +706,79 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    /**
+     * Job для recalc-эффекта от изменения salarySetting.
+     * Cancel старого + start нового при каждом эмите — debounce-like поведение.
+     */
+    private var recalcOnSalarySettingChangeJob: Job? = null
+
+    /**
+     * Запускает все calculation-функции с текущими routeList/settings.
+     * Вызывается:
+     *  1. После загрузки новых маршрутов из БД (routesFlow.collect)
+     *  2. При изменении salarySetting/userSettings (реактивный пересчёт)
+     *
+     * Использует Dispatchers.Default + coroutineScope для параллельного запуска.
+     * Не блокирует UI — calculations занимают ~50-200ms на DefaultDispatcher.
+     */
+    private fun runAllCalculations(
+        fullRouteList: List<Route>,
+        userSettings: UserSettings,
+        salarySetting: SalarySetting,
+        currentTimeInMillis: Long,
+    ) {
+        // Единая логика фильтрации: см. UtilsForEntities.filterByConsiderFutureRoute
+        val filteredRouteList = fullRouteList.filterByConsiderFutureRoute(
+            isConsiderFutureRoute = userSettings.isConsiderFutureRoute,
+            currentTimeInMillis = currentTimeInMillis,
+        )
+
+        isConsiderFutureRoute = userSettings.isConsiderFutureRoute
+        if (userSettings.isConsiderFutureRoute) {
+            currentMonthOfYear?.let { monthOfYear ->
+                val completedRoutes = fullRouteList.filter { route ->
+                    val end = route.basicData.timeEndWork ?: return@filter false
+                    end <= currentTimeInMillis
+                }
+                todayWorkTime = completedRoutes.getWorkTime(
+                    monthOfYear,
+                    TimeCalculationContext.from(userSettings)
+                )
+            }
+        }
+
+        val salaryCalculationHelper = SalaryCalculationHelper(
+            userSettings = userSettings,
+            salarySetting = salarySetting,
+            routeList = filteredRouteList
+        )
+
+        viewModelScope.launch(Dispatchers.Default) {
+            val calcContext = TimeCalculationContext.from(userSettings)
+            coroutineScope {
+                launch { calculationOfExtendedServicePhaseTime(salaryCalculationHelper) }
+                launch { calculationOfLongDistanceTrainsTime(salaryCalculationHelper) }
+                launch { calculationOfHeavyTrainsTime(salaryCalculationHelper) }
+                launch { calculationOfOnePersonOperationTime(filteredRouteList, userSettings) }
+                launch { calculationOfNightTime(filteredRouteList, userSettings) }
+                launch { calculationOfSingleLocomotiveTime(filteredRouteList) }
+                launch { calculationHolidayTime(filteredRouteList, calcContext) }
+                launch { calculationToBeCredited(salaryCalculationHelper) }
+                // Эти 3 функции синхронные/легкие — запускаем последовательно
+                calculationTotalTime(filteredRouteList, calcContext)
+                calculationOfTimeWithoutHoliday(filteredRouteList, calcContext)
+                calculationPassengerTime(filteredRouteList, calcContext)
+            }
+            // Update widget after all calculations complete
+            pushWidgetData(
+                routeCount = filteredRouteList.size,
+                fullRouteList = fullRouteList,
+                userSettings = userSettings,
+                currentTimeInMillis = currentTimeInMillis
+            )
+        }
+    }
+
     /** Считает итоговую сумму зарплаты «К выдаче» — для отображения в TopAppBar HomeScreen. */
     private suspend fun calculationToBeCredited(helper: SalaryCalculationHelper) {
         try {
@@ -1349,7 +1422,32 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     }
 
                     // Update params that drive routesFlow. flatMapLatest on routesFlow will switch to the new month/timezone.
-                    routeParams.value = userSettings.selectMonthOfYear to TimeCalculationContext.from(userSettings)
+                    val newParams = userSettings.selectMonthOfYear to TimeCalculationContext.from(userSettings)
+                    val isMonthOrTzChanged = routeParams.value != newParams
+                    routeParams.value = newParams
+
+                    // РЕАКТИВНЫЙ ПЕРЕСЧЁТ: если month/TZ не менялись, routesFlow не
+                    // перезапустится → calculations не пересчитаются. Но если изменились
+                    // настройки доплат (salarySetting) или isConsiderFutureRoute —
+                    // пересчёт нужен. Используем cachedRouteList без повторной загрузки
+                    // из БД.
+                    if (!isMonthOrTzChanged) {
+                        cachedRouteList?.let { routes ->
+                            recalcOnSalarySettingChangeJob?.cancel()
+                            recalcOnSalarySettingChangeJob = viewModelScope.launch {
+                                kotlinx.coroutines.delay(150) // debounce от частых эмитов
+                                val tz = java.util.TimeZone.getTimeZone(
+                                    DateAndTimeConverter(userSettings).timeZoneText
+                                )
+                                runAllCalculations(
+                                    fullRouteList = routes,
+                                    userSettings = userSettings,
+                                    salarySetting = currentSalarySetting!!,
+                                    currentTimeInMillis = getInstance(tz).timeInMillis,
+                                )
+                            }
+                        }
+                    }
                 } else {
                     // If settings or salary not ready, clear route params
                     routeParams.value = null
@@ -1430,63 +1528,16 @@ class HomeViewModel : ViewModel(), KoinComponent {
 //                                }
                             }
 
-                            // Единая логика фильтрации: см. UtilsForEntities.filterByConsiderFutureRoute
-                            val filteredRouteList = result.data.filterByConsiderFutureRoute(
-                                isConsiderFutureRoute = userSettings.isConsiderFutureRoute,
-                                currentTimeInMillis = currentTimeInMillis,
-                            )
-
-                            isConsiderFutureRoute = userSettings.isConsiderFutureRoute
-                            if (userSettings.isConsiderFutureRoute) {
-                                // Суммируем отработанное время от начала месяца до текущего момента:
-                                // только маршруты, у которых timeEndWork уже наступило.
-                                // Используем ту же getWorkTime(monthOfYear) что и для месячного итога
-                                // — корректно обрабатывает переходные маршруты.
-                                currentMonthOfYear?.let { monthOfYear ->
-                                    val completedRoutes = result.data.filter { route ->
-                                        val end = route.basicData.timeEndWork ?: return@filter false
-                                        end <= currentTimeInMillis
-                                    }
-                                    todayWorkTime = completedRoutes.getWorkTime(
-                                        monthOfYear,
-                                        TimeCalculationContext.from(userSettings)
-                                    )
-                                }
-                            }
-
-                            val salaryCalculationHelper = SalaryCalculationHelper(
+                            // Запуск всех вычислений вынесен в отдельный метод —
+                            // используется и здесь (новые маршруты), и при изменении
+                            // salarySetting/userSettings (реактивный пересчёт без
+                            // повторной загрузки маршрутов из БД).
+                            runAllCalculations(
+                                fullRouteList = fullRouteList,
                                 userSettings = userSettings,
                                 salarySetting = salarySetting,
-                                routeList = filteredRouteList
+                                currentTimeInMillis = currentTimeInMillis,
                             )
-
-                            // Все calculation-функции теперь suspend.
-                            // Запускаем их как child-coroutines в одном coroutineScope —
-                            // это устраняет nested viewModelScope.launch и lock contention на StateFlow.
-                            viewModelScope.launch(Dispatchers.Default) {
-                                val calcContext = TimeCalculationContext.from(userSettings)
-                                coroutineScope {
-                                    launch { calculationOfExtendedServicePhaseTime(salaryCalculationHelper) }
-                                    launch { calculationOfLongDistanceTrainsTime(salaryCalculationHelper) }
-                                    launch { calculationOfHeavyTrainsTime(salaryCalculationHelper) }
-                                    launch { calculationOfOnePersonOperationTime(filteredRouteList, userSettings) }
-                                    launch { calculationOfNightTime(filteredRouteList, userSettings) }
-                                    launch { calculationOfSingleLocomotiveTime(filteredRouteList) }
-                                    launch { calculationHolidayTime(filteredRouteList, calcContext) }
-                                    launch { calculationToBeCredited(salaryCalculationHelper) }
-                                    // Эти 3 функции синхронные/легкие — запускаем последовательно
-                                    calculationTotalTime(filteredRouteList, calcContext)
-                                    calculationOfTimeWithoutHoliday(filteredRouteList, calcContext)
-                                    calculationPassengerTime(filteredRouteList, calcContext)
-                                }
-                                // Update widget after all calculations complete
-                                pushWidgetData(
-                                    routeCount = filteredRouteList.size,
-                                    fullRouteList = fullRouteList,
-                                    userSettings = userSettings,
-                                    currentTimeInMillis = currentTimeInMillis
-                                )
-                            }
                         } else {
                             // settings not ready - update UI accordingly if needed
 //                            withContext(Dispatchers.Main) {

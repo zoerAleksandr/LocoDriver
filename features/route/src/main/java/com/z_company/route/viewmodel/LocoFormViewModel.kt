@@ -718,7 +718,15 @@ class LocoFormViewModel(
 
     fun confirmDeleteDieselSection() {
         val id = _uiState.value.confirmDeleteDieselSectionId ?: return
-        val section = _dieselSectionListState.value.find { it.sectionId == id }
+        deleteDieselSectionById(id)
+    }
+
+    /** Удалить секцию по id напрямую, без зависимости от state.
+     *  Используется UI после захвата sectionId в lambda — обходит проблему с
+     *  AppBottomSheet (который сбрасывает confirmDeleteSectionId через
+     *  onDismissRequest перед вызовом action). */
+    fun deleteDieselSectionById(sectionId: String) {
+        val section = _dieselSectionListState.value.find { it.sectionId == sectionId }
         _uiState.update { it.copy(confirmDeleteDieselSectionId = null) }
         section?.let { deleteSectionDiesel(it) }
     }
@@ -759,7 +767,12 @@ class LocoFormViewModel(
 
     fun confirmDeleteElectricSection() {
         val id = _uiState.value.confirmDeleteElectricSectionId ?: return
-        val section = _electricSectionListState.value.find { it.sectionId == id }
+        deleteElectricSectionById(id)
+    }
+
+    /** Удалить секцию по id напрямую (см. deleteDieselSectionById). */
+    fun deleteElectricSectionById(sectionId: String) {
+        val section = _electricSectionListState.value.find { it.sectionId == sectionId }
         _uiState.update { it.copy(confirmDeleteElectricSectionId = null) }
         section?.let { deleteSectionElectric(it) }
     }

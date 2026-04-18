@@ -193,6 +193,10 @@ fun FormLocoScreen(
     // Подтверждение удаления секции (Diesel/Electric).
     // Каждый sheet — отдельный sheetState чтобы избежать конфликта shared state.
     formUiState.confirmDeleteDieselSectionId?.let { sectionId ->
+        // sectionId захватываем в локальную переменную — иначе AppBottomSheet
+        // вызывает onDismissRequest() ПЕРЕД action.onClick(), что сбрасывает
+        // confirmDeleteDieselSectionId в null, и confirmDeleteDieselSection()
+        // читает null → ничего не удаляется.
         val confirmSheetState = androidx.compose.material3.rememberModalBottomSheetState(
             skipPartiallyExpanded = true
         )
@@ -202,7 +206,7 @@ fun FormLocoScreen(
             title = "Удалить секцию?",
             actions = listOf(
                 com.z_company.route.component.BottomSheetAction(text = "Да, удалить") {
-                    viewModel.confirmDeleteDieselSection()
+                    viewModel.deleteDieselSectionById(sectionId)
                 }
             )
         )
@@ -217,7 +221,7 @@ fun FormLocoScreen(
             title = "Удалить секцию?",
             actions = listOf(
                 com.z_company.route.component.BottomSheetAction(text = "Да, удалить") {
-                    viewModel.confirmDeleteElectricSection()
+                    viewModel.deleteElectricSectionById(sectionId)
                 }
             )
         )
