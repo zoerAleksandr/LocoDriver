@@ -26,6 +26,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.UtilsForEntities.filterByConsiderFutureRoute
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.findNextFutureRoute
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
@@ -1429,11 +1430,11 @@ class HomeViewModel : ViewModel(), KoinComponent {
 //                                }
                             }
 
-                            val filteredRouteList = if (userSettings.isConsiderFutureRoute) {
-                                result.data
-                            } else {
-                                result.data.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
-                            }
+                            // Единая логика фильтрации: см. UtilsForEntities.filterByConsiderFutureRoute
+                            val filteredRouteList = result.data.filterByConsiderFutureRoute(
+                                isConsiderFutureRoute = userSettings.isConsiderFutureRoute,
+                                currentTimeInMillis = currentTimeInMillis,
+                            )
 
                             isConsiderFutureRoute = userSettings.isConsiderFutureRoute
                             if (userSettings.isConsiderFutureRoute) {

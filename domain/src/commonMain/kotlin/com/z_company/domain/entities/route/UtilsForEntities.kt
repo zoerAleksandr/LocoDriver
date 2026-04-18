@@ -643,6 +643,42 @@ object UtilsForEntities {
         return totalTime
     }
 
+    /**
+     * Фильтрует список маршрутов согласно настройке «Учитывать будущие маршруты».
+     * - true  → возвращает все маршруты (включая будущие).
+     * - false → только те, у которых timeStartWork < currentTimeInMillis.
+     *
+     * Единая точка истины для логики из HomeViewModel — переиспользуется в
+     * WorkScheduleViewModel и других местах, где нужен такой же фильтр.
+     */
+    fun List<Route>.filterByConsiderFutureRoute(
+        isConsiderFutureRoute: Boolean,
+        currentTimeInMillis: Long,
+    ): List<Route> {
+        return if (isConsiderFutureRoute) {
+            this
+        } else {
+            filter { (it.basicData.timeStartWork ?: Long.MAX_VALUE) < currentTimeInMillis }
+        }
+    }
+
+    /**
+     * Удобный helper: фильтрует маршруты по флагу из UserSettings и считает
+     * рабочее время для месяца. Объединяет filterByConsiderFutureRoute + getWorkTime.
+     *
+     * @param currentTimeInMillis текущее время в той же зоне что и timeStartWork
+     *   (обычно `Calendar.getInstance(TimeZone.getTimeZone(displayTimeZone)).timeInMillis`).
+     */
+    fun List<Route>.calculateWorkTimeWithSettings(
+        monthOfYear: MonthOfYear,
+        userSettings: UserSettings,
+        currentTimeInMillis: Long,
+    ): Long {
+        val context = TimeCalculationContext.from(userSettings)
+        return filterByConsiderFutureRoute(userSettings.isConsiderFutureRoute, currentTimeInMillis)
+            .getWorkTime(monthOfYear, context)
+    }
+
     fun List<Route>.getWorkTime(monthOfYear: MonthOfYear, offsetInMoscow: Long): Long {
         val context = TimeCalculationContext(
             localTZ = kotlinx.datetime.TimeZone.of(getTimeZone(offsetInMoscow)),

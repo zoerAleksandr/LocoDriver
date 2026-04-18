@@ -190,6 +190,39 @@ fun FormLocoScreen(
         )
     }
 
+    // Подтверждение удаления секции (Diesel/Electric).
+    // Каждый sheet — отдельный sheetState чтобы избежать конфликта shared state.
+    formUiState.confirmDeleteDieselSectionId?.let { sectionId ->
+        val confirmSheetState = androidx.compose.material3.rememberModalBottomSheetState(
+            skipPartiallyExpanded = true
+        )
+        com.z_company.route.component.AppBottomSheet(
+            onDismissRequest = { viewModel.cancelDeleteDieselSection() },
+            sheetState = confirmSheetState,
+            title = "Удалить секцию?",
+            actions = listOf(
+                com.z_company.route.component.BottomSheetAction(text = "Да, удалить") {
+                    viewModel.confirmDeleteDieselSection()
+                }
+            )
+        )
+    }
+    formUiState.confirmDeleteElectricSectionId?.let { sectionId ->
+        val confirmSheetState = androidx.compose.material3.rememberModalBottomSheetState(
+            skipPartiallyExpanded = true
+        )
+        com.z_company.route.component.AppBottomSheet(
+            onDismissRequest = { viewModel.cancelDeleteElectricSection() },
+            sheetState = confirmSheetState,
+            title = "Удалить секцию?",
+            actions = listOf(
+                com.z_company.route.component.BottomSheetAction(text = "Да, удалить") {
+                    viewModel.confirmDeleteElectricSection()
+                }
+            )
+        )
+    }
+
     Scaffold(
         modifier = Modifier
             .fillMaxWidth(),

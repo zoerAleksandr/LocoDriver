@@ -1481,12 +1481,10 @@ fun HomeScreen(
                                                 vertical = 8.dp, horizontal = 16.dp
                                             ),
                                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                                        horizontalAlignment = Alignment.Start,
+                                        horizontalAlignment = Alignment.CenterHorizontally,
                                     ) {
                                         Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .align(Alignment.CenterHorizontally),
+                                            modifier = Modifier.weight(1f),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
@@ -1498,7 +1496,7 @@ fun HomeScreen(
                                         }
                                         Text(
                                             maxLines = 1,
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.primary,
                                             overflow = TextOverflow.Ellipsis,
                                             text = "График"
@@ -1545,13 +1543,11 @@ fun HomeScreen(
                                             .padding(
                                                 vertical = 8.dp, horizontal = 16.dp
                                             ),
-                                        horizontalAlignment = Alignment.Start,
+                                        horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
                                         Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .align(Alignment.CenterHorizontally),
+                                            modifier = Modifier.weight(1f),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
@@ -1564,7 +1560,7 @@ fun HomeScreen(
                                         Text(
                                             color = MaterialTheme.colorScheme.primary,
                                             maxLines = 1,
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = MaterialTheme.typography.labelSmall,
                                             overflow = TextOverflow.Ellipsis,
                                             text = "Отвлечения"
                                         )
@@ -1672,13 +1668,12 @@ private fun ActionCard(
                     minHeight = minHeightDp,
                 )
                 .padding(vertical = 8.dp, horizontal = 16.dp),
-            horizontalAlignment = Alignment.Start,
+            // Иконка и текст — по центру по горизонтали (раньше было Start)
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .align(Alignment.CenterHorizontally),
+                modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -1691,7 +1686,8 @@ private fun ActionCard(
             Text(
                 color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
-                style = MaterialTheme.typography.bodySmall,
+                // labelSmall меньше чем bodySmall — компактнее под иконкой
+                style = MaterialTheme.typography.labelSmall,
                 overflow = TextOverflow.Ellipsis,
                 text = title,
             )

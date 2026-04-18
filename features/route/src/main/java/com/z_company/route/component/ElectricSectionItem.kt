@@ -128,14 +128,20 @@ fun ElectricSectionItem(
 
     val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
 
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onDeleteItem(item)
+    // Анти-паттерн confirmValueChange для side-effect → dismissState мог застрять
+    // (красная полоса оставалась видимой). Используем LaunchedEffect + явный snapTo.
+    val dismissState = rememberSwipeToDismissBoxState()
+    val currentItem = androidx.compose.runtime.rememberUpdatedState(item)
+    val currentOnDelete = androidx.compose.runtime.rememberUpdatedState(onDeleteItem)
+    androidx.compose.runtime.LaunchedEffect(dismissState) {
+        androidx.compose.runtime.snapshotFlow { dismissState.currentValue }
+            .collect { value ->
+                if (value == SwipeToDismissBoxValue.EndToStart) {
+                    currentOnDelete.value(currentItem.value)
+                    dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+                }
             }
-            false
-        }
-    )
+    }
     SwipeToDismissBox(
         modifier = Modifier.fillMaxWidth(),
         state = dismissState,

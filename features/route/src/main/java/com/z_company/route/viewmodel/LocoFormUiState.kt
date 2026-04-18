@@ -19,6 +19,10 @@ data class LocoFormUiState(
     val exitFromScreen: Boolean = false,
     val changesHaveState: Boolean = false,
     val confirmExitDialogShow: Boolean = false,
+    /** sectionId секции, для которой показываем bottom-sheet подтверждения удаления.
+     *  Null — sheet скрыт. */
+    val confirmDeleteDieselSectionId: String? = null,
+    val confirmDeleteElectricSectionId: String? = null,
     val isExpandedDropDownMenuSeries: Boolean = false,
     var dateAndTimeConverter: DateAndTimeConverter? = null,
     var isShowHeatingCounter: Boolean = false,

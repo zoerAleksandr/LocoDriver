@@ -707,6 +707,22 @@ class LocoFormViewModel(
         changesHave()
     }
 
+    /** Свайп секции запрашивает подтверждение, не удаляет напрямую. */
+    fun requestDeleteDieselSection(section: DieselSectionFormState) {
+        _uiState.update { it.copy(confirmDeleteDieselSectionId = section.sectionId) }
+    }
+
+    fun cancelDeleteDieselSection() {
+        _uiState.update { it.copy(confirmDeleteDieselSectionId = null) }
+    }
+
+    fun confirmDeleteDieselSection() {
+        val id = _uiState.value.confirmDeleteDieselSectionId ?: return
+        val section = _dieselSectionListState.value.find { it.sectionId == id }
+        _uiState.update { it.copy(confirmDeleteDieselSectionId = null) }
+        section?.let { deleteSectionDiesel(it) }
+    }
+
     fun addingSectionDiesel() {
         val coefficient = settings.value?.lastEnteredDieselCoefficient
         _dieselSectionListState.update { list ->
@@ -730,6 +746,22 @@ class LocoFormViewModel(
             list
         }
         changesHave()
+    }
+
+    /** Свайп секции запрашивает подтверждение, не удаляет напрямую. */
+    fun requestDeleteElectricSection(section: ElectricSectionFormState) {
+        _uiState.update { it.copy(confirmDeleteElectricSectionId = section.sectionId) }
+    }
+
+    fun cancelDeleteElectricSection() {
+        _uiState.update { it.copy(confirmDeleteElectricSectionId = null) }
+    }
+
+    fun confirmDeleteElectricSection() {
+        val id = _uiState.value.confirmDeleteElectricSectionId ?: return
+        val section = _electricSectionListState.value.find { it.sectionId == id }
+        _uiState.update { it.copy(confirmDeleteElectricSectionId = null) }
+        section?.let { deleteSectionElectric(it) }
     }
 
     fun addingSectionElectric() {

@@ -24,6 +24,7 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.calculateWorkTimeWithSettings
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.plus
@@ -230,9 +231,21 @@ class WorkScheduleViewModel : ViewModel(), KoinComponent {
                         }
 
                         userSettings.value?.let { settings ->
-                            val totalTimeWork =
-                                routes.getWorkTime(settings.selectMonthOfYear, TimeCalculationContext.from(settings))
-                            _totalTimeWork.value = totalTimeWork
+                            // Учитываем флаг "Учитывать будущие маршруты" из настроек.
+                            // Используем единую логику из UtilsForEntities (как HomeViewModel).
+                            val converter = _dateAndTimeConverter.value
+                            val currentTimeInMillis = if (converter != null) {
+                                java.util.Calendar.getInstance(
+                                    java.util.TimeZone.getTimeZone(converter.timeZoneText)
+                                ).timeInMillis
+                            } else {
+                                System.currentTimeMillis()
+                            }
+                            _totalTimeWork.value = routes.calculateWorkTimeWithSettings(
+                                monthOfYear = settings.selectMonthOfYear,
+                                userSettings = settings,
+                                currentTimeInMillis = currentTimeInMillis,
+                            )
                         }
                         _routesByDay.value = map
 
