@@ -40,6 +40,7 @@ import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.component.PreviewRouteDialog
 import com.z_company.route.component.RadioButtonWithLabel
+import com.z_company.route.util.toShareIntent
 import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.all_route_view_model.AllRouteViewModel
 import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
@@ -65,9 +66,10 @@ fun AllRouteScreen(
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {  // Новый: Подписка на shareRouteEvent.
-        // Для чего: Когда ViewModel эмитирует Intent, мы запускаем его из UI-контекста (Activity), избегая ошибки. Это асинхронно и безопасно.
-        viewModel.shareRouteEvent.collect { chooser ->
-            context.startActivity(chooser)  // Запуск из Activity context — ошибки не будет!
+        // Для чего: Когда ViewModel эмитирует ShareLinkData, мы строим Intent
+        // через ShareLinkData.toShareIntent() и запускаем из Activity-контекста.
+        viewModel.shareRouteEvent.collect { data ->
+            context.startActivity(data.toShareIntent(fromActivity = true))
         }
     }
 

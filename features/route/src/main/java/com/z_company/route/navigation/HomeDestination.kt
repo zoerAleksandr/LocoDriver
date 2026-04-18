@@ -1,6 +1,5 @@
 package com.z_company.route.navigation
 
-import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -10,6 +9,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.core.navigation.AppRoutes
 import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.HomeScreen
+import com.z_company.route.util.startShare
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.R
 
@@ -26,14 +26,8 @@ fun HomeDestination(
 
     val context = LocalContext.current
     LaunchedEffect(homeViewModel) {
-        homeViewModel.shareLinkEvent.collect { url ->
-            val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, url)
-            }
-            val chooser = Intent.createChooser(sendIntent, "Поделиться маршрутом")
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(chooser)
+        homeViewModel.shareLinkEvent.collect { data ->
+            context.startShare(data)
         }
     }
 

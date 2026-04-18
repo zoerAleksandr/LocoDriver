@@ -112,11 +112,11 @@ class FormViewModel(
     val events: SharedFlow<FormScreenEvent> = _events.asSharedFlow()
 
     // Ссылка для "Поделиться" из overflow-меню
-    private val _shareLinkEvent = MutableSharedFlow<String>(
+    private val _shareLinkEvent = MutableSharedFlow<com.z_company.route.util.ShareLinkData>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
-    val shareLinkEvent: SharedFlow<String> = _shareLinkEvent.asSharedFlow()
+    val shareLinkEvent: SharedFlow<com.z_company.route.util.ShareLinkData> = _shareLinkEvent.asSharedFlow()
 
     private val _alertBeforePurchasesEvent = MutableSharedFlow<AlertBeforePurchasesEvent>(
         extraBufferCapacity = 1,
@@ -991,8 +991,9 @@ class FormViewModel(
                 shareRouteManager.createShareLink(route, bearerToken).collect { result ->
                     when (result) {
                         is ResultState.Success -> {
-                            val shareText = buildShareText(route, result.data)
-                            _shareLinkEvent.emit(shareText)
+                            _shareLinkEvent.emit(
+                                com.z_company.route.util.ShareLinkData.fromRoute(route, result.data)
+                            )
                         }
                         is ResultState.Error -> snackbarManager.show(
                             result.entity.message ?: "Не удалось создать ссылку"
@@ -1007,29 +1008,7 @@ class FormViewModel(
         }
     }
 
-    private fun buildShareText(route: Route, url: String): String {
-        return buildString {
-            append("Маршрут из приложения «Машинист» \uD83D\uDE82")
-            append("\n")
-            route.basicData.timeStartWork?.let { ms ->
-                val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
-                append(" от ${sdf.format(java.util.Date(ms))}")
-            }
-            append("\n")
-            val stations = route.trains
-                .flatMap { it.stations }
-                .sortedBy { it.orderIndex }
-            val firstStation = stations.firstOrNull()?.stationName?.takeIf { it.isNotBlank() }
-            val lastStation = stations.lastOrNull()?.stationName?.takeIf { it.isNotBlank() }
-            if (firstStation != null && lastStation != null && firstStation != lastStation) {
-                append(", $firstStation — $lastStation")
-            }
-            append("\n\n")
-            append("Чтобы открыть маршрут нажмите на ссылку внизу")
-            append("\n\n")
-            append(url)
-        }
-    }
+    // buildShareText удалён — логика перенесена в ShareLinkData.fromRoute()
 
     /** Удалить маршрут (пометить как удалённый). */
     fun onDeleteRoute() {

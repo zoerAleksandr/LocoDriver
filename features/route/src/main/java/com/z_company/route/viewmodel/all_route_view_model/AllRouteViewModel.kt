@@ -1,7 +1,6 @@
 package com.z_company.route.viewmodel.all_route_view_model
 
 import android.app.Application
-import android.content.Intent
 import android.util.Log
 import com.z_company.core.sendToSentry
 import androidx.lifecycle.AndroidViewModel
@@ -231,18 +230,18 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    // Эмитит ShareLinkData (text + subject), UI собирает Intent через ShareLinkData.toShareIntent()
     private val _shareRouteEvent =
-        MutableSharedFlow<Intent>(  // Новый: Добавлен MutableSharedFlow для события шаринга.
-            // Для чего: Чтобы ViewModel мог уведомить UI о готовом Intent для шаринга, не запуская его сам. Это решает проблему с контекстом (UI использует свой Activity context) и сохраняет MVVM: ViewModel не зависит от UI.
+        MutableSharedFlow<com.z_company.route.util.ShareLinkData>(
             extraBufferCapacity = 1,
             onBufferOverflow = BufferOverflow.DROP_OLDEST
         )
-    val shareRouteEvent: SharedFlow<Intent> =
-        _shareRouteEvent.asSharedFlow()  // Новый: Публичный SharedFlow для подписки в UI.
+    val shareRouteEvent: SharedFlow<com.z_company.route.util.ShareLinkData> =
+        _shareRouteEvent.asSharedFlow()
 
     /**
-     * Создаёт публичную ссылку на маршрут и эмитит share-sheet Intent в [shareRouteEvent].
-     * UI-слой (AllRouteScreen) подписывается и запускает startActivity из Activity-контекста.
+     * Создаёт публичную ссылку на маршрут и эмитит ShareLinkData в [shareRouteEvent].
+     * UI-слой (AllRouteScreen) подписывается, строит Intent и запускает share-sheet.
      */
     fun shareRoute(route: Route) {
         viewModelScope.launch {
@@ -256,13 +255,9 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 shareRouteManager.createShareLink(route, bearerToken).collect { result ->
                     when (result) {
                         is ResultState.Success -> {
-                            val shareText = buildShareText(route, result.data)
-                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, shareText)
-                            }
-                            val chooser = Intent.createChooser(sendIntent, "Поделиться маршрутом")
-                            _shareRouteEvent.emit(chooser)
+                            _shareRouteEvent.emit(
+                                com.z_company.route.util.ShareLinkData.fromRoute(route, result.data)
+                            )
                         }
                         is ResultState.Error -> {
                             val message = result.entity.message
@@ -278,30 +273,6 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 Log.e("ShareRoute", "Ошибка шаринга: ${e.message}")
                 snackbarManager.show("Ошибка создания ссылки")
             }
-        }
-    }
-
-    private fun buildShareText(route: Route, url: String): String {
-        return buildString {
-            append("Маршрут из приложения «Машинист» \uD83D\uDE82")
-            append("\n")
-            route.basicData.timeStartWork?.let { ms ->
-                val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
-                append(" от ${sdf.format(java.util.Date(ms))}")
-            }
-            append("\n")
-            val stations = route.trains
-                .flatMap { it.stations }
-                .sortedBy { it.orderIndex }
-            val firstStation = stations.firstOrNull()?.stationName?.takeIf { it.isNotBlank() }
-            val lastStation = stations.lastOrNull()?.stationName?.takeIf { it.isNotBlank() }
-            if (firstStation != null && lastStation != null && firstStation != lastStation) {
-                append(", $firstStation — $lastStation")
-            }
-            append("\n\n")
-            append("Чтобы открыть маршрут нажмите на ссылку внизу")
-            append("\n\n")
-            append(url)
         }
     }
 

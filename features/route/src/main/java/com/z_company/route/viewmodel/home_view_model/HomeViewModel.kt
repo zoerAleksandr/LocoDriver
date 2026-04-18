@@ -152,12 +152,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private val _saveTimeEvent = MutableSharedFlow<String>(replay = 0)
     val saveTimeEvent: SharedFlow<String> = _saveTimeEvent.asSharedFlow()
 
-    // Событие с готовой публичной ссылкой для "Поделиться" — экран открывает share-sheet.
-    private val _shareLinkEvent = MutableSharedFlow<String>(
+    // Событие с готовыми текстом и темой для "Поделиться" — экран открывает share-sheet.
+    private val _shareLinkEvent = MutableSharedFlow<com.z_company.route.util.ShareLinkData>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
-    val shareLinkEvent: SharedFlow<String> = _shareLinkEvent.asSharedFlow()
+    val shareLinkEvent: SharedFlow<com.z_company.route.util.ShareLinkData> = _shareLinkEvent.asSharedFlow()
 
     private val _isCreatingShareLink = MutableStateFlow(false)
     val isCreatingShareLink: StateFlow<Boolean> = _isCreatingShareLink.asStateFlow()
@@ -785,8 +785,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 shareRouteManager.createShareLink(route, bearerToken).collect { result ->
                     when (result) {
                         is ResultState.Success -> {
-                            val shareText = buildShareText(route, result.data)
-                            _shareLinkEvent.emit(shareText)
+                            _shareLinkEvent.emit(
+                                com.z_company.route.util.ShareLinkData.fromRoute(route, result.data)
+                            )
                         }
                         is ResultState.Error -> {
                             val message = result.entity.message
@@ -806,31 +807,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    private fun buildShareText(route: Route, url: String): String {
-        return buildString {
-            append("Маршрут из приложения «Машинист» \uD83D\uDE82")
-            append("\n")
-            // Дата и время
-            route.basicData.timeStartWork?.let { ms ->
-                val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
-                append(" от ${sdf.format(java.util.Date(ms))}")
-            }
-            append("\n")
-            // Маршрут следования: первая и последняя станция первого поезда
-            val stations = route.trains
-                .flatMap { it.stations }
-                .sortedBy { it.orderIndex }
-            val firstStation = stations.firstOrNull()?.stationName?.takeIf { it.isNotBlank() }
-            val lastStation = stations.lastOrNull()?.stationName?.takeIf { it.isNotBlank() }
-            if (firstStation != null && lastStation != null && firstStation != lastStation) {
-                append(", $firstStation — $lastStation")
-            }
-            append("\n\n")
-            append("Чтобы открыть маршрут, нажмите на ссылку внизу")
-            append("\n\n")
-            append(url)
-        }
-    }
+    // buildShareText удалён — логика перенесена в ShareLinkData.fromRoute()
 
     private var syncJob: kotlinx.coroutines.Job? = null
 

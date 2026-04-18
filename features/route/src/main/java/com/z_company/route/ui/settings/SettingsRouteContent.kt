@@ -152,36 +152,6 @@ fun SettingsRouteContent(
                 CustomDivider(orientation = Orientation.Horizontal)
 
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .noRippleEffect { viewModel.changeTimePickerStyle() },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        modifier = Modifier
-                            .padding(end = 12.dp)
-                            .weight(1f),
-                        text = "Стиль выбора времени",
-                        style = styleData,
-                        color = primaryColor,
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 2
-                    )
-                    val pickerText = if (currentSettings.useStandardTimePicker) "Системный" else "Кастомный"
-                    Text(
-                        modifier = Modifier.padding(end = 12.dp),
-                        text = pickerText,
-                        style = styleData,
-                        color = primaryColor,
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 2
-                    )
-                }
-
-                CustomDivider(orientation = Orientation.Horizontal)
-
-                Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -273,6 +243,49 @@ fun SettingsRouteContent(
             Text(
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                 text = "Показывать поля перерыва в форме маршрута.",
+                style = styleHint,
+                color = primaryColor
+            )
+        }
+
+        // Стиль выбора времени (вынесен из «Данные по умолчанию» — это не значение
+        // по умолчанию для нового маршрута, а UI-настройка диалога выбора времени)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .shadow(elevation = 2.dp, shape = Shapes.medium)
+                    .background(
+                        color = MaterialTheme.colorScheme.secondary,
+                        shape = Shapes.medium
+                    )
+                    .noRippleEffect { viewModel.changeTimePickerStyle() }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    modifier = Modifier
+                        .padding(end = 12.dp)
+                        .weight(1f),
+                    text = "Стиль выбора времени",
+                    style = styleData,
+                    color = primaryColor,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 2
+                )
+                val pickerText = if (currentSettings.useStandardTimePicker) "Системный" else "Кастомный"
+                Text(
+                    text = pickerText,
+                    style = styleData,
+                    color = primaryColor,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 2
+                )
+            }
+
+            Text(
+                modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                text = "Системный — стандартный диалог Android, Кастомный — встроенный пикер с быстрым набором.",
                 style = styleHint,
                 color = primaryColor
             )
