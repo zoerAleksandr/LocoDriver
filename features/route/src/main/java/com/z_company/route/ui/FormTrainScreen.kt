@@ -266,7 +266,9 @@ fun FormTrainScreen(
             )
         }
 
-        // Подтверждение удаления станции
+        // Подтверждение удаления станции — ОТДЕЛЬНЫЙ sheetState, чтобы не конфликтовать
+        // с общим sheetState (StationEditBottomSheet и др.). Из-за shared state ранее
+        // bottom-sheet не появлялся — оставался "в hidden" с прошлого использования.
         if (formUiState.confirmDeleteStationIndex != null) {
             val deleteIndex = formUiState.confirmDeleteStationIndex!!
             val stationName = stationListState
@@ -278,9 +280,13 @@ fun FormTrainScreen(
             else
                 "Удалить станцию?"
 
+            val confirmDeleteSheetState = androidx.compose.material3.rememberModalBottomSheetState(
+                skipPartiallyExpanded = true
+            )
+
             AppBottomSheet(
                 onDismissRequest = { viewModel.cancelDeleteStation() },
-                sheetState = sheetState,
+                sheetState = confirmDeleteSheetState,
                 title = title,
                 actions = listOf(
                     BottomSheetAction(text = "Да, удалить") {

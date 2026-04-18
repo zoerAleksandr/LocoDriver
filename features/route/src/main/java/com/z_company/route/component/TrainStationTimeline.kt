@@ -28,10 +28,13 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -190,14 +193,21 @@ fun TrainStationTimeline(
                 if (onStationSwipeDelete != null && !isAnyReordering) {
                     val currentIndex by rememberUpdatedState(index)
                     val currentOnSwipeDelete by rememberUpdatedState(onStationSwipeDelete)
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                currentOnSwipeDelete?.invoke(currentIndex)
+                    // Не используем confirmValueChange для side-effect (анти-паттерн в Material3) —
+                    // если callback устанавливает state во время animation, dismissState может
+                    // застрять и красная полоса остаётся видимой. Используем LaunchedEffect.
+                    val dismissState = rememberSwipeToDismissBoxState()
+                    LaunchedEffect(dismissState) {
+                        snapshotFlow { dismissState.currentValue }
+                            .collectLatest { value ->
+                                if (value == SwipeToDismissBoxValue.EndToStart) {
+                                    currentOnSwipeDelete?.invoke(currentIndex)
+                                    // Возвращаем визуально на место — диалог подтверждения
+                                    // покажется через UI state, а строка станции остаётся видимой
+                                    dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+                                }
                             }
-                            false
-                        }
-                    )
+                    }
                     SwipeToDismissBox(
                         modifier = Modifier.fillMaxWidth(),
                         state = dismissState,
