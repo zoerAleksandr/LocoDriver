@@ -38,6 +38,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -1599,6 +1600,38 @@ fun MainInfo(
                 .height(IntrinsicSize.Max)
                 .background(brush)
         ) {
+            // Чип "еще [HH:MM]" / "сверх [HH:MM]" — показывает остаток до нормы
+            // или переработку. Логика идентична большому виджету (LocoDriverWidget).
+            currentMonthOfYear?.let { month ->
+                val normaHoursInMonth = month.getPersonalNormaHours()
+                if (normaHoursInMonth > 0) {
+                    val normaMillis = normaHoursInMonth.toLong() * 3_600_000L
+                    val diff = totalTime - normaMillis
+                    val isOvertime = diff >= 0
+                    val remainingMillis = if (isOvertime) diff else -diff
+                    val timeStr = convertTimeToString(remainingMillis)
+                    val chipText = if (isOvertime) "сверх $timeStr" else "еще $timeStr"
+                    val chipColor = if (isOvertime) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.tertiary
+                    }
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 12.dp, end = 12.dp),
+                        shape = Shapes.medium,
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            text = chipText,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = chipColor,
+                        )
+                    }
+                }
+            }
             Column(
                 modifier = Modifier
                     .padding(16.dp)
