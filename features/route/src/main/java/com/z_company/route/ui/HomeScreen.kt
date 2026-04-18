@@ -166,6 +166,7 @@ fun HomeScreen(
     passengerTimeState: ResultState<Long>?,
     totalTimeWithHoliday: ResultState<Long>?,
     toBeCredited: ResultState<Double>? = null,
+    onSalaryClick: () -> Unit = {},
     calculationHomeRest: (Route?) -> Unit,
     homeRestValue: Long?,
     offsetInMoscow: Long,
@@ -568,9 +569,16 @@ fun HomeScreen(
                             )
                         }
                         // Правая часть: итоговая сумма зарплаты «К выдаче».
+                        // Кликабельная — открывает экран расчёта зарплаты.
                         // Стиль и цвет — как у текста "Текущий маршрут" (titleSmall + primary).
                         if (salaryText.isNotEmpty()) {
                             Text(
+                                modifier = Modifier
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = ripple(bounded = false)
+                                    ) { onSalaryClick() }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
                                 text = salaryText,
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.primary,
@@ -1475,14 +1483,19 @@ fun HomeScreen(
                                         verticalArrangement = Arrangement.spacedBy(8.dp),
                                         horizontalAlignment = Alignment.Start,
                                     ) {
-                                        Image(
+                                        Box(
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .align(Alignment.CenterHorizontally),
-                                            painter = painterResource(R.drawable.calendar_3d_ver3),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Fit
-                                        )
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                modifier = Modifier.size(48.dp),
+                                                painter = painterResource(R.drawable.ic_card_calendar),
+                                                contentDescription = "График",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
                                         Text(
                                             maxLines = 1,
                                             style = MaterialTheme.typography.bodySmall,
@@ -1535,14 +1548,19 @@ fun HomeScreen(
                                         horizontalAlignment = Alignment.Start,
                                         verticalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
-                                        Image(
+                                        Box(
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .align(Alignment.CenterHorizontally),
-                                            painter = painterResource(R.drawable.island_3d),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Fit
-                                        )
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                modifier = Modifier.size(48.dp),
+                                                painter = painterResource(R.drawable.ic_card_vacation),
+                                                contentDescription = "Отвлечения",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
                                         Text(
                                             color = MaterialTheme.colorScheme.primary,
                                             maxLines = 1,
@@ -1558,7 +1576,7 @@ fun HomeScreen(
                             item {
                                 ActionCard(
                                     title = "PDF",
-                                    iconRes = R.drawable.picture_as_pdf_24px,
+                                    iconRes = R.drawable.ic_card_pdf,
                                     iconTint = MaterialTheme.colorScheme.primary,
                                     widthScreen = widthScreen,
                                     interactionSource = interactionSource,
@@ -1578,7 +1596,7 @@ fun HomeScreen(
                                 ActionCard(
                                     modifier = Modifier.padding(end = 12.dp),
                                     title = "Поиск",
-                                    iconRes = R.drawable.search_24px,
+                                    iconRes = R.drawable.ic_card_search,
                                     iconTint = MaterialTheme.colorScheme.primary,
                                     widthScreen = widthScreen,
                                     interactionSource = interactionSource,

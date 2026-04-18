@@ -54,6 +54,7 @@ fun HomeDestination(
         nightTimeState = uiState.nightTimeInRouteList,
         totalTimeWithHoliday = uiState.totalTimeWithHoliday,
         toBeCredited = uiState.toBeCredited,
+        onSalaryClick = router::showSalaryCalculation,
         passengerTimeState = uiState.passengerTimeInRouteList,
         singleLocomotiveTimeState = uiState.singleLocomotiveTimeState,
         calculationHomeRest = homeViewModel::calculationHomeRest,
