@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -107,6 +108,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.isFuture
 import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.minus
+import com.z_company.domain.util.toMoneyString
 import com.z_company.route.R
 import android.net.Uri
 import androidx.compose.runtime.collectAsState
@@ -163,6 +165,7 @@ fun HomeScreen(
     singleLocomotiveTimeState: ResultState<Long>?,
     passengerTimeState: ResultState<Long>?,
     totalTimeWithHoliday: ResultState<Long>?,
+    toBeCredited: ResultState<Double>? = null,
     calculationHomeRest: (Route?) -> Unit,
     homeRestValue: Long?,
     offsetInMoscow: Long,
@@ -518,67 +521,61 @@ fun HomeScreen(
                 ),
                 title = {},
                 actions = {
+                    val textMonth = currentMonthOfYear?.month?.let {
+                        getMonthFullText(it)
+                    } ?: "загрузка"
+                    val yearText = currentMonthOfYear?.year?.toString() ?: ""
+                    val salaryValue = (toBeCredited as? ResultState.Success<Double>)?.data
+                    val salaryText = salaryValue?.toMoneyString() ?: ""
+
+                    // Если "Месяц Год" + сумма не помещаются в одну строку — показываем
+                    // только месяц без года. Контролируется флагом showYear, который
+                    // переключается через onTextLayout при обнаружении overflow.
+                    var showYear by remember(textMonth, yearText, salaryText) {
+                        mutableStateOf(true)
+                    }
+                    val displayMonth = if (showYear && yearText.isNotEmpty()) {
+                        "$textMonth $yearText"
+                    } else {
+                        textMonth
+                    }
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 12.dp),
+                            .padding(top = 12.dp, end = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Левая часть: месяц (или месяц + год) — кликабельно открывает выбор месяца.
+                        // weight(1f, fill = false) даёт месту растянуться только до нужной ширины,
+                        // оставляя место для суммы справа.
                         TextButton(
-                            modifier = Modifier
-                                .weight(1f),
-                            onClick = {
-                                showMonthSheetVisible = true
-                            }) {
-                            val textMonth = currentMonthOfYear?.month?.let {
-                                getMonthFullText(it)
-                            } ?: "загрузка"
-                            FlowRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Start
-                            ) {
-                                Text(
-                                    text = "$textMonth ",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    overflow = TextOverflow.Visible,
-                                    maxLines = 2
-                                )
-                                Text(
-                                    text = "${currentMonthOfYear?.year}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                        IconButton(
-                            modifier = Modifier
-                                .background(
-                                    color = Color.Transparent,
-                                    shape = Shapes.medium
-                                ),
-                            onClick = { showPdfDialog = true },
-                            enabled = !isPdfGenerating
+                            modifier = Modifier.weight(1f, fill = false),
+                            onClick = { showMonthSheetVisible = true }
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.picture_as_pdf_24px),
-                                contentDescription = "Сформировать PDF",
-                                tint = MaterialTheme.colorScheme.primary
+                            Text(
+                                text = displayMonth,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Clip,
+                                onTextLayout = { result ->
+                                    if (result.hasVisualOverflow && showYear) {
+                                        showYear = false
+                                    }
+                                }
                             )
                         }
-                        IconButton(
-                            modifier = Modifier
-                                .background(
-                                    color = Color.Transparent,
-                                    shape = Shapes.medium
-                                ),
-                            onClick = { onSearchClick() }
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.search_24px),
-                                contentDescription = "Поиск",
-                                tint = MaterialTheme.colorScheme.primary
+                        // Правая часть: итоговая сумма зарплаты «К выдаче».
+                        // Стиль и цвет — как у текста "Текущий маршрут" (titleSmall + primary).
+                        if (salaryText.isNotEmpty()) {
+                            Text(
+                                text = salaryText,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Visible,
                             )
                         }
                     }
@@ -1427,7 +1424,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp),
                             style = MaterialTheme.typography.titleSmall,
-                            text = "Действия",
+                            text = "Инструменты",
                             color = MaterialTheme.colorScheme.primary
                         )
                         LazyRow(
@@ -1504,7 +1501,6 @@ fun HomeScreen(
                                                 maxHeightBox = size.height
                                             }
                                         }
-                                        .padding(end = 12.dp)
                                         .defaultMinSize(
                                             minWidth = (widthScreen / 3).dp,
                                             minHeight = (widthScreen / 3).dp
@@ -1557,6 +1553,44 @@ fun HomeScreen(
                                     }
                                 }
                             }
+                            // Карточка "PDF" — открывает диалог формирования PDF
+                            // (логика перенесена из иконки в TopAppBar)
+                            item {
+                                ActionCard(
+                                    title = "PDF",
+                                    iconRes = R.drawable.picture_as_pdf_24px,
+                                    iconTint = MaterialTheme.colorScheme.primary,
+                                    widthScreen = widthScreen,
+                                    interactionSource = interactionSource,
+                                    onSizeChanged = { size ->
+                                        if (size.height > maxHeightBox) {
+                                            maxHeightBox = size.height
+                                        }
+                                    },
+                                    minHeightDp = maxHeightBox.toDp(),
+                                    enabled = !isPdfGenerating,
+                                    onClick = { showPdfDialog = true }
+                                )
+                            }
+                            // Карточка "Поиск" — открывает экран поиска маршрутов
+                            // (логика перенесена из иконки в TopAppBar)
+                            item {
+                                ActionCard(
+                                    modifier = Modifier.padding(end = 12.dp),
+                                    title = "Поиск",
+                                    iconRes = R.drawable.search_24px,
+                                    iconTint = MaterialTheme.colorScheme.primary,
+                                    widthScreen = widthScreen,
+                                    interactionSource = interactionSource,
+                                    onSizeChanged = { size ->
+                                        if (size.height > maxHeightBox) {
+                                            maxHeightBox = size.height
+                                        }
+                                    },
+                                    minHeightDp = maxHeightBox.toDp(),
+                                    onClick = { onSearchClick() }
+                                )
+                            }
                         }
                     }
                 }
@@ -1568,6 +1602,81 @@ fun HomeScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Карточка действия в LazyRow «Действия» на HomeScreen (PDF, Поиск, и т.д.).
+ * Унифицированная по стилю с карточками "График" и "Отвлечения" — тот же размер,
+ * фон и тень, но иконка — vector drawable с tint вместо webp Image.
+ */
+@Composable
+private fun ActionCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    iconRes: Int,
+    iconTint: androidx.compose.ui.graphics.Color,
+    widthScreen: Int,
+    interactionSource: androidx.compose.foundation.interaction.MutableInteractionSource,
+    onSizeChanged: (androidx.compose.ui.unit.IntSize) -> Unit,
+    minHeightDp: androidx.compose.ui.unit.Dp,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = modifier
+            .onSizeChanged(onSizeChanged)
+            .defaultMinSize(
+                minWidth = (widthScreen / 3).dp,
+                minHeight = (widthScreen / 3).dp
+            )
+            .indication(
+                interactionSource = interactionSource,
+                indication = ripple(
+                    color = MaterialTheme.colorScheme.background,
+                    bounded = true
+                )
+            )
+            .clickable(enabled = enabled, onClick = onClick),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 2.dp,
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondary,
+            contentColor = MaterialTheme.colorScheme.primary
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .defaultMinSize(
+                    minWidth = (widthScreen / 3).dp,
+                    minHeight = minHeightDp,
+                )
+                .padding(vertical = 8.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .align(Alignment.CenterHorizontally),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    modifier = Modifier.size(48.dp),
+                    painter = painterResource(iconRes),
+                    contentDescription = title,
+                    tint = iconTint,
+                )
+            }
+            Text(
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                style = MaterialTheme.typography.bodySmall,
+                overflow = TextOverflow.Ellipsis,
+                text = title,
+            )
         }
     }
 }

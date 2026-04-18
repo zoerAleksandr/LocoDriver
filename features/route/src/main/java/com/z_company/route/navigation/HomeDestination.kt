@@ -53,6 +53,7 @@ fun HomeDestination(
         minTimeRest = uiState.minTimeRest,
         nightTimeState = uiState.nightTimeInRouteList,
         totalTimeWithHoliday = uiState.totalTimeWithHoliday,
+        toBeCredited = uiState.toBeCredited,
         passengerTimeState = uiState.passengerTimeInRouteList,
         singleLocomotiveTimeState = uiState.singleLocomotiveTimeState,
         calculationHomeRest = homeViewModel::calculationHomeRest,

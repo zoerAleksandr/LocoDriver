@@ -705,6 +705,21 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    /** Считает итоговую сумму зарплаты «К выдаче» — для отображения в TopAppBar HomeScreen. */
+    private suspend fun calculationToBeCredited(helper: SalaryCalculationHelper) {
+        try {
+            val toBeCredited = helper.getMoneyToBeCredited().first()
+            _uiState.update {
+                it.copy(toBeCredited = ResultState.Success(toBeCredited))
+            }
+        } catch (e: Exception) {
+            e.sendToSentry("HomeViewModel", "calculationToBeCredited")
+            _uiState.update {
+                it.copy(toBeCredited = ResultState.Error(ErrorEntity(e)))
+            }
+        }
+    }
+
     fun removeRoute(route: Route) {
         removeRouteJob?.cancel()
         removeRouteJob = routeUseCase.markAsRemoved(route).onEach { result ->
@@ -1457,6 +1472,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                     launch { calculationOfNightTime(filteredRouteList, userSettings) }
                                     launch { calculationOfSingleLocomotiveTime(filteredRouteList) }
                                     launch { calculationHolidayTime(filteredRouteList, calcContext) }
+                                    launch { calculationToBeCredited(salaryCalculationHelper) }
                                     // Эти 3 функции синхронные/легкие — запускаем последовательно
                                     calculationTotalTime(filteredRouteList, calcContext)
                                     calculationOfTimeWithoutHoliday(filteredRouteList, calcContext)

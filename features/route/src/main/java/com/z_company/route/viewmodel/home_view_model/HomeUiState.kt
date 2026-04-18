@@ -30,6 +30,8 @@ data class HomeUiState(
     val onePersonOperationTime: ResultState<Long>? = ResultState.Loading(),
     val dayOffHours: ResultState<Int>? = ResultState.Loading(),
     val holidayHours: ResultState<Long>? = ResultState.Loading(),
+    /** Итоговая сумма зарплаты «К выдаче» — для отображения в TopAppBar HomeScreen */
+    val toBeCredited: ResultState<Double>? = ResultState.Loading(),
     val showNewRouteScreen: Boolean = false,
     val showPurchasesScreen: Boolean = false,
     val isLoadingStateAddButton: Boolean = false,
