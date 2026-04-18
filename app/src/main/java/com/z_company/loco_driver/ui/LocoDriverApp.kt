@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -287,9 +288,20 @@ fun LocoDriverApp(
                                                 showAlertSubscribeDialog = true
                                             }
                                             is RouteActionsHelper.NewRouteResult.ShowNewRouteScreen -> {
+                                                // popUpTo до startDest с saveState = true —
+                                                // сохраняет state текущего экрана (Settings/Salary/etc),
+                                                // чтобы потом bottom-nav restoreState мог вернуть его.
+                                                // Без этого баг: Settings → + → Settings не работает,
+                                                // потому что обычный bottom-nav navigate с
+                                                // popUpTo+saveState+restoreState конфликтует
+                                                // с не-сохранённым FormRoute сверху.
+                                                val startDest = navController.graph.findStartDestination()
                                                 navController.navigate(
                                                     FormRoute.buildDetailsRoute(null, false)
-                                                ) { launchSingleTop = true }
+                                                ) {
+                                                    popUpTo(startDest.id) { saveState = true }
+                                                    launchSingleTop = true
+                                                }
                                             }
                                             is RouteActionsHelper.NewRouteResult.Error -> Unit
                                         }
