@@ -222,16 +222,21 @@ fun ItemHomeScreen(
                         modifier = Modifier
                             .fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .weight(0.8f),
+                                .weight(1f),
                             contentAlignment = Alignment.CenterStart
                         ) {
+                            // maxLines=1 + minTextSize=10.sp гарантируют что текст
+                                // помещается в одну строку даже при больших системных шрифтах
+                                // или узких экранах. Если уменьшать ниже 10sp — текст
+                                // нечитабельный, тогда срабатывает Ellipsis.
                             AutoSizeText(
                                 text = timeTextMemo,
                                 maxTextSize = requiredSizeText,
+                                minTextSize = 10.sp,
                                 maxLines = 1,
                                 fontWeight = FontWeight.Medium,
                                 overflow = TextOverflow.Ellipsis,
@@ -243,22 +248,21 @@ fun ItemHomeScreen(
                             )
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .weight(0.2f),
-                            contentAlignment = Alignment.CenterEnd
-                        ) {
-                            AutoSizeText(
-                                text = workTimeStringMemo,
-                                style = MaterialTheme.typography.bodyLarge,
-                                maxTextSize = requiredSizeText,
-                                fontWeight = FontWeight.Medium,
-                                onTextLayout = { textLayoutResult ->
-                                    val size = textLayoutResult.layoutInput.style.fontSize
-                                    changingTextSize(size)
-                                }
-                            )
-                        }
+                        // Правая часть (отработанное время) — wrap content,
+                        // занимает столько сколько нужно. Слева остаётся всё остальное.
+                        AutoSizeText(
+                            text = workTimeStringMemo,
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxTextSize = requiredSizeText,
+                            minTextSize = 10.sp,
+                            maxLines = 1,
+                            fontWeight = FontWeight.Medium,
+                            overflow = TextOverflow.Ellipsis,
+                            onTextLayout = { textLayoutResult ->
+                                val size = textLayoutResult.layoutInput.style.fontSize
+                                changingTextSize(size)
+                            }
+                        )
                     }
 
                     // If expanded -> show all locomotives/trains/passengers; else show last ones only
@@ -288,6 +292,7 @@ fun ItemHomeScreen(
                                             AutoSizeText(
                                                 text = "$trainNumber$stationStart$stationEnd",
                                                 maxTextSize = requiredSizeText,
+                                                minTextSize = 10.sp,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
                                                 style = MaterialTheme.typography.bodyLarge,
@@ -310,6 +315,7 @@ fun ItemHomeScreen(
                                     ) {
                                         AutoSizeText(
                                             maxTextSize = requiredSizeText,
+                                            minTextSize = 10.sp,
                                             maxLines = 1,
                                             text = "${loco.series ?: ""} ${loco.number ?: ""}",
                                             style = MaterialTheme.typography.bodyLarge,
@@ -323,6 +329,7 @@ fun ItemHomeScreen(
                             Box(modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
                                 AutoSizeText(
                                     maxTextSize = requiredSizeText,
+                                    minTextSize = 10.sp,
                                     maxLines = 2,
                                     text = "${route.basicData.notes}",
                                     style = MaterialTheme.typography.bodyLarge,
@@ -359,6 +366,7 @@ fun ItemHomeScreen(
                                     AutoSizeText(
                                         text = "$trainNumber$stationStart$stationEnd",
                                         maxTextSize = requiredSizeText,
+                                        minTextSize = 10.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.bodyLarge,
