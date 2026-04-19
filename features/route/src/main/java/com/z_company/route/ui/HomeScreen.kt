@@ -6,7 +6,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -64,17 +63,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -82,9 +78,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -104,14 +98,13 @@ import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
-import com.z_company.domain.entities.route.UtilsForEntities.isFuture
-import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.toMoneyString
 import com.z_company.route.R
 import android.net.Uri
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Alignment
 import com.z_company.route.component.AnimatedCounter
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.AppBottomSheet
@@ -1447,7 +1440,7 @@ fun HomeScreen(
                                     modifier = Modifier.padding(start = 12.dp),
                                     title = "График",
                                     iconRes = R.drawable.ic_card_calendar,
-                                    iconTint = MaterialTheme.colorScheme.primary,
+                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
                                     widthScreen = widthScreen,
                                     interactionSource = interactionSource,
                                     onSizeChanged = { size ->
@@ -1463,7 +1456,7 @@ fun HomeScreen(
                                 ActionCard(
                                     title = "Отвлечения",
                                     iconRes = R.drawable.ic_card_vacation,
-                                    iconTint = MaterialTheme.colorScheme.primary,
+                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
                                     widthScreen = widthScreen,
                                     interactionSource = interactionSource,
                                     onSizeChanged = { size ->
@@ -1538,9 +1531,9 @@ private fun ActionCard(
     modifier: Modifier = Modifier,
     title: String,
     iconRes: Int,
-    iconTint: androidx.compose.ui.graphics.Color,
+    iconTint: Color,
     widthScreen: Int,
-    interactionSource: androidx.compose.foundation.interaction.MutableInteractionSource,
+    interactionSource: MutableInteractionSource,
     onSizeChanged: (androidx.compose.ui.unit.IntSize) -> Unit,
     minHeightDp: androidx.compose.ui.unit.Dp,
     enabled: Boolean = true,
@@ -1578,7 +1571,8 @@ private fun ActionCard(
                     minWidth = (widthScreen / 3).dp,
                     minHeight = minHeightDp,
                 )
-                .padding(vertical = 8.dp, horizontal = 16.dp)
+                .padding(vertical = 8.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
@@ -1594,10 +1588,11 @@ private fun ActionCard(
                 )
             }
             Text(
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Start,
                 color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
-                // titleSmall — единый стиль с заголовками "Текущий/Следующий маршрут"
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.bodySmall,
                 overflow = TextOverflow.Ellipsis,
                 text = title,
             )
