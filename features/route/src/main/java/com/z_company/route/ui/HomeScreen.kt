@@ -1471,7 +1471,8 @@ fun HomeScreen(
                                         contentColor = MaterialTheme.colorScheme.primary
                                     ),
                                 ) {
-                                    Column(
+                                    // Box: иконка по центру + текст в левом нижнем углу
+                                    Box(
                                         modifier = Modifier
                                             .defaultMinSize(
                                                 minWidth = (widthScreen / 3).dp,
@@ -1479,24 +1480,20 @@ fun HomeScreen(
                                             )
                                             .padding(
                                                 vertical = 8.dp, horizontal = 16.dp
-                                            ),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                    ) {
-                                        Box(
-                                            modifier = Modifier.weight(1f),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                modifier = Modifier.size(48.dp),
-                                                painter = painterResource(R.drawable.ic_card_calendar),
-                                                contentDescription = "График",
-                                                tint = MaterialTheme.colorScheme.primary,
                                             )
-                                        }
+                                    ) {
+                                        Icon(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .align(Alignment.Center),
+                                            painter = painterResource(R.drawable.ic_card_calendar),
+                                            contentDescription = "График",
+                                            tint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                        )
                                         Text(
+                                            modifier = Modifier.align(Alignment.BottomStart),
                                             maxLines = 1,
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = MaterialTheme.typography.titleSmall,
                                             color = MaterialTheme.colorScheme.primary,
                                             overflow = TextOverflow.Ellipsis,
                                             text = "График"
@@ -1534,7 +1531,8 @@ fun HomeScreen(
                                         contentColor = MaterialTheme.colorScheme.primary
                                     ),
                                 ) {
-                                    Column(
+                                    // Box: иконка по центру + текст в левом нижнем углу
+                                    Box(
                                         modifier = Modifier
                                             .defaultMinSize(
                                                 minWidth = (widthScreen / 3).dp,
@@ -1542,25 +1540,21 @@ fun HomeScreen(
                                             )
                                             .padding(
                                                 vertical = 8.dp, horizontal = 16.dp
-                                            ),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                    ) {
-                                        Box(
-                                            modifier = Modifier.weight(1f),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                modifier = Modifier.size(48.dp),
-                                                painter = painterResource(R.drawable.ic_card_vacation),
-                                                contentDescription = "Отвлечения",
-                                                tint = MaterialTheme.colorScheme.primary,
                                             )
-                                        }
+                                    ) {
+                                        Icon(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .align(Alignment.Center),
+                                            painter = painterResource(R.drawable.ic_card_vacation),
+                                            contentDescription = "Отвлечения",
+                                            tint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                        )
                                         Text(
+                                            modifier = Modifier.align(Alignment.BottomStart),
                                             color = MaterialTheme.colorScheme.primary,
                                             maxLines = 1,
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = MaterialTheme.typography.titleSmall,
                                             overflow = TextOverflow.Ellipsis,
                                             text = "Отвлечения"
                                         )
@@ -1573,7 +1567,7 @@ fun HomeScreen(
                                 ActionCard(
                                     title = "PDF",
                                     iconRes = R.drawable.ic_card_pdf,
-                                    iconTint = MaterialTheme.colorScheme.primary,
+                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
                                     widthScreen = widthScreen,
                                     interactionSource = interactionSource,
                                     onSizeChanged = { size ->
@@ -1593,7 +1587,7 @@ fun HomeScreen(
                                     modifier = Modifier.padding(end = 12.dp),
                                     title = "Поиск",
                                     iconRes = R.drawable.ic_card_search,
-                                    iconTint = MaterialTheme.colorScheme.primary,
+                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
                                     widthScreen = widthScreen,
                                     interactionSource = interactionSource,
                                     onSizeChanged = { size ->
@@ -1661,33 +1655,31 @@ private fun ActionCard(
             contentColor = MaterialTheme.colorScheme.primary
         ),
     ) {
-        Column(
+        // Box чтобы наложить иконку (по центру) и текст (в левом нижнем углу).
+        Box(
             modifier = Modifier
                 .defaultMinSize(
                     minWidth = (widthScreen / 3).dp,
                     minHeight = minHeightDp,
                 )
-                .padding(vertical = 8.dp, horizontal = 16.dp),
-            // Иконка и текст — по центру по горизонтали (раньше было Start)
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(vertical = 8.dp, horizontal = 16.dp)
         ) {
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    modifier = Modifier.size(48.dp),
-                    painter = painterResource(iconRes),
-                    contentDescription = title,
-                    tint = iconTint,
-                )
-            }
+            // Иконка по центру карточки
+            Icon(
+                modifier = Modifier
+                    .size(48.dp)
+                    .align(Alignment.Center),
+                painter = painterResource(iconRes),
+                contentDescription = title,
+                tint = iconTint,
+            )
+            // Текст прижат к левому нижнему углу
             Text(
+                modifier = Modifier.align(Alignment.BottomStart),
                 color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
-                // labelSmall меньше чем bodySmall — компактнее под иконкой
-                style = MaterialTheme.typography.labelSmall,
+                // titleSmall — единый стиль с заголовками "Текущий/Следующий маршрут"
+                style = MaterialTheme.typography.titleSmall,
                 overflow = TextOverflow.Ellipsis,
                 text = title,
             )

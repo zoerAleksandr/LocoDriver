@@ -81,7 +81,10 @@ fun ItemHomeScreen(
     convertTimeToString: (Long?) -> String,
     isExpand: Boolean = false,
     onRequestDelete: (Route) -> Unit,
-    requiredSizeText: TextUnit = 22.sp,
+    // Дефолтный максимум: 18.sp — крупнее обычного текста (bodyLarge = 16),
+    // но не такой большой как titleLarge (22). AutoSizeText сжимает до 10.sp
+    // если не помещается. Если нужно крупнее — увеличить до 20-22.sp.
+    requiredSizeText: TextUnit = 18.sp,
     changingTextSize: (TextUnit) -> Unit = {},
     onLongClick: () -> Unit = {},
     containerColor: Color,
