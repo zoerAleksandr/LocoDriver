@@ -1440,126 +1440,40 @@ fun HomeScreen(
                                 .padding(top = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            // Все карточки используют единый компонент ActionCard
+                            // для консистентного стиля (layout, шрифт, цвета).
                             item {
-                                Card(
-                                    modifier = Modifier
-                                        .onSizeChanged { size ->
-                                            if (size.height > maxHeightBox) {
-                                                maxHeightBox = size.height
-                                            }
+                                ActionCard(
+                                    modifier = Modifier.padding(start = 12.dp),
+                                    title = "График",
+                                    iconRes = R.drawable.ic_card_calendar,
+                                    iconTint = MaterialTheme.colorScheme.primary,
+                                    widthScreen = widthScreen,
+                                    interactionSource = interactionSource,
+                                    onSizeChanged = { size ->
+                                        if (size.height > maxHeightBox) {
+                                            maxHeightBox = size.height
                                         }
-                                        .padding(start = 12.dp)
-                                        .defaultMinSize(
-                                            minWidth = (widthScreen / 3).dp,
-                                            minHeight = (widthScreen / 3).dp
-                                        )
-                                        .indication(
-                                            interactionSource = interactionSource,
-                                            indication = ripple(
-                                                color = MaterialTheme.colorScheme.background,
-                                                bounded = true
-                                            )
-                                        )
-                                        .clickable {
-                                            onWorkScheduleScreen()
-                                        },
-                                    elevation = CardDefaults.elevatedCardElevation(
-                                        defaultElevation = 2.dp,
-                                    ),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.secondary,
-                                        contentColor = MaterialTheme.colorScheme.primary
-                                    ),
-                                ) {
-                                    // Box: иконка по центру + текст в левом нижнем углу
-                                    Box(
-                                        modifier = Modifier
-                                            .defaultMinSize(
-                                                minWidth = (widthScreen / 3).dp,
-                                                minHeight = maxHeightBox.toDp(),
-                                            )
-                                            .padding(
-                                                vertical = 8.dp, horizontal = 16.dp
-                                            )
-                                    ) {
-                                        Icon(
-                                            modifier = Modifier
-                                                .size(48.dp)
-                                                .align(Alignment.Center),
-                                            painter = painterResource(R.drawable.ic_card_calendar),
-                                            contentDescription = "График",
-                                            tint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                        )
-                                        Text(
-                                            modifier = Modifier.align(Alignment.BottomStart),
-                                            maxLines = 1,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            overflow = TextOverflow.Ellipsis,
-                                            text = "График"
-                                        )
-                                    }
-                                }
+                                    },
+                                    minHeightDp = maxHeightBox.toDp(),
+                                    onClick = { onWorkScheduleScreen() }
+                                )
                             }
                             item {
-                                Card(
-                                    modifier = Modifier
-                                        .onSizeChanged { size ->
-                                            if (size.height > maxHeightBox) {
-                                                maxHeightBox = size.height
-                                            }
+                                ActionCard(
+                                    title = "Отвлечения",
+                                    iconRes = R.drawable.ic_card_vacation,
+                                    iconTint = MaterialTheme.colorScheme.primary,
+                                    widthScreen = widthScreen,
+                                    interactionSource = interactionSource,
+                                    onSizeChanged = { size ->
+                                        if (size.height > maxHeightBox) {
+                                            maxHeightBox = size.height
                                         }
-                                        .defaultMinSize(
-                                            minWidth = (widthScreen / 3).dp,
-                                            minHeight = (widthScreen / 3).dp
-                                        )
-                                        .indication(
-                                            interactionSource = interactionSource,
-                                            indication = ripple(
-                                                color = MaterialTheme.colorScheme.background,
-                                                bounded = true
-                                            )
-                                        )
-                                        .clickable {
-                                            onClickVacation()
-                                        },
-                                    elevation = CardDefaults.elevatedCardElevation(
-                                        defaultElevation = 2.dp,
-                                    ),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.secondary,
-                                        contentColor = MaterialTheme.colorScheme.primary
-                                    ),
-                                ) {
-                                    // Box: иконка по центру + текст в левом нижнем углу
-                                    Box(
-                                        modifier = Modifier
-                                            .defaultMinSize(
-                                                minWidth = (widthScreen / 3).dp,
-                                                minHeight = maxHeightBox.toDp(),
-                                            )
-                                            .padding(
-                                                vertical = 8.dp, horizontal = 16.dp
-                                            )
-                                    ) {
-                                        Icon(
-                                            modifier = Modifier
-                                                .size(48.dp)
-                                                .align(Alignment.Center),
-                                            painter = painterResource(R.drawable.ic_card_vacation),
-                                            contentDescription = "Отвлечения",
-                                            tint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                        )
-                                        Text(
-                                            modifier = Modifier.align(Alignment.BottomStart),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            maxLines = 1,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            overflow = TextOverflow.Ellipsis,
-                                            text = "Отвлечения"
-                                        )
-                                    }
-                                }
+                                    },
+                                    minHeightDp = maxHeightBox.toDp(),
+                                    onClick = { onClickVacation() }
+                                )
                             }
                             // Карточка "PDF" — открывает диалог формирования PDF
                             // (логика перенесена из иконки в TopAppBar)
@@ -1655,8 +1569,10 @@ private fun ActionCard(
             contentColor = MaterialTheme.colorScheme.primary
         ),
     ) {
-        // Box чтобы наложить иконку (по центру) и текст (в левом нижнем углу).
-        Box(
+        // Column: верхняя зона (Box weight=1f) — иконка по центру оставшегося места.
+        // Нижняя зона — текст в левом нижнем углу. Иконка визуально по центру
+        // верхней части карточки, не пересекается с текстом.
+        Column(
             modifier = Modifier
                 .defaultMinSize(
                     minWidth = (widthScreen / 3).dp,
@@ -1664,18 +1580,20 @@ private fun ActionCard(
                 )
                 .padding(vertical = 8.dp, horizontal = 16.dp)
         ) {
-            // Иконка по центру карточки
-            Icon(
+            Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .align(Alignment.Center),
-                painter = painterResource(iconRes),
-                contentDescription = title,
-                tint = iconTint,
-            )
-            // Текст прижат к левому нижнему углу
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    modifier = Modifier.size(48.dp),
+                    painter = painterResource(iconRes),
+                    contentDescription = title,
+                    tint = iconTint,
+                )
+            }
             Text(
-                modifier = Modifier.align(Alignment.BottomStart),
                 color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
                 // titleSmall — единый стиль с заголовками "Текущий/Следующий маршрут"
