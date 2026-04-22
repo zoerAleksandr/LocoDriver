@@ -61,7 +61,7 @@ struct SalaryCalculationView: View {
             Button(action: { vm.previousMonth() }) {
                 Image(systemName: "chevron.left")
                     .font(.title3.weight(.semibold))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(Color.appAccent)
                     .frame(width: 44, height: 44)
             }
 
@@ -84,7 +84,7 @@ struct SalaryCalculationView: View {
             Button(action: { vm.nextMonth() }) {
                 Image(systemName: "chevron.right")
                     .font(.title3.weight(.semibold))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(Color.appAccent)
                     .frame(width: 44, height: 44)
             }
         }
@@ -122,7 +122,7 @@ struct SalaryCalculationView: View {
             Spacer()
             Text(formatDurationHM(hours: summary.nightTimeHours, minutes: summary.nightTimeMinutes))
                 .fontWeight(.medium)
-                .foregroundColor(summary.nightTimeMs > 0 ? .indigo : .secondary)
+                .foregroundColor(summary.nightTimeMs > 0 ? Color.appAccent : .secondary)
         }
 
         // Norma
@@ -143,7 +143,7 @@ struct SalaryCalculationView: View {
             if summary.overtimeMs > 0 {
                 Text(formatDurationHM(hours: summary.overtimeHours, minutes: summary.overtimeMinutes))
                     .fontWeight(.medium)
-                    .foregroundColor(.orange)
+                    .foregroundColor(Color.appWarning)
             } else {
                 Text("Нет")
                     .fontWeight(.medium)

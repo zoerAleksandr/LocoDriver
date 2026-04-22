@@ -65,9 +65,9 @@ struct ProfileView: View {
                 Section {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.red)
+                            .foregroundColor(Color.appDanger)
                         Text(errorMessage)
-                            .foregroundColor(.red)
+                            .foregroundColor(Color.appDanger)
                             .font(.footnote)
                     }
                 }
@@ -101,7 +101,7 @@ struct ProfileView: View {
                         Spacer()
                     }
                 }
-                .foregroundColor(.blue)
+                .foregroundColor(Color.appAccent)
             }
         }
     }
@@ -113,7 +113,7 @@ struct ProfileView: View {
             Section("Аккаунт") {
                 HStack {
                     Image(systemName: "person.crop.circle.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(Color.appAccent)
                         .font(.title2)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Email")
@@ -129,7 +129,7 @@ struct ProfileView: View {
                 if let syncMessage = vm.syncMessage {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                            .foregroundColor(Color.appSuccess)
                         Text(syncMessage)
                             .font(.footnote)
                             .foregroundColor(.secondary)
@@ -139,10 +139,10 @@ struct ProfileView: View {
                 if let errorMessage = vm.errorMessage {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.red)
+                            .foregroundColor(Color.appDanger)
                         Text(errorMessage)
                             .font(.footnote)
-                            .foregroundColor(.red)
+                            .foregroundColor(Color.appDanger)
                     }
                 }
 
