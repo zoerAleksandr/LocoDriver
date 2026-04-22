@@ -10,6 +10,7 @@ import com.z_company.repository.remote_rest.GetUserProfileState
 import com.z_company.repository.remote_rest.RegistrationState
 import com.z_company.repository.remote_rest.SyncDownloadResult
 import com.z_company.repository.remote_rest.SyncManager
+import com.z_company.repository.remote_rest.SyncUploadResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -110,8 +111,12 @@ class ProfileIosViewModel(
     }
 
     /**
-     * Синхронизация данных с сервером — сначала загружает данные с сервера,
-     * затем отправляет локальные изменения.
+     * Синхронизация данных с сервером.
+     *
+     * ВАЖНО: порядок — сначала UPLOAD (включая удаление помеченных isDeleted=true
+     * маршрутов на сервере), затем DOWNLOAD. Иначе download перезатрёт локальный
+     * флаг isDeleted и «воскресит» только что удалённые маршруты (сервер всё
+     * ещё хранит их, т.к. мы ещё не послали DELETE).
      */
     fun syncData() {
         viewModelScope.launch {
@@ -126,7 +131,28 @@ class ProfileIosViewModel(
 
             val bearerToken = "Bearer $token"
 
-            // Загрузка с сервера — собираем лучший результат независимо от частичных ошибок
+            // 1. Отправка на сервер (включая DELETE для isDeleted=true).
+            var lastUploadResult: SyncUploadResult? = null
+            val uploadErrors = mutableListOf<String>()
+            syncManager.syncToRemote(bearerToken).collect { state ->
+                when (state) {
+                    is ResultState.Loading -> {}
+                    is ResultState.Success -> lastUploadResult = state.data
+                    is ResultState.Error -> {
+                        val msg = state.entity.message
+                        if (msg != null && msg != "Не все данные сохранены успешно") {
+                            uploadErrors.add(msg)
+                        }
+                    }
+                }
+            }
+            if (lastUploadResult == null && uploadErrors.isNotEmpty()) {
+                _errorMessage.value = uploadErrors.last()
+                _isSyncing.value = false
+                return@launch
+            }
+
+            // 2. Загрузка с сервера — уже без только что удалённых маршрутов.
             var lastDownloadResult: SyncDownloadResult? = null
             val downloadErrors = mutableListOf<String>()
 
@@ -144,46 +170,29 @@ class ProfileIosViewModel(
             }
 
             val dl = lastDownloadResult
+            val ul = lastUploadResult
             if (dl != null && dl.routesLoadedCount >= 0) {
                 _syncMessage.value = buildString {
-                    append("Загружено: маршрутов ${dl.routesLoadedCount}")
+                    append("Синхронизация завершена. ")
+                    if (ul != null && ul.routesSavedCount >= 0) {
+                        append("Отправлено: ${ul.routesSavedCount}. ")
+                    }
+                    append("Загружено маршрутов: ${dl.routesLoadedCount}.")
                     if (!dl.userSettingsLoaded || !dl.salarySettingsLoaded || !dl.releaseDaysLoaded) {
                         append(" (часть данных не загружена)")
+                    }
+                    // Ошибки шага-4 (DELETE удалённых маршрутов на сервере) — если есть,
+                    // пользователь сразу видит, что именно не смогло снестись.
+                    val routeErrs = ul?.routeErrors.orEmpty()
+                    if (routeErrs.isNotEmpty()) {
+                        append("\nОшибки: ")
+                        append(routeErrs.joinToString("; "))
                     }
                 }
             } else if (downloadErrors.isNotEmpty()) {
                 _errorMessage.value = downloadErrors.last()
-                _isSyncing.value = false
-                return@launch
             } else {
                 _errorMessage.value = "Не удалось загрузить данные с сервера"
-                _isSyncing.value = false
-                return@launch
-            }
-
-            // Отправка на сервер
-            syncManager.syncToRemote(bearerToken).collect { state ->
-                when (state) {
-                    is ResultState.Loading -> {}
-                    is ResultState.Success -> {
-                        val r = state.data
-                        val msg = buildString {
-                            append("Синхронизация завершена. ")
-                            if (r.routesSavedCount >= 0) append("Отправлено маршрутов: ${r.routesSavedCount}.")
-                            if (r.routeWarnings.isNotEmpty()) append(" Предупреждений: ${r.routeWarnings.size}.")
-                        }
-                        _syncMessage.value = msg
-                        _isSyncing.value = false
-                    }
-                    is ResultState.Error -> {
-                        val msg = state.entity.message ?: "Ошибка отправки данных"
-                        if (msg != "Не все данные сохранены успешно") {
-                            _errorMessage.value = msg
-                        }
-                        _isSyncing.value = false
-                        return@collect
-                    }
-                }
             }
             _isSyncing.value = false
         }

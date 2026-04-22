@@ -1,5 +1,6 @@
 package com.z_company.iosapp.di
 
+import com.z_company.iosapp.viewmodel.AppInitIosViewModel
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
@@ -30,7 +31,9 @@ object IosViewModelHelper : KoinComponent {
     private val trainFormViewModel: TrainFormIosViewModel by inject()
     private val passengerFormViewModel: PassengerFormIosViewModel by inject()
     private val profileViewModel: ProfileIosViewModel by inject()
+    private val appInitViewModel: AppInitIosViewModel by inject()
 
+    fun getAppInitViewModel(): AppInitIosViewModel = appInitViewModel
     fun getHomeViewModel(): HomeIosViewModel = homeViewModel
     fun getFormViewModel(): FormIosViewModel = formViewModel
     fun getSettingsViewModel(): SettingsIosViewModel = settingsViewModel

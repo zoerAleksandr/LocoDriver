@@ -90,10 +90,10 @@ struct WorkScheduleView: View {
     }
 
     private func cellColor(day: Int, hasRoute: Bool, isToday: Bool) -> Color {
-        if isToday { return Color.accentColor }
-        if hasRoute { return Color.blue.opacity(0.3) }
+        if isToday { return Color.appAccent }
+        if hasRoute { return Color.appAccent.opacity(0.3) }
         let weekOffset = (firstWeekday + day - 1) % 7
-        if weekOffset >= 5 { return Color.green.opacity(0.2) } // Сб/Вс
-        return Color(UIColor.tertiarySystemFill)
+        if weekOffset >= 5 { return Color.appSuccess.opacity(0.2) } // Сб/Вс
+        return Color.appElevated
     }
 }

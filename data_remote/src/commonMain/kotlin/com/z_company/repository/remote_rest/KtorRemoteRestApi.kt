@@ -83,6 +83,10 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
         }.body()
 
     override suspend fun deleteRoute(token: String, routeId: String) {
+        // Сервер регистрирует endpoint как `/v1/route/{route_id}` БЕЗ trailing slash
+        // (см. backend: APIRouter(prefix="/route") + @router.delete("/{route_id}")).
+        // Раньше здесь был слэш — FastAPI отвечал 307, а Ktor HttpRedirect не
+        // следует редиректам для DELETE, запрос до БД не доходил.
         client.delete("v1/route/$routeId") {
             header("Authorization", token)
         }

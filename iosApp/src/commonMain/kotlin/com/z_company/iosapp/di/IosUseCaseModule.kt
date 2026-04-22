@@ -24,7 +24,9 @@ import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.iosapp.platform.PlatformKeyValueStorage
 import com.z_company.iosapp.repository.IosSharedPreferencesRepository
+import com.z_company.iosapp.viewmodel.AppInitIosViewModel
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
@@ -66,7 +68,8 @@ val iosUseCaseModule = module {
     single<ReleaseDayRepository> { SqlDelightReleaseDayRepository() }
     single<ProductionCalendarRepository> { SqlDelightProductionCalendarRepository() }
     single<SalarySettingRepository> { SqlDelightSalarySettingRepository() }
-    single<SharedPreferencesRepositories> { IosSharedPreferencesRepository() }
+    single { PlatformKeyValueStorage() }
+    single<SharedPreferencesRepositories> { IosSharedPreferencesRepository(get()) }
 
     // ── UseCases ──────────────────────────────────────────────────────────
     single { RouteUseCase(get()) }
@@ -91,7 +94,7 @@ val iosUseCaseModule = module {
     }
 
     // ── ViewModels (single — живут на протяжении жизни приложения) ────────
-    single { HomeIosViewModel(get(), get()) }
+    single { HomeIosViewModel(get(), get(), get(), get(), get()) }
     single { SettingsIosViewModel(get()) }
     single { FormIosViewModel(get()) }
     single { SalaryCalculationIosViewModel(get(), get()) }
@@ -99,4 +102,14 @@ val iosUseCaseModule = module {
     single { TrainFormIosViewModel(get()) }
     single { PassengerFormIosViewModel(get()) }
     single { ProfileIosViewModel(authManager = get(), syncManager = get(), secureTokenStorage = get()) }
+    single {
+        AppInitIosViewModel(
+            sharedPrefs = get(),
+            settingsUseCase = get(),
+            calendarUseCase = get(),
+            releaseDayUseCase = get(),
+            productionCalendarUseCase = get(),
+            settingManager = get(),
+        )
+    }
 }

@@ -107,7 +107,7 @@ struct FormView: View {
                     )) {
                         HStack {
                             Image(systemName: "tram.fill")
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(Color.appAccent)
                             Text([loco.series, loco.number]
                                 .compactMap { $0 }
                                 .joined(separator: " ")
@@ -123,7 +123,7 @@ struct FormView: View {
                     locoId: nil
                 )) {
                     Label("Добавить локомотив", systemImage: "plus.circle")
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(Color.appAccent)
                 }
             }
 
@@ -137,7 +137,7 @@ struct FormView: View {
                     )) {
                         HStack {
                             Image(systemName: "car.2.fill")
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(Color.appAccent)
                             Text("Поезд \(train.number ?? "—")")
                         }
                     }
@@ -147,7 +147,7 @@ struct FormView: View {
                     trainId: nil
                 )) {
                     Label("Добавить поезд", systemImage: "plus.circle")
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(Color.appAccent)
                 }
             }
 
@@ -161,7 +161,7 @@ struct FormView: View {
                     )) {
                         HStack {
                             Image(systemName: "person.2.fill")
-                                .foregroundColor(.accentColor)
+                                .foregroundColor(Color.appAccent)
                             Text("Поезд \(passenger.trainNumber ?? "—")")
                         }
                     }
@@ -171,7 +171,7 @@ struct FormView: View {
                     passengerId: nil
                 )) {
                     Label("Добавить пассажирский", systemImage: "plus.circle")
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(Color.appAccent)
                 }
             }
 

@@ -24,6 +24,9 @@
 		A11A11A101000600 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000600 /* SettingsView.swift */; };
 		A11A11A101000700 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000700 /* ProfileView.swift */; };
 		A11A11A101000800 /* TimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000800 /* TimeFormatter.swift */; };
+		A11A11A101000810 /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000810 /* AppColors.swift */; };
+		A11A11A101000820 /* SyncToastCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000820 /* SyncToastCenter.swift */; };
+		A11A11A101000821 /* RouteContextMenuRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000821 /* RouteContextMenuRow.swift */; };
 		A11A11A101000900 /* PurchasesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000900 /* PurchasesView.swift */; };
 		A11A11A101000901 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000901 /* SearchView.swift */; };
 		A11A11A101000902 /* WorkScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000902 /* WorkScheduleView.swift */; };
@@ -35,6 +38,7 @@
 		A11A11A101000A04 /* TrainFormViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000A04 /* TrainFormViewModelWrapper.swift */; };
 		A11A11A101000A05 /* PassengerFormViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000A05 /* PassengerFormViewModelWrapper.swift */; };
 		A11A11A101000A06 /* ProfileViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000A06 /* ProfileViewModelWrapper.swift */; };
+		A11A11A101000A07 /* AppInitViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000A07 /* AppInitViewModelWrapper.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -56,6 +60,9 @@
 		A11A11A001000600 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = Screens/Settings/SettingsView.swift; sourceTree = "<group>"; };
 		A11A11A001000700 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ProfileView.swift; path = Screens/Profile/ProfileView.swift; sourceTree = "<group>"; };
 		A11A11A001000800 /* TimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TimeFormatter.swift; path = Shared/TimeFormatter.swift; sourceTree = "<group>"; };
+		A11A11A001000810 /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppColors.swift; path = Shared/AppColors.swift; sourceTree = "<group>"; };
+		A11A11A001000820 /* SyncToastCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncToastCenter.swift; path = Shared/SyncToastCenter.swift; sourceTree = "<group>"; };
+		A11A11A001000821 /* RouteContextMenuRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RouteContextMenuRow.swift; path = Shared/RouteContextMenuRow.swift; sourceTree = "<group>"; };
 		A11A11A001000900 /* PurchasesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PurchasesView.swift; path = Screens/Purchases/PurchasesView.swift; sourceTree = "<group>"; };
 		A11A11A001000901 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SearchView.swift; path = Screens/Search/SearchView.swift; sourceTree = "<group>"; };
 		A11A11A001000902 /* WorkScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WorkScheduleView.swift; path = Screens/WorkSchedule/WorkScheduleView.swift; sourceTree = "<group>"; };
@@ -67,6 +74,7 @@
 		A11A11A001000A04 /* TrainFormViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TrainFormViewModelWrapper.swift; path = ViewModels/TrainFormViewModelWrapper.swift; sourceTree = "<group>"; };
 		A11A11A001000A05 /* PassengerFormViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PassengerFormViewModelWrapper.swift; path = ViewModels/PassengerFormViewModelWrapper.swift; sourceTree = "<group>"; };
 		A11A11A001000A06 /* ProfileViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ProfileViewModelWrapper.swift; path = ViewModels/ProfileViewModelWrapper.swift; sourceTree = "<group>"; };
+		A11A11A001000A07 /* AppInitViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppInitViewModelWrapper.swift; path = ViewModels/AppInitViewModelWrapper.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,6 +118,7 @@
 				A11A11A001000A04 /* TrainFormViewModelWrapper.swift */,
 				A11A11A001000A05 /* PassengerFormViewModelWrapper.swift */,
 				A11A11A001000A06 /* ProfileViewModelWrapper.swift */,
+				A11A11A001000A07 /* AppInitViewModelWrapper.swift */,
 			);
 			name = ViewModels;
 			sourceTree = "<group>";
@@ -209,6 +218,9 @@
 			isa = PBXGroup;
 			children = (
 				A11A11A001000800 /* TimeFormatter.swift */,
+				A11A11A001000810 /* AppColors.swift */,
+				A11A11A001000820 /* SyncToastCenter.swift */,
+				A11A11A001000821 /* RouteContextMenuRow.swift */,
 			);
 			name = Shared;
 			sourceTree = "<group>";
@@ -378,6 +390,9 @@
 				A11A11A101000600 /* SettingsView.swift in Sources */,
 				A11A11A101000700 /* ProfileView.swift in Sources */,
 			A11A11A101000800 /* TimeFormatter.swift in Sources */,
+			A11A11A101000810 /* AppColors.swift in Sources */,
+			A11A11A101000820 /* SyncToastCenter.swift in Sources */,
+			A11A11A101000821 /* RouteContextMenuRow.swift in Sources */,
 			A11A11A101000900 /* PurchasesView.swift in Sources */,
 			A11A11A101000901 /* SearchView.swift in Sources */,
 			A11A11A101000902 /* WorkScheduleView.swift in Sources */,
@@ -389,6 +404,7 @@
 			A11A11A101000A04 /* TrainFormViewModelWrapper.swift in Sources */,
 			A11A11A101000A05 /* PassengerFormViewModelWrapper.swift in Sources */,
 			A11A11A101000A06 /* ProfileViewModelWrapper.swift in Sources */,
+				A11A11A101000A07 /* AppInitViewModelWrapper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

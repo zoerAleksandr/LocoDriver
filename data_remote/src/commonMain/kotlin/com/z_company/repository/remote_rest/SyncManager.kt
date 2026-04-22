@@ -135,14 +135,16 @@ class SyncManager(
         for (route in deletedRoutes) {
             val routeId = route.basicData.id
             val label = routeLabel(route)
-            // Если маршрут никогда не был загружен на сервер (remoteRouteId is null/blank) —
-            // не трогаем его: сервер о нём ничего не знает, а локально он уже помечен
-            // isDeleted=true и скрыт из списков. Это защищает shared-preview маршруты
-            // (импортированные по публичной ссылке и ожидающие решения пользователя)
-            // от случайного удаления во время sync-а.
-            if (route.basicData.remoteRouteId.isNullOrBlank()) {
-                continue
-            }
+            // Шлём DELETE для каждого isDeleted-маршрута. Сервер ключует маршруты
+            // по basicData.id (см. backend POST: route_data["id"] = b_data.id),
+            // а хендлер DELETE идемпотентен: возвращает 200 "ok" и когда маршрут
+            // найден и удалён, и когда его нет, и когда он принадлежит другому
+            // пользователю (shared-preview) — см. pg_client.delete_full_route.
+            //
+            // NB: `remoteRouteId` — легаси от прежней БД (идентификатор на старом
+            // удалённом сервере) и к текущему удалению отношения не имеет. Раньше
+            // здесь стоял guard `if (remoteRouteId.isNullOrBlank()) continue`,
+            // из-за которого DELETE не уходил вообще никогда — это и был баг.
             try {
                 routesManager.deleteRouteInRemote(routeId, bearerToken)
                     .collect { deleteResult ->
