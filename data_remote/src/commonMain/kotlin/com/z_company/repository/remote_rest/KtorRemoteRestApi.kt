@@ -173,6 +173,20 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             parameter("year", year)
         }.body()
 
+    override suspend fun getRegions(country: String): List<com.z_company.domain.entities.calendar.Region> =
+        client.get("v1/regions/") {
+            parameter("country", country)
+        }.body()
+
+    override suspend fun getRegionalHolidays(
+        region: String,
+        year: Int,
+    ): List<com.z_company.domain.entities.calendar.RegionalHoliday> =
+        client.get("v1/regional_holidays/") {
+            parameter("region", region)
+            parameter("year", year)
+        }.body()
+
     override suspend fun createSharedRoute(token: String, data: Route): ShareRouteResponse =
         client.post("v1/share/route") {
             contentType(ContentType.Application.Json)

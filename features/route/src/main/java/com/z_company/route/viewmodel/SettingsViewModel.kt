@@ -488,21 +488,23 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         } else {
             CrossMonthTimezone.LOCAL
         }
-        // Если регион выбран, но он не относится к новой стране — сбрасываем.
-        // Например, был "RU-TA", сменили страну на Беларусь — региона быть не может.
-        val currentRegion = currentSettings?.region
-        val regionStillValid = currentRegion != null &&
-            regionalHolidaysRepository.getRegionByCode(currentRegion)?.country == country
-        val newRegion = if (regionStillValid) currentRegion else null
-
-        currentSettings = currentSettings?.copy(
-            country = country,
-            timeZone = autoTimeZone,
-            crossMonthTimezone = autoCrossMonthTimezone,
-            region = newRegion,
-        )
+        // Нужен coroutine context для suspend-вызовов — выносим всё в viewModelScope.launch
         viewModelScope.launch {
             try {
+                // Если регион выбран, но он не относится к новой стране — сбрасываем.
+                // Например, был "RU-TA", сменили страну на Беларусь — региона быть не может.
+                val currentRegion = currentSettings?.region
+                val regionStillValid = currentRegion != null &&
+                    regionalHolidaysRepository.getRegionByCode(currentRegion)?.country == country
+                val newRegion = if (regionStillValid) currentRegion else null
+
+                currentSettings = currentSettings?.copy(
+                    country = country,
+                    timeZone = autoTimeZone,
+                    crossMonthTimezone = autoCrossMonthTimezone,
+                    region = newRegion,
+                )
+
                 val now = Clock.System.now()
                     .toLocalDateTime(TimeZone.currentSystemDefault())
                 val currentYear = now.year
@@ -535,6 +537,9 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 // Реактивный поток в loadSettings() дополнительно обновит isReleaseDay.
                 refreshSelectMonthOfYear()
 
+                // Перезагружаем список регионов для новой страны
+                reloadRegions()
+
                 _uiState.update { it.copy(countryLoadingState = CountryLoadingState.Success) }
             } catch (e: Exception) {
                 val msg = e.message ?: ""
@@ -552,10 +557,25 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         _uiState.update { it.copy(countryLoadingState = null) }
     }
 
-    /** Список регионов доступных для текущей страны (для UI селектора). */
-    fun getRegionsForCurrentCountry(): List<com.z_company.domain.entities.calendar.Region> {
-        val country = currentSettings?.country ?: return emptyList()
-        return regionalHolidaysRepository.getRegionsForCountry(country)
+    /**
+     * Список регионов для текущей страны — StateFlow для UI.
+     * Загружается при init и при каждом успешном changeCountry.
+     */
+    private val _regionsForCountry = MutableStateFlow<List<com.z_company.domain.entities.calendar.Region>>(emptyList())
+    val regionsForCountry = _regionsForCountry.asStateFlow()
+
+    init {
+        // Загрузка списка регионов при создании VM (использует текущую страну
+        // из настроек; если их ещё нет — загрузится заново в reloadRegions)
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(500)  // дать loadSettings успеть прочитать country
+            reloadRegions()
+        }
+    }
+
+    private suspend fun reloadRegions() {
+        val country = currentSettings?.country ?: "RU"
+        _regionsForCountry.value = regionalHolidaysRepository.getRegionsForCountry(country)
     }
 
     /**
