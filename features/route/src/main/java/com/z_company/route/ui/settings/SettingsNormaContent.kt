@@ -57,6 +57,8 @@ fun SettingsNormaContent(
     countryLoadingState: CountryLoadingState? = null,
     onDismissCountryDialog: () -> Unit = {},
     setCrossMonthTimezone: (CrossMonthTimezone) -> Unit = {},
+    regionsForCountry: List<com.z_company.domain.entities.calendar.Region> = emptyList(),
+    setRegion: (String?) -> Unit = {},
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
     val styleHint = MaterialTheme.typography.bodyMedium
@@ -273,6 +275,85 @@ fun SettingsNormaContent(
                                     expanded = false
                                 }
                             )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Регион (только для России — дополнительные праздничные дни
+        // субъектов РФ накладываются поверх стандартного календаря).
+        if (currentSettings.country == "RU" && regionsForCountry.isNotEmpty()) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
+                    text = "Регион",
+                    style = styleTitle,
+                    color = primaryColor,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                    text = "Региональные праздники добавятся к стандартному календарю",
+                    style = styleHint,
+                    color = primaryColor.copy(alpha = 0.6f),
+                    overflow = TextOverflow.Ellipsis
+                )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    var regionExpanded by remember { mutableStateOf(false) }
+                    val selectedName = currentSettings.region?.let { code ->
+                        regionsForCountry.firstOrNull { it.code == code }?.displayName
+                    } ?: "Стандартный календарь"
+
+                    ExposedDropdownMenuBox(
+                        expanded = regionExpanded,
+                        onExpandedChange = { regionExpanded = !regionExpanded }
+                    ) {
+                        OutlinedTextFieldApp(
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth(),
+                            value = selectedName,
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = regionExpanded)
+                            },
+                            textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = regionExpanded,
+                            onDismissRequest = { regionExpanded = false }
+                        ) {
+                            // Опция "Стандартный календарь" (region = null)
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = "Стандартный календарь",
+                                        color = primaryColor,
+                                        style = styleHint
+                                    )
+                                },
+                                onClick = {
+                                    setRegion(null)
+                                    regionExpanded = false
+                                }
+                            )
+                            regionsForCountry.forEach { region ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = region.displayName,
+                                            color = primaryColor,
+                                            style = styleHint
+                                        )
+                                    },
+                                    onClick = {
+                                        setRegion(region.code)
+                                        regionExpanded = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }

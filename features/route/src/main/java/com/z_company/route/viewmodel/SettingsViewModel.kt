@@ -48,6 +48,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val productionCalendarUseCase: ProductionCalendarUseCase by inject()
     private val settingManager: SettingManager by inject()
+    private val regionalHolidaysRepository: com.z_company.domain.repositories.RegionalHolidaysRepository by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
@@ -487,10 +488,18 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         } else {
             CrossMonthTimezone.LOCAL
         }
+        // Если регион выбран, но он не относится к новой стране — сбрасываем.
+        // Например, был "RU-TA", сменили страну на Беларусь — региона быть не может.
+        val currentRegion = currentSettings?.region
+        val regionStillValid = currentRegion != null &&
+            regionalHolidaysRepository.getRegionByCode(currentRegion)?.country == country
+        val newRegion = if (regionStillValid) currentRegion else null
+
         currentSettings = currentSettings?.copy(
             country = country,
             timeZone = autoTimeZone,
-            crossMonthTimezone = autoCrossMonthTimezone
+            crossMonthTimezone = autoCrossMonthTimezone,
+            region = newRegion,
         )
         viewModelScope.launch {
             try {
@@ -504,6 +513,15 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 // С декабря — следующий год
                 productionCalendarUseCase.nextYearToFetchIfDecember(currentMonth, currentYear)?.let { nextYear ->
                     fetchAndApplyCalendar(country, nextYear)
+                }
+
+                // Если после смены страны регион остался валидным — применяем
+                // его праздники поверх свежего стандартного календаря.
+                newRegion?.let { region ->
+                    calendarUseCase.applyRegionalHolidays(region, currentYear).collect {}
+                    productionCalendarUseCase.nextYearToFetchIfDecember(currentMonth, currentYear)?.let { nextYear ->
+                        calendarUseCase.applyRegionalHolidays(region, nextYear).collect {}
+                    }
                 }
 
                 // Очищаем данные других стран
@@ -532,6 +550,51 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     fun clearCountryLoadingState() {
         _uiState.update { it.copy(countryLoadingState = null) }
+    }
+
+    /** Список регионов доступных для текущей страны (для UI селектора). */
+    fun getRegionsForCurrentCountry(): List<com.z_company.domain.entities.calendar.Region> {
+        val country = currentSettings?.country ?: return emptyList()
+        return regionalHolidaysRepository.getRegionsForCountry(country)
+    }
+
+    /**
+     * Смена региона. Сначала перезагружает стандартный календарь страны
+     * (чтобы сбросить старые региональные пометки), затем применяет новые.
+     * Если region == null — остаётся только стандартный календарь.
+     */
+    fun changeRegion(region: String?) {
+        val country = currentSettings?.country ?: return
+        currentSettings = currentSettings?.copy(region = region)
+        viewModelScope.launch {
+            try {
+                val now = Clock.System.now()
+                    .toLocalDateTime(TimeZone.currentSystemDefault())
+                val currentYear = now.year
+                val currentMonth = now.monthNumber
+
+                // 1. Перезагружаем стандартный — сбрасывает теги дней
+                //    (включая ранее применённые региональные пометки)
+                fetchAndApplyCalendar(country, currentYear)
+                productionCalendarUseCase.nextYearToFetchIfDecember(currentMonth, currentYear)?.let { nextYear ->
+                    fetchAndApplyCalendar(country, nextYear)
+                }
+
+                // 2. Накладываем региональные сверху (если выбран регион)
+                region?.let {
+                    calendarUseCase.applyRegionalHolidays(it, currentYear).collect {}
+                    productionCalendarUseCase.nextYearToFetchIfDecember(currentMonth, currentYear)?.let { nextYear ->
+                        calendarUseCase.applyRegionalHolidays(it, nextYear).collect {}
+                    }
+                }
+
+                // 3. Сохраняем настройки + обновляем выбранный месяц для пересчёта нормы
+                currentSettings?.let { settingsUseCase.saveSetting(it).collect {} }
+                refreshSelectMonthOfYear()
+            } catch (e: Exception) {
+                e.sendToSentry("SettingsViewModel", "changeRegion")
+            }
+        }
     }
 
     private fun isNetworkErrorMessage(msg: String): Boolean =
