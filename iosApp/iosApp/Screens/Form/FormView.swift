@@ -22,6 +22,9 @@ struct FormView: View {
     // Alert: удаление
     @State private var confirmDelete: Bool = false
 
+    // Предупреждение о некорректных временах работы
+    @State private var timeWarning: String? = nil
+
     var body: some View {
         Group {
             if vm.isLoading {
@@ -77,6 +80,14 @@ struct FormView: View {
             Button("OK") { vm.consumeError() }
         } message: {
             Text(vm.errorMessage ?? "")
+        }
+        .alert("Некорректное время", isPresented: Binding(
+            get: { timeWarning != nil },
+            set: { if !$0 { timeWarning = nil } }
+        )) {
+            Button("OK") { timeWarning = nil }
+        } message: {
+            Text(timeWarning ?? "")
         }
         .alert("Удалить маршрут?", isPresented: $confirmDelete) {
             Button("Отмена", role: .cancel) {}
@@ -203,11 +214,16 @@ struct FormView: View {
                 workingTimeRow(
                     title: "Начало",
                     date: $startWorkDate,
-                    onSet: { date in
-                        vm.setTimeStartWork(TimeFormatter.dateToMs(date))
-                        // VM может автоматически проставить endWorkDate через
-                        // `usingDefaultWorkTime`. Обновление прилетит через
-                        // onChange(of: vm.route) выше.
+                    defaultProvider: { Date() },
+                    onSet: { newStart in
+                        // Если выставлено окончание и оно оказалось раньше
+                        // нового начала — отказываем, ревертим дату.
+                        if let end = endWorkDate, end <= newStart {
+                            timeWarning = "Начало работы не может быть позже или равно окончанию."
+                            return false
+                        }
+                        vm.setTimeStartWork(TimeFormatter.dateToMs(newStart))
+                        return true
                     },
                     onClear: { vm.setTimeStartWork(nil) }
                 )
@@ -215,8 +231,19 @@ struct FormView: View {
                 workingTimeRow(
                     title: "Окончание",
                     date: $endWorkDate,
-                    onSet: { date in
-                        vm.setTimeEndWork(TimeFormatter.dateToMs(date))
+                    defaultProvider: {
+                        // +12 часов ко времени начала, если оно указано;
+                        // иначе — 12 часов от текущего момента.
+                        let base = startWorkDate ?? Date()
+                        return base.addingTimeInterval(12 * 3600)
+                    },
+                    onSet: { newEnd in
+                        if let start = startWorkDate, newEnd <= start {
+                            timeWarning = "Окончание работы не может быть раньше или равным началу."
+                            return false
+                        }
+                        vm.setTimeEndWork(TimeFormatter.dateToMs(newEnd))
+                        return true
                     },
                     onClear: { vm.setTimeEndWork(nil) }
                 )
@@ -226,11 +253,17 @@ struct FormView: View {
         }
     }
 
+    /// Строка DatePicker-а времени работы.
+    ///
+    /// - `defaultProvider`: какое время подставить при первом нажатии «Указать».
+    /// - `onSet`: возвращает `true`, если значение принято; `false` — если
+    ///   валидация не прошла, тогда локальный `date` откатывается.
     @ViewBuilder
     private func workingTimeRow(
         title: String,
         date: Binding<Date?>,
-        onSet: @escaping (Date) -> Void,
+        defaultProvider: @escaping () -> Date,
+        onSet: @escaping (Date) -> Bool,
         onClear: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -259,8 +292,16 @@ struct FormView: View {
                     selection: Binding(
                         get: { current },
                         set: { newValue in
+                            let previous = current
+                            // Оптимистично обновляем локально, чтобы DatePicker
+                            // отразил выбор. Если валидация не прошла —
+                            // откатываем назад.
                             date.wrappedValue = newValue
-                            onSet(newValue)
+                            if !onSet(newValue) {
+                                DispatchQueue.main.async {
+                                    date.wrappedValue = previous
+                                }
+                            }
                         }
                     ),
                     displayedComponents: [.date, .hourAndMinute]
@@ -269,9 +310,12 @@ struct FormView: View {
                 .datePickerStyle(.compact)
             } else {
                 Button(action: {
-                    let now = Date()
-                    date.wrappedValue = now
-                    onSet(now)
+                    let defaultDate = defaultProvider()
+                    date.wrappedValue = defaultDate
+                    if !onSet(defaultDate) {
+                        // Маловероятно, но на всякий случай откатываем.
+                        date.wrappedValue = nil
+                    }
                 }) {
                     HStack(spacing: 12) {
                         Image(systemName: "plus.circle")
@@ -838,64 +882,119 @@ private struct RestDetailsSheet: View {
     @ObservedObject var vm: FormViewModelWrapper
     @Environment(\.dismiss) private var dismiss
 
+    /// Есть ли валидные время начала и окончания работы (окончание строго позже).
+    private var hasWorkTime: Bool {
+        let start = vm.route?.basicData.timeStartWork?.int64Value ?? 0
+        let end   = vm.route?.basicData.timeEndWork?.int64Value ?? 0
+        return start > 0 && end > 0 && end > start
+    }
+
     var body: some View {
         NavigationStack {
-            List {
-                if vm.isRestAtPO {
-                    poHeaderSection
-                    restSection(
-                        title: "Короткий отдых",
-                        badge: "MIN",
-                        duration: vm.shortRestDuration,
-                        endTime: vm.shortRestEnd
-                    )
-                    restSection(
-                        title: "Полный отдых",
-                        badge: "MAX",
-                        duration: vm.fullRestDuration,
-                        endTime: vm.fullRestEnd
-                    )
+            Group {
+                if !hasWorkTime {
+                    emptyState
                 } else {
-                    if let err = vm.restErrorMessage, !err.isEmpty {
-                        Section {
-                            HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.orange)
-                                Text(err)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    homeHeaderSection
-                    if vm.chainSize > 1, let poRest = vm.chainPORestTotal, poRest > 0 {
-                        Section("Отдых в ПО") {
-                            HStack {
-                                Text("Суммарно").foregroundStyle(.secondary)
-                                Spacer()
-                                Text(TimeFormatter.formatDuration(ms: poRest))
-                            }
-                            HStack {
-                                Text("Количество отдыхов").foregroundStyle(.secondary)
-                                Spacer()
-                                Text("\(max(vm.chainSize - 1, 0))")
-                            }
-                        }
-                    }
-                    restSection(
-                        title: "Домашний отдых",
-                        iconSystemName: "house.fill",
-                        duration: vm.homeRestDuration,
-                        endTime: vm.homeRestEnd
-                    )
+                    detailsList
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.appBg)
             .navigationTitle("Отдых")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Готово") { dismiss() }
                 }
+            }
+        }
+    }
+
+    // MARK: - Empty state (нет данных о работе)
+
+    private var emptyState: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                Image(systemName: "clock.badge.exclamationmark")
+                    .font(.system(size: 44, weight: .regular))
+                    .foregroundStyle(Color.appAccent)
+                    .padding(.top, 32)
+                Text("Время работы не указано")
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                Text("Укажите начало и окончание работы — тогда отдых будет рассчитан автоматически.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                Button(action: { dismiss() }) {
+                    Text("Закрыть")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 11)
+                        .background(Color.appAccent)
+                        .clipShape(Capsule())
+                }
+                .padding(.top, 8)
+                Spacer(minLength: 24)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20)
+        }
+    }
+
+    // MARK: - Details list
+
+    private var detailsList: some View {
+        List {
+            if vm.isRestAtPO {
+                poHeaderSection
+                restSection(
+                    title: "Короткий отдых",
+                    badge: "MIN",
+                    duration: vm.shortRestDuration,
+                    endTime: vm.shortRestEnd
+                )
+                restSection(
+                    title: "Полный отдых",
+                    badge: "MAX",
+                    duration: vm.fullRestDuration,
+                    endTime: vm.fullRestEnd
+                )
+            } else {
+                if let err = vm.restErrorMessage, !err.isEmpty {
+                    Section {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text(err)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                homeHeaderSection
+                if vm.chainSize > 1, let poRest = vm.chainPORestTotal, poRest > 0 {
+                    Section("Отдых в ПО") {
+                        HStack {
+                            Text("Суммарно").foregroundStyle(.secondary)
+                            Spacer()
+                            Text(TimeFormatter.formatDuration(ms: poRest))
+                        }
+                        HStack {
+                            Text("Количество отдыхов").foregroundStyle(.secondary)
+                            Spacer()
+                            Text("\(max(vm.chainSize - 1, 0))")
+                        }
+                    }
+                }
+                restSection(
+                    title: "Домашний отдых",
+                    iconSystemName: "house.fill",
+                    duration: vm.homeRestDuration,
+                    endTime: vm.homeRestEnd
+                )
             }
         }
     }
