@@ -25,6 +25,16 @@ struct FormView: View {
     // Предупреждение о некорректных временах работы
     @State private var timeWarning: String? = nil
 
+    // Видимость плавающего тулбара: прячем при скролле вниз, показываем при
+    // скролле вверх и на старте / в самом верху.
+    @State private var toolbarVisible: Bool = true
+    @State private var lastScrollOffset: CGFloat = 0
+    /// Накопленное смещение в одном направлении. Сбрасывается при смене
+    /// направления скролла, позволяет срабатывать и на медленный скролл
+    /// (мелкие дельты суммируются), и раньше — на быстром (одно большое
+    /// событие сразу превышает порог).
+    @State private var scrollAccumulator: CGFloat = 0
+
     var body: some View {
         Group {
             if vm.isLoading {
@@ -162,17 +172,59 @@ struct FormView: View {
                 .padding(.top, 8)
             }
             .background(Color.appBg)
+            .modifier(ScrollOffsetObserver { offset in
+                handleContentOffset(offset)
+            })
 
-            // Плавающий тулбар iOS Photos style
-            RouteFormToolbar(
-                isFavorite: vm.isFavorite,
-                canDelete: routeId != nil,
-                onSettings: { settingsSheetShown = true },
-                onFavoriteToggle: { vm.toggleFavorite() },
-                onShare: { vm.shareRoute() },
-                onDuplicate: { /* TODO */ },
-                onDelete: { confirmDelete = true }
-            )
+            // Плавающий тулбар iOS Photos style — прячется при скролле вниз.
+            if toolbarVisible {
+                RouteFormToolbar(
+                    isFavorite: vm.isFavorite,
+                    canDelete: routeId != nil,
+                    onSettings: { settingsSheetShown = true },
+                    onFavoriteToggle: { vm.toggleFavorite() },
+                    onShare: { vm.shareRoute() },
+                    onDuplicate: { /* TODO */ },
+                    onDelete: { confirmDelete = true }
+                )
+                .transition(.move(edge: .bottom))
+            }
+        }
+    }
+
+    /// Решает, показывать ли тулбар, по contentOffset.y ScrollView.
+    /// В самом верху offset ≈ 0, при скролле вниз (контент уходит вверх)
+    /// offset растёт, при скролле вверх — уменьшается.
+    private func handleContentOffset(_ newOffset: CGFloat) {
+        let delta = newOffset - lastScrollOffset
+        lastScrollOffset = newOffset
+
+        // У самого верха — всегда показываем и сбрасываем аккумулятор.
+        if newOffset <= 4 {
+            scrollAccumulator = 0
+            if !toolbarVisible {
+                withAnimation(.easeInOut(duration: 0.22)) { toolbarVisible = true }
+            }
+            return
+        }
+
+        // Смена направления скролла — обнуляем аккумулятор, чтобы старые
+        // движения в противоположную сторону не влияли.
+        if (delta > 0 && scrollAccumulator < 0) || (delta < 0 && scrollAccumulator > 0) {
+            scrollAccumulator = 0
+        }
+        scrollAccumulator += delta
+
+        let threshold: CGFloat = 12
+
+        if scrollAccumulator >= threshold, toolbarVisible {
+            // Скролл вниз накопился — прячем.
+            withAnimation(.easeInOut(duration: 0.22)) { toolbarVisible = false }
+            scrollAccumulator = 0
+        } else if scrollAccumulator <= -threshold, !toolbarVisible {
+            // Скролл вверх накопился — показываем.
+            withAnimation(.easeInOut(duration: 0.22)) { toolbarVisible = true }
+            scrollAccumulator = 0
         }
     }
 
@@ -214,10 +266,22 @@ struct FormView: View {
 
     private var workingTimeSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Время работы")
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-                .padding(.bottom, 2)
+            HStack {
+                Text("Время работы")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if let startMs = vm.route?.basicData.timeStartWork?.int64Value,
+                   let endMs = vm.route?.basicData.timeEndWork?.int64Value,
+                   startMs > 0, endMs > startMs {
+                    Text(TimeFormatter.formatDuration(ms: endMs - startMs))
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+            .padding(.bottom, 2)
 
             VStack(spacing: 0) {
                 workingTimeRow(
@@ -547,21 +611,22 @@ struct SummaryTilesRow: View {
             Button(action: onPaymentTap) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
-                        Image(systemName: "rublesign.circle.fill")
-                            .font(.system(size: 14))
+                        Image(systemName: "rublesign")
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(Color.appAccent)
                         Text("Расчёт")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.tertiary)
                     }
                     Text(FormatMoney.rub(totalPayment))
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
-                    Text("Детали ›")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color.appAccent)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
@@ -571,10 +636,10 @@ struct SummaryTilesRow: View {
             .buttonStyle(.plain)
 
             // Плитка отдыха:
-            //  - Основная область (иконка + заголовок + значение) = тап переключает
-            //    тип «Домашний» ↔ «Отдых в ПО».
-            //  - Строка «Детали ›» — отдельная кнопка, открывает шторку с деталями.
-            VStack(alignment: .leading, spacing: 4) {
+            //  - Шеврон справа сверху — кнопка, открывает шторку деталей.
+            //  - Вся остальная область (иконка + заголовок + тип) — переключает
+            //    «Домашний» ↔ «Отдых в ПО».
+            HStack(alignment: .top, spacing: 6) {
                 Button(action: onRestToggle) {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
@@ -604,10 +669,11 @@ struct SummaryTilesRow: View {
                 .buttonStyle(.plain)
 
                 Button(action: onRestDetailsTap) {
-                    Text("Детали ›")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color.appAccent)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .padding(.leading, 6)
+                        .padding(.vertical, 2)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -615,6 +681,51 @@ struct SummaryTilesRow: View {
             .padding(12)
             .background(Color.appCard)
             .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+    }
+}
+
+// MARK: - Scroll offset observer
+//
+// iOS 18+: используем системный onScrollGeometryChange — он точно и быстро
+// сообщает об изменении contentOffset ScrollView.
+// iOS 16–17: падаем на PreferenceKey + GeometryReader внутри overlay.
+
+private struct ScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct ScrollOffsetObserver: ViewModifier {
+    let action: (CGFloat) -> Void
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y
+            } action: { _, newValue in
+                action(newValue)
+            }
+        } else {
+            content
+                .coordinateSpace(name: "formScroll")
+                .overlay(
+                    GeometryReader { outer in
+                        // Позиция ScrollView на экране; изменение minY контента
+                        // относительно неё эквивалентно contentOffset.y
+                        // (с инвертированным знаком).
+                        Color.clear.preference(
+                            key: ScrollOffsetKey.self,
+                            value: -outer.frame(in: .named("formScroll")).minY
+                        )
+                    }
+                    .frame(width: 0, height: 0)
+                )
+                .onPreferenceChange(ScrollOffsetKey.self) { value in
+                    action(value)
+                }
         }
     }
 }
@@ -638,24 +749,29 @@ struct RouteFormToolbar: View {
                 background: Color.appAccent,
                 action: onSettings
             )
-            ToolbarPillButton(
-                systemImage: isFavorite ? "heart.fill" : "heart",
-                tint: isFavorite ? Color.appDanger : .primary,
-                background: Color.appCard,
-                action: onFavoriteToggle
-            )
-            ToolbarPillButton(
-                systemImage: "square.and.arrow.up",
-                tint: .primary,
-                background: Color.appCard,
-                action: onShare
-            )
-            ToolbarPillButton(
-                systemImage: "doc.on.doc",
-                tint: .primary,
-                background: Color.appCard,
-                action: onDuplicate
-            )
+
+            // Центральная группа: «В избранное», «Поделиться», «Дублировать»
+            // — объединены в одну капсулу с тонкими разделителями.
+            ToolbarPillGroup {
+                ToolbarGroupButton(
+                    systemImage: isFavorite ? "heart.fill" : "heart",
+                    tint: isFavorite ? Color.appDanger : .primary,
+                    action: onFavoriteToggle
+                )
+                ToolbarGroupDivider()
+                ToolbarGroupButton(
+                    systemImage: "square.and.arrow.up",
+                    tint: .primary,
+                    action: onShare
+                )
+                ToolbarGroupDivider()
+                ToolbarGroupButton(
+                    systemImage: "doc.on.doc",
+                    tint: .primary,
+                    action: onDuplicate
+                )
+            }
+
             if canDelete {
                 ToolbarPillButton(
                     systemImage: "trash",
@@ -681,13 +797,58 @@ struct ToolbarPillButton: View {
             Image(systemName: systemImage)
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(tint)
-                .frame(maxWidth: .infinity)
+                // Крайние кнопки — только необходимое место (иконка +
+                // горизонтальный отступ). Свободное место отдаём центральной
+                // группе.
+                .padding(.horizontal, 20)
                 .frame(height: 44)
                 .background(background)
                 .clipShape(Capsule())
                 .shadow(color: .black.opacity(0.08), radius: 4, y: 1)
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Контейнер для группы кнопок в одной капсуле с общей тенью.
+/// Разворачивается на всё свободное место, крайние пилюли остаются компактными.
+struct ToolbarPillGroup<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        HStack(spacing: 0) {
+            content()
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 44)
+        .background(Color.appCard)
+        .clipShape(Capsule())
+        .shadow(color: .black.opacity(0.08), radius: 4, y: 1)
+    }
+}
+
+struct ToolbarGroupButton: View {
+    let systemImage: String
+    let tint: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(tint)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct ToolbarGroupDivider: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.12))
+            .frame(width: 0.5, height: 22)
     }
 }
 
@@ -1101,56 +1262,33 @@ private struct RouteSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Настройки маршрута")
-                        .font(.system(size: 17, weight: .semibold))
-                    Text("Применяются к этому маршруту")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("Готово") { dismiss() }
-                    .font(.system(size: 15, weight: .medium))
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 14)
-
-            VStack(spacing: 0) {
-                SettingsToggleRow(
-                    title: "В одно лицо",
-                    subtitle: "Надбавка за работу без помощника",
-                    isOn: Binding(
-                        get: { vm.isOnePersonOperation },
-                        set: { vm.setOnePersonOperation($0) }
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 0) {
+                    SettingsToggleRow(
+                        title: "В одно лицо",
+                        subtitle: "Надбавка за работу без помощника",
+                        isOn: Binding(
+                            get: { vm.isOnePersonOperation },
+                            set: { vm.setOnePersonOperation($0) }
+                        )
                     )
-                )
-                // Пригородный и Праздничный — заглушки, требуют полей в DomainRoute.
-                // Оставлены серыми и disabled до появления модели.
-                Divider().padding(.leading, 14)
-                SettingsToggleRow(
-                    title: "Пригородный",
-                    subtitle: "Тариф для коротких маршрутов",
-                    isOn: .constant(false),
-                    disabled: true
-                )
-                Divider().padding(.leading, 14)
-                SettingsToggleRow(
-                    title: "Праздничный день",
-                    subtitle: "Надбавка за работу в праздник",
-                    isOn: .constant(false),
-                    disabled: true
-                )
+                }
+                .background(Color.appCard)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 16)
+                .padding(.top, 20)
             }
-            .background(Color.appCard)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .padding(.horizontal, 16)
-
-            Spacer()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.appBg)
+            .navigationTitle("Настройки маршрута")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Готово") { dismiss() }
+                }
+            }
         }
-        .background(Color.appBg)
     }
 }
 
