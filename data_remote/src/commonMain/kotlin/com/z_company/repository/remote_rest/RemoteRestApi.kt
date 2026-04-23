@@ -73,6 +73,25 @@ interface RemoteRestApi {
     /** Получить производственный календарь для страны и года (без авторизации) */
     suspend fun getProductionCalendar(country: String, year: Int): List<ProductionCalendarDay>
 
+    // --- Regional Holidays (региональные праздники субъектов) ---
+
+    /**
+     * Получить список регионов (субъектов) для страны.
+     * Эндпоинт: GET /v1/regions/?country=RU — без авторизации.
+     * Ответ: список [Region] с ISO 3166-2 кодами.
+     */
+    suspend fun getRegions(country: String): List<com.z_company.domain.entities.calendar.Region>
+
+    /**
+     * Получить региональные праздники для конкретного региона на год.
+     * Эндпоинт: GET /v1/regional_holidays/?region=RU-TA&year=2026 — без авторизации.
+     * Ответ: список [RegionalHoliday] накладываемых поверх стандартного календаря.
+     */
+    suspend fun getRegionalHolidays(
+        region: String,
+        year: Int,
+    ): List<com.z_company.domain.entities.calendar.RegionalHoliday>
+
     // --- Shared Routes (публичные ссылки на маршруты) ---
 
     /**

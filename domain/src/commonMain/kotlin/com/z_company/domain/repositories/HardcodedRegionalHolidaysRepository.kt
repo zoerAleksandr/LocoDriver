@@ -151,13 +151,13 @@ class HardcodedRegionalHolidaysRepository : RegionalHolidaysRepository {
         ),
     )
 
-    override fun getRegionsForCountry(country: String): List<Region> =
+    override suspend fun getRegionsForCountry(country: String): List<Region> =
         allRegions.filter { it.country == country }
 
-    override fun getRegionByCode(code: String): Region? =
+    override suspend fun getRegionByCode(code: String): Region? =
         allRegions.firstOrNull { it.code == code }
 
-    override fun getHolidaysForRegionYear(region: String, year: Int): List<RegionalHoliday> {
+    override suspend fun getHolidaysForRegionYear(region: String, year: Int): List<RegionalHoliday> {
         // Сейчас поддерживаем только 2026 год. Когда сервер заработает —
         // здесь будет вызов к нему для других годов.
         if (year != 2026) return emptyList()
