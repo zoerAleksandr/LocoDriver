@@ -39,6 +39,15 @@ struct FormView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
+            // Для нового маршрута форма — корень модального sheet'а,
+            // системного back-chevron нет, добавляем явную кнопку «Отмена».
+            if routeId == nil {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Отмена") { dismiss() }
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color.appAccent)
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Сохранить") { vm.saveRoute() }
                     .font(.system(size: 15, weight: .medium))

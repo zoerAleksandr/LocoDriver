@@ -7,6 +7,8 @@ enum AppTab {
 
 struct AppCoordinator: View {
     @State private var selectedTab: AppTab = .home
+    @State private var previousTab: AppTab = .home
+    @State private var showAddForm: Bool = false
 
     init() {
         // Единый стиль таб-бара: прозрачный фон, корректный учёт safe area
@@ -18,7 +20,23 @@ struct AppCoordinator: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
+        // Перехватываем тап по вкладке «Добавить»: не делаем её активной, а
+        // открываем форму нового маршрута модальным sheet'ом поверх предыдущей
+        // вкладки. Это даёт работающий dismiss() после сохранения и
+        // естественную кнопку «Отмена» для возврата без сохранения.
+        let tabBinding = Binding<AppTab>(
+            get: { selectedTab },
+            set: { newValue in
+                if newValue == .add {
+                    showAddForm = true
+                } else {
+                    previousTab = newValue
+                    selectedTab = newValue
+                }
+            }
+        )
+
+        TabView(selection: tabBinding) {
             NavigationStack {
                 HomeView()
             }
@@ -31,13 +49,11 @@ struct AppCoordinator: View {
             .tabItem { Label("Зарплата", systemImage: "rublesign") }
             .tag(AppTab.salary)
 
-            NavigationStack {
-                FormView(routeId: nil)
-            }
-            // Line-style "+" — тот же stroke, что и у doc.text / rublesign /
-            // slider.horizontal.3 / person. Без кругового фона (не FAB).
-            .tabItem { Label("Добавить", systemImage: "plus") }
-            .tag(AppTab.add)
+            // Dummy-вкладка: никогда не активируется, при тапе срабатывает
+            // перехватчик в tabBinding.set и открывается sheet.
+            Color.clear
+                .tabItem { Label("Добавить", systemImage: "plus") }
+                .tag(AppTab.add)
 
             NavigationStack {
                 SettingsView()
@@ -53,5 +69,10 @@ struct AppCoordinator: View {
             .tag(AppTab.profile)
         }
         .tint(Color.appAccent)
+        .sheet(isPresented: $showAddForm) {
+            NavigationStack {
+                FormView(routeId: nil)
+            }
+        }
     }
 }
