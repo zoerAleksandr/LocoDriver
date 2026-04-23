@@ -43,6 +43,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "useStandardTimePicker",
             "UserSettings" to "locomotiveSeriesList",
             "UserSettings" to "servicePhases",
+            "UserSettings" to "region",
             "MonthOfYear" to "tariffRate",
             "MonthOfYear" to "dateSetTariffRate",
             primaryTable = "UserSettings")
@@ -188,6 +189,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.standardTimesStartWork" to ColumnSpec("TEXT", false, "'[28800000, 72000000]'"),
             "UserSettings.locomotiveSeriesList" to ColumnSpec("TEXT", false, "'[]'"),
             "UserSettings.servicePhases" to ColumnSpec("TEXT", false, "'[]'"),
+            "UserSettings.region" to ColumnSpec("TEXT", true, "NULL"),
             // Settings — MonthOfYear
             "MonthOfYear.tariffRate" to ColumnSpec("REAL", false, "0.0"),
             "MonthOfYear.dateSetTariffRate" to ColumnSpec("TEXT", true, "NULL"),

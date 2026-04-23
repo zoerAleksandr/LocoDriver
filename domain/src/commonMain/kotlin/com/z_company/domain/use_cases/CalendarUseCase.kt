@@ -5,10 +5,16 @@ import com.z_company.core.ResultState.Companion.flowRequest
 import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ProductionCalendarDay
+import com.z_company.domain.entities.TagForDay
+import com.z_company.domain.entities.calendar.RegionalHoliday
 import com.z_company.domain.repositories.CalendarRepositories
+import com.z_company.domain.repositories.RegionalHolidaysRepository
 import kotlinx.coroutines.flow.Flow
 
-class CalendarUseCase(private val repositories: CalendarRepositories) {
+class CalendarUseCase(
+    private val repositories: CalendarRepositories,
+    private val regionalHolidaysRepository: RegionalHolidaysRepository? = null,
+) {
     fun loadFlowMonthOfYearListState(): Flow<List<MonthOfYear>> {
         return repositories.getFlowMonthOfYearListState()
     }
@@ -62,6 +68,43 @@ class CalendarUseCase(private val repositories: CalendarRepositories) {
                 days = updatedDays
             )
             repositories.updateMonthOfYear(updatedMonth).collect {}
+        }
+    }
+
+    /**
+     * Применяет региональные праздники ПОВЕРХ уже загруженного стандартного
+     * календаря. Региональные праздники получают приоритет — день помечается
+     * как HOLIDAY независимо от того что было раньше (рабочий, сокращённый и т.д.).
+     *
+     * Должен вызываться ПОСЛЕ [applyProductionCalendar] для корректного результата.
+     *
+     * @param region код региона (ISO 3166-2, например "RU-TA"). null — снять
+     *   региональные праздники (вернуть к чистому стандартному календарю).
+     * @param year год для применения праздников.
+     */
+    fun applyRegionalHolidays(region: String?, year: Int): Flow<ResultState<Unit>> = flowRequest {
+        if (region == null || regionalHolidaysRepository == null) {
+            // Регион не выбран — ничего не делаем (стандартный календарь остаётся).
+            return@flowRequest
+        }
+        val holidays = regionalHolidaysRepository.getHolidaysForRegionYear(region, year)
+        if (holidays.isEmpty()) return@flowRequest
+
+        val byMonth = holidays.groupBy { it.month }
+        val allMonths = repositories.getMonthOfYearList()
+        val monthMap = allMonths.associateBy { it.year to it.month }
+
+        byMonth.forEach { (month, monthHolidays) ->
+            val existing = monthMap[year to month] ?: return@forEach
+            val regionalDays = monthHolidays.map { it.dayOfMonth }.toSet()
+            val updatedDays = existing.days.map { day ->
+                if (day.dayOfMonth in regionalDays) {
+                    day.copy(tag = TagForDay.HOLIDAY)
+                } else {
+                    day
+                }
+            }
+            repositories.updateMonthOfYear(existing.copy(days = updatedDays)).collect {}
         }
     }
 }

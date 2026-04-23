@@ -1,0 +1,41 @@
+-- Региональные праздничные дни субъектов РФ (и других стран если потребуется).
+-- Накладываются ПОВЕРХ стандартного производственного календаря —
+-- региональный праздник имеет приоритет.
+--
+-- region — ISO 3166-2 код субъекта (например "RU-TA" = Татарстан, "RU-BA" = Башкортостан).
+-- name — отображаемое название праздника (на русском).
+CREATE TABLE IF NOT EXISTS RegionalHoliday (
+    region TEXT NOT NULL,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    dayOfMonth INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    PRIMARY KEY (region, year, month, dayOfMonth)
+);
+
+CREATE INDEX IF NOT EXISTS idx_regional_holiday_region_year
+    ON RegionalHoliday(region, year);
+
+insertOrReplace:
+INSERT OR REPLACE INTO RegionalHoliday (region, year, month, dayOfMonth, name)
+VALUES (?, ?, ?, ?, ?);
+
+getByRegionYear:
+SELECT * FROM RegionalHoliday
+WHERE region = :region AND year = :year
+ORDER BY month, dayOfMonth;
+
+getByRegionYearMonth:
+SELECT * FROM RegionalHoliday
+WHERE region = :region AND year = :year AND month = :month
+ORDER BY dayOfMonth;
+
+hasDataForRegionYear:
+SELECT COUNT(*) FROM RegionalHoliday
+WHERE region = :region AND year = :year;
+
+clearByRegion:
+DELETE FROM RegionalHoliday WHERE region = :region;
+
+clearAll:
+DELETE FROM RegionalHoliday;

@@ -46,6 +46,12 @@ data class UserSettings(
     val country: String = "RU",
     val crossMonthTimezone: CrossMonthTimezone = CrossMonthTimezone.LOCAL,
     val useStandardTimePicker: Boolean = false,
+    /**
+     * Региональный код субъекта РФ (или другой страны) в формате ISO 3166-2:
+     * "RU-TA" — Татарстан, "RU-BA" — Башкортостан, "RU-CR" — Крым и т.д.
+     * null = используется только стандартный календарь по [country].
+     */
+    val region: String? = null,
 )
 
 @Serializable
