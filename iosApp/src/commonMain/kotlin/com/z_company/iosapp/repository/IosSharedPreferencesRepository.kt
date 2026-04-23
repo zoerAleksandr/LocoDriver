@@ -48,6 +48,7 @@ class IosSharedPreferencesRepository(
         const val SHOW_OTHER_CURRENT = "show_other_current"
         const val PASSENGER_12H_DONT_ASK = "passenger_12h_dont_ask"
         const val PASSENGER_12H_AUTO_ACCEPTED = "passenger_12h_auto_accepted"
+        const val TIME_PICKER_KEYBOARD_INPUT = "time_picker_keyboard_input"
 
         const val RECENT_TIMES_PREFIX = "recent_times_"
         const val RECENT_TIMES_LIMIT = 10
@@ -179,6 +180,11 @@ class IosSharedPreferencesRepository(
         storage.getBoolean(PASSENGER_12H_AUTO_ACCEPTED, false)
     override fun setPassenger12hAutoAccepted(value: Boolean) =
         storage.setBoolean(PASSENGER_12H_AUTO_ACCEPTED, value)
+
+    override fun isTimePickerKeyboardInput(): Boolean =
+        storage.getBoolean(TIME_PICKER_KEYBOARD_INPUT, false)
+    override fun setTimePickerKeyboardInput(value: Boolean) =
+        storage.setBoolean(TIME_PICKER_KEYBOARD_INPUT, value)
 
     override fun getRecentTimes(key: String): List<Long> =
         storage.getLongList(RECENT_TIMES_PREFIX + key)

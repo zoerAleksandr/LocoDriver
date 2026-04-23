@@ -24,6 +24,7 @@ import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.helpers.RouteRestCalculator
 import com.z_company.iosapp.platform.PlatformKeyValueStorage
 import com.z_company.iosapp.repository.IosSharedPreferencesRepository
 import com.z_company.iosapp.viewmodel.AppInitIosViewModel
@@ -78,6 +79,7 @@ val iosUseCaseModule = module {
     single { SalarySettingUseCase(get(), get()) }
     single { ReleaseDayUseCase(get()) }
     single { ProductionCalendarUseCase(get()) }
+    single { RouteRestCalculator(routeUseCase = get(), settingsUseCase = get()) }
 
     // ── Remote managers (SyncManager нужны все UseCases + remote managers) ─
     single {
@@ -96,7 +98,17 @@ val iosUseCaseModule = module {
     // ── ViewModels (single — живут на протяжении жизни приложения) ────────
     single { HomeIosViewModel(get(), get(), get(), get(), get()) }
     single { SettingsIosViewModel(get()) }
-    single { FormIosViewModel(get()) }
+    single {
+        FormIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            shareRouteManager = get(),
+            syncManager = get(),
+            secureTokenStorage = get(),
+            routeRestCalculator = get(),
+        )
+    }
     single { SalaryCalculationIosViewModel(get(), get()) }
     single { LocoFormIosViewModel(get()) }
     single { TrainFormIosViewModel(get()) }

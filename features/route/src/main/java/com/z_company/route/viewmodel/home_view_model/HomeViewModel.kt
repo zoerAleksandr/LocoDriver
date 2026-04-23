@@ -55,7 +55,7 @@ import com.z_company.repository.remote_rest.ShareRouteManager
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RouteActionsHelper
-import com.z_company.route.viewmodel.SalaryCalculationHelper
+import com.z_company.domain.helpers.SalaryCalculationHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview

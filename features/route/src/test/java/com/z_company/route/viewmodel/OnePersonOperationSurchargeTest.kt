@@ -1,5 +1,7 @@
 package com.z_company.route.viewmodel
 
+import com.z_company.domain.helpers.SalaryCalculationHelper
+
 import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.TagForDay

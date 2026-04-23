@@ -1,4 +1,4 @@
-package com.z_company.route.viewmodel
+package com.z_company.domain.helpers
 
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings

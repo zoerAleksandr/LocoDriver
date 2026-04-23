@@ -1,12 +1,72 @@
 -- Миграция 10: добавление столбцов, которые были добавлены в схему без миграций.
 -- locomotiveSeriesList, servicePhases — в UserSettings.
 -- tariffRate, dateSetTariffRate — в MonthOfYear.
+--
+-- ВАЖНО: на части устройств эти столбцы УЖЕ есть в БД (CREATE TABLE текущей схемы
+-- запускался до появления этой миграции), на других — нет. SQLite не поддерживает
+-- `ALTER TABLE ADD COLUMN IF NOT EXISTS`, поэтому используем идемпотентный
+-- table-copy pattern: создаём новую таблицу с полной схемой, переливаем данные,
+-- заменяем старую.
 
-ALTER TABLE UserSettings ADD COLUMN locomotiveSeriesList TEXT NOT NULL DEFAULT '[]';
-ALTER TABLE UserSettings ADD COLUMN servicePhases TEXT NOT NULL DEFAULT '[]';
+-- ── UserSettings: пересоздание с полной схемой ───────────────────────────────
+-- Шаг 1: целевая таблица с полной схемой (совпадает с текущим UserSettings.sq).
+CREATE TABLE IF NOT EXISTS UserSettings_10 (
+    settingsKey TEXT NOT NULL PRIMARY KEY,
+    minTimeRest INTEGER NOT NULL,
+    minTimeHomeRest INTEGER NOT NULL,
+    lastEnteredDieselCoefficient REAL NOT NULL,
+    nightTime TEXT NOT NULL,
+    updateAt INTEGER NOT NULL,
+    defaultLocoType TEXT NOT NULL,
+    defaultWorkTime INTEGER NOT NULL,
+    usingDefaultWorkTime INTEGER NOT NULL,
+    isConsiderFutureRoute INTEGER NOT NULL DEFAULT 1,
+    monthOfYear TEXT NOT NULL,
+    stationList TEXT NOT NULL DEFAULT '[]',
+    timeZone INTEGER NOT NULL DEFAULT 0,
+    isShowBreak INTEGER NOT NULL DEFAULT 1,
+    locomotiveSeriesList TEXT NOT NULL DEFAULT '[]',
+    servicePhases TEXT NOT NULL DEFAULT '[]'
+);
 
--- Пересоздаём MonthOfYear, чтобы безопасно добавить tariffRate и dateSetTariffRate
--- независимо от того, существует ли таблица и есть ли в ней эти столбцы.
+-- Шаг 2: гарантируем наличие исходной UserSettings (на всякий случай — для БД,
+-- где по какой-то причине таблица не была создана).
+CREATE TABLE IF NOT EXISTS UserSettings (
+    settingsKey TEXT NOT NULL PRIMARY KEY,
+    minTimeRest INTEGER NOT NULL,
+    minTimeHomeRest INTEGER NOT NULL,
+    lastEnteredDieselCoefficient REAL NOT NULL,
+    nightTime TEXT NOT NULL,
+    updateAt INTEGER NOT NULL,
+    defaultLocoType TEXT NOT NULL,
+    defaultWorkTime INTEGER NOT NULL,
+    usingDefaultWorkTime INTEGER NOT NULL,
+    isConsiderFutureRoute INTEGER NOT NULL DEFAULT 1,
+    monthOfYear TEXT NOT NULL,
+    stationList TEXT NOT NULL DEFAULT '[]',
+    timeZone INTEGER NOT NULL DEFAULT 0,
+    isShowBreak INTEGER NOT NULL DEFAULT 1
+);
+
+-- Шаг 3: копируем данные — только базовые столбцы, гарантированно присутствующие
+-- в любой версии UserSettings до миграции 10. Отсутствующие locomotiveSeriesList/
+-- servicePhases получают DEFAULT '[]'.
+INSERT OR IGNORE INTO UserSettings_10 (
+    settingsKey, minTimeRest, minTimeHomeRest, lastEnteredDieselCoefficient,
+    nightTime, updateAt, defaultLocoType, defaultWorkTime, usingDefaultWorkTime,
+    isConsiderFutureRoute, monthOfYear, stationList, timeZone, isShowBreak
+)
+SELECT
+    settingsKey, minTimeRest, minTimeHomeRest, lastEnteredDieselCoefficient,
+    nightTime, updateAt, defaultLocoType, defaultWorkTime, usingDefaultWorkTime,
+    isConsiderFutureRoute, monthOfYear, stationList, timeZone, isShowBreak
+FROM UserSettings;
+
+-- Шаг 4: заменяем старую таблицу новой.
+DROP TABLE UserSettings;
+ALTER TABLE UserSettings_10 RENAME TO UserSettings;
+
+-- ── MonthOfYear: пересоздание с полной схемой ────────────────────────────────
 -- Шаг 1: создаём MonthOfYear_10 с полной схемой.
 CREATE TABLE IF NOT EXISTS MonthOfYear_10 (
     id TEXT NOT NULL PRIMARY KEY,
