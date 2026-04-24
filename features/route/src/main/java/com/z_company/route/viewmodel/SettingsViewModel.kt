@@ -248,13 +248,21 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 calendarUseCase.loadFlowMonthOfYearListState().collect { months ->
                     currentSettings?.let { setting ->
                         val current = setting.selectMonthOfYear
-                        // Ищем актуальный месяц в обновлённых данных (после смены страны
-                        // или применения производственного календаря MonthOfYear обновляется)
-                        val updatedMonth = months.find {
-                            it.year == current.year && it.month == current.month
-                        } ?: current
+                        // Ищем актуальный месяц в обновлённых данных. ВАЖНО: в локальной
+                        // БД могут быть дубли MonthOfYear для одного year+month (наследие
+                        // старых импортов). find {} брал ПЕРВЫЙ — и это мог быть
+                        // устаревший экземпляр без региональных HOLIDAY-тегов, из-за
+                        // чего норма "сбрасывалась" обратно на стандартную через
+                        // долю секунды после applyRegionalHolidays. Берём дедуплицированно
+                        // самый "полный" (с наибольшим количеством days) — то же самое,
+                        // что делает refreshSelectMonthOfYear().
+                        val updatedMonth = months
+                            .filter { it.year == current.year && it.month == current.month }
+                            .maxByOrNull { it.days.size }
+                            ?: current
 
-                        // Если теги изменились (смена RU→BY/KZ или наоборот) — обновляем
+                        // Если теги изменились (смена RU→BY/KZ или наоборот, либо
+                        // applyRegionalHolidays пометил день как HOLIDAY) — обновляем
                         // selectMonthOfYear в settings, чтобы норма пересчиталась везде
                         if (updatedMonth.days.map { it.tag } != current.days.map { it.tag } ||
                             updatedMonth.days.map { it.isReleaseDay } != current.days.map { it.isReleaseDay }
@@ -582,9 +590,21 @@ class SettingsViewModel : ViewModel(), KoinComponent {
      * Смена региона. Сначала перезагружает стандартный календарь страны
      * (чтобы сбросить старые региональные пометки), затем применяет новые.
      * Если region == null — остаётся только стандартный календарь.
+     *
+     * Управляет [RegionLoadingState] для показа пользователю прогресса —
+     * запрос идёт на сервер, может занять секунду-две.
      */
     fun changeRegion(region: String?) {
         val country = currentSettings?.country ?: return
+
+        // Имя для loading-диалога (resolve из списка регионов или fallback на код)
+        val regionName: String = if (region == null) {
+            "Без региона"
+        } else {
+            _regionsForCountry.value.firstOrNull { it.code == region }?.displayName ?: region
+        }
+        _uiState.update { it.copy(regionLoadingState = RegionLoadingState.Loading(regionName)) }
+
         currentSettings = currentSettings?.copy(region = region)
         viewModelScope.launch {
             try {
@@ -611,10 +631,26 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 // 3. Сохраняем настройки + обновляем выбранный месяц для пересчёта нормы
                 currentSettings?.let { settingsUseCase.saveSetting(it).collect {} }
                 refreshSelectMonthOfYear()
+
+                _uiState.update { it.copy(regionLoadingState = RegionLoadingState.Success) }
             } catch (e: Exception) {
+                val msg = e.message ?: ""
+                if (isNetworkErrorMessage(msg)
+                    || e is java.net.UnknownHostException
+                    || e is java.net.ConnectException
+                    || e is java.io.IOException
+                ) {
+                    _uiState.update { it.copy(regionLoadingState = RegionLoadingState.NoInternet) }
+                } else {
+                    _uiState.update { it.copy(regionLoadingState = RegionLoadingState.Error) }
+                }
                 e.sendToSentry("SettingsViewModel", "changeRegion")
             }
         }
+    }
+
+    fun clearRegionLoadingState() {
+        _uiState.update { it.copy(regionLoadingState = null) }
     }
 
     private fun isNetworkErrorMessage(msg: String): Boolean =
