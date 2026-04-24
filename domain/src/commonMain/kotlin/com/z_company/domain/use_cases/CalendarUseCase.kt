@@ -92,19 +92,27 @@ class CalendarUseCase(
 
         val byMonth = holidays.groupBy { it.month }
         val allMonths = repositories.getMonthOfYearList()
-        val monthMap = allMonths.associateBy { it.year to it.month }
 
+        // ВАЖНО: в локальной БД может быть несколько записей MonthOfYear с одним
+        // year+month (наследие старых импортов / синхронизаций). Если обновить
+        // только ПЕРВЫЙ найденный, реактивный flow в SettingsViewModel может
+        // подхватить ДРУГОЙ дубликат — без HOLIDAY-тегов, и норма "сбросится"
+        // на стандартную через долю секунды. Поэтому обновляем ВСЕ найденные
+        // дубли — тогда какой бы из них ни выбрал UI, праздник применится.
         byMonth.forEach { (month, monthHolidays) ->
-            val existing = monthMap[year to month] ?: return@forEach
+            val matching = allMonths.filter { it.year == year && it.month == month }
+            if (matching.isEmpty()) return@forEach
             val regionalDays = monthHolidays.map { it.dayOfMonth }.toSet()
-            val updatedDays = existing.days.map { day ->
-                if (day.dayOfMonth in regionalDays) {
-                    day.copy(tag = TagForDay.HOLIDAY)
-                } else {
-                    day
+            matching.forEach { existing ->
+                val updatedDays = existing.days.map { day ->
+                    if (day.dayOfMonth in regionalDays) {
+                        day.copy(tag = TagForDay.HOLIDAY)
+                    } else {
+                        day
+                    }
                 }
+                repositories.updateMonthOfYear(existing.copy(days = updatedDays)).collect {}
             }
-            repositories.updateMonthOfYear(existing.copy(days = updatedDays)).collect {}
         }
     }
 }

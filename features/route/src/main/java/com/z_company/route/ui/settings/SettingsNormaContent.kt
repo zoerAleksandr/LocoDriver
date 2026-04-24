@@ -44,6 +44,7 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.viewmodel.CountryLoadingState
+import com.z_company.route.viewmodel.RegionLoadingState
 import com.z_company.route.viewmodel.TimeZoneRussia
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,6 +60,8 @@ fun SettingsNormaContent(
     setCrossMonthTimezone: (CrossMonthTimezone) -> Unit = {},
     regionsForCountry: List<com.z_company.domain.entities.calendar.Region> = emptyList(),
     setRegion: (String?) -> Unit = {},
+    regionLoadingState: RegionLoadingState? = null,
+    onDismissRegionDialog: () -> Unit = {},
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
     val styleHint = MaterialTheme.typography.bodyMedium
@@ -140,6 +143,97 @@ fun SettingsNormaContent(
                             textAlign = TextAlign.Center
                         )
                         TextButton(onClick = onDismissCountryDialog) {
+                            Text(
+                                text = "OK",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Диалог загрузки региональных праздников — аналог countryLoadingState.
+    // Показывается при changeRegion: пока идёт запрос на сервер за списком
+    // праздников выбранного субъекта РФ (и пересчитывается норма).
+    regionLoadingState?.let { state ->
+        AnimationDialog(
+            showDialog = true,
+            onDismissRequest = {
+                if (state !is RegionLoadingState.Loading) onDismissRegionDialog()
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 24.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.secondary,
+                        shape = Shapes.medium
+                    )
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                when (state) {
+                    is RegionLoadingState.Loading -> {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                        Text(
+                            text = "Загружаем региональные праздники: ${state.regionName}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    RegionLoadingState.Success -> {
+                        Text(
+                            text = "Региональные праздники применены, норма пересчитана",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            ),
+                            shape = Shapes.medium,
+                            onClick = onDismissRegionDialog
+                        ) {
+                            Text(
+                                text = "ОК",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+                    RegionLoadingState.Error -> {
+                        Text(
+                            text = "Ошибка загрузки региональных праздников",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center
+                        )
+                        TextButton(onClick = onDismissRegionDialog) {
+                            Text(
+                                text = "OK",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                    }
+                    RegionLoadingState.NoInternet -> {
+                        Text(
+                            text = "Нет интернета — региональные праздники не загружены",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center
+                        )
+                        TextButton(onClick = onDismissRegionDialog) {
                             Text(
                                 text = "OK",
                                 style = MaterialTheme.typography.bodySmall,
