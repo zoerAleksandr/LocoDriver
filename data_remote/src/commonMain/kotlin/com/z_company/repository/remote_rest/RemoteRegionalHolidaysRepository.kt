@@ -49,4 +49,12 @@ class RemoteRegionalHolidaysRepository(
             fallback.getHolidaysForRegionYear(region, year)
         }
     }
+
+    /**
+     * Строгая загрузка — без fallback. Бросает исключение при сетевых ошибках.
+     * Вызывается из SettingsViewModel.changeRegion для pre-flight проверки сети.
+     */
+    override suspend fun loadHolidaysForRegionYearStrict(region: String, year: Int): List<RegionalHoliday> {
+        return api.getRegionalHolidays(region, year)
+    }
 }

@@ -397,6 +397,24 @@ class SyncManager(
                                     else -> {}
                                 }
                             }
+                        // ВАЖНО: после загрузки UserSettings с сервера применяем
+                        // региональные праздники к локальному календарю. Без этого
+                        // регион сохранится в UserSettings, но MonthOfYear-теги
+                        // останутся стандартными (т.к. monthList с сервера приходит
+                        // только для tariffRate, дни не перезаписываются), и норма
+                        // часов не пересчитается под выбранный регион.
+                        userSettings.region?.let { region ->
+                            try {
+                                calendarUseCase.applyRegionalHolidays(region, now.year)
+                                    .collect {}
+                                if (now.monthNumber == 12) {
+                                    calendarUseCase.applyRegionalHolidays(region, now.year + 1)
+                                        .collect {}
+                                }
+                            } catch (e: Exception) {
+                                e.sendToSentry("SyncManager", "syncFromRemote_applyRegionalHolidays")
+                            }
+                        }
                     }
                     is ResultState.Error -> {
                         emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки UserSettings: ${loadState.entity.message ?: "Нет соединения"}")))

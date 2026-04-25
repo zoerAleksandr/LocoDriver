@@ -53,4 +53,10 @@ data class SettingsUiState(
     val dateAndTimeConverter: DateAndTimeConverter? = null,
     val countryLoadingState: CountryLoadingState? = null,
     val regionLoadingState: RegionLoadingState? = null,
+    /**
+     * Норма часов за текущий выбранный месяц — рассчитывается через NormaUseCase.
+     * Учитывает региональный календарь + дни отвлечений + производственный календарь.
+     * null = ещё не загружена.
+     */
+    val normaHours: Int? = null,
 )

@@ -51,7 +51,13 @@ data class HomeUiState(
     val syncRoutesTotalAttempted: Int = 0,
     val syncRoutesSavedCount: Int = 0,
     val syncReportUserId: String? = null,
-    val isNetworkError: Boolean = false
+    val isNetworkError: Boolean = false,
+    /**
+     * Норма часов за выбранный месяц, рассчитанная через NormaUseCase.
+     * Учитывает региональный календарь, дни отвлечений и производственный календарь.
+     * null = ещё не загружена.
+     */
+    val normaHours: Int? = null,
 )
 
 @Stable

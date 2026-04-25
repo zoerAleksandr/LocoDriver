@@ -1,5 +1,12 @@
 package com.z_company.route.ui.settings
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -13,6 +20,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,7 +39,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,6 +60,43 @@ import com.z_company.route.viewmodel.CountryLoadingState
 import com.z_company.route.viewmodel.RegionLoadingState
 import com.z_company.route.viewmodel.TimeZoneRussia
 
+/**
+ * Спиннер с гарантированной анимацией — на чистом Canvas + infiniteRepeatable.
+ * Material3 [androidx.compose.material3.CircularProgressIndicator] в Dialog'ах
+ * иногда "замирает" из-за разделения композиций между окнами; этот вариант
+ * управляет вращением напрямую через Compose-аниматор и работает везде.
+ */
+@Composable
+private fun SpinnerIndicator(
+    modifier: Modifier = Modifier,
+    color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.tertiary,
+    strokeWidth: androidx.compose.ui.unit.Dp = 4.dp,
+) {
+    val transition = rememberInfiniteTransition(label = "spinner")
+    val angle by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1100, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "spinner-angle"
+    )
+    Canvas(modifier = modifier.rotate(angle)) {
+        val sw = strokeWidth.toPx()
+        val inset = sw / 2f
+        drawArc(
+            color = color,
+            startAngle = -90f,
+            sweepAngle = 270f,
+            useCenter = false,
+            topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
+            size = Size(size.width - sw, size.height - sw),
+            style = Stroke(width = sw, cap = StrokeCap.Round)
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsNormaContent(
@@ -59,9 +109,15 @@ fun SettingsNormaContent(
     onDismissCountryDialog: () -> Unit = {},
     setCrossMonthTimezone: (CrossMonthTimezone) -> Unit = {},
     regionsForCountry: List<com.z_company.domain.entities.calendar.Region> = emptyList(),
+    isRegionsLoading: Boolean = false,
     setRegion: (String?) -> Unit = {},
     regionLoadingState: RegionLoadingState? = null,
     onDismissRegionDialog: () -> Unit = {},
+    /**
+     * Норма часов за текущий выбранный месяц, рассчитанная через NormaUseCase.
+     * Если null — отображаем значение из selectMonthOfYear как fallback.
+     */
+    normaHours: Int? = null,
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
     val styleHint = MaterialTheme.typography.bodyMedium
@@ -88,7 +144,8 @@ fun SettingsNormaContent(
             ) {
                 when (state) {
                     is CountryLoadingState.Loading -> {
-                        CircularProgressIndicator(
+                        SpinnerIndicator(
+                            modifier = Modifier.size(40.dp),
                             color = MaterialTheme.colorScheme.tertiary
                         )
                         Text(
@@ -178,7 +235,8 @@ fun SettingsNormaContent(
             ) {
                 when (state) {
                     is RegionLoadingState.Loading -> {
-                        CircularProgressIndicator(
+                        SpinnerIndicator(
+                            modifier = Modifier.size(40.dp),
                             color = MaterialTheme.colorScheme.tertiary
                         )
                         Text(
@@ -213,31 +271,59 @@ fun SettingsNormaContent(
                     }
                     RegionLoadingState.Error -> {
                         Text(
-                            text = "Ошибка загрузки региональных праздников",
-                            style = MaterialTheme.typography.bodyLarge,
+                            text = "Ошибка сервера",
+                            style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.error,
                             textAlign = TextAlign.Center
                         )
-                        TextButton(onClick = onDismissRegionDialog) {
+                        Text(
+                            text = "Не удалось загрузить региональные праздники.\n" +
+                                "Регион не изменён — попробуйте ещё раз позже.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+                        Button(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            ),
+                            shape = Shapes.medium,
+                            onClick = onDismissRegionDialog
+                        ) {
                             Text(
-                                text = "OK",
+                                text = "ОК",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.tertiary
+                                color = MaterialTheme.colorScheme.secondary
                             )
                         }
                     }
                     RegionLoadingState.NoInternet -> {
                         Text(
-                            text = "Нет интернета — региональные праздники не загружены",
-                            style = MaterialTheme.typography.bodyLarge,
+                            text = "Нет соединения с интернетом",
+                            style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.error,
                             textAlign = TextAlign.Center
                         )
-                        TextButton(onClick = onDismissRegionDialog) {
+                        Text(
+                            text = "Проверьте Wi-Fi или мобильную сеть.\n" +
+                                "Регион не изменён — для загрузки праздников нужен интернет.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+                        Button(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            ),
+                            shape = Shapes.medium,
+                            onClick = onDismissRegionDialog
+                        ) {
                             Text(
-                                text = "OK",
+                                text = "ОК",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.tertiary
+                                color = MaterialTheme.colorScheme.secondary
                             )
                         }
                     }
@@ -277,11 +363,14 @@ fun SettingsNormaContent(
                 ) {
                     val currentMonth =
                         getMonthFullText(currentSettings.selectMonthOfYear.month)
+                    // Используем normaHours из NormaUseCase (всегда актуальный, с учётом
+                    // регионального календаря). Fallback — getPersonalNormaHours() на случай
+                    // первого запуска до загрузки данных.
+                    val effectiveNorma = normaHours
+                        ?: currentSettings.selectMonthOfYear.getPersonalNormaHours()
                     val personalNormaText =
                         ConverterLongToTime.getTimeInStringFormat(
-                            currentSettings.selectMonthOfYear.getPersonalNormaHours()
-                                .toLong()
-                                .times(3_600_000)
+                            effectiveNorma.toLong().times(3_600_000)
                         )
 
                     Text(
@@ -313,7 +402,7 @@ fun SettingsNormaContent(
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
-                text = "Производственный календарь",
+                text = "Страна",
                 style = styleTitle,
                 color = primaryColor,
             )
@@ -352,15 +441,21 @@ fun SettingsNormaContent(
                         textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
                     )
                     ExposedDropdownMenu(
+                        modifier = Modifier.background(
+                            MaterialTheme.colorScheme.surface
+                        ),
                         expanded = expanded,
                         onDismissRequest = { expanded = false }
                     ) {
                         countries.forEach { option ->
+                            val isSelected = currentSettings.country == option.code
                             DropdownMenuItem(
                                 text = {
                                     Text(
                                         text = "${option.flag} ${option.name}",
-                                        color = primaryColor,
+                                        color = if (isSelected) {
+                                            MaterialTheme.colorScheme.tertiary
+                                        } else primaryColor,
                                         style = styleHint
                                     )
                                 },
@@ -377,7 +472,10 @@ fun SettingsNormaContent(
 
         // Регион (только для России — дополнительные праздничные дни
         // субъектов РФ накладываются поверх стандартного календаря).
-        if (currentSettings.country == "RU" && regionsForCountry.isNotEmpty()) {
+        // Показываем секцию даже пока грузится список регионов — иначе
+        // пользователь не понимает что данные ещё догружаются и думает
+        // что регион не настраивается.
+        if (currentSettings.country == "RU" && (regionsForCountry.isNotEmpty() || isRegionsLoading)) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
@@ -386,70 +484,105 @@ fun SettingsNormaContent(
                     color = primaryColor,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
-                    text = "Региональные праздники добавятся к стандартному календарю",
-                    style = styleHint,
-                    color = primaryColor.copy(alpha = 0.6f),
-                    overflow = TextOverflow.Ellipsis
-                )
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    var regionExpanded by remember { mutableStateOf(false) }
-                    val selectedName = currentSettings.region?.let { code ->
-                        regionsForCountry.firstOrNull { it.code == code }?.displayName
-                    } ?: "Стандартный календарь"
-
-                    ExposedDropdownMenuBox(
-                        expanded = regionExpanded,
-                        onExpandedChange = { regionExpanded = !regionExpanded }
-                    ) {
-                        OutlinedTextFieldApp(
+                    if (regionsForCountry.isEmpty() && isRegionsLoading) {
+                        // Лоадер с подписью — не блокирует остальной контент,
+                        // занимает то же место что и dropdown.
+                        Row(
                             modifier = Modifier
-                                .menuAnchor()
-                                .fillMaxWidth(),
-                            value = selectedName,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = regionExpanded)
-                            },
-                            textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
-                        )
-                        ExposedDropdownMenu(
-                            expanded = regionExpanded,
-                            onDismissRequest = { regionExpanded = false }
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Опция "Стандартный календарь" (region = null)
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = "Стандартный календарь",
-                                        color = primaryColor,
-                                        style = styleHint
-                                    )
-                                },
-                                onClick = {
-                                    setRegion(null)
-                                    regionExpanded = false
-                                }
+                            SpinnerIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = primaryColor.copy(alpha = 0.6f)
                             )
-                            regionsForCountry.forEach { region ->
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Загрузка списка регионов…",
+                                style = styleHint,
+                                color = primaryColor.copy(alpha = 0.6f),
+                            )
+                        }
+                    } else {
+                        var regionExpanded by remember { mutableStateOf(false) }
+                        val selectedName = currentSettings.region?.let { code ->
+                            regionsForCountry.firstOrNull { it.code == code }?.displayName
+                        } ?: "Стандартный календарь"
+
+                        ExposedDropdownMenuBox(
+                            expanded = regionExpanded,
+                            onExpandedChange = { regionExpanded = !regionExpanded }
+                        ) {
+                            OutlinedTextFieldApp(
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth(),
+                                value = selectedName,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = regionExpanded)
+                                },
+                                textStyle = styleData.copy(color = MaterialTheme.colorScheme.primary)
+                            )
+                            ExposedDropdownMenu(
+                                modifier = Modifier.background(
+                                    MaterialTheme.colorScheme.surface
+                                ),
+                                expanded = regionExpanded,
+                                onDismissRequest = { regionExpanded = false }
+                            ) {
+                                // Опция "Стандартный календарь" (region = null) — выделена,
+                                // т.к. это особый пункт (сброс региона).
+                                val isStandardSelected = currentSettings.region == null
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            text = region.displayName,
-                                            color = primaryColor,
+                                            text = "Стандартный календарь",
+                                            color = if (isStandardSelected) {
+                                                MaterialTheme.colorScheme.tertiary
+                                            } else primaryColor,
                                             style = styleHint
                                         )
                                     },
                                     onClick = {
-                                        setRegion(region.code)
+                                        setRegion(null)
                                         regionExpanded = false
                                     }
                                 )
+                                regionsForCountry.forEach { region ->
+                                    val isSelected = currentSettings.region == region.code
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = region.displayName,
+                                                color = if (isSelected) {
+                                                    MaterialTheme.colorScheme.tertiary
+                                                } else primaryColor,
+                                                style = styleHint
+                                            )
+                                        },
+                                        onClick = {
+                                            setRegion(region.code)
+                                            regionExpanded = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
+                    // Описание под полем — аналогично часовому поясу
+                    Text(
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                        text = "Региональные праздники добавятся к стандартному календарю",
+                        style = styleHint,
+                        color = primaryColor.copy(alpha = 0.6f),
+                        maxLines = Int.MAX_VALUE,
+                        overflow = TextOverflow.Visible
+                    )
                 }
             }
         }

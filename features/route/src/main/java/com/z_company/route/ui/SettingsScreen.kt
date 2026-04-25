@@ -254,7 +254,11 @@ fun SettingsScreen(
                                 onDismissCountryDialog = viewModel::clearCountryLoadingState,
                                 setCrossMonthTimezone = viewModel::setCrossMonthTimezone,
                                 regionsForCountry = viewModel.regionsForCountry.collectAsState().value,
+                                isRegionsLoading = viewModel.isRegionsLoading.collectAsState().value,
                                 setRegion = viewModel::changeRegion,
+                                regionLoadingState = settingsUiState.regionLoadingState,
+                                onDismissRegionDialog = viewModel::clearRegionLoadingState,
+                                normaHours = settingsUiState.normaHours,
                             )
                         }
 

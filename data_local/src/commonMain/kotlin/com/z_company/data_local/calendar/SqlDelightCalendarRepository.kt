@@ -61,12 +61,21 @@ class SqlDelightCalendarRepository : CalendarRepositories, KoinComponent {
                 val monthWithProdTags = if (prodForMonth != null) {
                     val countries = prodForMonth.map { it.country }.toSet()
                     if (countries.size == 1) {
-                        // Одна страна → теги актуальны, применяем
+                        // Одна страна → теги актуальны, применяем.
+                        // ВАЖНО: HOLIDAY-теги из MonthOfYear (региональные праздники,
+                        // выставленные через applyRegionalHolidays) имеют приоритет
+                        // над стандартными тегами производственного календаря —
+                        // иначе регион "теряется" при каждом чтении флоу.
                         val tagByDay = prodForMonth.associateBy { it.dayOfMonth }
                         val updatedDays = month.days.map { day ->
-                            val prodTag = tagByDay[day.dayOfMonth.toLong()]?.tag
-                                ?.let { runCatching { TagForDay.valueOf(it) }.getOrNull() }
-                            if (prodTag != null) day.copy(tag = prodTag) else day
+                            if (day.tag == TagForDay.HOLIDAY) {
+                                // Региональный праздник — оставляем как есть
+                                day
+                            } else {
+                                val prodTag = tagByDay[day.dayOfMonth.toLong()]?.tag
+                                    ?.let { runCatching { TagForDay.valueOf(it) }.getOrNull() }
+                                if (prodTag != null) day.copy(tag = prodTag) else day
+                            }
                         }
                         month.copy(days = updatedDays)
                     } else {

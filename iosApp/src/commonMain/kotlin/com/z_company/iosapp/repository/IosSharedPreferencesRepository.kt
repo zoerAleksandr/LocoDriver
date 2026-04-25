@@ -45,6 +45,7 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var locoSectionNormaExpanded: Boolean = false
     private var passenger12hDontAskAgain: Boolean = false
     private var passenger12hAutoAccepted: Boolean = false
+    private var timePickerKeyboardInput: Boolean = false
     private val recentTimesMap = mutableMapOf<String, MutableList<Long>>()
 
     override fun setLastSyncTimestamp(time: Long) { lastSyncTimestamp = time }
@@ -108,6 +109,9 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setPassenger12hDontAskAgain(value: Boolean) { passenger12hDontAskAgain = value }
     override fun isPassenger12hAutoAccepted(): Boolean = passenger12hAutoAccepted
     override fun setPassenger12hAutoAccepted(value: Boolean) { passenger12hAutoAccepted = value }
+
+    override fun isTimePickerKeyboardInput(): Boolean = timePickerKeyboardInput
+    override fun setTimePickerKeyboardInput(value: Boolean) { timePickerKeyboardInput = value }
 
     override fun getRecentTimes(key: String): List<Long> = recentTimesMap[key] ?: emptyList()
     override fun addRecentTime(key: String, timeMillis: Long) {
