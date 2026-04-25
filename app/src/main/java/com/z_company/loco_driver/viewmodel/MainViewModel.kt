@@ -327,24 +327,44 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     /**
      * Загружает производственный календарь с сервера если он ещё не загружен.
      * С 1 декабря также пробует загрузить календарь на следующий год.
+     * После загрузки стандартного календаря — восстанавливает региональные праздники,
+     * если выбран регион (applyProductionCalendar сбрасывает теги к стандартным).
      */
     private suspend fun fetchProductionCalendarIfNeeded() {
         try {
             val settings = settingsUseCase.getUserSetting()
             val country = settings.country.ifBlank { "RU" }
+            val region = settings.region
             val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
             val currentYear = now.year
             val currentMonth = now.monthNumber
+            var calendarUpdated = false
 
             // Загружаем текущий год если нужно
             if (productionCalendarUseCase.needsFetch(country, currentYear)) {
                 fetchAndApplyCalendar(country, currentYear)
+                calendarUpdated = true
             }
 
             // С 1 декабря — пробуем следующий год (не ошибка если нет на сервере)
             productionCalendarUseCase.nextYearToFetchIfDecember(currentMonth, currentYear)?.let { nextYear ->
                 if (productionCalendarUseCase.needsFetch(country, nextYear)) {
                     fetchAndApplyCalendar(country, nextYear)
+                    calendarUpdated = true
+                }
+            }
+
+            // После загрузки стандартного календаря — восстанавливаем региональные праздники.
+            // applyProductionCalendar сбрасывает теги дней к стандартным, поэтому если
+            // выбран регион — нужно снова применить regional HOLIDAY-метки.
+            if (calendarUpdated && region != null) {
+                try {
+                    calendarUseCase.applyRegionalHolidays(region, currentYear).collect {}
+                    productionCalendarUseCase.nextYearToFetchIfDecember(currentMonth, currentYear)?.let { nextYear ->
+                        calendarUseCase.applyRegionalHolidays(region, nextYear).collect {}
+                    }
+                } catch (e: Exception) {
+                    e.sendToSentry("MainViewModel", "fetchProductionCalendarIfNeeded_regional")
                 }
             }
         } catch (e: Exception) {
@@ -468,8 +488,32 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                         val searchMonthOfYear = calendar.find {
                             it.month == currentCalendar.get(MONTH) && it.year == currentCalendar.get(YEAR)
                         }
+
+                        // CalendarStorageLocalImpl хранит только стандартные теги дней.
+                        // После saveCalendar региональные HOLIDAY-метки утрачены — восстанавливаем их.
+                        val region = try { settingsUseCase.getUserSetting().region } catch (e: Exception) { null }
+                        val monthForSettings = if (region != null) {
+                            try {
+                                val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                                calendarUseCase.applyRegionalHolidays(region, now.year).collect {}
+                                // После applyRegionalHolidays все дубли MonthOfYear обновлены —
+                                // выбираем тот у которого больше дней (та же логика что в SettingsViewModel).
+                                calendarUseCase.loadMonthOfYearList()
+                                    .filter {
+                                        it.year == currentCalendar.get(YEAR) &&
+                                            it.month == currentCalendar.get(MONTH)
+                                    }
+                                    .maxByOrNull { it.days.size }
+                            } catch (e: Exception) {
+                                e.sendToSentry("MainViewModel", "saveCalendarInLocal_regional")
+                                searchMonthOfYear
+                            }
+                        } else {
+                            searchMonthOfYear
+                        }
+
                         settingsUseCase.updateMonthOfYearInUserSetting(
-                            searchMonthOfYear ?: calendar.first()
+                            monthForSettings ?: searchMonthOfYear ?: calendar.first()
                         ).collect {}
                         if (isFirstEntry) {
                             setDefaultSettings(searchMonthOfYear ?: calendar.first())

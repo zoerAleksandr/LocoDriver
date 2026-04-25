@@ -20,6 +20,24 @@ interface RegionalHolidaysRepository {
     /** Получить регион по коду (например "RU-TA"). null — если такого нет. */
     suspend fun getRegionByCode(code: String): Region?
 
-    /** Получить региональные праздники на год для конкретного региона. */
+    /**
+     * Получить региональные праздники на год для конкретного региона.
+     * Реализации МОГУТ возвращать локальный fallback при сетевых ошибках —
+     * для оффлайн-сценариев это нормальное поведение.
+     */
     suspend fun getHolidaysForRegionYear(region: String, year: Int): List<RegionalHoliday>
+
+    /**
+     * Строгая загрузка региональных праздников — БЕЗ fallback на хардкод.
+     * Бросает исключение при сетевых/серверных ошибках.
+     *
+     * Используется когда нам важно знать что данные пришли именно с сервера
+     * (например, смена региона пользователем — мы должны явно сообщить об ошибке,
+     * а не молча подставить старые/неполные данные).
+     *
+     * Реализация по умолчанию вызывает [getHolidaysForRegionYear] — для
+     * хардкод-репозитория это эквивалентно (он не ходит в сеть).
+     */
+    suspend fun loadHolidaysForRegionYearStrict(region: String, year: Int): List<RegionalHoliday> =
+        getHolidaysForRegionYear(region, year)
 }

@@ -45,6 +45,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.isLongCompositionTra
 import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.NormaUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -87,8 +88,10 @@ import org.koin.core.component.inject
 import java.util.Calendar
 import java.util.Calendar.getInstance
 import java.util.TimeZone
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 
 import ru.rustore.sdk.appupdate.listener.InstallStateUpdateListener
 import ru.rustore.sdk.appupdate.manager.RuStoreAppUpdateManager
@@ -105,6 +108,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
+    private val normaUseCase: NormaUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val routeHelper: RouteActionsHelper by inject()
     private val ruStoreAppUpdateManager: RuStoreAppUpdateManager by inject()
@@ -1094,9 +1098,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     "${monthNames.getOrElse(monthOfYear.month - 1) { "" }} ${monthOfYear.year}"
                 } else ""
 
-                val normHours = if (monthOfYear != null) {
-                    "${monthOfYear.getPersonalNormaHours()}ч"
-                } else ""
+                // Берём норму из NormaUseCase (актуальная, с регионом) если доступна,
+                // иначе fallback на getPersonalNormaHours() из MonthOfYear
+                val normaHoursInt = _uiState.value.normaHours
+                    ?: monthOfYear?.getPersonalNormaHours()
+                    ?: 0
+                val normHours = if (normaHoursInt > 0) "${normaHoursInt}ч" else ""
 
                 val route = currentRoute
                 val hasCurrentRoute = route != null
@@ -1111,12 +1118,11 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 val buttonInfo = computeButtonInfo(route, dateAndTimeConverter)
 
                 // Norm remaining / overtime
-                val normHoursInt = monthOfYear?.getPersonalNormaHours() ?: 0
-                val normMillis = normHoursInt.toLong() * 3_600_000L
+                val normMillis = normaHoursInt.toLong() * 3_600_000L
                 val diff = totalTimeMillis - normMillis
                 val isOvertime = diff >= 0
                 val remainingMillis = if (isOvertime) diff else -diff
-                val normRemainingText = if (normHoursInt > 0) {
+                val normRemainingText = if (normaHoursInt > 0) {
                     convertTimeToStringFormat(remainingMillis)
                 } else ""
 
@@ -1369,6 +1375,36 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    /**
+     * Реактивно наблюдает за нормой часов через NormaUseCase.
+     * Пересчитывается при любом изменении выбранного месяца,
+     * региональных праздников или дней отвлечений.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun observeNorma() {
+        viewModelScope.launch {
+            try {
+                _uiState
+                    .map { it.monthSelected }
+                    .distinctUntilChanged()
+                    .flatMapLatest { monthState ->
+                        val month = (monthState as? ResultState.Success)?.data
+                        if (month != null) {
+                            normaUseCase.normaHoursFlow(month.year, month.month)
+                                .map { it as Int? }
+                        } else {
+                            flowOf(null)
+                        }
+                    }
+                    .collect { hours ->
+                        _uiState.update { it.copy(normaHours = hours) }
+                    }
+            } catch (e: Exception) {
+                e.sendToSentry("HomeViewModel", "observeNorma")
+            }
+        }
+    }
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             loadMonthList()
@@ -1377,6 +1413,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
             initUpdateManager()
             initLoading()
         }
+        observeNorma()
         viewModelScope.launch(Dispatchers.IO) {
             routeUseCase.getListRoutesAsFlow().collect { allRoutes ->
                 allRoutesGlobal = allRoutes

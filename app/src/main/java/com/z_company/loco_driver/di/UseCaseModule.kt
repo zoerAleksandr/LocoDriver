@@ -23,4 +23,6 @@ val useCaseModule = module {
     single { SalarySettingUseCase(repository = get(), calendarUseCase = get()) }
     single { ReleaseDayUseCase(repository = get()) }
     single { ProductionCalendarUseCase(repository = get()) }
+    // Единая точка расчёта нормы (учитывает регион + отвлечения + производственный календарь)
+    single { NormaUseCase(calendarUseCase = get(), releaseDayUseCase = get()) }
 }

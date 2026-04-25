@@ -11,7 +11,7 @@ import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
-import com.z_company.domain.entities.UtilForMonthOfYear.getStandardNormaHours
+import com.z_company.domain.use_cases.NormaUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -39,10 +39,12 @@ import org.koin.core.component.inject
 import java.util.Calendar
 import kotlin.String
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
+    private val normaUseCase: NormaUseCase by inject()
     private val _userSetting = MutableStateFlow(UserSettings())
     val userSetting = _userSetting.asStateFlow()
     private var job: Job? = null
@@ -359,7 +361,11 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         currentMonthOfYear: MonthOfYear,
         helper: SalaryCalculationHelper
     ): PartialState {
-        val normaHours = currentMonthOfYear.getStandardNormaHours()
+        // Используем NormaUseCase — учитывает региональные праздники и дни отвлечений
+        val normaHours = normaUseCase.normaHoursFlow(
+            year = currentMonthOfYear.year,
+            month = currentMonthOfYear.month
+        ).first()
         val totalWorkTime = helper.getTotalWorkTime().first()
         val tariffText = if (currentMonthOfYear.dateSetTariffRate == null) {
             "${currentMonthOfYear.tariffRate.str()} ₽"
