@@ -187,7 +187,7 @@ git diff main..HEAD --stat
 
 ---
 
-### Задача 0.2 — Аудит мёртвого CMP-кода ✅ ВЫПОЛНЕНО
+### Задача 0.2 — Аудит мёртвого CMP-кода
 
 **Цель**: понять, что в `iosApp/src/commonMain/` и `iosApp/src/iosMain/`
 реально используется, а что мёртвое.
@@ -224,13 +224,12 @@ SwiftUI. Нужно понять, что оттуда удалить.
 ```
 
 **Definition of Done**:
-- [x] Получен список «что удалять» (11 файлов, ~1215 строк: `MainViewController.kt`, `App.kt`, `navigation/AppNavHost.kt`, `IosRouterImpl.kt`, `Routes.kt`, `screen/{Home,Form,Settings,Profile,SalaryCalculation,Stub}Screen.kt`)
-- [x] Подтверждено, что DI-файлы в КЕЕП (`IosUseCaseModule.kt`, `IosViewModelHelper.kt`, `IosSharedPreferencesRepository.kt`, `SharedRouteLinkHandler.kt`, 8× `*IosViewModel.kt`)
-- ⚠️ Замечание для задачи 1.1: `SharedRouteLinkHandler.pendingFormRouteId` сейчас наблюдается только в `AppNavHost.kt` — после удаления нужно повесить наблюдение в Swift, иначе deep link `locodriver://share/{id}` не будет открывать форму.
+- [ ] Получен список «что удалять»
+- [ ] Подтверждено, что DI-файлы в КЕЕП
 
 ---
 
-### Задача 0.3 — Проверка миграции Room → SQLDelight ✅ ВЫПОЛНЕНО
+### Задача 0.3 — Проверка миграции Room → SQLDelight
 
 **Цель**: понять, что произошло с данными существующих Android-пользователей.
 
@@ -257,13 +256,12 @@ SwiftUI. Нужно понять, что оттуда удалить.
 ```
 
 **Definition of Done**:
-- [x] Понятно, что происходит с данными существующих Android-пользователей: SQLDelight использует те же имена файлов (`Route.db`, `Settings.db`, `SalarySetting.db`), миграция in-place в `data_local/src/androidMain/.../DatabaseDriverFactory.kt` (`migrateRouteDbIfNeeded`, `ensureSettingsTablesV6`, `fixVersionIfColumnsExist`). Данные сохраняются.
-- [x] Если есть риск — фиксируем: **отдельной задачи для Android-релиза не требуется**. Соглашение для команды: при добавлении `ALTER TABLE` в новую `*.sqm`-миграцию обязательно добавлять столбец в `COLUMN_SPECS` (`DatabaseDriverFactory.kt:176`).
-- 🟡 Косметика: в `buildSrc/src/main/kotlin/Dependencies.kt` остались мёртвые Room-константы (`room_version`, `room_compiler/ktx/runtime`) — никем не используются, можно удалить отдельно.
+- [ ] Понятно, что происходит с данными существующих Android-пользователей
+- [ ] Если есть риск — фиксируем как отдельную задачу для Android-релиза
 
 ---
 
-### Задача 0.4 — Проверка фоновой синхронизации на iOS ✅ ВЫПОЛНЕНО
+### Задача 0.4 — Проверка фоновой синхронизации на iOS
 
 **Цель**: понять, реализована ли фоновая sync на iOS (BGTaskScheduler).
 
@@ -290,24 +288,13 @@ SwiftUI. Нужно понять, что оттуда удалить.
 ```
 
 **Definition of Done**:
-- [x] Ясно: фоновой sync на iOS **нет**. Ни `BGTaskScheduler`, ни `BGAppRefreshTask`, ни `UIBackgroundModes` в `Info.plist`. Sync вызывается **только** вручную из `ProfileView` (`vm.syncData()`) + один раз `firstSyncAfterRegistration` после регистрации. Нет триггера ни на foreground, ни на старт, ни на появление сети.
-- [x] **Блокер релиза**. Нужна новая задача в Этап 1 — см. ниже «Задача 1.4».
-- 🟡 Связанная находка: `lastSyncTimestamp` в `IosSharedPreferencesRepository.kt:18` хранится только в памяти, обнуляется при перезапуске. Заменить на `NSUserDefaults`.
-
-**Новая задача (добавить в Этап 1)**:
-
-### Задача 1.4 — Фоновая синхронизация на iOS (BLOCKER)
-
-Минимальный объём:
-1. В `iosApp/iosApp/iOSApp.swift` подписаться на `@Environment(\.scenePhase)`, при `.active` дёргать `vm.syncData()` с throttle ≥ N минут (взять из `lastSyncTimestamp`).
-2. Сделать `lastSyncTimestamp` персистентным: либо через `NSUserDefaults` в `IosSharedPreferencesRepository.kt`, либо отдельным expect/actual.
-3. Добавить в `Info.plist` `UIBackgroundModes` (`fetch`, `processing`) и `BGTaskSchedulerPermittedIdentifiers` (например, `com.z_company.locodriver.sync`).
-4. Зарегистрировать `BGTaskScheduler.shared.register(forTaskWithIdentifier:)` при старте; в handler — `syncManager.syncToRemote(bearerToken)` с расчётом на 30-секундный budget; при уходе в background — `submit(BGAppRefreshTaskRequest)`.
-5. Опционально: `NWPathMonitor` для моментального дотолкывания после восстановления сети.
+- [ ] Ясно, есть ли фоновая sync на iOS
+- [ ] Если нет — добавлена задача в Этап 1 (BGTaskScheduler нужно настроить
+      ДО релиза)
 
 ---
 
-### Задача 0.5 — Готовность серверного API к Sign in with Apple ✅ ВЫПОЛНЕНО
+### Задача 0.5 — Готовность серверного API к Sign in with Apple
 
 **Цель**: понять, нужно ли расширять API для приёма Apple ID токена.
 
@@ -345,18 +332,13 @@ Sign in with Apple. Apple Sign In возвращает identity token (JWT,
 ```
 
 **Definition of Done**:
-- [x] Понятно, что нужно добавить на сервере для Sign in with Apple. На сервере **ничего нет** (0 упоминаний `apple`/`siwa` в Python-коде, только CSS-шрифты в HTML-шаблонах). Текущие методы `methodAuth`: `login`/`email`/`vkId` (`schemas/request.py:16`). Модель `User` (`models/users.py:21`) — нет поля `apple_id`.
-- [x] Изменения нужны — записаны как **отдельная серверная задача**:
-      1. `schemas/request.py`: `UserCredentials.methodAuth` → добавить `"appleId"`. Расширить `UserSafeResponse` полем `apple_id`. Новая схема `appleTokenAdd`.
-      2. `models/users.py`: поле `apple_id: Optional[str]` (`unique=True, index=True, nullable=True`) — по аналогии с `vk_id`.
-      3. Alembic-миграция: `op.add_column("user", sa.Column("apple_id", sa.String(100), nullable=True))` + unique index.
-      4. `services/auth.py`: функция `verify_apple_id_token(token, nonce)` — JWKS с `appleid.apple.com/auth/keys`, проверка `iss`/`aud`/`exp`/`nonce` через `python-jose` или `pyjwt[crypto]`. Расширить `authenticate_user` для `methodAuth="appleId"`.
-      5. `api/v1/auth.py`: новые эндпоинты `PATCH /v1/auth/appleId/add` и `PATCH /v1/auth/appleId/remove` (по образцу `add_vkId`/`remove_vkId`, line 216–330).
-      6. `core/config.py`: `APPLE_BUNDLE_ID`, `APPLE_TEAM_ID`, `APPLE_JWKS_URL`.
-      7. Тесты в `backend/tests/tests_services/`.
-      ⚠️ **Особенности Apple**: email отдаётся ТОЛЬКО при первом логине; может быть proxy-адресом (`xxxx@privaterelay.appleid.com`); `email_verified` может быть строкой `"true"`.
+- [ ] Понятно, что нужно добавить на сервере для Sign in with Apple
+- [ ] Если изменения нужны — записано как отдельная задача для серверного
+      репозитория (НЕ для этого TODO, эта задача делается отдельно в той же
+      Claude.ai сессии или новой)
 
-⚠️ **App Store §4.8**: VK ID без Sign in with Apple → автоматический отказ ревью. Серверная задача SIWA — **обязательное условие апрува**, делать ДО Этапа 4 клиентского TODO.
+⚠️ **Эту серверную задачу нужно сделать ДО Этапа 4** (интеграция Sign in with
+Apple на iOS). Иначе клиент не сможет обменять Apple-токен на JWT.
 
 ---
 
@@ -534,6 +516,273 @@ viewModel.watchX(callback). Эти подписки не отписываютс�
 - [ ] iOS UI Test target создан и пустой smoke-тест проходит
 - [ ] Раздел "Запуск тестов" добавлен в CODEBASE.md
 - [ ] `git commit -m "test: setup testing infrastructure for iOS"`
+
+---
+
+### Задача 1.4 — Сетевая надёжность и обработка ошибок ⚠️ БЛОКЕР РЕЛИЗА
+
+**Контекст** (обнаружено 26 апреля 2026 при тестировании синхронизации):
+- При pull-to-refresh на HomeView и при сохранении рейсов **периодически**
+  выскакивает iOS-alert с **полным stack trace** ошибки `NSURLErrorDomain
+  Code=-1005 "The network connection was lost"`. Это **блокер**:
+  - Apple Review отклоняет приложения, показывающие технические сообщения
+    об ошибках конечному пользователю
+  - Машинисты не понимают что произошло, паникуют, теряют доверие к
+    приложению
+- Ошибка плавающая: иногда сохраняется, иногда нет. Это намекает на:
+  - Проблемы с keep-alive HTTP-соединениями (uvicorn закрывает idle,
+    Ktor использует устаревший connection)
+  - HTTP без TLS + iOS App Transport Security временами разрывает
+    соединения для безопасности
+  - Отсутствие retry-логики для transient-ошибок
+
+**Цель**: добавить надёжную обработку сетевых ошибок на всех уровнях
+(Ktor → ViewModel → SwiftUI), показывать пользователю короткие понятные
+сообщения, автоматически повторять transient-ошибки.
+
+**Промпт для Claude Code**:
+
+```
+Реши проблему с сетевой надёжностью на iOS. План работы — большой,
+делать по шагам с моим подтверждением после каждого.
+
+ШАГ 1. Аудит текущего обработчика ошибок
+
+1. Найди где сейчас обрабатываются сетевые ошибки на iOS:
+   - В data_remote/src/commonMain/.../KtorRemoteRestApi.kt
+   - В data_remote/src/commonMain/.../RemoteRestClient.kt
+   - В data_remote/src/commonMain/.../SyncManager.kt и
+     RoutesManager.kt
+   - На уровне iOS-ViewModel (HomeIosViewModel, FormIosViewModel)
+   - На уровне Swift Wrapper (HomeViewModelWrapper и др.)
+
+2. Найди где формируется текст alert'а который показал пользователь.
+   В скриншоте видно полный NSError description — значит, где-то
+   делается `Text(error.localizedDescription)` или аналогично, и сырое
+   сообщение от iOS-NSURLSession улетает в UI.
+
+3. Составь отчёт:
+   - Где ловится Throwable / NSError
+   - Где он мапится в строку для UI
+   - Где показывается alert
+   
+   Это поможет понять, что нужно изменить.
+
+ШАГ 2. Доменный слой ошибок (commonMain)
+
+Создай (или дополни) sealed class в core/ или domain/:
+
+```kotlin
+sealed class AppError(
+    val userMessage: String,  // короткое для UI
+    val technicalDetails: String? = null  // для логов
+) {
+    object NoInternet : AppError("Нет соединения с интернетом")
+    object Timeout : AppError("Сервер не отвечает. Попробуйте снова.")
+    object ServerError : AppError("Ошибка сервера. Попробуйте позже.")
+    object Unauthorized : AppError("Нужна повторная авторизация")
+    data class Unknown(val cause: Throwable) :
+        AppError(
+            userMessage = "Что-то пошло не так",
+            technicalDetails = cause.message
+        )
+}
+```
+
+Добавь функцию маппинга платформенных ошибок в AppError. Для Ktor
+конкретно:
+- `IOException` / `ConnectException` → NoInternet
+- `HttpRequestTimeoutException`, `SocketTimeoutException` → Timeout
+- `ClientRequestException` (4xx):
+  - 401 → Unauthorized
+  - остальные → ServerError
+- `ServerResponseException` (5xx) → ServerError
+- Остальное → Unknown
+
+⚠️ Особый случай для iOS: NSURLError -1005, -1009, -1001, -1004 — это
+сетевые проблемы, маппить в NoInternet или Timeout. Их Ktor оборачивает
+в IOException, но проверь это на практике.
+
+ШАГ 3. Retry-логика в Ktor
+
+В RemoteRestClient.kt добавь HttpRequestRetry плагин Ktor:
+
+```kotlin
+install(HttpRequestRetry) {
+    retryOnExceptionIf(maxRetries = 3) { _, cause ->
+        cause is IOException && cause !is CancellationException
+    }
+    retryOnServerErrors(maxRetries = 2)  // 5xx
+    exponentialDelay(base = 2.0, maxDelayMs = 5000)
+}
+```
+
+⚠️ ВАЖНО: retry безопасен только для GET и для idempotent POST (где
+сервер корректно обработает повторный запрос с тем же ID — у нас
+POST /v1/route/ это делает после фикса IDOR).
+
+⚠️ ВАЖНО: НЕ ставь retry на login/auth-эндпоинты. Если 401 — нужен
+явный logout, не retry.
+
+Также добавь HttpTimeout:
+
+```kotlin
+install(HttpTimeout) {
+    requestTimeoutMillis = 30_000
+    connectTimeoutMillis = 10_000
+    socketTimeoutMillis = 30_000
+}
+```
+
+И отключи keep-alive (или поставь короткий keep-alive), чтобы избежать
+устаревших соединений. Для Darwin engine на iOS:
+
+```kotlin
+install(DefaultRequest) {
+    headers.append("Connection", "close")
+}
+```
+
+Это force-close после каждого запроса. Не оптимально для
+производительности, но устраняет проблему -1005. Альтернативно —
+настроить URLSessionConfiguration более тонко (timeoutIntervalForRequest,
+HTTPMaximumConnectionsPerHost), но для надёжности «close после каждого»
+проще.
+
+ШАГ 4. ViewModel-слой
+
+В iOS-ViewModel'ах (HomeIosViewModel и др.) сейчас, скорее всего, есть
+поле `errorMessage: StateFlow<String?>`. Замени на:
+
+```kotlin
+private val _error = MutableStateFlow<AppError?>(null)
+val error: StateFlow<AppError?> = _error
+fun watchError(callback: (AppError?) -> Unit) { ... }
+
+// при ошибке:
+catch (t: Throwable) {
+    _error.value = AppError.from(t)  // мапим
+    Logger.e(TAG, "Sync failed", t)  // лог с деталями
+}
+```
+
+ШАГ 5. SwiftUI alerts
+
+В Wrapper'ах:
+```swift
+@Published var error: AppError? = nil
+
+init() {
+    viewModel.watchError { [weak self] err in
+        DispatchQueue.main.async { self?.error = err }
+    }
+}
+```
+
+В View вместо текущего alert с полным сообщением:
+
+```swift
+.alert(
+    error?.userMessage ?? "Ошибка",  // короткое
+    isPresented: Binding(
+        get: { vm.error != nil },
+        set: { if !$0 { vm.clearError() } }
+    )
+) {
+    Button("Повторить") { vm.retry() }
+    Button("OK", role: .cancel) {}
+}
+```
+
+⚠️ Важно: НЕ показывать `error.technicalDetails` пользователю! Только
+`userMessage`. Технические детали идут только в Sentry/логи.
+
+ШАГ 6. Логирование (только в логи, не в UI)
+
+В классе AppError или в фабрике маппинга добавь логирование через
+Kermit (или console.log если Kermit ещё не подключен):
+
+```kotlin
+fun AppError.Companion.from(t: Throwable): AppError {
+    // лог технических деталей
+    Logger.e("Network", t.message ?: "Unknown", t)
+    return when (t) {
+        is IOException -> NoInternet
+        // ...
+    }
+}
+```
+
+⚠️ Не логируй URL, тело запроса, заголовки (там могут быть токены).
+
+ШАГ 7. Проверка на симуляторе
+
+Я не могу запустить Xcode, поэтому проверка на тебе. Сценарии:
+
+ТЕСТ A. Нормальная работа:
+- Открой приложение, pull-to-refresh на главном.
+- Должен работать без ошибок.
+
+ТЕСТ B. Симуляция ошибки (выключение Wi-Fi на Mac):
+- Pull-to-refresh когда сети нет.
+- Ожидаемо: alert "Нет соединения с интернетом" с кнопками
+  "Повторить" и "OK".
+- НЕ должен показывать stack trace.
+
+ТЕСТ C. Симуляция -1005 (Network Link Conditioner):
+- В Settings симулятора → Developer → Network Link Conditioner →
+  выбери "100% Loss" и попробуй pull-to-refresh.
+- Ожидаемо: alert "Нет соединения" или "Сервер не отвечает", без
+  технических деталей.
+
+ТЕСТ D. Сохранение рейса при плохой сети:
+- Переключи Network Link Conditioner на "Very Bad Network" (50% loss).
+- Создай рейс, нажми Сохранить несколько раз.
+- Ожидаемо: при ошибке — alert с "Повторить", retry автоматически
+  работает в Ktor (3 попытки), и в большинстве случаев рейс
+  всё-таки сохраняется.
+- На сервере проверь логи: нет дублирующихся записей (идемпотентность
+  по UUID работает).
+
+ШАГ 8. Коммит
+
+ios: improve network reliability and error handling
+
+- Add AppError sealed class with user-friendly messages
+- Configure Ktor HttpRequestRetry and HttpTimeout
+- Force connection: close on iOS to avoid -1005 stale connections
+- Replace technical NSError messages in UI with localized strings
+- Log technical details only, never show in UI
+
+⚠️ ОБЩИЕ ПРАВИЛА:
+- Перед каждым шагом — покажи что собираешься делать и подожди моего
+  ОК.
+- НЕ меняй серверный код. Если потребуется — останови и обсудим
+  отдельно.
+- НЕ ломай существующую функциональность Android (ViewModel'и общие
+  через KMP — изменения должны быть совместимы).
+
+Покажи план Шага 1 и начинай.
+```
+
+**Definition of Done**:
+- [ ] AppError sealed class в общем коде
+- [ ] HttpRequestRetry настроен в Ktor (3 попытки на IOException, 2 на 5xx)
+- [ ] HttpTimeout настроен (30s request, 10s connect)
+- [ ] Connection: close для iOS (или другое решение проблемы -1005)
+- [ ] ViewModel'и используют AppError вместо строк
+- [ ] Wrapper'ы конвертируют в @Published
+- [ ] SwiftUI alerts показывают только `userMessage`, без технических деталей
+- [ ] Логи пишут технические детали (без чувствительных данных)
+- [ ] Тесты A-D на симуляторе проходят:
+  - [ ] A: нормальная работа без ошибок
+  - [ ] B: при выключенном Wi-Fi — короткий alert
+  - [ ] C: с Network Link Conditioner 100% Loss — короткий alert
+  - [ ] D: при плохой сети — retry работает, нет дубликатов на сервере
+- [ ] Android-приложение продолжает работать без регрессии
+- [ ] `git commit -m "ios: improve network reliability and error handling"`
+
+⚠️ **Это блокер релиза**. Без этой задачи нельзя в Submit.
 
 ---
 
