@@ -24,6 +24,8 @@ import Versions.ksp_ver
 import Versions.lifecycle_runtime_compose_ver
 import Versions.lifecycle_runtime_version
 import Versions.lifecycle_viewmodel_version
+import Versions.lifecycle_viewmodel_kmp_ver
+import Versions.kermit_ver
 import Versions.material_compose3
 import Versions.maxkeppeler_sheets_ver
 import Versions.mockito_core_ver
@@ -91,6 +93,11 @@ object Versions {
     const val coroutines_version = "1.7.1"
     const val lifecycle_runtime_version = "2.6.1"
     const val lifecycle_viewmodel_version = "2.6.1"
+    // KMP-версия от JetBrains (раньше приходила транзитивно через Compose Multiplatform)
+    const val lifecycle_viewmodel_kmp_ver = "2.9.6"
+    // Kermit — KMP-логгер (touchlab). Используется в data_remote (Retry/ErrorMapper)
+    // и далее в iOS-VM. См. CLAUDE.md §«Логирование и PII».
+    const val kermit_ver = "2.0.5"
     const val material_compose3 = "1.4.0"
     const val room_version = "2.7.1"
     const val test_ext_version = "1.1.5"
@@ -190,6 +197,10 @@ object Libs {
         "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_runtime_version"
     const val lifecycle_viewmodel_ktx =
         "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_viewmodel_version"
+    const val lifecycle_viewmodel_kmp =
+        "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel:$lifecycle_viewmodel_kmp_ver"
+    const val kermit =
+        "co.touchlab:kermit:$kermit_ver"
     const val room_compiler =
         "androidx.room:room-compiler:$room_version"
     const val room_ktx =

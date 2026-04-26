@@ -38,6 +38,8 @@ kotlin {
             implementation(Libs.ktor_client_content_negotiation)
             implementation(Libs.ktor_serialization_kotlinx_json)
             implementation(Libs.ktor_client_logging)
+            // KMP-логгер. Используется в RemoteRestClient (Retry) и ErrorMapper.
+            implementation(Libs.kermit)
         }
 
         androidMain.dependencies {
