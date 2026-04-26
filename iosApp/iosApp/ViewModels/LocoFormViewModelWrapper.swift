@@ -25,4 +25,6 @@ final class LocoFormViewModelWrapper: ObservableObject {
     func setTimeEndAcceptance(_ ms: Int64?) { viewModel.setTimeEndAcceptance(ms: ms.map { KotlinLong(value: $0) }) }
     func setTimeStartDelivery(_ ms: Int64?) { viewModel.setTimeStartDelivery(ms: ms.map { KotlinLong(value: $0) }) }
     func setTimeEndDelivery(_ ms: Int64?) { viewModel.setTimeEndDelivery(ms: ms.map { KotlinLong(value: $0) }) }
+    func addSection() { viewModel.addSection() }
+    func saveLoco() { viewModel.saveLoco() }
 }
