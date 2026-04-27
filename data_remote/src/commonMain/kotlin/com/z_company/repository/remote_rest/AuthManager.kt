@@ -1,5 +1,6 @@
 package com.z_company.repository.remote_rest
 
+import com.z_company.core.AppError
 import com.z_company.domain.entities.route.Route
 import com.z_company.repository.remote_rest.request.AddVKIDRequest
 import com.z_company.repository.remote_rest.request.AuthRequest
@@ -8,6 +9,7 @@ import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.ServerResponseException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -40,11 +42,13 @@ class AuthManager(
                 )
             )
         } catch (e: ClientRequestException) {
-            emit(RegistrationState.Error("Ошибка: ${e.response.status.value}", code = e.response.status.value))
+            emit(RegistrationState.Error("Ошибка: ${e.response.status.value}", code = e.response.status.value, appError = e.toAppError()))
         } catch (e: ServerResponseException) {
-            emit(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value))
+            emit(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value, appError = e.toAppError()))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            emit(RegistrationState.Error("Ошибка: ${e.message}"))
+            emit(RegistrationState.Error("Ошибка: ${e.message}", appError = e.toAppError()))
         }
     }
 
@@ -68,11 +72,13 @@ class AuthManager(
                 )
             )
         } catch (e: ClientRequestException) {
-            emit(RegistrationState.Error("Ошибка: ${e.response.status.value}", code = e.response.status.value))
+            emit(RegistrationState.Error("Ошибка: ${e.response.status.value}", code = e.response.status.value, appError = e.toAppError()))
         } catch (e: ServerResponseException) {
-            emit(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value))
+            emit(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value, appError = e.toAppError()))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            emit(RegistrationState.Error("Ошибка: ${e.message}"))
+            emit(RegistrationState.Error("Ошибка: ${e.message}", appError = e.toAppError()))
         }
     }
 
@@ -96,9 +102,11 @@ class AuthManager(
                 401 -> "Неверная почта или пароль"
                 else -> "Ошибка: ${e.response.status.value} - ${e.message}"
             }
-            emit(AuthState.Error(text))
+            emit(AuthState.Error(text, appError = e.toAppError()))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            emit(AuthState.Error("Ошибка: ${e.message}"))
+            emit(AuthState.Error("Ошибка: ${e.message}", appError = e.toAppError()))
         }
     }
 
@@ -122,9 +130,11 @@ class AuthManager(
                 401 -> "Неверная почта или пароль"
                 else -> "Ошибка: ${e.response.status.value} - ${e.message}"
             }
-            emit(AuthState.Error(text))
+            emit(AuthState.Error(text, appError = e.toAppError()))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            emit(AuthState.Error("Ошибка: ${e.message}"))
+            emit(AuthState.Error("Ошибка: ${e.message}", appError = e.toAppError()))
         }
     }
 
@@ -138,9 +148,11 @@ class AuthManager(
                 )
             )
         } catch (e: ClientRequestException) {
-            emit(GetUserProfileState.Error("Ошибка: ${e.message}", code = e.response.status.value))
+            emit(GetUserProfileState.Error("Ошибка: ${e.message}", code = e.response.status.value, appError = e.toAppError()))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            emit(GetUserProfileState.Error("Ошибка: ${e.message}"))
+            emit(GetUserProfileState.Error("Ошибка: ${e.message}", appError = e.toAppError()))
         }
     }
 
@@ -155,9 +167,11 @@ class AuthManager(
                 )
             )
         } catch (e: ClientRequestException) {
-            emit(GetUserProfileState.Error("Ошибка: ${e.message}", code = e.response.status.value))
+            emit(GetUserProfileState.Error("Ошибка: ${e.message}", code = e.response.status.value, appError = e.toAppError()))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            emit(GetUserProfileState.Error("Ошибка: ${e.message}"))
+            emit(GetUserProfileState.Error("Ошибка: ${e.message}", appError = e.toAppError()))
         }
     }
 
@@ -171,9 +185,11 @@ class AuthManager(
                 )
             )
         } catch (e: ClientRequestException) {
-            emit(GetUserProfileState.Error(message = "Ошибка: ${e.message}", code = e.response.status.value))
+            emit(GetUserProfileState.Error(message = "Ошибка: ${e.message}", code = e.response.status.value, appError = e.toAppError()))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            emit(GetUserProfileState.Error("Ошибка: ${e.message}"))
+            emit(GetUserProfileState.Error("Ошибка: ${e.message}", appError = e.toAppError()))
         }
     }
 
@@ -183,9 +199,11 @@ class AuthManager(
             apiForSendEmail.forgotPassword(email)
             emit(ResponseState.Success)
         } catch (e: ClientRequestException) {
-            emit(ResponseState.Error("Ошибка: ${e.response.status.value} - ${e.message}"))
+            emit(ResponseState.Error("Ошибка: ${e.response.status.value} - ${e.message}", appError = e.toAppError()))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            emit(ResponseState.Error("Ошибка: ${e.message}"))
+            emit(ResponseState.Error("Ошибка: ${e.message}", appError = e.toAppError()))
         }
     }
 
@@ -197,9 +215,11 @@ class AuthManager(
             remoteRestApi.updateEmail(token = token, data = request)
             emit(ResponseState.Success)
         } catch (e: ClientRequestException) {
-            emit(ResponseState.Error("Ошибка: ${e.response.status.value} - ${e.message}"))
+            emit(ResponseState.Error("Ошибка: ${e.response.status.value} - ${e.message}", appError = e.toAppError()))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            emit(ResponseState.Error("Ошибка: ${e.message}"))
+            emit(ResponseState.Error("Ошибка: ${e.message}", appError = e.toAppError()))
         }
     }
 }
@@ -208,26 +228,40 @@ sealed class AuthState {
     object Initial : AuthState()
     object Loading : AuthState()
     data class Success(val accessToken: String, val tokenType: String? = null) : AuthState()
-    data class Error(val errorMessage: String) : AuthState()
+    data class Error(
+        val errorMessage: String,
+        val appError: AppError? = null,
+    ) : AuthState()
 }
 
 sealed class RegistrationState {
     object Initial : RegistrationState()
     object Loading : RegistrationState()
     data class Success(val accessToken: String, val tokenType: String? = null) : RegistrationState()
-    data class Error(val message: String, val code: Int = 0) : RegistrationState()
+    data class Error(
+        val message: String,
+        val code: Int = 0,
+        val appError: AppError? = null,
+    ) : RegistrationState()
 }
 
 sealed class GetUserProfileState {
     object Initial : GetUserProfileState()
     object Loading : GetUserProfileState()
     data class Success(val user: UserRemote) : GetUserProfileState()
-    data class Error(val message: String, val code: Int = 0) : GetUserProfileState()
+    data class Error(
+        val message: String,
+        val code: Int = 0,
+        val appError: AppError? = null,
+    ) : GetUserProfileState()
 }
 
 sealed class ResponseState {
     object Initial : ResponseState()
     object Loading : ResponseState()
     object Success : ResponseState()
-    data class Error(val errorMessage: String) : ResponseState()
+    data class Error(
+        val errorMessage: String,
+        val appError: AppError? = null,
+    ) : ResponseState()
 }
