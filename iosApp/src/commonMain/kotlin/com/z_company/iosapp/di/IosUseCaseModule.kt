@@ -96,7 +96,9 @@ val iosUseCaseModule = module {
     }
 
     // ── ViewModels (single — живут на протяжении жизни приложения) ────────
-    single { HomeIosViewModel(get(), get(), get(), get(), get()) }
+    // 6 get(): RouteUseCase, SettingsUseCase, RoutesManager, ShareRouteManager,
+    // SecureTokenStorage, SyncManager. Последний нужен для refresh() (Шаг 4 1.4).
+    single { HomeIosViewModel(get(), get(), get(), get(), get(), get()) }
     single { SettingsIosViewModel(get()) }
     single {
         FormIosViewModel(

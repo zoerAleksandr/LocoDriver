@@ -4,6 +4,8 @@ package com.z_company.iosapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
+import com.z_company.core.AppError
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHoursInDate
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
@@ -25,6 +27,7 @@ import com.z_company.domain.util.generateId
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.repository.remote_rest.ShareRouteManager
+import com.z_company.repository.remote_rest.SyncManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -54,6 +57,7 @@ class HomeIosViewModel(
     private val routesManager: RoutesManager,
     private val shareRouteManager: ShareRouteManager,
     private val secureTokenStorage: SecureTokenStorage,
+    private val syncManager: SyncManager,
 ) : ViewModel() {
 
     // События UI (snackbar, share-sheet): используем SharedFlow,
@@ -69,6 +73,18 @@ class HomeIosViewModel(
 
     private val _isCreatingShareLink = MutableStateFlow(false)
     val isCreatingShareLink: StateFlow<Boolean> = _isCreatingShareLink.asStateFlow()
+
+    // Pull-to-refresh: отдельный флаг от _isSyncingRoute (тот для одиночного
+    // маршрута). _isRefreshing активен на время syncFromRemote() в refresh().
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    // Типизированная ошибка для Шага 5 SwiftUI .alert + retry.
+    // Публикуется только из explicit-действий (refresh / syncRoute / shareRoute).
+    // Passive collect routesFlow не публикует (нет ResultState — Flow<List<Route>>).
+    // deleteRoute Error — silent recovery by design (см. ниже).
+    private val _error = MutableStateFlow<AppError?>(null)
+    val error: StateFlow<AppError?> = _error.asStateFlow()
 
     private val _routes = MutableStateFlow<List<Route>>(emptyList())
     val routes: StateFlow<List<Route>> = _routes.asStateFlow()
@@ -220,8 +236,13 @@ class HomeIosViewModel(
                         routeUseCase.removeRoute(route).first()
                     }
                     is ResultState.Error -> {
-                        // Оставляем isDeleted=true. SyncManager.syncToRemote шаг 4
-                        // повторит DELETE при следующей синхронизации.
+                        // silent recovery by design: оставляем isDeleted=true.
+                        // SyncManager.syncToRemote шаг 4 повторит DELETE при
+                        // следующей синхронизации. Алерт пользователю не
+                        // показываем — UI уже скрыл маршрут soft-delete'ом.
+                        Logger.withTag("Home").i {
+                            "Soft-delete pending — server delete failed, will retry on next sync: ${state.entity.message}"
+                        }
                     }
                     else -> {}
                 }
@@ -313,6 +334,8 @@ class HomeIosViewModel(
                                 ?: state.entity.throwable?.message
                                 ?: "Ошибка синхронизации"
                             _messages.emit(msg)
+                            // explicit publish: пользователь нажал «Синхронизировать».
+                            _error.value = state.entity.appError
                         }
                         is ResultState.Loading -> { /* ignore */ }
                     }
@@ -351,6 +374,8 @@ class HomeIosViewModel(
                                 ?: state.entity.throwable?.message
                                 ?: "Ошибка создания ссылки"
                             _messages.emit(msg)
+                            // explicit publish: пользователь нажал «Поделиться».
+                            _error.value = state.entity.appError
                         }
                         is ResultState.Loading -> { /* ignore */ }
                     }
@@ -360,6 +385,45 @@ class HomeIosViewModel(
             }
         }
     }
+
+    /**
+     * Pull-to-refresh: принудительная синхронизация с сервера.
+     *
+     * Только pull (syncFromRemote), не push. Двусторонний sync — отдельная
+     * кнопка в Profile. При успехе — тихо (пользователь видит обновлённый
+     * список, toast не нужен). При ошибке — explicit publish в _error +
+     * Kermit.e + сброс _isRefreshing.
+     */
+    fun refresh() {
+        if (_isRefreshing.value) return
+        viewModelScope.launch {
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+            if (token.isNullOrBlank()) {
+                _messages.emit("Войдите для синхронизации")
+                return@launch
+            }
+            _isRefreshing.value = true
+            _error.value = null
+            try {
+                syncManager.syncFromRemote("Bearer $token").collect { state ->
+                    when (state) {
+                        is ResultState.Success -> { /* silent при успехе */ }
+                        is ResultState.Error -> {
+                            _error.value = state.entity.appError
+                            Logger.withTag("Home").e {
+                                "refresh failed: ${state.entity.message}"
+                            }
+                        }
+                        is ResultState.Loading -> {}
+                    }
+                }
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
+
+    fun clearError() { _error.value = null }
 
     private fun buildLocalShareText(route: com.z_company.domain.entities.route.Route): String {
         val number = route.basicData.number?.let { "№$it " } ?: ""
@@ -431,5 +495,11 @@ class HomeIosViewModel(
     }
     fun watchIsCreatingShareLink(callback: (Boolean) -> Unit) {
         viewModelScope.launch { isCreatingShareLink.collect { callback(it) } }
+    }
+    fun watchIsRefreshing(callback: (Boolean) -> Unit) {
+        viewModelScope.launch { isRefreshing.collect { callback(it) } }
+    }
+    fun watchError(callback: (AppError?) -> Unit) {
+        viewModelScope.launch { error.collect { callback(it) } }
     }
 }
