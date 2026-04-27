@@ -27,7 +27,7 @@ class SettingManager(
         remoteRestApi.saveUserSetting(token = bearerToken, body = userSettings)
         emit(ResultState.Success(Unit))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
     }
 
     fun getUserSettingFromRemote(
@@ -37,7 +37,7 @@ class SettingManager(
         val setting = remoteRestApi.getUserSetting(token = bearerToken)
         emit(ResultState.Success(setting))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
     }
 
     fun saveSalarySettingInRemote(
@@ -48,7 +48,7 @@ class SettingManager(
         remoteRestApi.saveSalarySetting(token = bearerToken, body = salarySetting)
         emit(ResultState.Success(Unit))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
     }
 
     fun getSalarySettingFromRemote(
@@ -58,7 +58,7 @@ class SettingManager(
         val setting = remoteRestApi.getSalarySetting(token = bearerToken)
         emit(ResultState.Success(setting))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
     }
 
     fun saveMonthOfYearListInRemote(
@@ -69,7 +69,7 @@ class SettingManager(
         remoteRestApi.saveMonthOfYearList(token = bearerToken, body = monthOfYearList)
         emit(ResultState.Success(Unit))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
     }
 
     fun getMonthOfYearListFromRemote(
@@ -79,7 +79,7 @@ class SettingManager(
         val months = remoteRestApi.getMonthOfYearList(token = bearerToken)
         emit(ResultState.Success(months))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
     }
 
     // --- ReleaseDay ---
@@ -92,7 +92,7 @@ class SettingManager(
         remoteRestApi.saveReleaseDays(token = bearerToken, body = days)
         emit(ResultState.Success(Unit))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
     }
 
     fun getReleaseDaysFromRemote(
@@ -102,7 +102,7 @@ class SettingManager(
         val days = remoteRestApi.getReleaseDays(token = bearerToken)
         emit(ResultState.Success(days))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
     }
 
     // --- ProductionCalendar ---
@@ -115,6 +115,6 @@ class SettingManager(
         val days = remoteRestApi.getProductionCalendar(country = country, year = year)
         emit(ResultState.Success(days))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
     }
 }

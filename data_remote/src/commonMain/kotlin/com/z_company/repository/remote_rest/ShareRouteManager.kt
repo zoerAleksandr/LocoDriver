@@ -5,6 +5,7 @@ import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Route
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -37,19 +38,24 @@ class ShareRouteManager(
             val response = remoteRestApi.createSharedRoute(token = bearerToken, data = route)
             emit(ResultState.Success(buildShareUrl(response.id)))
         } catch (e: ClientRequestException) {
+            // TODO: nested catch (_: Exception) поглощает CancellationException
+            // при отмене корутины во время чтения тела. Заменить на:
+            //   try { ... } catch (e: CancellationException) { throw e } catch (Exception) { "" }
             val errorBody = try {
                 e.response.bodyAsText()
             } catch (_: Exception) {
                 ""
             }
             val errorMessage = RoutesManager.parseServerError(e.response.status.value, errorBody)
-            emit(ResultState.Error(ErrorEntity(message = errorMessage)))
+            emit(ResultState.Error(ErrorEntity(message = errorMessage, appError = e.toAppError())))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            emit(ResultState.Error(ErrorEntity(throwable = e)))
+            emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
         }
     }.flowOn(Dispatchers.Default)
         .catch { e ->
-            emit(ResultState.Error(ErrorEntity(throwable = e)))
+            emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
         }
 
     /**
@@ -62,19 +68,24 @@ class ShareRouteManager(
             val route = remoteRestApi.getSharedRoute(shareId)
             emit(ResultState.Success(route))
         } catch (e: ClientRequestException) {
+            // TODO: nested catch (_: Exception) поглощает CancellationException
+            // при отмене корутины во время чтения тела. Заменить на:
+            //   try { ... } catch (e: CancellationException) { throw e } catch (Exception) { "" }
             val errorBody = try {
                 e.response.bodyAsText()
             } catch (_: Exception) {
                 ""
             }
             val errorMessage = RoutesManager.parseServerError(e.response.status.value, errorBody)
-            emit(ResultState.Error(ErrorEntity(message = errorMessage)))
+            emit(ResultState.Error(ErrorEntity(message = errorMessage, appError = e.toAppError())))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            emit(ResultState.Error(ErrorEntity(throwable = e)))
+            emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
         }
     }.flowOn(Dispatchers.Default)
         .catch { e ->
-            emit(ResultState.Error(ErrorEntity(throwable = e)))
+            emit(ResultState.Error(ErrorEntity(throwable = e, appError = e.toAppError())))
         }
 
     companion object {
