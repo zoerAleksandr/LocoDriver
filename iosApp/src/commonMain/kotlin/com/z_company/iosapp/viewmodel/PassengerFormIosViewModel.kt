@@ -2,6 +2,8 @@ package com.z_company.iosapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
+import com.z_company.core.AppError
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.use_cases.RouteUseCase
@@ -23,19 +25,36 @@ class PassengerFormIosViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    // load — silent + Kermit (passive); save — explicit publish.
+    private val _error = MutableStateFlow<AppError?>(null)
+    val error: StateFlow<AppError?> = _error.asStateFlow()
+
     /**
      * Загружает пассажирский поезд по [passengerId] из маршрута [routeId].
      * Если [passengerId] == null — создаёт новый пустой объект Passenger.
      */
     fun loadPassenger(routeId: String, passengerId: String?) {
         _isSaved.value = false
+        _error.value = null
         viewModelScope.launch {
             _isLoading.value = true
             routeUseCase.routeDetails(routeId).collect { result ->
-                val route = (result as? ResultState.Success)?.data ?: return@collect
-                val found = route.passengers.find { it.passengerId == passengerId }
-                _passenger.value = found ?: Passenger(basicId = routeId)
-                _isLoading.value = false
+                when (result) {
+                    is ResultState.Success -> {
+                        val route = result.data ?: return@collect
+                        val found = route.passengers.find { it.passengerId == passengerId }
+                        _passenger.value = found ?: Passenger(basicId = routeId)
+                        _isLoading.value = false
+                    }
+                    // silent + Kermit: load — passive.
+                    is ResultState.Error -> {
+                        Logger.withTag("PassengerForm").w {
+                            "loadPassenger failed silently: ${result.entity.message}"
+                        }
+                        _isLoading.value = false
+                    }
+                    is ResultState.Loading -> {}
+                }
             }
         }
     }
@@ -87,7 +106,13 @@ class PassengerFormIosViewModel(
                 routeUseCase.saveRoute(updatedRoute).collect { saveResult ->
                     when (saveResult) {
                         is ResultState.Success -> _isSaved.value = true
-                        is ResultState.Error -> { /* could expose errorMessage if needed */ }
+                        // explicit publish: пользователь нажал «Сохранить».
+                        is ResultState.Error -> {
+                            _error.value = saveResult.entity.appError
+                            Logger.withTag("PassengerForm").e {
+                                "savePassenger failed: ${saveResult.entity.message}"
+                            }
+                        }
                         is ResultState.Loading -> {}
                     }
                 }
@@ -108,6 +133,12 @@ class PassengerFormIosViewModel(
     fun watchIsLoading(callback: (Boolean) -> Unit) {
         viewModelScope.launch { isLoading.collect { callback(it) } }
     }
+
+    fun watchError(callback: (AppError?) -> Unit) {
+        viewModelScope.launch { error.collect { callback(it) } }
+    }
+
+    fun clearError() { _error.value = null }
 
     private fun MutableStateFlow<Passenger?>.update(transform: (Passenger?) -> Passenger?) {
         value = transform(value)

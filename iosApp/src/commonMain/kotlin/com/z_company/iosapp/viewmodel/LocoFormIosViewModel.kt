@@ -2,6 +2,9 @@ package com.z_company.iosapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
+import com.z_company.core.AppError
+import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.SectionElectric
@@ -24,6 +27,12 @@ class LocoFormIosViewModel(
     private val _isSaved = MutableStateFlow(false)
     val isSaved: StateFlow<Boolean> = _isSaved.asStateFlow()
 
+    // Параллельный StateFlow типизированных ошибок (Шаг 4 промпта).
+    // load — silent + Kermit (passive, ошибка маловероятна);
+    // save — explicit publish (пользователь нажал «Сохранить»).
+    private val _error = MutableStateFlow<AppError?>(null)
+    val error: StateFlow<AppError?> = _error.asStateFlow()
+
     // Последний загруженный маршрут — нужен для saveLoco, чтобы сохранить
     // локомотив в составе всего Route (репозиторий умеет только saveRoute).
     private var currentRoute: Route? = null
@@ -32,17 +41,27 @@ class LocoFormIosViewModel(
         // На всякий случай сбросим «залипший» isSaved от прошлой сессии —
         // иначе onChange(of: isSaved) в SwiftUI сразу закроет форму.
         _isSaved.value = false
+        _error.value = null
         viewModelScope.launch {
             routeUseCase.routeDetails(routeId).collect { result ->
-                val route = (result as? com.z_company.core.ResultState.Success)?.data ?: return@collect
-                currentRoute = route
-                val found = route.locomotives.find { it.locoId == locoId }
-                _loco.value = if (found != null) {
-                    found
-                } else {
-                    // Новый локомотив — сразу добавляем первую секцию в
-                    // зависимости от типа тяги (по умолчанию электровоз).
-                    withAtLeastOneSection(Locomotive(basicId = routeId))
+                when (result) {
+                    is ResultState.Success -> {
+                        val route = result.data ?: return@collect
+                        currentRoute = route
+                        val found = route.locomotives.find { it.locoId == locoId }
+                        _loco.value = if (found != null) {
+                            found
+                        } else {
+                            // Новый локомотив — сразу добавляем первую секцию в
+                            // зависимости от типа тяги (по умолчанию электровоз).
+                            withAtLeastOneSection(Locomotive(basicId = routeId))
+                        }
+                    }
+                    // silent + Kermit: load — passive, ошибку в UI не показываем.
+                    is ResultState.Error -> Logger.withTag("LocoForm").w {
+                        "loadLoco failed silently: ${result.entity.message}"
+                    }
+                    is ResultState.Loading -> {}
                 }
             }
         }
@@ -61,12 +80,15 @@ class LocoFormIosViewModel(
             } else {
                 locos.add(loco)
             }
-            routeUseCase.saveRoute(route).first {
-                it !is com.z_company.core.ResultState.Loading
-            }.let { state ->
-                if (state is com.z_company.core.ResultState.Success) {
-                    _isSaved.value = true
+            val state = routeUseCase.saveRoute(route).first { it !is ResultState.Loading }
+            when (state) {
+                is ResultState.Success -> _isSaved.value = true
+                // explicit publish: пользователь нажал «Сохранить» — алерт обязателен.
+                is ResultState.Error -> {
+                    _error.value = state.entity.appError
+                    Logger.withTag("LocoForm").e { "saveLoco failed: ${state.entity.message}" }
                 }
+                is ResultState.Loading -> {}
             }
         }
     }
@@ -143,6 +165,12 @@ class LocoFormIosViewModel(
     fun watchIsSaved(callback: (Boolean) -> Unit) {
         viewModelScope.launch { isSaved.collect { callback(it) } }
     }
+
+    fun watchError(callback: (AppError?) -> Unit) {
+        viewModelScope.launch { error.collect { callback(it) } }
+    }
+
+    fun clearError() { _error.value = null }
 
     private fun MutableStateFlow<Locomotive?>.update(transform: (Locomotive?) -> Locomotive?) {
         value = transform(value)

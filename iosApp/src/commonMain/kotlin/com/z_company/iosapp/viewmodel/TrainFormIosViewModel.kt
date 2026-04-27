@@ -2,6 +2,9 @@ package com.z_company.iosapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
+import com.z_company.core.AppError
+import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.use_cases.RouteUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,12 +22,27 @@ class TrainFormIosViewModel(
     private val _isSaved = MutableStateFlow(false)
     val isSaved: StateFlow<Boolean> = _isSaved.asStateFlow()
 
+    // Пустой _error для consistency с другими Form-VM (save-метод
+    // здесь не реализован, поэтому publish'ить пока некуда). Шаг 5
+    // Swift Wrapper всё равно ожидает поле для единого паттерна alert.
+    private val _error = MutableStateFlow<AppError?>(null)
+    val error: StateFlow<AppError?> = _error.asStateFlow()
+
     fun loadTrain(routeId: String, trainId: String?) {
         viewModelScope.launch {
             routeUseCase.routeDetails(routeId).collect { result ->
-                val route = (result as? com.z_company.core.ResultState.Success)?.data ?: return@collect
-                val found = route.trains.find { it.trainId == trainId }
-                _train.value = found ?: Train(basicId = routeId)
+                when (result) {
+                    is ResultState.Success -> {
+                        val route = result.data ?: return@collect
+                        val found = route.trains.find { it.trainId == trainId }
+                        _train.value = found ?: Train(basicId = routeId)
+                    }
+                    // silent + Kermit: load — passive.
+                    is ResultState.Error -> Logger.withTag("TrainForm").w {
+                        "loadTrain failed silently: ${result.entity.message}"
+                    }
+                    is ResultState.Loading -> {}
+                }
             }
         }
     }
@@ -43,6 +61,12 @@ class TrainFormIosViewModel(
     fun watchIsSaved(callback: (Boolean) -> Unit) {
         viewModelScope.launch { isSaved.collect { callback(it) } }
     }
+
+    fun watchError(callback: (AppError?) -> Unit) {
+        viewModelScope.launch { error.collect { callback(it) } }
+    }
+
+    fun clearError() { _error.value = null }
 
     private fun MutableStateFlow<Train?>.update(transform: (Train?) -> Train?) {
         value = transform(value)

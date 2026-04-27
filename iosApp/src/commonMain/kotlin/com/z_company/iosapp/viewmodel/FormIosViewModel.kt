@@ -2,6 +2,7 @@ package com.z_company.iosapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.AppError
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.helpers.RouteRestCalculator
@@ -63,6 +64,12 @@ class FormIosViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    // Параллельный StateFlow для типизированных ошибок (Шаг 4 промпта).
+    // legacy _errorMessage остаётся — Swift FormView читает его через
+    // consumeError(). Шаг 6 удалит legacy.
+    private val _error = MutableStateFlow<AppError?>(null)
+    val error: StateFlow<AppError?> = _error.asStateFlow()
+
     private val _shareLink = MutableStateFlow<String?>(null)
     val shareLink: StateFlow<String?> = _shareLink.asStateFlow()
 
@@ -107,6 +114,7 @@ class FormIosViewModel(
         _isDeleted.value = false
         _shareLink.value = null
         _errorMessage.value = null
+        _error.value = null
     }
 
     /** Загружает маршрут по [routeId]. Если routeId == null — создаёт новый пустой маршрут. */
@@ -117,6 +125,7 @@ class FormIosViewModel(
         _isDeleted.value = false
         _shareLink.value = null
         _errorMessage.value = null
+        _error.value = null
         _salary.value = SalaryForRouteState()
         _rest.value = RestState()
 
@@ -142,6 +151,7 @@ class FormIosViewModel(
                     }
                     is ResultState.Error -> {
                         _errorMessage.value = result.entity.message ?: "Ошибка загрузки маршрута"
+                        _error.value = result.entity.appError
                         _isLoading.value = false
                     }
                     is ResultState.Loading -> _isLoading.value = true
@@ -343,8 +353,10 @@ class FormIosViewModel(
                             }
                         }
                     }
-                    is ResultState.Error -> _errorMessage.value =
-                        result.entity.message ?: "Ошибка сохранения"
+                    is ResultState.Error -> {
+                        _errorMessage.value = result.entity.message ?: "Ошибка сохранения"
+                        _error.value = result.entity.appError
+                    }
                     is ResultState.Loading -> {}
                 }
             }
@@ -363,8 +375,10 @@ class FormIosViewModel(
             shareRouteManager.createShareLink(currentRoute, "Bearer $rawToken").collect { result ->
                 when (result) {
                     is ResultState.Success -> _shareLink.value = result.data
-                    is ResultState.Error -> _errorMessage.value =
-                        result.entity.message ?: "Не удалось создать ссылку"
+                    is ResultState.Error -> {
+                        _errorMessage.value = result.entity.message ?: "Не удалось создать ссылку"
+                        _error.value = result.entity.appError
+                    }
                     is ResultState.Loading -> {}
                 }
             }
@@ -386,10 +400,14 @@ class FormIosViewModel(
         _shareLink.value = null
     }
 
-    /** Очистить [errorMessage]. */
+    /** Очистить [errorMessage] и [error]. Legacy-имя — Swift FormView вызывает напрямую. */
     fun consumeError() {
         _errorMessage.value = null
+        _error.value = null
     }
+
+    /** Алиас [consumeError] для consistency с другими VM (Шаг 5 Swift Wrapper'ы). */
+    fun clearError() = consumeError()
 
     // ── watchState helpers (для Swift-обёрток) ────────────────────────────
     fun watchRoute(callback: (Route?) -> Unit) {
@@ -406,6 +424,9 @@ class FormIosViewModel(
     }
     fun watchErrorMessage(callback: (String?) -> Unit) {
         viewModelScope.launch { errorMessage.collect { callback(it) } }
+    }
+    fun watchError(callback: (AppError?) -> Unit) {
+        viewModelScope.launch { error.collect { callback(it) } }
     }
     fun watchShareLink(callback: (String?) -> Unit) {
         viewModelScope.launch { shareLink.collect { callback(it) } }
