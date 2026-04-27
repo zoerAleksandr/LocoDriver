@@ -2,6 +2,8 @@ package com.z_company.iosapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
+import com.z_company.core.ResultState
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,7 +52,16 @@ class SettingsIosViewModel(
 
     fun saveSetting(settings: UserSettings) {
         viewModelScope.launch {
-            settingsUseCase.saveSetting(settings).collect {}
+            // Settings — passive (любое изменение тогглa тут же сохраняется
+            // в фоне), пользователь не нажимает «Сохранить» явно. Алерт-
+            // сценарий не нужен; ошибки только в Kermit для диагностики.
+            settingsUseCase.saveSetting(settings).collect { result ->
+                if (result is ResultState.Error) {
+                    Logger.withTag("Settings").w {
+                        "saveSetting failed silently: ${result.entity.message}"
+                    }
+                }
+            }
         }
     }
 

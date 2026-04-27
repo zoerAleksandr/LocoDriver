@@ -2,6 +2,7 @@ package com.z_company.iosapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.AppError
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
@@ -74,6 +75,12 @@ class SalaryCalculationIosViewModel(
 
     private val _currentYear = MutableStateFlow(0)
     val currentYear: StateFlow<Int> = _currentYear.asStateFlow()
+
+    // Пустой _error для consistency с другими VM (Шаг 5 Wrapper-паттерн).
+    // Этот VM не делает сетевых запросов напрямую — только passive collect
+    // маршрутов через RouteUseCase. Публиковать сюда нечего.
+    private val _error = MutableStateFlow<AppError?>(null)
+    val error: StateFlow<AppError?> = _error.asStateFlow()
 
     // ── Internal state ────────────────────────────────────────────────────────
 
@@ -221,4 +228,10 @@ class SalaryCalculationIosViewModel(
     fun watchCurrentYear(callback: (Int) -> Unit) {
         viewModelScope.launch { currentYear.collect { callback(it) } }
     }
+
+    fun watchError(callback: (AppError?) -> Unit) {
+        viewModelScope.launch { error.collect { callback(it) } }
+    }
+
+    fun clearError() { _error.value = null }
 }

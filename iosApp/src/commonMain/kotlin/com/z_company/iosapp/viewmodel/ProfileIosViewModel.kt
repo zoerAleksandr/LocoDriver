@@ -2,6 +2,8 @@ package com.z_company.iosapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
+import com.z_company.core.AppError
 import com.z_company.core.ResultState
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.AuthManager
@@ -49,6 +51,13 @@ class ProfileIosViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    // Параллельно legacy _errorMessage — типизированный AppError для Шага 5
+    // (SwiftUI .alert + кнопка «Повторить» по canRetry).
+    // Для login публикуется, но Шаг 5 НЕ показывает «Повторить» —
+    // это auth-операция, повтор через ручной ввод пароля.
+    private val _error = MutableStateFlow<AppError?>(null)
+    val error: StateFlow<AppError?> = _error.asStateFlow()
+
     private val _userEmail = MutableStateFlow<String?>(null)
     val userEmail: StateFlow<String?> = _userEmail.asStateFlow()
 
@@ -79,6 +88,7 @@ class ProfileIosViewModel(
         }
         viewModelScope.launch {
             _errorMessage.value = null
+            _error.value = null
             _isLoading.value = true
             authManager.authWithEmail(email, password).collect { state ->
                 when (state) {
@@ -93,6 +103,10 @@ class ProfileIosViewModel(
                     }
                     is AuthState.Error -> {
                         _errorMessage.value = state.errorMessage
+                        // explicit publish — login это активное действие пользователя.
+                        // В Шаге 5 алерт показывается, но БЕЗ кнопки «Повторить»
+                        // (auth-операция, повтор через ввод пароля).
+                        _error.value = state.appError
                         _isLoading.value = false
                     }
                     else -> {}
@@ -128,6 +142,7 @@ class ProfileIosViewModel(
             _isSyncing.value = true
             _syncMessage.value = null
             _errorMessage.value = null
+            _error.value = null
 
             val bearerToken = "Bearer $token"
 
@@ -143,6 +158,9 @@ class ProfileIosViewModel(
                         if (msg != null && msg != "Не все данные сохранены успешно") {
                             uploadErrors.add(msg)
                         }
+                        // explicit publish — пользователь нажал «Синхронизировать».
+                        // Финальное значение _error = последняя ошибка из loop'а.
+                        _error.value = state.entity.appError
                     }
                 }
             }
@@ -165,6 +183,7 @@ class ProfileIosViewModel(
                         if (msg != null && msg != "Не все данные загружены успешно") {
                             downloadErrors.add(msg)
                         }
+                        _error.value = state.entity.appError
                     }
                 }
             }
@@ -189,6 +208,9 @@ class ProfileIosViewModel(
                         append(routeErrs.joinToString("; "))
                     }
                 }
+                // Полностью успешный sync — не оставляем stale alert от предыдущих
+                // транзиентных ошибок в loop'е.
+                _error.value = null
             } else if (downloadErrors.isNotEmpty()) {
                 _errorMessage.value = downloadErrors.last()
             } else {
@@ -207,12 +229,16 @@ class ProfileIosViewModel(
             _userEmail.value = null
             _errorMessage.value = null
             _syncMessage.value = null
+            // Без сброса при logout — старый алерт может всплыть после
+            // повторного login на ту же VM-инстанцию (single в Koin).
+            _error.value = null
         }
     }
 
-    /** Сбрасывает сообщение об ошибке. */
+    /** Сбрасывает сообщение об ошибке (legacy + AppError). */
     fun clearError() {
         _errorMessage.value = null
+        _error.value = null
     }
 
     // ── Watch helpers для Swift ────────────────────────────────────────────────
@@ -231,6 +257,10 @@ class ProfileIosViewModel(
 
     fun watchErrorMessage(callback: (String?) -> Unit) {
         viewModelScope.launch { errorMessage.collect { callback(it) } }
+    }
+
+    fun watchError(callback: (AppError?) -> Unit) {
+        viewModelScope.launch { error.collect { callback(it) } }
     }
 
     fun watchUserEmail(callback: (String?) -> Unit) {
@@ -253,7 +283,13 @@ class ProfileIosViewModel(
                     _isLoading.value = false
                 }
                 is GetUserProfileState.Error -> {
-                    // Токен протух или недействителен
+                    // silent + Kermit: passive token-check при старте.
+                    // НЕ публикуем _error — пользователь экран не открывал
+                    // явно, не алертим. Просто чистим токен и предлагаем
+                    // войти (UI само покажет login form).
+                    Logger.withTag("Profile").i {
+                        "Token check failed (likely expired): ${state.message}"
+                    }
                     secureTokenStorage.saveAuthToken("")
                     _isLoggedIn.value = false
                     _isLoading.value = false
