@@ -7,11 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AA5QL1TE10000001 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AA5QL1TE00000001 /* libsqlite3.tbd */; };
+		403C32A52FA0876B0086C675 /* DeepLinkErrorObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403C32A42FA0876B0086C675 /* DeepLinkErrorObserver.swift */; };
 		A11A11A101000001 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000001 /* iOSApp.swift */; };
 		A11A11A101000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000002 /* ContentView.swift */; };
 		A11A11A101000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A11A11A001000003 /* Assets.xcassets */; };
-		C11C11C101000001 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = C11C11C001000002 /* Sentry */; };
 		A11A11A101000100 /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000100 /* AppCoordinator.swift */; };
 		A11A11A101000200 /* ViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000200 /* ViewModelWrapper.swift */; };
 		A11A11A101000201 /* HomeViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000201 /* HomeViewModelWrapper.swift */; };
@@ -39,14 +38,16 @@
 		A11A11A101000A05 /* PassengerFormViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000A05 /* PassengerFormViewModelWrapper.swift */; };
 		A11A11A101000A06 /* ProfileViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000A06 /* ProfileViewModelWrapper.swift */; };
 		A11A11A101000A07 /* AppInitViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000A07 /* AppInitViewModelWrapper.swift */; };
+		AA5QL1TE10000001 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AA5QL1TE00000001 /* libsqlite3.tbd */; };
+		C11C11C101000001 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = C11C11C001000002 /* Sentry */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		AA5QL1TE00000001 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
-		A11A11A001000001 /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = iOSApp.swift; path = iOSApp.swift; sourceTree = "<group>"; };
-		A11A11A001000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		A11A11A001000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Assets.xcassets; sourceTree = "<group>"; };
-		A11A11A001000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Info.plist; sourceTree = "<group>"; };
+		403C32A42FA0876B0086C675 /* DeepLinkErrorObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkErrorObserver.swift; sourceTree = "<group>"; };
+		A11A11A001000001 /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
+		A11A11A001000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A11A11A001000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A11A11A001000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A11A11A001000010 /* LocoDriver iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "LocoDriver iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A11A11A001000100 /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppCoordinator.swift; path = Navigation/AppCoordinator.swift; sourceTree = "<group>"; };
 		A11A11A001000200 /* ViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ViewModelWrapper.swift; path = ViewModels/ViewModelWrapper.swift; sourceTree = "<group>"; };
@@ -75,6 +76,7 @@
 		A11A11A001000A05 /* PassengerFormViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PassengerFormViewModelWrapper.swift; path = ViewModels/PassengerFormViewModelWrapper.swift; sourceTree = "<group>"; };
 		A11A11A001000A06 /* ProfileViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ProfileViewModelWrapper.swift; path = ViewModels/ProfileViewModelWrapper.swift; sourceTree = "<group>"; };
 		A11A11A001000A07 /* AppInitViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppInitViewModelWrapper.swift; path = ViewModels/AppInitViewModelWrapper.swift; sourceTree = "<group>"; };
+		AA5QL1TE00000001 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,9 +100,34 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		A11A11A001000031 /* iosApp */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000001 /* iOSApp.swift */,
+				A11A11A001000002 /* ContentView.swift */,
+				A11A11A001000003 /* Assets.xcassets */,
+				A11A11A001000004 /* Info.plist */,
+				A11A11A001000033 /* Navigation */,
+				A11A11A001000034 /* ViewModels */,
+				A11A11A001000035 /* Screens */,
+				A11A11A00100003F /* Shared */,
+			);
+			path = iosApp;
+			sourceTree = "<group>";
+		};
+		A11A11A001000032 = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000031 /* iosApp */,
+				A11A11A001000030 /* Products */,
+				AA5QL1TE00000002 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
 		A11A11A001000033 /* Navigation */ = {
 			isa = PBXGroup;
 			children = (
+				403C32A42FA0876B0086C675 /* DeepLinkErrorObserver.swift */,
 				A11A11A001000100 /* AppCoordinator.swift */,
 			);
 			name = Navigation;
@@ -137,38 +164,6 @@
 				A11A11A00100003E /* AllRoutes */,
 			);
 			name = Screens;
-			sourceTree = "<group>";
-		};
-		A11A11A00100003B /* Purchases */ = {
-			isa = PBXGroup;
-			children = (
-				A11A11A001000900 /* PurchasesView.swift */,
-			);
-			name = Purchases;
-			sourceTree = "<group>";
-		};
-		A11A11A00100003C /* Search */ = {
-			isa = PBXGroup;
-			children = (
-				A11A11A001000901 /* SearchView.swift */,
-			);
-			name = Search;
-			sourceTree = "<group>";
-		};
-		A11A11A00100003D /* WorkSchedule */ = {
-			isa = PBXGroup;
-			children = (
-				A11A11A001000902 /* WorkScheduleView.swift */,
-			);
-			name = WorkSchedule;
-			sourceTree = "<group>";
-		};
-		A11A11A00100003E /* AllRoutes */ = {
-			isa = PBXGroup;
-			children = (
-				A11A11A001000903 /* AllRoutesView.swift */,
-			);
-			name = AllRoutes;
 			sourceTree = "<group>";
 		};
 		A11A11A001000036 /* Home */ = {
@@ -214,6 +209,38 @@
 			name = Profile;
 			sourceTree = "<group>";
 		};
+		A11A11A00100003B /* Purchases */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000900 /* PurchasesView.swift */,
+			);
+			name = Purchases;
+			sourceTree = "<group>";
+		};
+		A11A11A00100003C /* Search */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000901 /* SearchView.swift */,
+			);
+			name = Search;
+			sourceTree = "<group>";
+		};
+		A11A11A00100003D /* WorkSchedule */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000902 /* WorkScheduleView.swift */,
+			);
+			name = WorkSchedule;
+			sourceTree = "<group>";
+		};
+		A11A11A00100003E /* AllRoutes */ = {
+			isa = PBXGroup;
+			children = (
+				A11A11A001000903 /* AllRoutesView.swift */,
+			);
+			name = AllRoutes;
+			sourceTree = "<group>";
+		};
 		A11A11A00100003F /* Shared */ = {
 			isa = PBXGroup;
 			children = (
@@ -225,37 +252,12 @@
 			name = Shared;
 			sourceTree = "<group>";
 		};
-		A11A11A001000031 /* iosApp */ = {
-			isa = PBXGroup;
-			children = (
-				A11A11A001000001 /* iOSApp.swift */,
-				A11A11A001000002 /* ContentView.swift */,
-				A11A11A001000003 /* Assets.xcassets */,
-				A11A11A001000004 /* Info.plist */,
-				A11A11A001000033 /* Navigation */,
-				A11A11A001000034 /* ViewModels */,
-				A11A11A001000035 /* Screens */,
-				A11A11A00100003F /* Shared */,
-			);
-			name = iosApp;
-			path = iosApp;
-			sourceTree = "<group>";
-		};
 		AA5QL1TE00000002 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				AA5QL1TE00000001 /* libsqlite3.tbd */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		A11A11A001000032 /* MainGroup */ = {
-			isa = PBXGroup;
-			children = (
-				A11A11A001000031 /* iosApp */,
-				A11A11A001000030 /* Products */,
-				AA5QL1TE00000002 /* Frameworks */,
-			);
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -265,11 +267,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = A11A11A001000051 /* Build configuration list for PBXNativeTarget "LocoDriver iOS" */;
 			buildPhases = (
-				A11A11A001000060 /* ShellScript (Compile Kotlin Multiplatform) */,
+				A11A11A001000060 /* Compile Kotlin Multiplatform */,
 				A11A11A001000061 /* Sources */,
 				A11A11A001000020 /* Frameworks */,
 				A11A11A001000062 /* Resources */,
-				A11A11A001000063 /* ShellScript (Embed KMP Framework) */,
+				A11A11A001000063 /* Embed KMP Framework */,
 			);
 			buildRules = (
 			);
@@ -306,11 +308,11 @@
 				en,
 				Base,
 			);
-			mainGroup = A11A11A001000032 /* MainGroup */;
-			productRefGroup = A11A11A001000030 /* Products */;
+			mainGroup = A11A11A001000032;
 			packageReferences = (
 				C11C11C001000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 			);
+			productRefGroup = A11A11A001000030 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -331,7 +333,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		A11A11A001000060 /* ShellScript (Compile Kotlin Multiplatform) */ = {
+		A11A11A001000060 /* Compile Kotlin Multiplatform */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -349,7 +351,7 @@
 			shellPath = /bin/sh;
 			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :iosApp:embedAndSignAppleFrameworkForXcode\n";
 		};
-		A11A11A001000063 /* ShellScript (Embed KMP Framework) */ = {
+		A11A11A001000063 /* Embed KMP Framework */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -380,6 +382,7 @@
 				A11A11A101000002 /* ContentView.swift in Sources */,
 				A11A11A101000100 /* AppCoordinator.swift in Sources */,
 				A11A11A101000200 /* ViewModelWrapper.swift in Sources */,
+				403C32A52FA0876B0086C675 /* DeepLinkErrorObserver.swift in Sources */,
 				A11A11A101000201 /* HomeViewModelWrapper.swift in Sources */,
 				A11A11A101000202 /* FormViewModelWrapper.swift in Sources */,
 				A11A11A101000203 /* SettingsViewModelWrapper.swift in Sources */,
@@ -389,21 +392,21 @@
 				A11A11A101000500 /* SalaryCalculationView.swift in Sources */,
 				A11A11A101000600 /* SettingsView.swift in Sources */,
 				A11A11A101000700 /* ProfileView.swift in Sources */,
-			A11A11A101000800 /* TimeFormatter.swift in Sources */,
-			A11A11A101000810 /* AppColors.swift in Sources */,
-			A11A11A101000820 /* SyncToastCenter.swift in Sources */,
-			A11A11A101000821 /* RouteContextMenuRow.swift in Sources */,
-			A11A11A101000900 /* PurchasesView.swift in Sources */,
-			A11A11A101000901 /* SearchView.swift in Sources */,
-			A11A11A101000902 /* WorkScheduleView.swift in Sources */,
-			A11A11A101000903 /* AllRoutesView.swift in Sources */,
-			A11A11A101000A00 /* FormLocoView.swift in Sources */,
-			A11A11A101000A01 /* FormTrainView.swift in Sources */,
-			A11A11A101000A02 /* FormPassengerView.swift in Sources */,
-			A11A11A101000A03 /* LocoFormViewModelWrapper.swift in Sources */,
-			A11A11A101000A04 /* TrainFormViewModelWrapper.swift in Sources */,
-			A11A11A101000A05 /* PassengerFormViewModelWrapper.swift in Sources */,
-			A11A11A101000A06 /* ProfileViewModelWrapper.swift in Sources */,
+				A11A11A101000800 /* TimeFormatter.swift in Sources */,
+				A11A11A101000810 /* AppColors.swift in Sources */,
+				A11A11A101000820 /* SyncToastCenter.swift in Sources */,
+				A11A11A101000821 /* RouteContextMenuRow.swift in Sources */,
+				A11A11A101000900 /* PurchasesView.swift in Sources */,
+				A11A11A101000901 /* SearchView.swift in Sources */,
+				A11A11A101000902 /* WorkScheduleView.swift in Sources */,
+				A11A11A101000903 /* AllRoutesView.swift in Sources */,
+				A11A11A101000A00 /* FormLocoView.swift in Sources */,
+				A11A11A101000A01 /* FormTrainView.swift in Sources */,
+				A11A11A101000A02 /* FormPassengerView.swift in Sources */,
+				A11A11A101000A03 /* LocoFormViewModelWrapper.swift in Sources */,
+				A11A11A101000A04 /* TrainFormViewModelWrapper.swift in Sources */,
+				A11A11A101000A05 /* PassengerFormViewModelWrapper.swift in Sources */,
+				A11A11A101000A06 /* ProfileViewModelWrapper.swift in Sources */,
 				A11A11A101000A07 /* AppInitViewModelWrapper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -528,14 +531,14 @@
 			};
 			name = Release;
 		};
-		A11A11A001000072 /* Debug - Target */ = {
+		A11A11A001000072 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "";
 				CODE_SIGN_STYLE = Automatic;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				CURRENT_PROJECT_VERSION = 64;
 				DEVELOPMENT_TEAM = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -553,14 +556,14 @@
 			};
 			name = Debug;
 		};
-		A11A11A001000073 /* Release - Target */ = {
+		A11A11A001000073 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "";
 				CODE_SIGN_STYLE = Automatic;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				CURRENT_PROJECT_VERSION = 64;
 				DEVELOPMENT_TEAM = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -619,7 +622,6 @@
 			productName = Sentry;
 		};
 /* End XCSwiftPackageProductDependency section */
-
 	};
 	rootObject = A11A11A001000050 /* Project object */;
 }
