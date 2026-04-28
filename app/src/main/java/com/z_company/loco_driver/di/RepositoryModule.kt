@@ -88,6 +88,7 @@ val repositoryModule = module {
             settingsUseCase = get(),
             salarySettingUseCase = get(),
             calendarUseCase = get(),
+            productionCalendarUseCase = get(),
             releaseDayUseCase = get(),
             routeUseCase = get(),
             routesManager = get(),
