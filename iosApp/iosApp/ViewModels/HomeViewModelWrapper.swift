@@ -21,6 +21,23 @@ final class HomeViewModelWrapper: ObservableObject {
     @Published var normaHoursToday: Int = 0
     @Published var todayWorkMs: Int64 = 0
 
+    /// Pull-to-refresh индикатор. SwiftUI .refreshable polls этот флаг,
+    /// чтобы держать спиннер ровно пока идёт syncFromRemote.
+    @Published var isRefreshing: Bool = false
+
+    /// Типизированная ошибка для алерта с кнопкой «Повторить».
+    @Published var error: AppError? = nil
+
+    /// Last retry'абельное действие. delete/copy НЕ записываются:
+    /// delete — silent recovery by design в HomeIosViewModel; copy —
+    /// локальная DB-операция, ошибки маловероятны.
+    private var lastAction: LastAction? = nil
+    private enum LastAction {
+        case sync(id: String)
+        case share(id: String)
+        case refresh
+    }
+
     init() {
         viewModel.watchRoutes { [weak self] list in
             DispatchQueue.main.async {
@@ -80,11 +97,18 @@ final class HomeViewModelWrapper: ObservableObject {
         viewModel.watchIsCreatingShareLink { [weak self] loading in
             DispatchQueue.main.async { self?.isCreatingShareLink = loading.boolValue }
         }
+        viewModel.watchIsRefreshing { [weak self] loading in
+            DispatchQueue.main.async { self?.isRefreshing = loading.boolValue }
+        }
+        viewModel.watchError { [weak self] e in
+            DispatchQueue.main.async { self?.error = e }
+        }
     }
 
     @Published var isSyncingRoute: Bool = false
     @Published var isCreatingShareLink: Bool = false
 
+    // delete/copy не записывают lastAction — см. enum LastAction.
     func deleteRoute(routeId: String) {
         viewModel.deleteRoute(routeId: routeId)
     }
@@ -98,14 +122,32 @@ final class HomeViewModelWrapper: ObservableObject {
     }
 
     func syncRoute(routeId: String) {
+        lastAction = .sync(id: routeId)
         viewModel.syncRoute(routeId: routeId)
     }
 
     func shareRoute(routeId: String) {
+        lastAction = .share(id: routeId)
         viewModel.shareRoute(routeId: routeId)
+    }
+
+    func refresh() {
+        lastAction = .refresh
+        viewModel.refresh()
     }
 
     func setCurrentMonth(month: Int, year: Int) {
         viewModel.setCurrentMonth(month: Int32(month), year: Int32(year))
+    }
+
+    func clearError() { viewModel.clearError(); lastAction = nil }
+
+    func retry() {
+        guard let a = lastAction else { return }
+        switch a {
+        case .sync(let id):  syncRoute(routeId: id)
+        case .share(let id): shareRoute(routeId: id)
+        case .refresh:       refresh()
+        }
     }
 }

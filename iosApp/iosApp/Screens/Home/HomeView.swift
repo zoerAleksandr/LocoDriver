@@ -104,6 +104,17 @@ struct HomeView: View {
         }
         .background(Color.appBg)
         .navigationBarHidden(true)
+        // Pull-to-refresh: Variant 2 с polling vm.isRefreshing.
+        // SwiftUI ждёт async-блок — поэтому polling до момента, когда
+        // KMP-VM сбросит isRefreshing (или таймаут 30с — соответствует
+        // HttpTimeout в RemoteRestClient).
+        .refreshable {
+            vm.refresh()
+            let start = Date()
+            while vm.isRefreshing && Date().timeIntervalSince(start) < 30 {
+                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+            }
+        }
         .sheet(isPresented: $showMonthPicker) {
             MonthPickerSheet(
                 selectedMonth: vm.currentMonth,
@@ -120,6 +131,20 @@ struct HomeView: View {
             }
             Button("Отмена", role: .cancel) { routeToDelete = nil }
         } message: { Text("Это действие нельзя отменить.") }
+        // Алерт для типизированных ошибок (sync/share/refresh).
+        // delete и copy НЕ публикуют _error — см. HomeViewModelWrapper.LastAction.
+        .alert(
+            vm.error?.userMessage ?? "Ошибка",
+            isPresented: Binding(
+                get: { vm.error != nil },
+                set: { if !$0 { vm.clearError() } }
+            )
+        ) {
+            if vm.error?.canRetry == true {
+                Button("Повторить") { vm.retry() }
+            }
+            Button("OK", role: .cancel) {}
+        }
     }
 
     // MARK: - Stats Pager
