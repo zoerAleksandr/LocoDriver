@@ -330,12 +330,13 @@ class HomeIosViewModel(
                             _messages.emit("Маршрут сохранён в облаке")
                         }
                         is ResultState.Error -> {
-                            val msg = state.entity.message
-                                ?: state.entity.throwable?.message
-                                ?: "Ошибка синхронизации"
-                            _messages.emit(msg)
                             // explicit publish: пользователь нажал «Синхронизировать».
                             _error.value = state.entity.appError
+                            Logger.withTag("Home").e {
+                                "syncRoute failed: ${state.entity.message ?: state.entity.throwable?.message}"
+                            }
+                            // НЕ emit в _messages — alert уже показан через _error.
+                            // Stack trace из throwable.message не должен попасть в toast.
                         }
                         is ResultState.Loading -> { /* ignore */ }
                     }
@@ -370,12 +371,13 @@ class HomeIosViewModel(
                             _shareLinks.emit(text)
                         }
                         is ResultState.Error -> {
-                            val msg = state.entity.message
-                                ?: state.entity.throwable?.message
-                                ?: "Ошибка создания ссылки"
-                            _messages.emit(msg)
                             // explicit publish: пользователь нажал «Поделиться».
                             _error.value = state.entity.appError
+                            Logger.withTag("Home").e {
+                                "shareRoute failed: ${state.entity.message ?: state.entity.throwable?.message}"
+                            }
+                            // НЕ emit в _messages — alert уже показан через _error.
+                            // Stack trace из throwable.message не должен попасть в toast.
                         }
                         is ResultState.Loading -> { /* ignore */ }
                     }
