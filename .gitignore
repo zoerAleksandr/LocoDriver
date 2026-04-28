@@ -34,3 +34,6 @@ iosApp/build/
 iosApp/build/generated/
 iosApp/build/kotlin/
 features/tracking/build/
+
+# Claude Code local permissions
+.claude/settings.local.json

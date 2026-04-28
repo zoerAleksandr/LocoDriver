@@ -1,0 +1,23 @@
+-- Миграция 11: добавление поддержки региональных праздников.
+--
+-- 1. Колонка region в UserSettings — ISO 3166-2 код субъекта (например "RU-TA").
+--    NULL = используется только стандартный календарь (по country).
+-- 2. Новая таблица RegionalHoliday — региональные праздники, накладываются
+--    ПОВЕРХ стандартного производственного календаря (приоритет региональных).
+
+-- Защитная миграция (на случай если колонка уже существует — IF NOT EXISTS
+-- в ALTER не поддерживается, но в новой схеме она уже добавлена).
+ALTER TABLE UserSettings ADD COLUMN region TEXT DEFAULT NULL;
+
+-- Создаём таблицу RegionalHoliday если ещё нет
+CREATE TABLE IF NOT EXISTS RegionalHoliday (
+    region TEXT NOT NULL,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    dayOfMonth INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    PRIMARY KEY (region, year, month, dayOfMonth)
+);
+
+CREATE INDEX IF NOT EXISTS idx_regional_holiday_region_year
+    ON RegionalHoliday(region, year);

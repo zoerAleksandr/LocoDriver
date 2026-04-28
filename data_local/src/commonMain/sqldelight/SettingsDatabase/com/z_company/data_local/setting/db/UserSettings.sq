@@ -25,12 +25,13 @@ CREATE TABLE IF NOT EXISTS UserSettings (
     isShowOtherCurrent INTEGER NOT NULL DEFAULT 0,
     country TEXT NOT NULL DEFAULT 'RU',
     crossMonthTimezone TEXT NOT NULL DEFAULT 'LOCAL',
-    useStandardTimePicker INTEGER NOT NULL DEFAULT 0
+    useStandardTimePicker INTEGER NOT NULL DEFAULT 0,
+    region TEXT DEFAULT NULL
 );
 
 insertOrReplace:
-INSERT OR REPLACE INTO UserSettings (settingsKey, minTimeRest, minTimeHomeRest, lastEnteredDieselCoefficient, nightTime, updateAt, defaultLocoType, defaultWorkTime, usingDefaultWorkTime, isConsiderFutureRoute, monthOfYear, stationList, timeZone, locomotiveSeriesList, servicePhases, standardTimesStartWork, subscriptionPeriod, isDecimalTime, isShowBreak, isShowLocoHeating, isShowLocoAuxiliary, isShowLocoStatistics, isShowLocoNorma, isShowOtherCurrent, country, crossMonthTimezone, useStandardTimePicker)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO UserSettings (settingsKey, minTimeRest, minTimeHomeRest, lastEnteredDieselCoefficient, nightTime, updateAt, defaultLocoType, defaultWorkTime, usingDefaultWorkTime, isConsiderFutureRoute, monthOfYear, stationList, timeZone, locomotiveSeriesList, servicePhases, standardTimesStartWork, subscriptionPeriod, isDecimalTime, isShowBreak, isShowLocoHeating, isShowLocoAuxiliary, isShowLocoStatistics, isShowLocoNorma, isShowOtherCurrent, country, crossMonthTimezone, useStandardTimePicker, region)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getByKey:
 SELECT * FROM UserSettings WHERE settingsKey = :settingsKey;

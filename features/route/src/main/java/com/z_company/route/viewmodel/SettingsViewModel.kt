@@ -20,6 +20,7 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.NormaUseCase
 import com.z_company.domain.use_cases.ProductionCalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.remote_rest.SettingManager
@@ -34,6 +35,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -45,9 +49,11 @@ import org.koin.core.component.inject
 class SettingsViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
+    private val normaUseCase: NormaUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val productionCalendarUseCase: ProductionCalendarUseCase by inject()
     private val settingManager: SettingManager by inject()
+    private val regionalHolidaysRepository: com.z_company.domain.repositories.RegionalHolidaysRepository by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
@@ -187,11 +193,44 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         loadSettings()
         loadMonthList()
         loadPurchasesInfo()
+        observeNorma()
     }
 
     fun resetSaveState() {
         _uiState.update {
             it.copy(saveSettingsState = null)
+        }
+    }
+
+    /**
+     * Наблюдает за нормой часов через NormaUseCase.
+     * Реагирует на смену selectMonthOfYear в настройках — переключает поток
+     * нормы на новый месяц/год через flatMapLatest.
+     * Обновляет [SettingsUiState.normaHours] при любом изменении данных.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private fun observeNorma() {
+        viewModelScope.launch {
+            try {
+                // Ждём загрузки настроек (нужен selectMonthOfYear)
+                _uiState
+                    .map { it.settingDetails }
+                    .distinctUntilChanged()
+                    .flatMapLatest { settingsState ->
+                        val settings = (settingsState as? com.z_company.core.ResultState.Success)?.data
+                        val month = settings?.selectMonthOfYear
+                        if (month != null) {
+                            normaUseCase.normaHoursFlow(month.year, month.month)
+                        } else {
+                            kotlinx.coroutines.flow.flowOf(null)
+                        }
+                    }
+                    .collect { hours ->
+                        _uiState.update { it.copy(normaHours = hours) }
+                    }
+            } catch (e: Exception) {
+                e.sendToSentry("SettingsViewModel", "observeNorma")
+            }
         }
     }
 
@@ -212,32 +251,35 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         loadSettingsJob?.cancel()
         loadSettingsJob = viewModelScope.launch {
             try {
-                val result = settingsUseCase.getFlowCurrentSettingsState()
-                    .first { it is ResultState.Success }
-                _uiState.update {
-                    it.copy(
-                        settingDetails = result,
-                    )
-                }
-                if (result is ResultState.Success) {
-                    result.data?.let { userSettings ->
-                        val merged = userSettings.copy(
-                            isShowLocoHeating = sharedPreferenceStorage.isShowLocoHeating(),
-                            isShowLocoAuxiliary = sharedPreferenceStorage.isShowLocoAuxiliary(),
-                            isShowLocoStatistics = sharedPreferenceStorage.isShowLocoStatistics(),
-                            isShowLocoNorma = sharedPreferenceStorage.isShowLocoNorma(),
-                            isShowOtherCurrent = sharedPreferenceStorage.isShowOtherCurrent()
-                        )
-                        _uiState.update {
-                            it.copy(
-                                settingDetails = ResultState.Success(merged),
-                                dateAndTimeConverter = DateAndTimeConverter(merged),
-                                updateAt = merged.updateAt,
-                                servicePhases = merged.servicePhases.toMutableStateList()
+                // Подписываемся на изменения UserSettings в БД continuously,
+                // чтобы после syncFromRemote (загрузка с сервера) UI Settings
+                // отразил новые значения country/region/etc. Раньше был .first {}
+                // — настройки кэшировались в памяти и UI не обновлялся.
+                // Если пользователь сейчас правит настройку (autoSaveJob активен),
+                // пропускаем эмит чтобы не затереть его in-progress изменения —
+                // когда autoSave завершится, эмит из DB совпадёт с локальным.
+                settingsUseCase.getFlowCurrentSettingsState()
+                    .collect { result ->
+                        if (result !is ResultState.Success) return@collect
+                        if (autoSaveJob?.isActive == true) return@collect
+                        result.data?.let { userSettings ->
+                            val merged = userSettings.copy(
+                                isShowLocoHeating = sharedPreferenceStorage.isShowLocoHeating(),
+                                isShowLocoAuxiliary = sharedPreferenceStorage.isShowLocoAuxiliary(),
+                                isShowLocoStatistics = sharedPreferenceStorage.isShowLocoStatistics(),
+                                isShowLocoNorma = sharedPreferenceStorage.isShowLocoNorma(),
+                                isShowOtherCurrent = sharedPreferenceStorage.isShowOtherCurrent()
                             )
+                            _uiState.update {
+                                it.copy(
+                                    settingDetails = ResultState.Success(merged),
+                                    dateAndTimeConverter = DateAndTimeConverter(merged),
+                                    updateAt = merged.updateAt,
+                                    servicePhases = merged.servicePhases.toMutableStateList()
+                                )
+                            }
                         }
                     }
-                }
             } catch (e: Exception) {
                 e.sendToSentry("SettingsViewModel", "loadSettings")
             }
@@ -247,13 +289,21 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 calendarUseCase.loadFlowMonthOfYearListState().collect { months ->
                     currentSettings?.let { setting ->
                         val current = setting.selectMonthOfYear
-                        // Ищем актуальный месяц в обновлённых данных (после смены страны
-                        // или применения производственного календаря MonthOfYear обновляется)
-                        val updatedMonth = months.find {
-                            it.year == current.year && it.month == current.month
-                        } ?: current
+                        // Ищем актуальный месяц в обновлённых данных. ВАЖНО: в локальной
+                        // БД могут быть дубли MonthOfYear для одного year+month (наследие
+                        // старых импортов). find {} брал ПЕРВЫЙ — и это мог быть
+                        // устаревший экземпляр без региональных HOLIDAY-тегов, из-за
+                        // чего норма "сбрасывалась" обратно на стандартную через
+                        // долю секунды после applyRegionalHolidays. Берём дедуплицированно
+                        // самый "полный" (с наибольшим количеством days) — то же самое,
+                        // что делает refreshSelectMonthOfYear().
+                        val updatedMonth = months
+                            .filter { it.year == current.year && it.month == current.month }
+                            .maxByOrNull { it.days.size }
+                            ?: current
 
-                        // Если теги изменились (смена RU→BY/KZ или наоборот) — обновляем
+                        // Если теги изменились (смена RU→BY/KZ или наоборот, либо
+                        // applyRegionalHolidays пометил день как HOLIDAY) — обновляем
                         // selectMonthOfYear в settings, чтобы норма пересчиталась везде
                         if (updatedMonth.days.map { it.tag } != current.days.map { it.tag } ||
                             updatedMonth.days.map { it.isReleaseDay } != current.days.map { it.isReleaseDay }
@@ -487,13 +537,23 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         } else {
             CrossMonthTimezone.LOCAL
         }
-        currentSettings = currentSettings?.copy(
-            country = country,
-            timeZone = autoTimeZone,
-            crossMonthTimezone = autoCrossMonthTimezone
-        )
+        // Нужен coroutine context для suspend-вызовов — выносим всё в viewModelScope.launch
         viewModelScope.launch {
             try {
+                // Если регион выбран, но он не относится к новой стране — сбрасываем.
+                // Например, был "RU-TA", сменили страну на Беларусь — региона быть не может.
+                val currentRegion = currentSettings?.region
+                val regionStillValid = currentRegion != null &&
+                    regionalHolidaysRepository.getRegionByCode(currentRegion)?.country == country
+                val newRegion = if (regionStillValid) currentRegion else null
+
+                currentSettings = currentSettings?.copy(
+                    country = country,
+                    timeZone = autoTimeZone,
+                    crossMonthTimezone = autoCrossMonthTimezone,
+                    region = newRegion,
+                )
+
                 val now = Clock.System.now()
                     .toLocalDateTime(TimeZone.currentSystemDefault())
                 val currentYear = now.year
@@ -506,6 +566,15 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                     fetchAndApplyCalendar(country, nextYear)
                 }
 
+                // Если после смены страны регион остался валидным — применяем
+                // его праздники поверх свежего стандартного календаря.
+                newRegion?.let { region ->
+                    calendarUseCase.applyRegionalHolidays(region, currentYear).collect {}
+                    productionCalendarUseCase.nextYearToFetchIfDecember(currentMonth, currentYear)?.let { nextYear ->
+                        calendarUseCase.applyRegionalHolidays(region, nextYear).collect {}
+                    }
+                }
+
                 // Очищаем данные других стран
                 val allCountries = listOf("RU", "KZ", "BY")
                 allCountries.filter { it != country }.forEach { otherCountry ->
@@ -516,6 +585,9 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 // в настройках, чтобы норма пересчиталась без ожидания реактивного потока.
                 // Реактивный поток в loadSettings() дополнительно обновит isReleaseDay.
                 refreshSelectMonthOfYear()
+
+                // Перезагружаем список регионов для новой страны
+                reloadRegions()
 
                 _uiState.update { it.copy(countryLoadingState = CountryLoadingState.Success) }
             } catch (e: Exception) {
@@ -532,6 +604,156 @@ class SettingsViewModel : ViewModel(), KoinComponent {
 
     fun clearCountryLoadingState() {
         _uiState.update { it.copy(countryLoadingState = null) }
+    }
+
+    /**
+     * Список регионов для текущей страны — StateFlow для UI.
+     * Загружается при init и при каждом успешном changeCountry.
+     */
+    private val _regionsForCountry = MutableStateFlow<List<com.z_company.domain.entities.calendar.Region>>(emptyList())
+    val regionsForCountry = _regionsForCountry.asStateFlow()
+
+    /**
+     * Флаг загрузки списка регионов (запрос к серверу /v1/regions).
+     * UI использует чтобы показать индикатор вместо dropdown пока данные грузятся —
+     * иначе при первом открытии настроек секция регионов "не появлялась" из-за
+     * пустого списка, и пользователь не понимал что данные ещё догружаются.
+     */
+    private val _isRegionsLoading = MutableStateFlow(false)
+    val isRegionsLoading = _isRegionsLoading.asStateFlow()
+
+    init {
+        // Реактивно загружаем регионы при изменении страны в настройках.
+        // Раньше использовался хардкод delay(500) — если loadSettings успевал
+        // дольше (медленный диск / первый запуск), reloadRegions вызывался
+        // до того как country был известен → список регионов оставался пустым.
+        viewModelScope.launch {
+            try {
+                _uiState
+                    .map { (it.settingDetails as? ResultState.Success)?.data?.country }
+                    .distinctUntilChanged()
+                    .collect { country ->
+                        if (country != null) {
+                            reloadRegionsForCountry(country)
+                        }
+                    }
+            } catch (e: Exception) {
+                e.sendToSentry("SettingsViewModel", "init_regions")
+            }
+        }
+    }
+
+    private suspend fun reloadRegions() {
+        val country = currentSettings?.country ?: "RU"
+        reloadRegionsForCountry(country)
+    }
+
+    private suspend fun reloadRegionsForCountry(country: String) {
+        _isRegionsLoading.value = true
+        try {
+            _regionsForCountry.value =
+                regionalHolidaysRepository.getRegionsForCountry(country)
+        } catch (e: Exception) {
+            // Не валим экран настроек — оставляем старый список
+            // (пользователь сможет повторить через смену страны).
+            e.sendToSentry("SettingsViewModel", "reloadRegionsForCountry")
+        } finally {
+            _isRegionsLoading.value = false
+        }
+    }
+
+    /**
+     * Смена региона. АТОМАРНО: сначала проверяет сеть pre-flight запросом,
+     * только при успехе коммитит регион в настройки и применяет к календарю.
+     *
+     * При ошибке сети/сервера регион НЕ меняется — пользователь увидит диалог
+     * с конкретной причиной и старый регион останется выбранным.
+     *
+     * Управляет [RegionLoadingState] для показа пользователю прогресса.
+     *
+     * Запускается на Dispatchers.IO чтобы Main не блокировался — иначе
+     * CircularProgressIndicator в диалоге "замирает" из-за пропущенных кадров.
+     */
+    fun changeRegion(region: String?) {
+        val country = currentSettings?.country ?: return
+        val previousRegion = currentSettings?.region
+
+        // Если кликнули на тот же регион — ничего не делаем
+        if (previousRegion == region) return
+
+        // Имя для loading-диалога (resolve из списка регионов или fallback на код)
+        val regionName: String = if (region == null) {
+            "Без региона"
+        } else {
+            _regionsForCountry.value.firstOrNull { it.code == region }?.displayName ?: region
+        }
+        _uiState.update { it.copy(regionLoadingState = RegionLoadingState.Loading(regionName)) }
+
+        // ВАЖНО: Dispatchers.IO — иначе DB writes на Main блокируют Choreographer
+        // и анимация лоадера в диалоге "замирает".
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val now = Clock.System.now()
+                    .toLocalDateTime(TimeZone.currentSystemDefault())
+                val currentYear = now.year
+                val currentMonth = now.monthNumber
+                val nextYear = productionCalendarUseCase
+                    .nextYearToFetchIfDecember(currentMonth, currentYear)
+
+                // 1. Pre-flight: строгая загрузка с сервера — БЕЗ fallback.
+                //    Если сеть не отвечает, бросит исключение, мы это поймаем
+                //    и НЕ будем менять регион в настройках.
+                if (region != null) {
+                    regionalHolidaysRepository.loadHolidaysForRegionYearStrict(region, currentYear)
+                    nextYear?.let {
+                        regionalHolidaysRepository.loadHolidaysForRegionYearStrict(region, it)
+                    }
+                }
+
+                // 2. Сеть работает — теперь коммитим регион в настройки
+                currentSettings = currentSettings?.copy(region = region)
+
+                // 3. Перезагружаем стандартный — сбрасывает старые региональные пометки
+                fetchAndApplyCalendar(country, currentYear)
+                nextYear?.let { fetchAndApplyCalendar(country, it) }
+
+                // 4. Накладываем новые региональные сверху (теперь fallback допустим —
+                //    данные уже подтверждены на шаге 1, applyRegionalHolidays использует
+                //    тот же кэш регионов в репозитории)
+                region?.let {
+                    calendarUseCase.applyRegionalHolidays(it, currentYear).collect {}
+                    nextYear?.let { ny ->
+                        calendarUseCase.applyRegionalHolidays(it, ny).collect {}
+                    }
+                }
+
+                // 5. Сохраняем настройки + обновляем выбранный месяц для пересчёта нормы
+                currentSettings?.let { settingsUseCase.saveSetting(it).collect {} }
+                refreshSelectMonthOfYear()
+
+                _uiState.update { it.copy(regionLoadingState = RegionLoadingState.Success) }
+            } catch (e: Exception) {
+                // Откат: регион не менялся (мы коммитим только после pre-flight),
+                // но на всякий случай гарантируем согласованность через явный copy.
+                currentSettings = currentSettings?.copy(region = previousRegion)
+
+                val msg = e.message ?: ""
+                if (isNetworkErrorMessage(msg)
+                    || e is java.net.UnknownHostException
+                    || e is java.net.ConnectException
+                    || e is java.io.IOException
+                ) {
+                    _uiState.update { it.copy(regionLoadingState = RegionLoadingState.NoInternet) }
+                } else {
+                    _uiState.update { it.copy(regionLoadingState = RegionLoadingState.Error) }
+                }
+                e.sendToSentry("SettingsViewModel", "changeRegion")
+            }
+        }
+    }
+
+    fun clearRegionLoadingState() {
+        _uiState.update { it.copy(regionLoadingState = null) }
     }
 
     private fun isNetworkErrorMessage(msg: String): Boolean =

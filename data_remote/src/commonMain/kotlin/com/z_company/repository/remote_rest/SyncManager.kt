@@ -7,6 +7,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.sendToSentry
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.ProductionCalendarUseCase
 import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
@@ -50,6 +51,7 @@ class SyncManager(
     private val settingsUseCase: SettingsUseCase,
     private val salarySettingUseCase: SalarySettingUseCase,
     private val calendarUseCase: CalendarUseCase,
+    private val productionCalendarUseCase: ProductionCalendarUseCase,
     private val releaseDayUseCase: ReleaseDayUseCase,
     private val routeUseCase: RouteUseCase,
     private val routesManager: RoutesManager,
@@ -397,6 +399,37 @@ class SyncManager(
                                     else -> {}
                                 }
                             }
+                        // ВАЖНО: перед applyRegionalHolidays перезагружаем production-календарь
+                        // с сервера. Это перезаписывает HOLIDAY-теги, которые могли остаться от
+                        // ранее выбранного региона. Без этого при смене региона на null или другой
+                        // регион устройство-приёмник сохраняет старые HOLIDAY-теги в норме.
+                        // Логика повторяет SettingsViewModel.fetchAndApplyCalendar() для согласованности.
+                        try {
+                            settingManager.getProductionCalendarFromRemote(userSettings.country, now.year)
+                                .collect { calState ->
+                                    if (calState is ResultState.Success) {
+                                        productionCalendarUseCase.saveCalendar(calState.data).collect {}
+                                        calendarUseCase.applyProductionCalendar(calState.data).collect {}
+                                    }
+                                }
+                            if (now.monthNumber == 12) {
+                                settingManager.getProductionCalendarFromRemote(userSettings.country, now.year + 1)
+                                    .collect { calState ->
+                                        if (calState is ResultState.Success) {
+                                            productionCalendarUseCase.saveCalendar(calState.data).collect {}
+                                            calendarUseCase.applyProductionCalendar(calState.data).collect {}
+                                        }
+                                    }
+                            }
+                            userSettings.region?.let { region ->
+                                calendarUseCase.applyRegionalHolidays(region, now.year).collect {}
+                                if (now.monthNumber == 12) {
+                                    calendarUseCase.applyRegionalHolidays(region, now.year + 1).collect {}
+                                }
+                            }
+                        } catch (e: Exception) {
+                            e.sendToSentry("SyncManager", "syncFromRemote_calendar_refresh")
+                        }
                     }
                     is ResultState.Error -> {
                         emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки UserSettings: ${loadState.entity.message ?: "Нет соединения"}")))

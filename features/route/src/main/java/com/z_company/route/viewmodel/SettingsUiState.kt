@@ -16,6 +16,23 @@ sealed class CountryLoadingState {
     object NoInternet : CountryLoadingState()
 }
 
+/**
+ * Состояние загрузки региональных праздников при смене региона.
+ * Аналог [CountryLoadingState] — показываем пользователю что идёт загрузка
+ * с сервера, чтобы он не подумал что приложение зависло.
+ *
+ * Loading.regionName — отображаемое название региона ("Республика Крым" и т.п.).
+ * Success — праздники подтянуты, норма пересчитана.
+ * Error — серверная ошибка (нерегиональная — сетевые ошибки идут в NoInternet).
+ * NoInternet — нет сети; работаем в режиме fallback (хардкод).
+ */
+sealed class RegionLoadingState {
+    data class Loading(val regionName: String) : RegionLoadingState()
+    object Success : RegionLoadingState()
+    object Error : RegionLoadingState()
+    object NoInternet : RegionLoadingState()
+}
+
 data class SettingsUiState(
     val settingDetails: ResultState<UserSettings?> = ResultState.Loading(),
     val userDetailsState: ResultState<User?> = ResultState.Loading(),
@@ -35,4 +52,11 @@ data class SettingsUiState(
     val servicePhases: SnapshotStateList<ServicePhase>? = mutableStateListOf(),
     val dateAndTimeConverter: DateAndTimeConverter? = null,
     val countryLoadingState: CountryLoadingState? = null,
+    val regionLoadingState: RegionLoadingState? = null,
+    /**
+     * Норма часов за текущий выбранный месяц — рассчитывается через NormaUseCase.
+     * Учитывает региональный календарь + дни отвлечений + производственный календарь.
+     * null = ещё не загружена.
+     */
+    val normaHours: Int? = null,
 )

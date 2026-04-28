@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -71,6 +72,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -190,6 +192,7 @@ fun HomeScreen(
     saveTimeEvent: SharedFlow<String>,
     onWorkScheduleScreen: () -> Unit,
     onClickVacation: () -> Unit,
+    normaHours: Int? = null,
     unsyncedRoutesCount: Int = 0,
     onSyncClick: () -> Unit = {},
     showSyncDialog: Boolean = false,
@@ -608,7 +611,13 @@ fun HomeScreen(
                     ) {
                         HorizontalPager(
                             modifier = Modifier.animateItem(),
-                            state = pagerState
+                            state = pagerState,
+                            // verticalAlignment=Top + Card.wrapContentHeight(Align.Top)
+                            // не дают карточке растягиваться на высоту самой
+                            // высокой страницы пейджера (иначе MainInfo с 2-мя
+                            // строками выглядит с пустым местом снизу из-за того,
+                            // что DetailWorkTimeCard выше).
+                            verticalAlignment = Alignment.Top
                         ) { page ->
                             when (page) {
                                 0 -> {
@@ -620,7 +629,8 @@ fun HomeScreen(
                                         totalTimeWithHoliday = totalTimeWithHoliday,
                                         currentMonthOfYear = currentMonthOfYear,
                                         dateAndTimeConverter = dateAndTimeConverter,
-                                        brush = brushMain
+                                        brush = brushMain,
+                                        normaHours = normaHours,
                                     )
                                 }
 
@@ -1610,11 +1620,16 @@ fun MainInfo(
     totalTimeWithHoliday: ResultState<Long>?,
     currentMonthOfYear: MonthOfYear?,
     dateAndTimeConverter: DateAndTimeConverter?,
-    brush: Brush
+    brush: Brush,
+    normaHours: Int? = null,
 ) {
     Card(
         modifier = Modifier
-            .padding(12.dp),
+            .padding(12.dp)
+            // wrapContentHeight(Top) — чтобы карточка не растягивалась
+            // на высоту самой высокой страницы пейджера. Без этого MainInfo
+            // (короткая) визуально получает пустое место снизу.
+            .wrapContentHeight(Alignment.Top),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -1625,112 +1640,35 @@ fun MainInfo(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Max)
                 .background(brush)
         ) {
-            // Чип "еще [HH:MM]" / "сверх [HH:MM]" — показывает остаток до нормы
-            // или переработку. Логика идентична большому виджету (LocoDriverWidget).
-            currentMonthOfYear?.let { month ->
-                val normaHoursInMonth = month.getPersonalNormaHours()
-                if (normaHoursInMonth > 0) {
-                    val normaMillis = normaHoursInMonth.toLong() * 3_600_000L
-                    val diff = totalTime - normaMillis
-                    val isOvertime = diff >= 0
-                    val remainingMillis = if (isOvertime) diff else -diff
-                    val timeStr = convertTimeToString(remainingMillis)
-                    val chipText = if (isOvertime) "сверх $timeStr" else "еще $timeStr"
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 12.dp, end = 12.dp),
-                        shape = Shapes.medium,
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                    ) {
-                        Text(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            text = chipText,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-            }
             Column(
                 modifier = Modifier
                     .padding(16.dp)
                     .fillMaxWidth(),
             ) {
                 AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
-                    val tooltipPosition = TooltipDefaults.rememberPlainTooltipPositionProvider()
-                    val state = rememberBasicTooltipState(isPersistent = false)
-                    val scope = rememberCoroutineScope()
-                    var tooltipText by remember {
-                        mutableStateOf("")
+                    // Чип "еще [HH:MM]" / "сверх [HH:MM]"
+                    val chipText: String? = currentMonthOfYear?.let { month ->
+                        val normaHoursInMonth = normaHours ?: month.getPersonalNormaHours()
+                        if (normaHoursInMonth > 0) {
+                            val normaMillis = normaHoursInMonth.toLong() * 3_600_000L
+                            val diff = totalTime - normaMillis
+                            val isOvertime = diff >= 0
+                            val remainingMillis = if (isOvertime) diff else -diff
+                            val timeStr = convertTimeToString(remainingMillis)
+                            if (isOvertime) "сверх $timeStr" else "еще $timeStr"
+                        } else null
                     }
-                    BasicTooltipBox(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        positionProvider = tooltipPosition,
-                        tooltip = {
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        shape = Shapes.medium,
-                                        color = MaterialTheme.colorScheme.surface
-                                    )
-                                    .padding(12.dp)
-                            ) {
-                                Text(
-                                    text = tooltipText,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        },
-                        state = state
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                modifier = Modifier.pointerInput(Unit) {
-                                    detectTapGestures(
-                                        onPress = {
-                                            scope.launch {
-                                                tooltipText = "Общее отработанное время"
-                                                state.show(MutatePriority.Default)
-                                            }
-                                        }
-                                    )
-                                },
-                                text = convertTimeToString(time),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                            if (totalTime != time) {
-                                val differenceTimeInLong = time.minus(totalTime)
-                                val totalTime = convertTimeToString(totalTime)
-                                val differenceTime = convertTimeToString(differenceTimeInLong)
-                                Text(
-                                    modifier = Modifier.pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onPress = {
-                                                scope.launch {
-                                                    tooltipText = "Рабочие + праздничные часы"
-                                                    state.show(MutatePriority.Default)
-                                                }
-                                            }
-                                        )
-                                    },
-                                    text = " ($totalTime + $differenceTime)",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                            }
-                        }
-                    }
+                    val breakdown = if (totalTime != time) {
+                        val diffMs = time.minus(totalTime)
+                        " (${convertTimeToString(totalTime)} + ${convertTimeToString(diffMs)})"
+                    } else null
+                    com.z_company.route.component.WorkedTimeHeader(
+                        time = convertTimeToString(time),
+                        breakdownText = breakdown,
+                        chipText = chipText,
+                    )
                 }
                 Spacer(modifier = Modifier.height(18.dp))
                 currentMonthOfYear?.let { month ->
@@ -1740,7 +1678,7 @@ fun MainInfo(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         val normaHoursInMonth =
-                            month.getPersonalNormaHours()
+                            normaHours ?: month.getPersonalNormaHours()
                         val percent =
                             ((totalTime * 100).toFloat() / (normaHoursInMonth * 3_600_000L).toFloat()) / 100f
 
@@ -1946,82 +1884,19 @@ fun DetailWorkTimeCard(
             AsyncDataValue(resultState = totalTimeWithHoliday) { totalTimeWithHoliday ->
                 totalTimeWithHoliday?.let {
                     val safeTotal = totalTimeWithHoliday.coerceAtLeast(1)  // никогда не будет 0
-
-                    val tooltipPosition = TooltipDefaults.rememberPlainTooltipPositionProvider()
-                    val state = rememberBasicTooltipState(isPersistent = false)
-                    val scope = rememberCoroutineScope()
-                    var tooltipText by remember {
-                        mutableStateOf("")
-                    }
-                    BasicTooltipBox(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        positionProvider = tooltipPosition,
-                        tooltip = {
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        shape = Shapes.medium,
-                                        color = MaterialTheme.colorScheme.surface
-                                    )
-                                    .padding(12.dp)
-                            ) {
-                                Text(
-                                    text = tooltipText,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        },
-                        state = state
-                    ) {
                         Column(
                             modifier = Modifier
                                 .padding(16.dp)
                                 .fillMaxWidth(),
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    modifier = Modifier.pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onPress = {
-                                                scope.launch {
-                                                    tooltipText = "Общее отработанное время"
-                                                    state.show(MutatePriority.Default)
-                                                }
-                                            }
-                                        )
-                                    },
-                                    text = convertTimeToString(totalTimeWithHoliday),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                                if (totalTime != totalTimeWithHoliday) {
-                                    val differenceTimeInLong = totalTimeWithHoliday.minus(totalTime)
-                                    val totalTime = convertTimeToString(totalTime)
-                                    val differenceTime = convertTimeToString(differenceTimeInLong)
-                                    Text(
-                                        modifier = Modifier.pointerInput(Unit) {
-                                            detectTapGestures(
-                                                onPress = {
-                                                    scope.launch {
-                                                        tooltipText =
-                                                            "Рабочие + праздничные часы"
-                                                        state.show(MutatePriority.Default)
-                                                    }
-                                                }
-                                            )
-                                        },
-                                        text = " ($totalTime + $differenceTime)",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.secondary
-                                    )
-                                }
-                            }
+                            val breakdown = if (totalTime != totalTimeWithHoliday) {
+                                val diffMs = totalTimeWithHoliday.minus(totalTime)
+                                " (${convertTimeToString(totalTime)} + ${convertTimeToString(diffMs)})"
+                            } else null
+                            com.z_company.route.component.WorkedTimeHeader(
+                                time = convertTimeToString(totalTimeWithHoliday),
+                                breakdownText = breakdown,
+                            )
                             Spacer(modifier = Modifier.height(18.dp))
                             AsyncDataValue(nightTimeState) { nightTime ->
                                 nightTime?.let {
@@ -2187,7 +2062,6 @@ fun DetailWorkTimeCard(
                                 }
                             }
                         }
-                    }
                 }
             }
         }

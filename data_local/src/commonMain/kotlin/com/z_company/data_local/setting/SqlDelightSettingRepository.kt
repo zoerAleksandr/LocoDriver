@@ -52,7 +52,8 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
             isShowOtherCurrent = if (us.isShowOtherCurrent) 1L else 0L,
             country = us.country,
             crossMonthTimezone = us.crossMonthTimezone.name,
-            useStandardTimePicker = if (us.useStandardTimePicker) 1L else 0L
+            useStandardTimePicker = if (us.useStandardTimePicker) 1L else 0L,
+            region = us.region
         )
     }
 

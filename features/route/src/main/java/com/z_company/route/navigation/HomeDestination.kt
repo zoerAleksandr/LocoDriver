@@ -107,6 +107,7 @@ fun HomeDestination(
         syncReportUserId = uiState.syncReportUserId,
         isNetworkError = uiState.isNetworkError,
         onResetSyncState = homeViewModel::resetSyncState,
+        normaHours = uiState.normaHours,
     )
 }
 
