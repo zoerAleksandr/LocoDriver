@@ -23,6 +23,23 @@ struct ProfileView: View {
         } message: {
             Text("Вход через ВКонтакте скоро будет доступен")
         }
+        // Alert ТОЛЬКО для залогиненных пользователей (sync-ошибки).
+        // Login-ошибки публикуются в vm.error тоже, но isLoggedIn == false
+        // отфильтровывает их — login показывает inline-error через
+        // vm.errorMessage (см. loginFormView). Стандарт UX: alert для
+        // login прячет подсказку при следующем вводе.
+        .alert(
+            vm.error?.userMessage ?? "Ошибка",
+            isPresented: Binding(
+                get: { vm.error != nil && vm.isLoggedIn },
+                set: { if !$0 { vm.clearError() } }
+            )
+        ) {
+            if vm.error?.canRetry == true {
+                Button("Повторить") { vm.retry() }
+            }
+            Button("OK", role: .cancel) {}
+        }
     }
 
     // MARK: - Login Form

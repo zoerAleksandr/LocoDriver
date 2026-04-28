@@ -9,6 +9,9 @@ struct AppCoordinator: View {
     @State private var selectedTab: AppTab = .home
     @State private var previousTab: AppTab = .home
     @State private var showAddForm: Bool = false
+    /// Подписка на ошибки SharedRouteLinkHandler (deep-link).
+    /// AppCoordinator — root, .alert поверх любой активной вкладки.
+    @StateObject private var deepLinkError = DeepLinkErrorObserver()
 
     init() {
         // Единый стиль таб-бара: прозрачный фон, корректный учёт safe area
@@ -73,6 +76,19 @@ struct AppCoordinator: View {
             NavigationStack {
                 FormView(routeId: nil)
             }
+        }
+        // Deep-link error — без кнопки «Повторить» (одноразовая ссылка,
+        // повтор не имеет смысла; пользователь должен снова кликнуть
+        // ссылку извне). Объединённый текст: AppError.userMessage или
+        // legacy errorMessage из handler'а.
+        .alert(
+            deepLinkError.error?.userMessage ?? deepLinkError.errorMessage ?? "Не удалось открыть ссылку",
+            isPresented: Binding(
+                get: { deepLinkError.error != nil || deepLinkError.errorMessage != nil },
+                set: { if !$0 { deepLinkError.clearError() } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
         }
     }
 }
