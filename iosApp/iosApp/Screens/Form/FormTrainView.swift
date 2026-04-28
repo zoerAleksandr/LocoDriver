@@ -54,5 +54,17 @@ struct FormTrainView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { vm.load(routeId: routeId, trainId: trainId) }
         .onChange(of: vm.isSaved) { if $0 { dismiss() } }
+        .alert(
+            vm.error?.userMessage ?? "Ошибка",
+            isPresented: Binding(
+                get: { vm.error != nil },
+                set: { if !$0 { vm.clearError() } }
+            )
+        ) {
+            if vm.error?.canRetry == true {
+                Button("Повторить") { vm.retry() }
+            }
+            Button("OK", role: .cancel) {}
+        }
     }
 }

@@ -53,6 +53,18 @@ struct FormPassengerView: View {
         .onChange(of: vm.isSaved) { saved in
             if saved { dismiss() }
         }
+        .alert(
+            vm.error?.userMessage ?? "Ошибка",
+            isPresented: Binding(
+                get: { vm.error != nil },
+                set: { if !$0 { vm.clearError() } }
+            )
+        ) {
+            if vm.error?.canRetry == true {
+                Button("Повторить") { vm.retry() }
+            }
+            Button("OK", role: .cancel) {}
+        }
     }
 
     private var formContent: some View {

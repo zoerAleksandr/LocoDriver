@@ -92,13 +92,21 @@ struct FormView: View {
                 vm.consumeShareLink()
             }
         }
-        .alert("Ошибка", isPresented: Binding(
-            get: { vm.errorMessage != nil },
-            set: { if !$0 { vm.consumeError() } }
-        )) {
-            Button("OK") { vm.consumeError() }
-        } message: {
-            Text(vm.errorMessage ?? "")
+        // Объединённый alert: vm.error (типизированный AppError) + legacy
+        // vm.errorMessage. Кнопка «Повторить» — только при vm.error.canRetry.
+        // Set-binding обнуляет ОБА state'а через consumeError (он же
+        // делегирует на clearError).
+        .alert(
+            vm.error?.userMessage ?? vm.errorMessage ?? "Ошибка",
+            isPresented: Binding(
+                get: { vm.error != nil || vm.errorMessage != nil },
+                set: { if !$0 { vm.consumeError() } }
+            )
+        ) {
+            if vm.error?.canRetry == true {
+                Button("Повторить") { vm.retry() }
+            }
+            Button("OK", role: .cancel) { vm.consumeError() }
         }
         .alert("Некорректное время", isPresented: Binding(
             get: { timeWarning != nil },

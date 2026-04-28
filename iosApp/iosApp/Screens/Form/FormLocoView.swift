@@ -46,6 +46,18 @@ struct FormLocoView: View {
             deliveryStart   = msToDateOrNil(loco?.timeStartOfDelivery?.int64Value)
             deliveryEnd     = msToDateOrNil(loco?.timeEndOfDelivery?.int64Value)
         }
+        .alert(
+            vm.error?.userMessage ?? "Ошибка",
+            isPresented: Binding(
+                get: { vm.error != nil },
+                set: { if !$0 { vm.clearError() } }
+            )
+        ) {
+            if vm.error?.canRetry == true {
+                Button("Повторить") { vm.retry() }
+            }
+            Button("OK", role: .cancel) {}
+        }
     }
 
     // MARK: - Вид тяги

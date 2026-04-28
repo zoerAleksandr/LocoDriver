@@ -8,6 +8,13 @@ final class PassengerFormViewModelWrapper: ObservableObject {
     @Published var passenger: DomainPassenger? = nil
     @Published var isSaved: Bool = false
     @Published var isLoading: Bool = false
+    @Published var error: AppError? = nil
+
+    private var lastAction: LastAction? = nil
+    private enum LastAction {
+        case load(routeId: String, passengerId: String?)
+        case save
+    }
 
     init() {
         viewModel.watchPassenger { [weak self] p in
@@ -19,9 +26,13 @@ final class PassengerFormViewModelWrapper: ObservableObject {
         viewModel.watchIsLoading { [weak self] loading in
             DispatchQueue.main.async { self?.isLoading = loading.boolValue }
         }
+        viewModel.watchError { [weak self] e in
+            DispatchQueue.main.async { self?.error = e }
+        }
     }
 
     func load(routeId: String, passengerId: String?) {
+        lastAction = .load(routeId: routeId, passengerId: passengerId)
         viewModel.loadPassenger(routeId: routeId, passengerId: passengerId)
     }
 
@@ -31,5 +42,17 @@ final class PassengerFormViewModelWrapper: ObservableObject {
     func setTimeDeparture(_ ms: Int64?) { viewModel.setTimeDeparture(ms: ms.map { KotlinLong(value: $0) }) }
     func setTimeArrival(_ ms: Int64?) { viewModel.setTimeArrival(ms: ms.map { KotlinLong(value: $0) }) }
     func setNotes(_ v: String) { viewModel.setNotes(value: v) }
-    func savePassenger() { viewModel.savePassenger() }
+    func savePassenger() {
+        lastAction = .save
+        viewModel.savePassenger()
+    }
+
+    func clearError() { viewModel.clearError(); lastAction = nil }
+    func retry() {
+        guard let a = lastAction else { return }
+        switch a {
+        case .load(let r, let p): load(routeId: r, passengerId: p)
+        case .save: savePassenger()
+        }
+    }
 }

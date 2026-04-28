@@ -13,7 +13,19 @@ final class FormViewModelWrapper: ObservableObject {
     @Published var isSaved: Bool = false
     @Published var isDeleted: Bool = false
     @Published var errorMessage: String? = nil
+    /// Параллельный AppError для алерта с кнопкой «Повторить».
+    /// errorMessage остаётся для legacy-совместимости + объединённого
+    /// текста алерта (vm.error?.userMessage ?? vm.errorMessage).
+    @Published var error: AppError? = nil
     @Published var shareLink: String? = nil
+
+    /// Последнее retry'абельное действие. Share НЕ записывается:
+    /// share-ошибки чаще всего auth-related, повтор бесполезен.
+    private var lastAction: LastAction? = nil
+    private enum LastAction {
+        case load(routeId: String?)
+        case save
+    }
 
     // Salary (плоские поля — не экспортируем Kotlin-nested data class напрямую)
     @Published var salaryTotal: Double? = nil
@@ -70,6 +82,9 @@ final class FormViewModelWrapper: ObservableObject {
         viewModel.watchErrorMessage { [weak self] msg in
             DispatchQueue.main.async { self?.errorMessage = msg }
         }
+        viewModel.watchError { [weak self] e in
+            DispatchQueue.main.async { self?.error = e }
+        }
         viewModel.watchShareLink { [weak self] link in
             DispatchQueue.main.async { self?.shareLink = link }
         }
@@ -112,17 +127,37 @@ final class FormViewModelWrapper: ObservableObject {
     var isRestAtPO: Bool { isRestAtPOPublished }
 
     // Actions
-    func loadRoute(id: String?) { viewModel.loadRoute(routeId: id) }
+    func loadRoute(id: String?) {
+        lastAction = .load(routeId: id)
+        viewModel.loadRoute(routeId: id)
+    }
     func updateNumber(_ value: String) { viewModel.updateNumber(value: value) }
     func updateNotes(_ value: String) { viewModel.updateNotes(value: value) }
-    func saveRoute() { viewModel.saveRoute() }
+    func saveRoute() {
+        lastAction = .save
+        viewModel.saveRoute()
+    }
     func setTimeStartWork(_ ms: Int64?) { viewModel.setTimeStartWork(ms: ms.map { KotlinLong(value: $0) }) }
     func setTimeEndWork(_ ms: Int64?) { viewModel.setTimeEndWork(ms: ms.map { KotlinLong(value: $0) }) }
     func setOnePersonOperation(_ checked: Bool) { viewModel.setOnePersonOperation(checked: checked) }
     func toggleRestType() { viewModel.toggleRestType() }
     func toggleFavorite() { viewModel.toggleFavorite() }
-    func shareRoute() { viewModel.shareRoute() }
+    func shareRoute() {
+        // Не записываем lastAction — share retry бесполезен (auth-related).
+        viewModel.shareRoute()
+    }
     func deleteRoute() { viewModel.deleteRoute() }
     func consumeShareLink() { viewModel.consumeShareLink() }
-    func consumeError() { viewModel.consumeError() }
+    /// Legacy — Swift FormView вызывает это имя напрямую. Чистит оба state'а.
+    func consumeError() { viewModel.consumeError(); lastAction = nil }
+    /// Новый метод — для consistency с другими VM (.alert clearError pattern).
+    func clearError() { viewModel.clearError(); lastAction = nil }
+    /// Повторяет последнее retry'абельное действие. Если lastAction == nil — no-op.
+    func retry() {
+        guard let a = lastAction else { return }
+        switch a {
+        case .load(let id): loadRoute(id: id)
+        case .save: saveRoute()
+        }
+    }
 }

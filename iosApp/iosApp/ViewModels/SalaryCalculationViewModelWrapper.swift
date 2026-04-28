@@ -10,6 +10,10 @@ final class SalaryCalculationViewModelWrapper: ObservableObject {
     @Published var isLoading: Bool = true
     @Published var currentMonth: Int = 0
     @Published var currentYear: Int = 0
+    /// Голый минимум для consistency с другими Wrapper'ами. На VM-стороне
+    /// _error всегда nil (нет сетевых вызовов в этом VM). LastAction/retry
+    /// не нужны — Шаг 6 добавит, когда появится сетевой запрос.
+    @Published var error: AppError? = nil
 
     init() {
         viewModel.watchSummary { [weak self] s in
@@ -29,7 +33,12 @@ final class SalaryCalculationViewModelWrapper: ObservableObject {
         viewModel.watchCurrentYear { [weak self] year in
             DispatchQueue.main.async { self?.currentYear = Int(year) }
         }
+        viewModel.watchError { [weak self] e in
+            DispatchQueue.main.async { self?.error = e }
+        }
     }
+
+    func clearError() { viewModel.clearError() }
 
     func nextMonth() {
         viewModel.nextMonth()
