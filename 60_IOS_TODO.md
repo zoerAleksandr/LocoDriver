@@ -1,10 +1,81 @@
 # 60_IOS_TODO.md — План релиза iOS-версии
 
-> Список задач на 2 недели разработки + время на TestFlight beta и
-> App Store Review. Работа через Claude Code, по одной задаче за раз.
+> Список задач до публичного релиза iOS в App Store. Работа через
+> Claude Code, по одной задаче за раз.
+>
+> Обновлено 25 апреля 2026 после аудита проекта (Этап 0.1 выполнен) и
+> уточнения модели монетизации.
 >
 > Каждая задача — готовый промпт, который можно скопировать в Claude Code.
 > В конце каждой задачи — критерии готовности (Definition of Done).
+
+---
+
+## Контекст (на основе аудита 25 апреля)
+
+**Что уже готово (хорошие новости):**
+
+| Экран | Статус | Замечания |
+|---|---|---|
+| HomeView | 🟢 готов | Нюанс: «Отвлечения» — заглушка |
+| FormView | 🟢 готов | Нюанс: поля break не отображаются |
+| FormPassengerView | 🟢 готов | — |
+| SettingsView | 🟢 готов | Нет настроек зарплаты, региональных праздников |
+
+**Что нужно доделать UI (Kotlin-VM уже есть):**
+
+| Экран | Статус | Что доделать |
+|---|---|---|
+| FormLocoView | 🟡 | Секции read-only — нужны TextField для acceptedEnergy/deliveryEnergy/fuel; toolbar Save |
+| FormTrainView | 🟡 | Нет станций, нет фазы обслуживания, нет toolbar Save |
+| ProfileView | 🟡 | VK ID — заглушка; нет регистрации; нет смены пароля |
+| SalaryCalculationView | 🟡 | Только summary; нет разбивки по 10 надбавкам |
+
+**Что нужно делать с нуля (новый Kotlin-VM + UI):**
+
+| Экран | Статус | Что нужно |
+|---|---|---|
+| WorkScheduleView | 🔴 | WorkScheduleIosViewModel + полный календарный UI |
+| SearchView | 🔴 | SearchIosViewModel + UI с фильтрами |
+| AllRoutesView | 🟡 | (опционально для MVP) AllRoutesIosViewModel + фильтры |
+| PurchasesView | 🔴 | Заменить на ExternalSubscriptionView (см. ниже) |
+
+**Хорошая новость:** все 8 существующих ViewModelWrapper'ов **подключены
+к реальным Kotlin-VM**. Новые VM нужны только для WorkSchedule и Search.
+
+---
+
+## Стратегия монетизации в первом релизе
+
+⚠️ **iOS App Store IAP в России сейчас не работает** (с 1 апреля 2026 Apple
+отключил обработку платежей в России). Будущее российских разработчиков с
+подписками — внешние платежи (по письму Apple 2023 года).
+
+**Решение для релиза 1.0:**
+
+- Триал: 20 рейсов (как на Android, лимит уже на сервере в
+  `user.subscriptionPeriod`).
+- После 20 рейсов: экран блокировки создания новых рейсов с
+  кнопкой «Оформить подписку» → **открывает внешнюю ссылку в Safari** на
+  `locodriver.ru/subscribe` (или твой сайт). Оплата через Robokassa и т.п.
+  Сервер активирует подписку.
+- В описании приложения и скриншотах **не упоминать внешние платежи**.
+- StoreKit/IAP — **не делаем в 1.0**.
+
+Это даёт паритет с Android по функциональности (после оплаты пользователь
+получает доступ ко всем фичам) и обходит ограничения Apple в РФ.
+
+---
+
+## Стратегия авторизации в первом релизе
+
+- **Email/пароль** (уже работает) — основной метод.
+- **Sign in with Apple** — обязательно (требование Apple Review при наличии
+  любого социального логина или просто как опция).
+- **VK ID** — добавляем для удобства российских пользователей.
+
+Apple обязывает: если есть VK ID → должен быть Sign in with Apple
+равноценным. См. Этап 4.
 
 ---
 
@@ -25,58 +96,98 @@
 (`/Users/zoer/Downloads/proxy-parser/`). Если задача требует серверной правки —
 останови, обсудим отдельно.
 
-⚠️ **Параллельно с задачами 0.x — оплати Apple Developer Program** (если ещё
-не оплачено). Подтверждение занимает 1-3 дня. Без него нельзя ни TestFlight,
-ни App Store. https://developer.apple.com/programs/
-
 ---
 
-## ЭТАП 0 — Discovery (день 1, ~2 часа)
+## 🚨 ДЕЛАТЬ ПРЯМО СЕЙЧАС (параллельно с разработкой)
 
-Прежде чем что-то делать, нужно понять реальное состояние проекта в
-4-х аспектах.
+### A. Оплатить Apple Developer Program ($99/год)
 
-### Задача 0.1 — Аудит iOS-проекта
+**Срок горит**, активация 1-7 дней. Без этого:
+- Нельзя создать TestFlight-сборку для бета-тестирования
+- Нельзя залить приложение в App Store
 
-**Цель**: получить точную картину готовности iOS.
-
-**Промпт для Claude Code**:
-
-```
-Сделай аудит iOS-проекта и составь отчёт в формате таблицы.
-
-1. Проверь каждый Swift-файл в iosApp/iosApp/Screens/ — определи статус:
-   - 🟢 готов: реальная функциональность, реальные данные через ViewModel
-   - 🟡 частично: верстка есть, но что-то заглушено или работает не до конца
-   - 🔴 заглушка: только placeholder
-
-2. Для каждого ViewModelWrapper в iosApp/iosApp/ViewModels/ найди
-   соответствующий Kotlin-VM (поиск файлов *IosViewModel.kt в репозитории):
-   - Wrapper использует реальный Kotlin-VM из shared
-   - Wrapper использует mock/заглушку
-
-3. Составь таблицу:
-
-| Экран | SwiftUI статус | Wrapper | Kotlin-VM | Замечания |
-|---|---|---|---|---|
-
-4. В конце укажи:
-   - Список Wrapper'ов БЕЗ Kotlin-VM (значит, нужно создать)
-   - Список Kotlin-VM в shared без подключённого Wrapper'а
-   - Список экранов, которые требуют доработки в первую очередь
-
-НЕ меняй код. Только отчёт.
-```
+Шаги:
+1. Зайди на https://developer.apple.com/programs/enroll/
+2. Войди под Apple ID
+3. Выбери **Individual** (не Organization — Organization требует D-U-N-S
+   Number и долгую проверку компании)
+4. Оплати $99 (привязка к твоему Apple ID, продление автоматическое раз в год)
+5. Дождись email от Apple с подтверждением (обычно 24-48 часов)
 
 **Definition of Done**:
-- [ ] Получен отчёт с таблицей
-- [ ] Ясен список «что нужно сделать в первую очередь»
-- [ ] Записал результаты в начало `60_IOS_TODO.md` или отдельный файл
-      `IOS_STATE_<дата>.md`
+- [ ] Apple Developer Program активирован
+- [ ] В App Store Connect появилась возможность создать новое приложение
 
 ---
 
-### Задача 0.2 — Аудит мёртвого CMP-кода
+### B. Создать VK Developer iOS-приложение
+
+После того как у тебя будет Apple Developer + Bundle ID для iOS-приложения:
+
+1. Зайди на https://dev.vk.com/
+2. Открой существующее приложение LocoDriver (то, что для Android)
+3. В настройках → Платформы → добавь iOS:
+   - Bundle ID: тот же, что в Xcode (например `com.zcompany.locodriver`)
+   - Universal Link / URL Scheme: `vk<APP_ID>` (стандартное)
+4. Запиши APP_ID
+
+**Definition of Done**:
+- [ ] iOS-платформа добавлена в VK Developer
+- [ ] APP_ID записан где-то безопасно
+
+---
+
+### C. Подготовить Privacy Policy
+
+Apple Review **не пропустит без работающего Privacy Policy URL**.
+
+Если у тебя есть сайт (locodriver.ru или подобный):
+- Создай страницу `/privacy-policy` или `/privacy` с текстом политики
+- Текст должен описывать: какие данные собираются (email, vk_id, рейсы),
+  как используются, как удалить
+- На русском (для российских пользователей) и желательно на английском
+
+Можешь использовать генераторы Privacy Policy (FreePrivacyPolicy.com,
+Iubenda и др.) и адаптировать.
+
+**Definition of Done**:
+- [ ] Privacy Policy опубликован на твоём сайте
+- [ ] URL работает и открывается без авторизации
+
+---
+
+## ЭТАП 0 — Discovery (задача 0.1 ✅, остальные нужно сделать)
+
+### Задача 0.1 — Аудит iOS-проекта ✅ ВЫПОЛНЕНО
+
+Результаты вынесены в шапку этого файла (раздел «Контекст»).
+
+**Что найдено:**
+- 4 экрана 🟢, 4 экрана 🟡, 4 экрана 🔴
+- Все 8 ViewModelWrapper'ов имеют backing Kotlin-VM
+- Нужны новые VM: `WorkScheduleIosViewModel`, `SearchIosViewModel`,
+  опционально `AllRoutesIosViewModel`
+- В worktree `.claude/worktrees/wonderful-cori/` есть `AppInitIosViewModel.kt`,
+  которого нет в основной ветке — нужно проверить, не нужно ли смерджить
+
+⚠️ **Действие**: проверь worktree `wonderful-cori` — что там за работа?
+Если она нужна — смерджи в основную ветку, иначе потеряется. Команда для
+проверки:
+
+```bash
+cd /Users/zoer/AndroidStudioProjects/LocoDriver
+git worktree list
+cd .claude/worktrees/wonderful-cori
+git log --oneline -10
+git diff main..HEAD --stat
+```
+
+Если изменения нужны — смерджи или попроси Claude Code сделать это в
+отдельной задаче.
+
+---
+
+### Задача 0.2 — Аудит мёртвого CMP-кода ✅ ВЫПОЛНЕНО
 
 **Цель**: понять, что в `iosApp/src/commonMain/` и `iosApp/src/iosMain/`
 реально используется, а что мёртвое.
@@ -113,12 +224,13 @@ SwiftUI. Нужно понять, что оттуда удалить.
 ```
 
 **Definition of Done**:
-- [ ] Получен список «что удалять»
-- [ ] Подтверждено, что DI-файлы в КЕЕП
+- [x] Получен список «что удалять» (11 файлов, ~1215 строк: `MainViewController.kt`, `App.kt`, `navigation/AppNavHost.kt`, `IosRouterImpl.kt`, `Routes.kt`, `screen/{Home,Form,Settings,Profile,SalaryCalculation,Stub}Screen.kt`)
+- [x] Подтверждено, что DI-файлы в КЕЕП (`IosUseCaseModule.kt`, `IosViewModelHelper.kt`, `IosSharedPreferencesRepository.kt`, `SharedRouteLinkHandler.kt`, 8× `*IosViewModel.kt`)
+- ⚠️ Замечание для задачи 1.1: `SharedRouteLinkHandler.pendingFormRouteId` сейчас наблюдается только в `AppNavHost.kt` — после удаления нужно повесить наблюдение в Swift, иначе deep link `locodriver://share/{id}` не будет открывать форму.
 
 ---
 
-### Задача 0.3 — Проверка миграции Room → SQLDelight
+### Задача 0.3 — Проверка миграции Room → SQLDelight ✅ ВЫПОЛНЕНО
 
 **Цель**: понять, что произошло с данными существующих Android-пользователей.
 
@@ -145,12 +257,13 @@ SwiftUI. Нужно понять, что оттуда удалить.
 ```
 
 **Definition of Done**:
-- [ ] Понятно, что происходит с данными существующих Android-пользователей
-- [ ] Если есть риск — фиксируем как отдельную задачу для Android-релиза
+- [x] Понятно, что происходит с данными существующих Android-пользователей: SQLDelight использует те же имена файлов (`Route.db`, `Settings.db`, `SalarySetting.db`), миграция in-place в `data_local/src/androidMain/.../DatabaseDriverFactory.kt` (`migrateRouteDbIfNeeded`, `ensureSettingsTablesV6`, `fixVersionIfColumnsExist`). Данные сохраняются.
+- [x] Если есть риск — фиксируем: **отдельной задачи для Android-релиза не требуется**. Соглашение для команды: при добавлении `ALTER TABLE` в новую `*.sqm`-миграцию обязательно добавлять столбец в `COLUMN_SPECS` (`DatabaseDriverFactory.kt:176`).
+- 🟡 Косметика: в `buildSrc/src/main/kotlin/Dependencies.kt` остались мёртвые Room-константы (`room_version`, `room_compiler/ktx/runtime`) — никем не используются, можно удалить отдельно.
 
 ---
 
-### Задача 0.4 — Проверка фоновой синхронизации на iOS
+### Задача 0.4 — Проверка фоновой синхронизации на iOS ✅ ВЫПОЛНЕНО
 
 **Цель**: понять, реализована ли фоновая sync на iOS (BGTaskScheduler).
 
@@ -177,9 +290,62 @@ SwiftUI. Нужно понять, что оттуда удалить.
 ```
 
 **Definition of Done**:
-- [ ] Ясно, есть ли фоновая sync на iOS
-- [ ] Если нет — добавлена задача в Этап 1 (BGTaskScheduler нужно настроить
-      ДО релиза)
+- [x] Ясно: фоновой sync на iOS **нет**. Ни `BGTaskScheduler`, ни `BGAppRefreshTask`, ни `UIBackgroundModes` в `Info.plist`. Sync вызывается **только** вручную из `ProfileView` (`vm.syncData()`) + один раз `firstSyncAfterRegistration` после регистрации. Нет триггера ни на foreground, ни на старт, ни на появление сети.
+- [x] **Блокер релиза**. Нужна новая задача в Этап 1 — см. **Задача 1.5** в Этапе 1.
+- 🟡 Связанная находка: `lastSyncTimestamp` в `IosSharedPreferencesRepository.kt:18` хранится только в памяти, обнуляется при перезапуске. Заменить на `NSUserDefaults`.
+
+---
+
+### Задача 0.5 — Готовность серверного API к Sign in with Apple ✅ ВЫПОЛНЕНО
+
+**Цель**: понять, нужно ли расширять API для приёма Apple ID токена.
+
+**Контекст**: для соответствия правилам Apple, если есть VK ID, нужен
+Sign in with Apple. Apple Sign In возвращает identity token (JWT,
+подписанный Apple). Сервер должен верифицировать этот токен и обменять
+на свой JWT для пользователя.
+
+**Промпт для Claude Code**:
+
+```
+Проверь серверный API на готовность к Sign in with Apple.
+
+ВАЖНО: серверный код в другом репозитории (/Users/zoer/Downloads/proxy-parser/).
+НЕ меняй ничего, только смотри.
+
+1. Открой /Users/zoer/Downloads/proxy-parser/src/api/v1/auth.py и посмотри,
+   какие методы аутентификации поддерживаются. По CLAUDE.md и
+   31_API_REFERENCE.md ожидается: login, email, vkId.
+2. Проверь, есть ли упоминание "apple", "appleId", "siwa" (Sign in with
+   Apple) или подобных в:
+   - src/api/v1/auth.py
+   - src/services/auth.py
+   - src/schemas/request.py
+3. Проверь модель пользователя в src/models/users.py — есть ли поле
+   apple_id или подобное.
+
+Если ничего нет — это значит, на сервере нужно добавить:
+- Новое значение `methodAuth: "appleId"` в Pydantic-схеме UserCredentials
+- Логика верификации Apple identity token (через jwks от Apple)
+- Поле user.apple_id в БД, миграция для существующих пользователей
+- Эндпоинт POST /v1/auth (расширить) и/или PATCH /v1/auth/appleId/add
+
+Сделай только отчёт. НЕ меняй код.
+```
+
+**Definition of Done**:
+- [x] Понятно, что нужно добавить на сервере для Sign in with Apple. На сервере **ничего нет** (0 упоминаний `apple`/`siwa` в Python-коде, только CSS-шрифты в HTML-шаблонах). Текущие методы `methodAuth`: `login`/`email`/`vkId` (`schemas/request.py:16`). Модель `User` (`models/users.py:21`) — нет поля `apple_id`.
+- [x] Изменения нужны — записаны как **отдельная серверная задача**:
+      1. `schemas/request.py`: `UserCredentials.methodAuth` → добавить `"appleId"`. Расширить `UserSafeResponse` полем `apple_id`. Новая схема `appleTokenAdd`.
+      2. `models/users.py`: поле `apple_id: Optional[str]` (`unique=True, index=True, nullable=True`) — по аналогии с `vk_id`.
+      3. Alembic-миграция: `op.add_column("user", sa.Column("apple_id", sa.String(100), nullable=True))` + unique index.
+      4. `services/auth.py`: функция `verify_apple_id_token(token, nonce)` — JWKS с `appleid.apple.com/auth/keys`, проверка `iss`/`aud`/`exp`/`nonce` через `python-jose` или `pyjwt[crypto]`. Расширить `authenticate_user` для `methodAuth="appleId"`.
+      5. `api/v1/auth.py`: новые эндпоинты `PATCH /v1/auth/appleId/add` и `PATCH /v1/auth/appleId/remove` (по образцу `add_vkId`/`remove_vkId`, line 216–330).
+      6. `core/config.py`: `APPLE_BUNDLE_ID`, `APPLE_TEAM_ID`, `APPLE_JWKS_URL`.
+      7. Тесты в `backend/tests/tests_services/`.
+      ⚠️ **Особенности Apple**: email отдаётся ТОЛЬКО при первом логине; может быть proxy-адресом (`xxxx@privaterelay.appleid.com`); `email_verified` может быть строкой `"true"`.
+
+⚠️ **App Store §4.8**: VK ID без Sign in with Apple → автоматический отказ ревью. Серверная задача SIWA — **обязательное условие апрува**, делать ДО Этапа 4 клиентского TODO.
 
 ---
 
@@ -282,41 +448,473 @@ viewModel.watchX(callback). Эти подписки не отписываютс�
 
 **Цель**: убедиться, что тесты в commonTest и UI-тесты iOS можно запускать.
 
-**Промпт для Claude Code**:
+**Контекст текущего состояния**:
+- Несколько unit-тестов в `commonTest` уже есть (для `domain/`).
+- iOS UI-тестов нет вообще, target в Xcode не создан.
+
+⚠️ **Часть этой задачи делается тобой вручную в Xcode**, потому что
+создание target'ов в Xcode-проекте — UI-операция, которую Claude Code
+сделать не может.
+
+**Промпт для Claude Code (часть 1 — Kotlin-тесты)**:
 
 ```
-Проверь и настрой тестовое окружение для iOS-разработки:
+Проверь и настрой Kotlin-тесты в commonTest:
 
-1. КОТЛИН-ТЕСТЫ В commonTest:
-   - Найди существующие commonTest в domain/, core/, data_local/, data_remote/
-   - Запусти ./gradlew :domain:allTests или :domain:iosSimulatorArm64Test
-   - Если ошибки — почини их (могут быть из-за обновления Kotlin)
+1. Найди существующие commonTest:
+   find . -path "*/commonTest/*" -name "*.kt"
 
-2. iOS XCTest:
-   - В Xcode проверь, есть ли target "iosAppTests" или подобный
-   - Если нет — создай через File → New → Target → Unit Testing Bundle
-   - Создай простой smoke-тест и запусти Cmd+U
+2. Запусти их:
+   ./gradlew :domain:allTests
+   ./gradlew :core:allTests
+   ./gradlew :data_local:allTests
+   ./gradlew :data_remote:allTests
 
-3. iOS UI-тесты (XCUITest):
-   - Проверь, есть ли target "iosAppUITests"
-   - Если нет — создай через File → New → Target → UI Testing Bundle
-   - Создай smoke-тест: запустился, главный экран отрисовался
+3. Если ошибки — почини их (могут быть из-за обновления Kotlin или зависимостей)
+4. Документируй в CODEBASE.md в разделе "Запуск тестов":
+   - Команда для запуска commonTest: ./gradlew :module:allTests
+   - Команда для запуска iOS-теста: ./gradlew :module:iosSimulatorArm64Test
 
-4. Документируй, как запускать тесты:
-   - В CODEBASE.md добавь раздел "Запуск тестов" с командами
-   - Для commonTest: ./gradlew :module:test
-   - Для iOS Unit: Cmd+U в Xcode
-   - Для iOS UI: Cmd+U с выбранным UI-тест target'ом
+Сделай это и покажи что получилось.
+```
 
-Покажи план перед началом.
+**Часть 2 — iOS Unit-тесты** (вручную в Xcode, ~10 минут):
+
+1. Открой `iosApp/iosApp.xcodeproj` в Xcode
+2. File → New → Target → выбери **Unit Testing Bundle**
+3. Имя: `iosAppTests`, Language: Swift, Project: iosApp, Target to be Tested: iosApp
+4. Нажми Finish
+5. В созданном файле `iosAppTests.swift` (или подобном) есть пустой smoke-тест.
+   Запусти Cmd+U — должен пройти
+
+**Часть 3 — iOS UI-тесты** (вручную в Xcode, ~10 минут):
+
+1. File → New → Target → **UI Testing Bundle**
+2. Имя: `iosAppUITests`, Language: Swift, Project: iosApp,
+   Target to be Tested: iosApp
+3. Finish
+4. В созданном файле есть пустой UI-тест. Запусти Cmd+U — должен пройти
+   (запустит симулятор и приложение)
+
+**Часть 4 — Документация** (через Claude Code):
+
+```
+Добавь в CODEBASE.md раздел "Запуск тестов" с командами:
+
+## Запуск тестов
+
+### Kotlin Multiplatform (commonTest)
+- Все тесты модуля: ./gradlew :domain:allTests
+- Только iOS-симулятор: ./gradlew :domain:iosSimulatorArm64Test
+- Только Android JVM: ./gradlew :domain:testDebugUnitTest
+
+### iOS Unit Tests (XCTest)
+- В Xcode: Cmd+U с выбранной схемой iosApp
+- Через CLI: xcodebuild -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 15' test
+
+### iOS UI Tests (XCUITest)
+- В Xcode: Cmd+U с выбранным target'ом iosAppUITests
+- Через CLI: xcodebuild -scheme iosAppUITests test
 ```
 
 **Definition of Done**:
-- [ ] commonTest запускаются командой gradle
-- [ ] iOS XCTest target существует и пустой smoke-тест проходит
-- [ ] iOS XCUITest target существует и пустой smoke-тест проходит
-- [ ] В CODEBASE.md задокументировано, как запускать тесты
+- [ ] Kotlin commonTest запускается без ошибок
+- [ ] iOS Unit Test target создан и пустой smoke-тест проходит
+- [ ] iOS UI Test target создан и пустой smoke-тест проходит
+- [ ] Раздел "Запуск тестов" добавлен в CODEBASE.md
 - [ ] `git commit -m "test: setup testing infrastructure for iOS"`
+
+---
+
+### Задача 1.4 — Сетевая надёжность и обработка ошибок ✅ ВЫПОЛНЕНО
+
+**Контекст** (обнаружено 26 апреля 2026 при тестировании синхронизации):
+- При pull-to-refresh на HomeView и при сохранении рейсов **периодически**
+  выскакивает iOS-alert с **полным stack trace** ошибки `NSURLErrorDomain
+  Code=-1005 "The network connection was lost"`. Это **блокер**:
+  - Apple Review отклоняет приложения, показывающие технические сообщения
+    об ошибках конечному пользователю
+  - Машинисты не понимают что произошло, паникуют, теряют доверие к
+    приложению
+- Ошибка плавающая: иногда сохраняется, иногда нет. Это намекает на:
+  - Проблемы с keep-alive HTTP-соединениями (uvicorn закрывает idle,
+    Ktor использует устаревший connection)
+  - HTTP без TLS + iOS App Transport Security временами разрывает
+    соединения для безопасности
+  - Отсутствие retry-логики для transient-ошибок
+
+**Цель**: добавить надёжную обработку сетевых ошибок на всех уровнях
+(Ktor → ViewModel → SwiftUI), показывать пользователю короткие понятные
+сообщения, автоматически повторять transient-ошибки.
+
+**Промпт для Claude Code**:
+
+```
+Реши проблему с сетевой надёжностью на iOS. План работы — большой,
+делать по шагам с моим подтверждением после каждого.
+
+ШАГ 1. Аудит текущего обработчика ошибок
+
+1. Найди где сейчас обрабатываются сетевые ошибки на iOS:
+   - В data_remote/src/commonMain/.../KtorRemoteRestApi.kt
+   - В data_remote/src/commonMain/.../RemoteRestClient.kt
+   - В data_remote/src/commonMain/.../SyncManager.kt и
+     RoutesManager.kt
+   - На уровне iOS-ViewModel (HomeIosViewModel, FormIosViewModel)
+   - На уровне Swift Wrapper (HomeViewModelWrapper и др.)
+
+2. Найди где формируется текст alert'а который показал пользователь.
+   В скриншоте видно полный NSError description — значит, где-то
+   делается `Text(error.localizedDescription)` или аналогично, и сырое
+   сообщение от iOS-NSURLSession улетает в UI.
+
+3. Составь отчёт:
+   - Где ловится Throwable / NSError
+   - Где он мапится в строку для UI
+   - Где показывается alert
+   
+   Это поможет понять, что нужно изменить.
+
+ШАГ 2. Доменный слой ошибок (commonMain)
+
+Создай (или дополни) sealed class в core/ или domain/:
+
+```kotlin
+sealed class AppError(
+    val userMessage: String,  // короткое для UI
+    val technicalDetails: String? = null  // для логов
+) {
+    object NoInternet : AppError("Нет соединения с интернетом")
+    object Timeout : AppError("Сервер не отвечает. Попробуйте снова.")
+    object ServerError : AppError("Ошибка сервера. Попробуйте позже.")
+    object Unauthorized : AppError("Нужна повторная авторизация")
+    data class Unknown(val cause: Throwable) :
+        AppError(
+            userMessage = "Что-то пошло не так",
+            technicalDetails = cause.message
+        )
+}
+```
+
+Добавь функцию маппинга платформенных ошибок в AppError. Для Ktor
+конкретно:
+- `IOException` / `ConnectException` → NoInternet
+- `HttpRequestTimeoutException`, `SocketTimeoutException` → Timeout
+- `ClientRequestException` (4xx):
+  - 401 → Unauthorized
+  - остальные → ServerError
+- `ServerResponseException` (5xx) → ServerError
+- Остальное → Unknown
+
+⚠️ Особый случай для iOS: NSURLError -1005, -1009, -1001, -1004 — это
+сетевые проблемы, маппить в NoInternet или Timeout. Их Ktor оборачивает
+в IOException, но проверь это на практике.
+
+ШАГ 3. Retry-логика в Ktor
+
+В RemoteRestClient.kt добавь HttpRequestRetry плагин Ktor:
+
+```kotlin
+install(HttpRequestRetry) {
+    retryOnExceptionIf(maxRetries = 3) { _, cause ->
+        cause is IOException && cause !is CancellationException
+    }
+    retryOnServerErrors(maxRetries = 2)  // 5xx
+    exponentialDelay(base = 2.0, maxDelayMs = 5000)
+}
+```
+
+⚠️ ВАЖНО: retry безопасен только для GET и для idempotent POST (где
+сервер корректно обработает повторный запрос с тем же ID — у нас
+POST /v1/route/ это делает после фикса IDOR).
+
+⚠️ ВАЖНО: НЕ ставь retry на login/auth-эндпоинты. Если 401 — нужен
+явный logout, не retry.
+
+Также добавь HttpTimeout:
+
+```kotlin
+install(HttpTimeout) {
+    requestTimeoutMillis = 30_000
+    connectTimeoutMillis = 10_000
+    socketTimeoutMillis = 30_000
+}
+```
+
+И отключи keep-alive (или поставь короткий keep-alive), чтобы избежать
+устаревших соединений. Для Darwin engine на iOS:
+
+```kotlin
+install(DefaultRequest) {
+    headers.append("Connection", "close")
+}
+```
+
+Это force-close после каждого запроса. Не оптимально для
+производительности, но устраняет проблему -1005. Альтернативно —
+настроить URLSessionConfiguration более тонко (timeoutIntervalForRequest,
+HTTPMaximumConnectionsPerHost), но для надёжности «close после каждого»
+проще.
+
+ШАГ 4. ViewModel-слой
+
+В iOS-ViewModel'ах (HomeIosViewModel и др.) сейчас, скорее всего, есть
+поле `errorMessage: StateFlow<String?>`. Замени на:
+
+```kotlin
+private val _error = MutableStateFlow<AppError?>(null)
+val error: StateFlow<AppError?> = _error
+fun watchError(callback: (AppError?) -> Unit) { ... }
+
+// при ошибке:
+catch (t: Throwable) {
+    _error.value = AppError.from(t)  // мапим
+    Logger.e(TAG, "Sync failed", t)  // лог с деталями
+}
+```
+
+ШАГ 5. SwiftUI alerts
+
+В Wrapper'ах:
+```swift
+@Published var error: AppError? = nil
+
+init() {
+    viewModel.watchError { [weak self] err in
+        DispatchQueue.main.async { self?.error = err }
+    }
+}
+```
+
+В View вместо текущего alert с полным сообщением:
+
+```swift
+.alert(
+    error?.userMessage ?? "Ошибка",  // короткое
+    isPresented: Binding(
+        get: { vm.error != nil },
+        set: { if !$0 { vm.clearError() } }
+    )
+) {
+    Button("Повторить") { vm.retry() }
+    Button("OK", role: .cancel) {}
+}
+```
+
+⚠️ Важно: НЕ показывать `error.technicalDetails` пользователю! Только
+`userMessage`. Технические детали идут только в Sentry/логи.
+
+ШАГ 6. Логирование (только в логи, не в UI)
+
+В классе AppError или в фабрике маппинга добавь логирование через
+Kermit (или console.log если Kermit ещё не подключен):
+
+```kotlin
+fun AppError.Companion.from(t: Throwable): AppError {
+    // лог технических деталей
+    Logger.e("Network", t.message ?: "Unknown", t)
+    return when (t) {
+        is IOException -> NoInternet
+        // ...
+    }
+}
+```
+
+⚠️ Не логируй URL, тело запроса, заголовки (там могут быть токены).
+
+ШАГ 7. Проверка на симуляторе
+
+Я не могу запустить Xcode, поэтому проверка на тебе. Сценарии:
+
+ТЕСТ A. Нормальная работа:
+- Открой приложение, pull-to-refresh на главном.
+- Должен работать без ошибок.
+
+ТЕСТ B. Симуляция ошибки (выключение Wi-Fi на Mac):
+- Pull-to-refresh когда сети нет.
+- Ожидаемо: alert "Нет соединения с интернетом" с кнопками
+  "Повторить" и "OK".
+- НЕ должен показывать stack trace.
+
+ТЕСТ C. Симуляция -1005 (Network Link Conditioner):
+- В Settings симулятора → Developer → Network Link Conditioner →
+  выбери "100% Loss" и попробуй pull-to-refresh.
+- Ожидаемо: alert "Нет соединения" или "Сервер не отвечает", без
+  технических деталей.
+
+ТЕСТ D. Сохранение рейса при плохой сети:
+- Переключи Network Link Conditioner на "Very Bad Network" (50% loss).
+- Создай рейс, нажми Сохранить несколько раз.
+- Ожидаемо: при ошибке — alert с "Повторить", retry автоматически
+  работает в Ktor (3 попытки), и в большинстве случаев рейс
+  всё-таки сохраняется.
+- На сервере проверь логи: нет дублирующихся записей (идемпотентность
+  по UUID работает).
+
+ШАГ 8. Коммит
+
+ios: improve network reliability and error handling
+
+- Add AppError sealed class with user-friendly messages
+- Configure Ktor HttpRequestRetry and HttpTimeout
+- Force connection: close on iOS to avoid -1005 stale connections
+- Replace technical NSError messages in UI with localized strings
+- Log technical details only, never show in UI
+
+⚠️ ОБЩИЕ ПРАВИЛА:
+- Перед каждым шагом — покажи что собираешься делать и подожди моего
+  ОК.
+- НЕ меняй серверный код. Если потребуется — останови и обсудим
+  отдельно.
+- НЕ ломай существующую функциональность Android (ViewModel'и общие
+  через KMP — изменения должны быть совместимы).
+
+Покажи план Шага 1 и начинай.
+```
+
+**Definition of Done**:
+- [ ] AppError sealed class в общем коде
+- [ ] HttpRequestRetry настроен в Ktor (3 попытки на IOException, 2 на 5xx)
+- [ ] HttpTimeout настроен (30s request, 10s connect)
+- [ ] Connection: close для iOS (или другое решение проблемы -1005)
+- [ ] ViewModel'и используют AppError вместо строк
+- [ ] Wrapper'ы конвертируют в @Published
+- [ ] SwiftUI alerts показывают только `userMessage`, без технических деталей
+- [ ] Логи пишут технические детали (без чувствительных данных)
+- [ ] Тесты A-D на симуляторе проходят:
+  - [ ] A: нормальная работа без ошибок
+  - [ ] B: при выключенном Wi-Fi — короткий alert
+  - [ ] C: с Network Link Conditioner 100% Loss — короткий alert
+  - [ ] D: при плохой сети — retry работает, нет дубликатов на сервере
+- [ ] Android-приложение продолжает работать без регрессии
+- [ ] `git commit -m "ios: improve network reliability and error handling"`
+
+⚠️ **Это блокер релиза**. Без этой задачи нельзя в Submit.
+
+---
+
+### Задача 1.5 — Фоновая синхронизация на iOS (BGTaskScheduler) ⚠️ БЛОКЕР РЕЛИЗА
+
+**Контекст** (обнаружено в задаче 0.4): фоновой sync на iOS **нет**. Ни
+`BGTaskScheduler`, ни `BGAppRefreshTask`, ни `UIBackgroundModes` в
+`Info.plist`. Sync вызывается **только** вручную из `ProfileView`
+(`vm.syncData()`) + один раз `firstSyncAfterRegistration` после регистрации.
+Нет триггера ни на foreground, ни на старт, ни на появление сети.
+
+⚠️ **Это блокер**: машинист может неделями забыть открыть приложение, и его
+данные не синхронизируются с сервером. На Android это закрыто WorkManager
+(каждые 36 часов). На iOS аналог — `BGTaskScheduler` из `BackgroundTasks`
+framework.
+
+⚠️ **Связанная находка из задачи 0.4**: `lastSyncTimestamp` в
+`IosSharedPreferencesRepository.kt:18` хранится только в памяти,
+обнуляется при перезапуске. Для throttle'а sync нужно сделать его
+персистентным через `NSUserDefaults`.
+
+**Промпт для Claude Code**:
+
+```
+Реши проблему отсутствия фоновой синхронизации на iOS. План работы —
+большой, делать по шагам с моим подтверждением после каждого.
+
+ШАГ 1. Foreground-sync через scenePhase
+
+В iosApp/iosApp/iOSApp.swift подписаться на @Environment(\.scenePhase),
+при .active дёргать syncManager.syncToRemote(bearerToken) с throttle ≥ N
+минут (взять из lastSyncTimestamp). Это даёт минимально жизнеспособную
+синхронизацию: открыл приложение — данные подтянулись.
+
+⚠️ throttle важен — без него каждый switch app-tab будет инициировать
+sync, что разрядит батарею и забьёт сеть.
+
+ШАГ 2. Персистентный lastSyncTimestamp
+
+Сейчас IosSharedPreferencesRepository.lastSyncTimestamp хранится в памяти
+(или через PlatformKeyValueStorage — проверь). Если через
+PlatformKeyValueStorage — убедись, что NSUserDefaults используется (на
+iOS это как раз и есть persistence). Если в памяти — заменить на
+NSUserDefaults через PlatformKeyValueStorage.
+
+ШАГ 3. Info.plist capabilities
+
+Добавить в iosApp/iosApp/Info.plist:
+- UIBackgroundModes:
+    - fetch
+    - processing
+- BGTaskSchedulerPermittedIdentifiers:
+    - com.z_company.locodriver.sync (или подобный)
+
+ШАГ 4. Регистрация и handler BGTaskScheduler
+
+В iOSApp.swift при старте:
+  BGTaskScheduler.shared.register(
+      forTaskWithIdentifier: "com.z_company.locodriver.sync",
+      using: nil
+  ) { task in
+      handleAppRefresh(task: task as! BGAppRefreshTask)
+  }
+
+В handler — syncManager.syncToRemote(bearerToken) с расчётом на
+30-секундный budget (iOS жёстко режет background-задачи). Внутри:
+- Установить task.expirationHandler — отменить sync если время выходит
+- После завершения task.setTaskCompleted(success: ...)
+- Запланировать следующий BGAppRefreshTaskRequest
+
+При уходе в background (scenePhase == .background) — submit нового
+BGAppRefreshTaskRequest с earliestBeginDate через ~36 часов (как на
+Android).
+
+ШАГ 5. Опционально — NWPathMonitor для моментального дотолкывания
+
+При восстановлении сети после offline — дёргать sync. Это даёт UX
+"приложение само подхватило данные сразу как появился WiFi".
+
+ШАГ 6. Тестирование на симуляторе
+
+Симулятор не запускает реальные BG-таски — для тестирования через Xcode:
+- Подключиться к процессу через Debug → Simulate Background Fetch
+- Или через breakpoint в handler + триггер вручную
+
+ТЕСТ A. Foreground sync:
+- Открой приложение → backgroun (Cmd+H) → подожди > N минут → reopen
+- В логах должен быть вызов syncToRemote
+
+ТЕСТ B. BGTaskScheduler регистрация:
+- В Console.app фильтр по bundle ID
+- При старте должна быть запись о регистрации задачи
+
+ТЕСТ C. Background execution через debug:
+- Запустить из Xcode → Debug → Simulate Background Fetch
+- В логах увидеть выполнение sync
+
+⚠️ ОБЩИЕ ПРАВИЛА:
+- Перед каждым шагом — покажи что собираешься делать и подожди ОК.
+- НЕ ломай существующий flow ProfileView.syncData() — пусть остаётся
+  как ручной триггер.
+- Используй Kermit Logger для всего sync-цикла, чтобы можно было
+  диагностировать в Console.app.
+
+Покажи план Шага 1 и начинай.
+```
+
+**Definition of Done**:
+- [ ] scenePhase observer в iOSApp.swift, throttle через lastSyncTimestamp
+- [ ] lastSyncTimestamp персистентен через NSUserDefaults
+- [ ] Info.plist: UIBackgroundModes + BGTaskSchedulerPermittedIdentifiers
+- [ ] BGTaskScheduler.shared.register в iOSApp.swift
+- [ ] handler выполняет syncManager.syncToRemote с 30-сек budget
+- [ ] При уходе в background — submit BGAppRefreshTaskRequest на ~36 часов вперёд
+- [ ] Опционально: NWPathMonitor триггерит sync при появлении сети
+- [ ] Логирование Kermit на каждом шаге sync-цикла
+- [ ] Тесты A-C на симуляторе проходят:
+  - [ ] A: foreground sync после throttle-периода
+  - [ ] B: BGTaskScheduler регистрация в Console.app
+  - [ ] C: handler срабатывает через Debug → Simulate Background Fetch
+- [ ] iOS-приложение собирается без ошибок, не сломан существующий ручной sync
+- [ ] `git commit -m "ios: implement BGTaskScheduler for background sync"`
+
+⚠️ **Это блокер релиза**. Машинисты не могут полагаться на ручной sync —
+нужна автоматика, как на Android.
 
 ---
 
@@ -631,6 +1229,96 @@ ProfileIosViewModel должен:
 
 ---
 
+### Задача 2.6 — Экран блокировки после превышения лимита триала
+
+**Контекст**: на Android после 20 рейсов блокируется создание новых
+рейсов. Информация о подписке (`user.subscriptionPeriod`) хранится на
+сервере. Для iOS-релиза 1.0 не делаем StoreKit/IAP — вместо этого
+открываем внешнюю ссылку на сайт.
+
+⚠️ **Apple Review требование:** в описании приложения и скриншотах НЕ
+упоминать внешние платежи. На самом экране кнопка может быть
+нейтральной — «Оформить подписку» — это разрешено по письму Apple 2023
+для российских разработчиков.
+
+**Промпт для Claude Code**:
+
+```
+Реализуй экран блокировки создания новых рейсов после превышения
+триала (20 рейсов).
+
+Состояние подписки уже приходит с сервера в user.subscriptionPeriod
+(timestamp). Логика на Android:
+- Если subscriptionPeriod в прошлом ИЛИ количество рейсов >= 20 → блок
+
+Шаги:
+1. Найди в shared (data_remote или domain) метод проверки подписки.
+   Скорее всего он есть в AuthManager или UserRepository — должен
+   возвращать что-то вроде SubscriptionStatus с полями:
+   - isActive: Boolean
+   - canCreateNewRoutes: Boolean
+   - reason: String? (почему заблокировано)
+
+2. Если такого метода нет — добавь в shared (НЕ копируй Android-логику
+   слепо, проверь что она правильно работает). Не меняй сервер.
+
+3. На FormView (Form/FormView.swift) при попытке создать новый рейс:
+   - Если canCreateNewRoutes == false → показать sheet/alert
+     SubscriptionBlockedView вместо открытия формы
+   - Если рейс уже существует (редактирование) → разрешить (только
+     создание блокируется, как на Android)
+
+4. SubscriptionBlockedView (новый файл,
+   iosApp/iosApp/Screens/Subscription/SubscriptionBlockedView.swift):
+   - Заголовок: "Подписка"
+   - Текст: "Достигнут бесплатный лимит — 20 рейсов. Для продолжения
+     оформите подписку."
+   - Кнопка "Оформить подписку" → открывает в Safari URL
+     https://locodriver.ru/subscribe (используй UIApplication.shared.open
+     или SwiftUI .openURL environment)
+   - Кнопка "Уже есть подписка? Обновить статус" → вызывает sync с
+     сервером (на случай если оплата прошла, но клиент не узнал)
+   - Кнопка "Закрыть"
+
+⚠️ ВАЖНО:
+- НЕ упоминай в тексте на экране конкретные платёжные системы
+  (Robokassa, банки и т.д.) — только нейтральное "оформить подписку"
+- URL https://locodriver.ru/subscribe — спроси точный адрес у
+  пользователя
+- Кнопка "Восстановить покупки" Apple-style НЕ нужна (нет StoreKit)
+- НЕ показывай цены в приложении
+
+Тесты:
+- commonTest для логики проверки подписки (если она в shared)
+- SwiftUI Preview для SubscriptionBlockedView
+- Ручная проверка:
+  * Пользователь с активной подпиской → создание работает
+  * Пользователь с истёкшей подпиской / >= 20 рейсов → блок
+  * Кнопка "Оформить подписку" открывает Safari
+  * После оплаты на сайте → "Обновить статус" разблокирует
+
+Покажи план перед началом.
+```
+
+⚠️ **Уточни у меня перед стартом**: URL подписки — `https://locodriver.ru/subscribe`
+(если другой — поменяй в коде). Страница на сайте должна быть готова к
+этому моменту: с описанием подписки, кнопкой оплаты через Robokassa,
+после успешной оплаты сервер должен обновлять `user.subscriptionPeriod`
+(механизм уже работает на Android).
+
+**Definition of Done**:
+- [ ] Логика проверки подписки в shared
+- [ ] FormView не открывается при превышении лимита, показывает
+      SubscriptionBlockedView
+- [ ] Кнопка ведёт на внешний URL в Safari
+- [ ] Кнопка обновления статуса синхронизирует с сервером
+- [ ] Тесты + ручная проверка с двумя пользователями (активная подписка
+      и истёкшая)
+- [ ] **Текст на экране НЕ упоминает конкретные платёжные системы**
+- [ ] `git commit -m "ios: subscription expired blocking screen with external link"`
+
+---
+
 ## ЭТАП 3 — Сделать новые экраны (дни 8-12)
 
 ### Задача 3.1 — WorkScheduleView (график работы)
@@ -837,7 +1525,11 @@ UI с разбивкой:
 
 ---
 
-## ЭТАП 4 — VK ID авторизация (дни 13-14)
+## ЭТАП 4 — Авторизация: VK ID и Sign in with Apple (дни 13-16)
+
+⚠️ Apple обязывает: если приложение использует сторонний метод авторизации
+(VK ID), необходимо предложить Sign in with Apple как равноценный вариант.
+Без этого — отказ в App Store Review.
 
 ### Задача 4.1 — Регистрация iOS-приложения в VK Developer
 
@@ -899,7 +1591,137 @@ https://id.vk.com/about/business/go/docs/ru/vkid/latest/sdk-ios/install
 
 ---
 
-## ЭТАП 5 — Тестирование и подготовка к релизу (после 14 дней)
+### Задача 4.3 — Добавление поддержки Sign in with Apple на сервере
+
+⚠️ Это **серверная задача в другом репозитории** (`/Users/zoer/Downloads/proxy-parser/`).
+Делать в **отдельной Claude.ai сессии** или в той же, но как отдельную задачу.
+
+**Эту задачу нужно сделать ДО задачи 4.4 (интеграция Sign in with Apple на iOS).**
+
+**Что нужно на сервере**:
+
+1. Добавить значение `"appleId"` в `Literal["login", "email", "vkId", "appleId"]`
+   в `UserCredentials.methodAuth` (`src/schemas/request.py`).
+2. Добавить поле `apple_id: Optional[str]` в модель `User` (`src/models/users.py`)
+   и миграцию для существующих БД.
+3. Реализовать функцию верификации Apple identity token:
+   - Получить JWKS от https://appleid.apple.com/auth/keys
+   - Проверить подпись JWT (использовать `python-jose` или `pyjwt`)
+   - Извлечь `sub` (Apple-уникальный ID пользователя)
+   - Проверить `aud` (твой Apple Bundle ID)
+   - Проверить `iss == "https://appleid.apple.com"`
+   - Проверить `exp` (не истёк ли токен)
+4. Расширить `POST /v1/auth`:
+   - Если `methodAuth == "appleId"` → вызвать верификацию,
+     найти/создать пользователя по `apple_id`, выдать JWT
+5. Добавить `PATCH /v1/auth/appleId/add` (привязка к существующему аккаунту).
+6. Добавить `PATCH /v1/auth/appleId/remove`.
+
+⚠️ **Это изменение JSON-контракта**. Старые клиенты не используют
+`appleId` — добавление безопасно. Но проверь, что изменения **не ломают**
+существующих клиентов: добавление нового значения в Literal — безопасно
+(старые клиенты не пришлют его). Поле `apple_id` в response —
+безопасно (старые клиенты проигнорируют).
+
+**Definition of Done**:
+- [ ] На сервере есть метод `auth.py` с верификацией Apple identity token
+- [ ] Pydantic-схема UserCredentials поддерживает `methodAuth: "appleId"`
+- [ ] Миграция БД добавляет поле `apple_id`
+- [ ] Эндпоинты `PATCH /v1/auth/appleId/add|remove` работают
+- [ ] Тесты на сервере: верификация валидного токена, отказ невалидному
+
+---
+
+### Задача 4.4 — Интеграция Sign in with Apple в iOS-приложение
+
+**Контекст**: Apple Sign In нативно поддерживается через AuthenticationServices
+framework. Не нужно сторонних SDK.
+
+**Промпт для Claude Code**:
+
+```
+Интегрируй Sign in with Apple в iOS-приложение.
+
+Документация Apple:
+https://developer.apple.com/documentation/sign_in_with_apple/
+
+Шаги:
+1. В Xcode → Signing & Capabilities → "+ Capability" → выбрать
+   "Sign In with Apple". Это автоматически включит entitlement в проекте.
+
+2. На LoginView (созданном в Задаче 4.2) добавить кнопку Sign in with Apple
+   через нативный SwiftUI компонент:
+
+   import AuthenticationServices
+
+   SignInWithAppleButton(
+       onRequest: { request in
+           request.requestedScopes = [.email]  // только email, без полного имени
+       },
+       onCompletion: { result in
+           switch result {
+           case .success(let auth):
+               if let credential = auth.credential as? ASAuthorizationAppleIDCredential {
+                   // identity token нужен серверу
+                   guard let tokenData = credential.identityToken,
+                         let token = String(data: tokenData, encoding: .utf8) else {
+                       // ошибка
+                       return
+                   }
+                   // отправить на сервер для обмена на JWT
+                   loginViewModel.signInWithApple(identityToken: token)
+               }
+           case .failure(let error):
+               // обработать ошибку (пользователь отменил, нет сети и т.д.)
+           }
+       }
+   )
+   .signInWithAppleButtonStyle(.black)  // или .white, .whiteOutline в зависимости от темы
+   .frame(height: 50)
+
+3. Расширить LoginIosViewModel (Kotlin):
+   - Добавить метод signInWithApple(identityToken: String)
+   - Метод вызывает AuthManager.loginWithApple(token) → POST /v1/auth с
+     methodAuth="appleId" и token (Apple identity token)
+   - Сервер обменяет на JWT, который сохраняется в Keychain
+
+4. Расширить AuthManager в data_remote/:
+   - suspend fun loginWithApple(identityToken: String): AuthResult
+
+5. На ProfileView добавить возможность отвязать Apple ID, если привязан
+   (через PATCH /v1/auth/appleId/remove).
+
+Тесты:
+- Симулятор: попробовать Sign In with Apple. Симулятор поддерживает
+  с iOS 13+ через тестовый Apple ID
+- Реальное устройство: попробовать с тестового Apple ID (можешь
+  использовать Hide My Email)
+- Проверить: после Sign In приложение получает identity token, отправляет
+  серверу, сервер возвращает JWT, главный экран открывается
+
+⚠️ ВАЖНО: Apple identity token **истекает быстро** (10 минут после выдачи).
+Клиент должен сразу отправить его серверу, не накапливать. После этого
+работа идёт через наш JWT (как обычно).
+
+⚠️ ВАЖНО для Apple Review: Sign in with Apple **должен быть равноценным**.
+Если на LoginView есть VK ID — Apple ID должен быть рядом, тех же размеров,
+не скрытый.
+
+Покажи план перед началом.
+```
+
+**Definition of Done**:
+- [ ] Sign in with Apple capability включён в проекте
+- [ ] Кнопка отображается на LoginView
+- [ ] При нажатии — открывается нативный диалог Apple
+- [ ] После успешного входа — JWT получен, главный экран открыт
+- [ ] Logout и повторная авторизация работают
+- [ ] Тестировано на симуляторе и (если есть) на реальном устройстве
+- [ ] `git commit -m "ios: integrate Sign in with Apple"`
+
+---
+
+## ЭТАП 5 — Тестирование и подготовка к релизу (дни 17-21+)
 
 ### Задача 5.1 — UI-тесты критичных потоков
 
@@ -969,23 +1791,115 @@ https://id.vk.com/about/business/go/docs/ru/vkid/latest/sdk-ios/install
 
 ---
 
-### Задача 5.3 — TestFlight beta-сборка
+### Задача 5.3 — TestFlight beta-сборка с реальными машинистами
 
 **Не для Claude Code** — твоя ручная работа в Xcode + App Store Connect.
 
-Шаги:
-1. В Xcode: Product → Archive → Distribute App → TestFlight & App Store
-2. Дождаться обработки в App Store Connect
-3. Добавить тестеров (минимум — себя)
-4. Установить TestFlight на iPhone, скачать сборку, прогнать критичные
-   потоки
-5. Если есть знакомые-машинисты — пригласить, попросить отзыв
-6. Накопить минимум 2-3 дня тестирования и фидбэка
+**Контекст**: у тебя есть опытные водители, которые были в Android-бете.
+Это **бесценно** — они быстро найдут реальные проблемы. Но нужна
+подготовка, чтобы они дали полезный фидбэк.
+
+**Шаги**:
+
+1. **Сборка в Xcode**:
+   - Product → Archive → Distribute App → TestFlight & App Store
+   - Дождаться обработки в App Store Connect (~10-30 минут)
+
+2. **Подготовка тестового build'а в App Store Connect**:
+   - Заполнить "What to Test" (что нужно проверить)
+   - Указать тестового пользователя (если есть)
+   - Email для багов и обратной связи
+
+3. **Подготовить инструкцию для тестеров** (текстовый документ или
+   страница на сайте):
+
+   ```
+   # LocoDriver iOS — инструкция для бета-тестеров
+
+   Спасибо, что согласились помочь с тестированием iOS-версии!
+
+   ## Установка
+   1. Установи приложение TestFlight из App Store
+   2. Открой ссылку, которую я тебе пришлю → "Принять приглашение"
+   3. В TestFlight установи LocoDriver
+   4. Открой приложение
+
+   ## Что нужно проверить
+   Постарайтесь использовать приложение в **обычной работе** — оно
+   должно вести себя так же, как на Android.
+
+   ### Базовое
+   - [ ] Логин (email/пароль или VK ID)
+   - [ ] Главный экран показывает правильные рейсы
+   - [ ] Создание нового рейса
+   - [ ] Редактирование рейса (изменили номер → сохранили → вернулись →
+         номер сохранился)
+   - [ ] Удаление рейса
+   - [ ] Синхронизация: создал рейс на iPhone → видно на Android
+         через 1-2 минуты после открытия
+
+   ### Сложные сценарии
+   - [ ] Рейс с локомотивом, секциями, поездом, станциями (полная форма)
+   - [ ] Расчёт зарплаты за месяц (значения совпадают с Android?)
+   - [ ] Календарь с праздниками, отвлечениями
+   - [ ] Поиск рейсов по дате/номеру
+
+   ## Как сообщить о баге
+   1. Сделай скриншот (Power + Volume Up на iPhone)
+   2. Опиши:
+      - Что делал
+      - Что произошло (или не произошло)
+      - Что ожидал
+   3. Отправь на email <твой_email> или в Telegram <твой_контакт>
+
+   ## Подписка
+   - Триал: первые 20 рейсов бесплатно (как на Android)
+   - После 20 рейсов — экран блокировки с кнопкой «Оформить подписку»,
+     которая откроет сайт. Оплати через сайт — приложение разблокируется.
+   - Уже есть подписка через Android-версию? Войди в тот же аккаунт —
+     подписка автоматически активна.
+
+   ## Что НЕ работает (известные ограничения первого релиза)
+   - Push-уведомления — отсутствуют
+   - Покупка подписки внутри приложения (через App Store IAP) —
+     невозможна из-за ограничений Apple для России. Только через сайт.
+
+   ## Срок
+   Тестирование займёт минимум 5-7 дней. После этого мы выпустим
+   приложение в публичный App Store.
+   ```
+
+4. **Пригласить тестеров**:
+   - В App Store Connect → TestFlight → External Testers (или Internal)
+   - Добавить email-адреса машинистов
+   - Они получат ссылку для активации
+
+5. **Минимум 5-7 дней beta** — для приложения водителей это критично:
+   нужны реальные смены, реальные рейсы, реальные расчёты.
+
+6. **Принимать фидбэк ежедневно**:
+   - Bugfix цикл: получил баг → починил → новая сборка в TestFlight
+   - Обычно нужно 2-3 итерации, чтобы стабилизировать
+
+**⚠️ Важно про сложности первого релиза**:
+
+- **Sandbox vs Production API**: проверь, что TestFlight-сборка
+  использует **тот же production-сервер**, что и Android-релиз.
+  Иначе тестеры будут работать с пустой БД.
+- **Push в Production от первой сборки**: Apple может ограничить, не
+  волнуйся, это норма для первой подачи.
+- **Реальные машинисты могут найти баги, которые тебе и в голову не
+  приходили** (например, ввод текста в специфическом формате,
+  переключение в режим экономии заряда). Будь готов к итерациям.
 
 **Definition of Done**:
 - [ ] Сборка в TestFlight доступна
-- [ ] Минимум 2-3 дня тестирования прошло
+- [ ] Инструкция для тестеров отправлена
+- [ ] Минимум 3 машиниста активно тестируют (или сам + 1-2 человека,
+      если машинистов нельзя привлечь)
+- [ ] 5-7 дней тестирования прошло
 - [ ] Все обнаруженные крэши и серьёзные баги исправлены
+- [ ] Финальная стабильная версия в TestFlight
 
 ---
 
@@ -1037,29 +1951,120 @@ https://id.vk.com/about/business/go/docs/ru/vkid/latest/sdk-ios/install
 
 ---
 
-### Задача 5.5 — Submit в App Store Review
+### Задача 5.5 — Submit в App Store Review (первый релиз!)
 
 **Ручная работа** в App Store Connect.
 
-1. Создать новую версию (1.0.0)
-2. Прикрепить TestFlight-сборку
-3. Заполнить metadata (см. 5.4)
-4. Submit for Review
-5. Ждать 1-7 дней (обычно 1-3)
-6. Если отказ — читать причину, исправлять, повторно submit
+⚠️ Это **твой первый релиз в App Store**. Apple строго проверяет, и
+самые частые отказы для первого релиза — формальные. Распишу подводные
+камни.
 
-**Возможные причины отказа** (по опыту):
-- Privacy Policy недоступен — проверь URL
-- Нет описания назначения камеры/микрофона/локации в Info.plist (если
-  используются)
-- Login-функционал требует тестового аккаунта — добавь Demo Account в
-  App Review Information
-- Crash при первом запуске — проверь на чистом устройстве
+**Шаги**:
+
+1. **Создать новую версию в App Store Connect**:
+   - Зайди на https://appstoreconnect.apple.com/
+   - Выбери LocoDriver → + Version → 1.0.0
+   - Прикрепи TestFlight-сборку как Build for Submission
+
+2. **Заполнить App Information**:
+   - Название (Russian + English)
+   - Описание (до 4000 знаков на каждом языке)
+   - Скриншоты (минимум для 6.7" iPhone — например, iPhone 16 Pro Max)
+   - Иконка приложения (1024×1024, без альфа-канала, без скруглений)
+
+3. **App Review Information** (это часто пропускают, и это причина
+   автоматического отказа):
+   - **Demo Account**: Apple Review будет тестировать функциональность.
+     Создай тестового пользователя на сервере с реальными данными:
+     ```
+     Login: appstore-review@locodriver.test (или подобный)
+     Password: <надёжный пароль>
+     Demo Account Email: appstore-review@locodriver.test
+     Demo Account Password: <тот же пароль>
+     ```
+   - **Notes for Reviewer**: расскажи Apple про специфику приложения:
+     ```
+     LocoDriver is an app for railway locomotive drivers in Russia.
+     The app helps drivers track their work shifts, calculate wages
+     according to Russian Railway industry rules, and synchronize data
+     across devices.
+
+     The app is in Russian language. Login methods:
+     - Email/password
+     - Sign in with Apple
+     - VK ID (popular Russian social network)
+
+     Demo account credentials are provided above. After login, you can:
+     - View existing routes
+     - Create a new route
+     - Calculate monthly salary
+
+     The app does not include any in-app purchases at this time.
+     ```
+   - **Contact Information**: телефон + email, на которые Apple может
+     связаться
+
+4. **App Privacy** (обязательно с iOS 14+):
+   - Заполни декларацию о собираемых данных
+   - Укажи, что собираешь: Email Address, User Content (рейсы), Identifiers
+     (Apple ID), Other Data (рабочие данные машиниста)
+   - Цели: App Functionality (для большинства)
+   - Privacy Policy URL: твоя страница
+
+5. **Pricing & Availability**:
+   - Free
+   - Доступность: можешь ограничить Россией + СНГ или выбрать
+     "All Available Countries"
+
+6. **Categories**:
+   - Primary: **Productivity** или **Business**
+   - Secondary: можно не указывать или выбрать релевантную
+
+7. **Age Rating**:
+   - Заполни анкету, должно получиться 4+
+
+8. **Build Selection**:
+   - Выбери стабильную TestFlight-сборку
+   - **Перед Submit убедись**, что эта сборка протестирована минимум 5 дней
+
+9. **Submit for Review**
+
+**⚠️ Что часто становится причиной отказа для первого релиза**:
+
+| Причина | Как избежать |
+|---|---|
+| Privacy Policy URL не работает | Проверь URL до Submit |
+| Demo Account не работает | Залогинься сам с тех же кредов до Submit |
+| Crash при первом запуске на чистом устройстве | Тестируй на новом симуляторе с очищенными данными |
+| Pricing указан, но IAP не настроены | Если нет покупок — выставь Free, без IAP |
+| Скриншоты с реальными чужими данными (PII) | Используй тестового пользователя для скриншотов |
+| Privacy Manifest не заполнен (с iOS 17+) | Создай через Xcode → New File → Privacy |
+| Sign in with Apple не работает на тестовом аккаунте | Проверь, что он работает на симуляторе и реальном устройстве |
+| App Store содержит упоминания других платформ ("Доступно на Android") | Удали такие упоминания из описания iOS |
+| Версия 1.0.0, но в "What's New" пусто | Заполни "What's New": "Initial release" |
+
+**Время рассмотрения**: 1-3 дня обычно, иногда до недели. Apple
+показывает статус: Waiting for Review → In Review → Pending Developer
+Release / Approved / Rejected.
+
+**Если отказ**:
+1. Прочитай причину в Resolution Center
+2. Исправь, **не отвечай долго** — делай новую сборку
+3. Загрузи новую сборку в TestFlight, прикрепи как новую версию
+4. Resubmit
+5. Повторное рассмотрение обычно быстрее (1-2 дня)
+
+**После одобрения**:
+- Можешь выбрать **Manual Release** (нажмёшь "Release" сам, когда готов)
+- Или **Automatic** — выйдет в App Store сразу после одобрения
+- Релиз = все могут скачать через несколько часов
 
 **Definition of Done**:
-- [ ] Приложение в App Store Review
-- [ ] Прошёл review успешно
-- [ ] Релиз опубликован
+- [ ] Submit в App Store Review выполнен
+- [ ] Прошёл review успешно (с первой или второй попытки)
+- [ ] Релиз 1.0.0 опубликован в App Store
+- [ ] Поделился новостью в Android-приложении/каналах:
+  «LocoDriver теперь в App Store!»
 
 ---
 
@@ -1067,14 +2072,32 @@ https://id.vk.com/about/business/go/docs/ru/vkid/latest/sdk-ios/install
 
 | Этап | Срок | Что зависит |
 |---|---|---|
-| Этап 0 (Discovery) | День 1, ~2 часа | — |
-| Этап 1 (Чистка) | Дни 2-3 | Этап 0 |
-| Этап 2 (Доделать экраны) | Дни 4-7 | Этап 1 |
-| Этап 3 (Новые экраны) | Дни 8-12 | Этап 2 |
-| Этап 4 (VK ID) | Дни 13-14 | Этап 3 |
-| Этап 5 (Релиз) | +1-2 недели после Этапа 4 | TestFlight beta + App Review |
+| **A. Apple Developer** (параллельно) | 1-7 дней | оплата + проверка Apple |
+| **B. VK Developer iOS** (параллельно) | 30 минут | твоя ручная работа |
+| **C. Privacy Policy** (параллельно) | 1-2 часа | твоя ручная работа |
+| Этап 0 (Discovery) | ✅ выполнено | — |
+| Этап 1 (Чистка + тесты) | Дни 1-2 | — |
+| Этап 2 (5 задач: формы, экран блокировки) | Дни 3-7 | Этап 1 |
+| Этап 3 (3 новых экрана) | Дни 8-12 | Этап 2 |
+| Этап 4 (VK ID + Apple Sign In + серверная) | Дни 13-16 | **серверная задача 4.3** |
+| Этап 5.1-5.2 (Тесты) | Дни 17-18 | Этап 4 |
+| Этап 5.3 (TestFlight beta) | Дни 19-25 (5-7 дней beta) | Этап 5.2 |
+| Этап 5.4 (App Store metadata) | Параллельно с TestFlight | — |
+| Этап 5.5 (Submit + Review) | Дни 26-30 (Apple Review 1-7 дней) | Всё выше |
 
-**Итого до публичного релиза в App Store: ~3-4 недели от сегодня.**
+**Итого до публичного релиза в App Store: ~4-5 недель от сегодня.**
+
+⚠️ Если что-то задерживает критичный путь:
+- **Apple Developer не активен на день 17-18** → блокирует TestFlight.
+  Поэтому оплачивай **сегодня**.
+- **Серверная задача 4.3 (Sign in with Apple)** не сделана к Этапу 4 →
+  блокирует задачу 4.4. Делать в отдельной сессии параллельно с
+  Этапами 1-3.
+- **Privacy Policy не готов к Submit** → блокирует Этап 5.5.
+  Подготовь сразу.
+- **URL для оформления подписки** на сайте должен быть готов к Этапу 2
+  (задача 2.6). Если ещё нет страницы `https://locodriver.ru/subscribe`
+  или подобной — сделай заранее.
 
 Если идти быстрее — рискуешь крэшами в проде. Если идти медленнее —
 Android-аудитория ждёт.
@@ -1085,11 +2108,16 @@ Android-аудитория ждёт.
 
 Перед каждым этапом проверяй:
 
+**Перед Этапом 1**:
+- [ ] Apple Developer Program оплачен (хотя бы заявка отправлена)
+- [ ] Privacy Policy опубликован
+- [ ] iOS-приложение в VK Developer создано (для будущей задачи 4.2)
+
 **Перед Этапом 2**:
 - [ ] iOS-приложение собирается без ошибок после чистки
 - [ ] Существующая функциональность (Home, FormView, авторизация, sync)
       работает
-- [ ] Apple Developer Program активен
+- [ ] Apple Developer Program **активен** (получил подтверждение от Apple)
 
 **Перед Этапом 3**:
 - [ ] Все 5 экранов из Этапа 2 (Loco, Train, Passenger, Settings, Profile)
@@ -1100,15 +2128,20 @@ Android-аудитория ждёт.
 - [ ] Все 4 экрана из Этапа 3 (WorkSchedule, Search, AllRoutes, Salary)
       работают
 - [ ] Sync с сервером стабильный
+- [ ] **Серверная задача 4.3 (Sign in with Apple)** выполнена в отдельной
+      сессии с серверным репозиторием
 
 **Перед Этапом 5**:
 - [ ] VK ID работает
+- [ ] Sign in with Apple работает
 - [ ] Все основные функции протестированы вручную
 - [ ] Нет известных крэшей
 
 **Перед Submit**:
-- [ ] TestFlight beta минимум 2-3 дня без серьёзных проблем
+- [ ] TestFlight beta минимум 5-7 дней без серьёзных проблем
 - [ ] Все скриншоты, описания, Privacy Policy готовы
+- [ ] Demo-аккаунт для App Review создан и протестирован
+- [ ] App Privacy декларация заполнена
 
 ---
 
@@ -1135,13 +2168,17 @@ Claude.ai могут помочь разобрать проблему).
 - 🟡 TLS для API
 - 🟡 Adminer через SSH-туннель
 - 🟡 Email-эндпоинты на freemyip.com — переезд на свой домен
-- 🟡 Покупки (Robokassa SDK для iOS — или In-App Purchase)
 - 🟡 Push-уведомления
-- 🟡 Apple Sign In (требование Apple, если есть VK ID)
+- 🟡 Возможно — App Store IAP (если/когда Apple восстановит платежи в РФ
+  и/или при выходе на международный рынок)
 - 🟡 Dark Mode
 - 🟡 Dynamic Type (доступность шрифтов)
 - 🟡 iPad layout
+- 🟡 Сделать `AllRoutesView` через отдельный `AllRoutesIosViewModel`
+  (сейчас MVP с переиспользованием HomeViewModelWrapper)
 - 🟢 Куча мелких багов из API reference (см. 31_API_REFERENCE.md)
+- 🟢 Поле break (timeStartBreak/timeEndBreak) в FormView — отображать
+  если settings.isShowBreak == true
 
 ---
 
