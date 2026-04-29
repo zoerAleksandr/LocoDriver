@@ -28,8 +28,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.z_company.core.sendToSentry
@@ -278,7 +276,10 @@ class TrainFormViewModel(
 
     private fun loadTrain(id: String) {
         loadTrainJob?.cancel()
-        loadTrainJob = trainUseCase.getTrainById(id).onEach { resultState ->
+        _uiState.update { it.copy(trainDetailState = ResultState.Loading()) }
+        loadTrainJob = viewModelScope.launch {
+            val resultState = trainUseCase.getTrainById(id)
+                .first { it !is ResultState.Loading }
             _uiState.update {
                 if (resultState is ResultState.Success) {
                     currentTrain = resultState.data
@@ -291,7 +292,7 @@ class TrainFormViewModel(
                     trainDetailState = resultState
                 )
             }
-        }.launchIn(viewModelScope)
+        }
     }
 
     fun saveTrain() {
