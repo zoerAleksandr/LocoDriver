@@ -116,18 +116,24 @@ object UtilsForEntities {
     }
 
     /**
-     * Длинносоставный поезд:
-     * — грузовой (номер не входит в пассажирские диапазоны): осей ≥ 350
-     * — пассажирский (номер в passengerTrainNumberList): осей ≥ 80
+     * Поезд считается длинносоставным, если хотя бы один поезд маршрута попадает
+     * в один из диапазонов условной длины из salarySetting.surchargeLongTrainsList.
+     * Логика повторяет isHeavyTrains для тяжеловесных.
      */
-    fun isLongCompositionTrain(route: Route): Boolean {
-        return route.trains.any { train ->
-            val axleCount = train.axle?.toIntOrNull() ?: return@any false
-            val trainNumber = train.number?.toIntOrNull()
-            val isPassenger = trainNumber != null &&
-                passengerTrainNumberList.any { interval -> interval.contains(trainNumber) }
-            if (isPassenger) axleCount >= 80 else axleCount >= 350
+    fun isLongCompositionTrain(salarySetting: SalarySetting, route: Route): Boolean {
+        val surchargeListSorted = salarySetting.surchargeLongTrainsList.sortedBy {
+            it.conditionalLength.toIntOrZero()
         }
+        val timeList: MutableList<Long> = mutableListOf()
+        surchargeListSorted.forEachIndexed { index, _ ->
+            var totalTimeLongTrain = 0L
+            totalTimeLongTrain += route.getTimeInLongTrain(
+                surchargeListSorted.map { it.conditionalLength.toIntOrZero() },
+                index
+            )
+            timeList.add(totalTimeLongTrain)
+        }
+        return timeList.sum() > 0
     }
 
     fun Route.isCurrentRoute(currentTimeInMillis: Long): Boolean {

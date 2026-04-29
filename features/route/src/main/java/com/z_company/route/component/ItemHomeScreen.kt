@@ -92,6 +92,7 @@ fun ItemHomeScreen(
     dateAndTimeConverter: DateAndTimeConverter,
     isHeavyTrains: Boolean = false,
     isLongCompositionTrain: Boolean = false,
+    isExtendedServicePhaseTrains: Boolean = false,
     isHolidayTimeInRoute: Boolean = false,
     number: Int? = null,
     monthOfYear: MonthOfYear? = null,
@@ -461,7 +462,7 @@ fun ItemHomeScreen(
                                         Icon(
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(20.dp),
-                                            painter = painterResource(id = R.drawable.long_distance_24px),
+                                            painter = painterResource(id = R.drawable.straighten_24px),
                                             contentDescription = null
                                         )
                                         Text(
@@ -497,6 +498,28 @@ fun ItemHomeScreen(
                                             color = MaterialTheme.colorScheme.primary,
                                             overflow = TextOverflow.Visible,
                                             text = "Поезда повышенной массы",
+                                        )
+                                    }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(id = R.drawable.long_distance_24px),
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            overflow = TextOverflow.Visible,
+                                            text = " - ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            overflow = TextOverflow.Visible,
+                                            text = "Удлинённое плечо обслуживания",
                                         )
                                     }
                                     Row(
@@ -690,7 +713,7 @@ fun ItemHomeScreen(
                                     Icon(
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp),
-                                        painter = painterResource(id = R.drawable.long_distance_24px),
+                                        painter = painterResource(id = R.drawable.straighten_24px),
                                         contentDescription = null
                                     )
                                 }
@@ -699,6 +722,14 @@ fun ItemHomeScreen(
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp),
                                         painter = painterResource(id = R.drawable.weight_24px),
+                                        contentDescription = null
+                                    )
+                                }
+                                if (isExtendedServicePhaseTrains) {
+                                    Icon(
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(id = R.drawable.long_distance_24px),
                                         contentDescription = null
                                     )
                                 }

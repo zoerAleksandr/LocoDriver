@@ -1533,7 +1533,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                             salarySetting,
                                             route
                                         ),
-                                        isLongCompositionTrain = isLongCompositionTrain(route),
+                                        isLongCompositionTrain = isLongCompositionTrain(salarySetting, route),
                                         isFuture = route.isFuture(offsetMs),
                                         isTransition = route.isTransition(offsetMs)
                                     )

@@ -466,7 +466,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                                             salarySetting!!,
                                             route
                                         ),
-                                        isLongCompositionTrain = isLongCompositionTrain(route),
+                                        isLongCompositionTrain = isLongCompositionTrain(salarySetting!!, route),
                                         isFuture = route.isFuture(offsetInMoscow),
                                         isTransition = route.isTransition(offsetInMoscow)
                                     )

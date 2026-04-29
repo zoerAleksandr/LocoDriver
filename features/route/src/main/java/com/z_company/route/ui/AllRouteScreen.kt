@@ -632,6 +632,7 @@ fun AllRouteScreen(
                                     isHeavyTrains = routeState.isHeavyTrains,
                                     isHolidayTimeInRoute = routeState.isHoliday,
                                     isLongCompositionTrain = routeState.isLongCompositionTrain,
+                                    isExtendedServicePhaseTrains = routeState.isExtendedServicePhaseTrains,
                                     number = displayedRoutes.size - index
                                 )
 
