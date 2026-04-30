@@ -2,19 +2,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
 plugins {
     id(Plugins.kotlin_multiplatform)
-    id(Plugins.compose_multiplatform)
-    id(Plugins.compose_compiler)
     id(Plugins.sentry_kmp)
-}
-
-// Конфигурация Compose-компилятора:
-// Помечаем классы compose-runtime/animation как стабильные через конфиг-файл,
-// чтобы компилятор генерировал константу STABLE вместо вызова $stableprop_getter$artificial
-// (несовместимость символов между Kotlin 2.2.20 и compose klib)
-composeCompiler {
-    stabilityConfigurationFiles.add(
-        project.layout.projectDirectory.file("compose_stability.conf")
-    )
 }
 
 kotlin {
@@ -36,16 +24,6 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            // Compose Multiplatform UI
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
-            implementation(compose.materialIconsExtended)
-            implementation(compose.ui)
-            implementation(compose.components.resources)
-            // KMP Navigation (JetBrains fork androidx.navigation)
-            implementation(Libs.navigation_compose_kmp)
-
             // KMP бизнес-логика
             api(project(Libs.project_data_remote))   // SecureTokenStorage, API, initKoin()
             implementation(project(Libs.project_data_local))
@@ -54,9 +32,13 @@ kotlin {
 
             // DI + утилиты
             implementation(Libs.koin_core)
-            implementation(Libs.koin_compose)   // koinInject() для Compose MP
             implementation(Libs.kotlinx_coroutines_core)
             implementation(Libs.kotlinx_date_time)
+            // androidx.lifecycle.ViewModel + viewModelScope для KMP
+            // (org.jetbrains.androidx.lifecycle — JetBrains-форк только lifecycle-viewmodel,
+            // используют все *IosViewModel.kt; раньше приходил транзитивно через
+            // navigation-compose-kmp, теперь объявляем напрямую).
+            implementation(Libs.lifecycle_viewmodel_kmp)
         }
 
         iosMain.dependencies {

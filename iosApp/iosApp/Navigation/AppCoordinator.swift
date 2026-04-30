@@ -5,13 +5,25 @@ enum AppTab {
     case home, salary, add, settings, profile
 }
 
+/// Идентифицируемая обёртка над routeId для `.sheet(item:)`. SwiftUI
+/// требует Identifiable; сам routeId уникален (UUID), используем как `id`.
+private struct DeepLinkRoute: Identifiable {
+    let id: String
+}
+
 struct AppCoordinator: View {
     @State private var selectedTab: AppTab = .home
     @State private var previousTab: AppTab = .home
     @State private var showAddForm: Bool = false
+    /// Маршрут, открываемый по deep-link. Установка не-nil показывает sheet
+    /// с уже импортированной формой (см. [PendingFormRouteObserver]).
+    @State private var deepLinkRoute: DeepLinkRoute? = nil
     /// Подписка на ошибки SharedRouteLinkHandler (deep-link).
     /// AppCoordinator — root, .alert поверх любой активной вкладки.
     @StateObject private var deepLinkError = DeepLinkErrorObserver()
+    /// Подписка на `pendingFormRouteId` SharedRouteLinkHandler. При
+    /// успешном импорте deep-link открывает форму свежего маршрута sheet'ом.
+    @StateObject private var pendingForm = PendingFormRouteObserver()
 
     init() {
         // Единый стиль таб-бара: прозрачный фон, корректный учёт safe area
@@ -76,6 +88,23 @@ struct AppCoordinator: View {
             NavigationStack {
                 FormView(routeId: nil)
             }
+        }
+        // Deep-link на существующий импортированный маршрут — открывается
+        // sheet'ом аналогично «Добавить», но с заранее заданным routeId.
+        .sheet(item: $deepLinkRoute) { route in
+            NavigationStack {
+                FormView(routeId: route.id)
+            }
+        }
+        .onChange(of: pendingForm.pendingRouteId) { newId in
+            guard let id = newId, !id.isEmpty else { return }
+            // Закрываем «Добавить»-шторку, если была открыта, чтобы не было
+            // конкуренции за модальное окно. Затем сразу очищаем
+            // pendingFormRouteId — повторный приход того же id не должен
+            // переоткрывать sheet.
+            showAddForm = false
+            deepLinkRoute = DeepLinkRoute(id: id)
+            pendingForm.clear()
         }
         // Deep-link error — без кнопки «Повторить» (одноразовая ссылка,
         // повтор не имеет смысла; пользователь должен снова кликнуть

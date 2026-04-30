@@ -83,6 +83,10 @@ object SharedRouteLinkHandler : KoinComponent {
         scope.launch { appError.collect { callback(it) } }
     }
 
+    fun watchPendingFormRouteId(callback: (String?) -> Unit) {
+        scope.launch { pendingFormRouteId.collect { callback(it) } }
+    }
+
     private suspend fun saveImported(route: Route) {
         val newBasicId = route.basicData.id
         try {
