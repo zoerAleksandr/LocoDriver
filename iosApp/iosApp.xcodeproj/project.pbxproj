@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4035B1FD2FA36CF100C5DBB5 /* PendingFormRouteObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4035B1FC2FA36CF100C5DBB5 /* PendingFormRouteObserver.swift */; };
 		403C32A52FA0876B0086C675 /* DeepLinkErrorObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 403C32A42FA0876B0086C675 /* DeepLinkErrorObserver.swift */; };
 		A11A11A101000001 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000001 /* iOSApp.swift */; };
 		A11A11A101000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000002 /* ContentView.swift */; };
@@ -43,6 +44,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		4035B1FC2FA36CF100C5DBB5 /* PendingFormRouteObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingFormRouteObserver.swift; sourceTree = "<group>"; };
 		403C32A42FA0876B0086C675 /* DeepLinkErrorObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkErrorObserver.swift; sourceTree = "<group>"; };
 		A11A11A001000001 /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
 		A11A11A001000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -127,6 +129,7 @@
 		A11A11A001000033 /* Navigation */ = {
 			isa = PBXGroup;
 			children = (
+				4035B1FC2FA36CF100C5DBB5 /* PendingFormRouteObserver.swift */,
 				403C32A42FA0876B0086C675 /* DeepLinkErrorObserver.swift */,
 				A11A11A001000100 /* AppCoordinator.swift */,
 			);
@@ -380,6 +383,7 @@
 			files = (
 				A11A11A101000001 /* iOSApp.swift in Sources */,
 				A11A11A101000002 /* ContentView.swift in Sources */,
+				4035B1FD2FA36CF100C5DBB5 /* PendingFormRouteObserver.swift in Sources */,
 				A11A11A101000100 /* AppCoordinator.swift in Sources */,
 				A11A11A101000200 /* ViewModelWrapper.swift in Sources */,
 				403C32A52FA0876B0086C675 /* DeepLinkErrorObserver.swift in Sources */,
