@@ -14,10 +14,17 @@ import ComposeApp
 final class PendingFormRouteObserver: ObservableObject {
     @Published var pendingRouteId: String? = nil
 
+    /// Токены подписок watchX. Отменяются в deinit.
+    private var watchHandles: [WatchHandle] = []
+
     init() {
-        SharedRouteLinkHandler.shared.watchPendingFormRouteId { [weak self] id in
+        watchHandles.append(SharedRouteLinkHandler.shared.watchPendingFormRouteId { [weak self] id in
             DispatchQueue.main.async { self?.pendingRouteId = id }
-        }
+        })
+    }
+
+    deinit {
+        watchHandles.forEach { $0.cancel() }
     }
 
     func clear() {

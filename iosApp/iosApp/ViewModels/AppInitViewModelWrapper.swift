@@ -11,11 +11,17 @@ final class AppInitViewModelWrapper: ObservableObject {
 
     @Published var appInitialized: Bool = false
 
+    private var watchHandles: [WatchHandle] = []
+
     init() {
-        viewModel.watchAppInitialized { [weak self] ready in
+        watchHandles.append(viewModel.watchAppInitialized { [weak self] ready in
             DispatchQueue.main.async {
                 self?.appInitialized = ready.boolValue
             }
-        }
+        })
+    }
+
+    deinit {
+        watchHandles.forEach { $0.cancel() }
     }
 }

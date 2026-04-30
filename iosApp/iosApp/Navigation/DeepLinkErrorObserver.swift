@@ -14,13 +14,20 @@ final class DeepLinkErrorObserver: ObservableObject {
     @Published var error: AppError? = nil
     @Published var errorMessage: String? = nil
 
+    /// Токены подписок watchX. Отменяются в deinit.
+    private var watchHandles: [WatchHandle] = []
+
     init() {
-        SharedRouteLinkHandler.shared.watchAppError { [weak self] e in
+        watchHandles.append(SharedRouteLinkHandler.shared.watchAppError { [weak self] e in
             DispatchQueue.main.async { self?.error = e }
-        }
-        SharedRouteLinkHandler.shared.watchErrorMessage { [weak self] msg in
+        })
+        watchHandles.append(SharedRouteLinkHandler.shared.watchErrorMessage { [weak self] msg in
             DispatchQueue.main.async { self?.errorMessage = msg }
-        }
+        })
+    }
+
+    deinit {
+        watchHandles.forEach { $0.cancel() }
     }
 
     func clearError() {

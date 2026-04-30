@@ -243,33 +243,26 @@ class ProfileIosViewModel(
 
     // ── Watch helpers для Swift ────────────────────────────────────────────────
 
-    fun watchIsLoggedIn(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isLoggedIn.collect { callback(it) } }
-    }
+    fun watchIsLoggedIn(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isLoggedIn.collect { callback(it) } })
 
-    fun watchIsLoading(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isLoading.collect { callback(it) } }
-    }
+    fun watchIsLoading(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isLoading.collect { callback(it) } })
 
-    fun watchIsSyncing(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isSyncing.collect { callback(it) } }
-    }
+    fun watchIsSyncing(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isSyncing.collect { callback(it) } })
 
-    fun watchErrorMessage(callback: (String?) -> Unit) {
-        viewModelScope.launch { errorMessage.collect { callback(it) } }
-    }
+    fun watchErrorMessage(callback: (String?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { errorMessage.collect { callback(it) } })
 
-    fun watchError(callback: (AppError?) -> Unit) {
-        viewModelScope.launch { error.collect { callback(it) } }
-    }
+    fun watchError(callback: (AppError?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { error.collect { callback(it) } })
 
-    fun watchUserEmail(callback: (String?) -> Unit) {
-        viewModelScope.launch { userEmail.collect { callback(it) } }
-    }
+    fun watchUserEmail(callback: (String?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { userEmail.collect { callback(it) } })
 
-    fun watchSyncMessage(callback: (String?) -> Unit) {
-        viewModelScope.launch { syncMessage.collect { callback(it) } }
-    }
+    fun watchSyncMessage(callback: (String?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { syncMessage.collect { callback(it) } })
 
     // ── Private ───────────────────────────────────────────────────────────────
 

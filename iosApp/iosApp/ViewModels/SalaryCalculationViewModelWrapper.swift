@@ -15,27 +15,34 @@ final class SalaryCalculationViewModelWrapper: ObservableObject {
     /// не нужны — Шаг 6 добавит, когда появится сетевой запрос.
     @Published var error: AppError? = nil
 
+    /// Токены подписок watchX. Отменяются в deinit.
+    private var watchHandles: [WatchHandle] = []
+
     init() {
-        viewModel.watchSummary { [weak self] s in
+        watchHandles.append(viewModel.watchSummary { [weak self] s in
             DispatchQueue.main.async { self?.summary = s }
-        }
-        viewModel.watchRoutes { [weak self] list in
+        })
+        watchHandles.append(viewModel.watchRoutes { [weak self] list in
             DispatchQueue.main.async {
                 self?.routes = list as? [SalaryCalculationIosViewModel.RouteRow] ?? []
             }
-        }
-        viewModel.watchIsLoading { [weak self] loading in
+        })
+        watchHandles.append(viewModel.watchIsLoading { [weak self] loading in
             DispatchQueue.main.async { self?.isLoading = loading.boolValue }
-        }
-        viewModel.watchCurrentMonth { [weak self] month in
+        })
+        watchHandles.append(viewModel.watchCurrentMonth { [weak self] month in
             DispatchQueue.main.async { self?.currentMonth = Int(month) }
-        }
-        viewModel.watchCurrentYear { [weak self] year in
+        })
+        watchHandles.append(viewModel.watchCurrentYear { [weak self] year in
             DispatchQueue.main.async { self?.currentYear = Int(year) }
-        }
-        viewModel.watchError { [weak self] e in
+        })
+        watchHandles.append(viewModel.watchError { [weak self] e in
             DispatchQueue.main.async { self?.error = e }
-        }
+        })
+    }
+
+    deinit {
+        watchHandles.forEach { $0.cancel() }
     }
 
     func clearError() { viewModel.clearError() }

@@ -442,66 +442,47 @@ class HomeIosViewModel(
 
     // ── watchState helpers ────────────────────────────────────────────────────
 
-    fun watchRoutes(callback: (List<Route>) -> Unit) {
-        viewModelScope.launch { routes.collect { callback(it) } }
-    }
+    fun watchRoutes(callback: (List<Route>) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { routes.collect { callback(it) } })
 
-    fun watchSettings(callback: (UserSettings?) -> Unit) {
-        viewModelScope.launch { settings.collect { callback(it) } }
-    }
+    fun watchSettings(callback: (UserSettings?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { settings.collect { callback(it) } })
 
-    fun watchIsLoading(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isLoading.collect { callback(it) } }
-    }
+    fun watchIsLoading(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isLoading.collect { callback(it) } })
 
-    fun watchCurrentMonth(callback: (Int) -> Unit) {
-        viewModelScope.launch { currentMonth.collect { callback(it) } }
-    }
+    fun watchCurrentMonth(callback: (Int) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { currentMonth.collect { callback(it) } })
 
-    fun watchCurrentYear(callback: (Int) -> Unit) {
-        viewModelScope.launch { currentYear.collect { callback(it) } }
-    }
+    fun watchCurrentYear(callback: (Int) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { currentYear.collect { callback(it) } })
 
-    fun watchTotalWorkMs(callback: (Long) -> Unit) {
-        viewModelScope.launch { totalWorkMs.collect { callback(it) } }
-    }
-    fun watchNightWorkMs(callback: (Long) -> Unit) {
-        viewModelScope.launch { nightWorkMs.collect { callback(it) } }
-    }
-    fun watchPassengerWorkMs(callback: (Long) -> Unit) {
-        viewModelScope.launch { passengerWorkMs.collect { callback(it) } }
-    }
-    fun watchReserveWorkMs(callback: (Long) -> Unit) {
-        viewModelScope.launch { reserveWorkMs.collect { callback(it) } }
-    }
-    fun watchOnePersonMs(callback: (Long) -> Unit) {
-        viewModelScope.launch { onePersonMs.collect { callback(it) } }
-    }
-    fun watchNormaHoursMonth(callback: (Int) -> Unit) {
-        viewModelScope.launch { normaHoursMonth.collect { callback(it) } }
-    }
-    fun watchNormaHoursToday(callback: (Int) -> Unit) {
-        viewModelScope.launch { normaHoursToday.collect { callback(it) } }
-    }
-    fun watchTodayWorkMs(callback: (Long) -> Unit) {
-        viewModelScope.launch { todayWorkMs.collect { callback(it) } }
-    }
-    fun watchMessages(callback: (String) -> Unit) {
-        viewModelScope.launch { messages.collect { callback(it) } }
-    }
-    fun watchShareLinks(callback: (String) -> Unit) {
-        viewModelScope.launch { shareLinks.collect { callback(it) } }
-    }
-    fun watchIsSyncingRoute(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isSyncingRoute.collect { callback(it) } }
-    }
-    fun watchIsCreatingShareLink(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isCreatingShareLink.collect { callback(it) } }
-    }
-    fun watchIsRefreshing(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isRefreshing.collect { callback(it) } }
-    }
-    fun watchError(callback: (AppError?) -> Unit) {
-        viewModelScope.launch { error.collect { callback(it) } }
-    }
+    fun watchTotalWorkMs(callback: (Long) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { totalWorkMs.collect { callback(it) } })
+    fun watchNightWorkMs(callback: (Long) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { nightWorkMs.collect { callback(it) } })
+    fun watchPassengerWorkMs(callback: (Long) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { passengerWorkMs.collect { callback(it) } })
+    fun watchReserveWorkMs(callback: (Long) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { reserveWorkMs.collect { callback(it) } })
+    fun watchOnePersonMs(callback: (Long) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { onePersonMs.collect { callback(it) } })
+    fun watchNormaHoursMonth(callback: (Int) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { normaHoursMonth.collect { callback(it) } })
+    fun watchNormaHoursToday(callback: (Int) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { normaHoursToday.collect { callback(it) } })
+    fun watchTodayWorkMs(callback: (Long) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { todayWorkMs.collect { callback(it) } })
+    fun watchMessages(callback: (String) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { messages.collect { callback(it) } })
+    fun watchShareLinks(callback: (String) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { shareLinks.collect { callback(it) } })
+    fun watchIsSyncingRoute(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isSyncingRoute.collect { callback(it) } })
+    fun watchIsCreatingShareLink(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isCreatingShareLink.collect { callback(it) } })
+    fun watchIsRefreshing(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isRefreshing.collect { callback(it) } })
+    fun watchError(callback: (AppError?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { error.collect { callback(it) } })
 }

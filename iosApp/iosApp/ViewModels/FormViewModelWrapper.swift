@@ -27,6 +27,9 @@ final class FormViewModelWrapper: ObservableObject {
         case save
     }
 
+    /// Токены подписок watchX. Отменяются в deinit.
+    private var watchHandles: [WatchHandle] = []
+
     // Salary (плоские поля — не экспортируем Kotlin-nested data class напрямую)
     @Published var salaryTotal: Double? = nil
     @Published var salaryTariff: Double? = nil
@@ -59,7 +62,7 @@ final class FormViewModelWrapper: ObservableObject {
         // прилетит как `true` и SwiftUI onChange триггернёт dismiss().
         viewModel.resetTransientState()
 
-        viewModel.watchRoute { [weak self] r in
+        watchHandles.append(viewModel.watchRoute { [weak self] r in
             DispatchQueue.main.async {
                 self?.route = r
                 // Явно публикуем «вычисляемые» булевы поля, потому что SwiftUI
@@ -69,26 +72,26 @@ final class FormViewModelWrapper: ObservableObject {
                 self?.isFavoritePublished = r?.basicData.isFavorite ?? false
                 self?.isOnePersonOperationPublished = r?.basicData.isOnePersonOperation ?? false
             }
-        }
-        viewModel.watchIsLoading { [weak self] loading in
+        })
+        watchHandles.append(viewModel.watchIsLoading { [weak self] loading in
             DispatchQueue.main.async { self?.isLoading = loading.boolValue }
-        }
-        viewModel.watchIsSaved { [weak self] saved in
+        })
+        watchHandles.append(viewModel.watchIsSaved { [weak self] saved in
             DispatchQueue.main.async { self?.isSaved = saved.boolValue }
-        }
-        viewModel.watchIsDeleted { [weak self] deleted in
+        })
+        watchHandles.append(viewModel.watchIsDeleted { [weak self] deleted in
             DispatchQueue.main.async { self?.isDeleted = deleted.boolValue }
-        }
-        viewModel.watchErrorMessage { [weak self] msg in
+        })
+        watchHandles.append(viewModel.watchErrorMessage { [weak self] msg in
             DispatchQueue.main.async { self?.errorMessage = msg }
-        }
-        viewModel.watchError { [weak self] e in
+        })
+        watchHandles.append(viewModel.watchError { [weak self] e in
             DispatchQueue.main.async { self?.error = e }
-        }
-        viewModel.watchShareLink { [weak self] link in
+        })
+        watchHandles.append(viewModel.watchShareLink { [weak self] link in
             DispatchQueue.main.async { self?.shareLink = link }
-        }
-        viewModel.watchSalary { [weak self] s in
+        })
+        watchHandles.append(viewModel.watchSalary { [weak self] s in
             DispatchQueue.main.async {
                 self?.salaryTotal = s.totalPayment?.doubleValue
                 self?.salaryTariff = s.paymentAtTariffRate?.doubleValue
@@ -101,8 +104,8 @@ final class FormViewModelWrapper: ObservableObject {
                 self?.salaryOther = s.otherSurcharge?.doubleValue
                 self?.salaryOverRest = s.overRestMoney?.doubleValue
             }
-        }
-        viewModel.watchRest { [weak self] r in
+        })
+        watchHandles.append(viewModel.watchRest { [weak self] r in
             DispatchQueue.main.async {
                 self?.homeRestDuration = r.homeDuration?.int64Value
                 self?.homeRestEnd = r.homeEndTime?.int64Value
@@ -116,7 +119,11 @@ final class FormViewModelWrapper: ObservableObject {
                 self?.chainSize = Int(r.chainSize)
                 self?.restErrorMessage = r.errorMessage
             }
-        }
+        })
+    }
+
+    deinit {
+        watchHandles.forEach { $0.cancel() }
     }
 
     // Getters — проксируют на @Published-поля, чтобы SwiftUI

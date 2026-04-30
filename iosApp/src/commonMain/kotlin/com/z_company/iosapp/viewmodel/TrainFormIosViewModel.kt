@@ -54,17 +54,14 @@ class TrainFormIosViewModel(
     fun setLength(value: String) { _train.update { it?.copy(conditionalLength = value.ifBlank { null }) } }
     fun setIsHeavy(value: Boolean) { _train.update { it?.copy(isHeavyLongDistance = value) } }
 
-    fun watchTrain(callback: (Train?) -> Unit) {
-        viewModelScope.launch { train.collect { callback(it) } }
-    }
+    fun watchTrain(callback: (Train?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { train.collect { callback(it) } })
 
-    fun watchIsSaved(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isSaved.collect { callback(it) } }
-    }
+    fun watchIsSaved(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isSaved.collect { callback(it) } })
 
-    fun watchError(callback: (AppError?) -> Unit) {
-        viewModelScope.launch { error.collect { callback(it) } }
-    }
+    fun watchError(callback: (AppError?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { error.collect { callback(it) } })
 
     fun clearError() { _error.value = null }
 

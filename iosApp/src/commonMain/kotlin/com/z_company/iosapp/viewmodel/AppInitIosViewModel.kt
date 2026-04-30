@@ -234,7 +234,6 @@ class AppInitIosViewModel(
     }
 
     // watcher для Swift
-    fun watchAppInitialized(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { appInitialized.collect { callback(it) } }
-    }
+    fun watchAppInitialized(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { appInitialized.collect { callback(it) } })
 }

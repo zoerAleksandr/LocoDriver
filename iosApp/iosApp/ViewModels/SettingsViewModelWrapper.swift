@@ -8,13 +8,20 @@ final class SettingsViewModelWrapper: ObservableObject {
     @Published var settings: DomainUserSettings? = nil
     @Published var isLoading: Bool = true
 
+    /// Токены подписок watchX. Отменяются в deinit.
+    private var watchHandles: [WatchHandle] = []
+
     init() {
-        viewModel.watchSettings { [weak self] s in
+        watchHandles.append(viewModel.watchSettings { [weak self] s in
             DispatchQueue.main.async { self?.settings = s }
-        }
-        viewModel.watchIsLoading { [weak self] loading in
+        })
+        watchHandles.append(viewModel.watchIsLoading { [weak self] loading in
             DispatchQueue.main.async { self?.isLoading = loading.boolValue }
-        }
+        })
+    }
+
+    deinit {
+        watchHandles.forEach { $0.cancel() }
     }
 
     // MARK: - Route toggles

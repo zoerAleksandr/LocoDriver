@@ -5,6 +5,7 @@ import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.reidentifyForImport
 import com.z_company.domain.use_cases.RouteUseCase
+import com.z_company.iosapp.viewmodel.WatchHandle
 import com.z_company.repository.remote_rest.ShareRouteManager
 import com.z_company.repository.remote_rest.toAppError
 import kotlinx.coroutines.CancellationException
@@ -75,17 +76,14 @@ object SharedRouteLinkHandler : KoinComponent {
     }
 
     // ── watch helpers для Swift (по тому же паттерну, что у iOS-ViewModel'ей) ──
-    fun watchErrorMessage(callback: (String?) -> Unit) {
-        scope.launch { errorMessage.collect { callback(it) } }
-    }
+    fun watchErrorMessage(callback: (String?) -> Unit): WatchHandle =
+        WatchHandle(scope.launch { errorMessage.collect { callback(it) } })
 
-    fun watchAppError(callback: (AppError?) -> Unit) {
-        scope.launch { appError.collect { callback(it) } }
-    }
+    fun watchAppError(callback: (AppError?) -> Unit): WatchHandle =
+        WatchHandle(scope.launch { appError.collect { callback(it) } })
 
-    fun watchPendingFormRouteId(callback: (String?) -> Unit) {
-        scope.launch { pendingFormRouteId.collect { callback(it) } }
-    }
+    fun watchPendingFormRouteId(callback: (String?) -> Unit): WatchHandle =
+        WatchHandle(scope.launch { pendingFormRouteId.collect { callback(it) } })
 
     private suspend fun saveImported(route: Route) {
         val newBasicId = route.basicData.id

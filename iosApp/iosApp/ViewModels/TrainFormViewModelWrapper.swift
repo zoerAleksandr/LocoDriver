@@ -17,16 +17,23 @@ final class TrainFormViewModelWrapper: ObservableObject {
         case load(routeId: String, trainId: String?)
     }
 
+    /// Токены подписок watchX. Отменяются в deinit.
+    private var watchHandles: [WatchHandle] = []
+
     init() {
-        viewModel.watchTrain { [weak self] t in
+        watchHandles.append(viewModel.watchTrain { [weak self] t in
             DispatchQueue.main.async { self?.train = t }
-        }
-        viewModel.watchIsSaved { [weak self] saved in
+        })
+        watchHandles.append(viewModel.watchIsSaved { [weak self] saved in
             DispatchQueue.main.async { self?.isSaved = saved.boolValue }
-        }
-        viewModel.watchError { [weak self] e in
+        })
+        watchHandles.append(viewModel.watchError { [weak self] e in
             DispatchQueue.main.async { self?.error = e }
-        }
+        })
+    }
+
+    deinit {
+        watchHandles.forEach { $0.cancel() }
     }
 
     func load(routeId: String, trainId: String?) {

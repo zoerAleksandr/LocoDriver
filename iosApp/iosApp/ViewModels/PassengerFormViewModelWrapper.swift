@@ -16,19 +16,26 @@ final class PassengerFormViewModelWrapper: ObservableObject {
         case save
     }
 
+    /// Токены подписок watchX. Отменяются в deinit.
+    private var watchHandles: [WatchHandle] = []
+
     init() {
-        viewModel.watchPassenger { [weak self] p in
+        watchHandles.append(viewModel.watchPassenger { [weak self] p in
             DispatchQueue.main.async { self?.passenger = p }
-        }
-        viewModel.watchIsSaved { [weak self] saved in
+        })
+        watchHandles.append(viewModel.watchIsSaved { [weak self] saved in
             DispatchQueue.main.async { self?.isSaved = saved.boolValue }
-        }
-        viewModel.watchIsLoading { [weak self] loading in
+        })
+        watchHandles.append(viewModel.watchIsLoading { [weak self] loading in
             DispatchQueue.main.async { self?.isLoading = loading.boolValue }
-        }
-        viewModel.watchError { [weak self] e in
+        })
+        watchHandles.append(viewModel.watchError { [weak self] e in
             DispatchQueue.main.async { self?.error = e }
-        }
+        })
+    }
+
+    deinit {
+        watchHandles.forEach { $0.cancel() }
     }
 
     func load(routeId: String, passengerId: String?) {

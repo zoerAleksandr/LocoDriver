@@ -38,71 +38,79 @@ final class HomeViewModelWrapper: ObservableObject {
         case refresh
     }
 
+    /// Токены подписок watchX. Отменяются в deinit, чтобы collect-корутины
+    /// не накапливались в viewModelScope singleton-VM при пересоздании Wrapper'а.
+    private var watchHandles: [WatchHandle] = []
+
     init() {
-        viewModel.watchRoutes { [weak self] list in
+        watchHandles.append(viewModel.watchRoutes { [weak self] list in
             DispatchQueue.main.async {
                 self?.routes = list as? [DomainRoute] ?? []
             }
-        }
-        viewModel.watchSettings { [weak self] s in
+        })
+        watchHandles.append(viewModel.watchSettings { [weak self] s in
             DispatchQueue.main.async { self?.settings = s }
-        }
-        viewModel.watchIsLoading { [weak self] loading in
+        })
+        watchHandles.append(viewModel.watchIsLoading { [weak self] loading in
             DispatchQueue.main.async { self?.isLoading = loading.boolValue }
-        }
-        viewModel.watchCurrentMonth { [weak self] month in
+        })
+        watchHandles.append(viewModel.watchCurrentMonth { [weak self] month in
             DispatchQueue.main.async { self?.currentMonth = Int(month) }
-        }
-        viewModel.watchCurrentYear { [weak self] year in
+        })
+        watchHandles.append(viewModel.watchCurrentYear { [weak self] year in
             DispatchQueue.main.async { self?.currentYear = Int(year) }
-        }
+        })
 
         // Статистика
-        viewModel.watchTotalWorkMs { [weak self] v in
+        watchHandles.append(viewModel.watchTotalWorkMs { [weak self] v in
             DispatchQueue.main.async { self?.totalWorkMs = Int64(v) }
-        }
-        viewModel.watchNightWorkMs { [weak self] v in
+        })
+        watchHandles.append(viewModel.watchNightWorkMs { [weak self] v in
             DispatchQueue.main.async { self?.nightWorkMs = Int64(v) }
-        }
-        viewModel.watchPassengerWorkMs { [weak self] v in
+        })
+        watchHandles.append(viewModel.watchPassengerWorkMs { [weak self] v in
             DispatchQueue.main.async { self?.passengerWorkMs = Int64(v) }
-        }
-        viewModel.watchReserveWorkMs { [weak self] v in
+        })
+        watchHandles.append(viewModel.watchReserveWorkMs { [weak self] v in
             DispatchQueue.main.async { self?.reserveWorkMs = Int64(v) }
-        }
-        viewModel.watchOnePersonMs { [weak self] v in
+        })
+        watchHandles.append(viewModel.watchOnePersonMs { [weak self] v in
             DispatchQueue.main.async { self?.onePersonMs = Int64(v) }
-        }
-        viewModel.watchNormaHoursMonth { [weak self] v in
+        })
+        watchHandles.append(viewModel.watchNormaHoursMonth { [weak self] v in
             DispatchQueue.main.async { self?.normaHoursMonth = Int(v) }
-        }
-        viewModel.watchNormaHoursToday { [weak self] v in
+        })
+        watchHandles.append(viewModel.watchNormaHoursToday { [weak self] v in
             DispatchQueue.main.async { self?.normaHoursToday = Int(v) }
-        }
-        viewModel.watchTodayWorkMs { [weak self] v in
+        })
+        watchHandles.append(viewModel.watchTodayWorkMs { [weak self] v in
             DispatchQueue.main.async { self?.todayWorkMs = Int64(v) }
-        }
+        })
 
         // Snackbar-события синхронизации/шаринга.
-        viewModel.watchMessages { msg in
+        watchHandles.append(viewModel.watchMessages { msg in
             DispatchQueue.main.async { SyncToastCenter.shared.show(msg) }
-        }
+        })
         // Публичная ссылка готова — сразу открываем системный share sheet.
-        viewModel.watchShareLinks { text in
+        watchHandles.append(viewModel.watchShareLinks { text in
             DispatchQueue.main.async { ShareSheetPresenter.present(text: text) }
-        }
-        viewModel.watchIsSyncingRoute { [weak self] loading in
+        })
+        watchHandles.append(viewModel.watchIsSyncingRoute { [weak self] loading in
             DispatchQueue.main.async { self?.isSyncingRoute = loading.boolValue }
-        }
-        viewModel.watchIsCreatingShareLink { [weak self] loading in
+        })
+        watchHandles.append(viewModel.watchIsCreatingShareLink { [weak self] loading in
             DispatchQueue.main.async { self?.isCreatingShareLink = loading.boolValue }
-        }
-        viewModel.watchIsRefreshing { [weak self] loading in
+        })
+        watchHandles.append(viewModel.watchIsRefreshing { [weak self] loading in
             DispatchQueue.main.async { self?.isRefreshing = loading.boolValue }
-        }
-        viewModel.watchError { [weak self] e in
+        })
+        watchHandles.append(viewModel.watchError { [weak self] e in
             DispatchQueue.main.async { self?.error = e }
-        }
+        })
+    }
+
+    deinit {
+        watchHandles.forEach { $0.cancel() }
     }
 
     @Published var isSyncingRoute: Bool = false

@@ -122,21 +122,17 @@ class PassengerFormIosViewModel(
 
     // ── watch helpers for Swift callbacks ─────────────────────────────────────
 
-    fun watchPassenger(callback: (Passenger?) -> Unit) {
-        viewModelScope.launch { passenger.collect { callback(it) } }
-    }
+    fun watchPassenger(callback: (Passenger?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { passenger.collect { callback(it) } })
 
-    fun watchIsSaved(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isSaved.collect { callback(it) } }
-    }
+    fun watchIsSaved(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isSaved.collect { callback(it) } })
 
-    fun watchIsLoading(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isLoading.collect { callback(it) } }
-    }
+    fun watchIsLoading(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isLoading.collect { callback(it) } })
 
-    fun watchError(callback: (AppError?) -> Unit) {
-        viewModelScope.launch { error.collect { callback(it) } }
-    }
+    fun watchError(callback: (AppError?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { error.collect { callback(it) } })
 
     fun clearError() { _error.value = null }
 

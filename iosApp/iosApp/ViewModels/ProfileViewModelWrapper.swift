@@ -22,28 +22,35 @@ final class ProfileViewModelWrapper: ObservableObject {
         case sync
     }
 
+    /// Токены подписок watchX. Отменяются в deinit.
+    private var watchHandles: [WatchHandle] = []
+
     init() {
-        viewModel.watchIsLoggedIn { [weak self] value in
+        watchHandles.append(viewModel.watchIsLoggedIn { [weak self] value in
             DispatchQueue.main.async { self?.isLoggedIn = value.boolValue }
-        }
-        viewModel.watchIsLoading { [weak self] value in
+        })
+        watchHandles.append(viewModel.watchIsLoading { [weak self] value in
             DispatchQueue.main.async { self?.isLoading = value.boolValue }
-        }
-        viewModel.watchIsSyncing { [weak self] value in
+        })
+        watchHandles.append(viewModel.watchIsSyncing { [weak self] value in
             DispatchQueue.main.async { self?.isSyncing = value.boolValue }
-        }
-        viewModel.watchUserEmail { [weak self] value in
+        })
+        watchHandles.append(viewModel.watchUserEmail { [weak self] value in
             DispatchQueue.main.async { self?.userEmail = value }
-        }
-        viewModel.watchErrorMessage { [weak self] value in
+        })
+        watchHandles.append(viewModel.watchErrorMessage { [weak self] value in
             DispatchQueue.main.async { self?.errorMessage = value }
-        }
-        viewModel.watchSyncMessage { [weak self] value in
+        })
+        watchHandles.append(viewModel.watchSyncMessage { [weak self] value in
             DispatchQueue.main.async { self?.syncMessage = value }
-        }
-        viewModel.watchError { [weak self] e in
+        })
+        watchHandles.append(viewModel.watchError { [weak self] e in
             DispatchQueue.main.async { self?.error = e }
-        }
+        })
+    }
+
+    deinit {
+        watchHandles.forEach { $0.cancel() }
     }
 
     func login(email: String, password: String) {

@@ -410,33 +410,24 @@ class FormIosViewModel(
     fun clearError() = consumeError()
 
     // ── watchState helpers (для Swift-обёрток) ────────────────────────────
-    fun watchRoute(callback: (Route?) -> Unit) {
-        viewModelScope.launch { route.collect { callback(it) } }
-    }
-    fun watchIsLoading(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isLoading.collect { callback(it) } }
-    }
-    fun watchIsSaved(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isSaved.collect { callback(it) } }
-    }
-    fun watchIsDeleted(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isDeleted.collect { callback(it) } }
-    }
-    fun watchErrorMessage(callback: (String?) -> Unit) {
-        viewModelScope.launch { errorMessage.collect { callback(it) } }
-    }
-    fun watchError(callback: (AppError?) -> Unit) {
-        viewModelScope.launch { error.collect { callback(it) } }
-    }
-    fun watchShareLink(callback: (String?) -> Unit) {
-        viewModelScope.launch { shareLink.collect { callback(it) } }
-    }
-    fun watchSalary(callback: (SalaryForRouteState) -> Unit) {
-        viewModelScope.launch { salary.collect { callback(it) } }
-    }
-    fun watchRest(callback: (RestState) -> Unit) {
-        viewModelScope.launch { rest.collect { callback(it) } }
-    }
+    fun watchRoute(callback: (Route?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { route.collect { callback(it) } })
+    fun watchIsLoading(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isLoading.collect { callback(it) } })
+    fun watchIsSaved(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isSaved.collect { callback(it) } })
+    fun watchIsDeleted(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isDeleted.collect { callback(it) } })
+    fun watchErrorMessage(callback: (String?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { errorMessage.collect { callback(it) } })
+    fun watchError(callback: (AppError?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { error.collect { callback(it) } })
+    fun watchShareLink(callback: (String?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { shareLink.collect { callback(it) } })
+    fun watchSalary(callback: (SalaryForRouteState) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { salary.collect { callback(it) } })
+    fun watchRest(callback: (RestState) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { rest.collect { callback(it) } })
 
     // ── DTO для UI ────────────────────────────────────────────────────────
 

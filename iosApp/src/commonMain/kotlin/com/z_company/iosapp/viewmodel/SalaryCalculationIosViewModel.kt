@@ -209,29 +209,23 @@ class SalaryCalculationIosViewModel(
 
     // ── Watch callbacks (called from Swift) ───────────────────────────────────
 
-    fun watchSummary(callback: (MonthlySummary?) -> Unit) {
-        viewModelScope.launch { summary.collect { callback(it) } }
-    }
+    fun watchSummary(callback: (MonthlySummary?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { summary.collect { callback(it) } })
 
-    fun watchRoutes(callback: (List<RouteRow>) -> Unit) {
-        viewModelScope.launch { routes.collect { callback(it) } }
-    }
+    fun watchRoutes(callback: (List<RouteRow>) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { routes.collect { callback(it) } })
 
-    fun watchIsLoading(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isLoading.collect { callback(it) } }
-    }
+    fun watchIsLoading(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isLoading.collect { callback(it) } })
 
-    fun watchCurrentMonth(callback: (Int) -> Unit) {
-        viewModelScope.launch { currentMonth.collect { callback(it) } }
-    }
+    fun watchCurrentMonth(callback: (Int) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { currentMonth.collect { callback(it) } })
 
-    fun watchCurrentYear(callback: (Int) -> Unit) {
-        viewModelScope.launch { currentYear.collect { callback(it) } }
-    }
+    fun watchCurrentYear(callback: (Int) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { currentYear.collect { callback(it) } })
 
-    fun watchError(callback: (AppError?) -> Unit) {
-        viewModelScope.launch { error.collect { callback(it) } }
-    }
+    fun watchError(callback: (AppError?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { error.collect { callback(it) } })
 
     fun clearError() { _error.value = null }
 }

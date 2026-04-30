@@ -15,16 +15,23 @@ final class LocoFormViewModelWrapper: ObservableObject {
         case save
     }
 
+    /// Токены подписок watchX. Отменяются в deinit.
+    private var watchHandles: [WatchHandle] = []
+
     init() {
-        viewModel.watchLoco { [weak self] l in
+        watchHandles.append(viewModel.watchLoco { [weak self] l in
             DispatchQueue.main.async { self?.loco = l }
-        }
-        viewModel.watchIsSaved { [weak self] saved in
+        })
+        watchHandles.append(viewModel.watchIsSaved { [weak self] saved in
             DispatchQueue.main.async { self?.isSaved = saved.boolValue }
-        }
-        viewModel.watchError { [weak self] e in
+        })
+        watchHandles.append(viewModel.watchError { [weak self] e in
             DispatchQueue.main.async { self?.error = e }
-        }
+        })
+    }
+
+    deinit {
+        watchHandles.forEach { $0.cancel() }
     }
 
     func load(routeId: String, locoId: String?) {

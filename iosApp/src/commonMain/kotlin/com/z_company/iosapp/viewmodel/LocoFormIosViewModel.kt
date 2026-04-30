@@ -158,17 +158,14 @@ class LocoFormIosViewModel(
         _loco.update { it?.copy(timeEndOfDelivery = ms) }
     }
 
-    fun watchLoco(callback: (Locomotive?) -> Unit) {
-        viewModelScope.launch { loco.collect { callback(it) } }
-    }
+    fun watchLoco(callback: (Locomotive?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { loco.collect { callback(it) } })
 
-    fun watchIsSaved(callback: (Boolean) -> Unit) {
-        viewModelScope.launch { isSaved.collect { callback(it) } }
-    }
+    fun watchIsSaved(callback: (Boolean) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { isSaved.collect { callback(it) } })
 
-    fun watchError(callback: (AppError?) -> Unit) {
-        viewModelScope.launch { error.collect { callback(it) } }
-    }
+    fun watchError(callback: (AppError?) -> Unit): WatchHandle =
+        WatchHandle(viewModelScope.launch { error.collect { callback(it) } })
 
     fun clearError() { _error.value = null }
 
