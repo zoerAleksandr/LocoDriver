@@ -174,6 +174,28 @@ Iubenda и др.) и адаптировать.
 9. **Серверный фикс типа `conditionalLength`** — отложен.
 10. **Repo redirect** — обновить git remote с Ziltriz/proxy-parser.git на Ziltriz/Database_for_locodriver.git.
 
+### 🔴 1.6 — Audit migrateTimestamps coverage (production bug for Asian Russia users)
+
+**Контекст:** `RouteUseCase.migrateTimestamps` мигрирует timestamps в
+`BasicData` (4 поля) и `Locomotive` (4 поля), но НЕ в `Station` внутри
+`Train.stations` и НЕ в `Passenger`. Создаёт рассинхрон в данных
+пользователей восточных регионов (Иркутск, Екатеринбург и др.),
+которые уже прогнали миграцию (запущено несколько обновлений назад).
+
+**Что нужно расследовать:**
+- Сколько пользователей затронуто (по серверным данным или telemetry).
+- Возможен ли откат через серверную БД (если данные синхронизированы).
+- Нужна ли v2-миграция с tracking-флагом "уже_мигрировано_v2".
+- Координация с Android-релизом (миграция запускается на устройстве).
+
+**Тесты:** `irkutskOffset_stations_timesShifted`,
+`irkutskOffset_passenger_timesShifted` в `MigrateTimestampsTest.kt` —
+сейчас `@Ignore` с reason'ом, ссылающимся на эту задачу. После фикса
+снять `@Ignore`.
+
+**Приоритет:** высокий (затрагивает production users RuStore), но
+не блокирует iOS-релиз (Android-side проблема).
+
 ---
 
 ## ЭТАП 0 — Discovery ✅ ВЫПОЛНЕНО (все задачи 0.1–0.5)

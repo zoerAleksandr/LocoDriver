@@ -172,19 +172,13 @@ class HolidayTimezoneTest {
         // 31 дек 20:00 MSK → 1 янв 02:00 MSK (6 часов)
         // В EKB: 31 дек 22:00 → 1 янв 04:00
         // Праздник 1 янв в EKB: 00:00 EKB → 00:00 2 янв EKB
-        // Ожидаемое пересечение: 00:00–04:00 EKB = 4 часа
-        // TODO: Текущая реализация возвращает 6ч (весь маршрут).
-        //  Причина: в getWorkingTimeOnAHoliday() границы праздника (в GMT+5)
-        //  дополнительно сдвигаются на -offsetInMoscow при вызове timeInLongInPeriod().
-        //  Это расширяет период праздника на 2ч назад (с 22:00 MSK вместо 00:00 EKB),
-        //  и маршрут (начало 20:00 MSK) попадает полностью в «праздничный» интервал.
-        //  Правильное значение: 4 часа.
+        // Пересечение: 00:00–04:00 EKB = 4 часа
         val route = routeOf(
             startWork = mskMillis(2024, 12, 31, 20, 0),
             endWork = mskMillis(2025, 1, 1, 2, 0)
         )
         val result = listOf(route).getWorkingTimeOnAHoliday(januaryWithHoliday(), offsetEkaterinburg).first()
-        assertEquals(6 * oneHourMs, result) // фактическое поведение (ожидаемое: 4ч)
+        assertEquals(4 * oneHourMs, result)
     }
 
     // ==================== Несколько маршрутов ====================

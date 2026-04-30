@@ -104,15 +104,11 @@ class NightTimeTimezoneTest {
     @Test
     fun ekaterinburg_routeShiftsToMoreNight() = runTest {
         // Маршрут 20:00–02:00 MSK (6ч работы)
-        // В EKB (MSK+2): 22:00–04:00 → ночные = 22:00–04:00 = 6 часов (ожидаемое)
-        // TODO: Текущая реализация возвращает 10ч из-за двойного подсчёта
-        //  при обработке dateList с несовпадающими часовыми поясами
-        //  (dateList строится в system TZ, ночные границы в GMT+5).
-        //  Правильное значение: 6 часов.
+        // В EKB (MSK+2): 22:00–04:00 → ночные = 22:00–04:00 = 6 часов
         val start = mskMillis(2025, 1, 15, 20, 0)
         val end = mskMillis(2025, 1, 16, 2, 0)
         val result = nightTime(start, end, offsetEkaterinburg)
-        assertEquals(10 * oneHourMs, result) // фактическое поведение (ожидаемое: 6ч)
+        assertEquals(6 * oneHourMs, result)
     }
 
     @Test
@@ -127,17 +123,11 @@ class NightTimeTimezoneTest {
     @Test
     fun ekaterinburg_dayRouteInMoscowButNightInEkb() = runTest {
         // Маршрут 19:00–21:00 MSK → дневной по Москве
-        // В EKB: 21:00–23:00 → ночные = 22:00–23:00 = 1 час (ожидаемое)
-        // TODO: Текущая реализация возвращает 2ч — весь маршрут считается ночным.
-        //  Причина: сдвинутые millis (21:00–23:00 MSK epoch) сравниваются
-        //  с ночной границей в GMT+5 (22:00 EKB = 20:00 MSK epoch).
-        //  21:00 MSK > 20:00 MSK → код считает, что рабочее время уже в ночном интервале,
-        //  хотя в EKB 21:00 < 22:00 (ночь ещё не началась).
-        //  Правильное значение: 1 час.
+        // В EKB: 21:00–23:00 → ночные = 22:00–23:00 = 1 час
         val start = mskMillis(2025, 1, 15, 19, 0)
         val end = mskMillis(2025, 1, 15, 21, 0)
         val result = nightTime(start, end, offsetEkaterinburg)
-        assertEquals(2 * oneHourMs, result) // фактическое поведение (ожидаемое: 1ч)
+        assertEquals(1 * oneHourMs, result)
     }
 
     // ==================== С перерывом ====================
@@ -172,18 +162,15 @@ class NightTimeTimezoneTest {
     fun ekaterinburg_breakInNightLocalTime_subtracted() = runTest {
         // Маршрут 20:00–04:00 MSK (8ч), перерыв 22:00–23:00 MSK
         // В EKB: маршрут 22:00–06:00, перерыв 00:00–01:00
-        // Ночные EKB без перерыва: 22:00–06:00 = 8 часов (ожидаемое)
+        // Ночные EKB без перерыва: 22:00–06:00 = 8 часов
         // Перерыв в ночное (EKB): 00:00–01:00 = 1 час
-        // Ожидаемый итого: 7 часов
-        // TODO: Текущая реализация возвращает 8ч: raw night=10ч (двойной подсчёт)
-        //  минус breakOverlap=2ч (также двойной подсчёт) = 8ч.
-        //  Правильное значение: 7 часов.
+        // Итого: 7 часов
         val start = mskMillis(2025, 1, 15, 20, 0)
         val end = mskMillis(2025, 1, 16, 4, 0)
         val breakStart = mskMillis(2025, 1, 15, 22, 0)
         val breakEnd = mskMillis(2025, 1, 15, 23, 0)
         val result = nightTime(start, end, offsetEkaterinburg, breakStart, breakEnd)
-        assertEquals(8 * oneHourMs, result) // фактическое поведение (ожидаемое: 7ч)
+        assertEquals(7 * oneHourMs, result)
     }
 
     // ==================== Краевые случаи ====================

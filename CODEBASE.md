@@ -430,6 +430,160 @@ push-нотификации, либо явное «синхронизирова�
 
 ---
 
+## Часовые пояса и время в маршрутах
+
+Правило критично для корректного расчёта зарплаты, ночных и праздничных
+часов. Любое изменение логики работы со временем должно учитывать его
+целиком.
+
+### Три независимых поля в UserSettings
+
+В проекте используются **три разных concept'а timezone**, каждый для
+своей роли. Их легко перепутать — здесь они зафиксированы.
+
+| Поле | Тип | Роль |
+|---|---|---|
+| `country` | `String` (RU/BY/KZ) | Какой `displayTimeZone` использовать для ввода и отображения времени в UI; стандартный календарь страны |
+| `timeZone` | `Long` (мс от МСК) | Физический оффсет машиниста от Москвы для расчёта **ночных и праздничных** часов |
+| `region` | `String?` (ISO 3166-2, напр. "RU-TA") | Региональные праздники субъекта РФ |
+
+⚠️ Эти три поля **независимы**. Машинист в Кызыле (Тыва) имеет
+`country="RU"`, `timeZone=14_400_000` (+4ч от МСК), `region="RU-TYV"` —
+все три используются по-разному.
+
+### Ввод и отображение в UI — displayTimeZone из country
+
+`UserSettings.displayTimeZone()` (см. `domain/.../TimeZoneUtils.kt`):
+- `country = "RU"` или `"BY"` → `GMT+3` (МСК), независимо от
+  физического местоположения. Это **бизнес-правило РЖД**: диспетчерская
+  работа везде ведётся по московскому времени.
+- `country = "KZ"` → `GMT+5` (KZT, Алматы).
+
+То есть машинист в Иркутске (физически UTC+8) с `country=RU` видит и
+вводит времена **в МСК**. Диспетчер даёт ему расписание в МСК, и он
+вводит ровно те цифры в форму. При просмотре маршрута все timestamp'ы
+тоже отображаются в МСК.
+
+### Поля где это применяется
+
+- `BasicData.timeStartWork`, `timeEndWork` — начало и окончание смены
+- `BasicData.timeStartBreak`, `timeEndBreak` — начало и окончание перерыва
+- `Locomotive.timeStartOfAcceptance`, `timeEndOfAcceptance` — приёмка
+- `Locomotive.timeStartOfDelivery`, `timeEndOfDelivery` — сдача
+- `Station.timeArrival`, `timeDeparture` (внутри `Train.stations`) —
+  прибытия/отправления по станциям
+- `Passenger.timeArrival`, `timeDeparture` — пассажирские поездки
+
+### Хранение
+
+В локальной БД (SQLDelight, поля `INTEGER`) и на сервере timestamp-поля
+хранятся как **чистый UTC** (`Long` миллисекунд от epoch). При
+сохранении ввод "17:00" в `displayTimeZone=GMT+3` конвертируется
+в "14:00 UTC".
+
+`Train.stations` хранится как JSON-сериализованный список в TEXT поле,
+но и там timestamp'ы внутри JSON — тот же Long ms epoch UTC.
+
+### Конвертация — единственная точка через DateAndTimeConverter
+
+Единственная точка входа/выхода для UI — `DateAndTimeConverter`
+в `core_android/`:
+- `toEpochMillis(year, month, day, hour, minute)` — парсит ввод
+  в `displayTimeZone()`, возвращает UTC ms
+- `getTime(value)`, `getDate(value)`, `getDateAndTime(value)` —
+  читают UTC ms и форматируют в `displayTimeZone()`
+
+⚠️ Любая работа со временем в UI должна использовать
+`DateAndTimeConverter`, **не** `ZoneId.systemDefault()` или
+`TimeZone.currentSystemDefault()`. Использование системной timezone
+устройства — источник pre-fix бага (см. ниже).
+
+### Ночные часы — через UserSettings.timeZone (физический оффсет)
+
+`CalculateNightTime.getNightTime(...)` принимает `offsetInMoscow: Long`
+в миллисекундах. Источник — `UserSettings.timeZone`. Внутри:
+
+```kotlin
+val timeZoneStr = getTimeZone(offsetInMoscow)  // "GMT+8" для Иркутска
+val localTZ = TimeZone.of(timeZoneStr)
+// проверка пересечения интервала [22:00, 06:00) в локальном времени
+```
+
+Это потому что **трудовой кодекс считает ночное время по локальному
+времени работника**, не по диспетчерской timezone.
+
+⚠️ Машинист в Иркутске вводит "17:00 МСК" → "14:00 UTC" (хранение).
+Проверка ночного времени: "14:00 UTC" → "22:00 GMT+8" → начало
+ночного интервала. То есть для него это уже ночь, хотя по МСК
+светлый день.
+
+### Праздничные часы — UserSettings.region для региональных, country для федеральных
+
+Праздники бывают двух типов:
+- **Федеральные** — определяются по `country`, используют стандартный
+  календарь (1 января, 23 февраля и т.д.)
+- **Региональные** — определяются по `UserSettings.region` (ISO 3166-2,
+  например `RU-TA` для Татарстана), через
+  `RegionalHolidaysRepository.getHolidaysForRegionYear(region, year)`
+
+Проверка попадания UTC timestamp в праздник делается через локальное
+время работника (через `timeZone`).
+
+### Расчёт метрик — резюме
+
+| Метрика | Какие поля UserSettings |
+|---|---|
+| Общее время работы | Прямая разность UTC ms, timezone не нужна |
+| Переходные маршруты через границу месяца | `country` (через `displayTimeZone`) + правило из `UserSettings` |
+| Ночное время | `timeZone` (физический оффсет машиниста) |
+| Федеральные праздники | `country` |
+| Региональные праздники | `region` (ISO 3166-2) + `timeZone` для проверки попадания |
+
+### Pre-fix bug и migrateTimestamps
+
+До commit `6f029f88` (2 апреля 2026) `DateAndTimeConverter.toEpochMillis`
+использовал `ZoneId.systemDefault()` (физическая timezone устройства)
+вместо `displayTimeZone()`. Это означало что:
+
+- Машинист в Иркутске вводил "17:00", приложение интерпретировало как
+  "17:00 GMT+8" = "09:00 UTC"
+- Сохранялся неправильный timestamp в БД
+- При отображении уже использовался `displayTimeZone=GMT+3`, и
+  "09:00 UTC" показывался как "12:00 МСК" — пользователь видел не то,
+  что ввёл
+
+`RouteUseCase.migrateTimestamps(offsetFromMoscow)` — одноразовая
+миграция, исправляющая этот рассинхрон сдвигом на `offsetFromMoscow` ms.
+
+### Migration policy — известный неполный охват
+
+⚠️ **`migrateTimestamps` не охватывает все entity.** Сейчас мигрирует:
+- `BasicData` (4 поля)
+- `Locomotive` (4 поля)
+
+**Не мигрирует:**
+- `Station.timeArrival`, `Station.timeDeparture` (внутри `Train.stations`)
+- `Passenger.timeArrival`, `Passenger.timeDeparture`
+
+Для пользователей в смещённых timezone'ах (Сибирь, Дальний Восток),
+которые уже прогнали миграцию, данные **рассогласованы**: BasicData и
+Locomotive в правильном UTC, Station/Passenger в старом-неправильном.
+
+См. backlog-задачу 1.6 в `60_IOS_TODO.md`.
+
+### Правило для будущих миграций
+
+Если в проекте появляется новая миграция timestamps, она **обязана
+охватывать ВСЕ entity** с timestamp-полями:
+- `BasicData` (4 поля)
+- `Locomotive` (4 поля)
+- `Station` внутри `Train.stations` (2 поля × N станций)
+- `Passenger` (2 поля × N поездок)
+
+Иначе данные пользователей будут рассогласованы между этими entity.
+
+---
+
 ## Известные особенности и грабли
 
 ### 1. Платёжная интеграция
