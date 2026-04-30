@@ -60,6 +60,7 @@ class MigrateTimestampsTest {
         override fun loadRoutesAsFlow(): Flow<List<Route>> = flow { emit(emptyList()) }
         override fun loadRouteByPeriodFlow(startPeriod: Long, endPeriod: Long): Flow<List<Route>> = flow { emit(emptyList()) }
         override fun setSynchronizedRoute(basicId: String): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
+        override fun markUnsynchronized(basicId: String): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun setRemoteObjectIdRoute(basicId: String, remoteRouteId: String?): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun setRemoteObjectIdBasicData(basicId: String, remoteObjectId: String?): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun setRemoteObjectIdLocomotive(locoId: String, remoteObjectId: String): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
