@@ -156,7 +156,27 @@ Iubenda и др.) и адаптировать.
 
 ---
 
-## ЭТАП 0 — Discovery (задача 0.1 ✅, остальные нужно сделать)
+## 🟡 BACKLOG — Технический долг (косметика, не блокирует релиз)
+
+Накапливается по мере работы. Делать когда удобно, отдельными микрокоммитами.
+
+1. **Cherry-pick локального master коммита `4f1c26c6` (версия 2.2.6.4) в feature/ios-app.** Этот коммит на твоей master ветке (не запушен на github). `git cherry-pick 4f1c26c6` + compile + push.
+2. **Cleanup observers file layout.** `DeepLinkErrorObserver.swift` и `PendingFormRouteObserver.swift` физически в `iosApp/iosApp/` (корень target'а), но логически в `Navigation` virtual group в pbxproj. У `DeepLinkErrorObserver.swift` есть orphan-копия в `iosApp/iosApp/Navigation/` (наследие). Решение: переместить оба в `Navigation/` папку, поправить pbxproj либо переименовать virtual group в "Observers".
+3. **`.claude/settings.local.json` untrack** — файл в `.gitignore` (строка 39), но был закоммичен раньше → harness Claude Code продолжает его перезаписывать каждую сессию. Команда: `git rm --cached .claude/settings.local.json` + commit + push.
+4. **Мёртвые Room-константы в `buildSrc/src/main/kotlin/Dependencies.kt`** (`room_version`, `room_compiler/ktx/runtime`) — нигде не используются после миграции на SQLDelight, можно удалить.
+5. **HomeView long-press menu** — actions «Просмотр / Сохранить в облаке / В избранное / Дублировать / Поделиться / Удалить» были в Compose-MP (удалены), в SwiftUI частично перенесены в action-bar внутри FormView. Нужно проверить что есть/чего нет в HomeView по long-press, реализовать недостающее как `.contextMenu { ... }` modifier на карточках рейсов.
+6. ⚠️ **СМЕНА 4 ПАРОЛЕЙ** (POSTGRES_PASSWORD, SENDER_GMAIL_PASSWORD, PASSWORD_1, PASSWORD_2) — security-долг после случайной утечки `.env` в чат. Передан человеку с доступом к Gmail аккаунту, нужно дождаться подтверждения.
+
+**Серверные задачи (не для этого репо):**
+
+7. **Этап 1B notes** — UPSERT в `PostgresNotesDbClient.process` через client UUID, не delete-then-insert (race condition).
+8. **Этап 2 notes** — миграция на `route.notes` одним полем `String`, Alembic ADD COLUMN + UPDATE из notes таблицы → DROP TABLE notes через неделю.
+9. **Серверный фикс типа `conditionalLength`** — отложен.
+10. **Repo redirect** — обновить git remote с Ziltriz/proxy-parser.git на Ziltriz/Database_for_locodriver.git.
+
+---
+
+## ЭТАП 0 — Discovery ✅ ВЫПОЛНЕНО (все задачи 0.1–0.5)
 
 ### Задача 0.1 — Аудит iOS-проекта ✅ ВЫПОЛНЕНО
 
@@ -349,47 +369,35 @@ Sign in with Apple. Apple Sign In возвращает identity token (JWT,
 
 ---
 
-## ЭТАП 1 — Чистка и базовая инфраструктура (дни 2-3)
+## ЭТАП 1 — Чистка и базовая инфраструктура (1.1 ✅ 1.2 ✅ 1.4 ✅, осталось: 1.3, 1.5)
 
-### Задача 1.1 — Удаление мёртвого CMP-кода
+### Задача 1.1 — Удаление мёртвого CMP-кода ✅ ВЫПОЛНЕНО
 
-**Цель**: убрать `iosApp/src/commonMain/` и `iosApp/src/iosMain/` (кроме
-DI-файлов).
+**Результат** (коммиты `63b51bbf` + `e3c3f7f1`):
+- Удалено 11 файлов (~1215 строк): `App.kt`, `MainViewController.kt`, `navigation/{AppNavHost,IosRouterImpl,Routes}.kt`, `screen/{Home,Form,Settings,Profile,SalaryCalculation,Stub}Screen.kt`
+- Сохранены DI-файлы: 9× `*IosViewModel.kt`, `IosUseCaseModule.kt`, `IosViewModelHelper.kt`, `IosSharedPreferencesRepository.kt`, `SharedRouteLinkHandler.kt`, `PlatformKeyValueStorage.kt` + `.ios.kt`
+- В `iosApp/build.gradle.kts` убраны: плагины `compose_multiplatform`/`compose_compiler`, блок `composeCompiler{}`, 8 deps (compose.runtime/foundation/material3/materialIconsExtended/ui/components.resources, navigation_compose_kmp, koin_compose). Добавлено явно `lifecycle_viewmodel_kmp` (раньше приходил транзитивно через navigation_compose_kmp)
+- Удалён `iosApp/compose_stability.conf`
+- В Kotlin добавлена `watchPendingFormRouteId(callback)` в `SharedRouteLinkHandler.kt` (по паттерну `watchAppError`)
+- Создан Swift-наблюдатель `iosApp/iosApp/Navigation/PendingFormRouteObserver.swift` — `@MainActor ObservableObject`, открывает `FormView(routeId:)` модальным sheet'ом по deep-link
+- В `AppCoordinator.swift` добавлен `.sheet(item: $deepLinkRoute)` + `.onChange(of: pendingForm.pendingRouteId)` с порядком `showAddForm = false` → `deepLinkRoute = id` → `pendingForm.clear()`
+- **Вторым коммитом** `e3c3f7f1` исправлена молчаливая регрессия: `PendingFormRouteObserver.swift` физически создан был, но НЕ зарегистрирован в `iosApp.xcodeproj/project.pbxproj`. На TestFlight/production билдах deep link `locodriver://share/{id}` НЕ открывал бы форму. Добавили через Xcode GUI, файл переехал в корень iosApp/ (потому что `Navigation` в pbxproj — virtual group без `path`)
 
-**Промпт для Claude Code**:
-
-```
-По результатам Задачи 0.2 у нас есть список файлов к удалению. Также есть
-список КЕЕП. Сейчас:
-
-1. Перенеси КЕЕП-файлы (IosUseCaseModule.kt, IosKoinHelper.kt,
-   IosViewModelHelper.kt и любые другие нужные) в новую структуру:
-   - iosApp/src/iosMain/kotlin/com/z_company/iosapp/di/
-
-2. Удали всё остальное в iosApp/src/commonMain/ и iosApp/src/iosMain/.
-
-3. Обнови build.gradle.kts модуля iosApp:
-   - Убери зависимости от Compose Multiplatform
-   - Убери зависимости от KMP Navigation Compose
-   - Оставь только то, что нужно для DI и интеграции с shared-модулями
-
-4. Соберай iOS-приложение через Xcode и убедись, что оно работает.
-
-Покажи план, что удаляешь и что переносишь, прежде чем что-то делать.
-После применения — закоммить.
-```
+🟡 Найдено для backlog (отдельная косметика):
+- Дубликат `DeepLinkErrorObserver.swift` в `iosApp/iosApp/` (используется Xcode) и `iosApp/iosApp/Navigation/` (orphan на диске) — историческое наследие, не наша регрессия
+- Наш `PendingFormRouteObserver.swift` теперь в той же ситуации (хотя orphan-копия была удалена в `e3c3f7f1`, файл лежит в корне а не в Navigation/)
+- Чистка: переместить оба observer'а в Navigation/ папку и поправить pbxproj
 
 **Definition of Done**:
-- [ ] Папки `iosApp/src/commonMain/` и `iosApp/src/iosMain/` содержат
-      только нужные DI-файлы
-- [ ] iOS-приложение собирается через Xcode без ошибок
-- [ ] Существующая функциональность (главный, форма, авторизация, sync)
-      продолжает работать на симуляторе
-- [ ] `git commit -m "ios: cleanup dead Compose Multiplatform code"`
+- [x] Папки `iosApp/src/commonMain/` и `iosApp/src/iosMain/` содержат только нужные DI-файлы
+- [x] iOS-приложение собирается через Xcode без ошибок
+- [x] Существующая функциональность (главный, форма, авторизация, sync) продолжает работать на симуляторе
+- [x] `git commit -m "ios: cleanup dead Compose Multiplatform code"` (`63b51bbf`)
+- [x] Follow-up fix: pbxproj registration (`e3c3f7f1`)
 
 ---
 
-### Задача 1.2 — Настройка Memory Leak Fix в ViewModelWrapper
+### Задача 1.2 — Memory Leak Fix в ViewModelWrapper ✅ ВЫПОЛНЕНО
 
 **Цель**: устранить leak подписок `watchX(callback)` при деинициализации
 Wrapper.
@@ -435,12 +443,25 @@ viewModel.watchX(callback). Эти подписки не отписываютс�
 Покажи план перед началом.
 ```
 
+**Результат** (коммит `3e75e1ed`, 22 файла, +332/-290):
+
+Выбран **Вариант B** — `watchX(callback)` возвращает `WatchHandle`. Реализовано:
+- Новый класс `WatchHandle.kt` (commonMain) — wrapper над `Job` с `internal constructor` (Swift не сможет создать руками) и `cancel()`. 21 строка.
+- 9 Kotlin VM (всего 54 функции `watchX`) теперь возвращают `WatchHandle` вместо `Unit`. Шаблон: `fun watchX(callback) : WatchHandle = WatchHandle(viewModelScope.launch { flow.collect { callback(it) } })`.
+- `SharedRouteLinkHandler.kt` (3 функции) — то же самое + добавлен `import com.z_company.iosapp.viewmodel.WatchHandle` (cross-package: `deeplink` пакет нуждается в явном import'е).
+- 9 `*ViewModelWrapper.swift` + `DeepLinkErrorObserver.swift` + `PendingFormRouteObserver.swift` (11 Swift файлов) — добавлено `private var watchHandles: [WatchHandle] = []`, обёртка `watchHandles.append(viewModel.watchX { ... })` в init, и `deinit { watchHandles.forEach { $0.cancel() } }`.
+
+**Verified:** `./gradlew :iosApp:compileKotlinIosSimulatorArm64 --rerun-tasks` + `:app:compileDebugKotlin --rerun-tasks` оба BUILD SUCCESSFUL. Xcode Build → green. Ручные тесты на симуляторе:
+- HomeView/FormView/Salary/Settings — данные на месте, pull-to-refresh работает
+- Переключение вкладок не теряет данные
+- Открытие/закрытие FormView, deep-link sheet работает
+- Airplane mode → pull-to-refresh → корректный alert «Нет соединения с интернетом» (фикс задачи 1.4 цел)
+
 **Definition of Done**:
-- [ ] В deinit Wrapper'ов отписываются от подписок
-- [ ] Тест: открыть экран, закрыть, открыть снова — нет дублирования
-      обновлений
-- [ ] Все 8 Wrapper'ов обновлены
-- [ ] `git commit -m "ios: fix memory leaks in ViewModelWrapper subscriptions"`
+- [x] В deinit Wrapper'ов отписываются от подписок
+- [x] Тест: открыть экран, закрыть, открыть снова — нет дублирования обновлений
+- [x] Все 9 Wrapper'ов + 2 Observer'а обновлены
+- [x] `git commit -m "ios: fix memory leaks in ViewModelWrapper subscriptions"` (`3e75e1ed`)
 
 ---
 
