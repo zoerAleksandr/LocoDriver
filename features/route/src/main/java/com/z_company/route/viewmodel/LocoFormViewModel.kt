@@ -15,6 +15,7 @@ import com.z_company.domain.entities.route.SectionDiesel
 import com.z_company.domain.entities.route.SectionElectric
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.LocomotiveUseCase
+import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.addAllOrSkip
@@ -43,9 +44,16 @@ class LocoFormViewModel(
     private val locomotiveUseCase: LocomotiveUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
+    private val routeUseCase: RouteUseCase by inject()
 
     private val _uiState = MutableStateFlow(LocoFormUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _routeStartWork = MutableStateFlow<Long?>(null)
+    val routeStartWork = _routeStartWork.asStateFlow()
+
+    private val _routeEndWork = MutableStateFlow<Long?>(null)
+    val routeEndWork = _routeEndWork.asStateFlow()
 
     private var loadLocoJob: Job? = null
     private var saveLocoJob: Job? = null
@@ -127,6 +135,19 @@ class LocoFormViewModel(
                 mutableSeriesList.addAllOrSkip(sett.locomotiveSeriesList.toMutableStateList())
                 timeZoneText = "GMT+${sett.timeZone}"
             }.join()
+            // Load route start/end work times for the time sheet
+            this.launch {
+                try {
+                    val result = routeUseCase.routeDetails(basicId)
+                        .first { it is ResultState.Success || it is ResultState.Error }
+                    if (result is ResultState.Success) {
+                        _routeStartWork.value = result.data?.basicData?.timeStartWork
+                        _routeEndWork.value = result.data?.basicData?.timeEndWork
+                    }
+                } catch (e: Exception) {
+                    // Non-critical — time sheet will just show null for явка
+                }
+            }
             if (locoId == NULLABLE_ID) {
                 isNewLoco = true
                 _currentLoco.value = Locomotive(
@@ -499,6 +520,50 @@ class LocoFormViewModel(
 
     fun setEndDeliveryTime(time: Long?) {
         _currentLoco.update { it?.copy(timeEndOfDelivery = time) }
+        changesHave()
+    }
+
+    fun setBarrierOut(time: Long?) {
+        _currentLoco.update { it?.copy(timeBarrierOut = time) }
+        changesHave()
+    }
+
+    fun setBarrierIn(time: Long?) {
+        _currentLoco.update { it?.copy(timeBarrierIn = time) }
+        changesHave()
+    }
+
+    fun setAcceptanceStationId(id: String?) {
+        _currentLoco.update { it?.copy(acceptanceStationId = id) }
+        changesHave()
+    }
+
+    fun setDeliveryStationId(id: String?) {
+        _currentLoco.update { it?.copy(deliveryStationId = id) }
+        changesHave()
+    }
+
+    fun saveAcceptanceFromSheet(startTime: Long?, endTime: Long?, barrierOut: Long?, stationId: String?) {
+        _currentLoco.update {
+            it?.copy(
+                timeStartOfAcceptance = startTime,
+                timeEndOfAcceptance = endTime,
+                timeBarrierOut = barrierOut,
+                acceptanceStationId = stationId,
+            )
+        }
+        changesHave()
+    }
+
+    fun saveDeliveryFromSheet(barrierIn: Long?, startTime: Long?, endTime: Long?, stationId: String?) {
+        _currentLoco.update {
+            it?.copy(
+                timeBarrierIn = barrierIn,
+                timeStartOfDelivery = startTime,
+                timeEndOfDelivery = endTime,
+                deliveryStationId = stationId,
+            )
+        }
         changesHave()
     }
 

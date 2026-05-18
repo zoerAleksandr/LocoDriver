@@ -248,9 +248,9 @@ POST /v1/norma_time/stations/
 5. **Добавить поля в Locomotive:** `timeBarrierOut`, `timeBarrierIn`,
    `acceptanceStationId`, `deliveryStationId` — в модель, SQLDelight, маппер, API
 
-6. **UI справочников** в разделе Настройки
+6. ✅ **UI справочников** в разделе Настройки
 
-7. **Шторка времени** в форме локомотива — по описанию выше
+7. ✅ **Шторка времени** в форме локомотива — по описанию выше
 
 ---
 

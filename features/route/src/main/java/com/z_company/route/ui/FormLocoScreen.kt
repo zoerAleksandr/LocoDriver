@@ -52,6 +52,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -111,6 +112,8 @@ import com.z_company.route.viewmodel.ElectricSectionType
 import com.z_company.route.viewmodel.LocoFormViewModel
 import com.z_company.domain.entities.setting.UserSettings
 import androidx.compose.material3.AlertDialog
+import com.z_company.route.ui.TimeBottomSheet
+import com.z_company.route.ui.TimeSheetResult
 import kotlinx.coroutines.launch
 
 @OptIn(
@@ -154,7 +157,9 @@ fun FormLocoScreen(
     onDeleteSeries: (String) -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?,
     userSettings: UserSettings? = null,
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onNavigateToSeriesSettings: () -> Unit = {},
+    onNavigateToStationSettings: () -> Unit = {},
 ) {
     val displayTz = dateAndTimeConverter?.timeZoneText ?: "GMT+3"
     val scope = rememberCoroutineScope()
@@ -589,6 +594,117 @@ fun FormLocoScreen(
                             )
                         }
 
+                    }
+
+                    // Приёмка / Сдача — time summary rows
+                    item {
+                        val routeStart by viewModel.routeStartWork.collectAsState()
+                        val routeEnd by viewModel.routeEndWork.collectAsState()
+                        var showAcceptanceSheet by remember { mutableStateOf(false) }
+                        var showDeliverySheet by remember { mutableStateOf(false) }
+
+                        if (showAcceptanceSheet) {
+                            TimeBottomSheet(
+                                kind = "acceptance",
+                                seriesName = locomotive.series,
+                                initialStartTime = locomotive.timeStartOfAcceptance,
+                                initialEndTime = locomotive.timeEndOfAcceptance,
+                                initialBarrierOut = locomotive.timeBarrierOut,
+                                initialBarrierIn = locomotive.timeBarrierIn,
+                                routeStartWork = routeStart,
+                                routeEndWork = routeEnd,
+                                initialStationId = locomotive.acceptanceStationId,
+                                timeZoneText = displayTz,
+                                onSave = { result ->
+                                    viewModel.saveAcceptanceFromSheet(result.startTime, result.endTime, result.barrierOut, result.stationId)
+                                    showAcceptanceSheet = false
+                                },
+                                onClose = { showAcceptanceSheet = false },
+                                onNavigateToSeriesSettings = onNavigateToSeriesSettings,
+                                onNavigateToStationSettings = onNavigateToStationSettings,
+                            )
+                        }
+
+                        if (showDeliverySheet) {
+                            TimeBottomSheet(
+                                kind = "delivery",
+                                seriesName = locomotive.series,
+                                initialStartTime = locomotive.timeStartOfDelivery,
+                                initialEndTime = locomotive.timeEndOfDelivery,
+                                initialBarrierOut = locomotive.timeBarrierOut,
+                                initialBarrierIn = locomotive.timeBarrierIn,
+                                routeStartWork = routeStart,
+                                routeEndWork = routeEnd,
+                                initialStationId = locomotive.deliveryStationId,
+                                timeZoneText = displayTz,
+                                onSave = { result ->
+                                    viewModel.saveDeliveryFromSheet(result.barrierIn, result.startTime, result.endTime, result.stationId)
+                                    showDeliverySheet = false
+                                },
+                                onClose = { showDeliverySheet = false },
+                                onNavigateToSeriesSettings = onNavigateToSeriesSettings,
+                                onNavigateToStationSettings = onNavigateToStationSettings,
+                            )
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                .background(color = MaterialTheme.colorScheme.secondary, shape = Shapes.medium)
+                        ) {
+                            // Приёмка row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showAcceptanceSheet = true }
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Приёмка",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                )
+                                val acceptanceSummary = buildTimeSummary(
+                                    listOf(locomotive.timeStartOfAcceptance, locomotive.timeEndOfAcceptance, locomotive.timeBarrierOut),
+                                    dateAndTimeConverter
+                                )
+                                Text(
+                                    text = acceptanceSummary.ifEmpty { "Не задано" },
+                                    style = dataTextStyle,
+                                    color = if (acceptanceSummary.isNotEmpty()) MaterialTheme.colorScheme.tertiary
+                                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                                )
+                            }
+                            CustomDivider(orientation = Orientation.Horizontal)
+                            // Сдача row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showDeliverySheet = true }
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Сдача",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                )
+                                val deliverySummary = buildTimeSummary(
+                                    listOf(locomotive.timeBarrierIn, locomotive.timeStartOfDelivery, locomotive.timeEndOfDelivery),
+                                    dateAndTimeConverter
+                                )
+                                Text(
+                                    text = deliverySummary.ifEmpty { "Не задано" },
+                                    style = dataTextStyle,
+                                    color = if (deliverySummary.isNotEmpty()) MaterialTheme.colorScheme.tertiary
+                                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                                )
+                            }
+                        }
                     }
 
                     // время
@@ -1404,4 +1520,11 @@ fun FormLocoScreen(
             }
         }
     }
+}
+
+private fun buildTimeSummary(times: List<Long?>, converter: DateAndTimeConverter?): String {
+    val parts = times.mapNotNull { ms ->
+        if (ms == null || converter == null) null else converter.getTime(ms).takeIf { it.isNotBlank() }
+    }
+    return parts.joinToString(" → ")
 }

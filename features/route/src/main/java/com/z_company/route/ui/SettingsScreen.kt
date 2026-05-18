@@ -63,9 +63,19 @@ import com.z_company.route.ui.settings.SettingsNormaContent
 import com.z_company.route.ui.settings.SettingsRestContent
 import com.z_company.route.ui.settings.SettingsRouteContent
 import com.z_company.route.ui.settings.SettingsShouldersContent
+import com.z_company.route.ui.settings.SettingsSeriesListContent
+import com.z_company.route.ui.settings.SettingsSeriesEditorContent
+import com.z_company.route.ui.settings.SettingsStationListContent
+import com.z_company.route.ui.settings.SettingsStationEditorContent
 import com.z_company.route.viewmodel.SettingsViewModel
 import com.z_company.route.viewmodel.SettingsUiState
 import com.z_company.route.viewmodel.TimeZoneRussia
+import com.z_company.route.viewmodel.SeriesListViewModel
+import com.z_company.route.viewmodel.SeriesEditorViewModel
+import com.z_company.route.viewmodel.StationNormListViewModel
+import com.z_company.route.viewmodel.StationNormEditorViewModel
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
 
@@ -76,7 +86,11 @@ enum class SettingsSubScreen(val title: String) {
     ACCOUNTING("Учёт"),
     REST("Отдых"),
     SHOULDERS("Плечи"),
-    LOCOMOTIVE("Локомотив")
+    LOCOMOTIVE("Локомотив"),
+    SERIES_LIST("Серии"),
+    SERIES_EDITOR("Серия"),
+    STATION_LIST("Станции"),
+    STATION_EDITOR("Станция"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,9 +127,14 @@ fun SettingsScreen(
     updateServicePhase: (ServicePhase, Int) -> Unit,
     showSettingSalary: () -> Unit,
     onBack: () -> Unit,
+    seriesListViewModel: SeriesListViewModel? = null,
+    stationListViewModel: StationNormListViewModel? = null,
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    var selectedSeriesId by remember { mutableStateOf<String?>(null) }
+    var selectedStationId by remember { mutableStateOf<String?>(null) }
 
     var currentSubScreen by remember {
         val initial = when (initialSubScreen) {
@@ -125,6 +144,8 @@ fun SettingsScreen(
             "REST" -> SettingsSubScreen.REST
             "SHOULDERS" -> SettingsSubScreen.SHOULDERS
             "LOCOMOTIVE" -> SettingsSubScreen.LOCOMOTIVE
+            "SERIES_LIST" -> SettingsSubScreen.SERIES_LIST
+            "STATION_LIST" -> SettingsSubScreen.STATION_LIST
             else -> SettingsSubScreen.HUB
         }
         mutableStateOf(initial)
@@ -136,10 +157,12 @@ fun SettingsScreen(
     val enteredDirectly = remember { initialSubScreen != null }
 
     BackHandler(currentSubScreen != SettingsSubScreen.HUB) {
-        if (enteredDirectly) {
-            onBack()
-        } else {
-            currentSubScreen = SettingsSubScreen.HUB
+        when (currentSubScreen) {
+            SettingsSubScreen.SERIES_EDITOR -> currentSubScreen = SettingsSubScreen.SERIES_LIST
+            SettingsSubScreen.STATION_EDITOR -> currentSubScreen = SettingsSubScreen.STATION_LIST
+            else -> {
+                if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
+            }
         }
     }
 
@@ -154,10 +177,10 @@ fun SettingsScreen(
                 navigationIcon = {
                     if (currentSubScreen != SettingsSubScreen.HUB) {
                         IconButton(onClick = {
-                            if (enteredDirectly) {
-                                onBack()
-                            } else {
-                                currentSubScreen = SettingsSubScreen.HUB
+                            when (currentSubScreen) {
+                                SettingsSubScreen.SERIES_EDITOR -> currentSubScreen = SettingsSubScreen.SERIES_LIST
+                                SettingsSubScreen.STATION_EDITOR -> currentSubScreen = SettingsSubScreen.STATION_LIST
+                                else -> if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
                             }
                         }) {
                             Icon(
@@ -314,6 +337,52 @@ fun SettingsScreen(
                                 changeShowOtherCurrent = changeShowOtherCurrent,
                             )
                         }
+
+                        SettingsSubScreen.SERIES_LIST -> {
+                            seriesListViewModel?.let { vm ->
+                                SettingsSeriesListContent(
+                                    viewModel = vm,
+                                    onOpenEditor = { id ->
+                                        selectedSeriesId = id
+                                        currentSubScreen = SettingsSubScreen.SERIES_EDITOR
+                                    }
+                                )
+                            }
+                        }
+
+                        SettingsSubScreen.SERIES_EDITOR -> {
+                            val editorVm = koinViewModel<SeriesEditorViewModel>(
+                                key = "series_editor_${selectedSeriesId ?: "new"}",
+                                parameters = { parametersOf(selectedSeriesId) }
+                            )
+                            SettingsSeriesEditorContent(
+                                viewModel = editorVm,
+                                onDone = { currentSubScreen = SettingsSubScreen.SERIES_LIST }
+                            )
+                        }
+
+                        SettingsSubScreen.STATION_LIST -> {
+                            stationListViewModel?.let { vm ->
+                                SettingsStationListContent(
+                                    viewModel = vm,
+                                    onOpenEditor = { id ->
+                                        selectedStationId = id
+                                        currentSubScreen = SettingsSubScreen.STATION_EDITOR
+                                    }
+                                )
+                            }
+                        }
+
+                        SettingsSubScreen.STATION_EDITOR -> {
+                            val editorVm = koinViewModel<StationNormEditorViewModel>(
+                                key = "station_editor_${selectedStationId ?: "new"}",
+                                parameters = { parametersOf(selectedStationId) }
+                            )
+                            SettingsStationEditorContent(
+                                viewModel = editorVm,
+                                onDone = { currentSubScreen = SettingsSubScreen.STATION_LIST }
+                            )
+                        }
                     }
                 }
             }
@@ -366,6 +435,14 @@ private fun SettingsHubContent(
         SettingsNavItem(
             title = "Зарплата",
             onClick = showSettingSalary
+        )
+        SettingsNavItem(
+            title = "Серии локомотивов",
+            onClick = { onNavigate(SettingsSubScreen.SERIES_LIST) }
+        )
+        SettingsNavItem(
+            title = "Станции",
+            onClick = { onNavigate(SettingsSubScreen.STATION_LIST) }
         )
 
         Spacer(modifier = Modifier.height(12.dp))

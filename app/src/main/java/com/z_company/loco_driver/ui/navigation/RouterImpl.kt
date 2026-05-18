@@ -175,4 +175,12 @@ class RouterImpl(
     override fun showSettingsRest() {
         requireNavController().navigate(SettingsScreenRoute.buildRoute("REST"))
     }
+
+    override fun showSettingsSeriesList() {
+        requireNavController().navigate(SettingsScreenRoute.buildRoute("SERIES_LIST"))
+    }
+
+    override fun showSettingsStationList() {
+        requireNavController().navigate(SettingsScreenRoute.buildRoute("STATION_LIST"))
+    }
 }

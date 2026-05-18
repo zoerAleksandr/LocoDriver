@@ -13,6 +13,10 @@ import com.z_company.route.viewmodel.SalaryCalculationViewModel
 import com.z_company.route.viewmodel.SearchViewModel
 import com.z_company.route.viewmodel.SettingSalaryViewModel
 import com.z_company.route.viewmodel.SettingsViewModel
+import com.z_company.route.viewmodel.SeriesListViewModel
+import com.z_company.route.viewmodel.SeriesEditorViewModel
+import com.z_company.route.viewmodel.StationNormListViewModel
+import com.z_company.route.viewmodel.StationNormEditorViewModel
 import com.z_company.route.viewmodel.TrainFormViewModel
 import com.z_company.route.viewmodel.WorkScheduleViewModel
 import com.z_company.route.viewmodel.login.PasswordRecoveryViewModel
@@ -45,4 +49,8 @@ val viewModelModule = module {
     viewModel { WorkScheduleViewModel() }
     viewModel { ProfileViewModel() }
     single { PdfViewModel(androidApplication()) }
+    viewModel { SeriesListViewModel() }
+    viewModel { StationNormListViewModel() }
+    viewModel { (id: String?) -> SeriesEditorViewModel(id) }
+    viewModel { (id: String?) -> StationNormEditorViewModel(id) }
 }
