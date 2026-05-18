@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS LocomotiveSeries (
+    seriesId TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    acceptanceDurationMin INTEGER,
+    deliveryDurationMin INTEGER,
+    updatedAt INTEGER NOT NULL
+);
+
+insertOrReplace:
+INSERT OR REPLACE INTO LocomotiveSeries (seriesId, name, type, acceptanceDurationMin, deliveryDurationMin, updatedAt)
+VALUES (?, ?, ?, ?, ?, ?);
+
+getAll:
+SELECT * FROM LocomotiveSeries ORDER BY name;
+
+deleteAll:
+DELETE FROM LocomotiveSeries;

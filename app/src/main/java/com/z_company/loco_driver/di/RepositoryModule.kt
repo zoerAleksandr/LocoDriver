@@ -4,6 +4,8 @@ import com.z_company.data_local.SharedPreferenceStorage
 import com.z_company.data_local.calendar.CalendarStorageLocalImpl
 import com.z_company.data_local.calendar.SqlDelightProductionCalendarRepository
 import com.z_company.data_local.calendar.SqlDelightReleaseDayRepository
+import com.z_company.data_local.norma_time.SqlDelightLocomotiveSeriesRepository
+import com.z_company.data_local.norma_time.SqlDelightStationNormRepository
 import com.z_company.data_local.setting.DataStoreRepository
 import com.z_company.data_local.calendar.SqlDelightCalendarRepository
 import com.z_company.data_local.route.SqlDelightHistoryResponseRepository
@@ -11,6 +13,7 @@ import com.z_company.data_local.route.SqlDelightRouteRepository
 import com.z_company.data_local.setting.SqlDelightSalarySettingRepository
 import com.z_company.data_local.setting.SqlDelightSettingRepository
 import com.z_company.domain.repositories.CalendarStorage
+import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.ProductionCalendarRepository
 import com.z_company.domain.repositories.ReleaseDayRepository
 import com.z_company.domain.repositories.RouteRepository
@@ -19,6 +22,7 @@ import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.domain.repositories.SalarySettingRepository
 import com.z_company.domain.repositories.SettingsRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.repositories.StationNormRepository
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.snackbar.SnackbarManagerImpl
 import com.z_company.repository.SecureTokenStorage
@@ -47,6 +51,10 @@ val repositoryModule = module {
     single<CalendarRepositories> { SqlDelightCalendarRepository() }
 
     single<ReleaseDayRepository> { SqlDelightReleaseDayRepository() }
+
+    single<LocomotiveSeriesRepository> { SqlDelightLocomotiveSeriesRepository() }
+
+    single<StationNormRepository> { SqlDelightStationNormRepository() }
 
     single<ProductionCalendarRepository> { SqlDelightProductionCalendarRepository() }
 
@@ -93,7 +101,9 @@ val repositoryModule = module {
             routeUseCase = get(),
             routesManager = get(),
             settingManager = get(),
-            sharedPrefs = get()
+            sharedPrefs = get(),
+            locomotiveSeriesRepository = get(),
+            stationNormRepository = get()
         )
     }
 }

@@ -19,13 +19,14 @@ actual class DatabaseDriverFactory(private val context: Context) {
     }
 
     actual fun createSettingsDriver(): SqlDriver {
-        // Проверяем ВСЕ новые столбцы из всех миграций (1.sqm … 10.sqm).
+        // Проверяем ВСЕ новые столбцы из всех миграций (1.sqm … 12.sqm).
         // Это покрывает Room→SQLDelight и SQLDelight→SQLDelight upgrade-пути,
         // где какие-либо миграции могли быть пропущены.
         // ВАЖНО: subscriptionPeriod и isDecimalTime (миграция 5) тоже должны быть
         // здесь — иначе fixVersionIfColumnsExist выставит version=5, SQLDelight
         // пропустит 5.sqm, и столбцы никогда не добавятся → SQLiteException.
         ensureSettingsTablesV6("Settings.db")
+        ensureSettingsTablesV12("Settings.db")
         fixVersionIfColumnsExist(
             "Settings.db",
             SettingsDatabase.Schema.version.toInt(),
@@ -85,6 +86,42 @@ actual class DatabaseDriverFactory(private val context: Context) {
             db.execSQL(
                 "CREATE INDEX IF NOT EXISTS idx_prod_cal_country_year ON ProductionCalendarDay(country, year)"
             )
+        } finally {
+            db.close()
+        }
+    }
+
+    /**
+     * Создаёт таблицы LocomotiveSeries и StationNorm если они не существуют.
+     * Необходимо для пользователей, обновившихся через fixVersionIfColumnsExist —
+     * он выставляет версию сразу в targetVersion, обходя SQLDelight-миграцию 12.sqm.
+     */
+    private fun ensureSettingsTablesV12(dbName: String) {
+        val dbFile = context.getDatabasePath(dbName)
+        if (!dbFile.exists()) return
+        val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
+        try {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS LocomotiveSeries (
+                    seriesId TEXT NOT NULL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    acceptanceDurationMin INTEGER,
+                    deliveryDurationMin INTEGER,
+                    updatedAt INTEGER NOT NULL
+                )
+            """.trimIndent())
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS StationNorm (
+                    stationId TEXT NOT NULL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    appearanceToStartMin INTEGER,
+                    endToBarrierMin INTEGER,
+                    barrierToStartMin INTEGER,
+                    endToWorkEndMin INTEGER,
+                    updatedAt INTEGER NOT NULL
+                )
+            """.trimIndent())
         } finally {
             db.close()
         }
@@ -199,6 +236,10 @@ actual class DatabaseDriverFactory(private val context: Context) {
             // Route — Locomotive
             "Locomotive.auxiliaryCounterAccepted" to ColumnSpec("TEXT", true, "NULL"),
             "Locomotive.auxiliaryCounterDelivery" to ColumnSpec("TEXT", true, "NULL"),
+            "Locomotive.timeBarrierOut" to ColumnSpec("INTEGER", true, "NULL"),
+            "Locomotive.timeBarrierIn" to ColumnSpec("INTEGER", true, "NULL"),
+            "Locomotive.acceptanceStationId" to ColumnSpec("TEXT", true, "NULL"),
+            "Locomotive.deliveryStationId" to ColumnSpec("TEXT", true, "NULL"),
             // Route — Train
             "Train.additionalNumbers" to ColumnSpec("TEXT", true, "NULL"),
             "Train.pusher" to ColumnSpec("TEXT", true, "NULL"),
@@ -339,6 +380,10 @@ actual class DatabaseDriverFactory(private val context: Context) {
                         heatingCounterDelivery TEXT DEFAULT NULL,
                         auxiliaryCounterAccepted TEXT DEFAULT NULL,
                         auxiliaryCounterDelivery TEXT DEFAULT NULL,
+                        timeBarrierOut INTEGER DEFAULT NULL,
+                        timeBarrierIn INTEGER DEFAULT NULL,
+                        acceptanceStationId TEXT DEFAULT NULL,
+                        deliveryStationId TEXT DEFAULT NULL,
                         FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
                     )
                 """.trimIndent())
@@ -399,6 +444,10 @@ actual class DatabaseDriverFactory(private val context: Context) {
                         heatingCounterDelivery TEXT DEFAULT NULL,
                         auxiliaryCounterAccepted TEXT DEFAULT NULL,
                         auxiliaryCounterDelivery TEXT DEFAULT NULL,
+                        timeBarrierOut INTEGER DEFAULT NULL,
+                        timeBarrierIn INTEGER DEFAULT NULL,
+                        acceptanceStationId TEXT DEFAULT NULL,
+                        deliveryStationId TEXT DEFAULT NULL,
                         FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
                     )
                 """.trimIndent())
@@ -412,6 +461,10 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 "BasicData" to "timeEndBreak",
                 "Locomotive" to "auxiliaryCounterAccepted",
                 "Locomotive" to "auxiliaryCounterDelivery",
+                "Locomotive" to "timeBarrierOut",
+                "Locomotive" to "timeBarrierIn",
+                "Locomotive" to "acceptanceStationId",
+                "Locomotive" to "deliveryStationId",
                 "Train" to "additionalNumbers",
                 "Train" to "pusher",
                 "Train" to "doubleTraction",

@@ -60,6 +60,10 @@ internal object LocomotiveMapper {
         heatingCounterAccepted = row.heatingCounterAccepted?.toDoubleOrNull(),
         heatingCounterDelivery = row.heatingCounterDelivery?.toDoubleOrNull(),
         auxiliaryCounterAccepted = row.auxiliaryCounterAccepted?.toDoubleOrNull(),
-        auxiliaryCounterDelivery = row.auxiliaryCounterDelivery?.toDoubleOrNull()
+        auxiliaryCounterDelivery = row.auxiliaryCounterDelivery?.toDoubleOrNull(),
+        timeBarrierOut = row.timeBarrierOut,
+        timeBarrierIn = row.timeBarrierIn,
+        acceptanceStationId = row.acceptanceStationId,
+        deliveryStationId = row.deliveryStationId
     )
 }

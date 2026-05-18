@@ -4,6 +4,8 @@ import com.z_company.data_local.DatabaseDriverFactory
 import com.z_company.data_local.calendar.SqlDelightCalendarRepository
 import com.z_company.data_local.calendar.SqlDelightProductionCalendarRepository
 import com.z_company.data_local.calendar.SqlDelightReleaseDayRepository
+import com.z_company.data_local.norma_time.SqlDelightLocomotiveSeriesRepository
+import com.z_company.data_local.norma_time.SqlDelightStationNormRepository
 import com.z_company.data_local.route.SqlDelightRouteRepository
 import com.z_company.data_local.route.db.RouteDatabase
 import com.z_company.data_local.route.searchdb.SearchResponseDatabase
@@ -12,12 +14,14 @@ import com.z_company.data_local.setting.SqlDelightSettingRepository
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
 import com.z_company.domain.repositories.CalendarRepositories
+import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.ProductionCalendarRepository
 import com.z_company.domain.repositories.ReleaseDayRepository
 import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.repositories.SalarySettingRepository
 import com.z_company.domain.repositories.SettingsRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.repositories.StationNormRepository
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.ProductionCalendarUseCase
 import com.z_company.domain.use_cases.ReleaseDayUseCase
@@ -64,6 +68,8 @@ val iosUseCaseModule = module {
     single<SettingsRepository> { SqlDelightSettingRepository() }
     single<CalendarRepositories> { SqlDelightCalendarRepository() }
     single<ReleaseDayRepository> { SqlDelightReleaseDayRepository() }
+    single<LocomotiveSeriesRepository> { SqlDelightLocomotiveSeriesRepository() }
+    single<StationNormRepository> { SqlDelightStationNormRepository() }
     single<ProductionCalendarRepository> { SqlDelightProductionCalendarRepository() }
     single<SalarySettingRepository> { SqlDelightSalarySettingRepository() }
     single<SharedPreferencesRepositories> { IosSharedPreferencesRepository() }
@@ -88,6 +94,8 @@ val iosUseCaseModule = module {
             routesManager = get(),
             settingManager = get(),
             sharedPrefs = get(),
+            locomotiveSeriesRepository = get(),
+            stationNormRepository = get()
         )
     }
 

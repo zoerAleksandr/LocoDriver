@@ -13,9 +13,9 @@
 iOS в разработке (паритет с Android в течение ближайших недель).
 
 Решает:
-- Учёт рейсов с детальной информацией (BasicData, локомотивы со
-  секциями, поезда со станциями, пассажиры, заметки).
-- Расчёт ночных часов с учётом часового пояса и переходов через сутки.
+- Учёт рейсов с детальной информацией о рабочем времени, локомотивах, поездах, следовании пассажиром.
+- Ведение статистика по выполненой работе.
+- Расчет нормы отдыха после поездки.
 - Расчёт зарплаты с десятком надбавок (ночные, районный, северные,
   тяжеловесные, длинносоставные, удлинённое плечо, в одно лицо и т.д.).
 - Производственный календарь (дни) + личные отвлечения (отпуск,
@@ -23,8 +23,8 @@ iOS в разработке (паритет с Android в течение бли�
 - Синхронизация с сервером (offline-first).
 - Шаринг маршрутных листов через короткую ссылку.
 
-Целевая аудитория: машинисты в России. Интерфейс — русский.
-Аутентификация: email/пароль + VK ID. Платежи: RuStore + Robokassa.
+Целевая аудитория: машинисты в России, Казахстане и Беларуси. Интерфейс — русский.
+Аутентификация: email/пароль + VK ID. Платежи: Robokassa.
 
 ---
 
@@ -125,7 +125,9 @@ data_local (SQLDelight)        data_remote (Ktor)
 В пакете `com.z_company.domain.entities`:
 - `route/Route.kt` — корневая сущность рейса
 - `route/BasicData.kt` — метаданные (время работы, флаги, заметки)
-- `route/Locomotive.kt` — локомотив + список секций
+- `route/Locomotive.kt` — локомотив + список секций; содержит поля
+  `timeBarrierOut`, `timeBarrierIn`, `acceptanceStationId`, `deliveryStationId`
+  для нормирования времени приёмки/сдачи
 - `route/SectionElectric.kt`, `SectionDiesel.kt` — секции
 - `route/Train.kt` — поезд + станции + фаза обслуживания
 - `route/Passenger.kt` — пассажирские поездки
@@ -136,6 +138,10 @@ data_local (SQLDelight)        data_remote (Ktor)
 - `setting/NightTime.kt` — границы ночного времени
 - `MonthOfYear.kt` — рабочий месяц
 - `Day.kt`, `ReleaseType.kt` — дни и типы отвлечений
+- `norma_time/LocomotiveSeries.kt` — серия локомотива с нормами приёмки/сдачи
+  (`acceptanceDurationMin`, `deliveryDurationMin`)
+- `norma_time/StationNorm.kt` — станция с нормами времени по 4 интервалам
+  (`appearanceToStartMin`, `endToBarrierMin`, `barrierToStartMin`, `endToWorkEndMin`)
 
 ### Репозитории (интерфейсы)
 
@@ -146,6 +152,8 @@ data_local (SQLDelight)        data_remote (Ktor)
   `RegionalHolidaysRepository`, `HardcodedRegionalHolidaysRepository`
 - `HistoryResponseRepository` — история запросов
 - `SharedPreferencesRepositories` — настройки приложения
+- `LocomotiveSeriesRepository` — справочник серий локомотивов (CRUD + replaceAll)
+- `StationNormRepository` — справочник станций с нормами (CRUD + replaceAll)
 
 ### Use Cases
 
@@ -192,7 +200,16 @@ data_local (SQLDelight)        data_remote (Ktor)
 - `com.z_company.data_local.setting.data_base.SalarySettingDB`
 
 `.sq`-файлы: BasicData, Locomotive, Passenger, Photo, Train,
-SearchResponse, MonthOfYear, UserSettings, SalarySetting.
+SearchResponse, MonthOfYear, UserSettings, SalarySetting,
+LocomotiveSeries, StationNorm.
+
+Миграции:
+- RouteDatabase `8.sqm` — 4 новых колонки в Locomotive (`timeBarrierOut`, `timeBarrierIn`, `acceptanceStationId`, `deliveryStationId`)
+- SettingsDatabase `12.sqm` — новые таблицы LocomotiveSeries и StationNorm
+
+Репозитории нормирования времени (`data_local/norma_time/`):
+- `SqlDelightLocomotiveSeriesRepository` → SettingsDatabase, `locomotiveSeriesQueries`
+- `SqlDelightStationNormRepository` → SettingsDatabase, `stationNormQueries`
 
 `expect/actual` для драйверов:
 - `androidMain` → `AndroidSqliteDriver`
@@ -214,12 +231,18 @@ SearchResponse, MonthOfYear, UserSettings, SalarySetting.
   - `iosMain` → `Darwin` (NSURLSession)
 - `AuthManager.kt` — логин/регистрация/email/vkId
 - `RoutesManager.kt` — синхронизация рейсов
-- `SettingManager.kt` — синхронизация настроек
+- `SettingManager.kt` — синхронизация настроек (включая методы для norma_time)
 - `SyncManager.kt` — оркестрирует синхронизацию
 - `ShareRouteManager.kt` — создание/получение share-ссылок
 - `UserRemote.kt` — работа с пользователем
 
-DTO в `request/` и `response/` подпапках.
+DTO в `request/` и `response/` подпапках. Нормирование времени:
+- `response/NormaTimeLocomotiveResponse.kt` — DTO серии локомотива; поле `updatedAt: Double` (конвертируется в `Long` через `.toLong()` в `toDomain()`)
+- `response/NormaTimeStationResponse.kt` — DTO станции; аналогично
+
+Эндпоинты нормирования (`RemoteRestApi` / `KtorRemoteRestApi`):
+- `GET/POST /v1/norma_time/locomotives/` — серии локомотивов
+- `GET/POST /v1/norma_time/stations/` — станции с нормами
 
 **Безопасное хранилище токенов** — через `expect/actual`:
 - Android: DataStore + Tink (AES256_GCM, AndroidKeyStore)
@@ -264,6 +287,14 @@ Offline-first:
    сети, по триггеру).
 3. `SyncWorker` → `SyncManager` → `RoutesManager`/`SettingManager` →
    Ktor → сервер.
+
+Синхронизируемые сущности:
+- `UserSettings`, `SalarySetting`, `MonthOfYear` — всегда отправляются/загружаются.
+- `ReleaseDay` — всегда отправляются (POST) / загружаются (GET) с заменой локальных.
+- `LocomotiveSeries`, `StationNorm` — **full replace с условием**:
+  - `syncToRemote`: если локальных данных нет — пропустить; если есть — POST на сервер.
+  - `syncFromRemote`: если локальных данных нет — GET с сервера и сохранить; если есть — не трогать.
+- `Route` — full replace на сервере для дочерних коллекций.
 
 ---
 
