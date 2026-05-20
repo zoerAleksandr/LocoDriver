@@ -32,7 +32,10 @@ data class StationEditorState(
 class StationNormEditorViewModel(private val stationId: String?) : ViewModel(), KoinComponent {
     private val repository: StationNormRepository by inject()
 
-    private val _state = MutableStateFlow(StationEditorState(stationId = stationId))
+    // Generate the ID once — prevents duplicate rows on each autosave for new stations.
+    private val persistentId: String = stationId ?: generateId()
+
+    private val _state = MutableStateFlow(StationEditorState(stationId = persistentId))
     val state = _state.asStateFlow()
 
     init {
@@ -108,7 +111,7 @@ class StationNormEditorViewModel(private val stationId: String?) : ViewModel(), 
         viewModelScope.launch {
             val all = repository.getAll().toMutableList()
             val updated = StationNorm(
-                stationId = s.stationId ?: generateId(),
+                stationId = persistentId,
                 name = s.name.trim(),
                 appearanceToStartMin = s.appearanceToStartMin,
                 endToBarrierMin = s.endToBarrierMin,

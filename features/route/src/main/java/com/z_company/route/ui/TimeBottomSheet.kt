@@ -76,6 +76,7 @@ fun TimeBottomSheet(
     onClose: () -> Unit,
     onNavigateToSeriesSettings: () -> Unit,
     onNavigateToStationSettings: () -> Unit,
+    onEditStation: ((String) -> Unit)? = null,
 ) {
     val seriesRepo: LocomotiveSeriesRepository = koinInject()
     val stationRepo: StationNormRepository = koinInject()
@@ -272,7 +273,12 @@ fun TimeBottomSheet(
                 showStationPicker = false
                 onClose()
                 onNavigateToStationSettings()
-            }
+            },
+            onEditStation = if (onEditStation != null) { station ->
+                showStationPicker = false
+                onClose()
+                onEditStation(station.stationId)
+            } else null
         )
     }
 

@@ -183,4 +183,8 @@ class RouterImpl(
     override fun showSettingsStationList() {
         requireNavController().navigate(SettingsScreenRoute.buildRoute("STATION_LIST"))
     }
+
+    override fun showSettingsStationEditor(stationId: String) {
+        requireNavController().navigate(SettingsScreenRoute.buildRoute("STATION_EDITOR_$stationId"))
+    }
 }

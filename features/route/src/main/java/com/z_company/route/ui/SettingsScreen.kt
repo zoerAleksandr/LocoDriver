@@ -134,22 +134,27 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     var selectedSeriesId by remember { mutableStateOf<String?>(null) }
-    var selectedStationId by remember { mutableStateOf<String?>(null) }
 
-    var currentSubScreen by remember {
-        val initial = when (initialSubScreen) {
-            "ROUTE" -> SettingsSubScreen.ROUTE
-            "NORMA" -> SettingsSubScreen.NORMA
-            "ACCOUNTING" -> SettingsSubScreen.ACCOUNTING
-            "REST" -> SettingsSubScreen.REST
-            "SHOULDERS" -> SettingsSubScreen.SHOULDERS
-            "LOCOMOTIVE" -> SettingsSubScreen.LOCOMOTIVE
-            "SERIES_LIST" -> SettingsSubScreen.SERIES_LIST
-            "STATION_LIST" -> SettingsSubScreen.STATION_LIST
-            else -> SettingsSubScreen.HUB
+    // Parse STATION_EDITOR_<id> to open the editor directly (from long-tap in picker)
+    val (initScreen, initStationId) = remember(initialSubScreen) {
+        when {
+            initialSubScreen?.startsWith("STATION_EDITOR_") == true ->
+                SettingsSubScreen.STATION_EDITOR to initialSubScreen.removePrefix("STATION_EDITOR_")
+            else -> when (initialSubScreen) {
+                "ROUTE" -> SettingsSubScreen.ROUTE to null
+                "NORMA" -> SettingsSubScreen.NORMA to null
+                "ACCOUNTING" -> SettingsSubScreen.ACCOUNTING to null
+                "REST" -> SettingsSubScreen.REST to null
+                "SHOULDERS" -> SettingsSubScreen.SHOULDERS to null
+                "LOCOMOTIVE" -> SettingsSubScreen.LOCOMOTIVE to null
+                "SERIES_LIST" -> SettingsSubScreen.SERIES_LIST to null
+                "STATION_LIST" -> SettingsSubScreen.STATION_LIST to null
+                else -> SettingsSubScreen.HUB to null
+            }
         }
-        mutableStateOf(initial)
     }
+    var currentSubScreen by remember { mutableStateOf(initScreen) }
+    var selectedStationId by remember { mutableStateOf(initStationId) }
 
     // Если пользователь попал сразу на под-экран (через deep link из FormLocoScreen
     // и т.п.) — back должен возвращать по backstack, а не в HUB настроек.
