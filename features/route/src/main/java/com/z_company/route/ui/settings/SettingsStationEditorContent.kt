@@ -148,7 +148,7 @@ fun SettingsStationEditorContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(2.dp, Shapes.medium)
+                .clip(Shapes.medium)
                 .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
         ) {
             Row(
@@ -332,7 +332,7 @@ private fun StepperRow(
                 modifier = Modifier
                     .size(28.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .background(MaterialTheme.colorScheme.surface)
                     .clickable(enabled = (value ?: 0) > 0, onClick = onDecrement),
                 contentAlignment = Alignment.Center
             ) {
@@ -376,7 +376,7 @@ private fun StepperRow(
                 modifier = Modifier
                     .size(28.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .background(MaterialTheme.colorScheme.surface)
                     .clickable(enabled = (value ?: 0) < 120, onClick = onIncrement),
                 contentAlignment = Alignment.Center
             ) {
