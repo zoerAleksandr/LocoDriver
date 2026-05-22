@@ -676,15 +676,15 @@ fun FormLocoScreen(
                                 label = "ПРИЁМКА",
                                 stops = listOf(
                                     TimeStop(
-                                        time = dateAndTimeConverter?.getTime(locomotive.timeStartOfAcceptance) ?: "—",
+                                        time = locomotive.timeStartOfAcceptance?.let { dateAndTimeConverter?.getTime(it) },
                                         caption = "начало"
                                     ),
                                     TimeStop(
-                                        time = dateAndTimeConverter?.getTime(locomotive.timeEndOfAcceptance) ?: "—",
+                                        time = locomotive.timeEndOfAcceptance?.let { dateAndTimeConverter?.getTime(it) },
                                         caption = "конец"
                                     ),
                                     TimeStop(
-                                        time = dateAndTimeConverter?.getTime(locomotive.timeBarrierOut) ?: "—",
+                                        time = locomotive.timeBarrierOut?.let { dateAndTimeConverter?.getTime(it) },
                                         caption = "КП"
                                     ),
                                 ),
@@ -695,15 +695,15 @@ fun FormLocoScreen(
                                 label = "СДАЧА",
                                 stops = listOf(
                                     TimeStop(
-                                        time = dateAndTimeConverter?.getTime(locomotive.timeBarrierIn) ?: "—",
+                                        time = locomotive.timeBarrierIn?.let { dateAndTimeConverter?.getTime(it) },
                                         caption = "КП"
                                     ),
                                     TimeStop(
-                                        time = dateAndTimeConverter?.getTime(locomotive.timeStartOfDelivery) ?: "—",
+                                        time = locomotive.timeStartOfDelivery?.let { dateAndTimeConverter?.getTime(it) },
                                         caption = "начало"
                                     ),
                                     TimeStop(
-                                        time = dateAndTimeConverter?.getTime(locomotive.timeEndOfDelivery) ?: "—",
+                                        time = locomotive.timeEndOfDelivery?.let { dateAndTimeConverter?.getTime(it) },
                                         caption = "конец"
                                     ),
                                 ),
@@ -1206,7 +1206,7 @@ private fun buildTimeSummary(times: List<Long?>, converter: DateAndTimeConverter
     return parts.joinToString(" → ")
 }
 
-data class TimeStop(val time: String, val caption: String)
+data class TimeStop(val time: String?, val caption: String)
 
 @Composable
 private fun TimeSummaryRow(
@@ -1267,14 +1267,15 @@ private fun TimeSummaryRow(
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Text(
-                        text = stop.time,
+                        text = stop.time ?: "—:—",
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
                             fontSize = 18.sp,
                             lineHeight = 18.sp
                         ),
-                        color = MaterialTheme.colorScheme.primary
+                        color = if (stop.time != null) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                     )
                     Text(
                         text = stop.caption.uppercase(),

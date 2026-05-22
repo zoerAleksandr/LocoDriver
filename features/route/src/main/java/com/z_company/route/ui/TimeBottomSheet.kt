@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,18 +13,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -34,13 +33,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.z_company.core.ui.theme.Shapes
+import androidx.compose.ui.unit.sp
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.norma_time.StationNorm
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
@@ -49,6 +49,8 @@ import com.z_company.route.component.AppDateTimePicker
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import java.util.Calendar
+
+private data class WarnItem(val text: String, val hint: String?, val cta: String?, val isSeries: Boolean)
 
 data class TimeSheetResult(
     val startTime: Long?,
@@ -59,6 +61,20 @@ data class TimeSheetResult(
     val stationId: String?,
 )
 
+// ── Color helpers ──────────────────────────────────────────────────────────
+@Composable private fun bgSubtle() = MaterialTheme.colorScheme.surface
+@Composable private fun accent() = MaterialTheme.colorScheme.tertiary
+@Composable private fun accentSoft() = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f)
+@Composable private fun accentInk() = Color.White
+@Composable private fun textColor() = MaterialTheme.colorScheme.primary
+@Composable private fun textMuted() = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+@Composable private fun textFaint() = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+@Composable private fun borderColor() = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+@Composable private fun warnColor() = Color(0xFFD98F20)
+@Composable private fun warnSoft() = Color(0xFFD98F20).copy(alpha = 0.10f)
+@Composable private fun surfaceCard() = MaterialTheme.colorScheme.secondary
+
+// ──────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimeBottomSheet(
@@ -80,6 +96,7 @@ fun TimeBottomSheet(
 ) {
     val seriesRepo: LocomotiveSeriesRepository = koinInject()
     val stationRepo: StationNormRepository = koinInject()
+    val scope = rememberCoroutineScope()
 
     val allSeries by seriesRepo.getAllFlow().collectAsState(initial = emptyList())
     val allStations by stationRepo.getAllFlow().collectAsState(initial = emptyList())
@@ -93,11 +110,9 @@ fun TimeBottomSheet(
     var selectedStation by remember(initialStationId, allStations) {
         mutableStateOf(allStations.find { it.stationId == initialStationId })
     }
-    val selectedSeries = allSeries.find { it.name == seriesName }
+    val selectedSeries: LocomotiveSeries? = allSeries.find { it.name == seriesName }
 
     var showStationPicker by remember { mutableStateOf(false) }
-
-    // Time pickers
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
     var showBarrierOutPicker by remember { mutableStateOf(false) }
@@ -105,10 +120,10 @@ fun TimeBottomSheet(
     var showWorkEndPicker by remember { mutableStateOf(false) }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val scope = rememberCoroutineScope()
 
-    fun fmtTime(ms: Long?): String {
-        if (ms == null) return "—"
+    // ── Time formatting ──
+    fun fmtTime(ms: Long?): String? {
+        if (ms == null) return null
         return try {
             val offsetMs = run {
                 val gmt = timeZoneText.replace("GMT", "").trim()
@@ -120,7 +135,7 @@ fun TimeBottomSheet(
             val cal = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
             cal.time = d
             "%02d:%02d".format(cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE))
-        } catch (e: Exception) { "—" }
+        } catch (e: Exception) { null }
     }
 
     fun deltaStr(from: Long?, to: Long?): String? {
@@ -130,7 +145,17 @@ fun TimeBottomSheet(
         return if (diff >= 0) "+$diff мин" else "$diff мин"
     }
 
-    fun canApplyNorms() = selectedSeries != null || selectedStation != null
+    // ── Norm logic ──
+    val noSeriesNorm = selectedSeries != null && run {
+        if (kind == "acceptance") selectedSeries.acceptanceDurationMin == null
+        else selectedSeries.deliveryDurationMin == null
+    }
+    val stationEmpty = selectedStation == null
+    val noStationNorm = !stationEmpty && selectedStation!!.let { s ->
+        s.appearanceToStartMin == null || s.endToBarrierMin == null ||
+            s.barrierToStartMin == null || s.endToWorkEndMin == null
+    }
+    val canApplyNorms = selectedSeries != null || selectedStation != null
 
     fun applyNorms() {
         if (kind == "acceptance") {
@@ -140,10 +165,7 @@ fun TimeBottomSheet(
             val durMin = selectedSeries?.acceptanceDurationMin ?: 0
             val newEnd = newStart + durMin * 60_000L
             val barrierMin = selectedStation?.endToBarrierMin ?: 0
-            val newBarrier = newEnd + barrierMin * 60_000L
-            startTime = newStart
-            endTime = newEnd
-            barrierOut = newBarrier
+            startTime = newStart; endTime = newEnd; barrierOut = newEnd + barrierMin * 60_000L
         } else {
             val bi = barrierIn ?: return
             val barrierMin = selectedStation?.barrierToStartMin ?: 0
@@ -151,141 +173,95 @@ fun TimeBottomSheet(
             val durMin = selectedSeries?.deliveryDurationMin ?: 0
             val newEnd = newStart + durMin * 60_000L
             val workEndMin = selectedStation?.endToWorkEndMin ?: 0
-            workEnd = newEnd + workEndMin * 60_000L
-            startTime = newStart
-            endTime = newEnd
+            startTime = newStart; endTime = newEnd; workEnd = newEnd + workEndMin * 60_000L
         }
     }
 
-    // Warnings
-    val warnings = buildList {
-        if (selectedSeries != null) {
-            val hasNorm = if (kind == "acceptance") selectedSeries.acceptanceDurationMin != null
-            else selectedSeries.deliveryDurationMin != null
-            if (!hasNorm) add(Triple("Нет нормы для серии ${selectedSeries.name}", "Настроить серию", true))
-        }
-        if (selectedStation == null) {
-            add(Triple("Станция не выбрана — нормы интервалов недоступны", null, false))
-        } else {
-            val s = selectedStation!!
-            val ok = s.appearanceToStartMin != null && s.endToBarrierMin != null &&
-                s.barrierToStartMin != null && s.endToWorkEndMin != null
-            if (!ok) add(Triple("Нет норм для станции ${s.name}", "Настроить станцию", false))
-        }
-    }
-
-    // Can save norms
-    val canSaveSeriesNorm = run {
-        if (selectedSeries == null || startTime == null || endTime == null) false
-        else {
-            val dur = ((endTime!! - startTime!!) / 60_000).toInt()
-            val saved = if (kind == "acceptance") selectedSeries.acceptanceDurationMin
-            else selectedSeries.deliveryDurationMin
+    // ── Save norm state ──
+    val canSaveSeriesNorm = selectedSeries != null && startTime != null && endTime != null &&
+        ((endTime!! - startTime!!) / 60_000).toInt().let { dur ->
+            val saved = if (kind == "acceptance") selectedSeries.acceptanceDurationMin else selectedSeries.deliveryDurationMin
             saved == null || saved != dur
         }
-    }
-    val canSaveStationNorm = run {
-        if (selectedStation == null) false
-        else if (kind == "acceptance") {
-            if (routeStartWork == null || startTime == null || endTime == null) false
-            else {
-                val st = selectedStation!!
-                val newAppear = ((startTime!! - routeStartWork) / 60_000).toInt()
-                val newBarrier = if (barrierOut != null) ((barrierOut!! - endTime!!) / 60_000).toInt() else null
-                newAppear != st.appearanceToStartMin || (newBarrier != null && newBarrier != st.endToBarrierMin)
-            }
+
+    val canSaveStationNorm = selectedStation != null && run {
+        val st = selectedStation!!
+        if (kind == "acceptance") {
+            routeStartWork != null && startTime != null && endTime != null &&
+                (((startTime!! - routeStartWork) / 60_000).toInt() != st.appearanceToStartMin ||
+                    (barrierOut != null && ((barrierOut!! - endTime!!) / 60_000).toInt() != st.endToBarrierMin))
         } else {
-            if (barrierIn == null || startTime == null || endTime == null || workEnd == null) false
-            else {
-                val st = selectedStation!!
-                val newBarrier = ((startTime!! - barrierIn!!) / 60_000).toInt()
-                val newWorkEnd = ((workEnd!! - endTime!!) / 60_000).toInt()
-                newBarrier != st.barrierToStartMin || newWorkEnd != st.endToWorkEndMin
-            }
+            barrierIn != null && startTime != null && endTime != null && workEnd != null &&
+                (((startTime!! - barrierIn!!) / 60_000).toInt() != st.barrierToStartMin ||
+                    ((workEnd!! - endTime!!) / 60_000).toInt() != st.endToWorkEndMin)
         }
     }
 
-    // Time pickers
-    if (showStartPicker) {
-        AppDateTimePicker(
-            title = if (kind == "acceptance") "Начало приёмки" else "Начало сдачи",
-            onDateTimeSelected = { startTime = it; showStartPicker = false },
-            onDismiss = { showStartPicker = false },
-            startDateTime = startTime ?: Calendar.getInstance().timeInMillis,
-            timeZoneStr = timeZoneText,
-            recentTimes = emptyList(),
-            onRecentTimeSaved = {}
-        )
-    }
-    if (showEndPicker) {
-        AppDateTimePicker(
-            title = if (kind == "acceptance") "Окончание приёмки" else "Окончание сдачи",
-            onDateTimeSelected = { endTime = it; showEndPicker = false },
-            onDismiss = { showEndPicker = false },
-            startDateTime = endTime ?: Calendar.getInstance().timeInMillis,
-            timeZoneStr = timeZoneText,
-            recentTimes = emptyList(),
-            onRecentTimeSaved = {}
-        )
-    }
-    if (showBarrierOutPicker) {
-        AppDateTimePicker(
-            title = "Выход на КП",
-            onDateTimeSelected = { barrierOut = it; showBarrierOutPicker = false },
-            onDismiss = { showBarrierOutPicker = false },
-            startDateTime = barrierOut ?: Calendar.getInstance().timeInMillis,
-            timeZoneStr = timeZoneText,
-            recentTimes = emptyList(),
-            onRecentTimeSaved = {}
-        )
-    }
-    if (showBarrierInPicker) {
-        AppDateTimePicker(
-            title = "Заход на КП",
-            onDateTimeSelected = { barrierIn = it; showBarrierInPicker = false },
-            onDismiss = { showBarrierInPicker = false },
-            startDateTime = barrierIn ?: Calendar.getInstance().timeInMillis,
-            timeZoneStr = timeZoneText,
-            recentTimes = emptyList(),
-            onRecentTimeSaved = {}
-        )
-    }
-    if (showWorkEndPicker) {
-        AppDateTimePicker(
-            title = "Окончание работы",
-            onDateTimeSelected = { workEnd = it; showWorkEndPicker = false },
-            onDismiss = { showWorkEndPicker = false },
-            startDateTime = workEnd ?: Calendar.getInstance().timeInMillis,
-            timeZoneStr = timeZoneText,
-            recentTimes = emptyList(),
-            onRecentTimeSaved = {}
-        )
-    }
+    // ── Pickers ──
+    if (showStartPicker) AppDateTimePicker(
+        title = if (kind == "acceptance") "Начало приёмки" else "Начало сдачи",
+        onDateTimeSelected = { startTime = it; showStartPicker = false },
+        onDismiss = { showStartPicker = false },
+        startDateTime = startTime ?: Calendar.getInstance().timeInMillis,
+        timeZoneStr = timeZoneText, recentTimes = emptyList(), onRecentTimeSaved = {}
+    )
+    if (showEndPicker) AppDateTimePicker(
+        title = if (kind == "acceptance") "Окончание приёмки" else "Окончание сдачи",
+        onDateTimeSelected = { endTime = it; showEndPicker = false },
+        onDismiss = { showEndPicker = false },
+        startDateTime = endTime ?: Calendar.getInstance().timeInMillis,
+        timeZoneStr = timeZoneText, recentTimes = emptyList(), onRecentTimeSaved = {}
+    )
+    if (showBarrierOutPicker) AppDateTimePicker(
+        title = "Выход на КП",
+        onDateTimeSelected = { barrierOut = it; showBarrierOutPicker = false },
+        onDismiss = { showBarrierOutPicker = false },
+        startDateTime = barrierOut ?: Calendar.getInstance().timeInMillis,
+        timeZoneStr = timeZoneText, recentTimes = emptyList(), onRecentTimeSaved = {}
+    )
+    if (showBarrierInPicker) AppDateTimePicker(
+        title = "Заход на КП",
+        onDateTimeSelected = { barrierIn = it; showBarrierInPicker = false },
+        onDismiss = { showBarrierInPicker = false },
+        startDateTime = barrierIn ?: Calendar.getInstance().timeInMillis,
+        timeZoneStr = timeZoneText, recentTimes = emptyList(), onRecentTimeSaved = {}
+    )
+    if (showWorkEndPicker) AppDateTimePicker(
+        title = "Окончание работы",
+        onDateTimeSelected = { workEnd = it; showWorkEndPicker = false },
+        onDismiss = { showWorkEndPicker = false },
+        startDateTime = workEnd ?: Calendar.getInstance().timeInMillis,
+        timeZoneStr = timeZoneText, recentTimes = emptyList(), onRecentTimeSaved = {}
+    )
+    if (showStationPicker) StationPickerSheet(
+        onSelect = { st -> selectedStation = st; showStationPicker = false },
+        onClose = { showStationPicker = false },
+        onNavigateToSettings = { showStationPicker = false; onClose(); onNavigateToStationSettings() },
+        onEditStation = if (onEditStation != null) { st ->
+            showStationPicker = false; onClose(); onEditStation(st.stationId)
+        } else null
+    )
 
-    if (showStationPicker) {
-        StationPickerSheet(
-            onSelect = { station ->
-                selectedStation = station
-                showStationPicker = false
-            },
-            onClose = { showStationPicker = false },
-            onNavigateToSettings = {
-                showStationPicker = false
-                onClose()
-                onNavigateToStationSettings()
-            },
-            onEditStation = if (onEditStation != null) { station ->
-                showStationPicker = false
-                onClose()
-                onEditStation(station.stationId)
-            } else null
-        )
-    }
-
+    // ── Sheet ──
     ModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = {
+            Box(
+                Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    Modifier
+                        .size(32.dp, 4.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                            RoundedCornerShape(2.dp)
+                        )
+                )
+            }
+        }
     ) {
         Column(
             modifier = Modifier
@@ -293,360 +269,585 @@ fun TimeBottomSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp)
         ) {
-            // Header
+            // ── Header: title + "По нормам" pill ──
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onClose) {
-                    Text("Отмена", color = MaterialTheme.colorScheme.tertiary)
-                }
                 Text(
                     text = if (kind == "acceptance") "Приёмка" else "Сдача",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.W500,
+                    color = textColor()
                 )
-                TextButton(onClick = {
-                    scope.launch {
-                        sheetState.hide()
-                        onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
-                    }
-                }) {
-                    Text("Готово", color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)
+                val normsActive = canApplyNorms && !noSeriesNorm && !stationEmpty && !noStationNorm
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (normsActive) accent() else bgSubtle())
+                        .then(
+                            if (!normsActive) Modifier.border(1.dp, borderColor(), RoundedCornerShape(999.dp))
+                            else Modifier
+                        )
+                        .clickable(enabled = canApplyNorms) { applyNorms() }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(com.z_company.route.R.drawable.electric_bolt_24px),
+                        contentDescription = null,
+                        modifier = Modifier.size(13.dp),
+                        tint = if (normsActive) accentInk() else textFaint()
+                    )
+                    Text(
+                        text = "По нормам",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.W500,
+                        color = if (normsActive) accentInk() else textFaint()
+                    )
                 }
             }
 
-            // Context card: series + station + "По нормам" button
+            // ── Context fields ──
             Column(
                 modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .shadow(2.dp, Shapes.medium)
-                    .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Series (read-only)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 11.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "СЕРИЯ",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                        )
-                        Text(
-                            text = seriesName ?: "Не задана",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (seriesName != null) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                        )
-                    }
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(start = 44.dp))
-
+                // Series (locked)
+                ContextFieldItem(
+                    iconRes = com.z_company.route.R.drawable.electric_bolt_24px,
+                    label = "Серия",
+                    value = seriesName ?: "Не задана",
+                    isEmpty = seriesName == null,
+                    isLocked = true,
+                    onClick = null
+                )
                 // Station (tappable)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showStationPicker = true }
-                        .padding(horizontal = 16.dp, vertical = 11.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "СТАНЦИЯ",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                        )
-                        Text(
-                            text = selectedStation?.name ?: "Выберите станцию",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (selectedStation != null) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                        )
-                    }
-                    Text("›", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
-                }
-
-                // "По нормам" button
-                Button(
-                    onClick = { applyNorms() },
-                    enabled = canApplyNorms(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.tertiary,
-                        disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                    )
-                ) {
-                    Text("⚡ По нормам", fontWeight = FontWeight.SemiBold)
-                }
+                val stationLabel = if (kind == "acceptance") "Станция приёмки" else "Станция сдачи"
+                ContextFieldItem(
+                    iconRes = com.z_company.route.R.drawable.zoom_in_map_24px,
+                    label = stationLabel,
+                    value = selectedStation?.name ?: "Выберите станцию",
+                    isEmpty = selectedStation == null,
+                    isLocked = false,
+                    onClick = { showStationPicker = true }
+                )
             }
 
-            // Warnings
+            // ── Warnings ──
+            val warnings: List<WarnItem> = buildList {
+                if (noSeriesNorm && seriesName != null)
+                    add(WarnItem("Нет нормы для серии $seriesName", null, "Настроить серию", true))
+                if (stationEmpty)
+                    add(WarnItem(
+                        "Станция ${if (kind == "acceptance") "приёмки" else "сдачи"} не выбрана",
+                        "Выберите станцию, чтобы применить нормы интервалов",
+                        null, false
+                    ))
+                else if (noStationNorm)
+                    add(WarnItem("Нет нормы для станции ${selectedStation!!.name}", null, "Настроить станцию", false))
+            }
             if (warnings.isNotEmpty()) {
                 Column(
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    warnings.forEach { (text, actionLabel, isSeries) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFFF9500).copy(alpha = 0.1f))
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = text,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFFFF9500),
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (actionLabel != null) {
-                                TextButton(
-                                    onClick = {
-                                        onClose()
-                                        if (isSeries) onNavigateToSeriesSettings() else onNavigateToStationSettings()
-                                    },
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
-                                ) {
-                                    Text(actionLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
-                                }
+                    warnings.forEach { warn ->
+                        NormWarnItem(
+                            text = warn.text,
+                            hint = warn.hint,
+                            cta = warn.cta,
+                            onCta = {
+                                onClose()
+                                if (warn.isSeries) onNavigateToSeriesSettings()
+                                else onNavigateToStationSettings()
+                            }
+                        )
+                    }
+                }
+            }
+
+            // ── Time rows ──
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                if (kind == "acceptance") {
+                    SheetTimeRowItem(label = "Явка", time = fmtTime(routeStartWork), delta = null,
+                        isFirst = true, isLocked = true, isHighlighted = false,
+                        iconRes = com.z_company.route.R.drawable.schedule_24px, onClick = null)
+                    RowConnector()
+                    SheetTimeRowItem(label = "Начало приёмки", time = fmtTime(startTime),
+                        delta = deltaStr(routeStartWork, startTime),
+                        isFirst = false, isLocked = false, isHighlighted = false,
+                        iconRes = com.z_company.route.R.drawable.electric_bolt_24px,
+                        onClick = { showStartPicker = true })
+                    RowConnector()
+                    SheetTimeRowItem(label = "Окончание приёмки", time = fmtTime(endTime),
+                        delta = deltaStr(startTime, endTime),
+                        isFirst = false, isLocked = false, isHighlighted = false,
+                        iconRes = com.z_company.route.R.drawable.check_circle_24px,
+                        onClick = { showEndPicker = true })
+                    RowConnector()
+                    SheetTimeRowItem(label = "Выход на КП", time = fmtTime(barrierOut),
+                        delta = deltaStr(endTime, barrierOut),
+                        isFirst = false, isLocked = false, isHighlighted = true,
+                        iconRes = com.z_company.route.R.drawable.swap_vert_24px,
+                        onClick = { showBarrierOutPicker = true })
+                } else {
+                    SheetTimeRowItem(label = "Заход на КП", time = fmtTime(barrierIn), delta = null,
+                        isFirst = true, isLocked = false, isHighlighted = true,
+                        iconRes = com.z_company.route.R.drawable.swap_vert_24px,
+                        onClick = { showBarrierInPicker = true })
+                    RowConnector()
+                    SheetTimeRowItem(label = "Начало сдачи", time = fmtTime(startTime),
+                        delta = deltaStr(barrierIn, startTime),
+                        isFirst = false, isLocked = false, isHighlighted = false,
+                        iconRes = com.z_company.route.R.drawable.electric_bolt_24px,
+                        onClick = { showStartPicker = true })
+                    RowConnector()
+                    SheetTimeRowItem(label = "Окончание сдачи", time = fmtTime(endTime),
+                        delta = deltaStr(startTime, endTime),
+                        isFirst = false, isLocked = false, isHighlighted = false,
+                        iconRes = com.z_company.route.R.drawable.check_circle_24px,
+                        onClick = { showEndPicker = true })
+                    RowConnector()
+                    SheetTimeRowItem(label = "Окончание работы", time = fmtTime(workEnd),
+                        delta = deltaStr(endTime, workEnd),
+                        isFirst = false, isLocked = false, isHighlighted = false,
+                        iconRes = com.z_company.route.R.drawable.nest_clock_farsight_analog_24px,
+                        onClick = { showWorkEndPicker = true })
+                }
+            }
+
+            // ── Save norm buttons ──
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(top = 8.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val seriesSubtitle = if (kind == "acceptance") "Длительность приёмки" else "Длительность сдачи"
+                SaveNormItem(
+                    iconRes = com.z_company.route.R.drawable.electric_bolt_24px,
+                    title = if (seriesName != null) "Сохранить норму серии $seriesName" else "Сохранить норму серии",
+                    subtitle = seriesSubtitle,
+                    isReady = canSaveSeriesNorm,
+                    isDisabled = seriesName == null,
+                    onClick = {
+                        if (canSaveSeriesNorm && selectedSeries != null && startTime != null && endTime != null) {
+                            val dur = ((endTime!! - startTime!!) / 60_000).toInt()
+                            val updated = if (kind == "acceptance") selectedSeries.copy(acceptanceDurationMin = dur)
+                            else selectedSeries.copy(deliveryDurationMin = dur)
+                            scope.launch {
+                                val all = seriesRepo.getAll().toMutableList()
+                                val idx = all.indexOfFirst { it.seriesId == updated.seriesId }
+                                if (idx >= 0) all[idx] = updated else all.add(updated)
+                                seriesRepo.replaceAll(all).collect {}
                             }
                         }
                     }
-                }
-            }
-
-            // Time rows
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .shadow(2.dp, Shapes.medium)
-                    .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-            ) {
-                if (kind == "acceptance") {
-                    // Явка (locked)
-                    TimeRow(
-                        label = "Явка",
-                        tag = "из маршрута",
-                        delta = null,
-                        timeText = fmtTime(routeStartWork),
-                        highlighted = false,
-                        locked = true,
-                        onClick = null
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
-                    // Начало приёмки
-                    TimeRow(
-                        label = "Начало приёмки",
-                        tag = null,
-                        delta = deltaStr(routeStartWork, startTime),
-                        timeText = fmtTime(startTime),
-                        highlighted = false,
-                        locked = false,
-                        onClick = { showStartPicker = true }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
-                    // Окончание приёмки
-                    TimeRow(
-                        label = "Окончание приёмки",
-                        tag = null,
-                        delta = deltaStr(startTime, endTime),
-                        timeText = fmtTime(endTime),
-                        highlighted = false,
-                        locked = false,
-                        onClick = { showEndPicker = true }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
-                    // Выход на КП (highlighted)
-                    TimeRow(
-                        label = "Выход на КП",
-                        tag = null,
-                        delta = deltaStr(endTime, barrierOut),
-                        timeText = fmtTime(barrierOut),
-                        highlighted = true,
-                        locked = false,
-                        onClick = { showBarrierOutPicker = true }
-                    )
-                } else {
-                    // Заход на КП (highlighted, user input)
-                    TimeRow(
-                        label = "Заход на КП",
-                        tag = null,
-                        delta = null,
-                        timeText = fmtTime(barrierIn),
-                        highlighted = true,
-                        locked = false,
-                        onClick = { showBarrierInPicker = true }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
-                    // Начало сдачи
-                    TimeRow(
-                        label = "Начало сдачи",
-                        tag = null,
-                        delta = deltaStr(barrierIn, startTime),
-                        timeText = fmtTime(startTime),
-                        highlighted = false,
-                        locked = false,
-                        onClick = { showStartPicker = true }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
-                    // Окончание сдачи
-                    TimeRow(
-                        label = "Окончание сдачи",
-                        tag = null,
-                        delta = deltaStr(startTime, endTime),
-                        timeText = fmtTime(endTime),
-                        highlighted = false,
-                        locked = false,
-                        onClick = { showEndPicker = true }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
-                    // Окончание работы
-                    TimeRow(
-                        label = "Окончание работы",
-                        tag = null,
-                        delta = deltaStr(endTime, workEnd),
-                        timeText = fmtTime(workEnd),
-                        highlighted = false,
-                        locked = false,
-                        onClick = { showWorkEndPicker = true }
-                    )
-                }
-            }
-
-            // Save norm buttons
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                SaveNormButton(
-                    label = "🚂 Сохранить норму серии ${seriesName ?: "…"}",
-                    enabled = canSaveSeriesNorm,
+                )
+                val stationTitle = if (stationEmpty) "Сохранить норму станции"
+                else "Сохранить норму станции ${selectedStation!!.name}"
+                SaveNormItem(
+                    iconRes = com.z_company.route.R.drawable.zoom_in_map_24px,
+                    title = stationTitle,
+                    subtitle = "Интервалы явки и КП",
+                    isReady = canSaveStationNorm,
+                    isDisabled = stationEmpty,
                     onClick = {
-                        if (selectedSeries != null && startTime != null && endTime != null) {
-                            val dur = ((endTime!! - startTime!!) / 60_000).toInt()
-                            val updated = if (kind == "acceptance")
-                                selectedSeries.copy(acceptanceDurationMin = dur)
-                            else
-                                selectedSeries.copy(deliveryDurationMin = dur)
-                            // Save via repository — rebuild list
+                        if (canSaveStationNorm && selectedStation != null) {
+                            val st = selectedStation!!.copy()
+                            val updated = if (kind == "acceptance") {
+                                val newAppear = if (routeStartWork != null && startTime != null)
+                                    ((startTime!! - routeStartWork) / 60_000).toInt() else st.appearanceToStartMin
+                                val newBarrier = if (endTime != null && barrierOut != null)
+                                    ((barrierOut!! - endTime!!) / 60_000).toInt() else st.endToBarrierMin
+                                st.copy(appearanceToStartMin = newAppear, endToBarrierMin = newBarrier)
+                            } else {
+                                val newBarrier = if (barrierIn != null && startTime != null)
+                                    ((startTime!! - barrierIn!!) / 60_000).toInt() else st.barrierToStartMin
+                                val newWorkEnd = if (endTime != null && workEnd != null)
+                                    ((workEnd!! - endTime!!) / 60_000).toInt() else st.endToWorkEndMin
+                                st.copy(barrierToStartMin = newBarrier, endToWorkEndMin = newWorkEnd)
+                            }
+                            scope.launch {
+                                val all = stationRepo.getAll().toMutableList()
+                                val idx = all.indexOfFirst { it.stationId == updated.stationId }
+                                if (idx >= 0) all[idx] = updated else all.add(updated)
+                                stationRepo.replaceAll(all).collect {}
+                            }
+                            selectedStation = updated
                         }
                     }
                 )
-                SaveNormButton(
-                    label = "📍 Сохранить норму станции ${selectedStation?.name ?: "…"}",
-                    enabled = canSaveStationNorm,
-                    onClick = {
-                        // Save station norm logic handled by VM after sheet closes
+            }
+
+            // ── Done button ──
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(accent())
+                    .clickable {
+                        scope.launch {
+                            sheetState.hide()
+                            onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
+                        }
                     }
-                )
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Готово", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = accentInk())
             }
         }
     }
 }
 
+// ── ContextFieldItem ─────────────────────────────────────────────────────
 @Composable
-private fun TimeRow(
+private fun ContextFieldItem(
+    iconRes: Int,
     label: String,
-    tag: String?,
-    delta: String?,
-    timeText: String,
-    highlighted: Boolean,
-    locked: Boolean,
+    value: String,
+    isEmpty: Boolean,
+    isLocked: Boolean,
     onClick: (() -> Unit)?,
 ) {
-    val bgColor = if (highlighted) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.06f) else Color.Transparent
-    val textColor = if (timeText == "—") MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-    else if (highlighted) MaterialTheme.colorScheme.tertiary
-    else if (locked) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-    else MaterialTheme.colorScheme.tertiary
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(bgColor)
-            .then(if (onClick != null && !locked) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .clip(RoundedCornerShape(10.dp))
+            .background(surfaceCard())
+            .border(1.dp, borderColor(), RoundedCornerShape(10.dp))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(start = 8.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        // Icon 28×28, borderRadius 8
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (isEmpty) bgSubtle() else accentSoft()),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = if (isEmpty) textFaint() else accent()
+            )
+        }
+        // Text
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (locked) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.primary
-                )
-                if (tag != null) {
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = tag,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 5.dp, vertical = 1.dp)
+            Text(
+                text = label.uppercase(),
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                letterSpacing = 1.1.sp,
+                color = textMuted(),
+                lineHeight = 10.sp
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = value,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isEmpty) textFaint() else textColor(),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                lineHeight = (13 * 1.2).sp
+            )
+        }
+        // Badge "лок" or chevron
+        if (isLocked) {
+            Text(
+                text = "лок",
+                fontSize = 9.sp,
+                fontFamily = FontFamily.Monospace,
+                color = textMuted(),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(bgSubtle())
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        } else {
+            Icon(
+                painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = textFaint()
+            )
+        }
+    }
+}
+
+// ── NormWarnItem ─────────────────────────────────────────────────────────
+@Composable
+private fun NormWarnItem(
+    text: String,
+    hint: String? = null,
+    cta: String? = null,
+    onCta: () -> Unit = {},
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(warnSoft())
+            .border(1.dp, warnColor(), RoundedCornerShape(12.dp))
+            .padding(10.dp, 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        // "!" circle
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(warnColor()),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("!", fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace, color = Color.White)
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                color = textColor(), lineHeight = (13 * 1.3).sp)
+            if (hint != null) {
+                Spacer(Modifier.height(3.dp))
+                Text(hint, fontSize = 12.sp, color = textMuted(), lineHeight = (12 * 1.4).sp)
+            }
+            if (cta != null) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(surfaceCard())
+                        .border(1.dp, borderColor(), RoundedCornerShape(8.dp))
+                        .clickable(onClick = onCta)
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(cta, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = accent())
+                    Icon(
+                        painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
+                        contentDescription = null,
+                        modifier = Modifier.size(10.dp),
+                        tint = accent()
                     )
                 }
             }
-            if (delta != null) {
-                Text(
-                    text = delta,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                )
-            }
         }
-        // Time button
-        Text(
-            text = timeText,
-            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-            color = textColor
+    }
+}
+
+// ── Row connector (vertical line between time rows) ──────────────────────
+@Composable
+private fun RowConnector() {
+    Box(modifier = Modifier.padding(start = 35.dp)) {
+        Box(
+            modifier = Modifier
+                .size(2.dp, 8.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
         )
     }
 }
 
+// ── SheetTimeRowItem ─────────────────────────────────────────────────────
 @Composable
-private fun SaveNormButton(
+private fun SheetTimeRowItem(
+    iconRes: Int,
     label: String,
-    enabled: Boolean,
+    time: String?,
+    delta: String?,
+    isFirst: Boolean,
+    isLocked: Boolean,
+    isHighlighted: Boolean,
+    onClick: (() -> Unit)?,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (isHighlighted) accentSoft() else Color.Transparent)
+            .then(if (onClick != null && !isLocked) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Icon circle 32×32
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(
+                    when {
+                        isHighlighted -> accent()
+                        else -> bgSubtle()
+                    }
+                )
+                .alpha(if (isLocked) 0.7f else 1f),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = when {
+                    isHighlighted -> accentInk()
+                    isLocked -> textMuted()
+                    else -> textColor()
+                }
+            )
+        }
+
+        // Label + delta
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(label, fontSize = 14.sp, fontWeight = FontWeight.W500, color = textColor())
+                if (isLocked) {
+                    Text(
+                        text = "из маршрута",
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = textMuted(),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(bgSubtle())
+                            .padding(horizontal = 6.dp, vertical = 1.dp)
+                    )
+                }
+            }
+            if (delta != null) {
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(
+                        painter = painterResource(com.z_company.route.R.drawable.electric_bolt_24px),
+                        contentDescription = null,
+                        modifier = Modifier.size(10.dp),
+                        tint = textMuted()
+                    )
+                    Text(delta, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = textMuted())
+                    Text("норма", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = textFaint())
+                }
+            }
+        }
+
+        // Time button
+        Box(
+            modifier = Modifier
+                .widthIn(min = 76.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (time != null) MaterialTheme.colorScheme.background else bgSubtle())
+                .then(
+                    if (time != null) Modifier.border(1.dp, borderColor(), RoundedCornerShape(12.dp))
+                    else Modifier
+                )
+                .then(if (onClick != null && !isLocked) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = time ?: "—:—",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Monospace,
+                color = if (time != null) textColor() else textFaint()
+            )
+        }
+    }
+}
+
+// ── SaveNormItem ─────────────────────────────────────────────────────────
+@Composable
+private fun SaveNormItem(
+    iconRes: Int,
+    title: String,
+    subtitle: String,
+    isReady: Boolean,
+    isDisabled: Boolean,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = if (enabled) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)
-                else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                shape = RoundedCornerShape(10.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                when {
+                    isDisabled -> bgSubtle()
+                    isReady -> accentSoft()
+                    else -> bgSubtle()
+                }
             )
-            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .then(
+                if (isDisabled) Modifier.border(1.dp, borderColor(), RoundedCornerShape(12.dp))
+                else Modifier
+            )
+            .then(if (!isDisabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (enabled) MaterialTheme.colorScheme.tertiary
-            else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+        // Icon 32×32, borderRadius 10
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(
+                    when {
+                        isDisabled -> MaterialTheme.colorScheme.background
+                        isReady -> accent()
+                        else -> bgSubtle()
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = when {
+                    isDisabled -> textFaint()
+                    isReady -> accentInk()
+                    else -> accent()
+                }
+            )
+        }
+        // Text
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isDisabled) textFaint() else textColor(),
+                lineHeight = (13 * 1.2).sp
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(subtitle, fontSize = 11.sp, color = textMuted())
+        }
+        // Check
+        Icon(
+            painter = painterResource(com.z_company.route.R.drawable.check_circle_24px),
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = if (isDisabled) textFaint() else accent()
         )
     }
 }
