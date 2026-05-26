@@ -133,28 +133,34 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var selectedSeriesId by remember { mutableStateOf<String?>(null) }
-
-    // Parse STATION_EDITOR_<id> to open the editor directly (from long-tap in picker)
-    val (initScreen, initStationId) = remember(initialSubScreen) {
+    // Parse STATION_EDITOR_<id> / SERIES_EDITOR_<id> to open editors directly (from long-tap in picker)
+    data class InitState(
+        val screen: SettingsSubScreen,
+        val stationId: String?,
+        val seriesId: String?,
+    )
+    val initState = remember(initialSubScreen) {
         when {
             initialSubScreen?.startsWith("STATION_EDITOR_") == true ->
-                SettingsSubScreen.STATION_EDITOR to initialSubScreen.removePrefix("STATION_EDITOR_")
+                InitState(SettingsSubScreen.STATION_EDITOR, initialSubScreen.removePrefix("STATION_EDITOR_"), null)
+            initialSubScreen?.startsWith("SERIES_EDITOR_") == true ->
+                InitState(SettingsSubScreen.SERIES_EDITOR, null, initialSubScreen.removePrefix("SERIES_EDITOR_"))
             else -> when (initialSubScreen) {
-                "ROUTE" -> SettingsSubScreen.ROUTE to null
-                "NORMA" -> SettingsSubScreen.NORMA to null
-                "ACCOUNTING" -> SettingsSubScreen.ACCOUNTING to null
-                "REST" -> SettingsSubScreen.REST to null
-                "SHOULDERS" -> SettingsSubScreen.SHOULDERS to null
-                "LOCOMOTIVE" -> SettingsSubScreen.LOCOMOTIVE to null
-                "SERIES_LIST" -> SettingsSubScreen.SERIES_LIST to null
-                "STATION_LIST" -> SettingsSubScreen.STATION_LIST to null
-                else -> SettingsSubScreen.HUB to null
+                "ROUTE" -> InitState(SettingsSubScreen.ROUTE, null, null)
+                "NORMA" -> InitState(SettingsSubScreen.NORMA, null, null)
+                "ACCOUNTING" -> InitState(SettingsSubScreen.ACCOUNTING, null, null)
+                "REST" -> InitState(SettingsSubScreen.REST, null, null)
+                "SHOULDERS" -> InitState(SettingsSubScreen.SHOULDERS, null, null)
+                "LOCOMOTIVE" -> InitState(SettingsSubScreen.LOCOMOTIVE, null, null)
+                "SERIES_LIST" -> InitState(SettingsSubScreen.SERIES_LIST, null, null)
+                "STATION_LIST" -> InitState(SettingsSubScreen.STATION_LIST, null, null)
+                else -> InitState(SettingsSubScreen.HUB, null, null)
             }
         }
     }
-    var currentSubScreen by remember { mutableStateOf(initScreen) }
-    var selectedStationId by remember { mutableStateOf(initStationId) }
+    var currentSubScreen by remember { mutableStateOf(initState.screen) }
+    var selectedSeriesId by remember { mutableStateOf(initState.seriesId) }
+    var selectedStationId by remember { mutableStateOf(initState.stationId) }
 
     // Если пользователь попал сразу на под-экран (через deep link из FormLocoScreen
     // и т.п.) — back должен возвращать по backstack, а не в HUB настроек.

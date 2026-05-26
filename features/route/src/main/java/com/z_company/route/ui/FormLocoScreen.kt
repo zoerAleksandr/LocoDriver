@@ -162,6 +162,7 @@ fun FormLocoScreen(
     onNavigateToSeriesSettings: () -> Unit = {},
     onNavigateToStationSettings: () -> Unit = {},
     onEditStation: ((String) -> Unit)? = null,
+    onEditSeries: ((String) -> Unit)? = null,
 ) {
     val displayTz = dateAndTimeConverter?.timeZoneText ?: "GMT+3"
     val scope = rememberCoroutineScope()
@@ -625,6 +626,8 @@ fun FormLocoScreen(
                                 onNavigateToSeriesSettings = onNavigateToSeriesSettings,
                                 onNavigateToStationSettings = onNavigateToStationSettings,
                                 onEditStation = onEditStation,
+                                onSeriesChanged = viewModel::setSeries,
+                                onEditSeries = onEditSeries,
                             )
                         }
 
@@ -648,6 +651,8 @@ fun FormLocoScreen(
                                 onNavigateToSeriesSettings = onNavigateToSeriesSettings,
                                 onNavigateToStationSettings = onNavigateToStationSettings,
                                 onEditStation = onEditStation,
+                                onSeriesChanged = viewModel::setSeries,
+                                onEditSeries = onEditSeries,
                             )
                         }
 

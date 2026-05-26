@@ -93,6 +93,8 @@ fun TimeBottomSheet(
     onNavigateToSeriesSettings: () -> Unit,
     onNavigateToStationSettings: () -> Unit,
     onEditStation: ((String) -> Unit)? = null,
+    onSeriesChanged: ((String) -> Unit)? = null,
+    onEditSeries: ((String) -> Unit)? = null,
 ) {
     val seriesRepo: LocomotiveSeriesRepository = koinInject()
     val stationRepo: StationNormRepository = koinInject()
@@ -110,9 +112,12 @@ fun TimeBottomSheet(
     var selectedStation by remember(initialStationId, allStations) {
         mutableStateOf(allStations.find { it.stationId == initialStationId })
     }
-    val selectedSeries: LocomotiveSeries? = allSeries.find { it.name == seriesName }
+    // Series is mutable — user can change it via the picker
+    var selectedSeriesName by remember { mutableStateOf(seriesName) }
+    val selectedSeries: LocomotiveSeries? = allSeries.find { it.name == selectedSeriesName }
 
     var showStationPicker by remember { mutableStateOf(false) }
+    var showSeriesPicker by remember { mutableStateOf(false) }
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
     var showBarrierOutPicker by remember { mutableStateOf(false) }
@@ -241,6 +246,18 @@ fun TimeBottomSheet(
             showStationPicker = false; onClose(); onEditStation(st.stationId)
         } else null
     )
+    if (showSeriesPicker) SeriesPickerSheet(
+        onSelect = { s ->
+            selectedSeriesName = s.name
+            onSeriesChanged?.invoke(s.name)
+            showSeriesPicker = false
+        },
+        onClose = { showSeriesPicker = false },
+        onNavigateToSettings = { showSeriesPicker = false; onClose(); onNavigateToSeriesSettings() },
+        onEditSeries = if (onEditSeries != null) { s ->
+            showSeriesPicker = false; onClose(); onEditSeries(s.seriesId)
+        } else null
+    )
 
     // ── Sheet ──
     ModalBottomSheet(
@@ -320,14 +337,14 @@ fun TimeBottomSheet(
                     .padding(bottom = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Series (locked)
+                // Series (tappable)
                 ContextFieldItem(
                     iconRes = com.z_company.route.R.drawable.electric_bolt_24px,
                     label = "Серия",
-                    value = seriesName ?: "Не задана",
-                    isEmpty = seriesName == null,
-                    isLocked = true,
-                    onClick = null
+                    value = selectedSeriesName ?: "Выберите серию",
+                    isEmpty = selectedSeriesName == null,
+                    isLocked = false,
+                    onClick = { showSeriesPicker = true }
                 )
                 // Station (tappable)
                 val stationLabel = if (kind == "acceptance") "Станция приёмки" else "Станция сдачи"

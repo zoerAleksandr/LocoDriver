@@ -180,6 +180,10 @@ class RouterImpl(
         requireNavController().navigate(SettingsScreenRoute.buildRoute("SERIES_LIST"))
     }
 
+    override fun showSettingsSeriesEditor(seriesId: String) {
+        requireNavController().navigate(SettingsScreenRoute.buildRoute("SERIES_EDITOR_$seriesId"))
+    }
+
     override fun showSettingsStationList() {
         requireNavController().navigate(SettingsScreenRoute.buildRoute("STATION_LIST"))
     }

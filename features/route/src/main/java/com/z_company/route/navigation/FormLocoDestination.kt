@@ -89,5 +89,6 @@ fun FormLocoDestination(
         onNavigateToSeriesSettings = router::showSettingsSeriesList,
         onNavigateToStationSettings = router::showSettingsStationList,
         onEditStation = router::showSettingsStationEditor,
+        onEditSeries = router::showSettingsSeriesEditor,
     )
 }
