@@ -655,6 +655,7 @@ fun FormLocoScreen(
                                 onEditStation = onEditStation,
                                 onSeriesChanged = viewModel::setSeries,
                                 onEditSeries = onEditSeries,
+                                onTimeEndWorkChanged = viewModel::setTimeEndWork,
                             )
                         }
 

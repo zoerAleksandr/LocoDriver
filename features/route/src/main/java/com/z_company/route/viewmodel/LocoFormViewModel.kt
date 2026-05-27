@@ -543,6 +543,26 @@ class LocoFormViewModel(
         changesHave()
     }
 
+    /** Updates route's basicData.timeEndWork and persists via RouteUseCase. */
+    fun setTimeEndWork(value: Long?) {
+        viewModelScope.launch {
+            try {
+                val result = routeUseCase.routeDetails(basicId)
+                    .first { it is ResultState.Success || it is ResultState.Error }
+                if (result is ResultState.Success) {
+                    val route = result.data ?: return@launch
+                    val updated = route.copy(
+                        basicData = route.basicData.copy(timeEndWork = value)
+                    )
+                    routeUseCase.saveRoute(updated).collect {}
+                    _routeEndWork.value = value
+                }
+            } catch (e: Exception) {
+                // Non-critical
+            }
+        }
+    }
+
     fun saveAcceptanceFromSheet(startTime: Long?, endTime: Long?, barrierOut: Long?, stationId: String?) {
         _currentLoco.update {
             it?.copy(

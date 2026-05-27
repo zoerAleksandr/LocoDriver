@@ -27,6 +27,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,7 @@ import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.StationNormRepository
 import com.z_company.domain.util.generateId
 import com.z_company.route.component.AppDateTimePicker
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import java.util.Calendar
@@ -60,6 +62,9 @@ private data class WarnItem(val text: String, val hint: String?, val cta: String
 
 /** Structured delta info for smart formatting. */
 private data class DeltaInfo(val actualMinutes: Int, val normMinutes: Int?)
+
+/** Anchor used to compute delivery times via «По нормам». */
+private enum class DeliveryNormAnchor { NONE, ASKING, FROM_BARRIER, FROM_END_WORK }
 
 // ── Public models ──────────────────────────────────────────────────────────
 data class TimeSheetResult(
@@ -107,6 +112,7 @@ fun TimeBottomSheet(
     onEditStation: ((String) -> Unit)? = null,
     onSeriesChanged: ((String) -> Unit)? = null,
     onEditSeries: ((String) -> Unit)? = null,
+    onTimeEndWorkChanged: ((Long?) -> Unit)? = null,
 ) {
     val seriesRepo: LocomotiveSeriesRepository = koinInject()
     val stationRepo: StationNormRepository = koinInject()
@@ -136,7 +142,28 @@ fun TimeBottomSheet(
     var showBarrierInPicker by remember { mutableStateOf(false) }
     var showWorkEndPicker by remember { mutableStateOf(false) }
 
+    // Delivery «По нормам» anchor selection state
+    var anchorState by remember { mutableStateOf(DeliveryNormAnchor.NONE) }
+    var blinkOn by remember { mutableStateOf(false) }
+
+    // Confirm dialog when timeEndWork in sheet differs from route's saved value
+    var showWorkEndChangeDialog by remember { mutableStateOf(false) }
+
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Blink animation while ASKING: bgSubtle ↔ accentSoft, 2 cycles × 400ms
+    LaunchedEffect(anchorState) {
+        if (anchorState == DeliveryNormAnchor.ASKING) {
+            repeat(2) {
+                blinkOn = true
+                delay(400)
+                blinkOn = false
+                delay(400)
+            }
+        } else {
+            blinkOn = false
+        }
+    }
 
     // ── Time formatting ──
     fun fmtTime(ms: Long?): String? {
@@ -172,7 +199,34 @@ fun TimeBottomSheet(
         s.appearanceToStartMin == null || s.endToBarrierMin == null ||
             s.barrierToStartMin == null || s.endToWorkEndMin == null
     }
-    val canApplyNorms = selectedSeries != null || selectedStation != null
+    val hasAnchorForDelivery = barrierIn != null || routeEndWork != null
+    val canApplyNorms = (selectedSeries != null || selectedStation != null) &&
+        (kind == "acceptance" || hasAnchorForDelivery)
+
+    fun applyFromBarrier() {
+        val bi = barrierIn ?: return
+        val barrierMin = selectedStation?.barrierToStartMin ?: 0
+        val newStart = bi + barrierMin * 60_000L
+        val durMin = selectedSeries?.deliveryDurationMin ?: 0
+        val newEnd = newStart + durMin * 60_000L
+        val workEndMin = selectedStation?.endToWorkEndMin ?: 0
+        startTime = newStart
+        endTime = newEnd
+        workEnd = newEnd + workEndMin * 60_000L
+    }
+
+    fun applyFromEndWork() {
+        val ew = routeEndWork ?: return
+        val workEndMin = selectedStation?.endToWorkEndMin ?: 0
+        val newEnd = ew - workEndMin * 60_000L
+        val durMin = selectedSeries?.deliveryDurationMin ?: 0
+        val newStart = newEnd - durMin * 60_000L
+        val barrierMin = selectedStation?.barrierToStartMin ?: 0
+        barrierIn = newStart - barrierMin * 60_000L
+        startTime = newStart
+        endTime = newEnd
+        workEnd = ew
+    }
 
     fun applyNorms() {
         if (kind == "acceptance") {
@@ -184,13 +238,14 @@ fun TimeBottomSheet(
             val barrierMin = selectedStation?.endToBarrierMin ?: 0
             startTime = newStart; endTime = newEnd; barrierOut = newEnd + barrierMin * 60_000L
         } else {
-            val bi = barrierIn ?: return
-            val barrierMin = selectedStation?.barrierToStartMin ?: 0
-            val newStart = bi + barrierMin * 60_000L
-            val durMin = selectedSeries?.deliveryDurationMin ?: 0
-            val newEnd = newStart + durMin * 60_000L
-            val workEndMin = selectedStation?.endToWorkEndMin ?: 0
-            startTime = newStart; endTime = newEnd; workEnd = newEnd + workEndMin * 60_000L
+            val hasBarrier = barrierIn != null
+            val hasEndWork = routeEndWork != null
+            when {
+                hasBarrier && hasEndWork -> anchorState = DeliveryNormAnchor.ASKING
+                hasBarrier -> { applyFromBarrier(); anchorState = DeliveryNormAnchor.FROM_BARRIER }
+                hasEndWork -> { applyFromEndWork(); anchorState = DeliveryNormAnchor.FROM_END_WORK }
+                else -> Unit
+            }
         }
     }
 
@@ -426,6 +481,22 @@ fun TimeBottomSheet(
                 }
             }
 
+            // ── Anchor selection banner (delivery / ASKING) ──
+            if (kind == "delivery" && anchorState == DeliveryNormAnchor.ASKING) {
+                AnchorSelectionBanner(
+                    barrierEnabled = barrierIn != null,
+                    endWorkEnabled = routeEndWork != null,
+                    onFromBarrier = {
+                        applyFromBarrier()
+                        anchorState = DeliveryNormAnchor.FROM_BARRIER
+                    },
+                    onFromEndWork = {
+                        applyFromEndWork()
+                        anchorState = DeliveryNormAnchor.FROM_END_WORK
+                    },
+                )
+            }
+
             // ── Time rows ──
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 if (kind == "acceptance") {
@@ -462,11 +533,20 @@ fun TimeBottomSheet(
                         onClick = { showBarrierOutPicker = true }
                     )
                 } else {
+                    val asking = anchorState == DeliveryNormAnchor.ASKING
                     SheetTimeRowItem(
                         label = "Заход на КП", time = fmtTime(barrierIn), delta = null,
                         isFirst = true, isLocked = false, sequenceError = false,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        onClick = { showBarrierInPicker = true }
+                        isHighlighted = asking && (blinkOn || barrierIn != null),
+                        onClick = {
+                            if (asking) {
+                                applyFromBarrier()
+                                anchorState = DeliveryNormAnchor.FROM_BARRIER
+                            } else {
+                                showBarrierInPicker = true
+                            }
+                        }
                     )
                     RowConnector()
                     SheetTimeRowItem(
@@ -493,7 +573,15 @@ fun TimeBottomSheet(
                         isFirst = false, isLocked = false,
                         sequenceError = workEndError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        onClick = { showWorkEndPicker = true }
+                        isHighlighted = asking && (blinkOn || routeEndWork != null),
+                        onClick = {
+                            if (asking) {
+                                applyFromEndWork()
+                                anchorState = DeliveryNormAnchor.FROM_END_WORK
+                            } else {
+                                showWorkEndPicker = true
+                            }
+                        }
                     )
                 }
             }
@@ -581,6 +669,13 @@ fun TimeBottomSheet(
             }
 
             // ── Done button — disabled if sequence error ──
+            fun finishAndClose() {
+                scope.launch {
+                    sheetState.hide()
+                    onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -593,9 +688,16 @@ fun TimeBottomSheet(
                     )
                     .then(
                         if (!hasSequenceError) Modifier.clickable {
-                            scope.launch {
-                                sheetState.hide()
-                                onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
+                            // Delivery: if workEnd differs from route's saved → confirm dialog
+                            if (kind == "delivery" && workEnd != null) {
+                                if (routeEndWork != null && workEnd != routeEndWork) {
+                                    showWorkEndChangeDialog = true
+                                } else {
+                                    if (routeEndWork == null) onTimeEndWorkChanged?.invoke(workEnd)
+                                    finishAndClose()
+                                }
+                            } else {
+                                finishAndClose()
                             }
                         } else Modifier
                     )
@@ -608,6 +710,42 @@ fun TimeBottomSheet(
                 )
             }
         }
+    }
+
+    // ── Confirm: update timeEndWork in route ──
+    if (showWorkEndChangeDialog && workEnd != null && routeEndWork != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showWorkEndChangeDialog = false },
+            containerColor = MaterialTheme.colorScheme.secondary,
+            titleContentColor = MaterialTheme.colorScheme.primary,
+            textContentColor = MaterialTheme.colorScheme.primary,
+            title = { Text("Обновить время окончания работы?") },
+            text = {
+                Text(
+                    text = "Было: ${fmtTime(routeEndWork) ?: "—:—"}  →  Станет: ${fmtTime(workEnd) ?: "—:—"}",
+                    fontFamily = FontFamily.Monospace,
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    onTimeEndWorkChanged?.invoke(workEnd)
+                    showWorkEndChangeDialog = false
+                    scope.launch {
+                        sheetState.hide()
+                        onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
+                    }
+                }) { Text("Обновить", color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showWorkEndChangeDialog = false
+                    scope.launch {
+                        sheetState.hide()
+                        onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
+                    }
+                }) { Text("Не обновлять", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)) }
+            }
+        )
     }
 }
 
@@ -724,12 +862,13 @@ private fun SheetTimeRowItem(
     isLocked: Boolean,
     sequenceError: Boolean,
     onClick: (() -> Unit)?,
+    isHighlighted: Boolean = false,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.Transparent)
+                .background(if (isHighlighted) accentSoft() else Color.Transparent)
                 .then(if (onClick != null && !isLocked) Modifier.clickable(onClick = onClick) else Modifier)
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -739,7 +878,7 @@ private fun SheetTimeRowItem(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(bgSubtle())
+                    .background(if (isHighlighted) accent() else bgSubtle())
                     .alpha(if (isLocked) 0.7f else 1f),
                 contentAlignment = Alignment.Center
             ) {
@@ -747,6 +886,7 @@ private fun SheetTimeRowItem(
                     painter = painterResource(iconRes), contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = when {
+                        isHighlighted -> accentInk()
                         isLocked -> textMuted()
                         else -> textColor()
                     }
@@ -875,5 +1015,77 @@ private fun SaveNormItem(
             Spacer(Modifier.height(2.dp))
             Text(subtitle, fontSize = 11.sp, color = textMuted())
         }
+    }
+}
+
+
+// ── AnchorSelectionBanner ────────────────────────────────────────────────
+@Composable
+private fun AnchorSelectionBanner(
+    barrierEnabled: Boolean,
+    endWorkEnabled: Boolean,
+    onFromBarrier: () -> Unit,
+    onFromEndWork: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(top = 4.dp, bottom = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(accentSoft())
+            .border(1.dp, accent().copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = "От какого момента рассчитать время?",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = textColor()
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AnchorChip(
+                label = "⬆ Заход на КП",
+                enabled = barrierEnabled,
+                onClick = onFromBarrier,
+                modifier = Modifier.weight(1f)
+            )
+            AnchorChip(
+                label = "⬇ Окончание работы",
+                enabled = endWorkEnabled,
+                onClick = onFromEndWork,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnchorChip(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(if (enabled) accent() else bgSubtle())
+            .alpha(if (enabled) 1f else 0.38f)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (enabled) accentInk() else textFaint(),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }
