@@ -498,8 +498,8 @@ fun TimeBottomSheet(
                 }
             }
 
-            // ── Save norm buttons ──
-            Column(
+            // ── Save norm buttons — visible only when ready ──
+            if (canSaveSeriesNorm || canSaveStationNorm) Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
@@ -509,11 +509,11 @@ fun TimeBottomSheet(
                 val seriesTitle = if (!selectedSeriesName.isNullOrBlank())
                     "Сохранить норму серии $selectedSeriesName" else "Сохранить норму серии"
 
-                SaveNormItem(
+                if (canSaveSeriesNorm) SaveNormItem(
                     title = seriesTitle,
                     subtitle = seriesNormSubtitle,
-                    isReady = canSaveSeriesNorm,
-                    isDisabled = selectedSeriesName.isNullOrBlank(),
+                    isReady = true,
+                    isDisabled = false,
                     onClick = {
                         if (canSaveSeriesNorm && !selectedSeriesName.isNullOrBlank()
                             && startTime != null && endTime != null
@@ -547,11 +547,11 @@ fun TimeBottomSheet(
 
                 val stationTitle = if (stationEmpty) "Сохранить норму станции"
                 else "Сохранить норму станции ${selectedStation!!.name}"
-                SaveNormItem(
+                if (canSaveStationNorm) SaveNormItem(
                     title = stationTitle,
                     subtitle = stationNormSubtitle,
-                    isReady = canSaveStationNorm,
-                    isDisabled = stationEmpty,
+                    isReady = true,
+                    isDisabled = false,
                     onClick = {
                         if (canSaveStationNorm && selectedStation != null) {
                             val st = selectedStation!!.copy()

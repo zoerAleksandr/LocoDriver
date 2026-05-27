@@ -299,7 +299,7 @@ fun SettingsStationEditorContent(
 }
 
 @Composable
-private fun StepperRow(
+internal fun StepperRow(
     label: String,
     value: Int?,
     onIncrement: () -> Unit,

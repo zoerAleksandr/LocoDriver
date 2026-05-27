@@ -203,8 +203,18 @@ fun SettingsScreen(
                     }
                 },
                 title = {
+                    val titleText = when (currentSubScreen) {
+                        SettingsSubScreen.SERIES_EDITOR -> {
+                            if (selectedSeriesId != null)
+                                seriesListViewModel?.seriesFlow?.collectAsState()?.value
+                                    ?.find { it.seriesId == selectedSeriesId }?.name
+                                    ?: "Новая серия"
+                            else "Новая серия"
+                        }
+                        else -> currentSubScreen.title
+                    }
                     Text(
-                        text = currentSubScreen.title,
+                        text = titleText,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )

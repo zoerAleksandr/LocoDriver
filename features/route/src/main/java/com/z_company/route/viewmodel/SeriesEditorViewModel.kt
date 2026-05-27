@@ -28,7 +28,10 @@ data class SeriesEditorState(
 class SeriesEditorViewModel(private val seriesId: String?) : ViewModel(), KoinComponent {
     private val repository: LocomotiveSeriesRepository by inject()
 
-    private val _state = MutableStateFlow(SeriesEditorState(seriesId = seriesId))
+    // Generate ID once — prevents duplicates on autosave for new series
+    private val persistentId: String = seriesId ?: generateId()
+
+    private val _state = MutableStateFlow(SeriesEditorState(seriesId = persistentId))
     val state = _state.asStateFlow()
 
     init {
@@ -42,7 +45,7 @@ class SeriesEditorViewModel(private val seriesId: String?) : ViewModel(), KoinCo
                             name = s.name,
                             type = s.type,
                             acceptanceDurationMin = s.acceptanceDurationMin,
-                            deliveryDurationMin = s.deliveryDurationMin
+                            deliveryDurationMin = s.deliveryDurationMin,
                         )
                     }
                 }
@@ -63,6 +66,10 @@ class SeriesEditorViewModel(private val seriesId: String?) : ViewModel(), KoinCo
         else it.copy(acceptanceDurationMin = (cur - 5).coerceAtLeast(0))
     }
 
+    fun setAcceptanceDurationMin(value: Int) = _state.update {
+        it.copy(acceptanceDurationMin = value.coerceIn(0, 240))
+    }
+
     fun incrementDelivery() = _state.update {
         it.copy(deliveryDurationMin = ((it.deliveryDurationMin ?: 0) + 5).coerceAtMost(240))
     }
@@ -73,13 +80,18 @@ class SeriesEditorViewModel(private val seriesId: String?) : ViewModel(), KoinCo
         else it.copy(deliveryDurationMin = (cur - 5).coerceAtLeast(0))
     }
 
+    fun setDeliveryDurationMin(value: Int) = _state.update {
+        it.copy(deliveryDurationMin = value.coerceIn(0, 240))
+    }
+
+    /** Autosave — silent, does NOT set saved = true (no navigation side-effect). */
     fun save() {
         val s = _state.value
         if (s.name.isBlank()) return
         viewModelScope.launch {
             val all = repository.getAll().toMutableList()
             val updated = LocomotiveSeries(
-                seriesId = s.seriesId ?: generateId(),
+                seriesId = persistentId,
                 name = s.name.trim(),
                 type = s.type,
                 acceptanceDurationMin = s.acceptanceDurationMin,
@@ -88,7 +100,6 @@ class SeriesEditorViewModel(private val seriesId: String?) : ViewModel(), KoinCo
             val idx = all.indexOfFirst { it.seriesId == updated.seriesId }
             if (idx >= 0) all[idx] = updated else all.add(updated)
             repository.replaceAll(all).collect {}
-            _state.update { it.copy(saved = true) }
         }
     }
 
