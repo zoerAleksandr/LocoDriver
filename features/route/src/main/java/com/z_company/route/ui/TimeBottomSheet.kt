@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.route.ui
 
 import androidx.compose.foundation.background
@@ -42,16 +44,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
-import com.z_company.domain.entities.norma_time.StationNorm
+import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.StationNormRepository
+import com.z_company.domain.util.generateId
 import com.z_company.route.component.AppDateTimePicker
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import java.util.Calendar
+import kotlin.time.Clock
 
+// ── Private models ─────────────────────────────────────────────────────────
 private data class WarnItem(val text: String, val hint: String?, val cta: String?, val isSeries: Boolean)
 
+/** Structured delta info for smart formatting. */
+private data class DeltaInfo(val actualMinutes: Int, val normMinutes: Int?)
+
+// ── Public models ──────────────────────────────────────────────────────────
 data class TimeSheetResult(
     val startTime: Long?,
     val endTime: Long?,
@@ -73,6 +82,7 @@ data class TimeSheetResult(
 @Composable private fun warnColor() = Color(0xFFD98F20)
 @Composable private fun warnSoft() = Color(0xFFD98F20).copy(alpha = 0.10f)
 @Composable private fun surfaceCard() = MaterialTheme.colorScheme.secondary
+private val greenOk = Color(0xFF00B341)
 
 // ──────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,6 +90,7 @@ data class TimeSheetResult(
 fun TimeBottomSheet(
     kind: String,
     seriesName: String?,
+    locoType: LocoType = LocoType.ELECTRIC,
     initialStartTime: Long?,
     initialEndTime: Long?,
     initialBarrierOut: Long?,
@@ -112,9 +123,9 @@ fun TimeBottomSheet(
     var selectedStation by remember(initialStationId, allStations) {
         mutableStateOf(allStations.find { it.stationId == initialStationId })
     }
-    // Series is mutable — user can change it via the picker
     var selectedSeriesName by remember { mutableStateOf(seriesName) }
     val selectedSeries: LocomotiveSeries? = allSeries.find { it.name == selectedSeriesName }
+    val seriesInRepo = selectedSeries != null
 
     var showStationPicker by remember { mutableStateOf(false) }
     var showSeriesPicker by remember { mutableStateOf(false) }
@@ -143,11 +154,11 @@ fun TimeBottomSheet(
         } catch (e: Exception) { null }
     }
 
-    fun deltaStr(from: Long?, to: Long?): String? {
-        if (from == null || to == null) return null
-        val diff = ((to - from) / 60_000).toInt()
-        if (diff == 0) return null
-        return if (diff >= 0) "+$diff мин" else "$diff мин"
+    // ── Smart delta builder ──
+    fun buildDelta(fromMs: Long?, toMs: Long?, normMinutes: Int?): DeltaInfo? {
+        if (fromMs == null || toMs == null) return null
+        val actualMin = ((toMs - fromMs) / 60_000).toInt()
+        return DeltaInfo(actualMin, normMinutes)
     }
 
     // ── Norm logic ──
@@ -182,12 +193,43 @@ fun TimeBottomSheet(
         }
     }
 
+    // ── Sequence validation ──
+    val startTimeError: Boolean
+    val endTimeError: Boolean
+    val barrierOutError: Boolean  // acceptance only
+    val workEndError: Boolean     // delivery only
+
+    if (kind == "acceptance") {
+        startTimeError = startTime != null && routeStartWork != null && startTime!! <= routeStartWork
+        endTimeError = endTime != null && startTime != null && endTime!! <= startTime!!
+        barrierOutError = barrierOut != null && endTime != null && barrierOut!! <= endTime!!
+        workEndError = false
+    } else {
+        startTimeError = startTime != null && barrierIn != null && startTime!! <= barrierIn!!
+        endTimeError = endTime != null && startTime != null && endTime!! <= startTime!!
+        barrierOutError = false
+        workEndError = workEnd != null && endTime != null && workEnd!! <= endTime!!
+    }
+    val hasSequenceError = startTimeError || endTimeError || barrierOutError || workEndError
+
     // ── Save norm state ──
-    val canSaveSeriesNorm = selectedSeries != null && startTime != null && endTime != null &&
-        ((endTime!! - startTime!!) / 60_000).toInt().let { dur ->
-            val saved = if (kind == "acceptance") selectedSeries.acceptanceDurationMin else selectedSeries.deliveryDurationMin
+
+    // Series: active if times filled, whether series is in repo or not
+    val timesFilledForSeries = startTime != null && endTime != null
+    val canSaveSeriesNorm = !selectedSeriesName.isNullOrBlank() && timesFilledForSeries && run {
+        if (seriesInRepo && selectedSeries != null) {
+            val dur = ((endTime!! - startTime!!) / 60_000).toInt()
+            val saved = if (kind == "acceptance") selectedSeries.acceptanceDurationMin
+            else selectedSeries.deliveryDurationMin
             saved == null || saved != dur
+        } else {
+            true // not in repo → always can add
         }
+    }
+
+    val seriesNormSubtitle = if (!seriesInRepo && !selectedSeriesName.isNullOrBlank())
+        "Добавить в справочник"
+    else if (kind == "acceptance") "Длительность приёмки" else "Длительность сдачи"
 
     val canSaveStationNorm = selectedStation != null && run {
         val st = selectedStation!!
@@ -272,10 +314,7 @@ fun TimeBottomSheet(
                 Box(
                     Modifier
                         .size(32.dp, 4.dp)
-                        .background(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                            RoundedCornerShape(2.dp)
-                        )
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f), RoundedCornerShape(2.dp))
                 )
             }
         }
@@ -296,9 +335,7 @@ fun TimeBottomSheet(
             ) {
                 Text(
                     text = if (kind == "acceptance") "Приёмка" else "Сдача",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.W500,
-                    color = textColor()
+                    fontSize = 22.sp, fontWeight = FontWeight.W500, color = textColor()
                 )
                 val normsActive = canApplyNorms && !noSeriesNorm && !stationEmpty && !noStationNorm
                 Row(
@@ -316,14 +353,11 @@ fun TimeBottomSheet(
                 ) {
                     Icon(
                         painter = painterResource(com.z_company.route.R.drawable.electric_bolt_24px),
-                        contentDescription = null,
-                        modifier = Modifier.size(13.dp),
+                        contentDescription = null, modifier = Modifier.size(13.dp),
                         tint = if (normsActive) accentInk() else textFaint()
                     )
                     Text(
-                        text = "По нормам",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.W500,
+                        text = "По нормам", fontSize = 13.sp, fontWeight = FontWeight.W500,
                         color = if (normsActive) accentInk() else textFaint()
                     )
                 }
@@ -337,7 +371,6 @@ fun TimeBottomSheet(
                     .padding(bottom = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Series (tappable)
                 ContextFieldItem(
                     iconRes = com.z_company.route.R.drawable.electric_bolt_24px,
                     label = "Серия",
@@ -346,7 +379,6 @@ fun TimeBottomSheet(
                     isLocked = false,
                     onClick = { showSeriesPicker = true }
                 )
-                // Station (tappable)
                 val stationLabel = if (kind == "acceptance") "Станция приёмки" else "Станция сдачи"
                 ContextFieldItem(
                     iconRes = com.z_company.route.R.drawable.zoom_in_map_24px,
@@ -360,8 +392,8 @@ fun TimeBottomSheet(
 
             // ── Warnings ──
             val warnings: List<WarnItem> = buildList {
-                if (noSeriesNorm && seriesName != null)
-                    add(WarnItem("Нет нормы для серии $seriesName", null, "Настроить серию", true))
+                if (noSeriesNorm && selectedSeriesName != null)
+                    add(WarnItem("Нет нормы для серии $selectedSeriesName", null, "Настроить серию", true))
                 if (stationEmpty)
                     add(WarnItem(
                         "Станция ${if (kind == "acceptance") "приёмки" else "сдачи"} не выбрана",
@@ -381,9 +413,7 @@ fun TimeBottomSheet(
                 ) {
                     warnings.forEach { warn ->
                         NormWarnItem(
-                            text = warn.text,
-                            hint = warn.hint,
-                            cta = warn.cta,
+                            text = warn.text, hint = warn.hint, cta = warn.cta,
                             onCta = {
                                 onClose()
                                 if (warn.isSeries) onNavigateToSeriesSettings()
@@ -395,56 +425,74 @@ fun TimeBottomSheet(
             }
 
             // ── Time rows ──
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-            ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 if (kind == "acceptance") {
-                    SheetTimeRowItem(label = "Явка", time = fmtTime(routeStartWork), delta = null,
-                        isFirst = true, isLocked = true, isHighlighted = false,
-                        iconRes = com.z_company.route.R.drawable.schedule_24px, onClick = null)
+                    SheetTimeRowItem(
+                        label = "Явка", time = fmtTime(routeStartWork), delta = null,
+                        isFirst = true, isLocked = true, isHighlighted = false, sequenceError = false,
+                        iconRes = com.z_company.route.R.drawable.schedule_24px, onClick = null
+                    )
                     RowConnector()
-                    SheetTimeRowItem(label = "Начало приёмки", time = fmtTime(startTime),
-                        delta = deltaStr(routeStartWork, startTime),
+                    SheetTimeRowItem(
+                        label = "Начало приёмки", time = fmtTime(startTime),
+                        delta = buildDelta(routeStartWork, startTime, selectedStation?.appearanceToStartMin),
                         isFirst = false, isLocked = false, isHighlighted = false,
+                        sequenceError = startTimeError,
                         iconRes = com.z_company.route.R.drawable.electric_bolt_24px,
-                        onClick = { showStartPicker = true })
+                        onClick = { showStartPicker = true }
+                    )
                     RowConnector()
-                    SheetTimeRowItem(label = "Окончание приёмки", time = fmtTime(endTime),
-                        delta = deltaStr(startTime, endTime),
+                    SheetTimeRowItem(
+                        label = "Окончание приёмки", time = fmtTime(endTime),
+                        delta = buildDelta(startTime, endTime, selectedSeries?.acceptanceDurationMin),
                         isFirst = false, isLocked = false, isHighlighted = false,
+                        sequenceError = endTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        onClick = { showEndPicker = true })
+                        onClick = { showEndPicker = true }
+                    )
                     RowConnector()
-                    SheetTimeRowItem(label = "Выход на КП", time = fmtTime(barrierOut),
-                        delta = deltaStr(endTime, barrierOut),
+                    SheetTimeRowItem(
+                        label = "Выход на КП", time = fmtTime(barrierOut),
+                        delta = buildDelta(endTime, barrierOut, selectedStation?.endToBarrierMin),
                         isFirst = false, isLocked = false, isHighlighted = true,
+                        sequenceError = barrierOutError,
                         iconRes = com.z_company.route.R.drawable.swap_vert_24px,
-                        onClick = { showBarrierOutPicker = true })
+                        onClick = { showBarrierOutPicker = true }
+                    )
                 } else {
-                    SheetTimeRowItem(label = "Заход на КП", time = fmtTime(barrierIn), delta = null,
-                        isFirst = true, isLocked = false, isHighlighted = true,
+                    SheetTimeRowItem(
+                        label = "Заход на КП", time = fmtTime(barrierIn), delta = null,
+                        isFirst = true, isLocked = false, isHighlighted = true, sequenceError = false,
                         iconRes = com.z_company.route.R.drawable.swap_vert_24px,
-                        onClick = { showBarrierInPicker = true })
+                        onClick = { showBarrierInPicker = true }
+                    )
                     RowConnector()
-                    SheetTimeRowItem(label = "Начало сдачи", time = fmtTime(startTime),
-                        delta = deltaStr(barrierIn, startTime),
+                    SheetTimeRowItem(
+                        label = "Начало сдачи", time = fmtTime(startTime),
+                        delta = buildDelta(barrierIn, startTime, selectedStation?.barrierToStartMin),
                         isFirst = false, isLocked = false, isHighlighted = false,
+                        sequenceError = startTimeError,
                         iconRes = com.z_company.route.R.drawable.electric_bolt_24px,
-                        onClick = { showStartPicker = true })
+                        onClick = { showStartPicker = true }
+                    )
                     RowConnector()
-                    SheetTimeRowItem(label = "Окончание сдачи", time = fmtTime(endTime),
-                        delta = deltaStr(startTime, endTime),
+                    SheetTimeRowItem(
+                        label = "Окончание сдачи", time = fmtTime(endTime),
+                        delta = buildDelta(startTime, endTime, selectedSeries?.deliveryDurationMin),
                         isFirst = false, isLocked = false, isHighlighted = false,
+                        sequenceError = endTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        onClick = { showEndPicker = true })
+                        onClick = { showEndPicker = true }
+                    )
                     RowConnector()
-                    SheetTimeRowItem(label = "Окончание работы", time = fmtTime(workEnd),
-                        delta = deltaStr(endTime, workEnd),
+                    SheetTimeRowItem(
+                        label = "Окончание работы", time = fmtTime(workEnd),
+                        delta = buildDelta(endTime, workEnd, selectedStation?.endToWorkEndMin),
                         isFirst = false, isLocked = false, isHighlighted = false,
+                        sequenceError = workEndError,
                         iconRes = com.z_company.route.R.drawable.nest_clock_farsight_analog_24px,
-                        onClick = { showWorkEndPicker = true })
+                        onClick = { showWorkEndPicker = true }
+                    )
                 }
             }
 
@@ -456,27 +504,46 @@ fun TimeBottomSheet(
                     .padding(top = 8.dp, bottom = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val seriesSubtitle = if (kind == "acceptance") "Длительность приёмки" else "Длительность сдачи"
+                val seriesTitle = if (!selectedSeriesName.isNullOrBlank())
+                    "Сохранить норму серии $selectedSeriesName" else "Сохранить норму серии"
+
                 SaveNormItem(
                     iconRes = com.z_company.route.R.drawable.electric_bolt_24px,
-                    title = if (seriesName != null) "Сохранить норму серии $seriesName" else "Сохранить норму серии",
-                    subtitle = seriesSubtitle,
+                    title = seriesTitle,
+                    subtitle = seriesNormSubtitle,
                     isReady = canSaveSeriesNorm,
-                    isDisabled = seriesName == null,
+                    isDisabled = selectedSeriesName.isNullOrBlank(),
                     onClick = {
-                        if (canSaveSeriesNorm && selectedSeries != null && startTime != null && endTime != null) {
+                        if (canSaveSeriesNorm && !selectedSeriesName.isNullOrBlank()
+                            && startTime != null && endTime != null
+                        ) {
                             val dur = ((endTime!! - startTime!!) / 60_000).toInt()
-                            val updated = if (kind == "acceptance") selectedSeries.copy(acceptanceDurationMin = dur)
-                            else selectedSeries.copy(deliveryDurationMin = dur)
                             scope.launch {
                                 val all = seriesRepo.getAll().toMutableList()
-                                val idx = all.indexOfFirst { it.seriesId == updated.seriesId }
-                                if (idx >= 0) all[idx] = updated else all.add(updated)
+                                if (seriesInRepo && selectedSeries != null) {
+                                    val updated = if (kind == "acceptance")
+                                        selectedSeries.copy(acceptanceDurationMin = dur)
+                                    else selectedSeries.copy(deliveryDurationMin = dur)
+                                    val idx = all.indexOfFirst { it.seriesId == updated.seriesId }
+                                    if (idx >= 0) all[idx] = updated else all.add(updated)
+                                } else {
+                                    // Create new entry
+                                    val newSeries = LocomotiveSeries(
+                                        seriesId = generateId(),
+                                        name = selectedSeriesName!!.trim(),
+                                        type = locoType,
+                                        acceptanceDurationMin = if (kind == "acceptance") dur else null,
+                                        deliveryDurationMin = if (kind == "delivery") dur else null,
+                                        updatedAt = Clock.System.now().toEpochMilliseconds(),
+                                    )
+                                    all.add(newSeries)
+                                }
                                 seriesRepo.replaceAll(all).collect {}
                             }
                         }
                     }
                 )
+
                 val stationTitle = if (stationEmpty) "Сохранить норму станции"
                 else "Сохранить норму станции ${selectedStation!!.name}"
                 SaveNormItem(
@@ -513,23 +580,32 @@ fun TimeBottomSheet(
                 )
             }
 
-            // ── Done button ──
+            // ── Done button — disabled if sequence error ──
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 4.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(accent())
-                    .clickable {
-                        scope.launch {
-                            sheetState.hide()
-                            onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
-                        }
-                    }
+                    .background(if (hasSequenceError) bgSubtle() else accent())
+                    .then(
+                        if (!hasSequenceError) Modifier.border(0.dp, Color.Transparent, RoundedCornerShape(12.dp))
+                        else Modifier.border(1.dp, borderColor(), RoundedCornerShape(12.dp))
+                    )
+                    .then(
+                        if (!hasSequenceError) Modifier.clickable {
+                            scope.launch {
+                                sheetState.hide()
+                                onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
+                            }
+                        } else Modifier
+                    )
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Готово", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = accentInk())
+                Text(
+                    "Готово", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                    color = if (hasSequenceError) textFaint() else accentInk()
+                )
             }
         }
     }
@@ -556,7 +632,6 @@ private fun ContextFieldItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Icon 28×28, borderRadius 8
         Box(
             modifier = Modifier
                 .size(28.dp)
@@ -565,40 +640,27 @@ private fun ContextFieldItem(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                painter = painterResource(iconRes),
-                contentDescription = null,
+                painter = painterResource(iconRes), contentDescription = null,
                 modifier = Modifier.size(14.dp),
                 tint = if (isEmpty) textFaint() else accent()
             )
         }
-        // Text
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = label.uppercase(),
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 1.1.sp,
-                color = textMuted(),
-                lineHeight = 10.sp
+                text = label.uppercase(), fontSize = 10.sp, fontFamily = FontFamily.Monospace,
+                letterSpacing = 1.1.sp, color = textMuted(), lineHeight = 10.sp
             )
             Spacer(Modifier.height(3.dp))
             Text(
-                text = value,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
+                text = value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                 color = if (isEmpty) textFaint() else textColor(),
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 lineHeight = (13 * 1.2).sp
             )
         }
-        // Badge "лок" or chevron
         if (isLocked) {
             Text(
-                text = "лок",
-                fontSize = 9.sp,
-                fontFamily = FontFamily.Monospace,
-                color = textMuted(),
+                text = "лок", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = textMuted(),
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
                     .background(bgSubtle())
@@ -607,9 +669,7 @@ private fun ContextFieldItem(
         } else {
             Icon(
                 painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
-                contentDescription = null,
-                modifier = Modifier.size(12.dp),
-                tint = textFaint()
+                contentDescription = null, modifier = Modifier.size(12.dp), tint = textFaint()
             )
         }
     }
@@ -633,12 +693,8 @@ private fun NormWarnItem(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // "!" circle
         Box(
-            modifier = Modifier
-                .size(20.dp)
-                .clip(CircleShape)
-                .background(warnColor()),
+            modifier = Modifier.size(20.dp).clip(CircleShape).background(warnColor()),
             contentAlignment = Alignment.Center
         ) {
             Text("!", fontSize = 13.sp, fontWeight = FontWeight.Bold,
@@ -666,9 +722,7 @@ private fun NormWarnItem(
                     Text(cta, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = accent())
                     Icon(
                         painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
-                        contentDescription = null,
-                        modifier = Modifier.size(10.dp),
-                        tint = accent()
+                        contentDescription = null, modifier = Modifier.size(10.dp), tint = accent()
                     )
                 }
             }
@@ -676,15 +730,11 @@ private fun NormWarnItem(
     }
 }
 
-// ── Row connector (vertical line between time rows) ──────────────────────
+// ── Row connector ─────────────────────────────────────────────────────────
 @Composable
 private fun RowConnector() {
     Box(modifier = Modifier.padding(start = 35.dp)) {
-        Box(
-            modifier = Modifier
-                .size(2.dp, 8.dp)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-        )
+        Box(Modifier.size(2.dp, 8.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)))
     }
 }
 
@@ -694,100 +744,137 @@ private fun SheetTimeRowItem(
     iconRes: Int,
     label: String,
     time: String?,
-    delta: String?,
+    delta: DeltaInfo?,
     isFirst: Boolean,
     isLocked: Boolean,
     isHighlighted: Boolean,
+    sequenceError: Boolean,
     onClick: (() -> Unit)?,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(if (isHighlighted) accentSoft() else Color.Transparent)
-            .then(if (onClick != null && !isLocked) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        // Icon circle 32×32
-        Box(
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
             modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(
-                    when {
-                        isHighlighted -> accent()
-                        else -> bgSubtle()
+                .fillMaxWidth()
+                .background(if (isHighlighted) accentSoft() else Color.Transparent)
+                .then(if (onClick != null && !isLocked) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(if (isHighlighted) accent() else bgSubtle())
+                    .alpha(if (isLocked) 0.7f else 1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(iconRes), contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = when {
+                        isHighlighted -> accentInk()
+                        isLocked -> textMuted()
+                        else -> textColor()
                     }
                 )
-                .alpha(if (isLocked) 0.7f else 1f),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(iconRes),
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = when {
-                    isHighlighted -> accentInk()
-                    isLocked -> textMuted()
-                    else -> textColor()
-                }
-            )
-        }
+            }
 
-        // Label + delta
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(label, fontSize = 14.sp, fontWeight = FontWeight.W500, color = textColor())
-                if (isLocked) {
-                    Text(
-                        text = "из маршрута",
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = textMuted(),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(bgSubtle())
-                            .padding(horizontal = 6.dp, vertical = 1.dp)
-                    )
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(label, fontSize = 14.sp, fontWeight = FontWeight.W500, color = textColor())
+                    if (isLocked) {
+                        Text(
+                            text = "из маршрута", fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace, color = textMuted(),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(bgSubtle())
+                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+                // Smart delta
+                if (delta != null) {
+                    Spacer(Modifier.height(4.dp))
+                    SmartDelta(delta)
                 }
             }
-            if (delta != null) {
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Icon(
-                        painter = painterResource(com.z_company.route.R.drawable.electric_bolt_24px),
-                        contentDescription = null,
-                        modifier = Modifier.size(10.dp),
-                        tint = textMuted()
-                    )
-                    Text(delta, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = textMuted())
-                    Text("норма", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = textFaint())
-                }
-            }
-        }
 
-        // Time button
-        Box(
-            modifier = Modifier
-                .widthIn(min = 76.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(if (time != null) MaterialTheme.colorScheme.background else bgSubtle())
-                .then(
-                    if (time != null) Modifier.border(1.dp, borderColor(), RoundedCornerShape(12.dp))
-                    else Modifier
+            // Time button
+            Box(
+                modifier = Modifier
+                    .widthIn(min = 76.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (time != null) MaterialTheme.colorScheme.background else bgSubtle())
+                    .then(
+                        if (time != null) Modifier.border(1.dp, borderColor(), RoundedCornerShape(12.dp))
+                        else Modifier
+                    )
+                    .then(if (onClick != null && !isLocked) Modifier.clickable(onClick = onClick) else Modifier)
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = time ?: "—:—", fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace,
+                    color = if (time != null) textColor() else textFaint()
                 )
-                .then(if (onClick != null && !isLocked) Modifier.clickable(onClick = onClick) else Modifier)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = time ?: "—:—",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = FontFamily.Monospace,
-                color = if (time != null) textColor() else textFaint()
+            }
+        }
+
+        // Inline sequence error message
+        if (sequenceError) {
+            Row(
+                modifier = Modifier.padding(start = 66.dp, end = 20.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    painter = painterResource(com.z_company.route.R.drawable.dangerous_24px),
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = "Время должно быть позже предыдущего",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+/** Smart delta row: colours based on actual vs norm. */
+@Composable
+private fun SmartDelta(delta: DeltaInfo) {
+    val actualStr = if (delta.actualMinutes >= 0) "+${delta.actualMinutes} мин"
+    else "${delta.actualMinutes} мин"
+
+    if (delta.normMinutes == null) {
+        // No norm — show actual only
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(
+                painter = painterResource(com.z_company.route.R.drawable.electric_bolt_24px),
+                contentDescription = null, modifier = Modifier.size(10.dp), tint = textMuted()
             )
+            Text(actualStr, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = textMuted())
+        }
+    } else {
+        val diff = delta.actualMinutes - delta.normMinutes
+        val (accentColor, annotation) = when {
+            diff == 0 -> textMuted() to "норма"  // exact match
+            diff > 0 -> MaterialTheme.colorScheme.error to "на $diff мин больше"
+            else -> greenOk to "на ${-diff} мин меньше"
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(
+                painter = painterResource(com.z_company.route.R.drawable.electric_bolt_24px),
+                contentDescription = null, modifier = Modifier.size(10.dp), tint = accentColor
+            )
+            Text(actualStr, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = accentColor)
+            Text(annotation, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = accentColor)
         }
     }
 }
@@ -806,13 +893,7 @@ private fun SaveNormItem(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(
-                when {
-                    isDisabled -> bgSubtle()
-                    isReady -> accentSoft()
-                    else -> bgSubtle()
-                }
-            )
+            .background(if (isReady && !isDisabled) accentSoft() else bgSubtle())
             .then(
                 if (isDisabled) Modifier.border(1.dp, borderColor(), RoundedCornerShape(12.dp))
                 else Modifier
@@ -822,7 +903,6 @@ private fun SaveNormItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Icon 32×32, borderRadius 10
         Box(
             modifier = Modifier
                 .size(32.dp)
@@ -837,8 +917,7 @@ private fun SaveNormItem(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                painter = painterResource(iconRes),
-                contentDescription = null,
+                painter = painterResource(iconRes), contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = when {
                     isDisabled -> textFaint()
@@ -847,23 +926,17 @@ private fun SaveNormItem(
                 }
             )
         }
-        // Text
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                title,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (isDisabled) textFaint() else textColor(),
-                lineHeight = (13 * 1.2).sp
+                title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                color = if (isDisabled) textFaint() else textColor(), lineHeight = (13 * 1.2).sp
             )
             Spacer(Modifier.height(2.dp))
             Text(subtitle, fontSize = 11.sp, color = textMuted())
         }
-        // Check
         Icon(
             painter = painterResource(com.z_company.route.R.drawable.check_circle_24px),
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
+            contentDescription = null, modifier = Modifier.size(16.dp),
             tint = if (isDisabled) textFaint() else accent()
         )
     }

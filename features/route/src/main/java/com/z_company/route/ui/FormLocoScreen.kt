@@ -610,6 +610,7 @@ fun FormLocoScreen(
                             TimeBottomSheet(
                                 kind = "acceptance",
                                 seriesName = locomotive.series,
+                                locoType = locomotive.type,
                                 initialStartTime = locomotive.timeStartOfAcceptance,
                                 initialEndTime = locomotive.timeEndOfAcceptance,
                                 initialBarrierOut = locomotive.timeBarrierOut,
@@ -635,6 +636,7 @@ fun FormLocoScreen(
                             TimeBottomSheet(
                                 kind = "delivery",
                                 seriesName = locomotive.series,
+                                locoType = locomotive.type,
                                 initialStartTime = locomotive.timeStartOfDelivery,
                                 initialEndTime = locomotive.timeEndOfDelivery,
                                 initialBarrierOut = locomotive.timeBarrierOut,
