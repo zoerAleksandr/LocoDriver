@@ -146,8 +146,10 @@ fun TimeBottomSheet(
     var anchorState by remember { mutableStateOf(DeliveryNormAnchor.NONE) }
     var blinkOn by remember { mutableStateOf(false) }
 
-    // Confirm dialog when timeEndWork in sheet differs from route's saved value
-    var showWorkEndChangeDialog by remember { mutableStateOf(false) }
+    // Pending workEnd update: calculated value waiting for user to tap «Обновить»
+    var pendingEndWorkUpdate by remember { mutableStateOf<Long?>(null) }
+    // True when user explicitly accepted the new workEnd (or it's a brand-new value)
+    var workEndAccepted by remember { mutableStateOf(false) }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -205,18 +207,33 @@ fun TimeBottomSheet(
 
     fun applyFromBarrier() {
         val bi = barrierIn ?: return
+        // Reset pending state for a clean calculation
+        pendingEndWorkUpdate = null
+        workEndAccepted = false
         val barrierMin = selectedStation?.barrierToStartMin ?: 0
         val newStart = bi + barrierMin * 60_000L
         val durMin = selectedSeries?.deliveryDurationMin ?: 0
         val newEnd = newStart + durMin * 60_000L
         val workEndMin = selectedStation?.endToWorkEndMin ?: 0
+        val calculatedWorkEnd = newEnd + workEndMin * 60_000L
         startTime = newStart
         endTime = newEnd
-        workEnd = newEnd + workEndMin * 60_000L
+        if (routeEndWork != null && calculatedWorkEnd != routeEndWork) {
+            // Route already has a different timeEndWork — show inline «Обновить» button
+            pendingEndWorkUpdate = calculatedWorkEnd
+            // workEnd keeps the current route value until user taps «Обновить»
+            workEnd = routeEndWork
+        } else {
+            workEnd = calculatedWorkEnd
+            // No conflict: auto-accept (new value or same value)
+            if (routeEndWork == null && calculatedWorkEnd != null) workEndAccepted = true
+        }
     }
 
     fun applyFromEndWork() {
         val ew = routeEndWork ?: return
+        pendingEndWorkUpdate = null
+        workEndAccepted = false   // FROM_END_WORK: timeEndWork is source, don't update route
         val workEndMin = selectedStation?.endToWorkEndMin ?: 0
         val newEnd = ew - workEndMin * 60_000L
         val durMin = selectedSeries?.deliveryDurationMin ?: 0
@@ -574,13 +591,20 @@ fun TimeBottomSheet(
                         sequenceError = workEndError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
                         isHighlighted = asking && (blinkOn || routeEndWork != null),
+                        pendingTimeText = pendingEndWorkUpdate?.let { fmtTime(it) },
+                        onPendingAccept = {
+                            workEnd = pendingEndWorkUpdate
+                            workEndAccepted = true
+                            pendingEndWorkUpdate = null
+                        },
                         onClick = {
                             if (asking) {
                                 applyFromEndWork()
                                 anchorState = DeliveryNormAnchor.FROM_END_WORK
-                            } else {
+                            } else if (pendingEndWorkUpdate == null) {
                                 showWorkEndPicker = true
                             }
+                            // If pending is active, tapping row does nothing — use «Обновить» button
                         }
                     )
                 }
@@ -669,13 +693,6 @@ fun TimeBottomSheet(
             }
 
             // ── Done button — disabled if sequence error ──
-            fun finishAndClose() {
-                scope.launch {
-                    sheetState.hide()
-                    onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
-                }
-            }
-
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -688,16 +705,19 @@ fun TimeBottomSheet(
                     )
                     .then(
                         if (!hasSequenceError) Modifier.clickable {
-                            // Delivery: if workEnd differs from route's saved → confirm dialog
-                            if (kind == "delivery" && workEnd != null) {
-                                if (routeEndWork != null && workEnd != routeEndWork) {
-                                    showWorkEndChangeDialog = true
-                                } else {
-                                    if (routeEndWork == null) onTimeEndWorkChanged?.invoke(workEnd)
-                                    finishAndClose()
+                            // Sync timeEndWork to route if needed
+                            if (kind == "delivery") {
+                                when {
+                                    workEndAccepted && workEnd != null ->
+                                        onTimeEndWorkChanged?.invoke(workEnd)
+                                    routeEndWork == null && workEnd != null ->
+                                        onTimeEndWorkChanged?.invoke(workEnd)
+                                    // FROM_END_WORK or pending not accepted → don't update route
                                 }
-                            } else {
-                                finishAndClose()
+                            }
+                            scope.launch {
+                                sheetState.hide()
+                                onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
                             }
                         } else Modifier
                     )
@@ -710,42 +730,6 @@ fun TimeBottomSheet(
                 )
             }
         }
-    }
-
-    // ── Confirm: update timeEndWork in route ──
-    if (showWorkEndChangeDialog && workEnd != null && routeEndWork != null) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showWorkEndChangeDialog = false },
-            containerColor = MaterialTheme.colorScheme.secondary,
-            titleContentColor = MaterialTheme.colorScheme.primary,
-            textContentColor = MaterialTheme.colorScheme.primary,
-            title = { Text("Обновить время окончания работы?") },
-            text = {
-                Text(
-                    text = "Было: ${fmtTime(routeEndWork) ?: "—:—"}  →  Станет: ${fmtTime(workEnd) ?: "—:—"}",
-                    fontFamily = FontFamily.Monospace,
-                )
-            },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
-                    onTimeEndWorkChanged?.invoke(workEnd)
-                    showWorkEndChangeDialog = false
-                    scope.launch {
-                        sheetState.hide()
-                        onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
-                    }
-                }) { Text("Обновить", color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold) }
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(onClick = {
-                    showWorkEndChangeDialog = false
-                    scope.launch {
-                        sheetState.hide()
-                        onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
-                    }
-                }) { Text("Не обновлять", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)) }
-            }
-        )
     }
 }
 
@@ -863,6 +847,8 @@ private fun SheetTimeRowItem(
     sequenceError: Boolean,
     onClick: (() -> Unit)?,
     isHighlighted: Boolean = false,
+    pendingTimeText: String? = null,
+    onPendingAccept: (() -> Unit)? = null,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -914,25 +900,44 @@ private fun SheetTimeRowItem(
                 }
             }
 
-            // Time button
-            Box(
-                modifier = Modifier
-                    .widthIn(min = 76.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (time != null) MaterialTheme.colorScheme.background else bgSubtle())
-                    .then(
-                        if (time != null) Modifier.border(1.dp, borderColor(), RoundedCornerShape(12.dp))
-                        else Modifier
+            // Time button — or inline «Обновить ЧЧ:ММ» if pending update
+            if (pendingTimeText != null && onPendingAccept != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .clickable(onClick = onPendingAccept)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Обновить $pendingTimeText",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    .then(if (onClick != null && !isLocked) Modifier.clickable(onClick = onClick) else Modifier)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = time ?: "—:—", fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace,
-                    color = if (time != null) textColor() else textFaint()
-                )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .widthIn(min = 76.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (time != null) MaterialTheme.colorScheme.background else bgSubtle())
+                        .then(
+                            if (time != null) Modifier.border(1.dp, borderColor(), RoundedCornerShape(12.dp))
+                            else Modifier
+                        )
+                        .then(if (onClick != null && !isLocked) Modifier.clickable(onClick = onClick) else Modifier)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = time ?: "—:—", fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace,
+                        color = if (time != null) textColor() else textFaint()
+                    )
+                }
             }
         }
 
