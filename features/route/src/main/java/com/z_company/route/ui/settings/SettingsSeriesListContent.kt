@@ -132,36 +132,11 @@ private fun SeriesGroupCard(
             .background(color = MaterialTheme.colorScheme.secondary, shape = Shapes.medium)
     ) {
         items.forEachIndexed { idx, s ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onOpenEditor(s.seriesId) }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = s.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    val normText = if (s.acceptanceDurationMin != null && s.deliveryDurationMin != null)
-                        "Приёмка ${s.acceptanceDurationMin} мин · Сдача ${s.deliveryDurationMin} мин"
-                    else "Нормы не заданы"
-                    Text(
-                        text = normText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                    )
-                }
-                Icon(
-                    painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            com.z_company.route.ui.SeriesRow(
+                series = s,
+                onClick = { onOpenEditor(s.seriesId) },
+                showChevron = true
+            )
             if (idx < items.lastIndex) {
                 HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
             }

@@ -153,10 +153,11 @@ fun SeriesPickerSheet(
                                 .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
                         ) {
                             electric.forEachIndexed { idx, s ->
-                                SeriesPickerItem(
+                                SeriesRow(
                                     series = s,
                                     onClick = { onSelect(s) },
-                                    onLongClick = onEditSeries?.let { cb -> { cb(s) } }
+                                    onLongClick = onEditSeries?.let { cb -> { cb(s) } },
+                                    showChevron = false
                                 )
                                 if (idx < electric.lastIndex) {
                                     HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
@@ -183,10 +184,11 @@ fun SeriesPickerSheet(
                                 .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
                         ) {
                             diesel.forEachIndexed { idx, s ->
-                                SeriesPickerItem(
+                                SeriesRow(
                                     series = s,
                                     onClick = { onSelect(s) },
-                                    onLongClick = onEditSeries?.let { cb -> { cb(s) } }
+                                    onLongClick = onEditSeries?.let { cb -> { cb(s) } },
+                                    showChevron = false
                                 )
                                 if (idx < diesel.lastIndex) {
                                     HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
@@ -200,42 +202,3 @@ fun SeriesPickerSheet(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun SeriesPickerItem(
-    series: LocomotiveSeries,
-    onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = series.name,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(1f)
-        )
-        val normText = when {
-            series.acceptanceDurationMin != null && series.deliveryDurationMin != null ->
-                "П ${series.acceptanceDurationMin} · С ${series.deliveryDurationMin} мин"
-            series.acceptanceDurationMin != null ->
-                "П ${series.acceptanceDurationMin} мин"
-            series.deliveryDurationMin != null ->
-                "С ${series.deliveryDurationMin} мин"
-            else -> null
-        }
-        if (normText != null) {
-            Text(
-                text = normText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-            )
-        }
-    }
-}

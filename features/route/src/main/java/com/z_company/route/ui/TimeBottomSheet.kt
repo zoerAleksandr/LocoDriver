@@ -36,9 +36,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.InfiniteTransition
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -63,8 +70,11 @@ private data class WarnItem(val text: String, val hint: String?, val cta: String
 /** Structured delta info for smart formatting. */
 private data class DeltaInfo(val actualMinutes: Int, val normMinutes: Int?)
 
-/** Anchor used to compute delivery times via «По нормам». */
-private enum class DeliveryNormAnchor { NONE, ASKING, FROM_BARRIER, FROM_END_WORK }
+/** Anchor selection state for delivery «По нормам». */
+private enum class DeliveryNormAnchor { NONE, ASKING, FROM_SELECTED }
+
+/** Which delivery field was tapped as anchor. */
+private enum class DeliveryAnchorField { BARRIER_IN, START_TIME, END_TIME, WORK_END }
 
 // ── Public models ──────────────────────────────────────────────────────────
 data class TimeSheetResult(
@@ -144,7 +154,8 @@ fun TimeBottomSheet(
 
     // Delivery «По нормам» anchor selection state
     var anchorState by remember { mutableStateOf(DeliveryNormAnchor.NONE) }
-    var blinkOn by remember { mutableStateOf(false) }
+    // True when tapping an empty row during ASKING to show hint
+    var askingEmptyHint by remember { mutableStateOf(false) }
 
     // Pending workEnd update: calculated value waiting for user to tap «Обновить»
     var pendingEndWorkUpdate by remember { mutableStateOf<Long?>(null) }
@@ -153,19 +164,21 @@ fun TimeBottomSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // Blink animation while ASKING: bgSubtle ↔ accentSoft, 2 cycles × 400ms
-    LaunchedEffect(anchorState) {
-        if (anchorState == DeliveryNormAnchor.ASKING) {
-            repeat(2) {
-                blinkOn = true
-                delay(400)
-                blinkOn = false
-                delay(400)
-            }
-        } else {
-            blinkOn = false
-        }
-    }
+    // InfiniteTransition for ASKING blink — runs continuously, alpha applied only when ASKING
+    val infiniteTransition = rememberInfiniteTransition(label = "asking_blink")
+    val rawBlink by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 800
+                0f at 0; 1f at 400; 0f at 800
+            },
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "blink"
+    )
+    val highlightAlpha = if (anchorState == DeliveryNormAnchor.ASKING) rawBlink else 0f
 
     // ── Time formatting ──
     fun fmtTime(ms: Long?): String? {
@@ -201,48 +214,69 @@ fun TimeBottomSheet(
         s.appearanceToStartMin == null || s.endToBarrierMin == null ||
             s.barrierToStartMin == null || s.endToWorkEndMin == null
     }
-    val hasAnchorForDelivery = barrierIn != null || routeEndWork != null
+    // Any filled delivery time field can serve as anchor
+    val hasAnchorForDelivery = barrierIn != null || startTime != null || endTime != null || workEnd != null
     val canApplyNorms = (selectedSeries != null || selectedStation != null) &&
         (kind == "acceptance" || hasAnchorForDelivery)
 
-    fun applyFromBarrier() {
-        val bi = barrierIn ?: return
-        // Reset pending state for a clean calculation
-        pendingEndWorkUpdate = null
-        workEndAccepted = false
-        val barrierMin = selectedStation?.barrierToStartMin ?: 0
-        val newStart = bi + barrierMin * 60_000L
-        val durMin = selectedSeries?.deliveryDurationMin ?: 0
-        val newEnd = newStart + durMin * 60_000L
-        val workEndMin = selectedStation?.endToWorkEndMin ?: 0
-        val calculatedWorkEnd = newEnd + workEndMin * 60_000L
-        startTime = newStart
-        endTime = newEnd
+    /** Sets calculatedWorkEnd, handling the conflict with routeEndWork. */
+    fun handleCalculatedWorkEnd(calculatedWorkEnd: Long) {
         if (routeEndWork != null && calculatedWorkEnd != routeEndWork) {
-            // Route already has a different timeEndWork — show inline «Обновить» button
             pendingEndWorkUpdate = calculatedWorkEnd
-            // workEnd keeps the current route value until user taps «Обновить»
             workEnd = routeEndWork
         } else {
             workEnd = calculatedWorkEnd
-            // No conflict: auto-accept (new value or same value)
-            if (routeEndWork == null && calculatedWorkEnd != null) workEndAccepted = true
+            if (routeEndWork == null) workEndAccepted = true
         }
     }
 
-    fun applyFromEndWork() {
-        val ew = routeEndWork ?: return
+    /** Generic calculation from any delivery anchor field, forward and backward. */
+    fun applyFromField(field: DeliveryAnchorField) {
         pendingEndWorkUpdate = null
-        workEndAccepted = false   // FROM_END_WORK: timeEndWork is source, don't update route
-        val workEndMin = selectedStation?.endToWorkEndMin ?: 0
-        val newEnd = ew - workEndMin * 60_000L
-        val durMin = selectedSeries?.deliveryDurationMin ?: 0
-        val newStart = newEnd - durMin * 60_000L
+        workEndAccepted = false
+        askingEmptyHint = false
         val barrierMin = selectedStation?.barrierToStartMin ?: 0
-        barrierIn = newStart - barrierMin * 60_000L
-        startTime = newStart
-        endTime = newEnd
-        workEnd = ew
+        val durMin = selectedSeries?.deliveryDurationMin ?: 0
+        val workEndMin = selectedStation?.endToWorkEndMin ?: 0
+        when (field) {
+            DeliveryAnchorField.BARRIER_IN -> {
+                val anchor = barrierIn ?: return
+                val newStart = anchor + barrierMin * 60_000L
+                val newEnd = newStart + durMin * 60_000L
+                startTime = newStart
+                endTime = newEnd
+                handleCalculatedWorkEnd(newEnd + workEndMin * 60_000L)
+            }
+            DeliveryAnchorField.START_TIME -> {
+                val anchor = startTime ?: return
+                // Forward
+                val newEnd = anchor + durMin * 60_000L
+                endTime = newEnd
+                handleCalculatedWorkEnd(newEnd + workEndMin * 60_000L)
+                // Backward
+                barrierIn = anchor - barrierMin * 60_000L
+            }
+            DeliveryAnchorField.END_TIME -> {
+                val anchor = endTime ?: return
+                // Forward
+                handleCalculatedWorkEnd(anchor + workEndMin * 60_000L)
+                // Backward
+                val newStart = anchor - durMin * 60_000L
+                startTime = newStart
+                barrierIn = newStart - barrierMin * 60_000L
+            }
+            DeliveryAnchorField.WORK_END -> {
+                // Backward from workEnd (use as source — don't update route)
+                val ew = workEnd ?: routeEndWork ?: return
+                val newEnd = ew - workEndMin * 60_000L
+                val newStart = newEnd - durMin * 60_000L
+                endTime = newEnd
+                startTime = newStart
+                barrierIn = newStart - barrierMin * 60_000L
+                workEnd = ew
+                workEndAccepted = false  // source — don't sync to route
+            }
+        }
     }
 
     fun applyNorms() {
@@ -255,13 +289,26 @@ fun TimeBottomSheet(
             val barrierMin = selectedStation?.endToBarrierMin ?: 0
             startTime = newStart; endTime = newEnd; barrierOut = newEnd + barrierMin * 60_000L
         } else {
-            val hasBarrier = barrierIn != null
-            val hasEndWork = routeEndWork != null
-            when {
-                hasBarrier && hasEndWork -> anchorState = DeliveryNormAnchor.ASKING
-                hasBarrier -> { applyFromBarrier(); anchorState = DeliveryNormAnchor.FROM_BARRIER }
-                hasEndWork -> { applyFromEndWork(); anchorState = DeliveryNormAnchor.FROM_END_WORK }
-                else -> Unit
+            val filled = listOfNotNull(barrierIn, startTime, endTime, workEnd)
+            when (filled.size) {
+                0 -> Unit  // button should be inactive
+                1 -> {
+                    // Single anchor — direct calculation, no banner
+                    val field = when {
+                        barrierIn != null -> DeliveryAnchorField.BARRIER_IN
+                        startTime != null -> DeliveryAnchorField.START_TIME
+                        endTime != null -> DeliveryAnchorField.END_TIME
+                        workEnd != null -> DeliveryAnchorField.WORK_END
+                        else -> return
+                    }
+                    applyFromField(field)
+                    anchorState = DeliveryNormAnchor.FROM_SELECTED
+                }
+                else -> {
+                    // Multiple anchors — ask which to use
+                    askingEmptyHint = false
+                    anchorState = DeliveryNormAnchor.ASKING
+                }
             }
         }
     }
@@ -466,8 +513,14 @@ fun TimeBottomSheet(
 
             // ── Warnings ──
             val warnings: List<WarnItem> = buildList {
-                if (noSeriesNorm && selectedSeriesName != null)
-                    add(WarnItem("Нет нормы для серии $selectedSeriesName", null, "Настроить серию", true))
+                when {
+                    selectedSeriesName == null ->
+                        add(WarnItem("Серия не выбрана",
+                            "Выберите серию, чтобы применить нормы длительности",
+                            null, true))
+                    noSeriesNorm ->
+                        add(WarnItem("Нет нормы для серии $selectedSeriesName", null, "Настроить серию", true))
+                }
                 if (stationEmpty)
                     add(WarnItem(
                         "Станция ${if (kind == "acceptance") "приёмки" else "сдачи"} не выбрана",
@@ -476,6 +529,13 @@ fun TimeBottomSheet(
                     ))
                 else if (noStationNorm)
                     add(WarnItem("Нет нормы для станции ${selectedStation!!.name}", null, "Настроить станцию", false))
+                // Task 3: delivery with norms set but no anchor at all
+                if (kind == "delivery" && !hasAnchorForDelivery)
+                    add(WarnItem(
+                        "Укажите время захода на КП или время окончания работы",
+                        "От него будет выполнен расчёт по нормам",
+                        null, false
+                    ))
             }
             if (warnings.isNotEmpty()) {
                 Column(
@@ -500,21 +560,43 @@ fun TimeBottomSheet(
 
             // ── Anchor selection banner (delivery / ASKING) ──
             if (kind == "delivery" && anchorState == DeliveryNormAnchor.ASKING) {
-                AnchorSelectionBanner(
-                    barrierEnabled = barrierIn != null,
-                    endWorkEnabled = routeEndWork != null,
-                    onFromBarrier = {
-                        applyFromBarrier()
-                        anchorState = DeliveryNormAnchor.FROM_BARRIER
-                    },
-                    onFromEndWork = {
-                        applyFromEndWork()
-                        anchorState = DeliveryNormAnchor.FROM_END_WORK
-                    },
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(top = 4.dp, bottom = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(accentSoft())
+                        .border(1.dp, accent().copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Нажмите на момент времени, от которого рассчитать",
+                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = textColor()
+                    )
+                    if (askingEmptyHint) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(com.z_company.route.R.drawable.dangerous_24px),
+                                contentDescription = null, modifier = Modifier.size(12.dp),
+                                tint = warnColor()
+                            )
+                            Text(
+                                "Сначала укажите это время вручную",
+                                fontSize = 12.sp, color = warnColor()
+                            )
+                        }
+                    }
+                }
             }
 
             // ── Time rows ──
+            val asking = anchorState == DeliveryNormAnchor.ASKING
+            val accentSoftColor = accentSoft()
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 if (kind == "acceptance") {
                     SheetTimeRowItem(
@@ -550,19 +632,26 @@ fun TimeBottomSheet(
                         onClick = { showBarrierOutPicker = true }
                     )
                 } else {
-                    val asking = anchorState == DeliveryNormAnchor.ASKING
+                    // Delivery — all 4 rows blink via highlightAlpha when ASKING
+                    fun onRowTap(field: DeliveryAnchorField, hasTime: Boolean) {
+                        if (asking) {
+                            if (hasTime) {
+                                applyFromField(field)
+                                anchorState = DeliveryNormAnchor.FROM_SELECTED
+                            } else {
+                                askingEmptyHint = true
+                            }
+                        }
+                    }
+
                     SheetTimeRowItem(
                         label = "Заход на КП", time = fmtTime(barrierIn), delta = null,
                         isFirst = true, isLocked = false, sequenceError = false,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        isHighlighted = asking && (blinkOn || barrierIn != null),
+                        highlightAlpha = highlightAlpha,
                         onClick = {
-                            if (asking) {
-                                applyFromBarrier()
-                                anchorState = DeliveryNormAnchor.FROM_BARRIER
-                            } else {
-                                showBarrierInPicker = true
-                            }
+                            if (asking) onRowTap(DeliveryAnchorField.BARRIER_IN, barrierIn != null)
+                            else showBarrierInPicker = true
                         }
                     )
                     RowConnector()
@@ -572,7 +661,11 @@ fun TimeBottomSheet(
                         isFirst = false, isLocked = false,
                         sequenceError = startTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        onClick = { showStartPicker = true }
+                        highlightAlpha = highlightAlpha,
+                        onClick = {
+                            if (asking) onRowTap(DeliveryAnchorField.START_TIME, startTime != null)
+                            else showStartPicker = true
+                        }
                     )
                     RowConnector()
                     SheetTimeRowItem(
@@ -581,7 +674,11 @@ fun TimeBottomSheet(
                         isFirst = false, isLocked = false,
                         sequenceError = endTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        onClick = { showEndPicker = true }
+                        highlightAlpha = highlightAlpha,
+                        onClick = {
+                            if (asking) onRowTap(DeliveryAnchorField.END_TIME, endTime != null)
+                            else showEndPicker = true
+                        }
                     )
                     RowConnector()
                     SheetTimeRowItem(
@@ -590,21 +687,19 @@ fun TimeBottomSheet(
                         isFirst = false, isLocked = false,
                         sequenceError = workEndError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        isHighlighted = asking && (blinkOn || routeEndWork != null),
+                        highlightAlpha = highlightAlpha,
                         pendingTimeText = pendingEndWorkUpdate?.let { fmtTime(it) },
                         onPendingAccept = {
-                            workEnd = pendingEndWorkUpdate
+                            val newVal = pendingEndWorkUpdate
+                            workEnd = newVal
                             workEndAccepted = true
                             pendingEndWorkUpdate = null
+                            // Task 5: immediately sync to route
+                            if (newVal != null) onTimeEndWorkChanged?.invoke(newVal)
                         },
                         onClick = {
-                            if (asking) {
-                                applyFromEndWork()
-                                anchorState = DeliveryNormAnchor.FROM_END_WORK
-                            } else if (pendingEndWorkUpdate == null) {
-                                showWorkEndPicker = true
-                            }
-                            // If pending is active, tapping row does nothing — use «Обновить» button
+                            if (asking) onRowTap(DeliveryAnchorField.WORK_END, workEnd != null)
+                            else if (pendingEndWorkUpdate == null) showWorkEndPicker = true
                         }
                     )
                 }
@@ -847,14 +942,21 @@ private fun SheetTimeRowItem(
     sequenceError: Boolean,
     onClick: (() -> Unit)?,
     isHighlighted: Boolean = false,
+    highlightAlpha: Float = 0f,
     pendingTimeText: String? = null,
     onPendingAccept: (() -> Unit)? = null,
 ) {
+    val accentSoftCol = accentSoft()
+    val rowBg = when {
+        isHighlighted -> accentSoftCol
+        highlightAlpha > 0f -> lerp(Color.Transparent, accentSoftCol, highlightAlpha)
+        else -> Color.Transparent
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(if (isHighlighted) accentSoft() else Color.Transparent)
+                .background(rowBg)
                 .then(if (onClick != null && !isLocked) Modifier.clickable(onClick = onClick) else Modifier)
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
