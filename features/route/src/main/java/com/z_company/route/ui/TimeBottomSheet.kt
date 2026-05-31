@@ -800,15 +800,8 @@ fun TimeBottomSheet(
                     )
                     .then(
                         if (!hasSequenceError) Modifier.clickable {
-                            // Sync timeEndWork to route if needed
-                            if (kind == "delivery") {
-                                when {
-                                    workEndAccepted && workEnd != null ->
-                                        onTimeEndWorkChanged?.invoke(workEnd)
-                                    routeEndWork == null && workEnd != null ->
-                                        onTimeEndWorkChanged?.invoke(workEnd)
-                                    // FROM_END_WORK or pending not accepted → don't update route
-                                }
+                            if (kind == "delivery" && workEnd != null) {
+                                onTimeEndWorkChanged?.invoke(workEnd)
                             }
                             scope.launch {
                                 sheetState.hide()

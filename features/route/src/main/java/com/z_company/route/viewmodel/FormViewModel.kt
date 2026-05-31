@@ -302,7 +302,11 @@ class FormViewModel(
                                             locomotives = dbRoute.locomotives,
                                             trains = dbRoute.trains,
                                             passengers = dbRoute.passengers,
-                                            photos = dbRoute.photos
+                                            photos = dbRoute.photos,
+                                            // timeEndWork set from LocoFormScreen delivery sheet — take from DB
+                                            basicData = inMemory.basicData.copy(
+                                                timeEndWork = dbRoute.basicData.timeEndWork
+                                            )
                                         ) ?: dbRoute
                                     }
                                 }
