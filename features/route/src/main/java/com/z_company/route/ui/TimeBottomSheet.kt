@@ -399,7 +399,7 @@ fun TimeBottomSheet(
     )
     if (showWorkEndPicker) AppDateTimePicker(
         title = "Окончание работы",
-        onDateTimeSelected = { workEnd = it; showWorkEndPicker = false },
+        onDateTimeSelected = { workEnd = it; workEndAccepted = true; showWorkEndPicker = false },
         onDismiss = { showWorkEndPicker = false },
         startDateTime = workEnd ?: Calendar.getInstance().timeInMillis,
         timeZoneStr = timeZoneText, recentTimes = emptyList(), onRecentTimeSaved = {}
