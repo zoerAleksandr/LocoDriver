@@ -332,8 +332,8 @@ fun PurchasesScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Покупки",
-                        style = titleStyle,
+                        text = "Машинист Pro",
+                        style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }, navigationIcon = {
