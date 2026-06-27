@@ -744,13 +744,26 @@ fun ProfileScreen(
                                 .padding(horizontal = 12.dp)
                                 .testTag("profile_lazy_column")
                         ) {
+                            // Заголовок «Профиль»
+                            item {
+                                Text(
+                                    modifier = Modifier.padding(
+                                        start = 16.dp,
+                                        top = 8.dp,
+                                        bottom = 16.dp,
+                                    ),
+                                    text = "Профиль",
+                                    style = MaterialTheme.typography.headlineLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                             // ===================== АККАУНТ =====================
                             item {
                                 Text(
                                     modifier = Modifier.padding(
                                         start = 16.dp,
                                         bottom = 8.dp,
-                                        top = 16.dp
+                                        top = 8.dp
                                     ),
                                     text = "АККАУНТ",
                                     style = MaterialTheme.typography.labelMedium,
@@ -928,16 +941,17 @@ fun ProfileScreen(
                                 }
                             }
 
-                            // ===================== ПОДПИСКИ =====================
+                            // ===================== ПОДПИСКА =====================
                             item {
                                 Text(
                                     modifier = Modifier.padding(
                                         start = 16.dp,
-                                        bottom = 6.dp,
-                                        top = 16.dp
+                                        bottom = 8.dp,
+                                        top = 22.dp
                                     ),
-                                    text = "Покупки",
-                                    style = styleTitle
+                                    text = "ПОДПИСКА",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Box(
                                     modifier = Modifier
