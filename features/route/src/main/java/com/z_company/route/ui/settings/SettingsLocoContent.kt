@@ -45,7 +45,13 @@ fun SettingsLocoContent(
             .padding(horizontal = 12.dp)
             .padding(bottom = 24.dp)
     ) {
-        // --- Показывать поля (без заголовка) ---
+        // --- Показывать поля ---
+        Text(
+            modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
+            text = "ПОКАЗАТЕЛИ",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()

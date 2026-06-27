@@ -86,12 +86,10 @@ fun SettingsRouteContent(
         // Данные по умолчанию
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
-                modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
-                text = "Данные по умолчанию",
-                style = styleTitle,
-                color = primaryColor,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                text = "ДАННЫЕ ПО УМОЛЧАНИЮ",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Column(
@@ -218,6 +216,12 @@ fun SettingsRouteContent(
 
         // Показывать перерыв
         Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                text = "ПЕРЕРЫВ",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Row(
                 modifier = Modifier
                     .shadow(elevation = 2.dp, shape = Shapes.medium)
@@ -255,6 +259,12 @@ fun SettingsRouteContent(
         // Стиль выбора времени (вынесен из «Данные по умолчанию» — это не значение
         // по умолчанию для нового маршрута, а UI-настройка диалога выбора времени)
         Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                text = "СТИЛЬ ВЫБОРА ВРЕМЕНИ",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Row(
                 modifier = Modifier
                     .shadow(elevation = 2.dp, shape = Shapes.medium)
@@ -314,6 +324,12 @@ private fun Passenger12hSettingsSection(
     var showOptionSheet by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+            text = "СВЫШЕ 12 ЧАСОВ",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Text(
             modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
             text = "Свыше 12-ти часов относить в следование пассажиром",

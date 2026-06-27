@@ -92,6 +92,12 @@ fun SettingsAccountingContent(
     ) {
         // Ночь
         Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                text = "НОЧНЫЕ ЧАСЫ",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Column(
                 modifier = Modifier
                     .shadow(elevation = 2.dp, shape = Shapes.medium)
@@ -135,6 +141,12 @@ fun SettingsAccountingContent(
 
         // Будущие маршруты
         Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                text = "БУДУЩИЕ МАРШРУТЫ",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Row(
                 modifier = Modifier
                     .shadow(elevation = 2.dp, shape = Shapes.medium)
