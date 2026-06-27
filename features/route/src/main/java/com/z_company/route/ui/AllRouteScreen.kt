@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -476,99 +477,78 @@ fun AllRouteScreen(
         }
 
         Column(modifier = Modifier.padding(padding)) {
+            // Переключатель месяца
+            val monthText =
+                state.currentMonthOfYear?.month?.let { getMonthFullText(it) } ?: ""
+            val yearText = state.currentMonthOfYear?.year?.toString() ?: ""
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                IconButton(onClick = { isMonthSheetVisible = true }) {
+                    Text("‹", style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text(
+                    modifier = Modifier.clickable { isMonthSheetVisible = true },
+                    text = "$monthText $yearText",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                IconButton(onClick = { isMonthSheetVisible = true }) {
+                    Text("›", style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            // Assist chips: Фильтр + Дата + счётчик
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Left: filter button
-                BadgedBox(
-                    badge = {
-                        Badge(
-                            containerColor = if (state.selectedFilters.contains(RouteFilter.ALL)) Color.Transparent else redOrange,
-                            contentColor = if (state.selectedFilters.contains(RouteFilter.ALL)) Color.Transparent else Color.White
-                        ) {
-                            Text("${state.selectedFilters.size}")
-                        }
-                    }
-                ) {
-                    IconButton(
-                        onClick = {
-                            isFilterSheetVisible = !isFilterSheetVisible
-                        }
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.filter_alt_24px),
-                            contentDescription = null
-                        )
-                    }
-                }
-
-                // Middle: переключатель месяца «‹ Май 2026 ›»
-                val monthText =
-                    state.currentMonthOfYear?.month?.let { getMonthFullText(it) } ?: ""
-                val yearText = state.currentMonthOfYear?.year?.toString() ?: ""
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        modifier = Modifier
-                            .clickable { isMonthSheetVisible = true }
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        text = "$monthText $yearText",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AssistChip(
+                        onClick = { isFilterSheetVisible = !isFilterSheetVisible },
+                        label = { Text("Фильтр", style = MaterialTheme.typography.bodySmall) },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(R.drawable.filter_alt_24px),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        },
+                    )
+                    AssistChip(
+                        onClick = { isSortSheetVisible = !isSortSheetVisible },
+                        label = {
+                            Text(
+                                when (state.sortOption) {
+                                    SortOption.DATE_DESC -> "Дата ↓"
+                                    SortOption.DATE_ASC -> "Дата ↑"
+                                    SortOption.WORKTIME_DESC -> "Часы ↓"
+                                    SortOption.WORKTIME_ASC -> "Часы ↑"
+                                },
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        },
                     )
                 }
 
-                // Right: pdf + expand + sort buttons
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = { if (!isPdfGenerating) showPdfDialog = true },
-                        enabled = !isPdfGenerating
-                    ) {
-                        if (isPdfGenerating) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.padding(8.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                painter = painterResource(R.drawable.picture_as_pdf_24px),
-                                contentDescription = "PDF"
-                            )
-                        }
-                    }
-                    IconButton(
-                        onClick = {
-                            viewModel.toggleExpandedView()
-                        }
-                    ) {
-                        AnimatedContent(targetState = state.isExpandedView) { isExpand ->
-                            val icon =
-                                if (isExpand) painterResource(R.drawable.collapse_content_24px) else painterResource(
-                                    R.drawable.expand_content_24px
-                                )
-                            Icon(
-                                painter = icon,
-                                contentDescription = if (state.isExpandedView) "Свернуть" else "Развернуть"
-                            )
-                        }
-                    }
-                    IconButton(
-                        onClick = {
-                            isSortSheetVisible = true
-                        }
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.sort_24px),
-                            contentDescription = null
-                        )
-                    }
-                }
+                // Счётчик
+                val routeCount = state.routes.size
+                Text(
+                    text = "$routeCount",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
             }
 
             when {
