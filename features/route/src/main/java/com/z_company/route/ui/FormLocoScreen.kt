@@ -685,7 +685,7 @@ fun FormLocoScreen(
 
                                         Box(
                                             modifier = Modifier
-                                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                                .shadow(elevation = 1.dp, shape = Shapes.medium)
                                                 .background(
                                                     color = animatedBackgroundColorsStartAcceptance,
                                                     shape = Shapes.medium
@@ -730,7 +730,7 @@ fun FormLocoScreen(
 
                                         Box(
                                             modifier = Modifier
-                                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                                .shadow(elevation = 1.dp, shape = Shapes.medium)
                                                 .background(
                                                     color = animatedBackgroundColorsEndAcceptance,
                                                     shape = Shapes.medium
@@ -844,7 +844,7 @@ fun FormLocoScreen(
                                         )
                                         Box(
                                             modifier = Modifier
-                                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                                .shadow(elevation = 1.dp, shape = Shapes.medium)
                                                 .background(
                                                     color = animatedBackgroundColorsStartDelivery,
                                                     shape = Shapes.medium
@@ -889,7 +889,7 @@ fun FormLocoScreen(
 
                                         Box(
                                             modifier = Modifier
-                                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                                .shadow(elevation = 1.dp, shape = Shapes.medium)
                                                 .background(
                                                     color = animatedBackgroundColorsEndDelivery,
                                                     shape = Shapes.medium

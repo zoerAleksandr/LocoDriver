@@ -138,7 +138,7 @@ fun PasswordRecoveryScreen(
                 onClick = { requestPasswordReset(email) },
                 enabled = isEnableButton,
                 elevation = ButtonDefaults.elevatedButtonElevation(
-                    defaultElevation = 2.dp
+                    defaultElevation = 1.dp
                 ),
                 shape = Shapes.medium,
                 colors = ButtonDefaults.buttonColors(

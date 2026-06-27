@@ -409,7 +409,7 @@ fun SettingsShouldersContent(
             ) {
                 Row(
                     modifier = Modifier
-                        .shadow(elevation = 2.dp, shape = Shapes.medium)
+                        .shadow(elevation = 1.dp, shape = Shapes.medium)
                         .background(
                             color = MaterialTheme.colorScheme.secondary,
                             shape = Shapes.medium

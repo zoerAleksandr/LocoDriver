@@ -497,7 +497,7 @@ fun FormPassengerScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                .shadow(elevation = 1.dp, shape = Shapes.medium)
                                 .background(
                                     color = animatedBackgroundColorsDeparture,
                                     shape = Shapes.medium
@@ -637,7 +637,7 @@ fun FormPassengerScreen(
 
                         Box(
                             modifier = Modifier
-                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                .shadow(elevation = 1.dp, shape = Shapes.medium)
                                 .fillMaxWidth()
                                 .background(
                                     color = animatedBackgroundColorsArrival,

@@ -1387,7 +1387,7 @@ fun FormScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                    .shadow(elevation = 1.dp, shape = Shapes.medium)
                                     .background(
                                         color = animatedBackgroundColorsStartWork,
                                         shape = Shapes.medium
@@ -1447,7 +1447,7 @@ fun FormScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                    .shadow(elevation = 1.dp, shape = Shapes.medium)
                                     .background(
                                         color = animatedBackgroundColorsEndWork,
                                         shape = Shapes.medium
@@ -1804,7 +1804,7 @@ fun <T> ItemAddingScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onChangeElementClick(element) }
-                            .shadow(elevation = 2.dp, shape = Shapes.medium)
+                            .shadow(elevation = 1.dp, shape = Shapes.medium)
                             .background(
                                 color = MaterialTheme.colorScheme.secondary,
                                 shape = Shapes.medium
@@ -1926,7 +1926,7 @@ fun ItemNotes(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(elevation = 2.dp, shape = Shapes.medium),
+            .shadow(elevation = 1.dp, shape = Shapes.medium),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         OutlinedTextFieldApp(

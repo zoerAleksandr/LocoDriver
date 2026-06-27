@@ -346,7 +346,7 @@ private fun SearchListItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp, start = 16.dp)
-                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                .shadow(elevation = 1.dp, shape = Shapes.medium)
                 .background(
                     color = MaterialTheme.colorScheme.surface, shape = Shapes.medium
                 )

@@ -70,7 +70,7 @@ fun SkeletonItemHomeScreen(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 65.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )

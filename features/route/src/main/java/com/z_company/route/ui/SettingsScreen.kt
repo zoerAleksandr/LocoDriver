@@ -405,7 +405,7 @@ private fun SettingsHubContent(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                .shadow(elevation = 1.dp, shape = Shapes.medium)
                 .background(
                     color = MaterialTheme.colorScheme.secondary,
                     shape = Shapes.medium

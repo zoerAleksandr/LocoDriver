@@ -239,7 +239,7 @@ fun SettingSalaryScreen(
                             width = 1.dp,
                             color = MaterialTheme.colorScheme.primary
                         ),
-                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 2.dp),
+                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 1.dp),
                         onClick = saveOnlyMonthTariffRate
                     ) {
                         Text(
@@ -258,7 +258,7 @@ fun SettingSalaryScreen(
                             width = 1.dp,
                             color = MaterialTheme.colorScheme.primary
                         ),
-                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 2.dp),
+                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 1.dp),
                         onClick = saveTariffRateCurrentAndNextMonth
                     ) {
                         Text(
@@ -274,7 +274,7 @@ fun SettingSalaryScreen(
                             .fillMaxWidth()
                             .padding(top = 24.dp),
                         shape = Shapes.medium,
-                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 2.dp),
+                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 1.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.secondary
                         ),

@@ -117,7 +117,7 @@ fun OutlinedTextFieldApp(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(elevation = 2.dp, shape = shape) // тень только здесь!
+                        .shadow(elevation = 1.dp, shape = shape) // тень только здесь!
                         .background(animatedBackgroundColorsNumber, shape)   // если нужен фон
                 ) {
                     OutlinedTextFieldDefaults.ContainerBox(
@@ -182,7 +182,7 @@ fun OutlinedTextFieldApp(
     )
 
     BasicTextField(
-        modifier = modifier.shadow(elevation = 2.dp, shape = Shapes.medium),
+        modifier = modifier.shadow(elevation = 1.dp, shape = Shapes.medium),
         value = value,
         singleLine = singleLine,
         readOnly = readOnly,

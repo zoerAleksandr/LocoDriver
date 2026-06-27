@@ -693,7 +693,7 @@ fun ProfileScreen(
                                         },
                                         shape = Shapes.medium,
                                         elevation = ButtonDefaults.elevatedButtonElevation(
-                                            defaultElevation = 2.dp
+                                            defaultElevation = 1.dp
                                         ),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -788,7 +788,7 @@ fun ProfileScreen(
                                 )
                                 Box(
                                     modifier = Modifier
-                                        .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                        .shadow(elevation = 1.dp, shape = Shapes.medium)
                                         .background(
                                             color = MaterialTheme.colorScheme.secondary,
                                             shape = Shapes.medium
@@ -972,7 +972,7 @@ fun ProfileScreen(
                                 )
                                 Box(
                                     modifier = Modifier
-                                        .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                        .shadow(elevation = 1.dp, shape = Shapes.medium)
                                         .background(
                                             color = MaterialTheme.colorScheme.secondary,
                                             shape = Shapes.medium
@@ -1020,7 +1020,7 @@ fun ProfileScreen(
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                            .shadow(elevation = 1.dp, shape = Shapes.medium)
                                             .background(
                                                 color = MaterialTheme.colorScheme.secondary,
                                                 shape = Shapes.medium
@@ -1208,7 +1208,7 @@ fun ProfileScreen(
                                         .fillMaxWidth(),
                                     shape = Shapes.medium,
                                     elevation = ButtonDefaults.elevatedButtonElevation(
-                                        defaultElevation = 2.dp
+                                        defaultElevation = 1.dp
                                     ),
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                                     onClick = { viewModel.logOut() }
@@ -1228,7 +1228,7 @@ fun ProfileScreen(
 //                                    .fillMaxWidth(),
 //                                shape = Shapes.medium,
 //                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 2.dp
+//                                    defaultElevation = 1.dp
 //                                ),
 //                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 //                                onClick = { viewModel.test() }
@@ -1248,7 +1248,7 @@ fun ProfileScreen(
 //                                    .fillMaxWidth(),
 //                                shape = Shapes.medium,
 //                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 2.dp
+//                                    defaultElevation = 1.dp
 //                                ),
 //                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 //                                onClick = { viewModel.removeUsersVKID() }
@@ -1268,7 +1268,7 @@ fun ProfileScreen(
 //                                    .fillMaxWidth(),
 //                                shape = Shapes.medium,
 //                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 2.dp
+//                                    defaultElevation = 1.dp
 //                                ),
 //                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 //                                onClick = { viewModel.saveUserSettingInRemote() }
@@ -1288,7 +1288,7 @@ fun ProfileScreen(
 //                                    .fillMaxWidth(),
 //                                shape = Shapes.medium,
 //                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 2.dp
+//                                    defaultElevation = 1.dp
 //                                ),
 //                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 //                                onClick = { viewModel.getUserSettingFromRemote() }
@@ -1308,7 +1308,7 @@ fun ProfileScreen(
 //                                    .fillMaxWidth(),
 //                                shape = Shapes.medium,
 //                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 2.dp
+//                                    defaultElevation = 1.dp
 //                                ),
 //                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 //                                onClick = { viewModel.saveSalarySettingInRemote() }
@@ -1328,7 +1328,7 @@ fun ProfileScreen(
 //                                    .fillMaxWidth(),
 //                                shape = Shapes.medium,
 //                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 2.dp
+//                                    defaultElevation = 1.dp
 //                                ),
 //                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 //                                onClick = { viewModel.getSalarySettingFromRemote() }
@@ -1347,7 +1347,7 @@ fun ProfileScreen(
 //                                    .fillMaxWidth(),
 //                                shape = Shapes.medium,
 //                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 2.dp
+//                                    defaultElevation = 1.dp
 //                                ),
 //                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 //                                onClick = { viewModel.saveMonthOfYearList() }
@@ -1367,7 +1367,7 @@ fun ProfileScreen(
 //                                    .fillMaxWidth(),
 //                                shape = Shapes.medium,
 //                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 2.dp
+//                                    defaultElevation = 1.dp
 //                                ),
 //                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 //                                onClick = { viewModel.getMonthOfYearList() }
@@ -1387,7 +1387,7 @@ fun ProfileScreen(
 //                                    .fillMaxWidth(),
 //                                shape = Shapes.medium,
 //                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 2.dp
+//                                    defaultElevation = 1.dp
 //                                ),
 //                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
 //                                onClick = { viewModel.getRoutesFromRemote() }
@@ -1618,7 +1618,7 @@ fun ProfileScreen(
                                     } else true,
                                     shape = Shapes.medium,
                                     elevation = ButtonDefaults.elevatedButtonElevation(
-                                        defaultElevation = 2.dp
+                                        defaultElevation = 1.dp
                                     ),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,

@@ -527,7 +527,7 @@ fun PreviewRoute(
                                 .fillMaxWidth()
                                 .padding(horizontal = 20.dp)
                                 .padding(bottom = 8.dp)
-                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                .shadow(elevation = 1.dp, shape = Shapes.medium)
 //                                .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
                                 .background(MaterialTheme.colorScheme.secondary, mediumShape)
                                 .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -588,7 +588,7 @@ fun PreviewRoute(
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp)
                             .padding(bottom = 16.dp)
-                            .shadow(elevation = 2.dp, shape = Shapes.medium)
+                            .shadow(elevation = 1.dp, shape = Shapes.medium)
 //                            .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
                             .background(MaterialTheme.colorScheme.secondary, mediumShape)
                             .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -708,7 +708,7 @@ fun PreviewRoute(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .shadow(elevation = 2.dp, shape = Shapes.medium)
+                            .shadow(elevation = 1.dp, shape = Shapes.medium)
 //                            .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
                             .background(MaterialTheme.colorScheme.secondary, mediumShape)                    ) {
                         // Loco card header
@@ -1235,7 +1235,7 @@ fun PreviewRoute(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .shadow(elevation = 2.dp, shape = Shapes.medium)
+                            .shadow(elevation = 1.dp, shape = Shapes.medium)
 //                            .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
                             .background(MaterialTheme.colorScheme.secondary, mediumShape)                    ) {
                         // Train header
@@ -1459,7 +1459,7 @@ fun PreviewRoute(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .shadow(elevation = 2.dp, shape = Shapes.medium)
+                            .shadow(elevation = 1.dp, shape = Shapes.medium)
 //                            .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
                             .background(MaterialTheme.colorScheme.secondary, mediumShape)
                             .padding(horizontal = 16.dp, vertical = 14.dp)
@@ -1540,7 +1540,7 @@ fun PreviewRoute(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                    .shadow(elevation = 1.dp, shape = Shapes.medium)
 //                                    .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
                                     .background(MaterialTheme.colorScheme.secondary, mediumShape)
                                     .padding(horizontal = 14.dp, vertical = 10.dp),
@@ -1586,7 +1586,7 @@ private fun TimeCard(
 
     Box(
         modifier = modifier
-            .shadow(elevation = 2.dp, shape = Shapes.medium)
+            .shadow(elevation = 1.dp, shape = Shapes.medium)
 //            .border(width = 0.5.dp, color = hintColor, shape = mediumShape)
             .background(MaterialTheme.colorScheme.secondary, mediumShape)
     ) {

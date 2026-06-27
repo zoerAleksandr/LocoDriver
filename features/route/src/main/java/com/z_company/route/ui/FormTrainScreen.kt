@@ -1105,7 +1105,7 @@ fun FormTrainScreen(
                         Row(
                             modifier = Modifier
                                 .padding(top = 12.dp)
-                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                .shadow(elevation = 1.dp, shape = Shapes.medium)
                                 .fillMaxWidth()
                                 .clickable {
                                     showSelectServicePhase = true

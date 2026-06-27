@@ -665,7 +665,7 @@ fun HomeScreen(
                                 colors = CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.secondary
                                 ),
-                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
                             ) {
                                 Column(
                                     modifier = Modifier.padding(16.dp),
@@ -752,7 +752,7 @@ fun HomeScreen(
                                                 onRouteClick(route.basicData.id)
                                             },
                                         elevation = CardDefaults.elevatedCardElevation(
-                                            defaultElevation = 2.dp,
+                                            defaultElevation = 1.dp,
                                         ),
                                     ) {
                                         Box(
@@ -814,7 +814,7 @@ fun HomeScreen(
                                                 minHeight = (widthScreen / 3).dp,
                                             ),
                                         elevation = CardDefaults.elevatedCardElevation(
-                                            defaultElevation = 2.dp,
+                                            defaultElevation = 1.dp,
                                         )
                                     ) {
                                         Box(
@@ -922,7 +922,7 @@ fun HomeScreen(
                                                 minHeight = (widthScreen / 3).dp,
                                             ),
                                         elevation = CardDefaults.elevatedCardElevation(
-                                            defaultElevation = 2.dp,
+                                            defaultElevation = 1.dp,
                                         )
                                     ) {
                                         Box(
@@ -1079,7 +1079,7 @@ fun HomeScreen(
                                             )
                                             .padding(end = 12.dp),
                                         elevation = CardDefaults.elevatedCardElevation(
-                                            defaultElevation = 2.dp,
+                                            defaultElevation = 1.dp,
                                         )
                                     ) {
                                         Box(
@@ -1217,7 +1217,7 @@ fun HomeScreen(
                                                 onRouteClick(nextFutureRoute.basicData.id)
                                             },
                                         elevation = CardDefaults.elevatedCardElevation(
-                                            defaultElevation = 2.dp,
+                                            defaultElevation = 1.dp,
                                         ),
                                     ) {
                                         Box(
@@ -1262,7 +1262,7 @@ fun HomeScreen(
                                             )
                                             .padding(end = 12.dp),
                                         elevation = CardDefaults.elevatedCardElevation(
-                                            defaultElevation = 2.dp,
+                                            defaultElevation = 1.dp,
                                         )
                                     ) {
                                         Box(
@@ -1572,7 +1572,7 @@ private fun ActionCard(
             )
             .clickable(enabled = enabled, onClick = onClick),
         elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 2.dp,
+            defaultElevation = 1.dp,
         ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.secondary,
@@ -1641,7 +1641,7 @@ fun MainInfo(
             containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 2.dp,
+            defaultElevation = 1.dp,
         )
     ) {
         Box(
@@ -1879,7 +1879,7 @@ fun DetailWorkTimeCard(
             containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 2.dp,
+            defaultElevation = 1.dp,
         )
     ) {
         Box(

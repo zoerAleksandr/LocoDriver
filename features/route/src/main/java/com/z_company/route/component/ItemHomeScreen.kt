@@ -204,11 +204,7 @@ fun ItemHomeScreen(
                         onLongClick = onLongClick
                     ),
                 elevation = CardDefaults.elevatedCardElevation(
-                    defaultElevation = 2.dp,
-                ),
-                border = BorderStroke(
-                    width = 1.dp,
-                    color = containerColor
+                    defaultElevation = 1.dp,
                 ),
                 colors = CardDefaults.cardColors(
                     containerColor = containerColor,
