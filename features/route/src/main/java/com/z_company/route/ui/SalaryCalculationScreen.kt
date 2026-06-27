@@ -109,13 +109,12 @@ fun SalaryCalculationScreen(
 
     Scaffold(
         topBar = {
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
             TopAppBar(
                 title = {
                     Text(
-                        text = "${uiState.toBeCredited?.str2decimalSign() ?: "0,00"} ₽",
-                        overflow = TextOverflow.Visible,
-                        maxLines = 2,
-                        style = MaterialTheme.typography.titleSmall,
+                        text = "Зарплата",
+                        style = MaterialTheme.typography.titleMedium,
                         color = colorPrimary
                     )
                 },
@@ -150,6 +149,20 @@ fun SalaryCalculationScreen(
                     }
                 }
             )
+            // Hero — К выдаче
+            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                Text(
+                    text = "К ВЫДАЧЕ · ${uiState.month.uppercase()}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "${uiState.toBeCredited?.str2decimalSign() ?: "0,00"} ₽",
+                    style = MaterialTheme.typography.displayMedium,
+                    color = colorPrimary,
+                )
+            }
+            }
         },
     ) { paddingValues ->
         if (uiState.screenState is ResultState.Loading) {

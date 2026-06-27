@@ -358,21 +358,25 @@ fun FormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {},
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
+                title = {
+                    val routeNumber = currentRoute?.basicData?.number
+                    Text(
+                        text = if (routeNumber.isNullOrBlank()) "Новый маршрут" else "Маршрут · №$routeNumber",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
                 navigationIcon = {
-                    TextButton(
-                        onClick = viewModel::onSaveClick,
-                        enabled = formUiState.errorMessage == null,
-                        colors = ButtonDefaults.buttonColors(
-                            disabledContainerColor = Color.Transparent,
-                            disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                            contentColor = MaterialTheme.colorScheme.tertiary,
-                            containerColor = Color.Transparent
-                        )
-                    ) {
+                    IconButton(onClick = viewModel::onSaveClick) {
                         Text(
-                            text = "Сохранить",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "‹",
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                 },
@@ -510,7 +514,6 @@ fun FormScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         snackbarHost = {

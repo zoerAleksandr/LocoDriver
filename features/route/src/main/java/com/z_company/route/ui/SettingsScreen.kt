@@ -337,44 +337,62 @@ private fun SettingsHubContent(
             .padding(horizontal = 12.dp)
             .padding(bottom = 24.dp)
             .testTag("settings_scroll_column"),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SettingsNavItem(
-            title = "Основные",
-            onClick = { onNavigate(SettingsSubScreen.ROUTE) }
-        )
-        SettingsNavItem(
-            title = "Норма/Регион",
-            onClick = { onNavigate(SettingsSubScreen.NORMA) }
-        )
-        SettingsNavItem(
-            title = "Учёт",
-            onClick = { onNavigate(SettingsSubScreen.ACCOUNTING) }
-        )
-        SettingsNavItem(
-            title = "Отдых",
-            onClick = { onNavigate(SettingsSubScreen.REST) }
-        )
-        SettingsNavItem(
-            title = "Плечи",
-            onClick = { onNavigate(SettingsSubScreen.SHOULDERS) }
-        )
-        SettingsNavItem(
-            title = "Локомотив",
-            onClick = { onNavigate(SettingsSubScreen.LOCOMOTIVE) }
+        // РАСЧЁТ
+        Text(
+            modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
+            text = "РАСЧЁТ",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         SettingsNavItem(
             title = "Зарплата",
             onClick = showSettingSalary
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsNavItem(
+            title = "Норма/Регион",
+            onClick = { onNavigate(SettingsSubScreen.NORMA) }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsNavItem(
+            title = "Учёт",
+            onClick = { onNavigate(SettingsSubScreen.ACCOUNTING) }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsNavItem(
+            title = "Отдых",
+            onClick = { onNavigate(SettingsSubScreen.REST) }
+        )
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // О приложении
+        // ВНЕШНИЙ ВИД
         Text(
-            modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
-            text = "О приложении",
-            style = styleTitle
+            modifier = Modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
+            text = "ВНЕШНИЙ ВИД",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SettingsNavItem(
+            title = "Основные",
+            onClick = { onNavigate(SettingsSubScreen.ROUTE) }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsNavItem(
+            title = "Локомотив",
+            onClick = { onNavigate(SettingsSubScreen.LOCOMOTIVE) }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsNavItem(
+            title = "Плечи",
+            onClick = { onNavigate(SettingsSubScreen.SHOULDERS) }
+        )
+
+        // О ПРИЛОЖЕНИИ
+        Text(
+            modifier = Modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
+            text = "О ПРИЛОЖЕНИИ",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         Box(
