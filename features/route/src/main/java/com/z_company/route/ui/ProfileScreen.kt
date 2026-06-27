@@ -530,9 +530,26 @@ fun ProfileScreen(
                                 verticalArrangement = Arrangement.Center,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
+                                // Логотип «М»
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.primary,
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
+                                        ),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = "М",
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
                                 Text(
-                                    text = "Переход на новый сервер",
-                                    style = MaterialTheme.typography.titleMedium,
+                                    text = "Вход в Машинист",
+                                    style = MaterialTheme.typography.headlineMedium,
                                     modifier = Modifier.padding(bottom = 16.dp)
                                 )
                                 Text(
