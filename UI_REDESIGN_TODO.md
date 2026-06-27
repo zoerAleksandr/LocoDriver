@@ -45,22 +45,26 @@
 - [x] DetailWorkTimeCard/DetailTrainCard — text onSurfaceVariant
 - [x] Shapes — small 10, medium 16, large 28
 
-## Экраны для полной переверстки layout по дизайну
+## Layout обновления (в процессе)
 
-### Высокий приоритет
+### TopAppBar и заголовки (завершено)
+- [x] **HomeScreen** — TopAppBar с «М Машинист» + иконки, крупный «Месяц Год»
+- [x] **HomeScreen** — hero-метрика displayMedium (mono 32/700), breakdown bodySmall
+- [x] **FormScreen** — TopAppBar «Новый маршрут» / «Маршрут · №N» + кнопка назад
+- [x] **AllRouteScreen** — переключатель «Май 2026» titleMedium
+- [x] **SalaryScreen** — TopAppBar «Зарплата» + hero «К ВЫДАЧЕ» mono + displayMedium
+- [x] **SettingsScreen** — группы РАСЧЁТ/ВНЕШНИЙ ВИД/О ПРИЛОЖЕНИИ mono UPPERCASE
+- [x] **ProfileScreen** — группы АККАУНТ/СИНХРОНИЗАЦИЯ mono UPPERCASE
 
-- [ ] **HomeScreen** — large top app bar с логотипом «М Машинист», hero-метрика месяца mono 48/800, чип «+30:05 сверх», свайп-карточка (3 страницы: нормы/виды работы/доплатные признаки) с точечным индикатором, горизонтальные плитки «Текущий маршрут» (150x150: На работе, Локомотив, Поезд, Пассажиром), «Последние маршруты» с иконками-признаками, «Инструменты» (График/Отвлечения/Поиск/PDF). Состояния: current/upcoming/rest/empty. Шторки legend и units.
-- [ ] **FormScreen (Маршрут)** — карточки MCard, группы (ОСНОВНЫЕ ДАННЫЕ, ВРЕМЯ РАБОТЫ, ЛОКОМОТИВЫ, ПОЕЗДА, ПАССАЖИРОМ), плитки «Расчёт» и «Отдых», bottom bar с действиями (настройки/избранное/поделиться/копировать/удалить). Автосохранение (нет кнопки «Сохранить»). Шторки calc, rest/rest-home, confirm delete, nightWarn.
-- [ ] **AllRouteScreen** — переключатель месяца «< Май >», assist-chips фильтр/сортировка, карточки маршрутов compact/expanded, шторки filter/sort, пустой месяц.
-- [ ] **SalaryCalculationScreen** — hero «К выдаче» mono, таблицы начислений/удержаний с фиксированными колонками, filled-итоги с акцентным цветом.
+### Детальная переверстка layout (TODO)
 
-### Средний приоритет
-
-- [ ] **SettingsScreen** — хаб настроек с группами (СПРАВОЧНИКИ НОРМ, РАСЧЁТ, ВНЕШНИЙ ВИД, ПОДСВЕТКА), строки с иконками и значениями. Экспорт данных.
-- [ ] **SettingsGeneralScreen** — основные настройки (переключатели, selectors).
-- [ ] **SettingSalaryScreen** — filled-инпуты для тарифов, bottom sheet даты тарифа.
-- [ ] **ProfileScreen** — large top app bar, VK ID фото/имя, email с кнопкой редактирования, подписка «Машинист Pro» + бейдж АКТИВНА, синхронизация (сохранить/загрузить из облака), кнопка «Выйти из аккаунта».
-- [ ] **LoginScreen** — primary tabs (Вход/Регистрация), filled text fields, VK ID кнопка, восстановление пароля, экран «письмо отправлено».
+- [ ] **HomeScreen** — горизонтальные плитки «Текущий маршрут» (150x150), карточки маршрутов с иконками-признаками, «Инструменты» по дизайну
+- [ ] **FormScreen** — группы ОСНОВНЫЕ ДАННЫЕ/ВРЕМЯ РАБОТЫ/ЛОКОМОТИВЫ/ПОЕЗДА/ПАССАЖИРОМ, плитки «Расчёт»/«Отдых», bottom bar с действиями
+- [ ] **AllRouteScreen** — assist-chips фильтр/сортировка, карточки маршрутов compact/expanded
+- [ ] **SalaryScreen** — таблицы с фиксированными колонками, filled-итоги
+- [ ] **SettingsScreen** — строки с иконками и значениями справа
+- [ ] **ProfileScreen** — large top app bar, VK ID фото, email, подписка «Машинист Pro» бейдж
+- [ ] **LoginScreen** — primary tabs (Вход/Регистрация), filled text fields, VK ID кнопка
 
 ### Низкий приоритет
 
