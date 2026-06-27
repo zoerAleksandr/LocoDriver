@@ -79,8 +79,10 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -96,6 +98,7 @@ import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHoursInDate
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
@@ -765,10 +768,7 @@ fun HomeScreen(
                                         ) {
                                             Column(
                                                 modifier = Modifier
-                                                    .defaultMinSize(
-                                                        minWidth = (widthScreen / 3).dp,
-                                                        minHeight = maxHeightBox.toDp(),
-                                                    )
+                                                    .size(150.dp)
                                                     .padding(16.dp),
                                                 verticalArrangement = Arrangement.SpaceBetween
                                             ) {
@@ -782,19 +782,27 @@ fun HomeScreen(
                                                 Column {
                                                     AnimatedCounter(
                                                         count = currentRouteWorkTime,
-                                                        style = MaterialTheme.typography.displayMedium,
+                                                        style = MaterialTheme.typography.headlineLarge.copy(
+                                                            fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                                            fontWeight = FontWeight.ExtraBold,
+                                                            letterSpacing = (-1).sp,
+                                                        ),
                                                         color = MaterialTheme.colorScheme.primary
                                                     )
-                                                    // Accent progress bar
-                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Spacer(modifier = Modifier.height(6.dp))
+                                                    val workHours = route.getWorkTime()?.let { it / 3_600_000f } ?: 0f
+                                                    val maxHours = 12f
+                                                    val progress = (workHours / maxHours).coerceIn(0f, 1f)
+                                                    val barColor = if (workHours > maxHours) MaterialTheme.colorScheme.error
+                                                        else MaterialTheme.colorScheme.tertiary
                                                     LinearProgressIndicator(
                                                         modifier = Modifier
                                                             .fillMaxWidth()
                                                             .height(3.dp),
-                                                        trackColor = MaterialTheme.colorScheme.surfaceDim,
-                                                        color = MaterialTheme.colorScheme.tertiary,
+                                                        trackColor = MaterialTheme.colorScheme.outlineVariant,
+                                                        color = barColor,
                                                         drawStopIndicator = {},
-                                                        progress = { 0.08f },
+                                                        progress = { progress },
                                                     )
                                                 }
                                             }
@@ -803,35 +811,14 @@ fun HomeScreen(
                                 }
                                 item {
                                     Card(
-                                        modifier = Modifier
-                                            .onSizeChanged { size ->
-                                                if (size.height > maxHeightBox) {
-                                                    maxHeightBox = size.height
-                                                }
-                                            }
-                                            .defaultMinSize(
-                                                minWidth = (widthScreen / 3).dp,
-                                                minHeight = (widthScreen / 3).dp,
-                                            ),
-                                        elevation = CardDefaults.elevatedCardElevation(
-                                            defaultElevation = 1.dp,
-                                        )
+                                        modifier = Modifier.size(150.dp),
+                                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .defaultMinSize(
-                                                    minWidth = (widthScreen / 3).dp,
-                                                    minHeight = (widthScreen / 3).dp,
-                                                )
-                                                .background(MaterialTheme.colorScheme.secondary)
-                                        ) {
                                             Column(
                                                 modifier = Modifier
-                                                    .defaultMinSize(
-                                                        minWidth = (widthScreen / 3).dp,
-                                                        minHeight = maxHeightBox.toDp(),
-                                                    )
-                                                    .padding(12.dp),
+                                                    .fillMaxSize()
+                                                    .padding(16.dp),
                                                 verticalArrangement = Arrangement.SpaceBetween,
                                             ) {
                                                 if (route.locomotives.isEmpty()) {
@@ -908,41 +895,20 @@ fun HomeScreen(
                                             }
                                         }
                                     }
-                                }
+                                // Поезд
                                 item {
                                     Card(
-                                        modifier = Modifier
-                                            .onSizeChanged { size ->
-                                                if (size.height > maxHeightBox) {
-                                                    maxHeightBox = size.height
-                                                }
-                                            }
-                                            .defaultMinSize(
-                                                minWidth = (widthScreen / 3).dp,
-                                                minHeight = (widthScreen / 3).dp,
-                                            ),
-                                        elevation = CardDefaults.elevatedCardElevation(
-                                            defaultElevation = 1.dp,
-                                        )
+                                        modifier = Modifier.size(150.dp),
+                                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                     ) {
-                                        Box(
+                                        Column(
                                             modifier = Modifier
-                                                .defaultMinSize(
-                                                    minWidth = (widthScreen / 3).dp,
-                                                    minHeight = (widthScreen / 3).dp,
-                                                )
-                                                .background(MaterialTheme.colorScheme.secondary)
+                                                .fillMaxSize()
+                                                .padding(16.dp),
+                                            verticalArrangement = Arrangement.SpaceBetween,
                                         ) {
-                                            Column(
-                                                modifier = Modifier
-                                                    .defaultMinSize(
-                                                        minWidth = (widthScreen / 3).dp,
-                                                        minHeight = maxHeightBox.toDp(),
-                                                    )
-                                                    .padding(12.dp),
-                                                verticalArrangement = Arrangement.SpaceBetween,
-                                            ) {
-                                                if (route.trains.isEmpty()) {
+                                            if (route.trains.isEmpty()) {
                                                     IconButton(
                                                         modifier = Modifier.align(Alignment.End),
                                                         colors = IconButtonDefaults.iconButtonColors(
@@ -1064,39 +1030,17 @@ fun HomeScreen(
                                             }
                                         }
                                     }
-                                }
+                                // Пассажиром
                                 item {
                                     Card(
-                                        modifier = Modifier
-                                            .onSizeChanged { size ->
-                                                if (size.height > maxHeightBox) {
-                                                    maxHeightBox = size.height
-                                                }
-                                            }
-                                            .defaultMinSize(
-                                                minWidth = (widthScreen / 3).dp,
-                                                minHeight = (widthScreen / 3).dp,
-                                            )
-                                            .padding(end = 12.dp),
-                                        elevation = CardDefaults.elevatedCardElevation(
-                                            defaultElevation = 1.dp,
-                                        )
+                                        modifier = Modifier.size(150.dp).padding(end = 12.dp),
+                                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .defaultMinSize(
-                                                    minWidth = (widthScreen / 3).dp,
-                                                    minHeight = (widthScreen / 3).dp,
-                                                )
-                                                .background(MaterialTheme.colorScheme.secondary)
-                                        ) {
                                             Column(
                                                 modifier = Modifier
-                                                    .defaultMinSize(
-                                                        minWidth = (widthScreen / 3).dp,
-                                                        minHeight = maxHeightBox.toDp(),
-                                                    )
-                                                    .padding(12.dp),
+                                                    .fillMaxSize()
+                                                    .padding(16.dp),
                                                 verticalArrangement = Arrangement.SpaceBetween,
                                             ) {
                                                 if (route.passengers.isEmpty()) {
@@ -1176,7 +1120,6 @@ fun HomeScreen(
                             }
                         }
                     }
-                }
 
                 if (currentRoute == null && nextFutureRoute != null) {
                     item {
