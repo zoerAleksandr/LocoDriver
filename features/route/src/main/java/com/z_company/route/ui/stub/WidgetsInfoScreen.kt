@@ -3,8 +3,6 @@ package com.z_company.route.ui.stub
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,9 +19,7 @@ fun WidgetsInfoScreen(
             TopAppBar(
                 title = { Text("Виджеты") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
-                    }
+                    TextButton(onClick = onBack) { Text("Назад") }
                 }
             )
         }
@@ -53,9 +49,7 @@ fun WidgetsInfoScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Mini (2x2) — норма за месяц\n" +
-                                "Expanded (4x4) — норма + маршрут + быстрая запись\n" +
-                                "Home — на домашнем экране",
+                        "Mini (2x2) — норма за месяц\nExpanded (4x4) — норма + маршрут + быстрая запись\nHome — на домашнем экране",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

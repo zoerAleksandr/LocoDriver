@@ -5,20 +5,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.loco_driver.ui.theme.InterFont
@@ -53,13 +46,12 @@ fun MashinistNavigationBar(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            NavItem("Главный", Icons.Outlined.Home, selectedTab == NavTab.HOME) {
+            NavItem("Главный", "🏠", selectedTab == NavTab.HOME) {
                 onTabSelected(NavTab.HOME)
             }
-            NavItem("Зарплата", null, selectedTab == NavTab.SALARY, iconChar = "₽") {
+            NavItem("Зарплата", "₽", selectedTab == NavTab.SALARY) {
                 onTabSelected(NavTab.SALARY)
             }
-            // Center FAB
             Box(
                 modifier = Modifier
                     .size(56.dp, 32.dp)
@@ -68,17 +60,17 @@ fun MashinistNavigationBar(
                     .clickable { onTabSelected(NavTab.ADD) },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.Outlined.Add,
-                    contentDescription = "Добавить",
-                    tint = colors.accentInk,
-                    modifier = Modifier.size(22.dp),
+                Text(
+                    text = "+",
+                    color = colors.accentInk,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
                 )
             }
-            NavItem("Настройки", Icons.Outlined.Settings, selectedTab == NavTab.SETTINGS) {
+            NavItem("Настройки", "⚙", selectedTab == NavTab.SETTINGS) {
                 onTabSelected(NavTab.SETTINGS)
             }
-            NavItem("Профиль", Icons.Outlined.Person, selectedTab == NavTab.PROFILE) {
+            NavItem("Профиль", "👤", selectedTab == NavTab.PROFILE) {
                 onTabSelected(NavTab.PROFILE)
             }
         }
@@ -88,9 +80,8 @@ fun MashinistNavigationBar(
 @Composable
 private fun NavItem(
     label: String,
-    icon: ImageVector?,
+    iconChar: String,
     selected: Boolean,
-    iconChar: String? = null,
     onClick: () -> Unit,
 ) {
     val colors = MashinistTheme.colors
@@ -116,16 +107,11 @@ private fun NavItem(
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            if (icon != null) {
-                Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
-            } else if (iconChar != null) {
-                Text(
-                    text = iconChar,
-                    color = tint,
-                    fontSize = 18.sp,
-                    fontFamily = InterFont,
-                )
-            }
+            Text(
+                text = iconChar,
+                color = tint,
+                fontSize = 18.sp,
+            )
         }
         Spacer(Modifier.height(2.dp))
         Text(

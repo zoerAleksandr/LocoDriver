@@ -3,8 +3,6 @@ package com.z_company.route.ui.stub
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,9 +19,7 @@ fun ScheduleWizardScreen(
             TopAppBar(
                 title = { Text("Заполнить месяц") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
-                    }
+                    TextButton(onClick = onBack) { Text("Назад") }
                 }
             )
         }
@@ -53,8 +49,7 @@ fun ScheduleWizardScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Шаг 1: Выбор паттерна смен (2/2, свой цикл)\n" +
-                                "Шаг 2: Выбор даты старта + предпросмотр",
+                        "Шаг 1: Выбор паттерна смен (2/2, свой цикл)\nШаг 2: Выбор даты старта + предпросмотр",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

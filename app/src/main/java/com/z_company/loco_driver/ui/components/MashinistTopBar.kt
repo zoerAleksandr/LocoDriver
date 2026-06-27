@@ -1,13 +1,9 @@
 package com.z_company.loco_driver.ui.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.z_company.loco_driver.ui.theme.MashinistTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,12 +24,8 @@ fun MashinistTopBar(
         },
         navigationIcon = {
             if (onBack != null) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Назад",
-                        tint = colors.text,
-                    )
+                TextButton(onClick = onBack) {
+                    Text("←", color = colors.text)
                 }
             }
         },
