@@ -499,6 +499,14 @@ fun FormLocoScreen(
                     }
 
                     item {
+                        Text(
+                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, bottom = 4.dp),
+                            text = "ОСНОВНЫЕ ДАННЫЕ",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    item {
                         var seriesName by remember {
                             mutableStateOf(
                                 TextFieldValue(
