@@ -1792,7 +1792,32 @@ fun <T> ItemAddingScreen(
                 )
             }
         }
+        if (contentList.isNullOrEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+                    .shadow(elevation = 1.dp, shape = Shapes.medium)
+                    .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+                    .clickable { onNewElementClick(basicId) }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = "Добавить ${title.lowercase()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.tertiary,
+                )
+                Text(
+                    text = "›",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         contentList?.let { elements ->
+            if (elements.isNotEmpty()) {
             Column(
                 modifier = Modifier
                     .padding(top = 8.dp)
@@ -1829,6 +1854,7 @@ fun <T> ItemAddingScreen(
                         )
                     }
                 }
+            }
             }
         }
     }
