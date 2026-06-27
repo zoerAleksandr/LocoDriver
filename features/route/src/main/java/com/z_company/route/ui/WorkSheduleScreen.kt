@@ -445,6 +445,20 @@ fun WorkScheduleScreen(
                 CustomSnackBar(snackBarData = snackBarData)
             }
         },
+        topBar = {
+            androidx.compose.material3.TopAppBar(
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
+                title = {
+                    Text(
+                        text = "График",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
+            )
+        },
         modifier = modifier.fillMaxSize()
     ) { padding ->
         // Top: month title with picker
