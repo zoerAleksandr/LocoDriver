@@ -1327,6 +1327,14 @@ fun FormScreen(
                                 .animateItem(),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            // ОСНОВНЫЕ ДАННЫЕ
+                            Text(
+                                modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+                                text = "ОСНОВНЫЕ ДАННЫЕ",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+
                             val prefixTextColor =
                                 if (route.basicData.number.isNullOrBlank()) MaterialTheme.colorScheme.primary.copy(
                                     alpha = 0.6f
@@ -1359,6 +1367,14 @@ fun FormScreen(
                                 keyboardOptions = KeyboardOptions.Default.copy(
                                     keyboardType = KeyboardType.Number
                                 )
+                            )
+
+                            // ВРЕМЯ РАБОТЫ
+                            Text(
+                                modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+                                text = "ВРЕМЯ РАБОТЫ",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
 
                             val animatedBackgroundColorsStartWork by animateColorAsState(
