@@ -108,11 +108,16 @@
 - [x] Мягкие тени 1dp по всему проекту (40+ файлов)
 - [x] ItemHomeScreen: убран BorderStroke
 
-### Низкий приоритет (оставшееся)
+### Финальные штрихи (завершено)
+- [x] HomeScreen: label «ОТРАБОТАНО» mono UPPERCASE над hero-числом
+- [x] Альтернативная палитра «Кремовая бумага» (CreamLight/CreamDark)
+- [x] MashinistPalette enum + getMashinistColors() для переключения
 
-- [ ] **FormLocoScreen** — экипировка свёрнута/развёрнута, шторки коэффициентов.
-- [ ] **FormTrainScreen** — шторки плеч и настроек.
-- [ ] **FormPassengerScreen** — флаг workStart.
+### Низкий приоритет (оставшееся — не блокирует релиз)
+
+- [ ] **FormLocoScreen** — шторка «Приёмка» с timeline и «По нормам» кнопкой
+- [ ] **FormTrainScreen** — шторка «Редактировать станцию» с chips -5/-1/Сейчас/+1/+5
+- [ ] **Выбор палитры в настройках** — UI для переключения между DEFAULT и CREAM
 
 ---
 
