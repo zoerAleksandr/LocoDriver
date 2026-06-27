@@ -70,7 +70,19 @@
 - [x] **FormTrainScreen** — TopAppBar «Поезд» + кнопка назад
 - [x] **FormPassengerScreen** — TopAppBar «Пассажиром» + кнопка назад
 
-### Оставшаяся мелкая доработка (TODO)
+### Подэкраны настроек (завершено)
+- [x] SettingsRouteContent: ДАННЫЕ ПО УМОЛЧАНИЮ / ПЕРЕРЫВ / СТИЛЬ ВЫБОРА ВРЕМЕНИ / СВЫШЕ 12 ЧАСОВ
+- [x] SettingsAccountingContent: НОЧНЫЕ ЧАСЫ / БУДУЩИЕ МАРШРУТЫ
+- [x] SettingsLocoContent: ПОКАЗАТЕЛИ
+- [x] SettingSalaryScreen: Начисления/Удержания headlineMedium
+- [x] SalaryCalculationScreen: НАЧИСЛЕНИЯ / УДЕРЖАНИЯ mono UPPERCASE
+
+### Дочерние формы (завершено)
+- [x] FormLocoScreen: ОСНОВНЫЕ ДАННЫЕ group header
+- [x] FormTrainScreen: МАРШРУТ group header
+- [x] BottomNavigationBar: bodySmall Inter, accent selected, alwaysShowLabel
+
+### Оставшаяся доработка (TODO)
 
 - [ ] **HomeScreen** — карточки маршрутов с иконками-признаками (серия/станции)
 - [ ] **AllRouteScreen** — assist-chips фильтр/сортировка, карточки compact/expanded
