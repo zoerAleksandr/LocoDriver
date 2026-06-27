@@ -100,13 +100,19 @@
 - [x] Навигация: stub-экраны подключены в NavGraph
 - [x] SettingsScreen: группы СПРАВОЧНИКИ НОРМ / ПРИЛОЖЕНИЕ / ПОДСВЕТКА
 
-### Низкий приоритет
+### Полная переверстка (завершено)
+- [x] PurchasesScreen: hero «Машинист Pro», преимущества, radio-тарифы, pill-кнопка «Оформить»
+- [x] SettingsScreen: «Резервные копии» с badge «Вкл»
+- [x] AllRouteScreen: TopAppBar с навигацией назад и PDF action
+- [x] WorkScheduleScreen: TopAppBar с навигацией назад
+- [x] Мягкие тени 1dp по всему проекту (40+ файлов)
+- [x] ItemHomeScreen: убран BorderStroke
 
-- [ ] **FormLocoScreen** — traction diesel/electric, экипировка свёрнута/развёрнута, шторки коэффициентов секции/экипировки.
-- [ ] **FormTrainScreen** — форма поезда, шторки плеч и настроек.
-- [ ] **FormPassengerScreen** — следование пассажиром с флагом workStart.
-- [ ] **SplashScreen** — логотип «М» по центру, слоган «Для тех, у кого всё под контролем.»
-- [ ] **PurchasesScreen (Paywall)** — витрина тарифов (Месяц 199₽/3мес 499₽/Год 1490₽), outlined-тарифы с radio, filled-кнопка. Состояния: active/expired/renew sheet.
+### Низкий приоритет (оставшееся)
+
+- [ ] **FormLocoScreen** — экипировка свёрнута/развёрнута, шторки коэффициентов.
+- [ ] **FormTrainScreen** — шторки плеч и настроек.
+- [ ] **FormPassengerScreen** — флаг workStart.
 
 ---
 
