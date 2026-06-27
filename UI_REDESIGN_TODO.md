@@ -56,14 +56,17 @@
 - [x] **SettingsScreen** — группы РАСЧЁТ/ВНЕШНИЙ ВИД/О ПРИЛОЖЕНИИ mono UPPERCASE
 - [x] **ProfileScreen** — группы АККАУНТ/СИНХРОНИЗАЦИЯ mono UPPERCASE
 
-### Детальная переверстка layout (TODO)
+### Детальная переверстка layout (в процессе)
 
-- [ ] **HomeScreen** — горизонтальные плитки «Текущий маршрут» (150x150), карточки маршрутов с иконками-признаками, «Инструменты» по дизайну
-- [ ] **FormScreen** — группы ОСНОВНЫЕ ДАННЫЕ/ВРЕМЯ РАБОТЫ/ЛОКОМОТИВЫ/ПОЕЗДА/ПАССАЖИРОМ, плитки «Расчёт»/«Отдых», bottom bar с действиями
-- [ ] **AllRouteScreen** — assist-chips фильтр/сортировка, карточки маршрутов compact/expanded
-- [ ] **SalaryScreen** — таблицы с фиксированными колонками, filled-итоги
-- [ ] **SettingsScreen** — строки с иконками и значениями справа
-- [ ] **ProfileScreen** — large top app bar, VK ID фото, email, подписка «Машинист Pro» бейдж
+- [x] **HomeScreen** — плитка «НА РАБОТЕ» с displayMedium + прогресс-бар, UPPERCASE заголовки секций
+- [x] **FormScreen** — UPPERCASE mono заголовки групп в ItemAddingScreen
+- [x] **SettingsScreen** — SettingsNavItem с subtitle/value, мягкая тень, подписи к пунктам
+- [x] **SalaryScreen** — итоговый блок «К ВЫДАЧЕ» с акцентным стилем
+- [x] **PurchasesScreen** — заголовок «Машинист Pro»
+- [ ] **HomeScreen** — карточки маршрутов с иконками-признаками (серия/станции)
+- [ ] **FormScreen** — плитки «Расчёт»/«Отдых», bottom bar с действиями
+- [ ] **AllRouteScreen** — assist-chips фильтр/сортировка, карточки compact/expanded
+- [ ] **ProfileScreen** — large top app bar, VK ID фото, email, подписка бейдж
 - [ ] **LoginScreen** — primary tabs (Вход/Регистрация), filled text fields, VK ID кнопка
 
 ### Низкий приоритет
