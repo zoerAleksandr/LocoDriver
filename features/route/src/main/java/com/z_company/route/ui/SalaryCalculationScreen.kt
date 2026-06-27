@@ -870,10 +870,11 @@ private fun TableCell(
         contentAlignment = contentAlignment
     ) {
         Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = if (isHeader) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primary
-            ),
+            text = if (isHeader) text.uppercase() else text,
+            style = if (isHeader) MaterialTheme.typography.labelMedium
+                    else MaterialTheme.typography.bodyMedium,
+            color = if (isHeader) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.primary,
             maxLines = maxLines,
             overflow = TextOverflow.Ellipsis,
         )
