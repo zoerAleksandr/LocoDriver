@@ -79,6 +79,67 @@ val DarkMashinistColors = MashinistColors(
     danger = DarkDanger,
 )
 
+// Palette: Кремовая бумага (red)
+val CreamLightColors = MashinistColors(
+    bg = Color(0xFFE8E4D8),
+    bgElevated = Color(0xFFF3F0E6),
+    bgSubtle = Color(0xFFDED9CA),
+    surface = Color(0xFFF3F0E6),
+    surfaceAlt = Color(0xFFEEEADC),
+    border = Color(0x141C1A16),
+    borderStrong = Color(0x2E1C1A16),
+    text = Color(0xFF1C1A16),
+    textMuted = Color(0x991C1A16),
+    textFaint = Color(0x611C1A16),
+    accent = Color(0xFFE2483D),
+    accentInk = Color(0xFFFFFFFF),
+    accentSoft = Color(0x1AE2483D),
+    accentHover = Color(0xFFC13A30),
+    cta = Color(0xFF1C1A16),
+    ctaInk = Color(0xFFFFFFFF),
+    chipBg = Color(0xFFEEEADC),
+    chipBgActive = Color(0xFFF5D5D2),
+    success = Color(0xFF1F8A3F),
+    warning = Color(0xFFE08100),
+    danger = Color(0xFFE2483D),
+)
+
+val CreamDarkColors = MashinistColors(
+    bg = Color(0xFF101010),
+    bgElevated = Color(0xFF2A2823),
+    bgSubtle = Color(0xFF1A1916),
+    surface = Color(0xFF2A2823),
+    surfaceAlt = Color(0xFF36332C),
+    border = Color(0x14E8E4D8),
+    borderStrong = Color(0x2EE8E4D8),
+    text = Color(0xFFE8E4D8),
+    textMuted = Color(0x99E8E4D8),
+    textFaint = Color(0x61E8E4D8),
+    accent = Color(0xFFFF5A4E),
+    accentInk = Color(0xFF121210),
+    accentSoft = Color(0x29FF5A4E),
+    accentHover = Color(0xFFFF7568),
+    cta = Color(0xFFE8E4D8),
+    ctaInk = Color(0xFF121210),
+    chipBg = Color(0xFF36332C),
+    chipBgActive = Color(0xFF44261F),
+    success = Color(0xFF4ADE80),
+    warning = Color(0xFFFFB547),
+    danger = Color(0xFFFF5A4E),
+)
+
+enum class MashinistPalette(val displayName: String) {
+    DEFAULT("По умолчанию"),
+    CREAM("Кремовая бумага"),
+}
+
+fun getMashinistColors(palette: MashinistPalette, isDark: Boolean): MashinistColors {
+    return when (palette) {
+        MashinistPalette.DEFAULT -> if (isDark) DarkMashinistColors else LightMashinistColors
+        MashinistPalette.CREAM -> if (isDark) CreamDarkColors else CreamLightColors
+    }
+}
+
 val LocalMashinistColors = staticCompositionLocalOf { LightMashinistColors }
 
 @Immutable

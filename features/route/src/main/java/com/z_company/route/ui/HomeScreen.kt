@@ -1654,6 +1654,12 @@ fun MainInfo(
                     .padding(16.dp)
                     .fillMaxWidth(),
             ) {
+                Text(
+                    text = "ОТРАБОТАНО",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
                 AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
                     // Чип "еще [HH:MM]" / "сверх [HH:MM]"
                     val chipText: String? = currentMonthOfYear?.let { month ->
