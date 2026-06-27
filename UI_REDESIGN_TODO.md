@@ -63,11 +63,17 @@
 - [x] **SettingsScreen** — SettingsNavItem с subtitle/value, мягкая тень, подписи к пунктам
 - [x] **SalaryScreen** — итоговый блок «К ВЫДАЧЕ» с акцентным стилем
 - [x] **PurchasesScreen** — заголовок «Машинист Pro»
+- [x] **FormScreen** — группы ОСНОВНЫЕ ДАННЫЕ / ВРЕМЯ РАБОТЫ
+- [x] **ProfileScreen** — заголовок «Профиль» headlineLarge, группа ПОДПИСКА
+- [x] **LoginScreen** — логотип «М» + заголовок «Вход в Машинист»
+- [x] **FormLocoScreen** — TopAppBar «Локомотив» + кнопка назад
+- [x] **FormTrainScreen** — TopAppBar «Поезд» + кнопка назад
+- [x] **FormPassengerScreen** — TopAppBar «Пассажиром» + кнопка назад
+
+### Оставшаяся мелкая доработка (TODO)
+
 - [ ] **HomeScreen** — карточки маршрутов с иконками-признаками (серия/станции)
-- [ ] **FormScreen** — плитки «Расчёт»/«Отдых», bottom bar с действиями
 - [ ] **AllRouteScreen** — assist-chips фильтр/сортировка, карточки compact/expanded
-- [ ] **ProfileScreen** — large top app bar, VK ID фото, email, подписка бейдж
-- [ ] **LoginScreen** — primary tabs (Вход/Регистрация), filled text fields, VK ID кнопка
 
 ### Низкий приоритет
 
