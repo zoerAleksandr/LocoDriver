@@ -1668,7 +1668,16 @@ fun MainInfo(
                         chipText = chipText,
                     )
                 }
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            // Свайп-карточка с прогресс-барами (внутри Card)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
                 currentMonthOfYear?.let { month ->
                     Column(
                         modifier = Modifier
@@ -1847,6 +1856,7 @@ fun MainInfo(
 //                        )
 //                    }
                 }
+            }
             }
         }
     }

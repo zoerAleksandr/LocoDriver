@@ -250,7 +250,9 @@ fun ItemHomeScreen(
 
                         AutoSizeText(
                             text = workTimeStringMemo,
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontFamily = com.z_company.core.ui.theme.MonoFont,
+                            ),
                             maxTextSize = requiredSizeText,
                             minTextSize = 10.sp,
                             maxLines = 1,
