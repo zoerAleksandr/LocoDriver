@@ -249,9 +249,10 @@ fun SalaryCalculationScreen(
                 // Заголовок для таблицы начислений
                 item {
                     Text(
-                        text = "Начисления",
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(top = 16.dp)
+                        text = "НАЧИСЛЕНИЯ",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                     )
                 }
 
@@ -263,9 +264,10 @@ fun SalaryCalculationScreen(
                 // Заголовок для таблицы удержаний
                 item {
                     Text(
-                        text = "Удержания",
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(top = 32.dp, bottom = 16.dp)
+                        text = "УДЕРЖАНИЯ",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
                     )
                 }
 
