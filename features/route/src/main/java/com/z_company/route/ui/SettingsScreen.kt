@@ -340,9 +340,31 @@ private fun SettingsHubContent(
             .padding(bottom = 24.dp)
             .testTag("settings_scroll_column"),
     ) {
-        // РАСЧЁТ
+        // СПРАВОЧНИКИ НОРМ
         Text(
             modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
+            text = "СПРАВОЧНИКИ НОРМ",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SettingsNavItem(
+            title = "Серии локомотивов",
+            onClick = { /* TODO: navigate to NormsRoute */ }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsNavItem(
+            title = "Станции",
+            onClick = { /* TODO: navigate to StationsNormsRoute */ }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsNavItem(
+            title = "Плечи",
+            onClick = { onNavigate(SettingsSubScreen.SHOULDERS) }
+        )
+
+        // РАСЧЁТ
+        Text(
+            modifier = Modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
             text = "РАСЧЁТ",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -388,10 +410,51 @@ private fun SettingsHubContent(
             subtitle = "Тяга, расчёты, итоги",
             onClick = { onNavigate(SettingsSubScreen.LOCOMOTIVE) }
         )
+
+        // ПРИЛОЖЕНИЕ
+        Text(
+            modifier = Modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
+            text = "ПРИЛОЖЕНИЕ",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SettingsNavItem(
+            title = "Тема",
+            value = "Системная",
+            onClick = { /* TODO */ }
+        )
         Spacer(modifier = Modifier.height(8.dp))
         SettingsNavItem(
-            title = "Плечи",
-            onClick = { onNavigate(SettingsSubScreen.SHOULDERS) }
+            title = "Уведомления",
+            value = "Включены",
+            onClick = { /* TODO */ }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsNavItem(
+            title = "Экспорт данных",
+            onClick = { /* TODO */ }
+        )
+
+        // ПОДСВЕТКА
+        Text(
+            modifier = Modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
+            text = "ПОДСВЕТКА",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SettingsNavItem(
+            title = "Помощь и FAQ",
+            onClick = { /* TODO */ }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsNavItem(
+            title = "Написать в поддержку",
+            onClick = { /* TODO: email intent */ }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsNavItem(
+            title = "Оценить в Google Play",
+            onClick = { /* TODO: play store intent */ }
         )
 
         // О ПРИЛОЖЕНИИ
