@@ -33,7 +33,19 @@
 
 ---
 
-## Экраны для полной переверстки по дизайну
+## Цветовая миграция (завершена)
+
+Все экраны автоматически получают новые цвета через обновлённую тему:
+- [x] Фон экрана: #F2F3F5 (light) / #0F1011 (dark)
+- [x] Карточки: #FFFFFF (light) / #2A2B2D (dark)
+- [x] Текст: #0A0E14 (light) / #F5F5F5 (dark)
+- [x] Акцент: #00A0F5 (light) / #33BFFF (dark)
+- [x] HomeScreen — gradient→surface, text secondary→onSurfaceVariant, progress tertiary
+- [x] WorkedTimeHeader — time primary, chip accentSoft+tertiary
+- [x] DetailWorkTimeCard/DetailTrainCard — text onSurfaceVariant
+- [x] Shapes — small 10, medium 16, large 28
+
+## Экраны для полной переверстки layout по дизайну
 
 ### Высокий приоритет
 
