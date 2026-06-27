@@ -1933,12 +1933,12 @@ fun DetailWorkTimeCard(
                                                 modifier = Modifier.weight(1f),
                                                 overflow = TextOverflow.Ellipsis,
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                             Text(
                                                 text = nightTimeText,
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                         LinearProgressIndicator(
@@ -1948,7 +1948,7 @@ fun DetailWorkTimeCard(
                                             trackColor = MaterialTheme.colorScheme.surface.copy(
                                                 alpha = 0.5f
                                             ),
-                                            color = MaterialTheme.colorScheme.secondary,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
 //                                            strokeCap = StrokeCap.Round,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
@@ -1985,12 +1985,12 @@ fun DetailWorkTimeCard(
                                                     modifier = Modifier.weight(1f),
                                                     overflow = TextOverflow.Ellipsis,
                                                     style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.secondary
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                                 Text(
                                                     text = passengerTimeText,
                                                     style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.secondary
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                             LinearProgressIndicator(
@@ -2000,7 +2000,7 @@ fun DetailWorkTimeCard(
                                                 trackColor = MaterialTheme.colorScheme.surface.copy(
                                                     alpha = 0.5f
                                                 ),
-                                                color = MaterialTheme.colorScheme.secondary,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 gapSize = 4.dp,
                                                 drawStopIndicator = {},
                                                 progress = { percentPassenger },
@@ -2038,12 +2038,12 @@ fun DetailWorkTimeCard(
                                                     modifier = Modifier.weight(1f),
                                                     overflow = TextOverflow.Ellipsis,
                                                     style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.secondary
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                                 Text(
                                                     text = passengerTimeText,
                                                     style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.secondary
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                             LinearProgressIndicator(
@@ -2053,7 +2053,7 @@ fun DetailWorkTimeCard(
                                                 trackColor = MaterialTheme.colorScheme.surface.copy(
                                                     alpha = 0.5f
                                                 ),
-                                                color = MaterialTheme.colorScheme.secondary,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 gapSize = 4.dp,
                                                 drawStopIndicator = {},
                                                 progress = { percentSingleLocomotive },
@@ -2153,7 +2153,7 @@ fun DetailTrainCard(
                                     },
                                     text = convertTimeToString(totalTimeWithHoliday),
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.secondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 if (totalTime != totalTimeWithHoliday) {
                                     val differenceTimeInLong =
@@ -2180,7 +2180,7 @@ fun DetailTrainCard(
                                         },
                                         text = " ($totalTime + $differenceTime)",
                                         style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.secondary
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -2215,14 +2215,14 @@ fun DetailTrainCard(
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                             Text(
                                                 text = extendedServicePhaseTimeText,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Visible,
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                         LinearProgressIndicator(
@@ -2232,7 +2232,7 @@ fun DetailTrainCard(
                                             trackColor = MaterialTheme.colorScheme.surface.copy(
                                                 alpha = 0.5f
                                             ),
-                                            color = MaterialTheme.colorScheme.secondary,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
                                             progress = { percentExtendedServicePhase },
@@ -2268,12 +2268,12 @@ fun DetailTrainCard(
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                             Text(
                                                 text = longDistanceTrainsTimeText,
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                         LinearProgressIndicator(
@@ -2283,7 +2283,7 @@ fun DetailTrainCard(
                                             trackColor = MaterialTheme.colorScheme.surface.copy(
                                                 alpha = 0.5f
                                             ),
-                                            color = MaterialTheme.colorScheme.secondary,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
                                             progress = { percentLong },
@@ -2319,12 +2319,12 @@ fun DetailTrainCard(
                                                 modifier = Modifier.weight(1f),
                                                 overflow = TextOverflow.Ellipsis,
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                             Text(
                                                 text = heavyTrainsTimeText,
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                         LinearProgressIndicator(
@@ -2334,7 +2334,7 @@ fun DetailTrainCard(
                                             trackColor = MaterialTheme.colorScheme.surface.copy(
                                                 alpha = 0.5f
                                             ),
-                                            color = MaterialTheme.colorScheme.secondary,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
                                             progress = { percentHeavy },
@@ -2370,12 +2370,12 @@ fun DetailTrainCard(
                                                 modifier = Modifier.weight(1f),
                                                 overflow = TextOverflow.Ellipsis,
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                             Text(
                                                 text = onePersonOperationTimeText,
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.secondary
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                         LinearProgressIndicator(
@@ -2385,7 +2385,7 @@ fun DetailTrainCard(
                                             trackColor = MaterialTheme.colorScheme.surface.copy(
                                                 alpha = 0.5f
                                             ),
-                                            color = MaterialTheme.colorScheme.secondary,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
                                             progress = { percentOnePerson },

@@ -108,7 +108,7 @@ fun WorkedTimeHeader(
                     maxLines = 1,
                     softWrap = false,
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.secondary
+                    color = MaterialTheme.colorScheme.primary
                 )
                 // 1: breakdown (опционально)
                 if (hasBreakdown) {
@@ -132,7 +132,7 @@ fun WorkedTimeHeader(
                 if (hasChip) {
                     Surface(
                         shape = Shapes.medium,
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                        color = MaterialTheme.colorScheme.surfaceDim,
                     ) {
                         Text(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
@@ -140,7 +140,7 @@ fun WorkedTimeHeader(
                             maxLines = 1,
                             softWrap = false,
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.tertiary,
                         )
                     }
                 }
