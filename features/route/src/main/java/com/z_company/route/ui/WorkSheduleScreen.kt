@@ -125,7 +125,8 @@ fun WorkScheduleScreen(
     viewModel: WorkScheduleViewModel,
     modifier: Modifier = Modifier,
     onReleaseDayScreenClick: () -> Unit,
-    showPurchasesScreen: () -> Unit
+    showPurchasesScreen: () -> Unit,
+    onBack: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -450,6 +451,12 @@ fun WorkScheduleScreen(
                 colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
+                navigationIcon = {
+                    androidx.compose.material3.IconButton(onClick = onBack) {
+                        Text("‹", style = MaterialTheme.typography.headlineLarge,
+                            color = MaterialTheme.colorScheme.primary)
+                    }
+                },
                 title = {
                     Text(
                         text = "График",

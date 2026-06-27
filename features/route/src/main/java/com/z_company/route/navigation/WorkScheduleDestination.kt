@@ -26,6 +26,7 @@ fun WorkScheduleDestination(
     WorkScheduleScreen(
         viewModel = viewModel,
         onReleaseDayScreenClick = router::showSelectReleaseDayScreen,
-        showPurchasesScreen = router::showPurchasesScreen
+        showPurchasesScreen = router::showPurchasesScreen,
+        onBack = router::back,
     )
 }
