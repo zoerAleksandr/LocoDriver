@@ -431,6 +431,13 @@ private fun SettingsHubContent(
         )
         Spacer(modifier = Modifier.height(8.dp))
         SettingsNavItem(
+            title = "Резервные копии",
+            subtitle = "Каждые 30 мин, очищ. в 22 ч.",
+            value = "Вкл",
+            onClick = { /* TODO */ }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsNavItem(
             title = "Экспорт данных",
             onClick = { /* TODO */ }
         )
