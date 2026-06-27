@@ -265,6 +265,31 @@ fun ItemHomeScreen(
                         )
                     }
 
+                    // Compact: показываем первый поезд (номер + станции) + номер маршрута
+                    if (!isExpand && sortedTrains.isNotEmpty()) {
+                        val firstTrain = sortedTrains.first()
+                        val trainNumber = if (!firstTrain.number.isNullOrBlank()) "№${firstTrain.number} " else ""
+                        val stationStart = firstTrain.stations.firstOrNull()?.stationName ?: ""
+                        val stationEnd = if (firstTrain.stations.size > 1) " — ${firstTrain.stations.last().stationName ?: ""}" else ""
+                        val trainInfo = "$trainNumber$stationStart$stationEnd"
+                        if (trainInfo.isNotBlank()) {
+                            Text(
+                                text = trainInfo,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        number?.let { num ->
+                            Text(
+                                text = "#$num",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
                     // If expanded -> show all locomotives/trains/passengers; else show last ones only
                     // sortedTrains мемоизирован выше через remember(route)
                     if (isExpand) {
