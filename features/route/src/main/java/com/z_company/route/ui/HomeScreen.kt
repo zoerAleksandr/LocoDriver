@@ -493,16 +493,15 @@ fun HomeScreen(
     }
 
     val lightBrushMain = Brush.linearGradient(
-        1f to MaterialTheme.colorScheme.surfaceContainerLow,
-        1f to MaterialTheme.colorScheme.surfaceContainerLow,
+        1f to MaterialTheme.colorScheme.surface,
+        1f to MaterialTheme.colorScheme.surface,
         start = Offset.Zero,
         end = Offset.Infinite
     )
 
     val darkBrushMain = Brush.linearGradient(
-        1f to MaterialTheme.colorScheme.surfaceContainerLow,
-        1f to MaterialTheme.colorScheme.surfaceContainerLow,
-//        1.0f to Color(0xFFE5E2D6),
+        1f to MaterialTheme.colorScheme.surface,
+        1f to MaterialTheme.colorScheme.surface,
         start = Offset.Zero,
         end = Offset.Infinite
     )
@@ -1699,20 +1698,20 @@ fun MainInfo(
                                 modifier = Modifier.weight(1f),
                                 overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.secondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = "$normaHoursInMonth ч.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.secondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         LinearProgressIndicator(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(4.dp),
-                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                            color = MaterialTheme.colorScheme.secondary,
+                            trackColor = MaterialTheme.colorScheme.outlineVariant,
+                            color = MaterialTheme.colorScheme.tertiary,
                             gapSize = 4.dp,
                             drawStopIndicator = {},
                             progress = { percentNormaInMonth },
@@ -1748,20 +1747,20 @@ fun MainInfo(
                                 modifier = Modifier.weight(1f),
                                 overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.secondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = "$normaHoursToday ч.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.secondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         LinearProgressIndicator(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(4.dp),
-                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                            color = MaterialTheme.colorScheme.secondary,
+                            trackColor = MaterialTheme.colorScheme.outlineVariant,
+                            color = MaterialTheme.colorScheme.tertiary,
                             gapSize = 4.dp,
                             drawStopIndicator = {},
                             progress = { percentNormaInDay },
@@ -1787,18 +1786,18 @@ fun MainInfo(
                                     modifier = Modifier.weight(1f),
                                     overflow = TextOverflow.Ellipsis,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.secondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
                                     text = convertTimeToString(todayWorkTime),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.secondary
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             LinearProgressIndicator(
                                 modifier = Modifier.fillMaxWidth().height(4.dp),
-                                trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-                                color = MaterialTheme.colorScheme.secondary,
+                                trackColor = MaterialTheme.colorScheme.outlineVariant,
+                                color = MaterialTheme.colorScheme.tertiary,
                                 gapSize = 4.dp,
                                 drawStopIndicator = {},
                                 progress = { percentTodayWorked },
@@ -1832,20 +1831,20 @@ fun MainInfo(
 //                                modifier = Modifier.weight(1f),
 //                                overflow = TextOverflow.Ellipsis,
 //                                style = MaterialTheme.typography.bodyMedium,
-//                                color = MaterialTheme.colorScheme.secondary
+//                                color = MaterialTheme.colorScheme.onSurfaceVariant
 //                            )
 //                            Text(
 //                                text = "$normaHoursToday ч.",
 //                                style = MaterialTheme.typography.bodyMedium,
-//                                color = MaterialTheme.colorScheme.secondary
+//                                color = MaterialTheme.colorScheme.onSurfaceVariant
 //                            )
 //                        }
 //                        LinearProgressIndicator(
 //                            modifier = Modifier
 //                                .fillMaxWidth()
 //                                .height(4.dp),
-//                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-//                            color = MaterialTheme.colorScheme.secondary,
+//                            trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+//                            color = MaterialTheme.colorScheme.onSurfaceVariant,
 //                            strokeCap = StrokeCap.Round,
 //                            progress = { percent.coerceIn(0f, 1f) },
 //                        )
