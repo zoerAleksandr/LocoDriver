@@ -248,15 +248,13 @@ fun ItemHomeScreen(
                             )
                         }
 
-                        // Правая часть (отработанное время) — wrap content,
-                        // занимает столько сколько нужно. Слева остаётся всё остальное.
                         AutoSizeText(
                             text = workTimeStringMemo,
                             style = MaterialTheme.typography.bodyLarge,
                             maxTextSize = requiredSizeText,
                             minTextSize = 10.sp,
                             maxLines = 1,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Bold,
                             overflow = TextOverflow.Ellipsis,
                             onTextLayout = { textLayoutResult ->
                                 val size = textLayoutResult.layoutInput.style.fontSize

@@ -1630,30 +1630,15 @@ fun MainInfo(
     brush: Brush,
     normaHours: Int? = null,
 ) {
-    Card(
+    Column(
         modifier = Modifier
-            .padding(12.dp)
-            // wrapContentHeight(Top) — чтобы карточка не растягивалась
-            // на высоту самой высокой страницы пейджера. Без этого MainInfo
-            // (короткая) визуально получает пустое место снизу.
-            .wrapContentHeight(Alignment.Top),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 1.dp,
-        )
+            .padding(horizontal = 16.dp, vertical = 2.dp)
+            .wrapContentHeight(Alignment.Top)
+            .fillMaxWidth(),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(brush)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth(),
-            ) {
                 Text(
                     text = "ОТРАБОТАНО",
                     style = MaterialTheme.typography.labelMedium,
@@ -1865,7 +1850,6 @@ fun MainInfo(
             }
         }
     }
-}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable

@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -107,7 +108,10 @@ fun WorkedTimeHeader(
                     text = time,
                     maxLines = 1,
                     softWrap = false,
-                    style = MaterialTheme.typography.displayMedium,
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontSize = 46.sp,
+                        letterSpacing = (-1.4).sp,
+                    ),
                     color = MaterialTheme.colorScheme.primary
                 )
                 // 1: breakdown (опционально)
