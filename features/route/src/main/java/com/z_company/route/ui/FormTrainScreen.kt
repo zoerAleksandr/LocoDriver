@@ -1306,23 +1306,21 @@ fun FormTrainScreen(
                             modifier = Modifier
                                 .padding(top = 24.dp)
                                 .fillMaxWidth(),
-                            shape = Shapes.medium,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                                contentColor = MaterialTheme.colorScheme.secondary
-                            ),
-                            elevation = ButtonDefaults.elevatedButtonElevation(
-                                defaultElevation = 3.dp,
-                                pressedElevation = 0.dp
+                                containerColor = MaterialTheme.colorScheme.tertiary,
+                                contentColor = MaterialTheme.colorScheme.surface
                             ),
                             onClick = {
                                 viewModel.startAddingNewStation()
                             }
                         ) {
                             Text(
-                                text = "Добавить станцию",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.secondary
+                                text = "+ Добавить станцию",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                                ),
+                                modifier = Modifier.padding(vertical = 4.dp),
                             )
                         }
                     }

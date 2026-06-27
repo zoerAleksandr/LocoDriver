@@ -283,7 +283,7 @@ fun SalaryCalculationScreen(
                             .fillMaxWidth()
                             .padding(top = 16.dp)
                             .background(
-                                color = MaterialTheme.colorScheme.secondary,
+                                color = MaterialTheme.colorScheme.primary,
                                 shape = Shapes.medium
                             )
                             .padding(horizontal = 20.dp, vertical = 16.dp),
@@ -293,14 +293,14 @@ fun SalaryCalculationScreen(
                         Text(
                             text = "К ВЫДАЧЕ",
                             style = MaterialTheme.typography.labelSmall,
-                            color = colorPrimary,
+                            color = MaterialTheme.colorScheme.onPrimary,
                         )
                         Text(
                             text = uiState.toBeCredited?.str2decimalSign() ?: "0,00 ₽",
                             style = MaterialTheme.typography.displayMedium.copy(
                                 fontSize = 24.sp
                             ),
-                            color = colorPrimary,
+                            color = MaterialTheme.colorScheme.onPrimary,
                         )
                     }
                 }

@@ -338,6 +338,15 @@ fun FormPassengerScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
+                    // ПОЕЗД
+                    item {
+                        Text(
+                            modifier = Modifier.fillMaxWidth().padding(start = 4.dp),
+                            text = "ПОЕЗД",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     // номер поезда
                     item {
                         OutlinedTextFieldApp(
@@ -385,6 +394,15 @@ fun FormPassengerScreen(
                         Spacer(modifier = Modifier.height(20.dp))
                     }
 
+                    // ОТКУДА
+                    item {
+                        Text(
+                            modifier = Modifier.fillMaxWidth().padding(start = 4.dp),
+                            text = "ОТКУДА",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     // станция отправления
                     item {
                         val focusRequester = remember { FocusRequester() }
@@ -535,6 +553,15 @@ fun FormPassengerScreen(
                         Spacer(modifier = Modifier.height(20.dp))
                     }
 
+                    // КУДА
+                    item {
+                        Text(
+                            modifier = Modifier.fillMaxWidth().padding(start = 4.dp),
+                            text = "КУДА",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     // станция прибытия
                     item {
                         val focusRequester = remember { FocusRequester() }
@@ -676,7 +703,15 @@ fun FormPassengerScreen(
                     item {
                         Spacer(modifier = Modifier.height(20.dp))
                     }
-                    // примечания
+                    // ПРИМЕЧАНИЯ
+                    item {
+                        Text(
+                            modifier = Modifier.fillMaxWidth().padding(start = 4.dp),
+                            text = "ПРИМЕЧАНИЯ",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     item {
                         OutlinedTextFieldApp(
                             modifier = Modifier
