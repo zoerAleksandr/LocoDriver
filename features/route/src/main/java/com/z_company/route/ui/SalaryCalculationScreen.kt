@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.util.str2decimalSign
@@ -273,23 +274,31 @@ fun SalaryCalculationScreen(
                     RetentionsTable(uiState = uiState)
                 }
 
-                // Итоговая строка "К выдаче"
+                // Итоговая строка "К выдаче" — акцентный блок
                 item {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(top = 16.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.secondary,
+                                shape = Shapes.medium
+                            )
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "К выдаче",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = colorPrimary
+                            text = "К ВЫДАЧЕ",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorPrimary,
                         )
                         Text(
                             text = uiState.toBeCredited?.str2decimalSign() ?: "0,00 ₽",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = colorPrimary
+                            style = MaterialTheme.typography.displayMedium.copy(
+                                fontSize = 24.sp
+                            ),
+                            color = colorPrimary,
                         )
                     }
                 }
