@@ -232,22 +232,30 @@ fun FormLocoScreen(
             .fillMaxWidth(),
         topBar = {
             TopAppBar(
-                title = {},
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
+                title = {
+                    Text(
+                        text = "Локомотив",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
                 navigationIcon = {
-                    TextButton(
+                    IconButton(
                         onClick = {
                             keyboardController?.hide()
                             topLevelFocusManager.clearFocus()
                             onLocoSaved()
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            contentColor = MaterialTheme.colorScheme.tertiary,
-                            containerColor = Color.Transparent
-                        )
                     ) {
                         Text(
-                            text = "Готово",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "‹",
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                 },
@@ -262,7 +270,6 @@ fun FormLocoScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         snackbarHost = {

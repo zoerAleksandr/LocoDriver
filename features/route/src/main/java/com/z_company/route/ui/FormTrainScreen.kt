@@ -171,24 +171,30 @@ fun FormTrainScreen(
         },
         topBar = {
             TopAppBar(
-                title = {},
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
+                title = {
+                    Text(
+                        text = "Поезд",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
                 navigationIcon = {
-                    TextButton(
+                    IconButton(
                         onClick = {
                             keyboardController?.hide()
                             focusManager.clearFocus()
                             onTrainSaved()
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            disabledContainerColor = Color.Transparent,
-                            disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                            contentColor = MaterialTheme.colorScheme.tertiary,
-                            containerColor = Color.Transparent
-                        )
                     ) {
                         Text(
-                            text = "Готово",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "‹",
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                 },
@@ -215,9 +221,6 @@ fun FormTrainScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
             )
         }
     ) { paddingValues ->
