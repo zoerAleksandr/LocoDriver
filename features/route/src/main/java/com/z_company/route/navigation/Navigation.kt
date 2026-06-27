@@ -95,5 +95,30 @@ fun NavGraphBuilder.homeGraph(
         composableScreen(SelectReleaseDaysScreenRoute.route) {
             SelectReleaseDaysDestination(router = router)
         }
+        composableScreen(StatisticsRoute.route) {
+            com.z_company.route.ui.stub.StatisticsScreen(
+                onBack = { router.back() }
+            )
+        }
+        composableScreen(CalendarRoute.route) {
+            com.z_company.route.ui.stub.CalendarScreen(
+                onBack = { router.back() }
+            )
+        }
+        composableScreen(ScheduleWizardRoute.route) {
+            com.z_company.route.ui.stub.ScheduleWizardScreen(
+                onBack = { router.back() }
+            )
+        }
+        composableScreen(NormsRoute.route) {
+            com.z_company.route.ui.stub.NormsScreen(
+                onBack = { router.back() }
+            )
+        }
+        composableScreen(WidgetsInfoRoute.route) {
+            com.z_company.route.ui.stub.WidgetsInfoScreen(
+                onBack = { router.back() }
+            )
+        }
     }
 }

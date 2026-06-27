@@ -159,3 +159,8 @@ object SettingsScreenRoute : AppRoutes("SettingsScreen") {
 }
 object SelectReleaseDaysScreenRoute: AppRoutes("SelectReleaseDaysScreen")
 object ProfileRoute: AppRoutes("ProfileRoute")
+object StatisticsRoute: AppRoutes("StatisticsRoute")
+object CalendarRoute: AppRoutes("CalendarRoute")
+object ScheduleWizardRoute: AppRoutes("ScheduleWizardRoute")
+object NormsRoute: AppRoutes("NormsRoute")
+object WidgetsInfoRoute: AppRoutes("WidgetsInfoRoute")
