@@ -337,8 +337,7 @@ fun SettingSalaryScreen(
                         .padding(top = paddingLarge),
                     text = "Начисления",
                     overflow = TextOverflow.Visible,
-                    style = MaterialTheme.typography.titleSmall,
-                    textAlign = TextAlign.End
+                    style = MaterialTheme.typography.headlineMedium,
                 )
             }
             item {
@@ -1172,11 +1171,10 @@ fun SettingSalaryScreen(
                 Text(
                     "Удержания",
                     overflow = TextOverflow.Visible,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = paddingLarge),
-                    textAlign = TextAlign.End
                 )
             }
 
