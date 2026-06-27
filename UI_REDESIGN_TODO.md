@@ -82,10 +82,22 @@
 - [x] FormTrainScreen: МАРШРУТ group header
 - [x] BottomNavigationBar: bodySmall Inter, accent selected, alwaysShowLabel
 
+### Hi-fi заглушки (завершено)
+- [x] StatisticsScreen: табы, hero, сетка метрик 2x4, топ направлений
+- [x] CalendarScreen: hero, табы, сетка дней, кнопки, детали дня
+- [x] ScheduleWizardScreen: stepper, паттерны, время смены
+- [x] NormsScreen: группы серий, строки с нормами, FAB
+- [x] WidgetsInfoScreen: превью Mini + Expanded виджетов
+
+### Дополнительные TopAppBar (завершено)
+- [x] AllRouteScreen: «Маршруты»
+- [x] WorkScheduleScreen: «График»
+- [x] SettingsScreen: headlineLarge на хабе
+
 ### Оставшаяся доработка (TODO)
 
 - [ ] **HomeScreen** — карточки маршрутов с иконками-признаками (серия/станции)
-- [ ] **AllRouteScreen** — assist-chips фильтр/сортировка, карточки compact/expanded
+- [ ] **AllRouteScreen** — assist-chips фильтр/сортировка
 
 ### Низкий приоритет
 
