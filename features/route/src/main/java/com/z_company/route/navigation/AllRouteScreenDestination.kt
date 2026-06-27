@@ -34,6 +34,7 @@ fun AllRouteScreenDestination(
         onRouteClick = { router.showRouteForm(it) },
         setSortOption = viewModel::setSort,
         showFormScreen = router::showRouteForm,
-        showPurchasesScreen = router::showPurchasesScreen
+        showPurchasesScreen = router::showPurchasesScreen,
+        onBack = router::back,
     )
 }

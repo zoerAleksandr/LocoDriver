@@ -63,7 +63,8 @@ fun AllRouteScreen(
     onRouteClick: (String) -> Unit = {},
     setSortOption: (SortOption) -> Unit,
     showFormScreen: () -> Unit,
-    showPurchasesScreen: () -> Unit
+    showPurchasesScreen: () -> Unit,
+    onBack: () -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -189,16 +190,41 @@ fun AllRouteScreen(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         modifier = modifier.fillMaxSize(),
         topBar = {
-            androidx.compose.material3.TopAppBar(
-                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+            TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Text("‹", style = MaterialTheme.typography.headlineLarge,
+                            color = MaterialTheme.colorScheme.primary)
+                    }
+                },
                 title = {
                     Text(
                         text = "Маршруты",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
+                },
+                actions = {
+                    IconButton(
+                        onClick = { if (!isPdfGenerating) showPdfDialog = true },
+                        enabled = !isPdfGenerating,
+                    ) {
+                        if (isPdfGenerating) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(8.dp).size(24.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.picture_as_pdf_24px),
+                                contentDescription = "PDF",
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
                 },
             )
         },
