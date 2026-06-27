@@ -171,12 +171,14 @@ fun SettingsScreen(
                 title = {
                     Text(
                         text = currentSubScreen.title,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = if (currentSubScreen == SettingsSubScreen.HUB)
+                            MaterialTheme.typography.headlineLarge
+                        else MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors().copy(
-                    containerColor = Color.Transparent,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
                 )
             )
         }
