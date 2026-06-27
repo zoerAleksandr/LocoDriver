@@ -749,11 +749,12 @@ fun ProfileScreen(
                                 Text(
                                     modifier = Modifier.padding(
                                         start = 16.dp,
-                                        bottom = 6.dp,
+                                        bottom = 8.dp,
                                         top = 16.dp
                                     ),
-                                    text = "Аккаунт",
-                                    style = styleTitle
+                                    text = "АККАУНТ",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Box(
                                     modifier = Modifier
@@ -977,11 +978,12 @@ fun ProfileScreen(
                                 Text(
                                     modifier = Modifier.padding(
                                         start = 16.dp,
-                                        bottom = 6.dp,
-                                        top = 16.dp
+                                        bottom = 8.dp,
+                                        top = 22.dp
                                     ),
-                                    text = "Синхронизация",
-                                    style = styleTitle
+                                    text = "СИНХРОНИЗАЦИЯ",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 AnimatedVisibility(visible = hasSubscription) {
                                     Box(
