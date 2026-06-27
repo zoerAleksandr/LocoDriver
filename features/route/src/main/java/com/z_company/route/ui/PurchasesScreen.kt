@@ -7,6 +7,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +19,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -356,116 +362,195 @@ fun PurchasesScreen(
             }
         },
     ) { padding ->
+        var selectedProduct by remember { mutableStateOf(billingState.products.firstOrNull()) }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
+                .padding(padding),
         ) {
             val purchasesEndTimeInLong = viewModel.purchasesEndTime.collectAsState()
-            val currentState by viewModel.state.collectAsState()  // Reactive для всего state, чтобы converter был актуальным
+            val currentState by viewModel.state.collectAsState()
             val purchasesEndTime =
                 currentState.dateAndTimeConverter?.getDateAndTime(purchasesEndTimeInLong.value)
-            Spacer(modifier = Modifier.height(16.dp))
-            if (!purchasesEndTime.isNullOrBlank() && purchasesEndTimeInLong.value != 0L) {
-                Text(
-                    text = "Оплачено до $purchasesEndTime",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            billingState.products.forEach { product ->
-                val isActive =
-                    billingState.activeExpirations.containsKey<String>(product.name)
-
-                Column(
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+            ) {
+                // Hero: Машинист Pro
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(elevation = 1.dp, shape = Shapes.medium)
-                        .clickable {
-                            onProductClick(product)
-                        }
+                        .padding(top = 8.dp)
                         .background(
-                            color = MaterialTheme.colorScheme.secondary,
-                            shape = Shapes.medium
+                            MaterialTheme.colorScheme.primary,
+                            Shapes.medium
                         )
-                        .then(
-                            if (isActive) Modifier.border(
-                                width = 2.dp,
-                                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                                shape = Shapes.medium
-                            ) else Modifier
-                        )
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(20.dp)
                 ) {
-                    if (product.desc.isNotEmpty()) {
+                    Column {
                         Text(
-                            text = product.desc,
-                            style = dataStyle.copy(fontWeight = FontWeight.Bold),
-                            modifier = Modifier.padding(top = 4.dp),
-                            color = MaterialTheme.colorScheme.primary
+                            text = "Машинист Pro",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                        Text(
+                            text = "ПОЛНАЯ ВЕРСИЯ",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Облако, экспорт и безлимит историй.\nВсе поездки под рукой и в безопасности.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                         )
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                // Преимущества
+                Spacer(modifier = Modifier.height(16.dp))
+                val benefits = listOf(
+                    "Облачная копия и синхронизация",
+                    "Экспорт в PDF",
+                    "Безлимит маршрутов и истории"
+                )
+                benefits.forEach { benefit ->
+                    Row(
+                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("•", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            text = benefit,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+
+                // Оплачено до
+                if (!purchasesEndTime.isNullOrBlank() && purchasesEndTimeInLong.value != 0L) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Оплачено до $purchasesEndTime",
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+
+                // ВЫБЕРИТЕ ТАРИФ
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(
+                    text = "ВЫБЕРИТЕ ТАРИФ",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+
+                billingState.products.forEach { product ->
+                    val isSelected = selectedProduct?.name == product.name
 
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .shadow(elevation = 1.dp, shape = Shapes.medium)
+                            .then(
+                                if (isSelected) Modifier.border(
+                                    width = 2.dp,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    shape = Shapes.medium
+                                ) else Modifier
+                            )
+                            .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+                            .clickable { selectedProduct = product }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(
-                            text = product.name,
-                            style = dataStyle,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = " за ",
-                            style = dataStyle,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = { selectedProduct = product },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = MaterialTheme.colorScheme.tertiary,
+                                )
+                            )
+                            Column {
+                                Text(
+                                    text = product.name,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                )
+                                if (product.desc.isNotEmpty()) {
+                                    Text(
+                                        text = product.desc,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
                         Text(
                             text = "${product.sum.toInt()} ₽",
-                            style = dataStyle,
-                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.titleSmall,
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.End,
-                        text = "Купить",
-                        color = MaterialTheme.colorScheme.tertiary,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-
-
                 }
+
                 Spacer(modifier = Modifier.height(16.dp))
+
+                TextButton(onClick = viewModel::restoreSubscribe) {
+                    Text(
+                        text = "Восстановить покупки",
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            TextButton(onClick = viewModel::restoreSubscribe) {
+            // Кнопка «Оформить» + мелкий текст — прижаты к низу
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Button(
+                    onClick = { selectedProduct?.let { onProductClick(it) } },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) {
+                    Text(
+                        text = "Оформить за ${selectedProduct?.sum?.toInt() ?: ""} ₽/${selectedProduct?.name ?: ""}",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Восстановить покупки",
-                    color = MaterialTheme.colorScheme.tertiary,
-                    style = MaterialTheme.typography.bodySmall
+                    text = "Первые 20 маршрутов — бесплатно. Дальше добавление маршрутов — только по подписке.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Обращаем Ваше внимание, покупка автоматически не продлевается. По окончанию срока ее действия необходимо снова совершить покупку.",
-                color = MaterialTheme.colorScheme.primary,
-                style = hintStyle
-            )
         }
     }
 }
