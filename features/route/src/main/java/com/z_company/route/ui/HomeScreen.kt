@@ -510,80 +510,73 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                ),
-                title = {},
-                actions = {
-                    val textMonth = currentMonthOfYear?.month?.let {
-                        getMonthFullText(it)
-                    } ?: "загрузка"
-                    val yearText = currentMonthOfYear?.year?.toString() ?: ""
-                    val salaryValue = (toBeCredited as? ResultState.Success<Double>)?.data
-                    val salaryText = salaryValue?.toMoneyString() ?: ""
+            val textMonth = currentMonthOfYear?.month?.let {
+                getMonthFullText(it)
+            } ?: "загрузка"
+            val yearText = currentMonthOfYear?.year?.toString() ?: ""
 
-                    // Если "Месяц Год" + сумма не помещаются в одну строку — показываем
-                    // только месяц без года. Контролируется флагом showYear, который
-                    // переключается через onTextLayout при обнаружении overflow.
-                    var showYear by remember(textMonth, yearText, salaryText) {
-                        mutableStateOf(true)
-                    }
-                    val displayMonth = if (showYear && yearText.isNotEmpty()) {
-                        "$textMonth $yearText"
-                    } else {
-                        textMonth
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp, end = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Левая часть: месяц (или месяц + год) — кликабельно открывает выбор месяца.
-                        // weight(1f, fill = false) даёт месту растянуться только до нужной ширины,
-                        // оставляя место для суммы справа.
-                        TextButton(
-                            modifier = Modifier.weight(1f, fill = false),
-                            onClick = { showMonthSheetVisible = true }
-                        ) {
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
+                // Верхняя строка: «М» логотип + «Машинист» + иконки
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    ),
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = displayMonth,
-                                style = MaterialTheme.typography.titleSmall,
+                                text = "М",
+                                style = MaterialTheme.typography.headlineLarge,
                                 color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Clip,
-                                onTextLayout = { result ->
-                                    if (result.hasVisualOverflow && showYear) {
-                                        showYear = false
-                                    }
-                                }
+                            )
+                            Text(
+                                modifier = Modifier.padding(start = 8.dp),
+                                text = "Машинист",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                                ),
+                                color = MaterialTheme.colorScheme.primary,
                             )
                         }
-                        // Правая часть: итоговая сумма зарплаты «К выдаче».
-                        // Кликабельная — открывает экран расчёта зарплаты.
-                        // Стиль и цвет — как у текста "Текущий маршрут" (titleSmall + primary).
-                        if (salaryText.isNotEmpty()) {
-                            Text(
-                                modifier = Modifier
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = ripple(bounded = false)
-                                    ) { onSalaryClick() }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                                text = salaryText,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Visible,
+                    },
+                    actions = {
+                        IconButton(onClick = onSearchClick) {
+                            Icon(
+                                painter = painterResource(R.drawable.search_24px),
+                                contentDescription = "Поиск",
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
+                        IconButton(onClick = { }) {
+                            Icon(
+                                painter = painterResource(R.drawable.person_24px),
+                                contentDescription = "Профиль",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                )
+                // Заголовок месяца — большой, кликабельный
+                TextButton(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    onClick = { showMonthSheetVisible = true }
+                ) {
+                    Text(
+                        text = textMonth,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    if (yearText.isNotEmpty()) {
+                        Text(
+                            modifier = Modifier.padding(start = 6.dp),
+                            text = yearText,
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
-            )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->

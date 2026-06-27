@@ -107,7 +107,7 @@ fun WorkedTimeHeader(
                     text = time,
                     maxLines = 1,
                     softWrap = false,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.displayMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
                 // 1: breakdown (опционально)
@@ -124,8 +124,8 @@ fun WorkedTimeHeader(
                         text = breakdownText!!,
                         maxLines = 1,
                         softWrap = false,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.secondary
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 // 2: chip (опционально)
