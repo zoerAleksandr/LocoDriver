@@ -1763,10 +1763,11 @@ fun <T> ItemAddingScreen(
         ) {
             Text(
                 modifier = Modifier.weight(1f),
-                text = title,
+                text = title.uppercase(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.titleSmall
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             TextButton(
                 onClick = { onNewElementClick(basicId) }) {
