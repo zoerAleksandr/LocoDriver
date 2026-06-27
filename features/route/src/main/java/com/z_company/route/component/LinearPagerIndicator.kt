@@ -30,24 +30,23 @@ fun LinearPagerIndicator(
         1f - offsetForPage(page).coerceIn(-1f, 1f).absoluteValue
     Row(
         modifier = modifier
-            .padding(8.dp)
-            .width(32.dp * state.pageCount),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         for (i in 0 until state.pageCount) {
             val offset = state.indicatorOffsetForPage(i)
+            val isActive = offset > 0.5f
             Box(
                 modifier = Modifier
-                    .padding(horizontal = 2.dp)
-                    .weight(1f + (offset * 3f))
+                    .width(if (isActive) 18.dp else 6.dp)
                     .height(6.dp)
                     .background(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                        color = if (isActive) MaterialTheme.colorScheme.onSurfaceVariant
+                                else MaterialTheme.colorScheme.outline,
                         shape = CircleShape
                     ),
-                contentAlignment = Alignment.Center
-            ) {}
+            )
         }
     }
 }
