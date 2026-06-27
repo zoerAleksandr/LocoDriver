@@ -503,7 +503,7 @@ fun SettingsNormaContent(
                             Text(
                                 text = "Загрузка списка регионов…",
                                 style = styleHint,
-                                color = primaryColor.copy(alpha = 0.6f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             )
                         }
                     } else {
@@ -579,7 +579,7 @@ fun SettingsNormaContent(
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                         text = "Региональные праздники добавятся к стандартному календарю",
                         style = styleHint,
-                        color = primaryColor.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         maxLines = Int.MAX_VALUE,
                         overflow = TextOverflow.Visible
                     )

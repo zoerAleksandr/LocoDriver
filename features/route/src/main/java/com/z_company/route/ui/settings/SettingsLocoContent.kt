@@ -95,7 +95,7 @@ fun SettingsLocoContent(
             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
             text = "Показывать эти поля для ввода показаний",
             style = styleHint,
-            color = primaryColor
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -122,7 +122,7 @@ fun SettingsLocoContent(
             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
             text = "Для переменно-постоянных электровозов",
             style = styleHint,
-            color = primaryColor
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -156,7 +156,7 @@ fun SettingsLocoContent(
             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
             text = "Будет выбран при добавлении локомотива",
             style = styleHint,
-            color = primaryColor
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

@@ -210,7 +210,7 @@ fun SettingsRouteContent(
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                 text = "Эти значения будут установлены по умолчанию при создании нового маршрута.",
                 style = styleHint,
-                color = primaryColor
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -252,7 +252,7 @@ fun SettingsRouteContent(
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                 text = "Показывать поля перерыва в форме маршрута.",
                 style = styleHint,
-                color = primaryColor
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -301,7 +301,7 @@ fun SettingsRouteContent(
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                 text = "Системный — стандартный диалог Android, Кастомный — встроенный пикер с быстрым набором.",
                 style = styleHint,
-                color = primaryColor
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -359,7 +359,7 @@ private fun Passenger12hSettingsSection(
             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
             text = currentOption.hint,
             style = styleHint,
-            color = primaryColor
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 

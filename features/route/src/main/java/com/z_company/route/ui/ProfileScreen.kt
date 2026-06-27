@@ -665,7 +665,7 @@ fun ProfileScreen(
                                         Text(
                                             text = "Если не помните ваш пороль, можете указать новый или использовать VK ID",
                                             style = styleHint,
-                                            color = primaryColor
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
 
                                     }
@@ -805,7 +805,7 @@ fun ProfileScreen(
                                             Text(
                                                 text = "E-mail",
                                                 style = styleHint,
-                                                color = primaryColor
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                             AsyncData(
                                                 resultState = uiState.userDetailsState,
@@ -866,7 +866,7 @@ fun ProfileScreen(
                                             Text(
                                                 text = "VK",
                                                 style = styleHint,
-                                                color = primaryColor
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                             AsyncData(
                                                 resultState = uiState.vkUserState,
@@ -1187,14 +1187,14 @@ fun ProfileScreen(
                                         modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                                         text = "Раздел синхронизации доступен после оплаты подписки.",
                                         style = styleHint,
-                                        color = primaryColor
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 } else {
                                     Text(
                                         modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                                         text = "Выгрузка на сервер маршрутных листов, отвлечений и других настроек выполняется автоматически раз в 36 часов.",
                                         style = styleHint,
-                                        color = primaryColor,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }

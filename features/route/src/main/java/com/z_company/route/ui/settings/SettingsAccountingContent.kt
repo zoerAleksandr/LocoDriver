@@ -135,7 +135,7 @@ fun SettingsAccountingContent(
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                 text = "Установите время ночных часов для расчета ночных.",
                 style = styleHint,
-                color = primaryColor
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -177,7 +177,7 @@ fun SettingsAccountingContent(
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp),
                 text = "Маршруты, время явки которых не наступило, будут учитываться при подсчете отработаного времени.",
                 style = styleHint,
-                color = primaryColor
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

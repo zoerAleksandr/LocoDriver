@@ -440,7 +440,7 @@ private fun SettingsHubContent(
                 Text(
                     text = "Версия приложения",
                     style = styleHint,
-                    color = primaryColor.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
                 Text(
                     text = versionName,
@@ -453,7 +453,7 @@ private fun SettingsHubContent(
                 Text(
                     text = "Поддержка",
                     style = styleHint,
-                    color = primaryColor.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
 
                 Text(

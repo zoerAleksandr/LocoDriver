@@ -285,7 +285,7 @@ fun SettingsShouldersContent(
                         Text(
                             text = "Создать плечо в обратном направлении",
                             style = styleHint,
-                            color = primaryColor,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f).padding(end = 12.dp)
                         )
                         Switch(
