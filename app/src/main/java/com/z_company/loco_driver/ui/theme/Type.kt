@@ -8,62 +8,94 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.z_company.core.R
 
-val SFFont = FontFamily(
-    Font(R.font.rounded_light, FontWeight.Light),
-    Font(R.font.rounded_regular, FontWeight.Normal),
-    Font(R.font.rounded_medium, FontWeight.Medium),
-    Font(R.font.rounded_semibold, FontWeight.SemiBold),
-    Font(R.font.rounded_bold, FontWeight.Bold),
-    Font(R.font.rounded_heavy, FontWeight.ExtraBold),
-    Font(R.font.rounded_black, FontWeight.Black),
+val InterFont = FontFamily(
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold),
+    Font(R.font.inter_extrabold, FontWeight.ExtraBold),
 )
 
+val JetBrainsMonoFont = FontFamily(
+    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+    Font(R.font.jetbrains_mono_medium, FontWeight.Medium),
+    Font(R.font.jetbrains_mono_semibold, FontWeight.SemiBold),
+    Font(R.font.jetbrains_mono_bold, FontWeight.Bold),
+    Font(R.font.jetbrains_mono_extrabold, FontWeight.ExtraBold),
+)
+
+// Legacy alias for existing code
+val SFFont = InterFont
+
 val Typography = Typography(
-    // в figma обозначен title
-    titleMedium = TextStyle(
-        fontFamily = SFFont,
-        fontWeight = FontWeight.Normal,
+    displayLarge = TextStyle(
+        fontFamily = JetBrainsMonoFont,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 48.sp,
+        letterSpacing = (-1.5).sp,
+    ),
+    displayMedium = TextStyle(
+        fontFamily = JetBrainsMonoFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = 32.sp,
+        letterSpacing = (-0.8).sp,
+    ),
+    headlineLarge = TextStyle(
+        fontFamily = InterFont,
+        fontWeight = FontWeight.Bold,
         fontSize = 28.sp,
     ),
-    // в figma обозначен subtitle
-    titleSmall = TextStyle(
-        fontFamily = SFFont,
-        fontWeight = FontWeight.Medium,
-        fontSize = 22.sp,
+    headlineMedium = TextStyle(
+        fontFamily = InterFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = 20.sp,
+        letterSpacing = (-0.3).sp,
     ),
-
-    // в figma обозначен description
-    bodyMedium = TextStyle(
-        fontFamily = SFFont,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-    ),
-
-    // в figma обозначен data
-    bodyLarge = TextStyle(
-        fontFamily = SFFont,
-        fontWeight = FontWeight.Normal,
+    titleLarge = TextStyle(
+        fontFamily = InterFont,
+        fontWeight = FontWeight.Bold,
         fontSize = 20.sp,
     ),
-
-    // в figma обозначен button_text
-    bodySmall = TextStyle(
-        fontFamily = SFFont,
+    titleMedium = TextStyle(
+        fontFamily = InterFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = 17.sp,
+    ),
+    titleSmall = TextStyle(
+        fontFamily = InterFont,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
+        fontSize = 17.sp,
     ),
-
-    // для пояснений
+    bodyLarge = TextStyle(
+        fontFamily = InterFont,
+        fontWeight = FontWeight.Medium,
+        fontSize = 17.sp,
+    ),
+    bodyMedium = TextStyle(
+        fontFamily = InterFont,
+        fontWeight = FontWeight.Medium,
+        fontSize = 15.sp,
+    ),
+    bodySmall = TextStyle(
+        fontFamily = InterFont,
+        fontWeight = FontWeight.Normal,
+        fontSize = 13.sp,
+    ),
     labelLarge = TextStyle(
-        fontFamily = SFFont,
+        fontFamily = InterFont,
         fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
+        fontSize = 14.sp,
     ),
-
-    // в figma обозначен bottom_menu
     labelMedium = TextStyle(
-        fontFamily = SFFont,
+        fontFamily = JetBrainsMonoFont,
         fontWeight = FontWeight.Normal,
-        fontSize = 10.sp,
+        fontSize = 11.sp,
+        letterSpacing = 1.4.sp,
+    ),
+    labelSmall = TextStyle(
+        fontFamily = JetBrainsMonoFont,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 11.sp,
+        letterSpacing = 1.4.sp,
     ),
 )

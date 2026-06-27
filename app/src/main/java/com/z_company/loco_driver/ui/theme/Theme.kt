@@ -1,51 +1,62 @@
 package com.z_company.loco_driver.ui.theme
 
-import android.os.Build
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
-
-private val DarkColorScheme = darkColorScheme(
-    primary = DarkPrimary,
-    onPrimary = DarkOnPrimary,
-    secondaryContainer = DarkSecondaryContainer,
-    secondary = DarkSecondary,
-    tertiary = DarkTertiary,
-    surface = DarkSurface,
-    onSurface = DarkOnSurface,
-    background = DarkBackground,
-    error = DarkError,
-    surfaceBright = SurfaceBrightDark,
-    surfaceDim = SurfaceDimDark,
-    onError = OnError,
-    surfaceContainerLow = DarkSurfaceContainerLow,
-    surfaceContainerHigh = DarkSurfaceContainerHigh,
-    surfaceTint = DarkSurfaceTint
-)
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
-    primary = LightPrimary,
-    onPrimary = LightOnPrimary,
-    secondaryContainer = LightSecondaryContainer,
-    secondary = LightSecondary,
-    tertiary = Blue,
-    error = LightError,
+    primary = LightAccent,
+    onPrimary = LightAccentInk,
+    primaryContainer = LightAccentSoft,
+    secondary = LightCta,
+    onSecondary = LightCtaInk,
+    background = LightBg,
+    onBackground = LightText,
     surface = LightSurface,
-    surfaceVariant = LightSurfaceVariant,
-    surfaceTint = LightSurfaceTint,
-    onSurface = LightOnSurface,
-    background = LightBackground,
-    surfaceBright = SurfaceBrightLight,
-    surfaceDim = SurfaceDimLight,
+    onSurface = LightText,
+    surfaceVariant = LightSurfaceAlt,
+    onSurfaceVariant = LightTextMuted,
+    outline = LightBorderStrong,
+    outlineVariant = LightBorder,
+    error = LightDanger,
     onError = OnError,
-    surfaceContainerLow = LightSurfaceContainerLow,
-    surfaceContainerHigh = LightSurfaceContainerHigh
+    tertiary = LightSuccess,
 )
+
+private val DarkColorScheme = darkColorScheme(
+    primary = DarkAccent,
+    onPrimary = DarkAccentInk,
+    primaryContainer = DarkAccentSoft,
+    secondary = DarkCta,
+    onSecondary = DarkCtaInk,
+    background = DarkBg,
+    onBackground = DarkText,
+    surface = DarkSurface,
+    onSurface = DarkText,
+    surfaceVariant = DarkSurfaceAlt,
+    onSurfaceVariant = DarkTextMuted,
+    outline = DarkBorderStrong,
+    outlineVariant = DarkBorder,
+    error = DarkDanger,
+    onError = OnError,
+    tertiary = DarkSuccess,
+)
+
+object MashinistTheme {
+    val colors: MashinistColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalMashinistColors.current
+}
 
 @Composable
 fun LocoDriverTheme(
@@ -53,28 +64,25 @@ fun LocoDriverTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val mashinistColors = if (darkTheme) DarkMashinistColors else LightMashinistColors
+
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = colorScheme.background.toArgb()
+            window.navigationBarColor = colorScheme.background.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
         }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
     }
-//
-//    val view = LocalView.current
-//    if (!view.isInEditMode) {
-//        SideEffect {
-//            val window = (view.context as Activity).window
-//            window.navigationBarColor = colorScheme.background.toArgb()
-//            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
-//        }
-//    }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(LocalMashinistColors provides mashinistColors) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }
