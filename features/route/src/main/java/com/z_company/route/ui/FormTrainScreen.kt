@@ -1243,6 +1243,14 @@ fun FormTrainScreen(
 
                     stationListState?.let { stationList ->
                         item {
+                            Text(
+                                modifier = Modifier.fillMaxWidth().padding(start = 0.dp, top = 12.dp, bottom = 4.dp),
+                                text = "МАРШРУТ",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        item {
                             val displayList =
                                 if (formUiState.isStationsReversed) stationList.reversed() else stationList
                             val timelineItems = displayList.toTimelineItems()
