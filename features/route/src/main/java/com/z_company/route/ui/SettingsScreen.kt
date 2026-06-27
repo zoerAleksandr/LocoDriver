@@ -347,16 +347,19 @@ private fun SettingsHubContent(
         )
         SettingsNavItem(
             title = "Зарплата",
+            subtitle = "Тарифы и надбавки",
             onClick = showSettingSalary
         )
         Spacer(modifier = Modifier.height(8.dp))
         SettingsNavItem(
-            title = "Норма/Регион",
+            title = "Норма и регион",
+            subtitle = "Часовой пояс, регион и нормы",
             onClick = { onNavigate(SettingsSubScreen.NORMA) }
         )
         Spacer(modifier = Modifier.height(8.dp))
         SettingsNavItem(
             title = "Учёт",
+            subtitle = "Ночные часы и будущие маршруты",
             onClick = { onNavigate(SettingsSubScreen.ACCOUNTING) }
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -374,11 +377,13 @@ private fun SettingsHubContent(
         )
         SettingsNavItem(
             title = "Основные",
+            subtitle = "Переключатели и настройки для маршрутов",
             onClick = { onNavigate(SettingsSubScreen.ROUTE) }
         )
         Spacer(modifier = Modifier.height(8.dp))
         SettingsNavItem(
             title = "Локомотив",
+            subtitle = "Тяга, расчёты, итоги",
             onClick = { onNavigate(SettingsSubScreen.LOCOMOTIVE) }
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -478,31 +483,50 @@ private fun SettingsHubContent(
 @Composable
 private fun SettingsNavItem(
     title: String,
+    subtitle: String? = null,
+    value: String? = null,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(elevation = 2.dp, shape = Shapes.medium)
+            .shadow(elevation = 1.dp, shape = Shapes.medium)
             .background(
                 color = MaterialTheme.colorScheme.secondary,
                 shape = Shapes.medium
             )
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (!value.isNullOrBlank()) {
+            Text(
+                modifier = Modifier.padding(start = 8.dp),
+                text = value,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Icon(
             painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-            modifier = Modifier.size(24.dp)
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
         )
     }
 }
