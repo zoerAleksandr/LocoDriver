@@ -14,12 +14,14 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
-    primary = LightAccent,
-    onPrimary = LightAccentInk,
+    // primary/secondary маппинг сохранён как в старой теме для обратной совместимости
+    // (762 ссылки в коде используют primary=текст, secondary=фон карточек)
+    primary = LightText,               // основной текст (был #383837, стал #0A0E14)
+    onPrimary = LightBgElevated,       // текст на primary (белый)
     primaryContainer = LightAccentSoft,
-    secondary = LightCta,
-    onSecondary = LightCtaInk,
-    background = LightBg,
+    secondary = LightSurface,          // фон карточек (был #F6F5EF, стал #FFFFFF)
+    onSecondary = LightText,
+    background = LightBg,              // фон экрана (#F2F3F5)
     onBackground = LightText,
     surface = LightSurface,
     onSurface = LightText,
@@ -29,15 +31,20 @@ private val LightColorScheme = lightColorScheme(
     outlineVariant = LightBorder,
     error = LightDanger,
     onError = OnError,
-    tertiary = LightSuccess,
+    tertiary = LightAccent,            // акцент (был Blue #3576FF, стал #00A0F5)
+    surfaceBright = LightBgSubtle,
+    surfaceDim = LightAccentSoft,
+    surfaceContainerLow = LightAccent, // используется для иконок action cards
+    surfaceContainerHigh = LightWarning,
+    surfaceTint = LightSuccess,
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = DarkAccent,
-    onPrimary = DarkAccentInk,
+    primary = DarkText,
+    onPrimary = DarkBg,
     primaryContainer = DarkAccentSoft,
-    secondary = DarkCta,
-    onSecondary = DarkCtaInk,
+    secondary = DarkSurface,
+    onSecondary = DarkText,
     background = DarkBg,
     onBackground = DarkText,
     surface = DarkSurface,
@@ -48,7 +55,12 @@ private val DarkColorScheme = darkColorScheme(
     outlineVariant = DarkBorder,
     error = DarkDanger,
     onError = OnError,
-    tertiary = DarkSuccess,
+    tertiary = DarkAccent,
+    surfaceBright = DarkBgSubtle,
+    surfaceDim = DarkAccentSoft,
+    surfaceContainerLow = DarkAccent,
+    surfaceContainerHigh = DarkWarning,
+    surfaceTint = DarkSuccess,
 )
 
 object MashinistTheme {
