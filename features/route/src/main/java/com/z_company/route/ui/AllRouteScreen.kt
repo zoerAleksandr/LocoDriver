@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
@@ -491,17 +492,21 @@ fun AllRouteScreen(
                     }
                 }
 
-                // Middle: current month display & click to open month sheet
+                // Middle: переключатель месяца «‹ Май 2026 ›»
                 val monthText =
                     state.currentMonthOfYear?.month?.let { getMonthFullText(it) } ?: ""
+                val yearText = state.currentMonthOfYear?.year?.toString() ?: ""
 
-                TextButton(onClick = { isMonthSheetVisible = true }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = monthText,
-                        style = AppTypography.getType().headlineSmall,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier
+                            .clickable { isMonthSheetVisible = true }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        text = "$monthText $yearText",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
 
