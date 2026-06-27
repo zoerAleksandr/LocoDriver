@@ -725,11 +725,11 @@ fun HomeScreen(
                                             }
                                         )
                                     },
-                                text = "Текущий маршрут",
-                                maxLines = 2,
-                                overflow = TextOverflow.Visible,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                text = "ТЕКУЩИЙ МАРШРУТ",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             LazyRow(
                                 modifier = Modifier.padding(top = 12.dp),
@@ -769,21 +769,34 @@ fun HomeScreen(
                                                         minWidth = (widthScreen / 3).dp,
                                                         minHeight = maxHeightBox.toDp(),
                                                     )
-                                                    .padding(12.dp),
+                                                    .padding(16.dp),
                                                 verticalArrangement = Arrangement.SpaceBetween
                                             ) {
-                                                AnimatedCounter(
-                                                    count = currentRouteWorkTime,
-                                                    style = MaterialTheme.typography.titleMedium,
-                                                    color = MaterialTheme.colorScheme.secondary
-                                                )
                                                 Text(
-                                                    text = "На работе",
-                                                    color = MaterialTheme.colorScheme.secondary,
+                                                    text = "НА РАБОТЕ",
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     maxLines = 1,
-                                                    style = MaterialTheme.typography.bodySmall,
+                                                    style = MaterialTheme.typography.labelMedium,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
+                                                Column {
+                                                    AnimatedCounter(
+                                                        count = currentRouteWorkTime,
+                                                        style = MaterialTheme.typography.displayMedium,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                    // Accent progress bar
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    LinearProgressIndicator(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .height(3.dp),
+                                                        trackColor = MaterialTheme.colorScheme.surfaceDim,
+                                                        color = MaterialTheme.colorScheme.tertiary,
+                                                        drawStopIndicator = {},
+                                                        progress = { 0.08f },
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -1182,11 +1195,11 @@ fun HomeScreen(
                                             }
                                         )
                                     },
-                                text = "Следующий маршрут",
-                                maxLines = 2,
-                                overflow = TextOverflow.Visible,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                text = "СЛЕДУЮЩИЙ МАРШРУТ",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             LazyRow(
                                 modifier = Modifier.padding(top = 12.dp),
@@ -1308,9 +1321,9 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Маршруты",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                text = "ПОСЛЕДНИЕ МАРШРУТЫ · ${listRouteState.size}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             TextButton(
                                 modifier = Modifier.testTag("home_all_routes_button"),
@@ -1428,9 +1441,9 @@ fun HomeScreen(
                         Text(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp),
-                            style = MaterialTheme.typography.titleSmall,
-                            text = "Инструменты",
-                            color = MaterialTheme.colorScheme.primary
+                            style = MaterialTheme.typography.labelMedium,
+                            text = "ИНСТРУМЕНТЫ",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         LazyRow(
                             modifier = Modifier
