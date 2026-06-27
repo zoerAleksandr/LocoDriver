@@ -382,8 +382,6 @@ fun FormScreen(
                 },
                 actions = {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -822,10 +820,10 @@ fun FormScreen(
 
                 LazyColumn(
                     modifier = Modifier
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp)
                         .testTag("form_lazy_column"),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     state = scrollState,
                 ) {
                     val startTimeInLong = route.basicData.timeStartWork

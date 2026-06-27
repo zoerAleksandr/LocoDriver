@@ -48,15 +48,14 @@ fun BottomNavigationBar(
                 label = {
                     Text(
                         text = item.title,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 },
-                selectedContentColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                unselectedContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                alwaysShowLabel = false,
+                selectedContentColor = MaterialTheme.colorScheme.tertiary,
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                alwaysShowLabel = true,
                 selected = currentRoute == item.route.route,
                 onClick = {
                     // Кнопка «+» — перехватывается для проверки подписки до навигации
