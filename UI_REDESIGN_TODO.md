@@ -94,10 +94,11 @@
 - [x] WorkScheduleScreen: «График»
 - [x] SettingsScreen: headlineLarge на хабе
 
-### Оставшаяся доработка (TODO)
-
-- [ ] **HomeScreen** — карточки маршрутов с иконками-признаками (серия/станции)
-- [ ] **AllRouteScreen** — assist-chips фильтр/сортировка
+### Карточки и чипы (завершено)
+- [x] ItemHomeScreen: compact mode с поездом №+станции и номером маршрута #N
+- [x] AllRouteScreen: assist-chips Фильтр/Дата, переключатель месяца ‹ Май 2026 ›
+- [x] Навигация: stub-экраны подключены в NavGraph
+- [x] SettingsScreen: группы СПРАВОЧНИКИ НОРМ / ПРИЛОЖЕНИЕ / ПОДСВЕТКА
 
 ### Низкий приоритет
 
