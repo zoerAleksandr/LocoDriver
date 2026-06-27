@@ -37,28 +37,21 @@ fun ChipApp(
     selected: Boolean,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
-    shape: androidx.compose.ui.graphics.Shape = Shapes.medium,
-    horizontalPadding: Dp = 12.dp,
+    shape: androidx.compose.ui.graphics.Shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+    horizontalPadding: Dp = 14.dp,
     verticalPadding: Dp = 8.dp,
-    selectedBackgroundColor: Color = MaterialTheme.colorScheme.tertiary,
-    unSelectedBackgroundColor: Color = Color.Transparent,
+    selectedBackgroundColor: Color = MaterialTheme.colorScheme.surfaceDim,
+    unSelectedBackgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
 ) {
     val backgroundColor =
         if (selected) selectedBackgroundColor else unSelectedBackgroundColor
-//    val border = if (selected) BorderStroke(
-//        width = 0.5.dp,
-//        color = MaterialTheme.colorScheme.secondary
-//    ) else BorderStroke(
-//        width = 0.5.dp,
-//        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-//    )
     val textColor =
-        if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+        if (selected) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
     val fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
 
     val interactionSource = remember { MutableInteractionSource() }
 
-    val elevation = if (selected) 2.dp else 0.dp
+    val elevation = 0.dp
 
     Surface(
         shape = shape,
