@@ -961,6 +961,19 @@ fun FormLocoScreen(
                                 }
                             }
                         }
+                    // ПОКАЗАНИЯ — группа (Отопление / Собственные нужды)
+                    if (userSettings?.isShowLocoHeating != false || userSettings?.isShowLocoAuxiliary != false) {
+                        item(key = "readings_header") {
+                            Text(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
+                                text = "ПОКАЗАНИЯ",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     // отопление
                     if (userSettings?.isShowLocoHeating != false) {
                     item {
