@@ -749,7 +749,7 @@ fun HomeScreen(
                                         Card(
                                             modifier = Modifier
                                                 .size(150.dp)
-                                                .align(Alignment.TopStart)
+                                                .align(Alignment.BottomStart)
                                                 .clickable { onRouteClick(route.basicData.id) },
                                             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
                                             shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
@@ -833,7 +833,7 @@ fun HomeScreen(
                                     }
                                     StackedTile(
                                         count = route.trains.size,
-                                        iconRes = R.drawable.ic_doubled_train_24px,
+                                        iconRes = R.drawable.ic_card_train_ref,
                                         label = "ПОЕЗД",
                                         title = train?.let { "№${it.number ?: "---"}" },
                                         subtitle = subtitle,
@@ -854,7 +854,7 @@ fun HomeScreen(
                                     StackedTile(
                                         modifier = Modifier.padding(end = 12.dp),
                                         count = route.passengers.size,
-                                        iconRes = R.drawable.passenger_24px,
+                                        iconRes = R.drawable.ic_card_passenger_ref,
                                         label = "ПАССАЖИРОМ",
                                         title = passenger?.trainNumber?.let { "№$it" },
                                         subtitle = pSubtitle,
@@ -1251,12 +1251,12 @@ private fun StackedTile(
     Box(
         modifier = modifier.size(tileSize + stackOffset),
     ) {
-        // Нижняя (фоновая) карточка — выглядывает справа-снизу на stackOffset
+        // Нижняя (фоновая) карточка — выглядывает справа-СВЕРХУ на stackOffset
         if (hasStack) {
             Card(
                 modifier = Modifier
                     .size(tileSize)
-                    .align(Alignment.BottomEnd),
+                    .align(Alignment.TopEnd),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -1264,11 +1264,11 @@ private fun StackedTile(
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
             ) {}
         }
-        // Основная карточка — всегда 150dp, сверху-слева
+        // Основная карточка — всегда 150dp, снизу-слева
         Card(
             modifier = Modifier
                 .size(tileSize)
-                .align(Alignment.TopStart),
+                .align(Alignment.BottomStart),
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
