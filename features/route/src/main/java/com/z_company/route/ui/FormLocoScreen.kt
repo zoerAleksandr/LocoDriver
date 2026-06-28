@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -515,12 +516,23 @@ fun FormLocoScreen(
                             )
                         }
 
-                        Row(
+                        // Единая карточка по референсу: Серия | Номер
+                        androidx.compose.material3.Card(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp)
-                                .padding(top = 12.dp)
+                                .padding(top = 8.dp)
                                 .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                            colors = androidx.compose.material3.CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            elevation = androidx.compose.material3.CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+                        ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
 
                             ExposedDropdownMenuBox(
@@ -533,6 +545,8 @@ fun FormLocoScreen(
                                         .fillMaxWidth()
                                         .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
                                     value = seriesName,
+                                    colorBackgroundEmptyField = Color.Transparent,
+                                    colorBackgroundNotEmptyField = Color.Transparent,
                                     onValueChange = {
                                         seriesName = it
                                         onSeriesChanged(it.text)
@@ -575,11 +589,22 @@ fun FormLocoScreen(
                                 )
                             }
 
+                            // Вертикальный разделитель между Серия и Номер
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .height(36.dp)
+                                    .align(Alignment.CenterVertically)
+                                    .background(MaterialTheme.colorScheme.outlineVariant)
+                            )
+
                             OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .weight(1f),
                                 value = locomotive.number ?: "",
                                 textStyle = dataTextStyle,
+                                colorBackgroundEmptyField = Color.Transparent,
+                                colorBackgroundNotEmptyField = Color.Transparent,
                                 placeholder = {
                                     Text(
                                         text = "Номер",
@@ -601,6 +626,7 @@ fun FormLocoScreen(
                                 ),
                                 singleLine = true,
                             )
+                        }
                         }
 
                     }
