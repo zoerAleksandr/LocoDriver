@@ -7,7 +7,9 @@ import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.MutatePriority
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.material3.Badge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.indication
@@ -821,24 +823,38 @@ fun HomeScreen(
                                             Column(
                                                 modifier = Modifier
                                                     .fillMaxSize()
-                                                    .padding(16.dp)
-                                                    .pointerInput(Unit) {
-                                                        detectTapGestures(onPress = {
-                                                            if (route.locomotives.isNotEmpty()) {
-                                                                onChangedLocoClick(route.locomotives.last())
-                                                            } else {
-                                                                onNewLocoClick(route.basicData.id)
-                                                            }
-                                                        })
+                                                    .padding(14.dp)
+                                                    .clickable {
+                                                        if (route.locomotives.isNotEmpty()) onChangedLocoClick(route.locomotives.last())
+                                                        else onNewLocoClick(route.basicData.id)
                                                     },
                                                 verticalArrangement = Arrangement.SpaceBetween,
                                             ) {
-                                                Text(
-                                                    text = "ЛОКОМОТИВ",
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 1,
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                )
+                                                // Иконка + badge
+                                                Box(modifier = Modifier.fillMaxWidth()) {
+                                                    Image(
+                                                        painter = painterResource(R.drawable.icon_single_loco),
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(32.dp),
+                                                    )
+                                                    if (route.locomotives.size > 1) {
+                                                        Badge(
+                                                            modifier = Modifier.align(Alignment.TopEnd),
+                                                            containerColor = MaterialTheme.colorScheme.tertiary,
+                                                            contentColor = MaterialTheme.colorScheme.surface,
+                                                        ) {
+                                                            Text("${route.locomotives.size}")
+                                                        }
+                                                    }
+                                                }
+                                                // Контент
+                                                Column {
+                                                    Text(
+                                                        text = "ЛОКОМОТИВ",
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1,
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                    )
                                                 if (route.locomotives.isEmpty()) {
                                                     Text(
                                                         text = "Добавить",
@@ -847,30 +863,33 @@ fun HomeScreen(
                                                     )
                                                 } else {
                                                     val loco = route.locomotives.last()
-                                                    Column {
                                                         val locoName = buildString {
                                                             if (!loco.series.isNullOrBlank()) append(loco.series)
                                                             if (!loco.number.isNullOrBlank()) {
-                                                                if (isNotEmpty()) append(" №")
+                                                                if (isNotEmpty()) append("-")
                                                                 append(loco.number)
                                                             }
-                                                            if (isEmpty()) append("Локомотив")
+                                                            if (isEmpty()) append("Локо")
                                                         }
                                                         Text(
                                                             text = locoName,
                                                             color = MaterialTheme.colorScheme.primary,
-                                                            maxLines = 2,
+                                                            maxLines = 1,
                                                             style = MaterialTheme.typography.titleSmall,
                                                             overflow = TextOverflow.Ellipsis,
                                                         )
-                                                        if (route.locomotives.size > 1) {
-                                                            Text(
-                                                                text = "... и ещё ${route.locomotives.size - 1}",
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                style = MaterialTheme.typography.bodySmall,
-                                                            )
-                                                        }
-                                                    }
+                                                }
+                                                }
+                                                // Кнопка +
+                                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
+                                                    Icon(
+                                                        painter = painterResource(com.z_company.core.R.drawable.ic_add),
+                                                        contentDescription = "Добавить",
+                                                        modifier = Modifier
+                                                            .size(24.dp)
+                                                            .clickable { onNewLocoClick(route.basicData.id) },
+                                                        tint = MaterialTheme.colorScheme.tertiary,
+                                                    )
                                                 }
                                             }
                                         }
