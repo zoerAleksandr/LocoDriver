@@ -684,8 +684,9 @@ fun FormLocoScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "Приёмка",
-                                        style = subTitleTextStyle
+                                        text = "ПРИЁМКА",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -844,8 +845,9 @@ fun FormLocoScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "Сдача",
-                                        style = subTitleTextStyle
+                                        text = "СДАЧА",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(16.dp),
