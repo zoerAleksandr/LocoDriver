@@ -362,48 +362,6 @@ fun ItemHomeScreen(
                                 )
                             }
                         }
-                    } else {
-                        // compact: show only last locomotive/train/passenger (if any)
-                        sortedTrains.firstOrNull()?.let { train ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                val trainNumber = if (!train.number.isNullOrBlank()) {
-                                    "\u2116${train.number} "
-                                } else {
-                                    ""
-                                }
-                                val stationStart = if (train.stations.isNotEmpty()) {
-                                    train.stations.first().stationName ?: ""
-                                } else {
-                                    ""
-                                }
-
-                                val stationEnd =
-                                    if (train.stations.isNotEmpty() && train.stations.size > 1) {
-                                        " - ${train.stations.last().stationName ?: ""}"
-                                    } else {
-                                        ""
-                                    }
-                                if (!"$trainNumber$stationStart$stationEnd".isBlank()) {
-                                    AutoSizeText(
-                                        text = "$trainNumber$stationStart$stationEnd",
-                                        maxTextSize = requiredSizeText,
-                                        minTextSize = 10.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        onTextLayout = { textLayoutResult ->
-                                            val size =
-                                                textLayoutResult.layoutInput.style.fontSize
-                                            changingTextSize(size)
-                                        }
-                                    )
-                                }
-                            }
-                        }
                     }
 
                     Row(
