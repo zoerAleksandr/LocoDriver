@@ -1512,7 +1512,16 @@ private fun StackedTile(
         Column {
             Text(label, style = MaterialTheme.typography.labelMedium, color = c.onSurfaceVariant)
             if (title != null) {
-                Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // AutoSizeText: ужимает длинные имена («Электротяга 1») под ширину плитки
+                com.z_company.core.ui.component.AutoSizeText(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = c.primary,
+                    maxLines = 1,
+                    maxTextSize = 17.sp,
+                    minTextSize = 11.sp,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
