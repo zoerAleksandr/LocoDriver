@@ -7,7 +7,7 @@
     <!-- голова -->
     <path
         android:strokeColor="#0A0E14"
-        android:strokeWidth="1.3"
+        android:strokeWidth="1.0"
         android:fillColor="#00000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
@@ -15,7 +15,7 @@
     <!-- корпус → бедро → голень -->
     <path
         android:strokeColor="#0A0E14"
-        android:strokeWidth="2"
+        android:strokeWidth="1.4"
         android:fillColor="#00000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
@@ -23,7 +23,7 @@
     <!-- спинка кресла + сиденье -->
     <path
         android:strokeColor="#0A0E14"
-        android:strokeWidth="1.3"
+        android:strokeWidth="1.0"
         android:fillColor="#00000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"

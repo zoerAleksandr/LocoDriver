@@ -9,6 +9,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.material3.Badge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -1245,9 +1248,54 @@ private fun StackedTile(
     val tileSize = 150.dp
     val stackOffset = 6.dp
     val hasStack = count > 1
-    // Внешний контейнер всегда tileSize + offset — резерв под выглядывающую
-    // нижнюю карточку. Одинаков для всех плиток, padding НЕ применяется к Box
-    // (иначе обе карточки совпадут и стопки не видно).
+    val isEmpty = title == null
+    val c = MaterialTheme.colorScheme
+    val borderStrongColor = c.outline
+
+    // Общее содержимое плитки (иконка+бейдж / label+данные / кнопка +)
+    val tileContent: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            val iconTint = if (isEmpty) c.onSurfaceVariant.copy(alpha = 0.45f) else c.tertiary
+            if (useImage) {
+                Image(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp))
+            } else {
+                Icon(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp), tint = iconTint)
+            }
+            if (hasStack) {
+                Badge(
+                    modifier = Modifier.align(Alignment.TopEnd),
+                    containerColor = c.tertiary,
+                    contentColor = c.surface,
+                ) { Text("$count") }
+            }
+        }
+        Column {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = c.onSurfaceVariant)
+            if (title != null) {
+                Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
+        }
+        // Кнопка «+» — круг с accentSoft фоном
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(c.primaryContainer)
+                    .clickable { onAddClick() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(com.z_company.core.R.drawable.ic_add),
+                    contentDescription = "Добавить",
+                    modifier = Modifier.size(18.dp),
+                    tint = c.tertiary,
+                )
+            }
+        }
+    }
+
     Box(
         modifier = modifier.size(tileSize + stackOffset),
     ) {
@@ -1258,57 +1306,46 @@ private fun StackedTile(
                     .size(tileSize)
                     .align(Alignment.TopEnd),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
+                colors = CardDefaults.cardColors(containerColor = c.surface),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
             ) {}
         }
-        // Основная карточка — всегда 150dp, снизу-слева
-        Card(
-            modifier = Modifier
-                .size(tileSize)
-                .align(Alignment.BottomStart),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        ) {
-            Column(
+        if (isEmpty) {
+            // Пустая плитка — пунктирная рамка, прозрачный фон
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(14.dp)
-                    .clickable { onClick() },
-                verticalArrangement = Arrangement.SpaceBetween,
+                    .size(tileSize)
+                    .align(Alignment.BottomStart)
+                    .drawBehind {
+                        drawRoundRect(
+                            color = borderStrongColor,
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                width = 1.5.dp.toPx(),
+                                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f))
+                            ),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx()),
+                        )
+                    },
             ) {
-                // Иконка + бейдж в одной строке
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    if (useImage) {
-                        Image(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp))
-                    } else {
-                        Icon(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
-                    }
-                    if (hasStack) {
-                        Badge(
-                            modifier = Modifier.align(Alignment.TopEnd),
-                            containerColor = MaterialTheme.colorScheme.tertiary,
-                            contentColor = MaterialTheme.colorScheme.surface,
-                        ) { Text("$count") }
-                    }
-                }
-                Column {
-                    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (title != null) {
-                        Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                    } else {
-                        Text("Добавить", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
-                    Icon(painter = painterResource(com.z_company.core.R.drawable.ic_add), contentDescription = null,
-                        modifier = Modifier.size(24.dp).clickable { onAddClick() },
-                        tint = MaterialTheme.colorScheme.tertiary)
-                }
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(14.dp).clickable { onClick() },
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    content = tileContent,
+                )
+            }
+        } else {
+            // Заполненная плитка — surface-карточка
+            Card(
+                modifier = Modifier.size(tileSize).align(Alignment.BottomStart),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+                colors = CardDefaults.cardColors(containerColor = c.surface),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(14.dp).clickable { onClick() },
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    content = tileContent,
+                )
             }
         }
     }

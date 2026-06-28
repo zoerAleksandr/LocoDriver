@@ -6,14 +6,14 @@
     <!-- Поезд: два вагона, окна, сцепка, колёсные пары (из референса IcTrains) -->
     <path
         android:strokeColor="#0A0E14"
-        android:strokeWidth="1.3"
+        android:strokeWidth="1.0"
         android:fillColor="#00000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:pathData="M0.6,5.36 H10.2 V14.96 H0.6 M23.4,5.36 H13.8 V14.96 H23.4 M2.88,8.84 H7.2 M16.8,8.84 H21.12 M10.2,11.36 H13.8" />
     <path
         android:strokeColor="#0A0E14"
-        android:strokeWidth="1.3"
+        android:strokeWidth="1.0"
         android:fillColor="#00000000"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
