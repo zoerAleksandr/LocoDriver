@@ -214,8 +214,8 @@ fun ItemHomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalAlignment = Alignment.End,
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.Start,
                     verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
                 ) {
                     Row(
@@ -240,7 +240,9 @@ fun ItemHomeScreen(
                                 maxLines = 1,
                                 fontWeight = FontWeight.Medium,
                                 overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.bodyLarge,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                ),
                                 onTextLayout = { textLayoutResult ->
                                     val size = textLayoutResult.layoutInput.style.fontSize
                                     changingTextSize(size)
@@ -265,7 +267,8 @@ fun ItemHomeScreen(
                         )
                     }
 
-                    // Compact: показываем первый поезд (номер + станции) + номер маршрута
+                    // Compact: одна строка — основной поезд (номер + станции).
+                    // #номер маршрута показывается ниже в футере (без дублирования).
                     if (!isExpand && sortedTrains.isNotEmpty()) {
                         val firstTrain = sortedTrains.first()
                         val trainNumber = if (!firstTrain.number.isNullOrBlank()) "№${firstTrain.number} " else ""
@@ -274,18 +277,12 @@ fun ItemHomeScreen(
                         val trainInfo = "$trainNumber$stationStart$stationEnd"
                         if (trainInfo.isNotBlank()) {
                             Text(
+                                modifier = Modifier.fillMaxWidth(),
                                 text = trainInfo,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        number?.let { num ->
-                            Text(
-                                text = "#$num",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }

@@ -966,104 +966,69 @@ fun HomeScreen(
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            LazyRow(
-                                modifier = Modifier.padding(top = 12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            // Единая карточка по референсу: «ДО ЯВКИ ОСТАЛОСЬ» + счётчик + явка
+                            Card(
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    .fillMaxWidth()
+                                    .clickable { onRouteClick(nextFutureRoute.basicData.id) },
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
                             ) {
-                                item {
-                                    Card(
-                                        modifier = Modifier
-                                            .padding(start = 12.dp)
-                                            .defaultMinSize(
-                                                minWidth = (widthScreen / 3).dp,
-                                                minHeight = (widthScreen / 3).dp,
-                                            )
-                                            .clickable {
-                                                onRouteClick(nextFutureRoute.basicData.id)
-                                            },
-                                        elevation = CardDefaults.elevatedCardElevation(
-                                            defaultElevation = 1.dp,
+                                Column(modifier = Modifier.padding(20.dp)) {
+                                    Text(
+                                        text = "ДО ЯВКИ ОСТАЛОСЬ",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    AnimatedCounter(
+                                        count = countdownText,
+                                        style = MaterialTheme.typography.headlineLarge.copy(
+                                            fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
+                                            letterSpacing = (-1).sp,
                                         ),
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    androidx.compose.material3.HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outlineVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .defaultMinSize(
-                                                    minWidth = (widthScreen / 3).dp,
-                                                    minHeight = (widthScreen / 3).dp,
-                                                )
-                                                .background(brushMain)
+                                                .size(38.dp)
+                                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(11.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                                            contentAlignment = Alignment.Center,
                                         ) {
-                                            Column(
-                                                modifier = Modifier
-                                                    .defaultMinSize(
-                                                        minWidth = (widthScreen / 3).dp,
-                                                        minHeight = (widthScreen / 3).dp,
-                                                    )
-                                                    .padding(12.dp),
-                                                verticalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                AnimatedCounter(
-                                                    count = countdownText,
-                                                    style = MaterialTheme.typography.titleMedium,
-                                                    color = MaterialTheme.colorScheme.secondary
-                                                )
-                                                Text(
-                                                    text = "До явки",
-                                                    color = MaterialTheme.colorScheme.secondary,
-                                                    maxLines = 1,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                                item {
-                                    Card(
-                                        modifier = Modifier
-                                            .defaultMinSize(
-                                                minWidth = (widthScreen / 3).dp,
-                                                minHeight = (widthScreen / 3).dp,
+                                            Icon(
+                                                painter = painterResource(R.drawable.schedule_24px),
+                                                contentDescription = null,
+                                                modifier = Modifier.size(20.dp),
+                                                tint = MaterialTheme.colorScheme.tertiary,
                                             )
-                                            .padding(end = 12.dp),
-                                        elevation = CardDefaults.elevatedCardElevation(
-                                            defaultElevation = 1.dp,
-                                        )
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .defaultMinSize(
-                                                    minWidth = (widthScreen / 3).dp,
-                                                    minHeight = (widthScreen / 3).dp,
-                                                )
-                                                .background(MaterialTheme.colorScheme.secondary)
-                                        ) {
-                                            Column(
-                                                modifier = Modifier
-                                                    .defaultMinSize(
-                                                        minWidth = (widthScreen / 3).dp,
-                                                        minHeight = (widthScreen / 3).dp,
-                                                    )
-                                                    .padding(12.dp),
-                                                verticalArrangement = Arrangement.SpaceBetween,
-                                            ) {
-                                                Text(
-                                                    text = dateAndTimeConverter?.getDateMiniAndTime(
-                                                        nextFutureRoute.basicData.timeStartWork
-                                                    ) ?: "",
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    maxLines = 1,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                                Text(
-                                                    text = "Явка",
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    maxLines = 1,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
+                                        }
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "Явка",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                            Text(
+                                                text = dateAndTimeConverter?.getDateMiniAndTime(
+                                                    nextFutureRoute.basicData.timeStartWork
+                                                ) ?: "",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
                                         }
                                     }
                                 }
