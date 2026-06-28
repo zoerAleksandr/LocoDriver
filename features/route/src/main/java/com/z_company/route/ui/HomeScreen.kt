@@ -679,6 +679,42 @@ fun HomeScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Top
                     ) {
+                        // Hero «ОТРАБОТАНО» + число + чип — фиксирован НАД свайп-карточкой
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                        ) {
+                            Text(
+                                text = "ОТРАБОТАНО",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 4.dp),
+                            )
+                            AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
+                                val chipText: String? = currentMonthOfYear?.let { month ->
+                                    val normaHoursInMonth = normaHours ?: month.getPersonalNormaHours()
+                                    if (normaHoursInMonth > 0) {
+                                        val normaMillis = normaHoursInMonth.toLong() * 3_600_000L
+                                        val diff = totalTime - normaMillis
+                                        val isOvertime = diff >= 0
+                                        val remainingMillis = if (isOvertime) diff else -diff
+                                        val timeStr = viewModel.convertTimeToStringFormat(remainingMillis)
+                                        if (isOvertime) "сверх $timeStr" else "еще $timeStr"
+                                    } else null
+                                }
+                                val breakdown = if (totalTime != time) {
+                                    val diffMs = time.minus(totalTime)
+                                    " (${viewModel.convertTimeToStringFormat(totalTime)} + ${viewModel.convertTimeToStringFormat(diffMs)})"
+                                } else null
+                                com.z_company.route.component.WorkedTimeHeader(
+                                    time = viewModel.convertTimeToStringFormat(time),
+                                    breakdownText = breakdown,
+                                    chipText = chipText,
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
                         HorizontalPager(
                             modifier = Modifier.animateItem(),
                             state = pagerState,
@@ -1694,44 +1730,10 @@ fun MainInfo(
 ) {
     Column(
         modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 2.dp)
+            .padding(horizontal = 16.dp)
             .wrapContentHeight(Alignment.Top)
             .fillMaxWidth(),
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-                Text(
-                    text = "ОТРАБОТАНО",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 4.dp),
-                )
-                AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
-                    // Чип "еще [HH:MM]" / "сверх [HH:MM]"
-                    val chipText: String? = currentMonthOfYear?.let { month ->
-                        val normaHoursInMonth = normaHours ?: month.getPersonalNormaHours()
-                        if (normaHoursInMonth > 0) {
-                            val normaMillis = normaHoursInMonth.toLong() * 3_600_000L
-                            val diff = totalTime - normaMillis
-                            val isOvertime = diff >= 0
-                            val remainingMillis = if (isOvertime) diff else -diff
-                            val timeStr = convertTimeToString(remainingMillis)
-                            if (isOvertime) "сверх $timeStr" else "еще $timeStr"
-                        } else null
-                    }
-                    val breakdown = if (totalTime != time) {
-                        val diffMs = time.minus(totalTime)
-                        " (${convertTimeToString(totalTime)} + ${convertTimeToString(diffMs)})"
-                    } else null
-                    com.z_company.route.component.WorkedTimeHeader(
-                        time = convertTimeToString(time),
-                        breakdownText = breakdown,
-                        chipText = chipText,
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
             // Свайп-карточка с прогресс-барами (внутри Card)
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -1955,18 +1957,9 @@ fun DetailWorkTimeCard(
                     val safeTotal = totalTimeWithHoliday.coerceAtLeast(1)  // никогда не будет 0
                         Column(
                             modifier = Modifier
-                                .padding(16.dp)
+                                .padding(20.dp)
                                 .fillMaxWidth(),
                         ) {
-                            val breakdown = if (totalTime != totalTimeWithHoliday) {
-                                val diffMs = totalTimeWithHoliday.minus(totalTime)
-                                " (${convertTimeToString(totalTime)} + ${convertTimeToString(diffMs)})"
-                            } else null
-                            com.z_company.route.component.WorkedTimeHeader(
-                                time = convertTimeToString(totalTimeWithHoliday),
-                                breakdownText = breakdown,
-                            )
-                            Spacer(modifier = Modifier.height(18.dp))
                             AsyncDataValue(nightTimeState) { nightTime ->
                                 nightTime?.let {
                                     Column(
@@ -2200,59 +2193,9 @@ fun DetailTrainCard(
                     ) {
                         Column(
                             modifier = Modifier
-                                .padding(16.dp)
+                                .padding(20.dp)
                                 .fillMaxWidth(),
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    modifier = Modifier.pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onPress = {
-                                                scope.launch {
-                                                    tooltipText = "Общее отработанное время"
-                                                    state.show(MutatePriority.Default)
-                                                }
-                                            }
-                                        )
-                                    },
-                                    text = convertTimeToString(totalTimeWithHoliday),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                if (totalTime != totalTimeWithHoliday) {
-                                    val differenceTimeInLong =
-                                        totalTimeWithHoliday.minus(totalTime)
-                                    val totalTime =
-                                        convertTimeToString(
-                                            totalTime
-                                        )
-                                    val differenceTime =
-                                        convertTimeToString(
-                                            differenceTimeInLong
-                                        )
-                                    Text(
-                                        modifier = Modifier.pointerInput(Unit) {
-                                            detectTapGestures(
-                                                onPress = {
-                                                    scope.launch {
-                                                        tooltipText =
-                                                            "Рабочие + праздничные часы"
-                                                        state.show(MutatePriority.Default)
-                                                    }
-                                                }
-                                            )
-                                        },
-                                        text = " ($totalTime + $differenceTime)",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(18.dp))
                             AsyncDataValue(extendedServicePhaseTime) { extendedServicePhaseTime ->
                                 extendedServicePhaseTime?.let {
                                     Column(
