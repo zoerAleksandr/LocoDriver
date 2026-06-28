@@ -1219,6 +1219,22 @@ fun FormLocoScreen(
                     }
                     }
 
+                    // Заголовок группы секций
+                    item(key = "sections_header") {
+                        val sectionCount = when (locomotive.type) {
+                            LocoType.DIESEL -> dieselSectionListState?.size ?: 0
+                            LocoType.ELECTRIC -> electricSectionListState?.size ?: 0
+                        }
+                        Text(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
+                            text = if (sectionCount > 0) "СЕКЦИИ · $sectionCount" else "СЕКЦИИ",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
                     when (locomotive.type.name) {
                         LocoType.DIESEL.name -> {
                             dieselSectionListState?.let {
