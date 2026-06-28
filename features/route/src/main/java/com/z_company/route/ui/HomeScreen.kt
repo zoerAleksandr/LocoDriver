@@ -2006,10 +2006,8 @@ fun DetailWorkTimeCard(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.surface.copy(
-                                                alpha = 0.5f
-                                            ),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            trackColor = MaterialTheme.colorScheme.outlineVariant,
+                                            color = MaterialTheme.colorScheme.tertiary,
 //                                            strokeCap = StrokeCap.Round,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
@@ -2058,10 +2056,8 @@ fun DetailWorkTimeCard(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .height(4.dp),
-                                                trackColor = MaterialTheme.colorScheme.surface.copy(
-                                                    alpha = 0.5f
-                                                ),
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                trackColor = MaterialTheme.colorScheme.outlineVariant,
+                                            color = MaterialTheme.colorScheme.tertiary,
                                                 gapSize = 4.dp,
                                                 drawStopIndicator = {},
                                                 progress = { percentPassenger },
@@ -2111,10 +2107,8 @@ fun DetailWorkTimeCard(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .height(4.dp),
-                                                trackColor = MaterialTheme.colorScheme.surface.copy(
-                                                    alpha = 0.5f
-                                                ),
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                trackColor = MaterialTheme.colorScheme.outlineVariant,
+                                            color = MaterialTheme.colorScheme.tertiary,
                                                 gapSize = 4.dp,
                                                 drawStopIndicator = {},
                                                 progress = { percentSingleLocomotive },
@@ -2240,10 +2234,8 @@ fun DetailTrainCard(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.surface.copy(
-                                                alpha = 0.5f
-                                            ),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            trackColor = MaterialTheme.colorScheme.outlineVariant,
+                                            color = MaterialTheme.colorScheme.tertiary,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
                                             progress = { percentExtendedServicePhase },
@@ -2291,10 +2283,8 @@ fun DetailTrainCard(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.surface.copy(
-                                                alpha = 0.5f
-                                            ),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            trackColor = MaterialTheme.colorScheme.outlineVariant,
+                                            color = MaterialTheme.colorScheme.tertiary,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
                                             progress = { percentLong },
@@ -2342,10 +2332,8 @@ fun DetailTrainCard(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.surface.copy(
-                                                alpha = 0.5f
-                                            ),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            trackColor = MaterialTheme.colorScheme.outlineVariant,
+                                            color = MaterialTheme.colorScheme.tertiary,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
                                             progress = { percentHeavy },
@@ -2393,10 +2381,8 @@ fun DetailTrainCard(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.surface.copy(
-                                                alpha = 0.5f
-                                            ),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            trackColor = MaterialTheme.colorScheme.outlineVariant,
+                                            color = MaterialTheme.colorScheme.tertiary,
                                             gapSize = 4.dp,
                                             drawStopIndicator = {},
                                             progress = { percentOnePerson },
