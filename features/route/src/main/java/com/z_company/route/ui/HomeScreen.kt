@@ -292,6 +292,10 @@ fun HomeScreen(
 
     var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
 
+    // Тип шторки со списком единиц текущего маршрута (loco/train/passenger), null — скрыта
+    var unitsSheetType by remember { mutableStateOf<String?>(null) }
+    val unitsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     var routeForPreview by remember {
         mutableStateOf<Route?>(null)
     }
@@ -480,6 +484,79 @@ fun HomeScreen(
 
                 }
 
+            }
+        }
+    }
+
+    // Шторка со списком единиц текущего маршрута (несколько локо/поездов/пассажиров)
+    if (unitsSheetType != null) {
+        currentRoute?.let { route ->
+            ModalBottomSheet(
+                onDismissRequest = { unitsSheetType = null },
+                sheetState = unitsSheetState,
+                containerColor = MaterialTheme.colorScheme.background,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    val titleText = when (unitsSheetType) {
+                        "loco" -> "Локомотивы · ${route.locomotives.size}"
+                        "train" -> "Поезда · ${route.trains.size}"
+                        else -> "Пассажиром · ${route.passengers.size}"
+                    }
+                    val addText = when (unitsSheetType) {
+                        "loco" -> "Добавить локомотив"
+                        "train" -> "Добавить поезд"
+                        else -> "Добавить пассажиром"
+                    }
+                    Text(
+                        text = titleText,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 12.dp),
+                    )
+                    when (unitsSheetType) {
+                        "loco" -> route.locomotives.forEach { loco ->
+                            val name = buildString {
+                                if (!loco.series.isNullOrBlank()) append(loco.series)
+                                if (!loco.number.isNullOrBlank()) { if (isNotEmpty()) append("-"); append(loco.number) }
+                                if (isEmpty()) append("Локомотив")
+                            }
+                            UnitSheetRow(R.drawable.ic_card_locomotive_ref, name) {
+                                unitsSheetType = null; onChangedLocoClick(loco)
+                            }
+                        }
+                        "train" -> route.trains.forEach { train ->
+                            val s1 = train.stations.firstOrNull()?.stationName ?: ""
+                            val s2 = if (train.stations.size > 1) " — ${train.stations.last().stationName ?: ""}" else ""
+                            val name = "№${train.number ?: "---"}$s1$s2".let { if (s1.isBlank()) "№${train.number ?: "---"}" else "№${train.number ?: "---"} $s1$s2" }
+                            UnitSheetRow(R.drawable.ic_card_train_ref, name) {
+                                unitsSheetType = null; onChangedTrainClick(train)
+                            }
+                        }
+                        else -> route.passengers.forEach { p ->
+                            val stations = "${p.stationDeparture ?: ""}${p.stationArrival?.let { " — $it" } ?: ""}"
+                            val name = "№${p.trainNumber ?: "---"}".let { if (stations.isBlank()) it else "$it $stations" }
+                            UnitSheetRow(R.drawable.ic_card_passenger_ref, name) {
+                                unitsSheetType = null; onChangedPassengerClick(p)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    UnitSheetAddButton(addText) {
+                        val type = unitsSheetType
+                        unitsSheetType = null
+                        when (type) {
+                            "loco" -> onNewLocoClick(route.basicData.id)
+                            "train" -> onNewTrainClick(route.basicData.id)
+                            else -> onNewPassengerClick(route.basicData.id)
+                        }
+                    }
+                }
             }
         }
     }
@@ -819,8 +896,11 @@ fun HomeScreen(
                                             }
                                         } else null,
                                         onClick = {
-                                            if (route.locomotives.isNotEmpty()) onChangedLocoClick(route.locomotives.last())
-                                            else onNewLocoClick(route.basicData.id)
+                                            when {
+                                                route.locomotives.size > 1 -> unitsSheetType = "loco"
+                                                route.locomotives.size == 1 -> onChangedLocoClick(route.locomotives.first())
+                                                else -> onNewLocoClick(route.basicData.id)
+                                            }
                                         },
                                         onAddClick = { onNewLocoClick(route.basicData.id) },
                                     )
@@ -840,8 +920,11 @@ fun HomeScreen(
                                         title = train?.let { "№${it.number ?: "---"}" },
                                         subtitle = subtitle,
                                         onClick = {
-                                            if (train != null) onChangedTrainClick(train)
-                                            else onNewTrainClick(route.basicData.id)
+                                            when {
+                                                route.trains.size > 1 -> unitsSheetType = "train"
+                                                route.trains.size == 1 -> onChangedTrainClick(route.trains.first())
+                                                else -> onNewTrainClick(route.basicData.id)
+                                            }
                                         },
                                         onAddClick = { onNewTrainClick(route.basicData.id) },
                                     )
@@ -861,8 +944,11 @@ fun HomeScreen(
                                         title = passenger?.trainNumber?.let { "№$it" },
                                         subtitle = pSubtitle,
                                         onClick = {
-                                            if (passenger != null) onChangedPassengerClick(passenger)
-                                            else onNewPassengerClick(route.basicData.id)
+                                            when {
+                                                route.passengers.size > 1 -> unitsSheetType = "passenger"
+                                                route.passengers.size == 1 -> onChangedPassengerClick(route.passengers.first())
+                                                else -> onNewPassengerClick(route.basicData.id)
+                                            }
                                         },
                                         onAddClick = { onNewPassengerClick(route.basicData.id) },
                                     )
@@ -1228,6 +1314,85 @@ fun HomeScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+/** Строка единицы в шторке «Список»: аватар-иконка + название + шеврон. */
+@Composable
+private fun UnitSheetRow(iconRes: Int, name: String, onClick: () -> Unit) {
+    val c = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+            .clickable { onClick() }
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                .background(c.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = c.tertiary,
+            )
+        }
+        Text(
+            modifier = Modifier.weight(1f),
+            text = name,
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+            color = c.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Icon(
+            painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = c.onSurfaceVariant,
+        )
+    }
+}
+
+/** Кнопка «+ Добавить …» в шторке списка — пунктирная рамка. */
+@Composable
+private fun UnitSheetAddButton(text: String, onClick: () -> Unit) {
+    val c = MaterialTheme.colorScheme
+    val border = c.outline
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+            .drawBehind {
+                drawRoundRect(
+                    color = border,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 1.5.dp.toPx(),
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f))
+                    ),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(14.dp.toPx()),
+                )
+            }
+            .clickable { onClick() }
+            .padding(vertical = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(
+                painter = painterResource(com.z_company.core.R.drawable.ic_add),
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = c.tertiary,
+            )
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = c.tertiary)
         }
     }
 }
