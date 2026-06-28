@@ -741,71 +741,62 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 item {
-                                    Card(
+                                    Box(
                                         modifier = Modifier
-                                            .onSizeChanged { size ->
-                                                if (size.height > maxHeightBox) {
-                                                    maxHeightBox = size.height
-                                                }
-                                            }
                                             .padding(start = 12.dp)
-                                            .defaultMinSize(
-                                                minWidth = (widthScreen / 3).dp,
-                                                minHeight = (widthScreen / 3).dp,
-                                            )
-                                            .clickable {
-                                                onRouteClick(route.basicData.id)
-                                            },
-                                        elevation = CardDefaults.elevatedCardElevation(
-                                            defaultElevation = 1.dp,
-                                        ),
+                                            .size(156.dp)
                                     ) {
-                                        Box(
+                                        Card(
                                             modifier = Modifier
-                                                .size(156.dp)
-                                                .padding(top = 6.dp, start = 6.dp)
+                                                .size(150.dp)
+                                                .align(Alignment.TopStart)
+                                                .clickable { onRouteClick(route.basicData.id) },
+                                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
                                         ) {
-                                            Column(
-                                                modifier = Modifier
-                                                    .size(150.dp)
-                                                    .padding(16.dp),
-                                                verticalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                Text(
-                                                    text = "НА РАБОТЕ",
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 1,
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                                Column {
-                                                    AnimatedCounter(
-                                                        count = currentRouteWorkTime,
-                                                        style = MaterialTheme.typography.headlineLarge.copy(
-                                                            fontFamily = com.z_company.core.ui.theme.MonoFont,
-                                                            fontWeight = FontWeight.ExtraBold,
-                                                            letterSpacing = (-1).sp,
-                                                        ),
-                                                        color = MaterialTheme.colorScheme.primary
+                                            Box(modifier = Modifier.fillMaxSize().background(brushMain)) {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .padding(16.dp),
+                                                    verticalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(
+                                                        text = "НА РАБОТЕ",
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1,
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        overflow = TextOverflow.Ellipsis
                                                     )
-                                                    Spacer(modifier = Modifier.height(6.dp))
-                                                    val workMillis = route.basicData.timeStartWork?.let {
-                                                        System.currentTimeMillis() - it
-                                                    } ?: 0L
-                                                    val workHours = workMillis / 3_600_000f
-                                                    val maxHours = 12f
-                                                    val progress = (workHours / maxHours).coerceIn(0f, 1f)
-                                                    val barColor = if (workHours > maxHours) MaterialTheme.colorScheme.error
-                                                        else MaterialTheme.colorScheme.tertiary
-                                                    LinearProgressIndicator(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .height(3.dp),
-                                                        trackColor = MaterialTheme.colorScheme.outlineVariant,
-                                                        color = barColor,
-                                                        drawStopIndicator = {},
-                                                        progress = { progress },
-                                                    )
+                                                    Column {
+                                                        AnimatedCounter(
+                                                            count = currentRouteWorkTime,
+                                                            style = MaterialTheme.typography.headlineLarge.copy(
+                                                                fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                                                fontWeight = FontWeight.ExtraBold,
+                                                                letterSpacing = (-1).sp,
+                                                            ),
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                        Spacer(modifier = Modifier.height(6.dp))
+                                                        val workMillis = route.basicData.timeStartWork?.let {
+                                                            System.currentTimeMillis() - it
+                                                        } ?: 0L
+                                                        val workHours = workMillis / 3_600_000f
+                                                        val maxHours = 12f
+                                                        val progress = (workHours / maxHours).coerceIn(0f, 1f)
+                                                        val barColor = if (workHours > maxHours) MaterialTheme.colorScheme.error
+                                                            else MaterialTheme.colorScheme.tertiary
+                                                        LinearProgressIndicator(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .height(3.dp),
+                                                            trackColor = MaterialTheme.colorScheme.outlineVariant,
+                                                            color = barColor,
+                                                            drawStopIndicator = {},
+                                                            progress = { progress },
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -877,6 +868,7 @@ fun HomeScreen(
                             }
                         }
                     }
+                }
 
                 if (currentRoute == null && nextFutureRoute != null) {
                     item {
@@ -1236,7 +1228,6 @@ fun HomeScreen(
             }
         }
     }
-    }
 }
 
 @Composable
@@ -1254,20 +1245,19 @@ private fun StackedTile(
     val tileSize = 150.dp
     val stackOffset = 6.dp
     val hasStack = count > 1
-    // Внешний Box всегда одинаковый: tileSize + stackOffset для резерва под стопку.
-    // Даже без стопки padding сохраняется чтобы соседние карточки не сдвигались.
+    // Внешний контейнер всегда tileSize + offset — резерв под выглядывающую
+    // нижнюю карточку. Одинаков для всех плиток, padding НЕ применяется к Box
+    // (иначе обе карточки совпадут и стопки не видно).
     Box(
-        modifier = modifier
-            .size(width = tileSize + stackOffset, height = tileSize + stackOffset)
-            .padding(top = stackOffset, start = stackOffset),
+        modifier = modifier.size(tileSize + stackOffset),
     ) {
-        // Нижняя (фоновая) карточка — сдвинута вправо-вниз
+        // Нижняя (фоновая) карточка — выглядывает справа-снизу на stackOffset
         if (hasStack) {
             Card(
                 modifier = Modifier
                     .size(tileSize)
                     .align(Alignment.BottomEnd),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
@@ -1290,11 +1280,19 @@ private fun StackedTile(
                     .clickable { onClick() },
                 verticalArrangement = Arrangement.SpaceBetween,
             ) {
+                // Иконка + бейдж в одной строке
                 Box(modifier = Modifier.fillMaxWidth()) {
                     if (useImage) {
                         Image(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp))
                     } else {
                         Icon(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
+                    }
+                    if (hasStack) {
+                        Badge(
+                            modifier = Modifier.align(Alignment.TopEnd),
+                            containerColor = MaterialTheme.colorScheme.tertiary,
+                            contentColor = MaterialTheme.colorScheme.surface,
+                        ) { Text("$count") }
                     }
                 }
                 Column {
@@ -1312,16 +1310,6 @@ private fun StackedTile(
                         tint = MaterialTheme.colorScheme.tertiary)
                 }
             }
-        }
-        // Badge поверх всех карточек — сверху-справа основной карточки
-        if (hasStack) {
-            Badge(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(end = stackOffset + 4.dp),
-                containerColor = MaterialTheme.colorScheme.tertiary,
-                contentColor = MaterialTheme.colorScheme.surface,
-            ) { Text("$count") }
         }
     }
 }
