@@ -875,64 +875,32 @@ fun HomeScreen(
                                         }
                                     }
                                 }
-                                item {
-                                    StackedTile(
-                                        count = route.locomotives.size,
-                                        iconRes = R.drawable.ic_card_locomotive_ref,
-                                        label = "ЛОКОМОТИВ",
-                                        title = route.locomotives.lastOrNull()?.let {
-                                            locomotiveName(it, route.locomotives.size)
-                                        },
-                                        onClick = {
-                                            when {
-                                                route.locomotives.size > 1 -> unitsSheetType = "loco"
-                                                route.locomotives.size == 1 -> onChangedLocoClick(route.locomotives.first())
-                                                else -> onNewLocoClick(route.basicData.id)
-                                            }
-                                        },
-                                        onAddClick = { onNewLocoClick(route.basicData.id) },
-                                    )
+                                // Локомотив/Поезд/Пассажир: заполненные плитки левее,
+                                // пустые правее; внутри групп — порядок loco→train→passenger.
+                                val unitOrder = listOf("loco", "train", "passenger").sortedBy { type ->
+                                    val isEmpty = when (type) {
+                                        "loco" -> route.locomotives.isEmpty()
+                                        "train" -> route.trains.isEmpty()
+                                        else -> route.passengers.isEmpty()
+                                    }
+                                    if (isEmpty) 1 else 0
                                 }
-                                // Поезд
-                                item {
-                                    val train = route.trains.lastOrNull()
-                                    val first = train?.stations?.firstOrNull()?.stationName
-                                    val last = if ((train?.stations?.size ?: 0) > 1) train?.stations?.last()?.stationName else null
-                                    StackedTile(
-                                        count = route.trains.size,
-                                        iconRes = R.drawable.ic_card_train_ref,
-                                        label = "ПОЕЗД",
-                                        title = train?.let { routeUnitTitle(it.number, it.servicePhase, first, last) },
-                                        subtitle = train?.let { routeUnitSubtitle(it.number, it.servicePhase, first, last) },
-                                        onClick = {
-                                            when {
-                                                route.trains.size > 1 -> unitsSheetType = "train"
-                                                route.trains.size == 1 -> onChangedTrainClick(route.trains.first())
-                                                else -> onNewTrainClick(route.basicData.id)
-                                            }
-                                        },
-                                        onAddClick = { onNewTrainClick(route.basicData.id) },
-                                    )
-                                }
-                                // Пассажиром
-                                item {
-                                    val passenger = route.passengers.lastOrNull()
-                                    StackedTile(
-                                        modifier = Modifier.padding(end = 12.dp),
-                                        count = route.passengers.size,
-                                        iconRes = R.drawable.ic_card_passenger_ref,
-                                        label = "ПАССАЖИРОМ",
-                                        title = passenger?.let { routeUnitTitle(it.trainNumber, null, it.stationDeparture, it.stationArrival) },
-                                        subtitle = passenger?.let { routeUnitSubtitle(it.trainNumber, null, it.stationDeparture, it.stationArrival) },
-                                        onClick = {
-                                            when {
-                                                route.passengers.size > 1 -> unitsSheetType = "passenger"
-                                                route.passengers.size == 1 -> onChangedPassengerClick(route.passengers.first())
-                                                else -> onNewPassengerClick(route.basicData.id)
-                                            }
-                                        },
-                                        onAddClick = { onNewPassengerClick(route.basicData.id) },
-                                    )
+                                unitOrder.forEachIndexed { idx, type ->
+                                    item(key = type) {
+                                        val endMod = if (idx == unitOrder.lastIndex) Modifier.padding(end = 12.dp) else Modifier
+                                        RouteUnitTile(
+                                            type = type,
+                                            route = route,
+                                            modifier = endMod,
+                                            onOpenSheet = { unitsSheetType = it },
+                                            onChangedLoco = onChangedLocoClick,
+                                            onNewLoco = onNewLocoClick,
+                                            onChangedTrain = onChangedTrainClick,
+                                            onNewTrain = onNewTrainClick,
+                                            onChangedPassenger = onChangedPassengerClick,
+                                            onNewPassenger = onNewPassengerClick,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1295,6 +1263,80 @@ fun HomeScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+/** Плитка единицы текущего маршрута (локомотив/поезд/пассажир) — единый рендер
+ * для всех трёх типов, чтобы рендерить их в произвольном порядке. */
+@Composable
+private fun RouteUnitTile(
+    type: String,
+    route: Route,
+    modifier: Modifier,
+    onOpenSheet: (String) -> Unit,
+    onChangedLoco: (Locomotive) -> Unit,
+    onNewLoco: (String) -> Unit,
+    onChangedTrain: (Train) -> Unit,
+    onNewTrain: (String) -> Unit,
+    onChangedPassenger: (Passenger) -> Unit,
+    onNewPassenger: (String) -> Unit,
+) {
+    when (type) {
+        "loco" -> StackedTile(
+            modifier = modifier,
+            count = route.locomotives.size,
+            iconRes = R.drawable.ic_card_locomotive_ref,
+            label = "ЛОКОМОТИВ",
+            title = route.locomotives.lastOrNull()?.let { locomotiveName(it, route.locomotives.size) },
+            onClick = {
+                when {
+                    route.locomotives.size > 1 -> onOpenSheet("loco")
+                    route.locomotives.size == 1 -> onChangedLoco(route.locomotives.first())
+                    else -> onNewLoco(route.basicData.id)
+                }
+            },
+            onAddClick = { onNewLoco(route.basicData.id) },
+        )
+        "train" -> {
+            val train = route.trains.lastOrNull()
+            val first = train?.stations?.firstOrNull()?.stationName
+            val last = if ((train?.stations?.size ?: 0) > 1) train?.stations?.last()?.stationName else null
+            StackedTile(
+                modifier = modifier,
+                count = route.trains.size,
+                iconRes = R.drawable.ic_card_train_ref,
+                label = "ПОЕЗД",
+                title = train?.let { routeUnitTitle(it.number, it.servicePhase, first, last) },
+                subtitle = train?.let { routeUnitSubtitle(it.number, it.servicePhase, first, last) },
+                onClick = {
+                    when {
+                        route.trains.size > 1 -> onOpenSheet("train")
+                        route.trains.size == 1 -> onChangedTrain(route.trains.first())
+                        else -> onNewTrain(route.basicData.id)
+                    }
+                },
+                onAddClick = { onNewTrain(route.basicData.id) },
+            )
+        }
+        else -> {
+            val p = route.passengers.lastOrNull()
+            StackedTile(
+                modifier = modifier,
+                count = route.passengers.size,
+                iconRes = R.drawable.ic_card_passenger_ref,
+                label = "ПАССАЖИРОМ",
+                title = p?.let { routeUnitTitle(it.trainNumber, null, it.stationDeparture, it.stationArrival) },
+                subtitle = p?.let { routeUnitSubtitle(it.trainNumber, null, it.stationDeparture, it.stationArrival) },
+                onClick = {
+                    when {
+                        route.passengers.size > 1 -> onOpenSheet("passenger")
+                        route.passengers.size == 1 -> onChangedPassenger(route.passengers.first())
+                        else -> onNewPassenger(route.basicData.id)
+                    }
+                },
+                onAddClick = { onNewPassenger(route.basicData.id) },
+            )
         }
     }
 }
