@@ -438,20 +438,27 @@ fun FormLocoScreen(
                         val currentType = locomotive.type
                         Row(
                             modifier = Modifier
-                                .padding(horizontal = 16.dp)
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
                                 .fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            AnimatedContent(targetState = currentType, label = "") {
-                                val text = if (it == LocoType.ELECTRIC) LocoType.ELECTRIC.text
-                                else LocoType.DIESEL.text
-
+                            // Группа-заголовок + название тяги
+                            Column {
                                 Text(
-                                    text = text,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.bodyLarge
+                                    text = "ОСНОВНЫЕ ДАННЫЕ",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
+                                AnimatedContent(targetState = currentType, label = "") {
+                                    val text = if (it == LocoType.ELECTRIC) LocoType.ELECTRIC.text
+                                    else LocoType.DIESEL.text
+                                    Text(
+                                        text = text,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                }
                             }
                             SwitchApp(
                                 modifier = Modifier.wrapContentWidth(),
@@ -498,14 +505,6 @@ fun FormLocoScreen(
                         }
                     }
 
-                    item {
-                        Text(
-                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, bottom = 4.dp),
-                            text = "ОСНОВНЫЕ ДАННЫЕ",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                     item {
                         var seriesName by remember {
                             mutableStateOf(
