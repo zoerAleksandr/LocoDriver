@@ -1,0 +1,28 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Локомотив (из референса IcLocomotive): кабина, окно, труба, котёл,
+         фара, буфер, колёсные пары. Группа повторяет transform из SVG. -->
+    <group
+        android:scaleX="1.24"
+        android:scaleY="1.24"
+        android:translateX="-2.64"
+        android:translateY="-2.64">
+        <path
+            android:strokeColor="#0A0E14"
+            android:strokeWidth="0.85"
+            android:fillColor="#00000000"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M5.2,6.6 H12 M6,6.6 V15 M11.5,6.6 V15 M14.1,9 V6.7 h1.7 V9 M11.5,9 h4.6 c1.4,0 2.2,0.9 2.2,2.3 v1.4 L19.4,15 H5 M3.8,13.9 H5 M7.1,8.4 h2.6 v2.6 h-2.6 z" />
+        <path
+            android:strokeColor="#0A0E14"
+            android:strokeWidth="0.85"
+            android:fillColor="#00000000"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M15.9,11.6 a0.7,0.7 0 1,0 1.4,0 a0.7,0.7 0 1,0 -1.4,0 M6.1,17.4 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0 M9.1,17.4 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0 M12.8,17.4 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0 M15.5,17.4 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0" />
+    </group>
+</vector>

@@ -808,8 +808,7 @@ fun HomeScreen(
                                 item {
                                     StackedTile(
                                         count = route.locomotives.size,
-                                        iconRes = R.drawable.icon_single_loco,
-                                        useImage = true,
+                                        iconRes = R.drawable.ic_card_locomotive_ref,
                                         label = "ЛОКОМОТИВ",
                                         title = if (route.locomotives.isNotEmpty()) {
                                             val l = route.locomotives.last()
