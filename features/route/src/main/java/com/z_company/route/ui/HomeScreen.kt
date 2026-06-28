@@ -105,6 +105,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHoursInDate
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.Locomotive
+import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
@@ -520,28 +521,20 @@ fun HomeScreen(
                         modifier = Modifier.padding(start = 4.dp, bottom = 12.dp),
                     )
                     when (unitsSheetType) {
-                        "loco" -> route.locomotives.forEach { loco ->
-                            val name = buildString {
-                                if (!loco.series.isNullOrBlank()) append(loco.series)
-                                if (!loco.number.isNullOrBlank()) { if (isNotEmpty()) append("-"); append(loco.number) }
-                                if (isEmpty()) append("Локомотив")
-                            }
-                            UnitSheetRow(R.drawable.ic_card_locomotive_ref, name) {
+                        "loco" -> route.locomotives.forEachIndexed { index, loco ->
+                            UnitSheetRow(R.drawable.ic_card_locomotive_ref, locomotiveName(loco, index + 1)) {
                                 unitsSheetType = null; onChangedLocoClick(loco)
                             }
                         }
                         "train" -> route.trains.forEach { train ->
-                            val s1 = train.stations.firstOrNull()?.stationName ?: ""
-                            val s2 = if (train.stations.size > 1) " — ${train.stations.last().stationName ?: ""}" else ""
-                            val name = "№${train.number ?: "---"}$s1$s2".let { if (s1.isBlank()) "№${train.number ?: "---"}" else "№${train.number ?: "---"} $s1$s2" }
-                            UnitSheetRow(R.drawable.ic_card_train_ref, name) {
+                            val first = train.stations.firstOrNull()?.stationName
+                            val last = if (train.stations.size > 1) train.stations.last().stationName else null
+                            UnitSheetRow(R.drawable.ic_card_train_ref, routeUnitFullName(train.number, train.servicePhase, first, last)) {
                                 unitsSheetType = null; onChangedTrainClick(train)
                             }
                         }
                         else -> route.passengers.forEach { p ->
-                            val stations = "${p.stationDeparture ?: ""}${p.stationArrival?.let { " — $it" } ?: ""}"
-                            val name = "№${p.trainNumber ?: "---"}".let { if (stations.isBlank()) it else "$it $stations" }
-                            UnitSheetRow(R.drawable.ic_card_passenger_ref, name) {
+                            UnitSheetRow(R.drawable.ic_card_passenger_ref, routeUnitFullName(p.trainNumber, null, p.stationDeparture, p.stationArrival)) {
                                 unitsSheetType = null; onChangedPassengerClick(p)
                             }
                         }
@@ -887,14 +880,9 @@ fun HomeScreen(
                                         count = route.locomotives.size,
                                         iconRes = R.drawable.ic_card_locomotive_ref,
                                         label = "ЛОКОМОТИВ",
-                                        title = if (route.locomotives.isNotEmpty()) {
-                                            val l = route.locomotives.last()
-                                            buildString {
-                                                if (!l.series.isNullOrBlank()) append(l.series)
-                                                if (!l.number.isNullOrBlank()) { if (isNotEmpty()) append("-"); append(l.number) }
-                                                if (isEmpty()) append("Локо")
-                                            }
-                                        } else null,
+                                        title = route.locomotives.lastOrNull()?.let {
+                                            locomotiveName(it, route.locomotives.size)
+                                        },
                                         onClick = {
                                             when {
                                                 route.locomotives.size > 1 -> unitsSheetType = "loco"
@@ -908,17 +896,14 @@ fun HomeScreen(
                                 // Поезд
                                 item {
                                     val train = route.trains.lastOrNull()
-                                    val subtitle = train?.let {
-                                        val s1 = it.stations.firstOrNull()?.stationName ?: ""
-                                        val s2 = if (it.stations.size > 1) " — ${it.stations.last().stationName ?: ""}" else ""
-                                        "$s1$s2".takeIf { it.isNotBlank() }
-                                    }
+                                    val first = train?.stations?.firstOrNull()?.stationName
+                                    val last = if ((train?.stations?.size ?: 0) > 1) train?.stations?.last()?.stationName else null
                                     StackedTile(
                                         count = route.trains.size,
                                         iconRes = R.drawable.ic_card_train_ref,
                                         label = "ПОЕЗД",
-                                        title = train?.let { "№${it.number ?: "---"}" },
-                                        subtitle = subtitle,
+                                        title = train?.let { routeUnitTitle(it.number, it.servicePhase, first, last) },
+                                        subtitle = train?.let { routeUnitSubtitle(it.number, it.servicePhase, first, last) },
                                         onClick = {
                                             when {
                                                 route.trains.size > 1 -> unitsSheetType = "train"
@@ -932,17 +917,13 @@ fun HomeScreen(
                                 // Пассажиром
                                 item {
                                     val passenger = route.passengers.lastOrNull()
-                                    val pSubtitle = passenger?.let {
-                                        "${it.stationDeparture ?: ""}${it.stationArrival?.let { a -> " — $a" } ?: ""}"
-                                            .takeIf { s -> s.isNotBlank() }
-                                    }
                                     StackedTile(
                                         modifier = Modifier.padding(end = 12.dp),
                                         count = route.passengers.size,
                                         iconRes = R.drawable.ic_card_passenger_ref,
                                         label = "ПАССАЖИРОМ",
-                                        title = passenger?.trainNumber?.let { "№$it" },
-                                        subtitle = pSubtitle,
+                                        title = passenger?.let { routeUnitTitle(it.trainNumber, null, it.stationDeparture, it.stationArrival) },
+                                        subtitle = passenger?.let { routeUnitSubtitle(it.trainNumber, null, it.stationDeparture, it.stationArrival) },
                                         onClick = {
                                             when {
                                                 route.passengers.size > 1 -> unitsSheetType = "passenger"
@@ -1316,6 +1297,59 @@ fun HomeScreen(
             }
         }
     }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Имена единиц маршрута (с фолбэками для пустых полей)
+// ─────────────────────────────────────────────────────────────
+
+/** Локомотив: серия+номер; только серия → «серия б/н»; только номер →
+ * «{тип тяги} {номер}»; пусто → «{тип тяги} {порядковый}». */
+private fun locomotiveName(loco: Locomotive, ordinal: Int): String {
+    val s = loco.series?.takeIf { it.isNotBlank() }
+    val n = loco.number?.takeIf { it.isNotBlank() }
+    return when {
+        s != null && n != null -> "$s-$n"
+        s != null -> "$s б/н"
+        n != null -> "${loco.type.text} $n"
+        else -> "${loco.type.text} $ordinal"
+    }
+}
+
+/** Строка станций: «A — B» / «A — » / « — B» / null. */
+private fun stationsLine(first: String?, last: String?): String? {
+    val f = first?.takeIf { it.isNotBlank() }
+    val l = last?.takeIf { it.isNotBlank() }
+    return when {
+        f != null && l != null -> "$f — $l"
+        f != null -> "$f — "
+        l != null -> " — $l"
+        else -> null
+    }
+}
+
+/** Заголовок поезда/пассажира: номер → «№N»; иначе плечо → станции плеча;
+ * иначе станции маршрута; иначе «б/н». */
+private fun routeUnitTitle(number: String?, shoulder: ServicePhase?, first: String?, last: String?): String {
+    val num = number?.takeIf { it.isNotBlank() }
+    return when {
+        num != null -> "№$num"
+        shoulder != null -> "${shoulder.departureStation} — ${shoulder.arrivalStation}"
+        else -> stationsLine(first, last) ?: "б/н"
+    }
+}
+
+/** Подзаголовок (станции), показывается только когда заголовок — это номер. */
+private fun routeUnitSubtitle(number: String?, shoulder: ServicePhase?, first: String?, last: String?): String? {
+    if (number.isNullOrBlank()) return null
+    return shoulder?.let { "${it.departureStation} — ${it.arrivalStation}" } ?: stationsLine(first, last)
+}
+
+/** Полное имя для строки шторки (заголовок + станции). */
+private fun routeUnitFullName(number: String?, shoulder: ServicePhase?, first: String?, last: String?): String {
+    val title = routeUnitTitle(number, shoulder, first, last)
+    val sub = routeUnitSubtitle(number, shoulder, first, last)
+    return if (sub != null) "$title $sub" else title
 }
 
 /** Строка единицы в шторке «Список»: аватар-иконка + название + шеврон. */
