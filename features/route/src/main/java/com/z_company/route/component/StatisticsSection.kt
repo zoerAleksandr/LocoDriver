@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -81,7 +82,7 @@ fun ElectricStatisticsSection(
             } else {
                 MaterialTheme.colorScheme.primary
             }
-            StatRow(label = "Итог", value = resultText, valueColor = resultColor)
+            ResultBanner(result = rounded, value = resultText)
         }
         StatRow(
             label = "Рекуперация",
@@ -115,7 +116,7 @@ fun ElectricStatisticsSection(
                 } else {
                     MaterialTheme.colorScheme.primary
                 }
-                StatRow(label = "Итог", value = resultText2, valueColor = resultColor2)
+                ResultBanner(result = rounded2, value = resultText2)
             }
             StatRow(
                 label = "Рекуперация",
@@ -175,8 +176,37 @@ fun DieselStatisticsSection(
             } else {
                 MaterialTheme.colorScheme.primary
             }
-            StatRow(label = "Итог", value = resultText, valueColor = resultColor)
+            ResultBanner(result = result, value = resultText)
         }
+    }
+}
+
+/** Баннер итога расхода: ПЕРЕРАСХОД (red-soft) при result<0, ЭКОНОМИЯ (green-soft) иначе. */
+@Composable
+private fun ResultBanner(result: Double, value: String, modifier: Modifier = Modifier) {
+    val isOver = result < 0
+    val green = Color(0xFF00B341)
+    val accentColor = if (isOver) MaterialTheme.colorScheme.error else green
+    val label = if (isOver) "ПЕРЕРАСХОД" else "ЭКОНОМИЯ"
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .background(accentColor.copy(alpha = 0.10f), androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = accentColor,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            color = accentColor,
+        )
     }
 }
 
