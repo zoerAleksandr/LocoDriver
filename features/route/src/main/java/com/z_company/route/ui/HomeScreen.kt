@@ -815,192 +815,71 @@ fun HomeScreen(
                                     }
                                 }
                                 item {
-                                    Card(
-                                        modifier = Modifier.size(150.dp),
-                                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    ) {
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .padding(14.dp)
-                                                    .clickable {
-                                                        if (route.locomotives.isNotEmpty()) onChangedLocoClick(route.locomotives.last())
-                                                        else onNewLocoClick(route.basicData.id)
-                                                    },
-                                                verticalArrangement = Arrangement.SpaceBetween,
-                                            ) {
-                                                // Иконка + badge
-                                                Box(modifier = Modifier.fillMaxWidth()) {
-                                                    Image(
-                                                        painter = painterResource(R.drawable.icon_single_loco),
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(32.dp),
-                                                    )
-                                                    if (route.locomotives.size > 1) {
-                                                        Badge(
-                                                            modifier = Modifier.align(Alignment.TopEnd),
-                                                            containerColor = MaterialTheme.colorScheme.tertiary,
-                                                            contentColor = MaterialTheme.colorScheme.surface,
-                                                        ) {
-                                                            Text("${route.locomotives.size}")
-                                                        }
-                                                    }
-                                                }
-                                                // Контент
-                                                Column {
-                                                    Text(
-                                                        text = "ЛОКОМОТИВ",
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        maxLines = 1,
-                                                        style = MaterialTheme.typography.labelMedium,
-                                                    )
-                                                if (route.locomotives.isEmpty()) {
-                                                    Text(
-                                                        text = "Добавить",
-                                                        color = MaterialTheme.colorScheme.tertiary,
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                    )
-                                                } else {
-                                                    val loco = route.locomotives.last()
-                                                        val locoName = buildString {
-                                                            if (!loco.series.isNullOrBlank()) append(loco.series)
-                                                            if (!loco.number.isNullOrBlank()) {
-                                                                if (isNotEmpty()) append("-")
-                                                                append(loco.number)
-                                                            }
-                                                            if (isEmpty()) append("Локо")
-                                                        }
-                                                        Text(
-                                                            text = locoName,
-                                                            color = MaterialTheme.colorScheme.primary,
-                                                            maxLines = 1,
-                                                            style = MaterialTheme.typography.titleSmall,
-                                                            overflow = TextOverflow.Ellipsis,
-                                                        )
-                                                }
-                                                }
-                                                // Кнопка +
-                                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
-                                                    Icon(
-                                                        painter = painterResource(com.z_company.core.R.drawable.ic_add),
-                                                        contentDescription = "Добавить",
-                                                        modifier = Modifier
-                                                            .size(24.dp)
-                                                            .clickable { onNewLocoClick(route.basicData.id) },
-                                                        tint = MaterialTheme.colorScheme.tertiary,
-                                                    )
-                                                }
+                                    StackedTile(
+                                        count = route.locomotives.size,
+                                        iconRes = R.drawable.icon_single_loco,
+                                        useImage = true,
+                                        label = "ЛОКОМОТИВ",
+                                        title = if (route.locomotives.isNotEmpty()) {
+                                            val l = route.locomotives.last()
+                                            buildString {
+                                                if (!l.series.isNullOrBlank()) append(l.series)
+                                                if (!l.number.isNullOrBlank()) { if (isNotEmpty()) append("-"); append(l.number) }
+                                                if (isEmpty()) append("Локо")
                                             }
-                                        }
-                                    }
+                                        } else null,
+                                        onClick = {
+                                            if (route.locomotives.isNotEmpty()) onChangedLocoClick(route.locomotives.last())
+                                            else onNewLocoClick(route.basicData.id)
+                                        },
+                                        onAddClick = { onNewLocoClick(route.basicData.id) },
+                                    )
+                                }
                                 // Поезд
                                 item {
-                                    Card(
-                                        modifier = Modifier.size(150.dp),
-                                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(14.dp)
-                                                .clickable {
-                                                    if (route.trains.isNotEmpty()) onChangedTrainClick(route.trains.last())
-                                                    else onNewTrainClick(route.basicData.id)
-                                                },
-                                            verticalArrangement = Arrangement.SpaceBetween,
-                                        ) {
-                                            Box(modifier = Modifier.fillMaxWidth()) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.ic_doubled_train_24px),
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(32.dp),
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                )
-                                                if (route.trains.size > 1) {
-                                                    Badge(
-                                                        modifier = Modifier.align(Alignment.TopEnd),
-                                                        containerColor = MaterialTheme.colorScheme.tertiary,
-                                                        contentColor = MaterialTheme.colorScheme.surface,
-                                                    ) { Text("${route.trains.size}") }
-                                                }
-                                            }
-                                            Column {
-                                                Text("ПОЕЗД", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                if (route.trains.isEmpty()) {
-                                                    Text("Добавить", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodyMedium)
-                                                } else {
-                                                    val train = route.trains.last()
-                                                    Text("№${train.number ?: "---"}", style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                    val stations = "${train.stations.firstOrNull()?.stationName ?: ""}${if (train.stations.size > 1) " — ${train.stations.last().stationName ?: ""}" else ""}"
-                                                    if (stations.isNotBlank()) Text(stations, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                }
-                                            }
-                                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
-                                                Icon(painter = painterResource(com.z_company.core.R.drawable.ic_add), contentDescription = null,
-                                                    modifier = Modifier.size(24.dp).clickable { onNewTrainClick(route.basicData.id) },
-                                                    tint = MaterialTheme.colorScheme.tertiary)
-                                            }
-                                        }
+                                    val train = route.trains.lastOrNull()
+                                    val subtitle = train?.let {
+                                        val s1 = it.stations.firstOrNull()?.stationName ?: ""
+                                        val s2 = if (it.stations.size > 1) " — ${it.stations.last().stationName ?: ""}" else ""
+                                        "$s1$s2".takeIf { it.isNotBlank() }
                                     }
+                                    StackedTile(
+                                        count = route.trains.size,
+                                        iconRes = R.drawable.ic_doubled_train_24px,
+                                        label = "ПОЕЗД",
+                                        title = train?.let { "№${it.number ?: "---"}" },
+                                        subtitle = subtitle,
+                                        onClick = {
+                                            if (train != null) onChangedTrainClick(train)
+                                            else onNewTrainClick(route.basicData.id)
+                                        },
+                                        onAddClick = { onNewTrainClick(route.basicData.id) },
+                                    )
                                 }
                                 // Пассажиром
                                 item {
-                                    Card(
-                                        modifier = Modifier.size(150.dp).padding(end = 12.dp),
-                                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    ) {
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .padding(14.dp)
-                                                    .clickable {
-                                                        if (route.passengers.isNotEmpty()) onChangedPassengerClick(route.passengers.last())
-                                                        else onNewPassengerClick(route.basicData.id)
-                                                    },
-                                                verticalArrangement = Arrangement.SpaceBetween,
-                                            ) {
-                                                Box(modifier = Modifier.fillMaxWidth()) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.passenger_24px),
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(32.dp),
-                                                        tint = MaterialTheme.colorScheme.primary,
-                                                    )
-                                                    if (route.passengers.size > 1) {
-                                                        Badge(
-                                                            modifier = Modifier.align(Alignment.TopEnd),
-                                                            containerColor = MaterialTheme.colorScheme.tertiary,
-                                                            contentColor = MaterialTheme.colorScheme.surface,
-                                                        ) { Text("${route.passengers.size}") }
-                                                    }
-                                                }
-                                                Column {
-                                                    Text("ПАССАЖИРОМ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                    if (route.passengers.isEmpty()) {
-                                                        Text("Добавить", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodyMedium)
-                                                    } else {
-                                                        val passenger = route.passengers.last()
-                                                        passenger.trainNumber?.let {
-                                                            Text("№$it", style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                        }
-                                                        val stations = "${passenger.stationDeparture ?: ""}${passenger.stationArrival?.let { " — $it" } ?: ""}"
-                                                        if (stations.isNotBlank()) Text(stations, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                    }
-                                                }
-                                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
-                                                    Icon(painter = painterResource(com.z_company.core.R.drawable.ic_add), contentDescription = null,
-                                                        modifier = Modifier.size(24.dp).clickable { onNewPassengerClick(route.basicData.id) },
-                                                        tint = MaterialTheme.colorScheme.tertiary)
-                                                }
-                                            }
-                                        }
+                                    val passenger = route.passengers.lastOrNull()
+                                    val pSubtitle = passenger?.let {
+                                        "${it.stationDeparture ?: ""}${it.stationArrival?.let { a -> " — $a" } ?: ""}"
+                                            .takeIf { s -> s.isNotBlank() }
                                     }
+                                    StackedTile(
+                                        modifier = Modifier.padding(end = 12.dp),
+                                        count = route.passengers.size,
+                                        iconRes = R.drawable.passenger_24px,
+                                        label = "ПАССАЖИРОМ",
+                                        title = passenger?.trainNumber?.let { "№$it" },
+                                        subtitle = pSubtitle,
+                                        onClick = {
+                                            if (passenger != null) onChangedPassengerClick(passenger)
+                                            else onNewPassengerClick(route.basicData.id)
+                                        },
+                                        onAddClick = { onNewPassengerClick(route.basicData.id) },
+                                    )
                                 }
                             }
                         }
+                    }
 
                 if (currentRoute == null && nextFutureRoute != null) {
                     item {
@@ -1360,6 +1239,77 @@ fun HomeScreen(
             }
         }
     }
+    }
+}
+
+@Composable
+private fun StackedTile(
+    modifier: Modifier = Modifier,
+    count: Int,
+    iconRes: Int,
+    useImage: Boolean = false,
+    label: String,
+    title: String?,
+    subtitle: String? = null,
+    onClick: () -> Unit,
+    onAddClick: () -> Unit,
+) {
+    val tileSize = 150.dp
+    val hasStack = count > 1
+    Box(modifier = modifier.size(tileSize).let { if (hasStack) it.padding(top = 6.dp, end = 6.dp) else it }) {
+        if (hasStack) {
+            Card(
+                modifier = Modifier
+                    .size(tileSize - 6.dp)
+                    .align(Alignment.TopEnd),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {}
+        }
+        Card(
+            modifier = Modifier
+                .size(if (hasStack) tileSize - 6.dp else tileSize)
+                .align(if (hasStack) Alignment.BottomStart else Alignment.Center),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(14.dp)
+                    .clickable { onClick() },
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    if (useImage) {
+                        Image(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp))
+                    } else {
+                        Icon(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
+                    }
+                    if (hasStack) {
+                        Badge(
+                            modifier = Modifier.align(Alignment.TopEnd),
+                            containerColor = MaterialTheme.colorScheme.tertiary,
+                            contentColor = MaterialTheme.colorScheme.surface,
+                        ) { Text("$count") }
+                    }
+                }
+                Column {
+                    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (title != null) {
+                        Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    } else {
+                        Text("Добавить", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
+                    Icon(painter = painterResource(com.z_company.core.R.drawable.ic_add), contentDescription = null,
+                        modifier = Modifier.size(24.dp).clickable { onAddClick() },
+                        tint = MaterialTheme.colorScheme.tertiary)
+                }
+            }
+        }
     }
 }
 
