@@ -904,67 +904,47 @@ fun HomeScreen(
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .padding(16.dp),
+                                                .padding(14.dp)
+                                                .clickable {
+                                                    if (route.trains.isNotEmpty()) onChangedTrainClick(route.trains.last())
+                                                    else onNewTrainClick(route.basicData.id)
+                                                },
                                             verticalArrangement = Arrangement.SpaceBetween,
                                         ) {
-                                            Text(
-                                                text = "ПОЕЗД",
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                                style = MaterialTheme.typography.labelMedium,
-                                            )
-                                            if (route.trains.isEmpty()) {
-                                                Text(
-                                                    text = "Добавить",
-                                                    color = MaterialTheme.colorScheme.tertiary,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    modifier = Modifier.clickable { onNewTrainClick(route.basicData.id) },
+                                            Box(modifier = Modifier.fillMaxWidth()) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.ic_doubled_train_24px),
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(32.dp),
+                                                    tint = MaterialTheme.colorScheme.primary,
                                                 )
-                                            } else {
-                                                val train = route.trains.last()
-                                                Column(
-                                                    modifier = Modifier.clickable { onChangedTrainClick(train) },
-                                                ) {
-                                                    Text(
-                                                        text = "№${train.number ?: "---"}",
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                        maxLines = 1,
-                                                        style = MaterialTheme.typography.titleSmall,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                    )
-                                                    val firstStation = train.stations.firstOrNull()?.stationName ?: ""
-                                                    val lastStation = if (train.stations.size > 1) " — ${train.stations.last().stationName ?: ""}" else ""
-                                                    if ("$firstStation$lastStation".isNotBlank()) {
-                                                        Text(
-                                                            text = "$firstStation$lastStation",
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            maxLines = 2,
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                            overflow = TextOverflow.Ellipsis,
-                                                        )
-                                                    }
+                                                if (route.trains.size > 1) {
+                                                    Badge(
+                                                        modifier = Modifier.align(Alignment.TopEnd),
+                                                        containerColor = MaterialTheme.colorScheme.tertiary,
+                                                        contentColor = MaterialTheme.colorScheme.surface,
+                                                    ) { Text("${route.trains.size}") }
                                                 }
                                             }
-                                            if (route.trains.isNotEmpty()) {
-                                                val nextIsDeparture = isNextDeparture()
-                                                OutlinedButton(
-                                                    onClick = { onGoClicked() },
-                                                    modifier = Modifier.align(Alignment.End),
-                                                    border = BorderStroke(
-                                                        width = 1.dp,
-                                                        color = if (nextIsDeparture) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline
-                                                    ),
-                                                ) {
-                                                    Icon(
-                                                        painter = painterResource(if (nextIsDeparture) R.drawable.play_arrow_24px else R.drawable.pause_24px),
-                                                        contentDescription = null,
-                                                        tint = if (nextIsDeparture) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline
-                                                    )
+                                            Column {
+                                                Text("ПОЕЗД", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                if (route.trains.isEmpty()) {
+                                                    Text("Добавить", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodyMedium)
+                                                } else {
+                                                    val train = route.trains.last()
+                                                    Text("№${train.number ?: "---"}", style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    val stations = "${train.stations.firstOrNull()?.stationName ?: ""}${if (train.stations.size > 1) " — ${train.stations.last().stationName ?: ""}" else ""}"
+                                                    if (stations.isNotBlank()) Text(stations, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                 }
-                                                }
+                                            }
+                                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
+                                                Icon(painter = painterResource(com.z_company.core.R.drawable.ic_add), contentDescription = null,
+                                                    modifier = Modifier.size(24.dp).clickable { onNewTrainClick(route.basicData.id) },
+                                                    tint = MaterialTheme.colorScheme.tertiary)
                                             }
                                         }
                                     }
+                                }
                                 // Пассажиром
                                 item {
                                     Card(
@@ -975,51 +955,45 @@ fun HomeScreen(
                                             Column(
                                                 modifier = Modifier
                                                     .fillMaxSize()
-                                                    .padding(16.dp)
+                                                    .padding(14.dp)
                                                     .clickable {
-                                                        if (route.passengers.isNotEmpty()) {
-                                                            onChangedPassengerClick(route.passengers.last())
-                                                        } else {
-                                                            onNewPassengerClick(route.basicData.id)
-                                                        }
+                                                        if (route.passengers.isNotEmpty()) onChangedPassengerClick(route.passengers.last())
+                                                        else onNewPassengerClick(route.basicData.id)
                                                     },
                                                 verticalArrangement = Arrangement.SpaceBetween,
                                             ) {
-                                                Text(
-                                                    text = "ПАССАЖИРОМ",
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 1,
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                )
-                                                if (route.passengers.isEmpty()) {
-                                                    Text(
-                                                        text = "Добавить",
-                                                        color = MaterialTheme.colorScheme.tertiary,
-                                                        style = MaterialTheme.typography.bodyMedium,
+                                                Box(modifier = Modifier.fillMaxWidth()) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.passenger_24px),
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(32.dp),
+                                                        tint = MaterialTheme.colorScheme.primary,
                                                     )
-                                                } else {
-                                                    val passenger = route.passengers.last()
-                                                    Column {
-                                                        passenger.trainNumber?.let {
-                                                            Text(
-                                                                text = "№$it",
-                                                                color = MaterialTheme.colorScheme.primary,
-                                                                maxLines = 1,
-                                                                style = MaterialTheme.typography.titleSmall,
-                                                                overflow = TextOverflow.Ellipsis,
-                                                            )
-                                                        }
-                                                        val route = "${passenger.stationDeparture ?: ""}${passenger.stationArrival?.let { " — $it" } ?: ""}"
-                                                        if (route.isNotBlank()) {
-                                                            Text(
-                                                                text = route,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                maxLines = 2,
-                                                                style = MaterialTheme.typography.bodySmall,
-                                                                overflow = TextOverflow.Ellipsis,
-                                                            )
-                                                        }
+                                                    if (route.passengers.size > 1) {
+                                                        Badge(
+                                                            modifier = Modifier.align(Alignment.TopEnd),
+                                                            containerColor = MaterialTheme.colorScheme.tertiary,
+                                                            contentColor = MaterialTheme.colorScheme.surface,
+                                                        ) { Text("${route.passengers.size}") }
                                                     }
+                                                }
+                                                Column {
+                                                    Text("ПАССАЖИРОМ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    if (route.passengers.isEmpty()) {
+                                                        Text("Добавить", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodyMedium)
+                                                    } else {
+                                                        val passenger = route.passengers.last()
+                                                        passenger.trainNumber?.let {
+                                                            Text("№$it", style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                        }
+                                                        val stations = "${passenger.stationDeparture ?: ""}${passenger.stationArrival?.let { " — $it" } ?: ""}"
+                                                        if (stations.isNotBlank()) Text(stations, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    }
+                                                }
+                                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
+                                                    Icon(painter = painterResource(com.z_company.core.R.drawable.ic_add), contentDescription = null,
+                                                        modifier = Modifier.size(24.dp).clickable { onNewPassengerClick(route.basicData.id) },
+                                                        tint = MaterialTheme.colorScheme.tertiary)
                                                 }
                                             }
                                         }
