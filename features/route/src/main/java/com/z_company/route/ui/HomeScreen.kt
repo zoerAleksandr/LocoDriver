@@ -762,11 +762,8 @@ fun HomeScreen(
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .defaultMinSize(
-                                                    minWidth = (widthScreen / 3).dp,
-                                                    minHeight = (widthScreen / 3).dp,
-                                                )
-                                                .background(brushMain)
+                                                .size(156.dp)
+                                                .padding(top = 6.dp, start = 6.dp)
                                         ) {
                                             Column(
                                                 modifier = Modifier
@@ -1255,23 +1252,36 @@ private fun StackedTile(
     onAddClick: () -> Unit,
 ) {
     val tileSize = 150.dp
+    val stackOffset = 6.dp
     val hasStack = count > 1
-    Box(modifier = modifier.size(tileSize).let { if (hasStack) it.padding(top = 6.dp, end = 6.dp) else it }) {
+    // Внешний Box всегда одинаковый: tileSize + stackOffset для резерва под стопку.
+    // Даже без стопки padding сохраняется чтобы соседние карточки не сдвигались.
+    Box(
+        modifier = modifier
+            .size(width = tileSize + stackOffset, height = tileSize + stackOffset)
+            .padding(top = stackOffset, start = stackOffset),
+    ) {
+        // Нижняя (фоновая) карточка — сдвинута вправо-вниз
         if (hasStack) {
             Card(
                 modifier = Modifier
-                    .size(tileSize - 6.dp)
-                    .align(Alignment.TopEnd),
+                    .size(tileSize)
+                    .align(Alignment.BottomEnd),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
             ) {}
         }
+        // Основная карточка — всегда 150dp, сверху-слева
         Card(
             modifier = Modifier
-                .size(if (hasStack) tileSize - 6.dp else tileSize)
-                .align(if (hasStack) Alignment.BottomStart else Alignment.Center),
+                .size(tileSize)
+                .align(Alignment.TopStart),
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         ) {
             Column(
                 modifier = Modifier
@@ -1285,13 +1295,6 @@ private fun StackedTile(
                         Image(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp))
                     } else {
                         Icon(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
-                    }
-                    if (hasStack) {
-                        Badge(
-                            modifier = Modifier.align(Alignment.TopEnd),
-                            containerColor = MaterialTheme.colorScheme.tertiary,
-                            contentColor = MaterialTheme.colorScheme.surface,
-                        ) { Text("$count") }
                     }
                 }
                 Column {
@@ -1309,6 +1312,16 @@ private fun StackedTile(
                         tint = MaterialTheme.colorScheme.tertiary)
                 }
             }
+        }
+        // Badge поверх всех карточек — сверху-справа основной карточки
+        if (hasStack) {
+            Badge(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = stackOffset + 4.dp),
+                containerColor = MaterialTheme.colorScheme.tertiary,
+                contentColor = MaterialTheme.colorScheme.surface,
+            ) { Text("$count") }
         }
     }
 }
