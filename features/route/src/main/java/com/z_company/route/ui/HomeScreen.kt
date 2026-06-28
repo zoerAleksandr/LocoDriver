@@ -1026,7 +1026,9 @@ fun HomeScreen(
                                                 text = dateAndTimeConverter?.getDateMiniAndTime(
                                                     nextFutureRoute.basicData.timeStartWork
                                                 ) ?: "",
-                                                style = MaterialTheme.typography.titleSmall,
+                                                style = MaterialTheme.typography.titleSmall.copy(
+                                                    fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                                ),
                                                 color = MaterialTheme.colorScheme.primary,
                                             )
                                         }
