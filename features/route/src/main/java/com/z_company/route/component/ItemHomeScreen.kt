@@ -281,7 +281,11 @@ fun ItemHomeScreen(
                                     Text(
                                         modifier = Modifier.fillMaxWidth(),
                                         text = info,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        // Референс ATripRow: Inter (sans) 14sp, обычный вес, цвет text
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Normal,
+                                        ),
                                         color = MaterialTheme.colorScheme.primary,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
