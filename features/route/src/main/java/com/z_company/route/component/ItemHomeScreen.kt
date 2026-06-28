@@ -281,10 +281,10 @@ fun ItemHomeScreen(
                                     Text(
                                         modifier = Modifier.fillMaxWidth(),
                                         text = info,
-                                        // Референс ATripRow: Inter (sans) 14sp, обычный вес, цвет text
+                                        // Тот же шрифт что и время работы — JetBrains Mono
                                         style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontFamily = com.z_company.core.ui.theme.MonoFont,
                                             fontSize = 14.sp,
-                                            fontWeight = FontWeight.Normal,
                                         ),
                                         color = MaterialTheme.colorScheme.primary,
                                         maxLines = 1,
