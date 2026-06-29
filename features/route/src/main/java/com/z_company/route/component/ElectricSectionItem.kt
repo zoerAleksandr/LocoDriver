@@ -202,19 +202,20 @@ fun ElectricSectionItem(
                 }
 
             }
-            // счетчики расхода ток 1
+            // РАСХОД — лейбл + Принял → Сдал
+            Text(
+                text = "РАСХОД",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.electric_bolt_24px),
-                    contentDescription = null
-                )
-
                 OutlinedTextFieldApp(
                     modifier = Modifier
                         .weight(1f),
@@ -243,6 +244,12 @@ fun ElectricSectionItem(
                     }),
                     singleLine = true,
                     shape = Shapes.medium,
+                )
+
+                Text(
+                    text = "→",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
                 )
 
                 OutlinedTextFieldApp(
@@ -354,19 +361,21 @@ fun ElectricSectionItem(
             ) { targetState ->
                 if (targetState) {
                     Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "РЕКУПЕРАЦИЯ",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
+                        )
                         Row(
                             modifier = Modifier
                                 .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.cycle_24px),
-                                contentDescription = null
-                            )
                             OutlinedTextFieldApp(
                                 modifier = Modifier
-                                    .weight(0.5f),
+                                    .weight(1f),
                                 value = recoveryAcceptedText,
                                 onValueChange = {
                                     onRecoveryAcceptedChanged(index, it.take(10))
@@ -399,9 +408,15 @@ fun ElectricSectionItem(
                                 singleLine = true,
                             )
 
+                            Text(
+                                text = "→",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+
                             OutlinedTextFieldApp(
                                 modifier = Modifier
-                                    .weight(0.5f),
+                                    .weight(1f),
                                 value = recoveryDeliveryText,
                                 onValueChange = {
                                     onRecoveryDeliveryChanged(index, it.take(10))
