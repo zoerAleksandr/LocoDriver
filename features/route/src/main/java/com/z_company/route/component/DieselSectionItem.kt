@@ -400,7 +400,7 @@ fun DieselSectionItem(
     SwipeToDismissBox(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(6.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         state = dismissState,
         enableDismissFromStartToEnd = false,
         backgroundContent = {
@@ -427,17 +427,18 @@ fun DieselSectionItem(
         }
     ) {
         Card(
-            shape = RoundedCornerShape(0.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)
+            shape = Shapes.medium,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text = "${index + 1} секция",
+                    text = "Секция ${index + 1}",
                     style = hintStyle,
                     color = MaterialTheme.colorScheme.primary
                 )

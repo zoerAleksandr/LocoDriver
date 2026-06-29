@@ -143,7 +143,9 @@ fun ElectricSectionItem(
             }
     }
     SwipeToDismissBox(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         state = dismissState,
         enableDismissFromStartToEnd = false,
         backgroundContent = {
@@ -170,19 +172,20 @@ fun ElectricSectionItem(
         }
     ) {
         Card(
-            shape = RoundedCornerShape(0.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
+            shape = Shapes.medium,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${index + 1} секция",
-                    style = MaterialTheme.typography.bodyMedium
+                    text = "Секция ${index + 1}",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600)
                 )
 
                 AnimatedContent(targetState = item.expandItemState, label = "") {

@@ -985,28 +985,21 @@ fun FormLocoScreen(
                                     items = dieselSectionListState,
                                     key = { _, item -> item.sectionId }
                                 ) { index, item ->
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        CustomDivider(orientation = Orientation.Horizontal)
-
-                                        DieselSectionItem(
-                                            item = item,
-                                            index = index,
-                                            onFuelAcceptedChanged = onFuelAcceptedChanged,
-                                            onFuelDeliveredChanged = onFuelDeliveredChanged,
-                                            onDeleteItem = onDeleteSectionDiesel,
-                                            focusChangedDieselSection = focusChangedDieselSection,
-                                            onRefuelValueChanged = onRefuelValueChanged,
-                                            onRefuelInKiloValueChanged = onRefuelInKiloValueChanged,
-                                            onRefuelCoefficientValueChanged = onRefuelCoefficientValueChanged,
-                                            onCoefficientValueChanged = onCoefficientValueChanged,
-                                            sheetState = sheetState,
-                                            isKiloMode = formUiState.isKiloMode,
-                                            changeIsKiloMode = viewModel::toggleIsKiloMode
-                                        )
-                                        if (index == dieselSectionListState.lastIndex) {
-                                            CustomDivider(orientation = Orientation.Horizontal)
-                                        }
-                                    }
+                                    DieselSectionItem(
+                                        item = item,
+                                        index = index,
+                                        onFuelAcceptedChanged = onFuelAcceptedChanged,
+                                        onFuelDeliveredChanged = onFuelDeliveredChanged,
+                                        onDeleteItem = onDeleteSectionDiesel,
+                                        focusChangedDieselSection = focusChangedDieselSection,
+                                        onRefuelValueChanged = onRefuelValueChanged,
+                                        onRefuelInKiloValueChanged = onRefuelInKiloValueChanged,
+                                        onRefuelCoefficientValueChanged = onRefuelCoefficientValueChanged,
+                                        onCoefficientValueChanged = onCoefficientValueChanged,
+                                        sheetState = sheetState,
+                                        isKiloMode = formUiState.isKiloMode,
+                                        changeIsKiloMode = viewModel::toggleIsKiloMode
+                                    )
                                 }
                                 if (dieselSectionListState.size > 1) {
                                     item(key = "diesel_total") {
@@ -1071,30 +1064,22 @@ fun FormLocoScreen(
                                     items = electricSectionListState,
                                     key = { _, item -> item.sectionId }
                                 ) { index, item ->
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        CustomDivider(orientation = Orientation.Horizontal)
-
-                                        ElectricSectionItem(
-                                            index = index,
-                                            item = item,
-                                            onDeleteItem = onDeleteSectionElectric,
-                                            onEnergyAcceptedChanged = viewModel::setEnergyAccepted,
-                                            onEnergyDeliveryChanged = viewModel::setEnergyDelivery,
-                                            onRecoveryAcceptedChanged = viewModel::setRecoveryAccepted,
-                                            onRecoveryDeliveryChanged = viewModel::setRecoveryDelivery,
-                                            onEnergyAcceptedChanged2 = viewModel::setEnergyAccepted2,
-                                            onEnergyDeliveryChanged2 = viewModel::setEnergyDelivery2,
-                                            onRecoveryAcceptedChanged2 = viewModel::setRecoveryAccepted2,
-                                            onRecoveryDeliveryChanged2 = viewModel::setRecoveryDelivery2,
-                                            focusChangedElectricSection = focusChangedElectricSection,
-                                            onExpandStateChanged = onExpandStateElectricSection,
-                                            showOtherCurrent = formUiState.isShowOtherCurrent
-                                        )
-
-                                        if (index == electricSectionListState.lastIndex) {
-                                            CustomDivider(orientation = Orientation.Horizontal)
-                                        }
-                                    }
+                                    ElectricSectionItem(
+                                        index = index,
+                                        item = item,
+                                        onDeleteItem = onDeleteSectionElectric,
+                                        onEnergyAcceptedChanged = viewModel::setEnergyAccepted,
+                                        onEnergyDeliveryChanged = viewModel::setEnergyDelivery,
+                                        onRecoveryAcceptedChanged = viewModel::setRecoveryAccepted,
+                                        onRecoveryDeliveryChanged = viewModel::setRecoveryDelivery,
+                                        onEnergyAcceptedChanged2 = viewModel::setEnergyAccepted2,
+                                        onEnergyDeliveryChanged2 = viewModel::setEnergyDelivery2,
+                                        onRecoveryAcceptedChanged2 = viewModel::setRecoveryAccepted2,
+                                        onRecoveryDeliveryChanged2 = viewModel::setRecoveryDelivery2,
+                                        focusChangedElectricSection = focusChangedElectricSection,
+                                        onExpandStateChanged = onExpandStateElectricSection,
+                                        showOtherCurrent = formUiState.isShowOtherCurrent
+                                    )
                                 }
                                 if (electricSectionListState.size > 1) {
                                     item(key = "electric_total") {
