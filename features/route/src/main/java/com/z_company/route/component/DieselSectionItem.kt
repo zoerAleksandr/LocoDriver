@@ -19,7 +19,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.LocalTextStyle
@@ -114,6 +119,10 @@ fun DieselSectionItem(
     )
 
     var showCoefficient by remember {
+        mutableStateOf(false)
+    }
+
+    var showSupplyCoefficient by remember {
         mutableStateOf(false)
     }
 
@@ -284,107 +293,28 @@ fun DieselSectionItem(
 
 
     if (showCoefficient) {
-        ModalBottomSheet(
-            onDismissRequest = { showCoefficient = false },
+        CoeffSheet(
+            title = "Коэффициент секции",
+            hint = "Применяется ко всем расчётам секции",
+            value = item.coefficient.data,
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.secondary,
-            dragHandle = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .width(40.dp)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                    )
-                }
+            onValueChange = { onCoefficientValueChanged(index, it) },
+            onDismiss = {
+                focusChangedDieselSection(index, DieselSectionType.COEFFICIENT)
+                showCoefficient = false
             }
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
+        )
+    }
 
-                item {
-                    Text(
-                        text = "Коэффициент секция ${index + 1}",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 2,
-                        overflow = TextOverflow.Visible
-                    )
-                }
-                item {
-                    Spacer(modifier = Modifier.height(20.dp))
-                }
-                item {
-                    OutlinedTextFieldApp(
-                        modifier = Modifier
-                            .padding(end = 4.dp, top = 24.dp),
-                        value = item.coefficient.data ?: "",
-                        onValueChange = {
-                            onCoefficientValueChanged(index, it.take(6))
-                        },
-                        suffix = {
-                            Text(
-                                text = "k",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = noValueColor
-                            )
-                        },
-                        textStyle = MaterialTheme.typography.bodyLarge,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
-                        ),
-                        borderColor = MaterialTheme.colorScheme.primary
-                    )
-                }
-                item {
-                    Spacer(modifier = Modifier.height(20.dp))
-                }
-
-                item {
-                    Button(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        shape = Shapes.medium,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            contentColor = MaterialTheme.colorScheme.secondary
-                        ),
-                        elevation = ButtonDefaults.elevatedButtonElevation(
-                            defaultElevation = 1.dp,
-                            pressedElevation = 0.dp
-                        ),
-                        onClick = {
-                            scope.launch {
-                                focusChangedDieselSection(index, DieselSectionType.COEFFICIENT)
-                                showCoefficient = false
-                            }
-                        }
-                    ) {
-                        Text(
-                            text = "Готово",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-
-                    }
-                }
-                item {
-                    Spacer(modifier = Modifier.height(20.dp))
-                }
-            }
-        }
+    if (showSupplyCoefficient) {
+        CoeffSheet(
+            title = "Коэффициент экипировки",
+            hint = "Может отличаться от k секции",
+            value = item.refuelCoefficient.data,
+            sheetState = sheetState,
+            onValueChange = { onRefuelCoefficientValueChanged(index, it) },
+            onDismiss = { showSupplyCoefficient = false }
+        )
     }
 
     val dataTextStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = com.z_company.core.ui.theme.MonoFont)
@@ -450,36 +380,12 @@ fun DieselSectionItem(
                     color = MaterialTheme.colorScheme.primary
                 )
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Пилюля коэффициента секции
-                    Row(
-                        modifier = Modifier
-                            .noRippleEffect { showCoefficient = true }
-                            .background(
-                                MaterialTheme.colorScheme.surfaceBright,
-                                RoundedCornerShape(999.dp)
-                            )
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "k",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = item.coefficient.data ?: "1.0",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontFamily = com.z_company.core.ui.theme.MonoFont
-                            ),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
+                // Пилюля коэффициента секции
+                CoeffPill(
+                    label = "k секции",
+                    value = item.coefficient.data,
+                    onClick = { showCoefficient = true }
+                )
             }
 
             Row(
@@ -689,7 +595,7 @@ fun DieselSectionItem(
             // Экипировка — инлайн (вместо шторки)
             if (expandSupply) {
                 Column(
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp)
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -703,28 +609,11 @@ fun DieselSectionItem(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        // k экипировки — компактное поле
-                        OutlinedTextFieldApp(
-                            modifier = Modifier.width(90.dp),
-                            value = item.refuelCoefficient.data ?: "",
-                            onValueChange = { onRefuelCoefficientValueChanged(index, it.take(6)) },
-                            textStyle = dataTextStyle,
-                    fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
-                            placeholder = {
-                                Text(
-                                    text = "k экип.",
-                                    style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
-                                    color = noValueColor
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
-                            ),
-                            singleLine = true,
-                            shape = Shapes.medium,
+                        // k экипировки — пилюля, открывает шторку
+                        CoeffPill(
+                            label = "k экипировки",
+                            value = item.refuelCoefficient.data,
+                            onClick = { showSupplyCoefficient = true }
                         )
                     }
                     Row(
@@ -869,6 +758,215 @@ private fun UnitSegItem(label: String, active: Boolean, onClick: () -> Unit) {
             ),
             color = if (active) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/** Пилюля коэффициента: «k секции 0.83» — открывает шторку по клику. */
+@Composable
+private fun CoeffPill(label: String, value: String?, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .noRippleEffect { onClick() }
+            .background(MaterialTheme.colorScheme.surfaceBright, RoundedCornerShape(999.dp))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value ?: "1.0",
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontFamily = com.z_company.core.ui.theme.MonoFont
+            ),
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+/** Шторка выбора коэффициента: степпер [− value +] + пресеты «из истории». */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CoeffSheet(
+    title: String,
+    hint: String,
+    value: String?,
+    sheetState: SheetState,
+    onValueChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val presets = listOf("0.79", "0.83", "0.87", "0.91", "0.95")
+    fun fmt(d: Double) = ((d * 100).toLong() / 100.0).toString()
+    val current = value?.toDoubleOrNull()
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.secondary,
+        dragHandle = {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(36.dp).height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                )
+            }
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
+        ) {
+            // Заголовок + Готово
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Готово",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W500),
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.noRippleEffect { onDismiss() }
+                )
+            }
+            Text(
+                text = hint,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+            )
+
+            // Степпер
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(Shapes.medium)
+                    .background(MaterialTheme.colorScheme.surfaceBright)
+                    .padding(vertical = 20.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CoeffStepBtn(symbol = "−") {
+                    val base = current ?: 1.0
+                    onValueChange(fmt((base - 0.01).coerceAtLeast(0.0)))
+                }
+                BasicTextField(
+                    value = value ?: "",
+                    onValueChange = { raw ->
+                        val filtered = raw.filter { it.isDigit() || it == '.' }.take(5)
+                        if (filtered.count { it == '.' } <= 1) onValueChange(filtered)
+                    },
+                    modifier = Modifier.width(140.dp).padding(horizontal = 12.dp),
+                    textStyle = MaterialTheme.typography.displaySmall.copy(
+                        fontFamily = com.z_company.core.ui.theme.MonoFont,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    ),
+                    singleLine = true,
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    decorationBox = { inner ->
+                        Box(contentAlignment = Alignment.Center) {
+                            if (value.isNullOrEmpty()) {
+                                Text(
+                                    text = "1.0",
+                                    style = MaterialTheme.typography.displaySmall.copy(
+                                        fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center
+                                    ),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                                )
+                            }
+                            inner()
+                        }
+                    }
+                )
+                CoeffStepBtn(symbol = "+") {
+                    val base = current ?: 1.0
+                    onValueChange(fmt(base + 0.01))
+                }
+            }
+
+            // Пресеты
+            Text(
+                text = "ИЗ ИСТОРИИ",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontFamily = com.z_company.core.ui.theme.MonoFont,
+                    fontWeight = FontWeight.W600,
+                    letterSpacing = androidx.compose.ui.unit.TextUnit(1.4f, androidx.compose.ui.unit.TextUnitType.Sp)
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 18.dp, bottom = 8.dp)
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                presets.forEach { p ->
+                    val active = p == value
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .border(
+                                1.dp,
+                                if (active) MaterialTheme.colorScheme.tertiary
+                                else MaterialTheme.colorScheme.outlineVariant,
+                                RoundedCornerShape(999.dp)
+                            )
+                            .background(
+                                if (active) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f)
+                                else Color.Transparent
+                            )
+                            .noRippleEffect { onValueChange(p) }
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = p,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                fontWeight = FontWeight.W600
+                            ),
+                            color = if (active) MaterialTheme.colorScheme.tertiary
+                            else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CoeffStepBtn(symbol: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.secondary)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+            .noRippleEffect { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = symbol,
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontFamily = com.z_company.core.ui.theme.MonoFont
+            ),
+            color = MaterialTheme.colorScheme.primary
         )
     }
 }
