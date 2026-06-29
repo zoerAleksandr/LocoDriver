@@ -5,7 +5,9 @@ package com.z_company.repository.remote_rest
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.sendToSentry
+import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.repositories.StationNormRepository
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.ProductionCalendarUseCase
 import com.z_company.domain.use_cases.ReleaseDayUseCase
@@ -56,7 +58,9 @@ class SyncManager(
     private val routeUseCase: RouteUseCase,
     private val routesManager: RoutesManager,
     private val settingManager: SettingManager,
-    private val sharedPrefs: SharedPreferencesRepositories
+    private val sharedPrefs: SharedPreferencesRepositories,
+    private val locomotiveSeriesRepository: LocomotiveSeriesRepository,
+    private val stationNormRepository: StationNormRepository
 ) {
 
     fun syncToRemote(bearerToken: String): Flow<ResultState<SyncUploadResult>> = flow {
@@ -150,6 +154,22 @@ class SyncManager(
                     return@collect
                 }
             }
+
+        // 3.5. Синхронизация норм времени (серии локомотивов и станции).
+        // Full replace: если есть локальные данные — POST на сервер.
+        // Если локальных нет — пропускаем (данные придут в syncFromRemote).
+        val localLocoSeries = locomotiveSeriesRepository.getAll()
+        if (localLocoSeries.isNotEmpty()) {
+            settingManager.saveNormaTimeLocomotivesInRemote(localLocoSeries, bearerToken)
+                .catch { /* Не прерываем основную синхронизацию */ }
+                .collect {}
+        }
+        val localStationNorms = stationNormRepository.getAll()
+        if (localStationNorms.isNotEmpty()) {
+            settingManager.saveNormaTimeStationsInRemote(localStationNorms, bearerToken)
+                .catch { /* Не прерываем основную синхронизацию */ }
+                .collect {}
+        }
 
         val allWarnings = mutableListOf<String>()
         val allErrors = mutableListOf<String>()
@@ -298,6 +318,30 @@ class SyncManager(
                     else -> {}
                 }
             }
+
+        // 1.5. Загрузка норм времени (только если нет локальных данных).
+        // Full replace: если локально пусто — GET с сервера и сохранить.
+        // Если локальные данные уже есть — они были загружены туда через syncToRemote.
+        val localSeriesForDownload = locomotiveSeriesRepository.getAll()
+        if (localSeriesForDownload.isEmpty()) {
+            settingManager.getNormaTimeLocomotivesFromRemote(bearerToken)
+                .catch { /* Не прерываем основную синхронизацию */ }
+                .collect { loadState ->
+                    if (loadState is ResultState.Success && loadState.data.isNotEmpty()) {
+                        locomotiveSeriesRepository.replaceAll(loadState.data).collect {}
+                    }
+                }
+        }
+        val localStationsForDownload = stationNormRepository.getAll()
+        if (localStationsForDownload.isEmpty()) {
+            settingManager.getNormaTimeStationsFromRemote(bearerToken)
+                .catch { /* Не прерываем основную синхронизацию */ }
+                .collect { loadState ->
+                    if (loadState is ResultState.Success && loadState.data.isNotEmpty()) {
+                        stationNormRepository.replaceAll(loadState.data).collect {}
+                    }
+                }
+        }
 
         // 2. Загрузка SalarySetting
         settingManager.getSalarySettingFromRemote(bearerToken)
@@ -579,6 +623,20 @@ class SyncManager(
                     return@collect
                 }
             }
+
+        // 3.5. Синхронизация норм времени (серии локомотивов и станции).
+        val localLocoSeriesFirst = locomotiveSeriesRepository.getAll()
+        if (localLocoSeriesFirst.isNotEmpty()) {
+            settingManager.saveNormaTimeLocomotivesInRemote(localLocoSeriesFirst, bearerToken)
+                .catch { /* Не прерываем основную синхронизацию */ }
+                .collect {}
+        }
+        val localStationNormsFirst = stationNormRepository.getAll()
+        if (localStationNormsFirst.isNotEmpty()) {
+            settingManager.saveNormaTimeStationsInRemote(localStationNormsFirst, bearerToken)
+                .catch { /* Не прерываем основную синхронизацию */ }
+                .collect {}
+        }
 
         // 4. Сохранение всех маршрутов
         val routes = routeUseCase.getListRoutesAsFlow().first()

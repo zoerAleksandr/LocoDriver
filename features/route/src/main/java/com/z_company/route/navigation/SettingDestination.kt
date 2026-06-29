@@ -7,7 +7,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.SettingsScreen
+import com.z_company.route.viewmodel.SeriesListViewModel
 import com.z_company.route.viewmodel.SettingsViewModel
+import com.z_company.route.viewmodel.StationNormListViewModel
 
 @Composable
 fun SettingDestination(
@@ -17,6 +19,10 @@ fun SettingDestination(
     val settingsViewModel: SettingsViewModel = viewModel()
     val uiState by settingsViewModel.uiState.collectAsState()
     val initialSubScreen = SettingsScreenRoute.getSubScreen(backStackEntry)
+
+    val seriesListViewModel: SeriesListViewModel = viewModel()
+    val stationListViewModel: StationNormListViewModel = viewModel()
+
     SettingsScreen(
         viewModel = settingsViewModel,
         settingsUiState = uiState,
@@ -49,5 +55,7 @@ fun SettingDestination(
         updateServicePhase = settingsViewModel::selectToUpdateServicePhase,
         showSettingSalary = router::showSettingSalary,
         onBack = router::back,
+        seriesListViewModel = seriesListViewModel,
+        stationListViewModel = stationListViewModel,
     )
 }

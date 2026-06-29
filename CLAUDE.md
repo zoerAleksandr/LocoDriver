@@ -116,6 +116,10 @@ Purchases, авторизация по VK ID, чистка от Compose Multipla
 
 ### Типы и форматы
 - **Время**: `Long` миллисекунды от Unix epoch (UTC).
+  ⚠️ **Исключение**: эндпоинты `/v1/norma_time/locomotives/` и
+  `/v1/norma_time/stations/` возвращают `updatedAt` как `Double`
+  (например `1779032766922.0`). Конвертировать в `Long` через `.toLong()`
+  в DTO-маппере (`NormaTimeLocomotiveResponse`, `NormaTimeStationResponse`).
 - **Даты без времени**: три поля — `year`, `month`, `dayOfMonth`.
   ⚠️ **`month` 0-based** (январь = 0, декабрь = 11). Это контракт со
   старым Android-клиентом, который использовал `Calendar.MONTH`.
@@ -133,6 +137,10 @@ Purchases, авторизация по VK ID, чистка от Compose Multipla
   `locomotives`/`trains`/`passengers` — удаляется на сервере.
 - Если `basicData.isDeleted == true` → рейс удаляется (страховка от
   потери `DELETE /v1/route/{id}`).
+- `POST /v1/norma_time/locomotives/` и `POST /v1/norma_time/stations/` —
+  **full replace на сервере**: сервер удаляет все старые записи и
+  вставляет пришедшие. Клиент вызывает POST только если есть локальные
+  данные; если локальных нет — делает GET (см. стратегию синхронизации в `CODEBASE.md`).
 
 ### Известные баги контракта (не копировать в новый код!)
 - `isHeavyLongDistance` всегда теряется при синхронизации

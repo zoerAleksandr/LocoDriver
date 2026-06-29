@@ -90,7 +90,11 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 heatingCounterAccepted = loco.heatingCounterAccepted?.toString(),
                 heatingCounterDelivery = loco.heatingCounterDelivery?.toString(),
                 auxiliaryCounterAccepted = loco.auxiliaryCounterAccepted?.toString(),
-                auxiliaryCounterDelivery = loco.auxiliaryCounterDelivery?.toString()
+                auxiliaryCounterDelivery = loco.auxiliaryCounterDelivery?.toString(),
+                timeBarrierOut = loco.timeBarrierOut,
+                timeBarrierIn = loco.timeBarrierIn,
+                acceptanceStationId = loco.acceptanceStationId,
+                deliveryStationId = loco.deliveryStationId
             )
         }
         route.trains.forEach { train ->
@@ -319,7 +323,11 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 heatingCounterAccepted = locomotive.heatingCounterAccepted?.toString(),
                 heatingCounterDelivery = locomotive.heatingCounterDelivery?.toString(),
                 auxiliaryCounterAccepted = locomotive.auxiliaryCounterAccepted?.toString(),
-                auxiliaryCounterDelivery = locomotive.auxiliaryCounterDelivery?.toString()
+                auxiliaryCounterDelivery = locomotive.auxiliaryCounterDelivery?.toString(),
+                timeBarrierOut = locomotive.timeBarrierOut,
+                timeBarrierIn = locomotive.timeBarrierIn,
+                acceptanceStationId = locomotive.acceptanceStationId,
+                deliveryStationId = locomotive.deliveryStationId
             )
             db.basicDataQueries.markUnsynchronized(locomotive.basicId)
         }

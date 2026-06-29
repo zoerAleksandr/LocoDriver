@@ -1,0 +1,8 @@
+-- Миграция 8: добавляем поля КП и станций в таблицу Locomotive.
+-- timeBarrierOut/In — время выхода/захода на контрольный пункт (UTC ms).
+-- acceptanceStationId/deliveryStationId — UUID станции из справочника StationNorm.
+
+ALTER TABLE Locomotive ADD COLUMN timeBarrierOut INTEGER DEFAULT NULL;
+ALTER TABLE Locomotive ADD COLUMN timeBarrierIn INTEGER DEFAULT NULL;
+ALTER TABLE Locomotive ADD COLUMN acceptanceStationId TEXT DEFAULT NULL;
+ALTER TABLE Locomotive ADD COLUMN deliveryStationId TEXT DEFAULT NULL;

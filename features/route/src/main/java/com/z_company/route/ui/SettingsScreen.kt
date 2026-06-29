@@ -63,9 +63,19 @@ import com.z_company.route.ui.settings.SettingsNormaContent
 import com.z_company.route.ui.settings.SettingsRestContent
 import com.z_company.route.ui.settings.SettingsRouteContent
 import com.z_company.route.ui.settings.SettingsShouldersContent
+import com.z_company.route.ui.settings.SettingsSeriesListContent
+import com.z_company.route.ui.settings.SettingsSeriesEditorContent
+import com.z_company.route.ui.settings.SettingsStationListContent
+import com.z_company.route.ui.settings.SettingsStationEditorContent
 import com.z_company.route.viewmodel.SettingsViewModel
 import com.z_company.route.viewmodel.SettingsUiState
 import com.z_company.route.viewmodel.TimeZoneRussia
+import com.z_company.route.viewmodel.SeriesListViewModel
+import com.z_company.route.viewmodel.SeriesEditorViewModel
+import com.z_company.route.viewmodel.StationNormListViewModel
+import com.z_company.route.viewmodel.StationNormEditorViewModel
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
 
@@ -76,7 +86,11 @@ enum class SettingsSubScreen(val title: String) {
     ACCOUNTING("Учёт"),
     REST("Отдых"),
     SHOULDERS("Плечи"),
-    LOCOMOTIVE("Локомотив")
+    LOCOMOTIVE("Локомотив"),
+    SERIES_LIST("Серии"),
+    SERIES_EDITOR("Серия"),
+    STATION_LIST("Станции"),
+    STATION_EDITOR("Станция"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,22 +127,40 @@ fun SettingsScreen(
     updateServicePhase: (ServicePhase, Int) -> Unit,
     showSettingSalary: () -> Unit,
     onBack: () -> Unit,
+    seriesListViewModel: SeriesListViewModel? = null,
+    stationListViewModel: StationNormListViewModel? = null,
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var currentSubScreen by remember {
-        val initial = when (initialSubScreen) {
-            "ROUTE" -> SettingsSubScreen.ROUTE
-            "NORMA" -> SettingsSubScreen.NORMA
-            "ACCOUNTING" -> SettingsSubScreen.ACCOUNTING
-            "REST" -> SettingsSubScreen.REST
-            "SHOULDERS" -> SettingsSubScreen.SHOULDERS
-            "LOCOMOTIVE" -> SettingsSubScreen.LOCOMOTIVE
-            else -> SettingsSubScreen.HUB
+    // Parse STATION_EDITOR_<id> / SERIES_EDITOR_<id> to open editors directly (from long-tap in picker)
+    data class InitState(
+        val screen: SettingsSubScreen,
+        val stationId: String?,
+        val seriesId: String?,
+    )
+    val initState = remember(initialSubScreen) {
+        when {
+            initialSubScreen?.startsWith("STATION_EDITOR_") == true ->
+                InitState(SettingsSubScreen.STATION_EDITOR, initialSubScreen.removePrefix("STATION_EDITOR_"), null)
+            initialSubScreen?.startsWith("SERIES_EDITOR_") == true ->
+                InitState(SettingsSubScreen.SERIES_EDITOR, null, initialSubScreen.removePrefix("SERIES_EDITOR_"))
+            else -> when (initialSubScreen) {
+                "ROUTE" -> InitState(SettingsSubScreen.ROUTE, null, null)
+                "NORMA" -> InitState(SettingsSubScreen.NORMA, null, null)
+                "ACCOUNTING" -> InitState(SettingsSubScreen.ACCOUNTING, null, null)
+                "REST" -> InitState(SettingsSubScreen.REST, null, null)
+                "SHOULDERS" -> InitState(SettingsSubScreen.SHOULDERS, null, null)
+                "LOCOMOTIVE" -> InitState(SettingsSubScreen.LOCOMOTIVE, null, null)
+                "SERIES_LIST" -> InitState(SettingsSubScreen.SERIES_LIST, null, null)
+                "STATION_LIST" -> InitState(SettingsSubScreen.STATION_LIST, null, null)
+                else -> InitState(SettingsSubScreen.HUB, null, null)
+            }
         }
-        mutableStateOf(initial)
     }
+    var currentSubScreen by remember { mutableStateOf(initState.screen) }
+    var selectedSeriesId by remember { mutableStateOf(initState.seriesId) }
+    var selectedStationId by remember { mutableStateOf(initState.stationId) }
 
     // Если пользователь попал сразу на под-экран (через deep link из FormLocoScreen
     // и т.п.) — back должен возвращать по backstack, а не в HUB настроек.
@@ -136,10 +168,12 @@ fun SettingsScreen(
     val enteredDirectly = remember { initialSubScreen != null }
 
     BackHandler(currentSubScreen != SettingsSubScreen.HUB) {
-        if (enteredDirectly) {
-            onBack()
-        } else {
-            currentSubScreen = SettingsSubScreen.HUB
+        when (currentSubScreen) {
+            SettingsSubScreen.SERIES_EDITOR -> currentSubScreen = SettingsSubScreen.SERIES_LIST
+            SettingsSubScreen.STATION_EDITOR -> currentSubScreen = SettingsSubScreen.STATION_LIST
+            else -> {
+                if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
+            }
         }
     }
 
@@ -154,10 +188,10 @@ fun SettingsScreen(
                 navigationIcon = {
                     if (currentSubScreen != SettingsSubScreen.HUB) {
                         IconButton(onClick = {
-                            if (enteredDirectly) {
-                                onBack()
-                            } else {
-                                currentSubScreen = SettingsSubScreen.HUB
+                            when (currentSubScreen) {
+                                SettingsSubScreen.SERIES_EDITOR -> currentSubScreen = SettingsSubScreen.SERIES_LIST
+                                SettingsSubScreen.STATION_EDITOR -> currentSubScreen = SettingsSubScreen.STATION_LIST
+                                else -> if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
                             }
                         }) {
                             Icon(
@@ -169,16 +203,24 @@ fun SettingsScreen(
                     }
                 },
                 title = {
+                    val titleText = when (currentSubScreen) {
+                        SettingsSubScreen.SERIES_EDITOR -> {
+                            if (selectedSeriesId != null)
+                                seriesListViewModel?.seriesFlow?.collectAsState()?.value
+                                    ?.find { it.seriesId == selectedSeriesId }?.name
+                                    ?: "Новая серия"
+                            else "Новая серия"
+                        }
+                        else -> currentSubScreen.title
+                    }
                     Text(
-                        text = currentSubScreen.title,
-                        style = if (currentSubScreen == SettingsSubScreen.HUB)
-                            MaterialTheme.typography.headlineLarge
-                        else MaterialTheme.typography.titleMedium,
+                        text = titleText,
+                        style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
+                colors = TopAppBarDefaults.topAppBarColors().copy(
+                    containerColor = Color.Transparent,
                 )
             )
         }
@@ -316,6 +358,52 @@ fun SettingsScreen(
                                 changeShowOtherCurrent = changeShowOtherCurrent,
                             )
                         }
+
+                        SettingsSubScreen.SERIES_LIST -> {
+                            seriesListViewModel?.let { vm ->
+                                SettingsSeriesListContent(
+                                    viewModel = vm,
+                                    onOpenEditor = { id ->
+                                        selectedSeriesId = id
+                                        currentSubScreen = SettingsSubScreen.SERIES_EDITOR
+                                    }
+                                )
+                            }
+                        }
+
+                        SettingsSubScreen.SERIES_EDITOR -> {
+                            val editorVm = koinViewModel<SeriesEditorViewModel>(
+                                key = "series_editor_${selectedSeriesId ?: "new"}",
+                                parameters = { parametersOf(selectedSeriesId) }
+                            )
+                            SettingsSeriesEditorContent(
+                                viewModel = editorVm,
+                                onDone = { currentSubScreen = SettingsSubScreen.SERIES_LIST }
+                            )
+                        }
+
+                        SettingsSubScreen.STATION_LIST -> {
+                            stationListViewModel?.let { vm ->
+                                SettingsStationListContent(
+                                    viewModel = vm,
+                                    onOpenEditor = { id ->
+                                        selectedStationId = id
+                                        currentSubScreen = SettingsSubScreen.STATION_EDITOR
+                                    }
+                                )
+                            }
+                        }
+
+                        SettingsSubScreen.STATION_EDITOR -> {
+                            val editorVm = koinViewModel<StationNormEditorViewModel>(
+                                key = "station_editor_${selectedStationId ?: "new"}",
+                                parameters = { parametersOf(selectedStationId) }
+                            )
+                            SettingsStationEditorContent(
+                                viewModel = editorVm,
+                                onDone = { currentSubScreen = SettingsSubScreen.STATION_LIST }
+                            )
+                        }
                     }
                 }
             }
@@ -339,143 +427,58 @@ private fun SettingsHubContent(
             .padding(horizontal = 12.dp)
             .padding(bottom = 24.dp)
             .testTag("settings_scroll_column"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // СПРАВОЧНИКИ НОРМ
-        Text(
-            modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
-            text = "СПРАВОЧНИКИ НОРМ",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        SettingsNavItem(
+            title = "Основные",
+            onClick = { onNavigate(SettingsSubScreen.ROUTE) }
         )
         SettingsNavItem(
-            title = "Серии локомотивов",
-            onClick = { /* TODO: navigate to NormsRoute */ }
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsNavItem(
-            title = "Станции",
-            onClick = { /* TODO: navigate to StationsNormsRoute */ }
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsNavItem(
-            title = "Плечи",
-            onClick = { onNavigate(SettingsSubScreen.SHOULDERS) }
-        )
-
-        // РАСЧЁТ
-        Text(
-            modifier = Modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
-            text = "РАСЧЁТ",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        SettingsNavItem(
-            title = "Зарплата",
-            subtitle = "Тарифы и надбавки",
-            onClick = showSettingSalary
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsNavItem(
-            title = "Норма и регион",
-            subtitle = "Часовой пояс, регион и нормы",
+            title = "Норма/Регион",
             onClick = { onNavigate(SettingsSubScreen.NORMA) }
         )
-        Spacer(modifier = Modifier.height(8.dp))
         SettingsNavItem(
             title = "Учёт",
-            subtitle = "Ночные часы и будущие маршруты",
             onClick = { onNavigate(SettingsSubScreen.ACCOUNTING) }
         )
-        Spacer(modifier = Modifier.height(8.dp))
         SettingsNavItem(
             title = "Отдых",
             onClick = { onNavigate(SettingsSubScreen.REST) }
         )
-
-        // ВНЕШНИЙ ВИД
-        Text(
-            modifier = Modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
-            text = "ВНЕШНИЙ ВИД",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         SettingsNavItem(
-            title = "Основные",
-            subtitle = "Переключатели и настройки для маршрутов",
-            onClick = { onNavigate(SettingsSubScreen.ROUTE) }
+            title = "Плечи",
+            onClick = { onNavigate(SettingsSubScreen.SHOULDERS) }
         )
-        Spacer(modifier = Modifier.height(8.dp))
         SettingsNavItem(
             title = "Локомотив",
-            subtitle = "Тяга, расчёты, итоги",
             onClick = { onNavigate(SettingsSubScreen.LOCOMOTIVE) }
         )
-
-        // ПРИЛОЖЕНИЕ
-        Text(
-            modifier = Modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
-            text = "ПРИЛОЖЕНИЕ",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        SettingsNavItem(
+            title = "Зарплата",
+            onClick = showSettingSalary
         )
         SettingsNavItem(
-            title = "Тема",
-            value = "Системная",
-            onClick = { /* TODO */ }
+            title = "Серии локомотивов",
+            onClick = { onNavigate(SettingsSubScreen.SERIES_LIST) }
         )
-        Spacer(modifier = Modifier.height(8.dp))
         SettingsNavItem(
-            title = "Уведомления",
-            value = "Включены",
-            onClick = { /* TODO */ }
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsNavItem(
-            title = "Резервные копии",
-            subtitle = "Каждые 30 мин, очищ. в 22 ч.",
-            value = "Вкл",
-            onClick = { /* TODO */ }
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsNavItem(
-            title = "Экспорт данных",
-            onClick = { /* TODO */ }
+            title = "Станции",
+            onClick = { onNavigate(SettingsSubScreen.STATION_LIST) }
         )
 
-        // ПОДСВЕТКА
-        Text(
-            modifier = Modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
-            text = "ПОДСВЕТКА",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        SettingsNavItem(
-            title = "Помощь и FAQ",
-            onClick = { /* TODO */ }
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsNavItem(
-            title = "Написать в поддержку",
-            onClick = { /* TODO: email intent */ }
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsNavItem(
-            title = "Оценить в Google Play",
-            onClick = { /* TODO: play store intent */ }
-        )
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // О ПРИЛОЖЕНИИ
+        // О приложении
         Text(
-            modifier = Modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
-            text = "О ПРИЛОЖЕНИИ",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
+            text = "О приложении",
+            style = styleTitle
         )
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(elevation = 1.dp, shape = Shapes.medium)
+                .shadow(elevation = 2.dp, shape = Shapes.medium)
                 .background(
                     color = MaterialTheme.colorScheme.secondary,
                     shape = Shapes.medium
@@ -510,7 +513,7 @@ private fun SettingsHubContent(
                 Text(
                     text = "Версия приложения",
                     style = styleHint,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = primaryColor.copy(alpha = 0.7f)
                 )
                 Text(
                     text = versionName,
@@ -523,7 +526,7 @@ private fun SettingsHubContent(
                 Text(
                     text = "Поддержка",
                     style = styleHint,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = primaryColor.copy(alpha = 0.7f)
                 )
 
                 Text(
@@ -555,50 +558,31 @@ private fun SettingsHubContent(
 @Composable
 private fun SettingsNavItem(
     title: String,
-    subtitle: String? = null,
-    value: String? = null,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(elevation = 1.dp, shape = Shapes.medium)
+            .shadow(elevation = 2.dp, shape = Shapes.medium)
             .background(
                 color = MaterialTheme.colorScheme.secondary,
                 shape = Shapes.medium
             )
             .clickable { onClick() }
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            if (!subtitle.isNullOrBlank()) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        if (!value.isNullOrBlank()) {
-            Text(
-                modifier = Modifier.padding(start = 8.dp),
-                text = value,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
         Icon(
             painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+            modifier = Modifier.size(24.dp)
         )
     }
 }

@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -53,6 +52,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,6 +75,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import com.z_company.core.ResultState
@@ -112,6 +113,8 @@ import com.z_company.route.viewmodel.ElectricSectionType
 import com.z_company.route.viewmodel.LocoFormViewModel
 import com.z_company.domain.entities.setting.UserSettings
 import androidx.compose.material3.AlertDialog
+import com.z_company.route.ui.TimeBottomSheet
+import com.z_company.route.ui.TimeSheetResult
 import kotlinx.coroutines.launch
 
 @OptIn(
@@ -155,7 +158,11 @@ fun FormLocoScreen(
     onDeleteSeries: (String) -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?,
     userSettings: UserSettings? = null,
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onNavigateToSeriesSettings: () -> Unit = {},
+    onNavigateToStationSettings: () -> Unit = {},
+    onEditStation: ((String) -> Unit)? = null,
+    onEditSeries: ((String) -> Unit)? = null,
 ) {
     val displayTz = dateAndTimeConverter?.timeZoneText ?: "GMT+3"
     val scope = rememberCoroutineScope()
@@ -233,30 +240,22 @@ fun FormLocoScreen(
             .fillMaxWidth(),
         topBar = {
             TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                ),
-                title = {
-                    Text(
-                        text = "Локомотив",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Medium
-                        ),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                },
+                title = {},
                 navigationIcon = {
-                    IconButton(
+                    TextButton(
                         onClick = {
                             keyboardController?.hide()
                             topLevelFocusManager.clearFocus()
                             onLocoSaved()
                         },
+                        colors = ButtonDefaults.buttonColors(
+                            contentColor = MaterialTheme.colorScheme.tertiary,
+                            containerColor = Color.Transparent
+                        )
                     ) {
                         Text(
-                            text = "‹",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = MaterialTheme.colorScheme.primary,
+                            text = "Готово",
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 },
@@ -271,6 +270,7 @@ fun FormLocoScreen(
                         )
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         snackbarHost = {
@@ -439,27 +439,20 @@ fun FormLocoScreen(
                         val currentType = locomotive.type
                         Row(
                             modifier = Modifier
-                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                                .padding(horizontal = 16.dp)
                                 .fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Группа-заголовок + название тяги
-                            Column {
+                            AnimatedContent(targetState = currentType, label = "") {
+                                val text = if (it == LocoType.ELECTRIC) LocoType.ELECTRIC.text
+                                else LocoType.DIESEL.text
+
                                 Text(
-                                    text = "ОСНОВНЫЕ ДАННЫЕ",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    text = text,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.bodyLarge
                                 )
-                                AnimatedContent(targetState = currentType, label = "") {
-                                    val text = if (it == LocoType.ELECTRIC) LocoType.ELECTRIC.text
-                                    else LocoType.DIESEL.text
-                                    Text(
-                                        text = text,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                }
                             }
                             SwitchApp(
                                 modifier = Modifier.wrapContentWidth(),
@@ -516,23 +509,12 @@ fun FormLocoScreen(
                             )
                         }
 
-                        // Единая карточка по референсу: Серия | Номер
-                        androidx.compose.material3.Card(
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 8.dp)
-                                .fillMaxWidth(),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                            colors = androidx.compose.material3.CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            ),
-                            elevation = androidx.compose.material3.CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-                        ) {
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                .padding(horizontal = 16.dp)
+                                .padding(top = 12.dp)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
 
                             ExposedDropdownMenuBox(
@@ -545,9 +527,6 @@ fun FormLocoScreen(
                                         .fillMaxWidth()
                                         .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
                                     value = seriesName,
-                                    fieldElevation = 0.dp,
-                                    colorBackgroundEmptyField = Color.Transparent,
-                                    colorBackgroundNotEmptyField = Color.Transparent,
                                     onValueChange = {
                                         seriesName = it
                                         onSeriesChanged(it.text)
@@ -590,23 +569,11 @@ fun FormLocoScreen(
                                 )
                             }
 
-                            // Вертикальный разделитель между Серия и Номер
-                            Box(
-                                modifier = Modifier
-                                    .width(1.dp)
-                                    .height(36.dp)
-                                    .align(Alignment.CenterVertically)
-                                    .background(MaterialTheme.colorScheme.outlineVariant)
-                            )
-
                             OutlinedTextFieldApp(
                                 modifier = Modifier
                                     .weight(1f),
                                 value = locomotive.number ?: "",
                                 textStyle = dataTextStyle,
-                                fieldElevation = 0.dp,
-                                colorBackgroundEmptyField = Color.Transparent,
-                                colorBackgroundNotEmptyField = Color.Transparent,
                                 placeholder = {
                                     Text(
                                         text = "Номер",
@@ -629,353 +596,130 @@ fun FormLocoScreen(
                                 singleLine = true,
                             )
                         }
-                        }
 
                     }
 
-                    // время
+                    // Время — GroupHead + карточка с TimeSummaryRow
                     item {
-                        CollapsibleSection(
-                            modifier = Modifier.padding(top = 12.dp),
-                            title = "Время",
-                            expanded = formUiState.isShowTime,
-                            onToggle = viewModel::toggleTime,
-                            icon = R.drawable.schedule_24px
-                        ) {
-                                var showStartAcceptedDatePicker by remember {
-                                    mutableStateOf(false)
-                                }
+                        val routeStart by viewModel.routeStartWork.collectAsState()
+                        val routeEnd by viewModel.routeEndWork.collectAsState()
+                        var showAcceptanceSheet by remember { mutableStateOf(false) }
+                        var showDeliverySheet by remember { mutableStateOf(false) }
 
-                                if (showStartAcceptedDatePicker) {
-                                    AppDateTimePicker(
-                                        title = "Начало приемки",
-                                        onDateTimeSelected = { timestamp ->
-                                            onStartAcceptedTimeChanged(timestamp)
-                                        },
-                                        onDismiss = { showStartAcceptedDatePicker = false },
-                                        startDateTime = locomotive.timeStartOfAcceptance
-                                            ?: Calendar.getInstance().timeInMillis,
-                                        timeZoneStr = displayTz,
-                                        recentTimes = sharedPrefs.getRecentTimes("time_start_acceptance"),
-                                        onRecentTimeSaved = { sharedPrefs.addRecentTime("time_start_acceptance", it) }
-                                    )
-                                }
-
-                                var showEndAcceptedDatePicker by remember {
-                                    mutableStateOf(false)
-                                }
-
-                                if (showEndAcceptedDatePicker) {
-                                    AppDateTimePicker(
-                                        title = "Окончание приемки",
-                                        onDateTimeSelected = { timestamp ->
-                                            onEndAcceptedTimeChanged(timestamp)
-                                        },
-                                        onDismiss = { showEndAcceptedDatePicker = false },
-                                        startDateTime = locomotive.timeEndOfAcceptance
-                                            ?: Calendar.getInstance().timeInMillis,
-                                        timeZoneStr = displayTz,
-                                        recentTimes = sharedPrefs.getRecentTimes("time_end_acceptance"),
-                                        onRecentTimeSaved = { sharedPrefs.addRecentTime("time_end_acceptance", it) }
-                                    )
-                                }
-
-                                Column(
-                                    modifier = Modifier
-                                        .padding(horizontal = 16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text(
-                                        text = "ПРИЁМКА",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        val animatedBackgroundColorsStartAcceptance by animateColorAsState(
-                                            targetValue = if (locomotive.timeStartOfAcceptance == null) MaterialTheme.colorScheme.surface
-                                            else MaterialTheme.colorScheme.secondary,
-                                            animationSpec = tween(
-                                                durationMillis = 200,
-                                                easing = FastOutSlowInEasing
-                                            )
-                                        )
-                                        val animatedBackgroundColorsEndAcceptance by animateColorAsState(
-                                            targetValue = if (locomotive.timeEndOfAcceptance == null) MaterialTheme.colorScheme.surface
-                                            else MaterialTheme.colorScheme.secondary,
-                                            animationSpec = tween(
-                                                durationMillis = 200,
-                                                easing = FastOutSlowInEasing
-                                            )
-                                        )
-
-                                        Box(
-                                            modifier = Modifier
-                                                .shadow(elevation = 1.dp, shape = Shapes.medium)
-                                                .background(
-                                                    color = animatedBackgroundColorsStartAcceptance,
-                                                    shape = Shapes.medium
-                                                )
-                                                .weight(1f)
-                                                .combinedClickable(
-                                                    onClick = {
-                                                        showStartAcceptedDatePicker = true
-                                                    },
-                                                    onLongClick = {
-                                                        locomotive.timeStartOfAcceptance?.let {
-                                                            showBottomSheetRemoveTimeStartAccepted =
-                                                                true
-                                                        }
-                                                    }
-                                                )
-                                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                                        ) {
-                                            val dateStartText =
-                                                locomotive.timeStartOfAcceptance?.let {
-                                                    dateAndTimeConverter?.getDateMiniAndTime(it)
-                                                } ?: "Начало"
-
-                                            val color = locomotive.timeStartOfAcceptance?.let {
-                                                MaterialTheme.colorScheme.primary
-                                            } ?: noValueColor
-
-                                            val style = locomotive.timeStartOfAcceptance?.let {
-                                                dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont)
-                                            } ?: LocalTextStyle.current.copy(
-                                                fontWeight = FontWeight.Light
-                                            )
-
-                                            Text(
-                                                text = dateStartText,
-                                                style = style,
-                                                color = color,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-
-                                        Box(
-                                            modifier = Modifier
-                                                .shadow(elevation = 1.dp, shape = Shapes.medium)
-                                                .background(
-                                                    color = animatedBackgroundColorsEndAcceptance,
-                                                    shape = Shapes.medium
-                                                )
-                                                .weight(1f)
-                                                .combinedClickable(
-                                                    onClick = {
-                                                        showEndAcceptedDatePicker = true
-                                                    },
-                                                    onLongClick = {
-                                                        locomotive.timeEndOfAcceptance?.let {
-                                                            showBottomSheetRemoveTimeEndAccepted =
-                                                                true
-                                                        }
-                                                    }
-                                                )
-                                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                                        ) {
-                                            val dateEndText = locomotive.timeEndOfAcceptance?.let {
-                                                dateAndTimeConverter?.getDateMiniAndTime(it)
-                                            } ?: "Окончание"
-
-                                            val color = locomotive.timeStartOfAcceptance?.let {
-                                                MaterialTheme.colorScheme.primary
-                                            } ?: noValueColor
-
-                                            val style = locomotive.timeStartOfAcceptance?.let {
-                                                dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont)
-                                            } ?: LocalTextStyle.current.copy(
-                                                fontWeight = FontWeight.Light
-                                            )
-
-                                            Text(
-                                                text = dateEndText,
-                                                style = style,
-                                                color = color,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-                                }
-
-                                var showStartDeliveryDatePicker by remember {
-                                    mutableStateOf(false)
-                                }
-
-                                if (showStartDeliveryDatePicker) {
-                                    AppDateTimePicker(
-                                        title = "Начало сдачи",
-                                        onDateTimeSelected = { timestamp ->
-                                            onStartDeliveryTimeChanged(timestamp)
-                                        },
-                                        onDismiss = { showStartDeliveryDatePicker = false },
-                                        startDateTime = locomotive.timeStartOfDelivery
-                                            ?: Calendar.getInstance().timeInMillis,
-                                        timeZoneStr = displayTz,
-                                        recentTimes = sharedPrefs.getRecentTimes("time_start_delivery"),
-                                        onRecentTimeSaved = { sharedPrefs.addRecentTime("time_start_delivery", it) }
-                                    )
-                                }
-
-                                var showEndDeliveryDatePicker by remember {
-                                    mutableStateOf(false)
-                                }
-
-                                if (showEndDeliveryDatePicker) {
-                                    AppDateTimePicker(
-                                        title = "Окончание сдачи",
-                                        onDateTimeSelected = { timestamp ->
-                                            onEndDeliveryTimeChanged(timestamp)
-                                        },
-                                        onDismiss = { showEndDeliveryDatePicker = false },
-                                        startDateTime = locomotive.timeEndOfDelivery
-                                            ?: Calendar.getInstance().timeInMillis,
-                                        timeZoneStr = displayTz,
-                                        recentTimes = sharedPrefs.getRecentTimes("time_end_delivery"),
-                                        onRecentTimeSaved = { sharedPrefs.addRecentTime("time_end_delivery", it) }
-                                    )
-                                }
-
-                                Column(
-                                    modifier = Modifier
-                                        .padding(horizontal = 16.dp)
-                                        .padding(top = 16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text(
-                                        text = "СДАЧА",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        val animatedBackgroundColorsStartDelivery by animateColorAsState(
-                                            targetValue = if (locomotive.timeStartOfDelivery == null) MaterialTheme.colorScheme.surface
-                                            else MaterialTheme.colorScheme.secondary,
-                                            animationSpec = tween(
-                                                durationMillis = 200,
-                                                easing = FastOutSlowInEasing
-                                            )
-                                        )
-                                        val animatedBackgroundColorsEndDelivery by animateColorAsState(
-                                            targetValue = if (locomotive.timeEndOfDelivery == null) MaterialTheme.colorScheme.surface
-                                            else MaterialTheme.colorScheme.secondary,
-                                            animationSpec = tween(
-                                                durationMillis = 200,
-                                                easing = FastOutSlowInEasing
-                                            )
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .shadow(elevation = 1.dp, shape = Shapes.medium)
-                                                .background(
-                                                    color = animatedBackgroundColorsStartDelivery,
-                                                    shape = Shapes.medium
-                                                )
-                                                .weight(1f)
-                                                .combinedClickable(
-                                                    onClick = {
-                                                        showStartDeliveryDatePicker = true
-                                                    },
-                                                    onLongClick = {
-                                                        locomotive.timeStartOfDelivery?.let {
-                                                            showBottomSheetRemoveTimeStartDelivery =
-                                                                true
-                                                        }
-                                                    }
-                                                )
-                                                .padding(horizontal = 16.dp, vertical = 10.dp)
-                                        ) {
-                                            val dateStartText =
-                                                locomotive.timeStartOfDelivery?.let {
-                                                    dateAndTimeConverter?.getDateMiniAndTime(it)
-                                                } ?: "Начало"
-
-                                            val color = locomotive.timeStartOfDelivery?.let {
-                                                MaterialTheme.colorScheme.primary
-                                            } ?: noValueColor
-
-                                            val style = locomotive.timeStartOfDelivery?.let {
-                                                dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont)
-                                            } ?: LocalTextStyle.current.copy(
-                                                fontWeight = FontWeight.Light
-                                            )
-
-                                            Text(
-                                                text = dateStartText,
-                                                style = style,
-                                                color = color,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-
-                                        Box(
-                                            modifier = Modifier
-                                                .shadow(elevation = 1.dp, shape = Shapes.medium)
-                                                .background(
-                                                    color = animatedBackgroundColorsEndDelivery,
-                                                    shape = Shapes.medium
-                                                )
-                                                .weight(1f)
-                                                .combinedClickable(
-                                                    onClick = {
-                                                        showEndDeliveryDatePicker = true
-                                                    },
-                                                    onLongClick = {
-                                                        locomotive.timeEndOfDelivery?.let {
-                                                            showBottomSheetRemoveTimeEndDelivery =
-                                                                true
-                                                        }
-                                                    }
-                                                )
-                                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                                        ) {
-                                            val dateEndText = locomotive.timeEndOfDelivery?.let {
-                                                dateAndTimeConverter?.getDateMiniAndTime(it)
-                                            } ?: "Окончание"
-
-                                            val color = locomotive.timeEndOfDelivery?.let {
-                                                MaterialTheme.colorScheme.primary
-                                            } ?: noValueColor
-
-                                            val style = locomotive.timeEndOfDelivery?.let {
-                                                dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont)
-                                            } ?: LocalTextStyle.current.copy(
-                                                fontWeight = FontWeight.Light
-                                            )
-
-                                            Text(
-                                                text = dateEndText,
-                                                style = style,
-                                                color = color,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                        if (showAcceptanceSheet) {
+                            TimeBottomSheet(
+                                kind = "acceptance",
+                                seriesName = locomotive.series,
+                                locoType = locomotive.type,
+                                initialStartTime = locomotive.timeStartOfAcceptance,
+                                initialEndTime = locomotive.timeEndOfAcceptance,
+                                initialBarrierOut = locomotive.timeBarrierOut,
+                                initialBarrierIn = locomotive.timeBarrierIn,
+                                routeStartWork = routeStart,
+                                routeEndWork = routeEnd,
+                                initialStationId = locomotive.acceptanceStationId,
+                                timeZoneText = displayTz,
+                                onSave = { result ->
+                                    viewModel.saveAcceptanceFromSheet(result.startTime, result.endTime, result.barrierOut, result.stationId)
+                                    showAcceptanceSheet = false
+                                },
+                                onClose = { showAcceptanceSheet = false },
+                                onNavigateToSeriesSettings = onNavigateToSeriesSettings,
+                                onNavigateToStationSettings = onNavigateToStationSettings,
+                                onEditStation = onEditStation,
+                                onSeriesChanged = viewModel::setSeries,
+                                onEditSeries = onEditSeries,
+                            )
                         }
-                    // ПОКАЗАНИЯ — группа (Отопление / Собственные нужды)
-                    if (userSettings?.isShowLocoHeating != false || userSettings?.isShowLocoAuxiliary != false) {
-                        item(key = "readings_header") {
-                            Text(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
-                                text = "ПОКАЗАНИЯ",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                        if (showDeliverySheet) {
+                            TimeBottomSheet(
+                                kind = "delivery",
+                                seriesName = locomotive.series,
+                                locoType = locomotive.type,
+                                initialStartTime = locomotive.timeStartOfDelivery,
+                                initialEndTime = locomotive.timeEndOfDelivery,
+                                initialBarrierOut = locomotive.timeBarrierOut,
+                                initialBarrierIn = locomotive.timeBarrierIn,
+                                routeStartWork = routeStart,
+                                routeEndWork = routeEnd,
+                                initialStationId = locomotive.deliveryStationId,
+                                timeZoneText = displayTz,
+                                onSave = { result ->
+                                    viewModel.saveDeliveryFromSheet(result.barrierIn, result.startTime, result.endTime, result.stationId)
+                                    showDeliverySheet = false
+                                },
+                                onClose = { showDeliverySheet = false },
+                                onNavigateToSeriesSettings = onNavigateToSeriesSettings,
+                                onNavigateToStationSettings = onNavigateToStationSettings,
+                                onEditStation = onEditStation,
+                                onSeriesChanged = viewModel::setSeries,
+                                onEditSeries = onEditSeries,
+                                onTimeEndWorkChanged = viewModel::setTimeEndWork,
+                            )
+                        }
+
+                        // GroupHead "ВРЕМЯ"
+                        Text(
+                            text = "ВРЕМЯ",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                letterSpacing = androidx.compose.ui.unit.TextUnit(1.4f, androidx.compose.ui.unit.TextUnitType.Sp)
+                            ),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+
+                        // Карточка: Приёмка / Сдача
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                .background(
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    shape = Shapes.medium
+                                )
+                        ) {
+                            TimeSummaryRow(
+                                label = "ПРИЁМКА",
+                                stops = listOf(
+                                    TimeStop(
+                                        time = locomotive.timeStartOfAcceptance?.let { dateAndTimeConverter?.getTime(it) },
+                                        caption = "начало"
+                                    ),
+                                    TimeStop(
+                                        time = locomotive.timeEndOfAcceptance?.let { dateAndTimeConverter?.getTime(it) },
+                                        caption = "конец"
+                                    ),
+                                    TimeStop(
+                                        time = locomotive.timeBarrierOut?.let { dateAndTimeConverter?.getTime(it) },
+                                        caption = "КП"
+                                    ),
+                                ),
+                                onClick = { showAcceptanceSheet = true }
+                            )
+                            CustomDivider(orientation = Orientation.Horizontal)
+                            TimeSummaryRow(
+                                label = "СДАЧА",
+                                stops = listOf(
+                                    TimeStop(
+                                        time = locomotive.timeBarrierIn?.let { dateAndTimeConverter?.getTime(it) },
+                                        caption = "КП"
+                                    ),
+                                    TimeStop(
+                                        time = locomotive.timeStartOfDelivery?.let { dateAndTimeConverter?.getTime(it) },
+                                        caption = "начало"
+                                    ),
+                                    TimeStop(
+                                        time = locomotive.timeEndOfDelivery?.let { dateAndTimeConverter?.getTime(it) },
+                                        caption = "конец"
+                                    ),
+                                ),
+                                onClick = { showDeliverySheet = true }
                             )
                         }
                     }
+
                     // отопление
                     if (userSettings?.isShowLocoHeating != false) {
                     item {
@@ -1234,22 +978,6 @@ fun FormLocoScreen(
                     }
                     }
 
-                    // Заголовок группы секций
-                    item(key = "sections_header") {
-                        val sectionCount = when (locomotive.type) {
-                            LocoType.DIESEL -> dieselSectionListState?.size ?: 0
-                            LocoType.ELECTRIC -> electricSectionListState?.size ?: 0
-                        }
-                        Text(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
-                            text = if (sectionCount > 0) "СЕКЦИИ · $sectionCount" else "СЕКЦИИ",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-
                     when (locomotive.type.name) {
                         LocoType.DIESEL.name -> {
                             dieselSectionListState?.let {
@@ -1473,6 +1201,98 @@ fun FormLocoScreen(
                         }
                     }
                     item { Spacer(modifier = Modifier.height(20.dp)) }
+                }
+            }
+        }
+    }
+}
+
+private fun buildTimeSummary(times: List<Long?>, converter: DateAndTimeConverter?): String {
+    val parts = times.mapNotNull { ms ->
+        if (ms == null || converter == null) null else converter.getTime(ms).takeIf { it.isNotBlank() }
+    }
+    return parts.joinToString(" → ")
+}
+
+data class TimeStop(val time: String?, val caption: String)
+
+@Composable
+private fun TimeSummaryRow(
+    label: String,
+    stops: List<TimeStop>,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // Upper: label + chevron
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    letterSpacing = androidx.compose.ui.unit.TextUnit(1f, androidx.compose.ui.unit.TextUnitType.Sp)
+                ),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            )
+            Icon(
+                painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                modifier = Modifier.size(14.dp)
+            )
+        }
+
+        // Lower: 3 time cells in 1fr → 1fr → 1fr grid
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
+        ) {
+            stops.forEachIndexed { idx, stop ->
+                if (idx > 0) {
+                    Text(
+                        text = "→",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        ),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp)
+                            .padding(top = 4.dp)
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(
+                        text = stop.time ?: "—:—",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            fontSize = 18.sp,
+                            lineHeight = 18.sp
+                        ),
+                        color = if (stop.time != null) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                    )
+                    Text(
+                        text = stop.caption.uppercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            letterSpacing = androidx.compose.ui.unit.TextUnit(0.8f, androidx.compose.ui.unit.TextUnitType.Sp),
+                            fontSize = 9.sp
+                        ),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    )
                 }
             }
         }

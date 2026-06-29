@@ -85,6 +85,10 @@ fun FormLocoDestination(
         onDeleteSeries = viewModel::removeSeries,
         dateAndTimeConverter = formUiState.dateAndTimeConverter,
         userSettings = userSettings,
-        onSettingsClick = router::showSettingsLoco
+        onSettingsClick = router::showSettingsLoco,
+        onNavigateToSeriesSettings = router::showSettingsSeriesList,
+        onNavigateToStationSettings = router::showSettingsStationList,
+        onEditStation = router::showSettingsStationEditor,
+        onEditSeries = router::showSettingsSeriesEditor,
     )
 }

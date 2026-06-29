@@ -3,6 +3,8 @@ package com.z_company.repository.remote_rest
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
+import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.StationNorm
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
@@ -67,6 +69,20 @@ interface RemoteRestApi {
 
     /** Получить список дней отвлечений с сервера */
     suspend fun getReleaseDays(token: String): List<ReleaseDay>
+
+    // --- NormaTime (нормы времени приёмки/сдачи) ---
+
+    /** Сохранить серии локомотивов на сервере (полная замена) */
+    suspend fun saveNormaTimeLocomotives(token: String, body: List<LocomotiveSeries>)
+
+    /** Получить серии локомотивов с сервера */
+    suspend fun getNormaTimeLocomotives(token: String): List<LocomotiveSeries>
+
+    /** Сохранить станции с нормами на сервере (полная замена) */
+    suspend fun saveNormaTimeStations(token: String, body: List<StationNorm>)
+
+    /** Получить станции с нормами с сервера */
+    suspend fun getNormaTimeStations(token: String): List<StationNorm>
 
     // --- ProductionCalendar (производственный календарь) ---
 

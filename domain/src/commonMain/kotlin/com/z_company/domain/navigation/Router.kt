@@ -17,6 +17,10 @@ interface Router {
     fun showSettingsRoute() { showSettings() }
     fun showSettingsLoco() { showSettings() }
     fun showSettingsRest() { showSettings() }
+    fun showSettingsSeriesList() { showSettings() }
+    fun showSettingsSeriesEditor(seriesId: String) { showSettingsSeriesList() }
+    fun showSettingsStationList() { showSettings() }
+    fun showSettingsStationEditor(stationId: String) { showSettingsStationList() }
     fun showSearch()
     fun back()
     fun navigationUp(): Boolean

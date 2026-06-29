@@ -1,0 +1,22 @@
+-- Миграция 12: добавление таблиц справочников «Нормы времени».
+-- Хранят серии локомотивов и станции с нормами приёмки/сдачи.
+-- Синхронизируются с сервером как личные данные (full replace).
+
+CREATE TABLE IF NOT EXISTS LocomotiveSeries (
+    seriesId TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    acceptanceDurationMin INTEGER,
+    deliveryDurationMin INTEGER,
+    updatedAt INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS StationNorm (
+    stationId TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    appearanceToStartMin INTEGER,
+    endToBarrierMin INTEGER,
+    barrierToStartMin INTEGER,
+    endToWorkEndMin INTEGER,
+    updatedAt INTEGER NOT NULL
+);

@@ -5,6 +5,8 @@ import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
+import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.StationNorm
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import kotlinx.coroutines.flow.Flow
@@ -101,6 +103,50 @@ class SettingManager(
         emit(ResultState.Loading())
         val days = remoteRestApi.getReleaseDays(token = bearerToken)
         emit(ResultState.Success(days))
+    }.catch { e ->
+        emit(ResultState.Error(ErrorEntity(throwable = e)))
+    }
+
+    // --- NormaTime ---
+
+    fun saveNormaTimeLocomotivesInRemote(
+        series: List<LocomotiveSeries>,
+        bearerToken: String
+    ): Flow<ResultState<Unit>> = flow {
+        emit(ResultState.Loading())
+        remoteRestApi.saveNormaTimeLocomotives(token = bearerToken, body = series)
+        emit(ResultState.Success(Unit))
+    }.catch { e ->
+        emit(ResultState.Error(ErrorEntity(throwable = e)))
+    }
+
+    fun getNormaTimeLocomotivesFromRemote(
+        bearerToken: String
+    ): Flow<ResultState<List<LocomotiveSeries>>> = flow {
+        emit(ResultState.Loading())
+        val series = remoteRestApi.getNormaTimeLocomotives(token = bearerToken)
+        emit(ResultState.Success(series))
+    }.catch { e ->
+        emit(ResultState.Error(ErrorEntity(throwable = e)))
+    }
+
+    fun saveNormaTimeStationsInRemote(
+        stations: List<StationNorm>,
+        bearerToken: String
+    ): Flow<ResultState<Unit>> = flow {
+        emit(ResultState.Loading())
+        remoteRestApi.saveNormaTimeStations(token = bearerToken, body = stations)
+        emit(ResultState.Success(Unit))
+    }.catch { e ->
+        emit(ResultState.Error(ErrorEntity(throwable = e)))
+    }
+
+    fun getNormaTimeStationsFromRemote(
+        bearerToken: String
+    ): Flow<ResultState<List<StationNorm>>> = flow {
+        emit(ResultState.Loading())
+        val stations = remoteRestApi.getNormaTimeStations(token = bearerToken)
+        emit(ResultState.Success(stations))
     }.catch { e ->
         emit(ResultState.Error(ErrorEntity(throwable = e)))
     }

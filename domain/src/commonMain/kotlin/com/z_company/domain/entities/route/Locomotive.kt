@@ -28,6 +28,10 @@ data class Locomotive(
     var heatingCounterDelivery: Double? = null,
     var auxiliaryCounterAccepted: Double? = null,
     var auxiliaryCounterDelivery: Double? = null,
+    var timeBarrierOut: Long? = null,
+    var timeBarrierIn: Long? = null,
+    var acceptanceStationId: String? = null,
+    var deliveryStationId: String? = null,
 )
 
 @Serializable

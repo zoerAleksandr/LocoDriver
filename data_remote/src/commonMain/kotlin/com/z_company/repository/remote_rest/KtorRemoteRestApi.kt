@@ -3,9 +3,13 @@ package com.z_company.repository.remote_rest
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
+import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.StationNorm
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.repository.remote_rest.response.NormaTimeLocomotiveResponse
+import com.z_company.repository.remote_rest.response.NormaTimeStationResponse
 import com.z_company.repository.remote_rest.request.AddEmailRequest
 import com.z_company.repository.remote_rest.request.AddVKIDRequest
 import com.z_company.repository.remote_rest.request.AuthRequest
@@ -162,6 +166,32 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
         client.get("v1/release_days/") {
             header("Authorization", token)
         }.body()
+
+    override suspend fun saveNormaTimeLocomotives(token: String, body: List<LocomotiveSeries>) {
+        client.post("v1/norma_time/locomotives/") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(body.map { NormaTimeLocomotiveResponse.fromDomain(it) })
+        }.bodyAsText()
+    }
+
+    override suspend fun getNormaTimeLocomotives(token: String): List<LocomotiveSeries> =
+        client.get("v1/norma_time/locomotives/") {
+            header("Authorization", token)
+        }.body<List<NormaTimeLocomotiveResponse>>().map { it.toDomain() }
+
+    override suspend fun saveNormaTimeStations(token: String, body: List<StationNorm>) {
+        client.post("v1/norma_time/stations/") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(body.map { NormaTimeStationResponse.fromDomain(it) })
+        }.bodyAsText()
+    }
+
+    override suspend fun getNormaTimeStations(token: String): List<StationNorm> =
+        client.get("v1/norma_time/stations/") {
+            header("Authorization", token)
+        }.body<List<NormaTimeStationResponse>>().map { it.toDomain() }
 
     override suspend fun getProductionCalendar(country: String, year: Int): List<ProductionCalendarDay> =
         client.get("v1/production_calendar/") {

@@ -17,14 +17,18 @@ CREATE TABLE IF NOT EXISTS Locomotive (
     heatingCounterDelivery TEXT DEFAULT NULL,
     auxiliaryCounterAccepted TEXT DEFAULT NULL,
     auxiliaryCounterDelivery TEXT DEFAULT NULL,
+    timeBarrierOut INTEGER DEFAULT NULL,
+    timeBarrierIn INTEGER DEFAULT NULL,
+    acceptanceStationId TEXT DEFAULT NULL,
+    deliveryStationId TEXT DEFAULT NULL,
     FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS index_Locomotive_basicId ON Locomotive(basicId);
 
 insertOrReplace:
-INSERT OR REPLACE INTO Locomotive (locoId, basicId, series, number, type, electricSectionList, dieselSectionList, timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery, normaElectricCurrent1, normaElectricCurrent2, normaDiesel, heatingCounterAccepted, heatingCounterDelivery, auxiliaryCounterAccepted, auxiliaryCounterDelivery)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO Locomotive (locoId, basicId, series, number, type, electricSectionList, dieselSectionList, timeStartOfAcceptance, timeEndOfAcceptance, timeStartOfDelivery, timeEndOfDelivery, normaElectricCurrent1, normaElectricCurrent2, normaDiesel, heatingCounterAccepted, heatingCounterDelivery, auxiliaryCounterAccepted, auxiliaryCounterDelivery, timeBarrierOut, timeBarrierIn, acceptanceStationId, deliveryStationId)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getById:
 SELECT * FROM Locomotive WHERE locoId = :locoId;

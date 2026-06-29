@@ -1,0 +1,19 @@
+CREATE TABLE IF NOT EXISTS StationNorm (
+    stationId TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    appearanceToStartMin INTEGER,
+    endToBarrierMin INTEGER,
+    barrierToStartMin INTEGER,
+    endToWorkEndMin INTEGER,
+    updatedAt INTEGER NOT NULL
+);
+
+insertOrReplace:
+INSERT OR REPLACE INTO StationNorm (stationId, name, appearanceToStartMin, endToBarrierMin, barrierToStartMin, endToWorkEndMin, updatedAt)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+getAll:
+SELECT * FROM StationNorm ORDER BY name;
+
+deleteAll:
+DELETE FROM StationNorm;
