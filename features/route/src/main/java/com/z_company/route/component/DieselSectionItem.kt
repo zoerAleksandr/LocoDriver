@@ -312,10 +312,10 @@ fun DieselSectionItem(
                     val newCoeff = newVal?.toDoubleOrNull()
                     if (newCoeff != null && newCoeff != 0.0) {
                         kgSnapshotAccepted?.let {
-                            onFuelAcceptedChanged(index, rounding(it / newCoeff, 2)?.str() ?: "")
+                            onFuelAcceptedChanged(index, rounding(it / newCoeff, 6)?.str() ?: "")
                         }
                         kgSnapshotDelivery?.let {
-                            onFuelDeliveredChanged(index, rounding(it / newCoeff, 2)?.str() ?: "")
+                            onFuelDeliveredChanged(index, rounding(it / newCoeff, 6)?.str() ?: "")
                         }
                     }
                 }
@@ -472,7 +472,7 @@ fun DieselSectionItem(
                         try {
                             val input = filtered.toDouble()  // Если валидно, парсим
                             val liters = if (isKiloMode) {
-                                if (coeff != 0.0) rounding(input / coeff, 2)?.str() ?: "" else ""
+                                if (coeff != 0.0) rounding(input / coeff, 6)?.str() ?: "" else ""
                             } else {
                                 rounding(input, 2).str()
                             }
@@ -567,7 +567,7 @@ fun DieselSectionItem(
                         try {
                             val input = filtered.toDouble()
                             val liters = if (isKiloMode) {
-                                if (coeff != 0.0) rounding(input / coeff, 2)?.str() ?: "" else ""
+                                if (coeff != 0.0) rounding(input / coeff, 6)?.str() ?: "" else ""
                             } else {
                                 rounding(input, 2).str()
                             }
