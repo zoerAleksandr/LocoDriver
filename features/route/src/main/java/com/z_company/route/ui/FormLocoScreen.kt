@@ -963,126 +963,86 @@ fun FormLocoScreen(
                         }
                     }
 
-                    // Итого
-                    if (userSettings?.isShowLocoStatistics != false ||
-                        userSettings?.isShowLocoNorma != false) {
-                        item { GroupHead(text = "Итого") }
-                    }
-
-                    // Итоги
+                    // Итого — TotalsBlock в одной карточке
                     if (userSettings?.isShowLocoStatistics != false) {
-                    item {
-                        CollapsibleSection(
-                            title = "Статистика",
-                            expanded = formUiState.isShowResults,
-                            onToggle = viewModel::toggleResults,
-                            icon = R.drawable.finance_24px
-                        ) {
-                            when (currentLoco.type) {
-                                LocoType.ELECTRIC -> {
-                                    ElectricStatisticsSection(
-                                        electricSectionListState = electricSectionListState,
-                                        locomotive = locomotive,
-                                        isShowOtherCurrent = formUiState.isShowOtherCurrent,
-                                        onSettingsClick = onSettingsClick
-                                    )
-                                }
-                                LocoType.DIESEL -> {
-                                    DieselStatisticsSection(
-                                        dieselSectionListState = dieselSectionListState,
-                                        locomotive = locomotive,
-                                        onSettingsClick = onSettingsClick
-                                    )
+                        item { GroupHead(text = "Итого") }
+                        item {
+                            MCard {
+                                when (currentLoco.type) {
+                                    LocoType.ELECTRIC -> {
+                                        ElectricStatisticsSection(
+                                            electricSectionListState = electricSectionListState,
+                                            locomotive = locomotive,
+                                            isShowOtherCurrent = formUiState.isShowOtherCurrent,
+                                            onSettingsClick = onSettingsClick,
+                                            modifier = Modifier.padding(vertical = 12.dp)
+                                        )
+                                    }
+                                    LocoType.DIESEL -> {
+                                        DieselStatisticsSection(
+                                            dieselSectionListState = dieselSectionListState,
+                                            locomotive = locomotive,
+                                            onSettingsClick = onSettingsClick,
+                                            onNormaChange = { viewModel.setNormaDiesel(it) }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                    }
 
-                    // Норма
-                    if (userSettings?.isShowLocoNorma != false) {
+                    // Норма — отдельным блоком только для электровоза
+                    if (userSettings?.isShowLocoNorma != false && currentLoco.type == LocoType.ELECTRIC) {
                     item {
-                        CollapsibleSection(
-                            title = "Норма",
-                            expanded = formUiState.isShowNorma,
-                            onToggle = viewModel::toggleNorma,
-                            icon = R.drawable.weight_24px
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                        GroupHead(text = "Норма")
+                        MCard {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                when (locomotive.type) {
-                                    LocoType.ELECTRIC -> {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                        ) {
-                                            OutlinedTextFieldApp(
-                                                modifier = Modifier.weight(1f),
-                                                value = formUiState.norma1Text,
-                                                placeholder = {
-                                                    Text(
-                                                        text = "Ток 1",
-                                                        style = LocalTextStyle.current.copy(
-                                                            fontWeight = FontWeight.Light
-                                                        ),
-                                                        color = noValueColor
-                                                    )
-                                                },
-                                                textStyle = dataTextStyle,
-                                                onValueChange = { viewModel.setNormaElectricCurrent1(it) },
-                                                keyboardOptions = KeyboardOptions(
-                                                    keyboardType = KeyboardType.Decimal,
-                                                    imeAction = ImeAction.Done
-                                                ),
-                                                singleLine = true
-                                            )
-
-                                            if (userSettings?.isShowOtherCurrent == true) {
-                                                OutlinedTextFieldApp(
-                                                    modifier = Modifier.weight(1f),
-                                                    value = formUiState.norma2Text,
-                                                    placeholder = {
-                                                        Text(
-                                                            text = "Ток 2",
-                                                            style = LocalTextStyle.current.copy(
-                                                                fontWeight = FontWeight.Light
-                                                            ),
-                                                            color = noValueColor
-                                                        )
-                                                    },
-                                                    textStyle = dataTextStyle,
-                                                    onValueChange = { viewModel.setNormaElectricCurrent2(it) },
-                                                    keyboardOptions = KeyboardOptions(
-                                                        keyboardType = KeyboardType.Decimal,
-                                                        imeAction = ImeAction.Done
-                                                    ),
-                                                    singleLine = true
-                                                )
-                                            }
-                                        }
-                                    }
-                                    LocoType.DIESEL -> {
-                                        val norma = locomotive.normaDiesel ?: ""
-                                        OutlinedTextFieldApp(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            value = norma,
-                                            textStyle = dataTextStyle,
-                                            suffix = {
-                                                Text(
-                                                    text = "Кг.",
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                            },
-                                            onValueChange = { viewModel.setNormaDiesel(it) },
-                                            keyboardOptions = KeyboardOptions(
-                                                keyboardType = KeyboardType.Decimal,
-                                                imeAction = ImeAction.Done
-                                            ),
-                                            singleLine = true
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier.weight(1f),
+                                    value = formUiState.norma1Text,
+                                    placeholder = {
+                                        Text(
+                                            text = "Ток 1",
+                                            style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                            color = noValueColor
                                         )
-                                    }
+                                    },
+                                    textStyle = dataTextStyle,
+                                    fieldElevation = 0.dp,
+                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                    colorBackgroundEmptyField = Color.Transparent,
+                                    colorBackgroundNotEmptyField = Color.Transparent,
+                                    onValueChange = { viewModel.setNormaElectricCurrent1(it) },
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
+                                    ),
+                                    singleLine = true
+                                )
+                                if (userSettings?.isShowOtherCurrent == true) {
+                                    OutlinedTextFieldApp(
+                                        modifier = Modifier.weight(1f),
+                                        value = formUiState.norma2Text,
+                                        placeholder = {
+                                            Text(
+                                                text = "Ток 2",
+                                                style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                                color = noValueColor
+                                            )
+                                        },
+                                        textStyle = dataTextStyle,
+                                        fieldElevation = 0.dp,
+                                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                        colorBackgroundEmptyField = Color.Transparent,
+                                        colorBackgroundNotEmptyField = Color.Transparent,
+                                        onValueChange = { viewModel.setNormaElectricCurrent2(it) },
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
+                                        ),
+                                        singleLine = true
+                                    )
                                 }
                             }
                         }

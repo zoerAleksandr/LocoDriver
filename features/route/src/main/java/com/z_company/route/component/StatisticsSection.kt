@@ -3,18 +3,33 @@ package com.z_company.route.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.z_company.core.ui.theme.MonoFont
+import com.z_company.core.ui.theme.Shapes
+import kotlin.math.abs
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.util.CalculationEnergy.rounding
 import com.z_company.domain.util.CalculationEnergy.getTotalFuelConsumption
@@ -131,6 +146,7 @@ fun DieselStatisticsSection(
     dieselSectionListState: SnapshotStateList<DieselSectionFormState>?,
     locomotive: Locomotive,
     onSettingsClick: () -> Unit,
+    onNormaChange: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var overResultInLiter: Double? = null
@@ -146,42 +162,208 @@ fun DieselStatisticsSection(
         overResultInKilo += resultInKilo
     }
 
-    Column(
-        modifier = modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        StatRow(
-            label = "Расход (Л)",
-            value = rounding(overResultInLiter, 2)?.toString() ?: "—"
-        )
-        StatRow(
-            label = "Расход (Кг)",
-            value = rounding(overResultInKilo, 2)?.str() ?: "—"
-        )
-        StatRow(
-            label = "Норма (Кг)",
-            value = locomotive.normaDiesel ?: "—",
-            valueColor = NormaColor,
-            onClick = onSettingsClick
-        )
-        if (!locomotive.normaDiesel.isNullOrBlank()) {
-            val result = (locomotive.normaDiesel?.toDoubleOrZero() - overResultInKilo) ?: 0.0
-            val resultText = if (result > 0) {
-                "+${rounding(result, 2).str()}"
-            } else {
-                rounding(result, 2).str2decimalSign()
+    val litersText = rounding(overResultInLiter, 2)?.str() ?: "—"
+    val kiloText = rounding(overResultInKilo, 2)?.str()
+    val monoLabel = MaterialTheme.typography.labelSmall.copy(
+        fontFamily = MonoFont,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.W600,
+        letterSpacing = TextUnit(1.4f, TextUnitType.Sp)
+    )
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Общий расход
+        Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 14.dp)) {
+            Text(
+                text = "ОБЩИЙ РАСХОД",
+                style = monoLabel,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = litersText,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontFamily = MonoFont, fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "л",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                kiloText?.let {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(MaterialTheme.colorScheme.surfaceBright)
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "$it кг",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = MonoFont, fontWeight = FontWeight.W600
+                            ),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
-            val resultColor = if (result < 0) {
-                MaterialTheme.colorScheme.error
-            } else {
-                MaterialTheme.colorScheme.primary
+            // Раскладка
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Заправка всех секций",
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "$litersText л",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = MonoFont, fontWeight = FontWeight.W600
+                    ),
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
-            ResultBanner(result = result, value = resultText)
+        }
+
+        androidx.compose.material3.HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+
+        // Норма + результат
+        Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "НОРМА",
+                    style = monoLabel,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                NormaPill(
+                    value = locomotive.normaDiesel ?: "",
+                    unit = "кг",
+                    onValueChange = onNormaChange
+                )
+            }
+
+            if (!locomotive.normaDiesel.isNullOrBlank()) {
+                val result = (locomotive.normaDiesel?.toDoubleOrZero() - overResultInKilo) ?: 0.0
+                val norma = locomotive.normaDiesel?.toDoubleOrZero() ?: 0.0
+                val pct = if (norma != 0.0) abs(result / norma * 100).toInt() else 0
+                ResultCard(result = result, magnitude = rounding(abs(result), 2).str(), unit = "кг", percent = pct)
+            }
         }
     }
 }
 
-/** Баннер итога расхода: ПЕРЕРАСХОД (red-soft) при result<0, ЭКОНОМИЯ (green-soft) иначе. */
+/** Поле нормы — пилюля с единицей справа (как NormPill в референсе). */
+@Composable
+private fun NormaPill(value: String, unit: String, onValueChange: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(Shapes.small)
+            .background(MaterialTheme.colorScheme.secondary),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedTextFieldApp(
+            modifier = Modifier.width(110.dp),
+            value = value,
+            onValueChange = { onValueChange(it.take(7)) },
+            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                fontFamily = MonoFont, fontWeight = FontWeight.Bold
+            ),
+            fieldElevation = 0.dp,
+            borderColor = MaterialTheme.colorScheme.outlineVariant,
+            colorBackgroundEmptyField = Color.Transparent,
+            colorBackgroundNotEmptyField = Color.Transparent,
+            suffix = {
+                Text(
+                    text = unit,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
+            ),
+            singleLine = true,
+            shape = Shapes.small,
+        )
+    }
+}
+
+/** Карточка результата: ПЕРЕРАСХОД (red) при result<0, ЭКОНОМИЯ (green) иначе. */
+@Composable
+private fun ResultCard(result: Double, magnitude: String, unit: String, percent: Int, modifier: Modifier = Modifier) {
+    val isOver = result < 0
+    val green = Color(0xFF00B341)
+    val accentColor = if (isOver) MaterialTheme.colorScheme.error else green
+    val label = if (isOver) "ПЕРЕРАСХОД" else "ЭКОНОМИЯ"
+    val sign = if (isOver) "+" else "−"
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(accentColor.copy(alpha = 0.10f))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(accentColor.copy(alpha = 0.20f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = if (isOver) "↗" else "↘",
+                style = MaterialTheme.typography.titleMedium,
+                color = accentColor
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontFamily = MonoFont, letterSpacing = TextUnit(1f, TextUnitType.Sp)
+                ),
+                color = accentColor
+            )
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = "$sign$magnitude",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = MonoFont, fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = " $unit  ($sign$percent%)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 2.dp, bottom = 1.dp)
+                )
+            }
+        }
+    }
+}
+
+/** Баннер итога расхода (электровоз): ПЕРЕРАСХОД/ЭКОНОМИЯ. */
 @Composable
 private fun ResultBanner(result: Double, value: String, modifier: Modifier = Modifier) {
     val isOver = result < 0
@@ -192,21 +374,14 @@ private fun ResultBanner(result: Double, value: String, modifier: Modifier = Mod
         modifier = modifier
             .fillMaxWidth()
             .padding(top = 8.dp)
-            .background(accentColor.copy(alpha = 0.10f), androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .background(accentColor.copy(alpha = 0.10f))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = accentColor,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleSmall,
-            color = accentColor,
-        )
+        Text(text = label, style = MaterialTheme.typography.labelMedium, color = accentColor)
+        Text(text = value, style = MaterialTheme.typography.titleSmall, color = accentColor)
     }
 }
 
