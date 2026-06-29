@@ -742,7 +742,7 @@ fun FormLocoScreen(
                                             } ?: noValueColor
 
                                             val style = locomotive.timeStartOfAcceptance?.let {
-                                                dataTextStyle
+                                                dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont)
                                             } ?: LocalTextStyle.current.copy(
                                                 fontWeight = FontWeight.Light
                                             )
@@ -786,7 +786,7 @@ fun FormLocoScreen(
                                             } ?: noValueColor
 
                                             val style = locomotive.timeStartOfAcceptance?.let {
-                                                dataTextStyle
+                                                dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont)
                                             } ?: LocalTextStyle.current.copy(
                                                 fontWeight = FontWeight.Light
                                             )
@@ -902,7 +902,7 @@ fun FormLocoScreen(
                                             } ?: noValueColor
 
                                             val style = locomotive.timeStartOfDelivery?.let {
-                                                dataTextStyle
+                                                dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont)
                                             } ?: LocalTextStyle.current.copy(
                                                 fontWeight = FontWeight.Light
                                             )
@@ -946,7 +946,7 @@ fun FormLocoScreen(
                                             } ?: noValueColor
 
                                             val style = locomotive.timeEndOfDelivery?.let {
-                                                dataTextStyle
+                                                dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont)
                                             } ?: LocalTextStyle.current.copy(
                                                 fontWeight = FontWeight.Light
                                             )
