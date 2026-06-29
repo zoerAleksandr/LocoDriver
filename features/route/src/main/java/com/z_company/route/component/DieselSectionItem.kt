@@ -380,7 +380,7 @@ fun DieselSectionItem(
         }
     }
 
-    val dataTextStyle = MaterialTheme.typography.bodyLarge
+    val dataTextStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = com.z_company.core.ui.theme.MonoFont)
     val hintStyle = MaterialTheme.typography.bodyMedium
 
     // Анти-паттерн confirmValueChange для side-effect → dismissState мог застрять.

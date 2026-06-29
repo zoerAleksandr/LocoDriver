@@ -123,7 +123,7 @@ fun ElectricSectionItem(
         ), recoveryPrecision2
     )
 
-    val dataTextStyle = MaterialTheme.typography.bodyLarge
+    val dataTextStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = com.z_company.core.ui.theme.MonoFont)
     val hintStyle = MaterialTheme.typography.bodyMedium
 
     val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
