@@ -563,6 +563,18 @@ fun DieselSectionItem(
                             color = noValueColor
                         )
                     },
+                    supportingText = if (acceptedInKilo != null) {
+                        {
+                            val accConv = if (isKiloMode)
+                                rounding(item.accepted.data?.toDoubleOrZero(), 2).str()
+                            else rounding(acceptedInKilo, 2)?.str()
+                            Text(
+                                text = if (isKiloMode) maskInLiter(accConv) ?: "" else maskInKilo(accConv) ?: "",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else null,
                     textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
                     borderColor = MaterialTheme.colorScheme.outlineVariant,
@@ -644,6 +656,18 @@ fun DieselSectionItem(
                             color = noValueColor
                         )
                     },
+                    supportingText = if (deliveryInKilo != null) {
+                        {
+                            val delConv = if (isKiloMode)
+                                rounding(item.delivery.data?.toDoubleOrZero(), 2).str()
+                            else rounding(deliveryInKilo, 2)?.str()
+                            Text(
+                                text = if (isKiloMode) maskInLiter(delConv) ?: "" else maskInKilo(delConv) ?: "",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else null,
                     textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
                     borderColor = MaterialTheme.colorScheme.outlineVariant,
@@ -719,8 +743,15 @@ fun DieselSectionItem(
                     colorBackgroundNotEmptyField = Color.Transparent,
                             placeholder = {
                                 Text(
-                                    text = "Объём, л",
+                                    text = "Объём",
                                     style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                    color = noValueColor
+                                )
+                            },
+                            suffix = {
+                                Text(
+                                    text = "л.",
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = noValueColor
                                 )
                             },
@@ -741,8 +772,15 @@ fun DieselSectionItem(
                     colorBackgroundNotEmptyField = Color.Transparent,
                             placeholder = {
                                 Text(
-                                    text = "Масса, кг",
+                                    text = "Масса",
                                     style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                    color = noValueColor
+                                )
+                            },
+                            suffix = {
+                                Text(
+                                    text = "кг.",
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = noValueColor
                                 )
                             },
@@ -765,50 +803,6 @@ fun DieselSectionItem(
                 )
             }
 
-            AnimatedVisibility(acceptedInKilo != null || deliveryInKilo != null) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .padding(start = 12.dp)
-                            .weight(1f),
-                        contentAlignment = Alignment.TopStart
-                    ) {
-                        val acceptedText = if (isKiloMode) rounding(
-                            item.accepted.data?.toDoubleOrZero(),
-                            2
-                        ).str() else rounding(acceptedInKilo, 2)?.str()
-                        Text(
-                            text = if (isKiloMode) maskInLiter(acceptedText) ?: "" else maskInKilo(
-                                acceptedText
-                            ) ?: "",
-                            style = hintStyle,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-//                            .padding(start = 12.dp)
-                            .weight(1f),
-                        contentAlignment = Alignment.TopStart
-                    ) {
-                        val deliveryText = if (isKiloMode)
-                            rounding(item.delivery.data?.toDoubleOrZero(), 2).str()
-                        else rounding(deliveryInKilo, 2)?.str()
-                        Text(
-                            text = if (isKiloMode) maskInLiter(deliveryText) ?: "" else maskInKilo(
-                                deliveryText
-                            ) ?: "",
-                            style = hintStyle,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
         }
     }
 
