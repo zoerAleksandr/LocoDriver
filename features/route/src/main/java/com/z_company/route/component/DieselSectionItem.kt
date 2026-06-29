@@ -121,7 +121,14 @@ fun DieselSectionItem(
         mutableStateOf(false)
     }
 
-    if (showRefuel) {
+    // Экипировка развёрнута, если есть данные
+    var expandSupply by remember {
+        mutableStateOf(
+            !item.refuel.data.isNullOrBlank() || !item.refuelInKilo.data.isNullOrBlank()
+        )
+    }
+
+    if (false && showRefuel) {
         ModalBottomSheet(
             onDismissRequest = {
                 showRefuel = false
@@ -472,31 +479,6 @@ fun DieselSectionItem(
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
-
-                Row(
-                    modifier = Modifier.noRippleEffect {
-                        showRefuel = true
-                    },
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    item.refuelInKilo.data?.toDoubleOrNull()?.let {
-                        Text(
-                            modifier = Modifier.padding(end = 8.dp),
-                            text = maskInKilo(it.str()) ?: "",
-                            style = dataTextStyle,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    Icon(
-                        modifier = Modifier
-                            .size(24.dp),
-                        painter = painterResource(id = R.drawable.fuel_pump),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                        contentDescription = null,
-                    )
-                }
                 }
             }
 
@@ -686,6 +668,97 @@ fun DieselSectionItem(
                     painter = painterResource(R.drawable.sync_24px),
                     tint = MaterialTheme.colorScheme.primary,
                     contentDescription = null
+                )
+            }
+
+            // Экипировка — инлайн (вместо шторки)
+            if (expandSupply) {
+                Column(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "ЭКИПИРОВКА",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        // k экипировки — компактное поле
+                        OutlinedTextFieldApp(
+                            modifier = Modifier.width(90.dp),
+                            value = item.refuelCoefficient.data ?: "",
+                            onValueChange = { onRefuelCoefficientValueChanged(index, it.take(6)) },
+                            textStyle = dataTextStyle,
+                            placeholder = {
+                                Text(
+                                    text = "k экип.",
+                                    style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                    color = noValueColor
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
+                            ),
+                            singleLine = true,
+                            shape = Shapes.medium,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextFieldApp(
+                            modifier = Modifier.weight(1f),
+                            value = item.refuel.data ?: "",
+                            onValueChange = { onRefuelValueChanged(index, it.take(7)) },
+                            textStyle = dataTextStyle,
+                            placeholder = {
+                                Text(
+                                    text = "Объём, л",
+                                    style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                    color = noValueColor
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
+                            ),
+                            singleLine = true,
+                            shape = Shapes.medium,
+                        )
+                        OutlinedTextFieldApp(
+                            modifier = Modifier.weight(1f),
+                            value = item.refuelInKilo.data ?: "",
+                            onValueChange = { onRefuelInKiloValueChanged(index, it.take(7)) },
+                            textStyle = dataTextStyle,
+                            placeholder = {
+                                Text(
+                                    text = "Масса, кг",
+                                    style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                    color = noValueColor
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
+                            ),
+                            singleLine = true,
+                            shape = Shapes.medium,
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    text = "+ Экипировка",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier
+                        .noRippleEffect { expandSupply = true }
+                        .padding(start = 16.dp, top = 14.dp)
                 )
             }
 
