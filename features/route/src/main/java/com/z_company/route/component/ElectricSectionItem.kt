@@ -549,37 +549,45 @@ fun ElectricSectionItem(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(end = 16.dp),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        result?.let {
-                            Text(text = it.str(), style = hintStyle)
-                        }
-                        resultRecovery?.let {
-                            Text(text = " / ${it.str()}", style = hintStyle)
-                        }
-
+                    result?.let {
+                        SectionSummaryRow(label = "Расход", value = "${it.str()} кВт·ч")
                     }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(end = 16.dp),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        result2?.let {
-                            Text(text = it.str(), style = hintStyle)
-                        }
-                        resultRecovery2?.let {
-                            Text(text = " / ${it.str()}", style = hintStyle)
-                        }
-
+                    resultRecovery?.let {
+                        SectionSummaryRow(label = "Рекуперация", value = "${it.str()} кВт·ч")
+                    }
+                    result2?.let {
+                        SectionSummaryRow(label = "Расход (ток 2)", value = "${it.str()} кВт·ч")
+                    }
+                    resultRecovery2?.let {
+                        SectionSummaryRow(label = "Рекуперация (ток 2)", value = "${it.str()} кВт·ч")
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SectionSummaryRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = com.z_company.core.ui.theme.MonoFont
+            ),
+            color = MaterialTheme.colorScheme.primary
+        )
     }
 }

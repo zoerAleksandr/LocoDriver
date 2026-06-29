@@ -443,6 +443,36 @@ fun DieselSectionItem(
                 )
 
                 Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Пилюля коэффициента секции
+                    Row(
+                        modifier = Modifier
+                            .noRippleEffect { showCoefficient = true }
+                            .background(
+                                MaterialTheme.colorScheme.surfaceBright,
+                                RoundedCornerShape(999.dp)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "k",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = item.coefficient.data ?: "1.0",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontFamily = com.z_company.core.ui.theme.MonoFont
+                            ),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                Row(
                     modifier = Modifier.noRippleEffect {
                         showRefuel = true
                     },
@@ -465,6 +495,7 @@ fun DieselSectionItem(
                         tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                         contentDescription = null,
                     )
+                }
                 }
             }
 
@@ -704,33 +735,26 @@ fun DieselSectionItem(
         }
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        ClickableText(
-            text = AnnotatedString(
-                text = "k = ${item.coefficient.data ?: 0.0}",
-                spanStyle = SpanStyle(
-                    color = MaterialTheme.colorScheme.tertiary,
-                    fontFamily = hintStyle.fontFamily,
-                    fontSize = hintStyle.fontSize,
-                    fontWeight = hintStyle.fontWeight
-                )
-            ),
-            style = hintStyle,
-            onClick = {
-                showCoefficient = true
-            })
-
-        result?.let {
-            val resultInLiterText = maskInLiter(rounding(it, 2).str())
-            val resultInKiloText = maskInKilo(rounding(resultInKilo, 2)?.str())
+    result?.let {
+        val resultInLiterText = maskInLiter(rounding(it, 2).str())
+        val resultInKiloText = maskInKilo(rounding(resultInKilo, 2)?.str())
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                text = "${resultInLiterText ?: ""} / ${resultInKiloText ?: ""}",
-                style = hintStyle,
+                text = "Расход",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "${resultInLiterText ?: ""} л / ${resultInKiloText ?: ""} кг",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = com.z_company.core.ui.theme.MonoFont
+                ),
                 color = MaterialTheme.colorScheme.primary
             )
         }
