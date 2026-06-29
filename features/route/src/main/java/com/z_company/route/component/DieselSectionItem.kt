@@ -440,7 +440,9 @@ fun DieselSectionItem(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val calculatedAccepted = if (isKiloMode) {
+                val calculatedAccepted = if (item.accepted.data.isNullOrBlank()) {
+                    ""
+                } else if (isKiloMode) {
                     item.accepted.data?.toDoubleOrNull()?.let { liters ->
                         rounding(liters * coeff, 2)?.str() ?: ""
                     } ?: ""
@@ -484,7 +486,7 @@ fun DieselSectionItem(
                     },
                     placeholder = {
                         Text(
-                            text = "Принял",
+                            text = "0",
                             style = LocalTextStyle.current.copy(
                                 fontWeight = FontWeight.Light
                             ),
@@ -500,18 +502,20 @@ fun DieselSectionItem(
                             color = noValueColor
                         )
                     },
-                    supportingText = if (acceptedInKilo != null) {
-                        {
-                            val accConv = if (isKiloMode)
-                                rounding(item.accepted.data?.toDoubleOrZero(), 2).str()
-                            else rounding(acceptedInKilo, 2)?.str()
-                            Text(
-                                text = if (isKiloMode) maskInLiter(accConv) ?: "" else maskInKilo(accConv) ?: "",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    } else null,
+                    // Подсказка-конвертация всегда занимает место (поле не «прыгает»),
+                    // но текст виден только когда есть введённое значение.
+                    supportingText = {
+                        val hasValue = !item.accepted.data.isNullOrBlank() && acceptedInKilo != null
+                        val accConv = if (isKiloMode)
+                            rounding(item.accepted.data?.toDoubleOrZero(), 2).str()
+                        else rounding(acceptedInKilo, 2)?.str()
+                        Text(
+                            text = if (!hasValue) ""
+                            else if (isKiloMode) maskInLiter(accConv) ?: "" else maskInKilo(accConv) ?: "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
                     textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
                     borderColor = MaterialTheme.colorScheme.outlineVariant,
@@ -529,7 +533,9 @@ fun DieselSectionItem(
                     shape = Shapes.medium,
                 )
 
-                val calculatedDelivery = if (isKiloMode) {
+                val calculatedDelivery = if (item.delivery.data.isNullOrBlank()) {
+                    ""
+                } else if (isKiloMode) {
                     item.delivery.data?.toDoubleOrNull()?.let { liters ->
                         rounding(liters * coeff, 2)?.str() ?: ""
                     } ?: ""
@@ -579,7 +585,7 @@ fun DieselSectionItem(
                     },
                     placeholder = {
                         Text(
-                            text = "Сдал",
+                            text = "0",
                             style = LocalTextStyle.current.copy(
                                 fontWeight = FontWeight.Light
                             ),
@@ -593,18 +599,18 @@ fun DieselSectionItem(
                             color = noValueColor
                         )
                     },
-                    supportingText = if (deliveryInKilo != null) {
-                        {
-                            val delConv = if (isKiloMode)
-                                rounding(item.delivery.data?.toDoubleOrZero(), 2).str()
-                            else rounding(deliveryInKilo, 2)?.str()
-                            Text(
-                                text = if (isKiloMode) maskInLiter(delConv) ?: "" else maskInKilo(delConv) ?: "",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    } else null,
+                    supportingText = {
+                        val hasValue = !item.delivery.data.isNullOrBlank() && deliveryInKilo != null
+                        val delConv = if (isKiloMode)
+                            rounding(item.delivery.data?.toDoubleOrZero(), 2).str()
+                        else rounding(deliveryInKilo, 2)?.str()
+                        Text(
+                            text = if (!hasValue) ""
+                            else if (isKiloMode) maskInLiter(delConv) ?: "" else maskInKilo(delConv) ?: "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
                     textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
                     borderColor = MaterialTheme.colorScheme.outlineVariant,
