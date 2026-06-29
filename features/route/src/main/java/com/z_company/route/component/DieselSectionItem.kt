@@ -571,6 +571,12 @@ fun DieselSectionItem(
                     localDelivery = calculatedDelivery
                 }
 
+                Text(
+                    text = "→",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+
                 OutlinedTextFieldApp(
                     modifier = Modifier
                         .weight(1f),
