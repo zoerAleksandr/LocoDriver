@@ -122,6 +122,11 @@ fun DieselSectionItem(
         mutableStateOf(false)
     }
 
+    // Снимок кг на момент открытия шторки коэффициента (для режима «кг»):
+    // при смене коэффициента сохраняем кг и пересчитываем литры.
+    var kgSnapshotAccepted by remember { mutableStateOf<Double?>(null) }
+    var kgSnapshotDelivery by remember { mutableStateOf<Double?>(null) }
+
     var showSupplyCoefficient by remember {
         mutableStateOf(false)
     }
@@ -300,6 +305,20 @@ fun DieselSectionItem(
             sheetState = sheetState,
             onValueChange = { onCoefficientValueChanged(index, it) },
             onDismiss = {
+                // В режиме «кг» сохраняем введённые килограммы и пересчитываем литры
+                // под новый коэффициент (литры — производная). В режиме «л» — наоборот,
+                // литры остаются, кг пересчитываются автоматически при отображении.
+                if (isKiloMode) {
+                    val newCoeff = item.coefficient.data?.toDoubleOrNull()
+                    if (newCoeff != null && newCoeff != 0.0) {
+                        kgSnapshotAccepted?.let {
+                            onFuelAcceptedChanged(index, rounding(it / newCoeff, 2)?.str() ?: "")
+                        }
+                        kgSnapshotDelivery?.let {
+                            onFuelDeliveredChanged(index, rounding(it / newCoeff, 2)?.str() ?: "")
+                        }
+                    }
+                }
                 focusChangedDieselSection(index, DieselSectionType.COEFFICIENT)
                 showCoefficient = false
             }
@@ -384,7 +403,17 @@ fun DieselSectionItem(
                 CoeffPill(
                     label = "k секции",
                     value = item.coefficient.data,
-                    onClick = { showCoefficient = true }
+                    onClick = {
+                        // Снимок введённых кг (до изменения коэффициента)
+                        if (isKiloMode) {
+                            kgSnapshotAccepted = item.accepted.data?.toDoubleOrNull()?.times(coeff)
+                            kgSnapshotDelivery = item.delivery.data?.toDoubleOrNull()?.times(coeff)
+                        } else {
+                            kgSnapshotAccepted = null
+                            kgSnapshotDelivery = null
+                        }
+                        showCoefficient = true
+                    }
                 )
             }
 
@@ -807,8 +836,12 @@ private fun CoeffSheet(
     onDismiss: () -> Unit,
 ) {
     val presets = listOf("0.79", "0.83", "0.87", "0.91", "0.95")
-    fun fmt(d: Double) = ((d * 100).toLong() / 100.0).toString()
     val current = value?.toDoubleOrNull()
+    // Шаг зависит от точности введённого значения: 3 знака → 0.001, иначе 0.01
+    val decimals = (value ?: "").substringAfter('.', "").length
+    val precision = if (decimals >= 3) 3 else 2
+    val step = if (decimals >= 3) 0.001 else 0.01
+    fun fmt(d: Double): String = rounding(d, precision)?.str() ?: ""
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -870,7 +903,7 @@ private fun CoeffSheet(
             ) {
                 CoeffStepBtn(symbol = "−") {
                     val base = current ?: 1.0
-                    onValueChange(fmt((base - 0.01).coerceAtLeast(0.0)))
+                    onValueChange(fmt((base - step).coerceAtLeast(0.0)))
                 }
                 BasicTextField(
                     value = value ?: "",
@@ -907,7 +940,7 @@ private fun CoeffSheet(
                 )
                 CoeffStepBtn(symbol = "+") {
                     val base = current ?: 1.0
-                    onValueChange(fmt(base + 0.01))
+                    onValueChange(fmt(base + step))
                 }
             }
 
