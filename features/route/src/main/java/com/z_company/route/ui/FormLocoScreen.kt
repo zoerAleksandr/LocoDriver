@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -62,6 +63,8 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
@@ -240,22 +243,25 @@ fun FormLocoScreen(
             .fillMaxWidth(),
         topBar = {
             TopAppBar(
-                title = {},
+                title = {
+                    Text(
+                        text = "Локомотив",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                },
                 navigationIcon = {
-                    TextButton(
+                    IconButton(
                         onClick = {
                             keyboardController?.hide()
                             topLevelFocusManager.clearFocus()
                             onLocoSaved()
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            contentColor = MaterialTheme.colorScheme.tertiary,
-                            containerColor = Color.Transparent
-                        )
+                        }
                     ) {
-                        Text(
-                            text = "Готово",
-                            style = MaterialTheme.typography.bodySmall,
+                        Icon(
+                            painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_left_24px),
+                            tint = MaterialTheme.colorScheme.primary,
+                            contentDescription = "Назад"
                         )
                     }
                 },
@@ -437,23 +443,10 @@ fun FormLocoScreen(
                 ) {
                     item {
                         val currentType = locomotive.type
-                        Row(
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AnimatedContent(targetState = currentType, label = "") {
-                                val text = if (it == LocoType.ELECTRIC) LocoType.ELECTRIC.text
-                                else LocoType.DIESEL.text
-
-                                Text(
-                                    text = text,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
+                        GroupHead(
+                            text = "Основные данные",
+                            topPadding = 4.dp,
+                            trailing = {
                             SwitchApp(
                                 modifier = Modifier.wrapContentWidth(),
                                 checked = currentType == LocoType.ELECTRIC,
@@ -496,7 +489,8 @@ fun FormLocoScreen(
                                     }
                                 }
                             )
-                        }
+                            }
+                        )
                     }
 
                     item {
@@ -509,92 +503,109 @@ fun FormLocoScreen(
                             )
                         }
 
-                        Row(
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 12.dp)
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-
-                            ExposedDropdownMenuBox(
-                                modifier = Modifier.weight(1f),
-                                expanded = isExpandedMenu,
-                                onExpandedChange = { onExpandedMenuChange(it) }
+                        val cellLabelStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
+                        MCard {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                OutlinedTextFieldApp(
+                                // Ячейка «Серия»
+                                Column(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
-                                    value = seriesName,
-                                    onValueChange = {
-                                        seriesName = it
-                                        onSeriesChanged(it.text)
-                                        onChangedContentMenu(it.text)
-                                    },
-                                    placeholder = {
-                                        Text(
-                                            text = "Серия",
-                                            style = LocalTextStyle.current.copy(
-                                                fontWeight = FontWeight.Light
+                                        .weight(1f)
+                                        .padding(vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = "Серия",
+                                        style = cellLabelStyle,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(start = 16.dp)
+                                    )
+                                    ExposedDropdownMenuBox(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        expanded = isExpandedMenu,
+                                        onExpandedChange = { onExpandedMenuChange(it) }
+                                    ) {
+                                        OutlinedTextFieldApp(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
+                                            value = seriesName,
+                                            onValueChange = {
+                                                seriesName = it
+                                                onSeriesChanged(it.text)
+                                                onChangedContentMenu(it.text)
+                                            },
+                                            textStyle = dataTextStyle,
+                                            fieldElevation = 0.dp,
+                                            colorBackgroundEmptyField = Color.Transparent,
+                                            colorBackgroundNotEmptyField = Color.Transparent,
+                                            keyboardOptions = KeyboardOptions(
+                                                keyboardType = KeyboardType.Text,
+                                                imeAction = ImeAction.Done
                                             ),
-                                            color = noValueColor
+                                            keyboardActions = KeyboardActions(
+                                                onDone = { focusManager.clearFocus() }
+                                            ),
+                                            singleLine = true
                                         )
-                                    },
-                                    textStyle = dataTextStyle,
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Text,
-                                        imeAction = ImeAction.Done
-                                    ),
-                                    keyboardActions = KeyboardActions(
-                                        onDone = { focusManager.clearFocus() }
-                                    ),
-                                    singleLine = true
+
+                                        StationDropdownMenu(
+                                            expanded = isExpandedMenu,
+                                            stations = dropDownSeriesMenuList,
+                                            onSelect = { selectionSeries ->
+                                                onSeriesChanged(selectionSeries)
+                                                onExpandedMenuChange(false)
+                                                seriesName = seriesName.copy(
+                                                    text = selectionSeries,
+                                                    selection = TextRange(selectionSeries.length)
+                                                )
+                                            },
+                                            onDelete = onDeleteSeries,
+                                            onDismiss = { onExpandedMenuChange(false) },
+                                            textStyle = dataTextStyle
+                                        )
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .height(48.dp)
+                                        .background(MaterialTheme.colorScheme.outlineVariant)
                                 )
 
-                                StationDropdownMenu(
-                                    expanded = isExpandedMenu,
-                                    stations = dropDownSeriesMenuList,
-                                    onSelect = { selectionSeries ->
-                                        onSeriesChanged(selectionSeries)
-                                        onExpandedMenuChange(false)
-                                        seriesName = seriesName.copy(
-                                            text = selectionSeries,
-                                            selection = TextRange(selectionSeries.length)
-                                        )
-                                    },
-                                    onDelete = onDeleteSeries,
-                                    onDismiss = { onExpandedMenuChange(false) },
-                                    textStyle = dataTextStyle
-                                )
-                            }
-
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .weight(1f),
-                                value = locomotive.number ?: "",
-                                textStyle = dataTextStyle,
-                                placeholder = {
+                                // Ячейка «Номер»
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(vertical = 8.dp)
+                                ) {
                                     Text(
                                         text = "Номер",
-                                        style = LocalTextStyle.current.copy(
-                                            fontWeight = FontWeight.Light
-                                        ),
-                                        color = noValueColor
+                                        style = cellLabelStyle,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(start = 16.dp)
                                     )
-                                },
-                                onValueChange = { onNumberChanged(it) },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Text,
-                                    imeAction = ImeAction.Done
-                                ),
-                                keyboardActions = KeyboardActions(
-                                    onDone = {
-                                        focusManager.clearFocus()
-                                    }
-                                ),
-                                singleLine = true,
-                            )
+                                    OutlinedTextFieldApp(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        value = locomotive.number ?: "",
+                                        textStyle = dataTextStyle,
+                                        fieldElevation = 0.dp,
+                                        colorBackgroundEmptyField = Color.Transparent,
+                                        colorBackgroundNotEmptyField = Color.Transparent,
+                                        onValueChange = { onNumberChanged(it) },
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Text,
+                                            imeAction = ImeAction.Done
+                                        ),
+                                        keyboardActions = KeyboardActions(
+                                            onDone = { focusManager.clearFocus() }
+                                        ),
+                                        singleLine = true,
+                                    )
+                                }
+                            }
                         }
 
                     }
@@ -660,26 +671,10 @@ fun FormLocoScreen(
                         }
 
                         // GroupHead "ВРЕМЯ"
-                        Text(
-                            text = "ВРЕМЯ",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                letterSpacing = androidx.compose.ui.unit.TextUnit(1.4f, androidx.compose.ui.unit.TextUnitType.Sp)
-                            ),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
+                        GroupHead(text = "Время")
 
                         // Карточка: Приёмка / Сдача
-                        Column(
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .shadow(elevation = 2.dp, shape = Shapes.medium)
-                                .background(
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    shape = Shapes.medium
-                                )
-                        ) {
+                        MCard {
                             TimeSummaryRow(
                                 label = "ПРИЁМКА",
                                 stops = listOf(
@@ -718,6 +713,35 @@ fun FormLocoScreen(
                                 onClick = { showDeliverySheet = true }
                             )
                         }
+                    }
+
+                    item {
+                        val sectionsCount = when (locomotive.type.name) {
+                            LocoType.ELECTRIC.name -> electricSectionListState?.size ?: 0
+                            else -> dieselSectionListState?.size ?: 0
+                        }
+                        GroupHead(
+                            text = "Секции",
+                            trailing = {
+                                SectionStepper(
+                                    value = sectionsCount,
+                                    onMinus = {
+                                        when (locomotive.type.name) {
+                                            LocoType.DIESEL.name ->
+                                                dieselSectionListState?.lastOrNull()?.let { onDeleteSectionDiesel(it) }
+                                            LocoType.ELECTRIC.name ->
+                                                electricSectionListState?.lastOrNull()?.let { onDeleteSectionElectric(it) }
+                                        }
+                                    },
+                                    onPlus = {
+                                        when (locomotive.type.name) {
+                                            LocoType.DIESEL.name -> addingSectionDiesel()
+                                            LocoType.ELECTRIC.name -> addingSectionElectric()
+                                        }
+                                    }
+                                )
+                            }
+                        )
                     }
 
                     when (locomotive.type.name) {
@@ -893,177 +917,56 @@ fun FormLocoScreen(
                         }
                     }
 
-                    item {
-                        Button(
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .fillMaxWidth()
-                                .padding(top = 24.dp),
-                            shape = Shapes.medium,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                                contentColor = MaterialTheme.colorScheme.secondary
-                            ),
-                            elevation = ButtonDefaults.elevatedButtonElevation(
-                                defaultElevation = 3.dp,
-                                pressedElevation = 0.dp
-                            ),
-                            onClick = {
-                                when (locomotive.type.name) {
-                                    LocoType.DIESEL.name -> addingSectionDiesel()
-                                    LocoType.ELECTRIC.name -> addingSectionElectric()
-                                }
-                                scope.launch {
-                                    val countItems = scrollState.layoutInfo.totalItemsCount
-                                    scrollState.animateScrollToItem(countItems)
-                                }
-                            }
-                        ) {
-                            Text(
-                                text = "Добавить секцию",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-
-                        }
-                    }
-
-                    // отопление
-                    if (userSettings?.isShowLocoHeating != false) {
-                    item {
-                        val accepted = formUiState.heatingAcceptedText
-                        val delivered = formUiState.heatingDeliveryText
-                        val heatingResult: Double? = delivered.toDoubleOrNull() - accepted.toDoubleOrNull()
-                        CollapsibleSection(
-                            title = "Отопление",
-                            expanded = formUiState.isShowHeatingCounter,
-                            onToggle = viewModel::toggleHeatingCounter,
-                            icon = R.drawable.nest_farsight_heat_24px,
-                            summaryText = heatingResult?.let { "Расход: ${rounding(it, 2)?.str() ?: it.str()}" }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                OutlinedTextFieldApp(
-                                    modifier = Modifier.weight(1f),
-                                    value = accepted,
-                                    textStyle = dataTextStyle,
-                                    placeholder = {
-                                        Text(
-                                            text = "Принял",
-                                            style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
-                                            color = noValueColor,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                    // Показания — Отопление + Собств. нужды в одной карточке
+                    run {
+                        val showHeating = userSettings?.isShowLocoHeating != false
+                        val showAux = userSettings?.isShowLocoAuxiliary != false
+                        if (showHeating || showAux) {
+                            item {
+                                GroupHead(text = "Показания")
+                                MCard {
+                                    if (showHeating) {
+                                        ReadingRow(
+                                            icon = R.drawable.nest_farsight_heat_24px,
+                                            label = "Отопление",
+                                            unit = "кВт·ч",
+                                            accepted = formUiState.heatingAcceptedText,
+                                            delivered = formUiState.heatingDeliveryText,
+                                            onAccepted = { viewModel.setHeatingCounterAccepted(it) },
+                                            onDelivered = { viewModel.setHeatingCounterDelivery(it) },
+                                            onNext = { focusManager.moveFocus(FocusDirection.Right) },
+                                            onDone = { focusManager.clearFocus() },
+                                            dataTextStyle = dataTextStyle,
+                                            noValueColor = noValueColor
                                         )
-                                    },
-                                    onValueChange = { viewModel.setHeatingCounterAccepted(it) },
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next, keyboardType = KeyboardType.Decimal),
-                                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Right) }),
-                                    singleLine = true,
-                                    shape = Shapes.medium,
-                                )
-                                OutlinedTextFieldApp(
-                                    modifier = Modifier.weight(1f),
-                                    value = delivered,
-                                    textStyle = dataTextStyle,
-                                    placeholder = {
-                                        Text(
-                                            text = "Сдал",
-                                            style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
-                                            color = noValueColor
+                                    }
+                                    if (showHeating && showAux) {
+                                        CustomDivider(orientation = Orientation.Horizontal)
+                                    }
+                                    if (showAux) {
+                                        ReadingRow(
+                                            icon = R.drawable.electric_bolt_24px,
+                                            label = "Собств. нужды",
+                                            unit = "кВт·ч",
+                                            accepted = formUiState.auxiliaryAcceptedText,
+                                            delivered = formUiState.auxiliaryDeliveryText,
+                                            onAccepted = { viewModel.setAuxiliaryCounterAccepted(it) },
+                                            onDelivered = { viewModel.setAuxiliaryCounterDelivery(it) },
+                                            onNext = { focusManager.moveFocus(FocusDirection.Right) },
+                                            onDone = { focusManager.clearFocus() },
+                                            dataTextStyle = dataTextStyle,
+                                            noValueColor = noValueColor
                                         )
-                                    },
-                                    onValueChange = { viewModel.setHeatingCounterDelivery(it) },
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, keyboardType = KeyboardType.Decimal),
-                                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                                    singleLine = true,
-                                    shape = Shapes.medium,
-                                )
-                            }
-                            AnimatedVisibility(heatingResult != null) {
-                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                                    Text(
-                                        modifier = Modifier.padding(end = 16.dp),
-                                        text = rounding(heatingResult, 2)?.str() ?: heatingResult.str(),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                    }
                                 }
                             }
                         }
                     }
-                    }
 
-                    // собственные нужды
-                    if (userSettings?.isShowLocoAuxiliary != false) {
-                    item {
-                        val auxAccepted = formUiState.auxiliaryAcceptedText
-                        val auxDelivered = formUiState.auxiliaryDeliveryText
-                        val auxiliaryResult: Double? = auxDelivered.toDoubleOrNull() - auxAccepted.toDoubleOrNull()
-                        CollapsibleSection(
-                            title = "Собственные нужды",
-                            expanded = formUiState.isShowAuxiliaryCounter,
-                            onToggle = viewModel::toggleAuxiliaryCounter,
-                            icon = R.drawable.electric_bolt_24px,
-                            summaryText = auxiliaryResult?.let { "Расход: ${rounding(it, 2)?.str() ?: it.str()}" }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                OutlinedTextFieldApp(
-                                    modifier = Modifier.weight(1f),
-                                    value = auxAccepted,
-                                    textStyle = dataTextStyle,
-                                    placeholder = {
-                                        Text(
-                                            text = "Принял",
-                                            style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
-                                            color = noValueColor,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    },
-                                    onValueChange = { viewModel.setAuxiliaryCounterAccepted(it) },
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next, keyboardType = KeyboardType.Decimal),
-                                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Right) }),
-                                    singleLine = true,
-                                    shape = Shapes.medium,
-                                )
-                                OutlinedTextFieldApp(
-                                    modifier = Modifier.weight(1f),
-                                    value = auxDelivered,
-                                    textStyle = dataTextStyle,
-                                    placeholder = {
-                                        Text(
-                                            text = "Сдал",
-                                            style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
-                                            color = noValueColor
-                                        )
-                                    },
-                                    onValueChange = { viewModel.setAuxiliaryCounterDelivery(it) },
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, keyboardType = KeyboardType.Decimal),
-                                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                                    singleLine = true,
-                                    shape = Shapes.medium,
-                                )
-                            }
-                            AnimatedVisibility(auxiliaryResult != null) {
-                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                                    Text(
-                                        modifier = Modifier.padding(end = 16.dp),
-                                        text = rounding(auxiliaryResult, 2)?.str() ?: auxiliaryResult.str(),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    // Итого
+                    if (userSettings?.isShowLocoStatistics != false ||
+                        userSettings?.isShowLocoNorma != false) {
+                        item { GroupHead(text = "Итого") }
                     }
 
                     // Итоги
@@ -1281,6 +1184,220 @@ private fun TimeSummaryRow(
                     )
                 }
             }
+        }
+    }
+}
+/** Подзаголовок группы (mono, uppercase, letter-spacing) + опц. trailing справа. */
+@Composable
+private fun GroupHead(
+    text: String,
+    modifier: Modifier = Modifier,
+    topPadding: androidx.compose.ui.unit.Dp = 22.dp,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = topPadding, bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = text.uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                fontSize = 11.sp,
+                letterSpacing = androidx.compose.ui.unit.TextUnit(1.4f, androidx.compose.ui.unit.TextUnitType.Sp)
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        trailing?.invoke()
+    }
+}
+
+/** Белая карточка-контейнер (как MCard в референсе). */
+@Composable
+private fun MCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .shadow(elevation = 2.dp, shape = Shapes.medium)
+            .clip(Shapes.medium)
+            .background(color = MaterialTheme.colorScheme.secondary, shape = Shapes.medium),
+        content = content
+    )
+}
+
+/** Степпер количества секций: [−] N [+] (как Stepper в референсе). */
+@Composable
+private fun SectionStepper(
+    value: Int,
+    onMinus: () -> Unit,
+    onPlus: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        StepperButton(symbol = "−", accent = false, enabled = value > 1, onClick = onMinus)
+        Text(
+            text = value.toString(),
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontFamily = com.z_company.core.ui.theme.MonoFont,
+                fontWeight = FontWeight.Bold
+            ),
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+        StepperButton(symbol = "+", accent = true, enabled = true, onClick = onPlus)
+    }
+}
+
+@Composable
+private fun StepperButton(
+    symbol: String,
+    accent: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.secondary)
+            .then(
+                if (enabled) Modifier.clickable(onClick = onClick) else Modifier
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = symbol,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = if (!enabled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+            else if (accent) MaterialTheme.colorScheme.tertiary
+            else MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+/** Строка показаний: иконка-чип + название + единица справа + Принял → Сдал. */
+@Composable
+private fun ReadingRow(
+    icon: Int,
+    label: String,
+    unit: String,
+    accepted: String,
+    delivered: String,
+    onAccepted: (String) -> Unit,
+    onDelivered: (String) -> Unit,
+    onNext: () -> Unit,
+    onDone: () -> Unit,
+    dataTextStyle: androidx.compose.ui.text.TextStyle,
+    noValueColor: Color,
+) {
+    val borderColor = MaterialTheme.colorScheme.outlineVariant
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceBright),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(icon),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W500),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Text(
+                text = unit,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontFamily = com.z_company.core.ui.theme.MonoFont,
+                    fontWeight = FontWeight.W600
+                ),
+                color = MaterialTheme.colorScheme.tertiary
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextFieldApp(
+                modifier = Modifier.weight(1f),
+                value = accepted,
+                textStyle = dataTextStyle,
+                fieldElevation = 0.dp,
+                borderColor = borderColor,
+                colorBackgroundEmptyField = Color.Transparent,
+                colorBackgroundNotEmptyField = Color.Transparent,
+                placeholder = {
+                    Text(
+                        text = "Принял",
+                        style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                        color = noValueColor, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                },
+                onValueChange = onAccepted,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next, keyboardType = KeyboardType.Decimal),
+                keyboardActions = KeyboardActions(onNext = { onNext() }),
+                singleLine = true,
+                shape = Shapes.medium,
+            )
+            Text(
+                text = "→",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+            )
+            OutlinedTextFieldApp(
+                modifier = Modifier.weight(1f),
+                value = delivered,
+                textStyle = dataTextStyle,
+                fieldElevation = 0.dp,
+                borderColor = borderColor,
+                colorBackgroundEmptyField = Color.Transparent,
+                colorBackgroundNotEmptyField = Color.Transparent,
+                placeholder = {
+                    Text(
+                        text = "Сдал",
+                        style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                        color = noValueColor
+                    )
+                },
+                onValueChange = onDelivered,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, keyboardType = KeyboardType.Decimal),
+                keyboardActions = KeyboardActions(onDone = { onDone() }),
+                singleLine = true,
+                shape = Shapes.medium,
+            )
         }
     }
 }
