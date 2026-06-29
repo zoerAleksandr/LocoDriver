@@ -228,6 +228,10 @@ fun ElectricSectionItem(
                         focusChangedElectricSection(index, ElectricSectionType.ACCEPTED)
                     },
                     textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                     placeholder = {
                         Text(
                             text = "Принял", style = LocalTextStyle.current.copy(
@@ -260,6 +264,10 @@ fun ElectricSectionItem(
                         .weight(1f),
                     value = deliveryText,
                     textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                     onValueChange = {
                         onEnergyDeliveryChanged(index, it.take(10))
                         focusChangedElectricSection(index, ElectricSectionType.DELIVERY)
@@ -309,6 +317,10 @@ fun ElectricSectionItem(
                                 focusChangedElectricSection(index, ElectricSectionType.ACCEPTED2)
                             },
                             textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                             placeholder = {
                                 Text(
                                     text = "Принял", style = LocalTextStyle.current.copy(
@@ -334,6 +346,10 @@ fun ElectricSectionItem(
                                 .weight(1f),
                             value = deliveryText2,
                             textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                             onValueChange = {
                                 onEnergyDeliveryChanged2(index, it.take(10))
                                 focusChangedElectricSection(index, ElectricSectionType.DELIVERY2)
@@ -388,6 +404,10 @@ fun ElectricSectionItem(
                                     )
                                 },
                                 textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                                 placeholder = {
                                     Text(
                                         text = "Принял",
@@ -429,6 +449,10 @@ fun ElectricSectionItem(
                                     )
                                 },
                                 textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                                 placeholder = {
                                     Text(
                                         text = "Сдал",
@@ -476,6 +500,10 @@ fun ElectricSectionItem(
                                         )
                                     },
                                     textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                                     placeholder = {
                                         Text(
                                             text = "Принял",
@@ -511,6 +539,10 @@ fun ElectricSectionItem(
                                         )
                                     },
                                     textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                                     placeholder = {
                                         Text(
                                             text = "Сдал",

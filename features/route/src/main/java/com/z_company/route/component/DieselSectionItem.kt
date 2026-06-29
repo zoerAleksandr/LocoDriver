@@ -482,12 +482,20 @@ fun DieselSectionItem(
                 }
             }
 
-            Text(
-                text = "ТОПЛИВО",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "ТОПЛИВО",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                UnitSegToggle(isKiloMode = isKiloMode, onToggle = changeIsKiloMode)
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -556,6 +564,10 @@ fun DieselSectionItem(
                         )
                     },
                     textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
                     ),
@@ -633,6 +645,10 @@ fun DieselSectionItem(
                         )
                     },
                     textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
                     ),
@@ -643,31 +659,6 @@ fun DieselSectionItem(
                     }),
                     singleLine = true,
                     shape = Shapes.medium,
-                )
-                val animatedRotation by animateFloatAsState(
-                    targetValue = if (isKiloMode) 180f else 0f,
-                    animationSpec =
-                        tween(
-                            durationMillis = 300,  // Длительность анимации 300ms
-                            easing = FastOutSlowInEasing  // Мягкий старт и финиш
-                        ),
-//                                + spring(  // Добавляем spring для отскока в конце (мягкий bounce)
-//                        dampingRatio = Spring.DampingRatioLowBouncy,  // Низкий damping для заметного отскока
-//                        stiffness = Spring.StiffnessMedium  // Средняя жёсткость для контроля
-//                    ),
-                    label = "rotation_animation"
-                )
-
-                Icon(
-                    modifier = Modifier
-                        .size(18.dp)
-                        .graphicsLayer {
-                            rotationX = animatedRotation
-                        }  // Добавлено: анимация переворота на 180° по Y
-                        .noRippleEffect { changeIsKiloMode() },
-                    painter = painterResource(R.drawable.sync_24px),
-                    tint = MaterialTheme.colorScheme.primary,
-                    contentDescription = null
                 )
             }
 
@@ -694,6 +685,10 @@ fun DieselSectionItem(
                             value = item.refuelCoefficient.data ?: "",
                             onValueChange = { onRefuelCoefficientValueChanged(index, it.take(6)) },
                             textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                             placeholder = {
                                 Text(
                                     text = "k экип.",
@@ -718,6 +713,10 @@ fun DieselSectionItem(
                             value = item.refuel.data ?: "",
                             onValueChange = { onRefuelValueChanged(index, it.take(7)) },
                             textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                             placeholder = {
                                 Text(
                                     text = "Объём, л",
@@ -736,6 +735,10 @@ fun DieselSectionItem(
                             value = item.refuelInKilo.data ?: "",
                             onValueChange = { onRefuelInKiloValueChanged(index, it.take(7)) },
                             textStyle = dataTextStyle,
+                    fieldElevation = 0.dp,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = Color.Transparent,
+                    colorBackgroundNotEmptyField = Color.Transparent,
                             placeholder = {
                                 Text(
                                     text = "Масса, кг",
@@ -832,5 +835,46 @@ fun DieselSectionItem(
                 color = MaterialTheme.colorScheme.primary
             )
         }
+    }
+}
+/** Сегментированный тумблер единиц «л | кг» (как в референсе UnitSeg). */
+@Composable
+private fun UnitSegToggle(isKiloMode: Boolean, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .background(
+                MaterialTheme.colorScheme.surfaceBright,
+                RoundedCornerShape(999.dp)
+            )
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        UnitSegItem(label = "л", active = !isKiloMode) { if (isKiloMode) onToggle() }
+        UnitSegItem(label = "кг", active = isKiloMode) { if (!isKiloMode) onToggle() }
+    }
+}
+
+@Composable
+private fun UnitSegItem(label: String, active: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .noRippleEffect { onClick() }
+            .background(
+                if (active) MaterialTheme.colorScheme.secondary else Color.Transparent,
+                RoundedCornerShape(999.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontFamily = com.z_company.core.ui.theme.MonoFont,
+                fontWeight = FontWeight.W700
+            ),
+            color = if (active) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
