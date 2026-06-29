@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -120,6 +121,11 @@ fun OutlinedTextFieldApp(
                         .fillMaxWidth()
                         .shadow(elevation = fieldElevation, shape = shape) // тень только здесь!
                         .background(animatedBackgroundColorsNumber, shape)   // если нужен фон
+                        .then(
+                            if (borderColor != Color.Transparent)
+                                Modifier.border(1.dp, borderColor, shape)
+                            else Modifier
+                        )
                 ) {
                     OutlinedTextFieldDefaults.ContainerBox(
                         enabled = enabled,

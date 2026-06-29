@@ -720,6 +720,214 @@ fun FormLocoScreen(
                         }
                     }
 
+                    when (locomotive.type.name) {
+                        LocoType.DIESEL.name -> {
+                            dieselSectionListState?.let {
+                                itemsIndexed(
+                                    items = dieselSectionListState,
+                                    key = { _, item -> item.sectionId }
+                                ) { index, item ->
+                                    DieselSectionItem(
+                                        item = item,
+                                        index = index,
+                                        onFuelAcceptedChanged = onFuelAcceptedChanged,
+                                        onFuelDeliveredChanged = onFuelDeliveredChanged,
+                                        onDeleteItem = onDeleteSectionDiesel,
+                                        focusChangedDieselSection = focusChangedDieselSection,
+                                        onRefuelValueChanged = onRefuelValueChanged,
+                                        onRefuelInKiloValueChanged = onRefuelInKiloValueChanged,
+                                        onRefuelCoefficientValueChanged = onRefuelCoefficientValueChanged,
+                                        onCoefficientValueChanged = onCoefficientValueChanged,
+                                        sheetState = sheetState,
+                                        isKiloMode = formUiState.isKiloMode,
+                                        changeIsKiloMode = viewModel::toggleIsKiloMode
+                                    )
+                                }
+                                if (dieselSectionListState.size > 1) {
+                                    item(key = "diesel_total") {
+                                        val totalFuelLiters = dieselSectionListState.mapNotNull { sec ->
+                                            CalculationEnergy.getTotalFuelConsumption(
+                                                accepted = sec.accepted.data?.toDoubleOrNull(),
+                                                delivery = sec.delivery.data?.toDoubleOrNull(),
+                                                refuel = sec.refuel.data?.toDoubleOrNull()
+                                            )
+                                        }.takeIf { it.isNotEmpty() }?.sum()
+
+                                        val totalFuelKilo = dieselSectionListState.mapNotNull { sec ->
+                                            val accKilo = sec.accepted.data?.toDoubleOrNull()
+                                                .times(sec.coefficient.data?.toDoubleOrNull())
+                                            val delKilo = sec.delivery.data?.toDoubleOrNull()
+                                                .times(sec.coefficient.data?.toDoubleOrNull())
+                                            CalculationEnergy.getTotalFuelInKiloConsumption(
+                                                acceptedInKilo = accKilo,
+                                                deliveryInKilo = delKilo,
+                                                refuelInKilo = sec.refuelInKilo.data?.toDoubleOrNull()
+                                            )
+                                        }.takeIf { it.isNotEmpty() }?.sum()
+
+                                        if (totalFuelLiters != null || totalFuelKilo != null) {
+                                            FlowRow(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Итого:",
+                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                        fontWeight = FontWeight.W600
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                totalFuelLiters?.let {
+                                                    Text(
+                                                        text = "${rounding(it, 2).str()} л.",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                                totalFuelKilo?.let {
+                                                    Text(
+                                                        text = "${rounding(it, 2).str()} кг.",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        LocoType.ELECTRIC.name -> {
+                            electricSectionListState?.let {
+                                itemsIndexed(
+                                    items = electricSectionListState,
+                                    key = { _, item -> item.sectionId }
+                                ) { index, item ->
+                                    ElectricSectionItem(
+                                        index = index,
+                                        item = item,
+                                        onDeleteItem = onDeleteSectionElectric,
+                                        onEnergyAcceptedChanged = viewModel::setEnergyAccepted,
+                                        onEnergyDeliveryChanged = viewModel::setEnergyDelivery,
+                                        onRecoveryAcceptedChanged = viewModel::setRecoveryAccepted,
+                                        onRecoveryDeliveryChanged = viewModel::setRecoveryDelivery,
+                                        onEnergyAcceptedChanged2 = viewModel::setEnergyAccepted2,
+                                        onEnergyDeliveryChanged2 = viewModel::setEnergyDelivery2,
+                                        onRecoveryAcceptedChanged2 = viewModel::setRecoveryAccepted2,
+                                        onRecoveryDeliveryChanged2 = viewModel::setRecoveryDelivery2,
+                                        focusChangedElectricSection = focusChangedElectricSection,
+                                        onExpandStateChanged = onExpandStateElectricSection,
+                                        showOtherCurrent = formUiState.isShowOtherCurrent
+                                    )
+                                }
+                                if (electricSectionListState.size > 1) {
+                                    item(key = "electric_total") {
+                                        fun maxPrecision(vararg texts: String): Int {
+                                            return texts.maxOf { s ->
+                                                val dot = s.indexOf('.')
+                                                if (dot < 0) 0 else s.length - dot - 1
+                                            }
+                                        }
+
+                                        val energyPrecision = electricSectionListState.maxOf { sec ->
+                                            maxPrecision(sec.accepted.data ?: "", sec.delivery.data ?: "")
+                                        }
+                                        val recoveryPrecision = electricSectionListState.maxOf { sec ->
+                                            maxPrecision(sec.recoveryAccepted.data ?: "", sec.recoveryDelivery.data ?: "")
+                                        }
+
+                                        val totalEnergy = electricSectionListState.mapNotNull { sec ->
+                                            CalculationEnergy.getTotalEnergyConsumption(
+                                                accepted = sec.accepted.data?.toDoubleOrNull(),
+                                                delivery = sec.delivery.data?.toDoubleOrNull()
+                                            )
+                                        }.takeIf { it.isNotEmpty() }?.sum()?.let {
+                                            CalculationEnergy.rounding(it, energyPrecision)
+                                        }
+
+                                        val totalRecovery = electricSectionListState.mapNotNull { sec ->
+                                            CalculationEnergy.getTotalEnergyConsumption(
+                                                accepted = sec.recoveryAccepted.data?.toDoubleOrNull(),
+                                                delivery = sec.recoveryDelivery.data?.toDoubleOrNull()
+                                            )
+                                        }.takeIf { it.isNotEmpty() }?.sum()?.let {
+                                            CalculationEnergy.rounding(it, recoveryPrecision)
+                                        }
+
+                                        if (totalEnergy != null || totalRecovery != null) {
+                                            FlowRow(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Итого:",
+                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                        fontWeight = FontWeight.W600
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                totalEnergy?.let {
+                                                    Text(
+                                                        text = "расход ${it.str()}",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                                totalRecovery?.let {
+                                                    Text(
+                                                        text = "рекуперация ${it.str()}",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    item {
+                        Button(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .fillMaxWidth()
+                                .padding(top = 24.dp),
+                            shape = Shapes.medium,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                contentColor = MaterialTheme.colorScheme.secondary
+                            ),
+                            elevation = ButtonDefaults.elevatedButtonElevation(
+                                defaultElevation = 3.dp,
+                                pressedElevation = 0.dp
+                            ),
+                            onClick = {
+                                when (locomotive.type.name) {
+                                    LocoType.DIESEL.name -> addingSectionDiesel()
+                                    LocoType.ELECTRIC.name -> addingSectionElectric()
+                                }
+                                scope.launch {
+                                    val countItems = scrollState.layoutInfo.totalItemsCount
+                                    scrollState.animateScrollToItem(countItems)
+                                }
+                            }
+                        ) {
+                            Text(
+                                text = "Добавить секцию",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+
+                        }
+                    }
+
                     // отопление
                     if (userSettings?.isShowLocoHeating != false) {
                     item {
@@ -978,213 +1186,6 @@ fun FormLocoScreen(
                     }
                     }
 
-                    when (locomotive.type.name) {
-                        LocoType.DIESEL.name -> {
-                            dieselSectionListState?.let {
-                                itemsIndexed(
-                                    items = dieselSectionListState,
-                                    key = { _, item -> item.sectionId }
-                                ) { index, item ->
-                                    DieselSectionItem(
-                                        item = item,
-                                        index = index,
-                                        onFuelAcceptedChanged = onFuelAcceptedChanged,
-                                        onFuelDeliveredChanged = onFuelDeliveredChanged,
-                                        onDeleteItem = onDeleteSectionDiesel,
-                                        focusChangedDieselSection = focusChangedDieselSection,
-                                        onRefuelValueChanged = onRefuelValueChanged,
-                                        onRefuelInKiloValueChanged = onRefuelInKiloValueChanged,
-                                        onRefuelCoefficientValueChanged = onRefuelCoefficientValueChanged,
-                                        onCoefficientValueChanged = onCoefficientValueChanged,
-                                        sheetState = sheetState,
-                                        isKiloMode = formUiState.isKiloMode,
-                                        changeIsKiloMode = viewModel::toggleIsKiloMode
-                                    )
-                                }
-                                if (dieselSectionListState.size > 1) {
-                                    item(key = "diesel_total") {
-                                        val totalFuelLiters = dieselSectionListState.mapNotNull { sec ->
-                                            CalculationEnergy.getTotalFuelConsumption(
-                                                accepted = sec.accepted.data?.toDoubleOrNull(),
-                                                delivery = sec.delivery.data?.toDoubleOrNull(),
-                                                refuel = sec.refuel.data?.toDoubleOrNull()
-                                            )
-                                        }.takeIf { it.isNotEmpty() }?.sum()
-
-                                        val totalFuelKilo = dieselSectionListState.mapNotNull { sec ->
-                                            val accKilo = sec.accepted.data?.toDoubleOrNull()
-                                                .times(sec.coefficient.data?.toDoubleOrNull())
-                                            val delKilo = sec.delivery.data?.toDoubleOrNull()
-                                                .times(sec.coefficient.data?.toDoubleOrNull())
-                                            CalculationEnergy.getTotalFuelInKiloConsumption(
-                                                acceptedInKilo = accKilo,
-                                                deliveryInKilo = delKilo,
-                                                refuelInKilo = sec.refuelInKilo.data?.toDoubleOrNull()
-                                            )
-                                        }.takeIf { it.isNotEmpty() }?.sum()
-
-                                        if (totalFuelLiters != null || totalFuelKilo != null) {
-                                            FlowRow(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                            ) {
-                                                Text(
-                                                    text = "Итого:",
-                                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                                        fontWeight = FontWeight.W600
-                                                    ),
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
-                                                totalFuelLiters?.let {
-                                                    Text(
-                                                        text = "${rounding(it, 2).str()} л.",
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-                                                totalFuelKilo?.let {
-                                                    Text(
-                                                        text = "${rounding(it, 2).str()} кг.",
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        LocoType.ELECTRIC.name -> {
-                            electricSectionListState?.let {
-                                itemsIndexed(
-                                    items = electricSectionListState,
-                                    key = { _, item -> item.sectionId }
-                                ) { index, item ->
-                                    ElectricSectionItem(
-                                        index = index,
-                                        item = item,
-                                        onDeleteItem = onDeleteSectionElectric,
-                                        onEnergyAcceptedChanged = viewModel::setEnergyAccepted,
-                                        onEnergyDeliveryChanged = viewModel::setEnergyDelivery,
-                                        onRecoveryAcceptedChanged = viewModel::setRecoveryAccepted,
-                                        onRecoveryDeliveryChanged = viewModel::setRecoveryDelivery,
-                                        onEnergyAcceptedChanged2 = viewModel::setEnergyAccepted2,
-                                        onEnergyDeliveryChanged2 = viewModel::setEnergyDelivery2,
-                                        onRecoveryAcceptedChanged2 = viewModel::setRecoveryAccepted2,
-                                        onRecoveryDeliveryChanged2 = viewModel::setRecoveryDelivery2,
-                                        focusChangedElectricSection = focusChangedElectricSection,
-                                        onExpandStateChanged = onExpandStateElectricSection,
-                                        showOtherCurrent = formUiState.isShowOtherCurrent
-                                    )
-                                }
-                                if (electricSectionListState.size > 1) {
-                                    item(key = "electric_total") {
-                                        fun maxPrecision(vararg texts: String): Int {
-                                            return texts.maxOf { s ->
-                                                val dot = s.indexOf('.')
-                                                if (dot < 0) 0 else s.length - dot - 1
-                                            }
-                                        }
-
-                                        val energyPrecision = electricSectionListState.maxOf { sec ->
-                                            maxPrecision(sec.accepted.data ?: "", sec.delivery.data ?: "")
-                                        }
-                                        val recoveryPrecision = electricSectionListState.maxOf { sec ->
-                                            maxPrecision(sec.recoveryAccepted.data ?: "", sec.recoveryDelivery.data ?: "")
-                                        }
-
-                                        val totalEnergy = electricSectionListState.mapNotNull { sec ->
-                                            CalculationEnergy.getTotalEnergyConsumption(
-                                                accepted = sec.accepted.data?.toDoubleOrNull(),
-                                                delivery = sec.delivery.data?.toDoubleOrNull()
-                                            )
-                                        }.takeIf { it.isNotEmpty() }?.sum()?.let {
-                                            CalculationEnergy.rounding(it, energyPrecision)
-                                        }
-
-                                        val totalRecovery = electricSectionListState.mapNotNull { sec ->
-                                            CalculationEnergy.getTotalEnergyConsumption(
-                                                accepted = sec.recoveryAccepted.data?.toDoubleOrNull(),
-                                                delivery = sec.recoveryDelivery.data?.toDoubleOrNull()
-                                            )
-                                        }.takeIf { it.isNotEmpty() }?.sum()?.let {
-                                            CalculationEnergy.rounding(it, recoveryPrecision)
-                                        }
-
-                                        if (totalEnergy != null || totalRecovery != null) {
-                                            FlowRow(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                            ) {
-                                                Text(
-                                                    text = "Итого:",
-                                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                                        fontWeight = FontWeight.W600
-                                                    ),
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
-                                                totalEnergy?.let {
-                                                    Text(
-                                                        text = "расход ${it.str()}",
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-                                                totalRecovery?.let {
-                                                    Text(
-                                                        text = "рекуперация ${it.str()}",
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    item {
-                        Button(
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .fillMaxWidth()
-                                .padding(top = 24.dp),
-                            shape = Shapes.medium,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                                contentColor = MaterialTheme.colorScheme.secondary
-                            ),
-                            elevation = ButtonDefaults.elevatedButtonElevation(
-                                defaultElevation = 3.dp,
-                                pressedElevation = 0.dp
-                            ),
-                            onClick = {
-                                when (locomotive.type.name) {
-                                    LocoType.DIESEL.name -> addingSectionDiesel()
-                                    LocoType.ELECTRIC.name -> addingSectionElectric()
-                                }
-                                scope.launch {
-                                    val countItems = scrollState.layoutInfo.totalItemsCount
-                                    scrollState.animateScrollToItem(countItems)
-                                }
-                            }
-                        ) {
-                            Text(
-                                text = "Добавить секцию",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-
-                        }
-                    }
                     item { Spacer(modifier = Modifier.height(20.dp)) }
                 }
             }
