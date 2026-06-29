@@ -545,6 +545,7 @@ fun FormLocoScreen(
                                         .fillMaxWidth()
                                         .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
                                     value = seriesName,
+                                    fieldElevation = 0.dp,
                                     colorBackgroundEmptyField = Color.Transparent,
                                     colorBackgroundNotEmptyField = Color.Transparent,
                                     onValueChange = {
@@ -603,6 +604,7 @@ fun FormLocoScreen(
                                     .weight(1f),
                                 value = locomotive.number ?: "",
                                 textStyle = dataTextStyle,
+                                fieldElevation = 0.dp,
                                 colorBackgroundEmptyField = Color.Transparent,
                                 colorBackgroundNotEmptyField = Color.Transparent,
                                 placeholder = {
