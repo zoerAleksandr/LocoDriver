@@ -303,13 +303,13 @@ fun DieselSectionItem(
             hint = "Применяется ко всем расчётам секции",
             value = item.coefficient.data,
             sheetState = sheetState,
-            onValueChange = { onCoefficientValueChanged(index, it) },
-            onDismiss = {
-                // В режиме «кг» сохраняем введённые килограммы и пересчитываем литры
-                // под новый коэффициент (литры — производная). В режиме «л» — наоборот,
-                // литры остаются, кг пересчитываются автоматически при отображении.
+            onValueChange = { newVal ->
+                onCoefficientValueChanged(index, newVal)
+                // В режиме «кг» введённые килограммы остаются неизменными (поле не «прыгает»),
+                // а литры пересчитываются вживую — меняется только вспомогательный текст.
+                // В режиме «л» литры остаются как ввёл пользователь, кг пересчитываются сами.
                 if (isKiloMode) {
-                    val newCoeff = item.coefficient.data?.toDoubleOrNull()
+                    val newCoeff = newVal?.toDoubleOrNull()
                     if (newCoeff != null && newCoeff != 0.0) {
                         kgSnapshotAccepted?.let {
                             onFuelAcceptedChanged(index, rounding(it / newCoeff, 2)?.str() ?: "")
@@ -319,6 +319,8 @@ fun DieselSectionItem(
                         }
                     }
                 }
+            },
+            onDismiss = {
                 focusChangedDieselSection(index, DieselSectionType.COEFFICIENT)
                 showCoefficient = false
             }
