@@ -692,31 +692,38 @@ fun DieselSectionItem(
                 )
             }
 
-        }
-    }
+            result?.let {
+                val resultInLiterText = maskInLiter(rounding(it, 2).str())
+                val resultInKiloText = maskInKilo(rounding(resultInKilo, 2)?.str())
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .height(1.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Расход",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${resultInLiterText ?: ""} / ${resultInKiloText ?: ""}",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = com.z_company.core.ui.theme.MonoFont
+                        ),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
 
-    result?.let {
-        val resultInLiterText = maskInLiter(rounding(it, 2).str())
-        val resultInKiloText = maskInKilo(rounding(resultInKilo, 2)?.str())
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Расход",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "${resultInLiterText ?: ""} л / ${resultInKiloText ?: ""} кг",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = com.z_company.core.ui.theme.MonoFont
-                ),
-                color = MaterialTheme.colorScheme.primary
-            )
         }
     }
 }
