@@ -125,7 +125,7 @@ private fun EnergyTotals(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = rounding(net, 2).str(),
+                text = groupThousands(rounding(net, 2).str()),
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontFamily = MonoFont, fontWeight = FontWeight.Bold
                 ),
@@ -143,13 +143,13 @@ private fun EnergyTotals(
         ) {
             BreakdownRow(
                 label = "Расход всех секций",
-                value = "${rounding(consumed, 2)?.str() ?: "0"} кВт·ч",
+                value = "${groupThousands(rounding(consumed, 2)?.str())} кВт·ч",
                 valueColor = MaterialTheme.colorScheme.primary
             )
             if (recovery != null) {
                 BreakdownRow(
                     label = "Рекуперация всех секций",
-                    value = "−${rounding(recovery, 2)?.str() ?: "0"} кВт·ч",
+                    value = "−${groupThousands(rounding(recovery, 2)?.str())} кВт·ч",
                     valueColor = Color(0xFF00B341)
                 )
             }
@@ -171,9 +171,21 @@ private fun EnergyTotals(
             val n = norma.toDoubleOrZero() ?: 0.0
             val result = n - net
             val pct = if (n != 0.0) abs(result / n * 100).toInt() else 0
-            ResultCard(result = result, magnitude = rounding(abs(result), 2).str(), unit = "кВт·ч", percent = pct)
+            ResultCard(result = result, magnitude = groupThousands(rounding(abs(result), 2).str()), unit = "кВт·ч", percent = pct)
         }
     }
+}
+
+/** Группировка целой части числа по разрядам через неразрывный пробел: 2710 → «2 710». */
+private fun groupThousands(s: String?): String {
+    if (s.isNullOrBlank()) return "0"
+    val neg = s.startsWith("-") || s.startsWith("−")
+    val body = s.trimStart('-', '−')
+    val dot = body.indexOf('.')
+    val intPart = if (dot < 0) body else body.substring(0, dot)
+    val frac = if (dot < 0) "" else body.substring(dot)
+    val grouped = intPart.reversed().chunked(3).joinToString(" ").reversed()
+    return (if (neg) "−" else "") + grouped + frac
 }
 
 @Composable
