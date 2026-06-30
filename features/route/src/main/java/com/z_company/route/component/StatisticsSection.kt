@@ -325,7 +325,7 @@ private fun ResultCard(result: Double, magnitude: String, unit: String, percent:
     val green = Color(0xFF00B341)
     val accentColor = if (isOver) MaterialTheme.colorScheme.error else green
     val label = if (isOver) "ПЕРЕРАСХОД" else "ЭКОНОМИЯ"
-    val sign = if (isOver) "+" else "−"
+    val sign = if (isOver) "−" else "+"
     Row(
         modifier = modifier
             .fillMaxWidth()
