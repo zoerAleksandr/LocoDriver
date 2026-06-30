@@ -778,7 +778,7 @@ fun DieselSectionItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "${resultInLiterText ?: ""} / ${resultInKiloText ?: ""}",
+                        text = "${resultInKiloText ?: ""} / ${resultInLiterText ?: ""}",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = com.z_company.core.ui.theme.MonoFont
                         ),
