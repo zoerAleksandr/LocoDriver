@@ -438,7 +438,7 @@ fun DieselSectionItem(
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, bottom = 3.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 val calculatedAccepted = if (item.accepted.data.isNullOrBlank()) {
                     ""
@@ -552,11 +552,17 @@ fun DieselSectionItem(
                     localDelivery = calculatedDelivery
                 }
 
-                Text(
-                    text = "→",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                // Стрелка выровнена по центру поля ввода (без учёта подсказки снизу)
+                Box(
+                    modifier = Modifier.height(44.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "→",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
 
                 OutlinedTextFieldApp(
                     modifier = Modifier
