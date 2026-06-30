@@ -48,6 +48,7 @@ import kotlin.math.roundToInt
 fun SwipeToRevealDelete(
     modifier: Modifier = Modifier,
     onDeleteClick: () -> Unit,
+    closeSignal: Int = 0,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -60,6 +61,11 @@ fun SwipeToRevealDelete(
     fun close() {
         revealed = false
         scope.launch { offsetX.animateTo(0f) }
+    }
+
+    // Внешний сигнал (например, отмена в шторке подтверждения) — вернуть карточку на место
+    androidx.compose.runtime.LaunchedEffect(closeSignal) {
+        if (offsetX.value != 0f) close()
     }
 
     fun open() {

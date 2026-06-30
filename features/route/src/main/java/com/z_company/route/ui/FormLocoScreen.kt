@@ -203,6 +203,7 @@ fun FormLocoScreen(
 
     // Подтверждение удаления секции (Diesel/Electric).
     // Каждый sheet — отдельный sheetState чтобы избежать конфликта shared state.
+    var closeSwipeSignal by remember { mutableStateOf(0) }
     formUiState.confirmDeleteDieselSectionId?.let { sectionId ->
         // sectionId захватываем в локальную переменную — иначе AppBottomSheet
         // вызывает onDismissRequest() ПЕРЕД action.onClick(), что сбрасывает
@@ -212,7 +213,10 @@ fun FormLocoScreen(
             skipPartiallyExpanded = true
         )
         com.z_company.route.component.AppBottomSheet(
-            onDismissRequest = { viewModel.cancelDeleteDieselSection() },
+            onDismissRequest = {
+                viewModel.cancelDeleteDieselSection()
+                closeSwipeSignal++
+            },
             sheetState = confirmSheetState,
             title = "Удалить секцию?",
             actions = listOf(
@@ -227,7 +231,10 @@ fun FormLocoScreen(
             skipPartiallyExpanded = true
         )
         com.z_company.route.component.AppBottomSheet(
-            onDismissRequest = { viewModel.cancelDeleteElectricSection() },
+            onDismissRequest = {
+                viewModel.cancelDeleteElectricSection()
+                closeSwipeSignal++
+            },
             sheetState = confirmSheetState,
             title = "Удалить секцию?",
             actions = listOf(
@@ -766,7 +773,8 @@ fun FormLocoScreen(
                                         isKiloMode = formUiState.isKiloMode,
                                         changeIsKiloMode = viewModel::toggleIsKiloMode,
                                         recentCoefficients = { viewModel.recentCoefficients() },
-                                        onSaveCoefficient = viewModel::saveRecentCoefficient
+                                        onSaveCoefficient = viewModel::saveRecentCoefficient,
+                                        closeSwipeSignal = closeSwipeSignal
                                     )
                                 }
                             }
@@ -792,7 +800,8 @@ fun FormLocoScreen(
                                         onRecoveryDeliveryChanged2 = viewModel::setRecoveryDelivery2,
                                         focusChangedElectricSection = focusChangedElectricSection,
                                         onExpandStateChanged = onExpandStateElectricSection,
-                                        showOtherCurrent = formUiState.isShowOtherCurrent
+                                        showOtherCurrent = formUiState.isShowOtherCurrent,
+                                        closeSwipeSignal = closeSwipeSignal
                                     )
                                 }
                             }

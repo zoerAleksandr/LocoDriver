@@ -69,7 +69,8 @@ fun ElectricSectionItem(
     onRecoveryDeliveryChanged2: (Int, String?) -> Unit,
     focusChangedElectricSection: (Int, ElectricSectionType) -> Unit,
     onExpandStateChanged: (Boolean) -> Unit,
-    showOtherCurrent: Boolean = false
+    showOtherCurrent: Boolean = false,
+    closeSwipeSignal: Int = 0
 ) {
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
@@ -132,7 +133,8 @@ fun ElectricSectionItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        onDeleteClick = { onDeleteItem(item) }
+        onDeleteClick = { onDeleteItem(item) },
+        closeSignal = closeSwipeSignal
     ) {
         Card(
             shape = Shapes.medium,

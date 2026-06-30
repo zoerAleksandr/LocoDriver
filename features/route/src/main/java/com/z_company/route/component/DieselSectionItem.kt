@@ -98,7 +98,8 @@ fun DieselSectionItem(
     isKiloMode: Boolean,
     changeIsKiloMode: () -> Unit,
     recentCoefficients: () -> List<String> = { emptyList() },
-    onSaveCoefficient: (String) -> Unit = {}
+    onSaveCoefficient: (String) -> Unit = {},
+    closeSwipeSignal: Int = 0
 ) {
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
@@ -376,7 +377,8 @@ fun DieselSectionItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        onDeleteClick = { onDeleteItem(item) }
+        onDeleteClick = { onDeleteItem(item) },
+        closeSignal = closeSwipeSignal
     ) {
         Card(
             shape = Shapes.medium,
