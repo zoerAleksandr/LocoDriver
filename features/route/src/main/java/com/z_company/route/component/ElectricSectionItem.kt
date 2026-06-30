@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -134,6 +135,12 @@ fun ElectricSectionItem(
     val hintStyle = MaterialTheme.typography.bodyMedium
 
     val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+
+    // Раскрытие рекуперации — локальное состояние (без обновления всего списка
+    // через VM, иначе пересоздание всех секций вызывает моргание).
+    var expandRecovery by androidx.compose.runtime.remember(item.sectionId) {
+        androidx.compose.runtime.mutableStateOf(item.expandItemState)
+    }
 
     SwipeToRevealDelete(
         modifier = Modifier
@@ -338,7 +345,7 @@ fun ElectricSectionItem(
                         .fillMaxWidth()
                         .heightIn(min = 28.dp)
                         .padding(horizontal = 16.dp)
-                        .clickable { onExpandStateChanged(!item.expandItemState) },
+                        .clickable { expandRecovery = !expandRecovery },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -349,7 +356,7 @@ fun ElectricSectionItem(
                     )
                     Icon(
                         painter = painterResource(
-                            if (item.expandItemState) R.drawable.keyboard_arrow_up_24px
+                            if (expandRecovery) R.drawable.keyboard_arrow_up_24px
                             else R.drawable.keyboard_arrow_down_24px
                         ),
                         contentDescription = null,
@@ -357,7 +364,7 @@ fun ElectricSectionItem(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-                AnimatedVisibility(item.expandItemState) {
+                AnimatedVisibility(expandRecovery) {
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         Row(
                             modifier = Modifier
