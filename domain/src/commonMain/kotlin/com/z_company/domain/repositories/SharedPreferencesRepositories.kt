@@ -60,6 +60,10 @@ interface SharedPreferencesRepositories {
     fun getRecentTimes(key: String): List<Long>
     fun addRecentTime(key: String, timeMillis: Long)
 
+    /** Недавние коэффициенты (последние 5), для подсказок в шторке. */
+    fun getRecentCoefficients(): List<String>
+    fun addRecentCoefficient(value: String)
+
     /** true = пользователь предпочитает ввод с клавиатуры в системном пикере времени */
     fun isTimePickerKeyboardInput(): Boolean
     fun setTimePickerKeyboardInput(value: Boolean)

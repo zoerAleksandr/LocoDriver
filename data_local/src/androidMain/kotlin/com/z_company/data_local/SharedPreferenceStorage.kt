@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import org.koin.core.component.KoinComponent
 
+private val DEFAULT_COEFFICIENTS = listOf("0.84", "0.85", "0.86", "0.87", "0.88")
 private const val TOKEN_IS_LOAD_STATION_NAME_AND_LOCOMOTIVE_SERIES =
     "TOKEN_IS_LOAD_STATION_NAME_AND_LOCOMOTIVE_SERIES"
 private const val TOKEN_IS_FIRST_APP_ENTRY_TAG = "TOKEN_IS_FIRST_APP_ENTRY_TAG"
@@ -297,6 +298,29 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun setTimePickerKeyboardInput(value: Boolean) {
         editor.putBoolean(TOKEN_TIME_PICKER_KEYBOARD_INPUT, value).apply()
+    }
+
+    override fun getRecentCoefficients(): List<String> {
+        val json = sharedpref.getString("recent_coefficients", null)
+            ?: return DEFAULT_COEFFICIENTS
+        return try {
+            json.removeSurrounding("[", "]")
+                .split(",")
+                .filter { it.isNotBlank() }
+                .map { it.trim() }
+                .ifEmpty { DEFAULT_COEFFICIENTS }
+        } catch (_: Exception) {
+            DEFAULT_COEFFICIENTS
+        }
+    }
+
+    override fun addRecentCoefficient(value: String) {
+        if (value.toDoubleOrNull() == null) return
+        val current = getRecentCoefficients().toMutableList()
+        current.remove(value)
+        current.add(0, value)
+        val trimmed = current.take(5)
+        editor.putString("recent_coefficients", trimmed.joinToString(",", "[", "]")).apply()
     }
 
     override fun addRecentTime(key: String, timeMillis: Long) {

@@ -764,7 +764,9 @@ fun FormLocoScreen(
                                         onCoefficientValueChanged = onCoefficientValueChanged,
                                         sheetState = sheetState,
                                         isKiloMode = formUiState.isKiloMode,
-                                        changeIsKiloMode = viewModel::toggleIsKiloMode
+                                        changeIsKiloMode = viewModel::toggleIsKiloMode,
+                                        recentCoefficients = { viewModel.recentCoefficients() },
+                                        onSaveCoefficient = viewModel::saveRecentCoefficient
                                     )
                                 }
                             }

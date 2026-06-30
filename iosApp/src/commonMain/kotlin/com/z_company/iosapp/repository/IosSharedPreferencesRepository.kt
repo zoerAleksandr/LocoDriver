@@ -119,4 +119,13 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
         list.add(0, timeMillis)
         if (list.size > 10) list.removeAt(list.lastIndex)
     }
+
+    private val recentCoefficients = mutableListOf("0.84", "0.85", "0.86", "0.87", "0.88")
+    override fun getRecentCoefficients(): List<String> = recentCoefficients.toList()
+    override fun addRecentCoefficient(value: String) {
+        if (value.toDoubleOrNull() == null) return
+        recentCoefficients.remove(value)
+        recentCoefficients.add(0, value)
+        while (recentCoefficients.size > 5) recentCoefficients.removeAt(recentCoefficients.lastIndex)
+    }
 }

@@ -602,6 +602,14 @@ class LocoFormViewModel(
         changesHave()
     }
 
+    /** История коэффициентов (последние 5) для подсказок в шторке. */
+    fun recentCoefficients(): List<String> = sharedPreferenceStorage.getRecentCoefficients()
+
+    fun saveRecentCoefficient(value: String?) {
+        value?.toDoubleOrNull() ?: return
+        sharedPreferenceStorage.addRecentCoefficient(value)
+    }
+
     fun setRefuelDiesel(index: Int, inputValue: String?) {
         updateDieselSection(index) {
             val coeff = refuelCoefficient.data?.toDoubleOrNull()

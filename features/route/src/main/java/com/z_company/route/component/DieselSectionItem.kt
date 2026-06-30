@@ -96,7 +96,9 @@ fun DieselSectionItem(
     onCoefficientValueChanged: (Int, String?) -> Unit,
     sheetState: SheetState,
     isKiloMode: Boolean,
-    changeIsKiloMode: () -> Unit
+    changeIsKiloMode: () -> Unit,
+    recentCoefficients: () -> List<String> = { emptyList() },
+    onSaveCoefficient: (String) -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
@@ -134,6 +136,10 @@ fun DieselSectionItem(
     var showSupplyCoefficient by remember {
         mutableStateOf(false)
     }
+
+    // Чекбокс «Применить ко всем значениям этой секции» в шторке k экипировки.
+    // По умолчанию включён — k экипировки применяется и к секции.
+    var applySupplyToSection by remember { mutableStateOf(true) }
 
     var showRefuel by remember {
         mutableStateOf(false)
@@ -301,30 +307,31 @@ fun DieselSectionItem(
     }
 
 
+    // В режиме «кг» введённые килограммы остаются неизменными (поле не «прыгает»),
+    // литры пересчитываются под новый коэффициент из снимка кг.
+    val applyKgPreserve: (String?) -> Unit = { newVal ->
+        if (isKiloMode) {
+            val newCoeff = newVal?.toDoubleOrNull()
+            if (newCoeff != null && newCoeff != 0.0) {
+                kgSnapshotAccepted?.let { onFuelAcceptedChanged(index, (it / newCoeff).str()) }
+                kgSnapshotDelivery?.let { onFuelDeliveredChanged(index, (it / newCoeff).str()) }
+            }
+        }
+    }
+
     if (showCoefficient) {
         CoeffSheet(
             title = "Коэффициент секции",
-            hint = "Применяется ко всем расчётам секции",
+            hint = null,
             value = item.coefficient.data,
             sheetState = sheetState,
+            presets = recentCoefficients(),
             onValueChange = { newVal ->
                 onCoefficientValueChanged(index, newVal)
-                // В режиме «кг» введённые килограммы остаются неизменными (поле не «прыгает»),
-                // а литры пересчитываются вживую — меняется только вспомогательный текст.
-                // В режиме «л» литры остаются как ввёл пользователь, кг пересчитываются сами.
-                if (isKiloMode) {
-                    val newCoeff = newVal?.toDoubleOrNull()
-                    if (newCoeff != null && newCoeff != 0.0) {
-                        kgSnapshotAccepted?.let {
-                            onFuelAcceptedChanged(index, (it / newCoeff).str())
-                        }
-                        kgSnapshotDelivery?.let {
-                            onFuelDeliveredChanged(index, (it / newCoeff).str())
-                        }
-                    }
-                }
+                applyKgPreserve(newVal)
             },
             onDismiss = {
+                onSaveCoefficient(item.coefficient.data ?: "")
                 focusChangedDieselSection(index, DieselSectionType.COEFFICIENT)
                 showCoefficient = false
             }
@@ -334,11 +341,31 @@ fun DieselSectionItem(
     if (showSupplyCoefficient) {
         CoeffSheet(
             title = "Коэффициент экипировки",
-            hint = "Может отличаться от k секции",
+            hint = null,
             value = item.refuelCoefficient.data,
             sheetState = sheetState,
-            onValueChange = { onRefuelCoefficientValueChanged(index, it) },
-            onDismiss = { showSupplyCoefficient = false }
+            presets = recentCoefficients(),
+            applyToSectionLabel = "Применить ко всем значениям этой секции",
+            applyToSection = applySupplyToSection,
+            onApplyToSectionChange = { checked ->
+                applySupplyToSection = checked
+                if (checked) {
+                    val v = item.refuelCoefficient.data
+                    onCoefficientValueChanged(index, v)
+                    applyKgPreserve(v)
+                }
+            },
+            onValueChange = { newVal ->
+                onRefuelCoefficientValueChanged(index, newVal)
+                if (applySupplyToSection) {
+                    onCoefficientValueChanged(index, newVal)
+                    applyKgPreserve(newVal)
+                }
+            },
+            onDismiss = {
+                onSaveCoefficient(item.refuelCoefficient.data ?: "")
+                showSupplyCoefficient = false
+            }
         )
     }
 
@@ -665,7 +692,16 @@ fun DieselSectionItem(
                             CoeffPill(
                                 label = "k экипировки",
                                 value = item.refuelCoefficient.data,
-                                onClick = { showSupplyCoefficient = true }
+                                onClick = {
+                                    if (isKiloMode) {
+                                        kgSnapshotAccepted = item.accepted.data?.toDoubleOrNull()?.times(coeff)
+                                        kgSnapshotDelivery = item.delivery.data?.toDoubleOrNull()?.times(coeff)
+                                    } else {
+                                        kgSnapshotAccepted = null
+                                        kgSnapshotDelivery = null
+                                    }
+                                    showSupplyCoefficient = true
+                                }
                             )
                         }
                         Icon(
@@ -863,13 +899,16 @@ private fun CoeffPill(label: String, value: String?, onClick: () -> Unit) {
 @Composable
 private fun CoeffSheet(
     title: String,
-    hint: String,
+    hint: String?,
     value: String?,
     sheetState: SheetState,
+    presets: List<String>,
     onValueChange: (String) -> Unit,
     onDismiss: () -> Unit,
+    applyToSectionLabel: String? = null,
+    applyToSection: Boolean = false,
+    onApplyToSectionChange: (Boolean) -> Unit = {},
 ) {
-    val presets = listOf("0.79", "0.83", "0.87", "0.91", "0.95")
     val current = value?.toDoubleOrNull()
     // Шаг зависит от точности введённого значения: 3 знака → 0.001, иначе 0.01
     val decimals = (value ?: "").substringAfter('.', "").length
@@ -918,12 +957,15 @@ private fun CoeffSheet(
                     modifier = Modifier.noRippleEffect { onDismiss() }
                 )
             }
-            Text(
-                text = hint,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
-            )
+            if (!hint.isNullOrBlank()) {
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Степпер
             Row(
@@ -975,6 +1017,28 @@ private fun CoeffSheet(
                 CoeffStepBtn(symbol = "+") {
                     val base = current ?: 1.0
                     onValueChange(fmt(base + step))
+                }
+            }
+
+            // Чекбокс «применить ко всем значениям секции» (только для экипировки)
+            if (applyToSectionLabel != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 14.dp)
+                        .noRippleEffect { onApplyToSectionChange(!applyToSection) },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = applyToSection,
+                        onCheckedChange = { onApplyToSectionChange(it) }
+                    )
+                    Text(
+                        text = applyToSectionLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
 
