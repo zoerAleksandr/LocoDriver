@@ -79,10 +79,15 @@ fun SwipeToRevealDelete(
                 modifier = Modifier
                     .width(buttonWidth)
                     .fillMaxHeight()
-                    .clip(Shapes.medium)
+                    // Скругляем только со стороны края экрана (правую), к карточке — встык
+                    .clip(
+                        androidx.compose.foundation.shape.RoundedCornerShape(
+                            topStart = 0.dp, bottomStart = 0.dp,
+                            topEnd = 16.dp, bottomEnd = 16.dp
+                        )
+                    )
                     .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
                     .clickable(enabled = revealed) {
-                        close()
                         onDeleteClick()
                     },
                 contentAlignment = Alignment.Center
