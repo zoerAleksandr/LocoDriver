@@ -635,32 +635,48 @@ fun DieselSectionItem(
                 )
             }
 
-            // Экипировка — инлайн (вместо шторки)
-            if (expandSupply) {
-                Column(
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp)
+            // Экипировка — раскрываемый блок с заголовком и шевроном
+            Column(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .noRippleEffect { expandSupply = !expandSupply },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Text(
+                        text = "ЭКИПИРОВКА",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "ЭКИПИРОВКА",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        // k экипировки — пилюля, открывает шторку
-                        CoeffPill(
-                            label = "k экипировки",
-                            value = item.refuelCoefficient.data,
-                            onClick = { showSupplyCoefficient = true }
+                        // k экипировки — пилюля, открывает шторку (только в развёрнутом виде)
+                        if (expandSupply) {
+                            CoeffPill(
+                                label = "k экипировки",
+                                value = item.refuelCoefficient.data,
+                                onClick = { showSupplyCoefficient = true }
+                            )
+                        }
+                        Icon(
+                            painter = painterResource(
+                                if (expandSupply) R.drawable.keyboard_arrow_up_24px
+                                else R.drawable.keyboard_arrow_down_24px
+                            ),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
+                }
+                AnimatedVisibility(expandSupply) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -724,15 +740,6 @@ fun DieselSectionItem(
                         )
                     }
                 }
-            } else {
-                Text(
-                    text = "+ Экипировка",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier
-                        .noRippleEffect { expandSupply = true }
-                        .padding(start = 16.dp, top = 14.dp)
-                )
             }
 
             result?.let {
