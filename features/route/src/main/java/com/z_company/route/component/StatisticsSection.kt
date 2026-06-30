@@ -151,6 +151,8 @@ fun DieselStatisticsSection(
 ) {
     var overResultInLiter: Double? = null
     var overResultInKilo: Double? = null
+    var totalRefuelLiter: Double? = null
+    var totalRefuelKilo: Double? = null
 
     dieselSectionListState?.forEach {
         val accepted = it.accepted.data?.toDoubleOrNull()
@@ -160,10 +162,14 @@ fun DieselStatisticsSection(
         val resultInKilo = result.times(it.coefficient.data?.toDoubleOrZero())
         overResultInLiter += result
         overResultInKilo += resultInKilo
+        totalRefuelLiter += it.refuel.data?.toDoubleOrNull()
+        totalRefuelKilo += it.refuelInKilo.data?.toDoubleOrNull()
     }
 
     val litersText = rounding(overResultInLiter, 2)?.str() ?: "—"
     val kiloText = rounding(overResultInKilo, 2)?.str()
+    val refuelText = rounding(totalRefuelLiter, 2)?.str() ?: "0"
+    val refuelKiloText = rounding(totalRefuelKilo, 2)?.str()
     val monoLabel = MaterialTheme.typography.labelSmall.copy(
         fontFamily = MonoFont,
         fontSize = 11.sp,
@@ -226,7 +232,7 @@ fun DieselStatisticsSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "$litersText л",
+                    text = if (refuelKiloText != null) "$refuelText л · $refuelKiloText кг" else "$refuelText л",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = MonoFont, fontWeight = FontWeight.W600
                     ),
