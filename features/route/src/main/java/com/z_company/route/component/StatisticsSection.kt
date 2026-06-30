@@ -51,6 +51,8 @@ fun ElectricStatisticsSection(
     locomotive: Locomotive,
     isShowOtherCurrent: Boolean,
     onSettingsClick: () -> Unit,
+    onNorma1Change: (String) -> Unit = {},
+    onNorma2Change: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var overResult: Double? = null
@@ -74,71 +76,122 @@ fun ElectricStatisticsSection(
         overRecovery2 += (deliveryRecovery2 - acceptedRecovery2)
     }
 
-    Column(
-        modifier = modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // Ток 1
-        StatRow(
-            label = "Расход",
-            value = rounding(overResult, 2)?.str() ?: "—"
-        )
-        StatRow(
-            label = "Норма",
-            value = locomotive.normaElectricCurrent1?.str() ?: "—",
-            valueColor = NormaColor,
-            onClick = onSettingsClick
-        )
-        if (locomotive.normaElectricCurrent1 != null) {
-            val result = locomotive.normaElectricCurrent1!! - (overResult ?: 0.0)
-            val rounded = rounding(result, 2) ?: result
-            val resultText = if (rounded > 0) "+${rounded.str()}" else rounded.str()
-            val resultColor = if (rounded < 0) {
-                MaterialTheme.colorScheme.error
-            } else {
-                MaterialTheme.colorScheme.primary
-            }
-            ResultBanner(result = rounded, value = resultText)
-        }
-        StatRow(
-            label = "Рекуперация",
-            value = rounding(overRecovery, 2)?.str() ?: "—"
-        )
+    val monoLabel = MaterialTheme.typography.labelSmall.copy(
+        fontFamily = MonoFont,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.W600,
+        letterSpacing = TextUnit(1.4f, TextUnitType.Sp)
+    )
 
-        // Ток 2
+    Column(modifier = modifier.fillMaxWidth()) {
+        EnergyTotals(
+            label = if (isShowOtherCurrent) "ТОК 1 · ЧИСТЫЙ РАСХОД" else "ЧИСТЫЙ РАСХОД",
+            consumed = overResult,
+            recovery = overRecovery,
+            norma = locomotive.normaElectricCurrent1?.str() ?: "",
+            onNormaChange = onNorma1Change,
+            monoLabel = monoLabel
+        )
         if (isShowOtherCurrent) {
-            Text(
-                text = "Ток 2",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            StatRow(
-                label = "Расход",
-                value = rounding(overResult2, 2)?.str() ?: "—"
-            )
-            StatRow(
-                label = "Норма",
-                value = locomotive.normaElectricCurrent2?.str() ?: "—",
-                valueColor = NormaColor,
-                onClick = onSettingsClick
-            )
-            if (locomotive.normaElectricCurrent2 != null) {
-                val result2 = locomotive.normaElectricCurrent2!! - (overResult2 ?: 0.0)
-                val rounded2 = rounding(result2, 2) ?: result2
-                val resultText2 = if (rounded2 > 0) "+${rounded2.str()}" else rounded2.str()
-                val resultColor2 = if (rounded2 < 0) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.primary
-                }
-                ResultBanner(result = rounded2, value = resultText2)
-            }
-            StatRow(
-                label = "Рекуперация",
-                value = rounding(overRecovery2, 2)?.str() ?: "—"
+            androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            EnergyTotals(
+                label = "ТОК 2 · ЧИСТЫЙ РАСХОД",
+                consumed = overResult2,
+                recovery = overRecovery2,
+                norma = locomotive.normaElectricCurrent2?.str() ?: "",
+                onNormaChange = onNorma2Change,
+                monoLabel = monoLabel
             )
         }
+    }
+}
+
+/** Блок ИТОГО для одного рода тока: чистый расход + раскладка + норма + результат. */
+@Composable
+private fun EnergyTotals(
+    label: String,
+    consumed: Double?,
+    recovery: Double?,
+    norma: String,
+    onNormaChange: (String) -> Unit,
+    monoLabel: androidx.compose.ui.text.TextStyle,
+) {
+    val net = (consumed ?: 0.0) - (recovery ?: 0.0)
+    Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 14.dp)) {
+        Text(text = label, style = monoLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            modifier = Modifier.padding(top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = rounding(net, 2).str(),
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontFamily = MonoFont, fontWeight = FontWeight.Bold
+                ),
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "кВт·ч",
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            BreakdownRow(
+                label = "Расход всех секций",
+                value = "${rounding(consumed, 2)?.str() ?: "0"} кВт·ч",
+                valueColor = MaterialTheme.colorScheme.primary
+            )
+            if (recovery != null) {
+                BreakdownRow(
+                    label = "Рекуперация всех секций",
+                    value = "−${rounding(recovery, 2)?.str() ?: "0"} кВт·ч",
+                    valueColor = Color(0xFF00B341)
+                )
+            }
+        }
+    }
+
+    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+    Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "НОРМА", style = monoLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            NormaPill(value = norma, unit = "кВт·ч", onValueChange = onNormaChange)
+        }
+        if (norma.isNotBlank()) {
+            val n = norma.toDoubleOrZero() ?: 0.0
+            val result = n - net
+            val pct = if (n != 0.0) abs(result / n * 100).toInt() else 0
+            ResultCard(result = result, magnitude = rounding(abs(result), 2).str(), unit = "кВт·ч", percent = pct)
+        }
+    }
+}
+
+@Composable
+private fun BreakdownRow(label: String, value: String, valueColor: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont, fontWeight = FontWeight.W600),
+            color = valueColor
+        )
     }
 }
 

@@ -866,7 +866,8 @@ fun FormLocoScreen(
                                             locomotive = locomotive,
                                             isShowOtherCurrent = formUiState.isShowOtherCurrent,
                                             onSettingsClick = onSettingsClick,
-                                            modifier = Modifier.padding(vertical = 12.dp)
+                                            onNorma1Change = { viewModel.setNormaElectricCurrent1(it) },
+                                            onNorma2Change = { viewModel.setNormaElectricCurrent2(it) }
                                         )
                                     }
                                     LocoType.DIESEL -> {
@@ -880,64 +881,6 @@ fun FormLocoScreen(
                                 }
                             }
                         }
-                    }
-
-                    // Норма — отдельным блоком только для электровоза
-                    if (userSettings?.isShowLocoNorma != false && currentLoco.type == LocoType.ELECTRIC) {
-                    item {
-                        GroupHead(text = "Норма")
-                        MCard {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                OutlinedTextFieldApp(
-                                    modifier = Modifier.weight(1f),
-                                    value = formUiState.norma1Text,
-                                    placeholder = {
-                                        Text(
-                                            text = "Ток 1",
-                                            style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
-                                            color = noValueColor
-                                        )
-                                    },
-                                    textStyle = dataTextStyle,
-                                    fieldElevation = 0.dp,
-                                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                    colorBackgroundEmptyField = Color.Transparent,
-                                    colorBackgroundNotEmptyField = Color.Transparent,
-                                    onValueChange = { viewModel.setNormaElectricCurrent1(it) },
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
-                                    ),
-                                    singleLine = true
-                                )
-                                if (userSettings?.isShowOtherCurrent == true) {
-                                    OutlinedTextFieldApp(
-                                        modifier = Modifier.weight(1f),
-                                        value = formUiState.norma2Text,
-                                        placeholder = {
-                                            Text(
-                                                text = "Ток 2",
-                                                style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
-                                                color = noValueColor
-                                            )
-                                        },
-                                        textStyle = dataTextStyle,
-                                        fieldElevation = 0.dp,
-                                        borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                        colorBackgroundEmptyField = Color.Transparent,
-                                        colorBackgroundNotEmptyField = Color.Transparent,
-                                        onValueChange = { viewModel.setNormaElectricCurrent2(it) },
-                                        keyboardOptions = KeyboardOptions(
-                                            keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
-                                        ),
-                                        singleLine = true
-                                    )
-                                }
-                            }
-                        }
-                    }
                     }
 
                     item { Spacer(modifier = Modifier.height(20.dp)) }
