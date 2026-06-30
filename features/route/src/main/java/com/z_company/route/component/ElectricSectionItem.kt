@@ -51,6 +51,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.CalculationEnergy.getTotalEnergyConsumption
@@ -195,7 +196,8 @@ fun ElectricSectionItem(
                     colorBackgroundNotEmptyField = Color.Transparent,
                     placeholder = {
                         Text(
-                            text = "Принял", style = LocalTextStyle.current.copy(
+                            text = if (showOtherCurrent) "Ток 1 принял" else "Принял",
+                            style = LocalTextStyle.current.copy(
                                 fontWeight = FontWeight.Light
                             ), color = noValueColor,
                             maxLines = 1,
@@ -235,7 +237,8 @@ fun ElectricSectionItem(
                     },
                     placeholder = {
                         Text(
-                            text = "Сдал", style = LocalTextStyle.current.copy(
+                            text = if (showOtherCurrent) "Ток 1 сдал" else "Сдал",
+                            style = LocalTextStyle.current.copy(
                                 fontWeight = FontWeight.Light
                             ), color = noValueColor
                         )
@@ -262,13 +265,9 @@ fun ElectricSectionItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.electric_bolt_24px),
-                            contentDescription = null
-                        )
                         OutlinedTextFieldApp(
                             modifier = Modifier
                                 .weight(1f),
@@ -284,7 +283,7 @@ fun ElectricSectionItem(
                     colorBackgroundNotEmptyField = Color.Transparent,
                             placeholder = {
                                 Text(
-                                    text = "Принял", style = LocalTextStyle.current.copy(
+                                    text = "Ток 2 принял", style = LocalTextStyle.current.copy(
                                         fontWeight = FontWeight.Light
                                     ), color = noValueColor,
                                     maxLines = 1,
@@ -300,6 +299,13 @@ fun ElectricSectionItem(
                                 }
                             }),
                             singleLine = true,
+                            shape = Shapes.medium,
+                        )
+
+                        Text(
+                            text = "→",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium,
                         )
 
                         OutlinedTextFieldApp(
@@ -317,7 +323,7 @@ fun ElectricSectionItem(
                             },
                             placeholder = {
                                 Text(
-                                    text = "Сдал", style = LocalTextStyle.current.copy(
+                                    text = "Ток 2 сдал", style = LocalTextStyle.current.copy(
                                         fontWeight = FontWeight.Light
                                     ), color = noValueColor
                                 )
@@ -331,6 +337,7 @@ fun ElectricSectionItem(
                                 }
                             }),
                             singleLine = true,
+                            shape = Shapes.medium,
                         )
                     }
                 }
@@ -345,7 +352,7 @@ fun ElectricSectionItem(
                         .fillMaxWidth()
                         .heightIn(min = 28.dp)
                         .padding(horizontal = 16.dp)
-                        .clickable { expandRecovery = !expandRecovery },
+                        .noRippleEffect { expandRecovery = !expandRecovery },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -390,7 +397,7 @@ fun ElectricSectionItem(
                     colorBackgroundNotEmptyField = Color.Transparent,
                                 placeholder = {
                                     Text(
-                                        text = "Принял",
+                                        text = if (showOtherCurrent) "Ток 1 принял" else "Принял",
                                         style = LocalTextStyle.current.copy(
                                             fontWeight = FontWeight.Light
                                         ),
@@ -409,6 +416,7 @@ fun ElectricSectionItem(
                                     }
                                 }),
                                 singleLine = true,
+                                shape = Shapes.medium,
                             )
 
                             Text(
@@ -435,7 +443,7 @@ fun ElectricSectionItem(
                     colorBackgroundNotEmptyField = Color.Transparent,
                                 placeholder = {
                                     Text(
-                                        text = "Сдал",
+                                        text = if (showOtherCurrent) "Ток 1 сдал" else "Сдал",
                                         style = LocalTextStyle.current.copy(
                                             fontWeight = FontWeight.Light
                                         ),
@@ -460,17 +468,14 @@ fun ElectricSectionItem(
                         AnimatedVisibility(visible = showOtherCurrent) {
                             Row(
                                 modifier = Modifier
+                                    .fillMaxWidth()
                                     .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.cycle_24px),
-                                    contentDescription = null
-                                )
                                 OutlinedTextFieldApp(
                                     modifier = Modifier
-                                        .weight(0.5f),
+                                        .weight(1f),
                                     value = recoveryAcceptedText2,
                                     onValueChange = {
                                         onRecoveryAcceptedChanged2(index, it.take(10))
@@ -486,7 +491,7 @@ fun ElectricSectionItem(
                     colorBackgroundNotEmptyField = Color.Transparent,
                                     placeholder = {
                                         Text(
-                                            text = "Принял",
+                                            text = "Ток 2 принял",
                                             style = LocalTextStyle.current.copy(
                                                 fontWeight = FontWeight.Light
                                             ),
@@ -505,11 +510,18 @@ fun ElectricSectionItem(
                                         }
                                     }),
                                     singleLine = true,
+                                    shape = Shapes.medium,
+                                )
+
+                                Text(
+                                    text = "→",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodyMedium,
                                 )
 
                                 OutlinedTextFieldApp(
                                     modifier = Modifier
-                                        .weight(0.5f),
+                                        .weight(1f),
                                     value = recoveryDeliveryText2,
                                     onValueChange = {
                                         onRecoveryDeliveryChanged2(index, it.take(10))
@@ -525,7 +537,7 @@ fun ElectricSectionItem(
                     colorBackgroundNotEmptyField = Color.Transparent,
                                     placeholder = {
                                         Text(
-                                            text = "Сдал",
+                                            text = "Ток 2 сдал",
                                             style = LocalTextStyle.current.copy(
                                                 fontWeight = FontWeight.Light
                                             ),
@@ -543,6 +555,7 @@ fun ElectricSectionItem(
                                     }),
 
                                     singleLine = true,
+                                    shape = Shapes.medium,
                                 )
                             }
                         }
