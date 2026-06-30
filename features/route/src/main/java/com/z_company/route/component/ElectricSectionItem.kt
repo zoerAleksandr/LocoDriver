@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,8 +17,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
@@ -152,23 +158,6 @@ fun ElectricSectionItem(
                     text = "Секция ${index + 1}",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600)
                 )
-
-                AnimatedContent(targetState = item.expandItemState, label = "") {
-                    Icon(
-                        modifier = Modifier.clickable {
-                            onExpandStateChanged(
-                                !item.expandItemState
-                            )
-                        },
-                        painter = if (it) {
-                            painterResource(R.drawable.zoom_in_map_24px)
-                        } else {
-                            painterResource(R.drawable.zoom_out_map_24px)
-                        },
-                        contentDescription = null
-                    )
-                }
-
             }
             // РАСХОД — лейбл + Принял → Сдал
             Text(
@@ -340,17 +329,36 @@ fun ElectricSectionItem(
                 }
             }
 
-            AnimatedContent(
-                targetState = item.expandItemState, label = ""
-            ) { targetState ->
-                if (targetState) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = "РЕКУПЕРАЦИЯ",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
-                        )
+            // Рекуперация — раскрываемый блок с заголовком и шевроном
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 10.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 28.dp)
+                        .padding(horizontal = 16.dp)
+                        .clickable { onExpandStateChanged(!item.expandItemState) },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "РЕКУПЕРАЦИЯ",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Icon(
+                        painter = painterResource(
+                            if (item.expandItemState) R.drawable.keyboard_arrow_up_24px
+                            else R.drawable.keyboard_arrow_down_24px
+                        ),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                AnimatedVisibility(item.expandItemState) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         Row(
                             modifier = Modifier
                                 .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
@@ -546,12 +554,28 @@ fun ElectricSectionItem(
                         + fadeOut(animationSpec = tween(durationMillis = 150)),
                 label = ""
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    val dashColor = MaterialTheme.colorScheme.outlineVariant
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp)
+                            .height(1.dp)
+                    ) {
+                        drawLine(
+                            color = dashColor,
+                            start = Offset(0f, 0f),
+                            end = Offset(size.width, 0f),
+                            strokeWidth = size.height,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 10f), 0f)
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                     result?.let {
                         SectionSummaryRow(label = "Расход", value = "${it.str()} кВт·ч")
                     }
@@ -563,6 +587,7 @@ fun ElectricSectionItem(
                     }
                     resultRecovery2?.let {
                         SectionSummaryRow(label = "Рекуперация (ток 2)", value = "${it.str()} кВт·ч")
+                    }
                     }
                 }
             }
