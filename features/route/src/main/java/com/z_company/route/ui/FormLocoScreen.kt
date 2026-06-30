@@ -1121,7 +1121,6 @@ private fun StepperButton(
             text = symbol,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             color = if (!enabled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-            else if (accent) MaterialTheme.colorScheme.tertiary
             else MaterialTheme.colorScheme.primary
         )
     }

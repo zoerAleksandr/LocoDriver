@@ -372,48 +372,11 @@ fun DieselSectionItem(
     val dataTextStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = com.z_company.core.ui.theme.MonoFont)
     val hintStyle = MaterialTheme.typography.bodyMedium
 
-    // Анти-паттерн confirmValueChange для side-effect → dismissState мог застрять.
-    // Используем LaunchedEffect + явный snapTo (как в ElectricSectionItem/TrainStationTimeline).
-    val dismissState = rememberSwipeToDismissBoxState()
-    val currentItem = androidx.compose.runtime.rememberUpdatedState(item)
-    val currentOnDelete = androidx.compose.runtime.rememberUpdatedState(onDeleteItem)
-    androidx.compose.runtime.LaunchedEffect(dismissState) {
-        androidx.compose.runtime.snapshotFlow { dismissState.currentValue }
-            .collect { value ->
-                if (value == SwipeToDismissBoxValue.EndToStart) {
-                    currentOnDelete.value(currentItem.value)
-                    dismissState.snapTo(SwipeToDismissBoxValue.Settled)
-                }
-            }
-    }
-    SwipeToDismissBox(
+    SwipeToRevealDelete(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        state = dismissState,
-        enableDismissFromStartToEnd = false,
-        backgroundContent = {
-            val color by animateColorAsState(
-                when (dismissState.targetValue) {
-                    SwipeToDismissBoxValue.Settled -> Color.Transparent
-                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                    else -> Color.Transparent
-                }, label = ""
-            )
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(color = color, shape = Shapes.medium),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                Icon(
-                    modifier = Modifier.padding(end = 16.dp),
-                    painter = painterResource(R.drawable.delete_24px),
-                    tint = MaterialTheme.colorScheme.surface,
-                    contentDescription = null
-                )
-            }
-        }
+        onDeleteClick = { onDeleteItem(item) }
     ) {
         Card(
             shape = Shapes.medium,
