@@ -482,7 +482,7 @@ fun TimeBottomSheet(
                         tint = if (normsActive) accentInk() else textFaint()
                     )
                     Text(
-                        text = "По нормам", fontSize = 13.sp, fontWeight = FontWeight.W500,
+                        text = "По нормам ПЗВ", fontSize = 13.sp, fontWeight = FontWeight.W500,
                         color = if (normsActive) accentInk() else textFaint()
                     )
                 }

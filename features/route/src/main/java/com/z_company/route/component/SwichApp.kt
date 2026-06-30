@@ -206,7 +206,7 @@ fun SwitchApp(
                         colors = CardDefaults.cardColors(
                             containerColor = indicatorColor
                         ),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(12.dp)
                     ) {}
                 }
                 // контент
