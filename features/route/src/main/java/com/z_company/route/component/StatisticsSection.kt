@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -178,65 +179,16 @@ fun DieselStatisticsSection(
     )
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // Общий расход
+        // Расход + Заправка — одинаковым стилем
         Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 14.dp)) {
-            Text(
-                text = "ОБЩИЙ РАСХОД",
-                style = monoLabel,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(
-                modifier = Modifier.padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = litersText,
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = MonoFont, fontWeight = FontWeight.Bold
-                    ),
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "л",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                kiloText?.let {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(MaterialTheme.colorScheme.surfaceBright)
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            text = "$it кг",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = MonoFont, fontWeight = FontWeight.W600
-                            ),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-            // Раскладка
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Заправка всех секций",
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = if (refuelKiloText != null) "$refuelText л · $refuelKiloText кг" else "$refuelText л",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = MonoFont, fontWeight = FontWeight.W600
-                    ),
-                    color = MaterialTheme.colorScheme.primary
+            AmountBlock(label = "РАСХОД", liters = litersText, kilo = kiloText, monoLabel = monoLabel)
+            if (totalRefuelLiter != null) {
+                Box(modifier = Modifier.height(14.dp))
+                AmountBlock(
+                    label = "ЗАПРАВКА ВСЕХ СЕКЦИЙ",
+                    liters = refuelText,
+                    kilo = refuelKiloText,
+                    monoLabel = monoLabel
                 )
             }
         }
@@ -276,6 +228,55 @@ fun DieselStatisticsSection(
     }
 }
 
+/** Блок суммарной величины: подпись + крупное число (л) + пилюля (кг). */
+@Composable
+private fun AmountBlock(
+    label: String,
+    liters: String,
+    kilo: String?,
+    monoLabel: androidx.compose.ui.text.TextStyle,
+) {
+    Text(
+        text = label,
+        style = monoLabel,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Row(
+        modifier = Modifier.padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = liters,
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontFamily = MonoFont, fontWeight = FontWeight.Bold
+            ),
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = "л",
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        kilo?.let {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(MaterialTheme.colorScheme.surfaceBright)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = "$it кг",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = MonoFont, fontWeight = FontWeight.W600
+                    ),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
 /** Поле нормы — пилюля с единицей справа (как NormPill в референсе). */
 @Composable
 private fun NormaPill(value: String, unit: String, onValueChange: (String) -> Unit) {
@@ -286,10 +287,10 @@ private fun NormaPill(value: String, unit: String, onValueChange: (String) -> Un
         verticalAlignment = Alignment.CenterVertically
     ) {
         OutlinedTextFieldApp(
-            modifier = Modifier.width(110.dp),
+            modifier = Modifier.width(150.dp),
             value = value,
             onValueChange = { onValueChange(it.take(7)) },
-            textStyle = MaterialTheme.typography.bodyLarge.copy(
+            textStyle = MaterialTheme.typography.titleMedium.copy(
                 fontFamily = MonoFont, fontWeight = FontWeight.Bold
             ),
             fieldElevation = 0.dp,
