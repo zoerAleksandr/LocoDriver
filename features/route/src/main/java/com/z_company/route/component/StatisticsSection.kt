@@ -185,7 +185,7 @@ fun DieselStatisticsSection(
             if (totalRefuelLiter != null) {
                 Box(modifier = Modifier.height(14.dp))
                 AmountBlock(
-                    label = "ЗАПРАВКА ВСЕХ СЕКЦИЙ",
+                    label = "ЭКИПИРОВКА",
                     liters = refuelText,
                     kilo = refuelKiloText,
                     monoLabel = monoLabel
@@ -241,24 +241,29 @@ private fun AmountBlock(
         style = monoLabel,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
+    // Крупно — килограммы, в пилюле — литры (если коэффициент задан)
+    val hasKilo = kilo != null
+    val bigText = if (hasKilo) kilo!! else liters
+    val bigUnit = if (hasKilo) "кг" else "л"
+    val pillText = if (hasKilo) "$liters л" else null
     Row(
         modifier = Modifier.padding(top = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = liters,
+            text = bigText,
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontFamily = MonoFont, fontWeight = FontWeight.Bold
             ),
             color = MaterialTheme.colorScheme.primary
         )
         Text(
-            text = "л",
+            text = bigUnit,
             style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        kilo?.let {
+        pillText?.let {
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
@@ -266,7 +271,7 @@ private fun AmountBlock(
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
                 Text(
-                    text = "$it кг",
+                    text = it,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = MonoFont, fontWeight = FontWeight.W600
                     ),
