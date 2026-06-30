@@ -5,7 +5,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -642,6 +646,7 @@ fun DieselSectionItem(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = 28.dp) // высота под пилюлю — заголовок не съезжает при разворачивании
                         .noRippleEffect { expandSupply = !expandSupply },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -745,13 +750,21 @@ fun DieselSectionItem(
             result?.let {
                 val resultInLiterText = maskInLiter(rounding(it, 2).str())
                 val resultInKiloText = maskInKilo(rounding(resultInKilo, 2)?.str())
-                Box(
+                val dashColor = MaterialTheme.colorScheme.outlineVariant
+                Canvas(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .padding(vertical = 10.dp)
                         .height(1.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant)
-                )
+                ) {
+                    drawLine(
+                        color = dashColor,
+                        start = Offset(0f, 0f),
+                        end = Offset(size.width, 0f),
+                        strokeWidth = size.height,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 10f), 0f)
+                    )
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
