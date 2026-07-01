@@ -121,9 +121,9 @@ private fun EnergyTotals(
         if (currentLabel != null) {
             Text(
                 text = currentLabel,
-                style = monoLabel,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 10.dp)
             )
         }
         // РАСХОД — основной показатель, крупно
@@ -140,18 +140,18 @@ private fun EnergyTotals(
             EnergyAmountLine(
                 label = "РЕКУПЕРАЦИЯ",
                 value = "−${groupThousands(rounding(recovery, 2)?.str())}",
-                valueStyle = MaterialTheme.typography.titleLarge,
+                valueStyle = MaterialTheme.typography.titleMedium,
                 valueColor = Color(0xFF00B341),
                 monoLabel = monoLabel,
-                topPadding = 14.dp
+                topPadding = 8.dp
             )
             EnergyAmountLine(
                 label = "ЧИСТЫЙ РАСХОД",
                 value = groupThousands(rounding(net, 2).str()),
-                valueStyle = MaterialTheme.typography.titleLarge,
+                valueStyle = MaterialTheme.typography.titleMedium,
                 valueColor = MaterialTheme.colorScheme.primary,
                 monoLabel = monoLabel,
-                topPadding = 14.dp
+                topPadding = 8.dp
             )
         }
     }
@@ -190,31 +190,27 @@ private fun EnergyAmountLine(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = topPadding),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(top = topPadding)
     ) {
         Text(
             text = label,
             style = monoLabel,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.alignByBaseline()
         )
-        Row(
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = value,
-                style = valueStyle.copy(fontFamily = MonoFont, fontWeight = FontWeight.Bold),
-                color = valueColor
-            )
-            Text(
-                text = "кВт·ч",
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 2.dp)
-            )
-        }
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = value,
+            style = valueStyle.copy(fontFamily = MonoFont, fontWeight = FontWeight.Bold),
+            color = valueColor,
+            modifier = Modifier.alignByBaseline()
+        )
+        Text(
+            text = " кВт·ч",
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.alignByBaseline()
+        )
     }
 }
 
