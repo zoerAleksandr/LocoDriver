@@ -187,27 +187,34 @@ private fun EnergyAmountLine(
     monoLabel: androidx.compose.ui.text.TextStyle,
     topPadding: androidx.compose.ui.unit.Dp,
 ) {
-    Text(
-        text = label,
-        style = monoLabel,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = topPadding)
-    )
     Row(
-        modifier = Modifier.padding(top = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = topPadding),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = value,
-            style = valueStyle.copy(fontFamily = MonoFont, fontWeight = FontWeight.Bold),
-            color = valueColor
-        )
-        Text(
-            text = "кВт·ч",
-            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
+            text = label,
+            style = monoLabel,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = value,
+                style = valueStyle.copy(fontFamily = MonoFont, fontWeight = FontWeight.Bold),
+                color = valueColor
+            )
+            Text(
+                text = "кВт·ч",
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 2.dp)
+            )
+        }
     }
 }
 
