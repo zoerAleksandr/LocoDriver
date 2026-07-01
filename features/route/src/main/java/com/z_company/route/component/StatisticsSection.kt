@@ -85,7 +85,7 @@ fun ElectricStatisticsSection(
 
     Column(modifier = modifier.fillMaxWidth()) {
         EnergyTotals(
-            label = if (isShowOtherCurrent) "ТОК 1 · ЧИСТЫЙ РАСХОД" else "ЧИСТЫЙ РАСХОД",
+            currentLabel = if (isShowOtherCurrent) "ТОК 1" else null,
             consumed = overResult,
             recovery = overRecovery,
             norma = locomotive.normaElectricCurrent1?.str() ?: "",
@@ -95,7 +95,7 @@ fun ElectricStatisticsSection(
         if (isShowOtherCurrent) {
             androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             EnergyTotals(
-                label = "ТОК 2 · ЧИСТЫЙ РАСХОД",
+                currentLabel = "ТОК 2",
                 consumed = overResult2,
                 recovery = overRecovery2,
                 norma = locomotive.normaElectricCurrent2?.str() ?: "",
@@ -109,7 +109,7 @@ fun ElectricStatisticsSection(
 /** Блок ИТОГО для одного рода тока: чистый расход + раскладка + норма + результат. */
 @Composable
 private fun EnergyTotals(
-    label: String,
+    currentLabel: String?,
     consumed: Double?,
     recovery: Double?,
     norma: String,
@@ -118,9 +118,41 @@ private fun EnergyTotals(
 ) {
     val net = (consumed ?: 0.0) - (recovery ?: 0.0)
     Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 14.dp)) {
-        Text(text = label, style = monoLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (currentLabel != null) {
+            Text(
+                text = currentLabel,
+                style = monoLabel,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+        // Раскладка: Расход → Рекуперация
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            BreakdownRow(
+                label = "Расход",
+                value = "${groupThousands(rounding(consumed, 2)?.str())} кВт·ч",
+                valueColor = MaterialTheme.colorScheme.primary
+            )
+            if (recovery != null) {
+                BreakdownRow(
+                    label = "Рекуперация",
+                    value = "−${groupThousands(rounding(recovery, 2)?.str())} кВт·ч",
+                    valueColor = Color(0xFF00B341)
+                )
+            }
+        }
+        // Чистый расход — крупно
+        Text(
+            text = "ЧИСТЫЙ РАСХОД",
+            style = monoLabel,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 14.dp)
+        )
         Row(
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -137,23 +169,6 @@ private fun EnergyTotals(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            BreakdownRow(
-                label = "Расход всех секций",
-                value = "${groupThousands(rounding(consumed, 2)?.str())} кВт·ч",
-                valueColor = MaterialTheme.colorScheme.primary
-            )
-            if (recovery != null) {
-                BreakdownRow(
-                    label = "Рекуперация всех секций",
-                    value = "−${groupThousands(rounding(recovery, 2)?.str())} кВт·ч",
-                    valueColor = Color(0xFF00B341)
-                )
-            }
-        }
     }
 
     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -169,7 +184,8 @@ private fun EnergyTotals(
         }
         if (norma.isNotBlank()) {
             val n = norma.toDoubleOrZero() ?: 0.0
-            val result = n - net
+            // Результат считается от расхода (а не от чистого расхода)
+            val result = n - (consumed ?: 0.0)
             val pct = if (n != 0.0) abs(result / n * 100).toInt() else 0
             ResultCard(result = result, magnitude = groupThousands(rounding(abs(result), 2).str()), unit = "кВт·ч", percent = pct)
         }
@@ -408,7 +424,7 @@ private fun ResultCard(result: Double, magnitude: String, unit: String, percent:
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = if (isOver) "↗" else "↘",
+                text = if (isOver) "↓" else "↑",
                 style = MaterialTheme.typography.titleMedium,
                 color = accentColor
             )
