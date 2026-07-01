@@ -139,7 +139,7 @@ private fun EnergyTotals(
         if (recovery != null) {
             EnergyAmountLine(
                 label = "РЕКУПЕРАЦИЯ",
-                value = "−${groupThousands(rounding(recovery, 2)?.str())}",
+                value = groupThousands(rounding(recovery, 2)?.str()),
                 valueStyle = MaterialTheme.typography.titleMedium,
                 valueColor = Color(0xFF00B341),
                 monoLabel = monoLabel,

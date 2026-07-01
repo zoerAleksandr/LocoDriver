@@ -1130,14 +1130,6 @@ private fun ReadingRow(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            Text(
-                text = unit,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontFamily = com.z_company.core.ui.theme.MonoFont,
-                    fontWeight = FontWeight.W600
-                ),
-                color = MaterialTheme.colorScheme.tertiary
-            )
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1191,6 +1183,20 @@ private fun ReadingRow(
                 singleLine = true,
                 shape = Shapes.medium,
             )
+        }
+        // Результат расхода = Сдал − Принял
+        val accD = accepted.toDoubleOrNull()
+        val delD = delivered.toDoubleOrNull()
+        val consumption = if (accD != null && delD != null) delD - accD else null
+        consumption?.let {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                Text(
+                    text = "Расход: ${rounding(it, 2)?.str() ?: it.str()}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
         }
     }
 }
