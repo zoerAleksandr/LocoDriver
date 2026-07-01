@@ -126,47 +126,32 @@ private fun EnergyTotals(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
         }
-        // Раскладка: Расход → Рекуперация
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            BreakdownRow(
-                label = "Расход",
-                value = "${groupThousands(rounding(consumed, 2)?.str())} кВт·ч",
-                valueColor = MaterialTheme.colorScheme.primary
-            )
-            if (recovery != null) {
-                BreakdownRow(
-                    label = "Рекуперация",
-                    value = "−${groupThousands(rounding(recovery, 2)?.str())} кВт·ч",
-                    valueColor = Color(0xFF00B341)
-                )
-            }
-        }
-        // Чистый расход — крупно
-        Text(
-            text = "ЧИСТЫЙ РАСХОД",
-            style = monoLabel,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 14.dp)
+        // РАСХОД — основной показатель, крупно
+        EnergyAmountLine(
+            label = "РАСХОД",
+            value = groupThousands(rounding(consumed, 2)?.str()),
+            valueStyle = MaterialTheme.typography.headlineMedium,
+            valueColor = MaterialTheme.colorScheme.primary,
+            monoLabel = monoLabel,
+            topPadding = 0.dp
         )
-        Row(
-            modifier = Modifier.padding(top = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = groupThousands(rounding(net, 2).str()),
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontFamily = MonoFont, fontWeight = FontWeight.Bold
-                ),
-                color = MaterialTheme.colorScheme.primary
+        // РЕКУПЕРАЦИЯ и ЧИСТЫЙ РАСХОД — только при наличии рекуперации, меньшим шрифтом
+        if (recovery != null) {
+            EnergyAmountLine(
+                label = "РЕКУПЕРАЦИЯ",
+                value = "−${groupThousands(rounding(recovery, 2)?.str())}",
+                valueStyle = MaterialTheme.typography.titleLarge,
+                valueColor = Color(0xFF00B341),
+                monoLabel = monoLabel,
+                topPadding = 14.dp
             )
-            Text(
-                text = "кВт·ч",
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            EnergyAmountLine(
+                label = "ЧИСТЫЙ РАСХОД",
+                value = groupThousands(rounding(net, 2).str()),
+                valueStyle = MaterialTheme.typography.titleLarge,
+                valueColor = MaterialTheme.colorScheme.primary,
+                monoLabel = monoLabel,
+                topPadding = 14.dp
             )
         }
     }
@@ -189,6 +174,40 @@ private fun EnergyTotals(
             val pct = if (n != 0.0) abs(result / n * 100).toInt() else 0
             ResultCard(result = result, magnitude = groupThousands(rounding(abs(result), 2).str()), unit = "кВт·ч", percent = pct)
         }
+    }
+}
+
+/** Подпись капслоком + значение (крупное для расхода, поменьше для рекуперации/чистого). */
+@Composable
+private fun EnergyAmountLine(
+    label: String,
+    value: String,
+    valueStyle: androidx.compose.ui.text.TextStyle,
+    valueColor: Color,
+    monoLabel: androidx.compose.ui.text.TextStyle,
+    topPadding: androidx.compose.ui.unit.Dp,
+) {
+    Text(
+        text = label,
+        style = monoLabel,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = topPadding)
+    )
+    Row(
+        modifier = Modifier.padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = value,
+            style = valueStyle.copy(fontFamily = MonoFont, fontWeight = FontWeight.Bold),
+            color = valueColor
+        )
+        Text(
+            text = "кВт·ч",
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
