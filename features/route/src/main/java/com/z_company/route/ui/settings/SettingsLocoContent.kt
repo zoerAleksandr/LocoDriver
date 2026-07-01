@@ -83,13 +83,6 @@ fun SettingsLocoContent(
                 onCheckedChange = changeShowLocoStatistics,
                 style = styleData
             )
-            HorizontalDivider()
-            SettingSwitchRow(
-                text = "Норма",
-                checked = currentSettings.isShowLocoNorma,
-                onCheckedChange = changeShowLocoNorma,
-                style = styleData
-            )
         }
         Text(
             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
