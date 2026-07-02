@@ -748,9 +748,11 @@ fun DieselSectionItem(
                 }
             }
 
-            result?.let {
-                val resultInLiterText = maskInLiter(rounding(it, 2).str())
-                val resultInKiloText = maskInKilo(rounding(resultInKilo, 2)?.str())
+            // Пунктирная линия + «Расход» — показываются всегда (сразу при
+            // добавлении секции), значение 0 пока данных нет — линия не «прыгает».
+            run {
+                val resultInLiterText = maskInLiter(rounding(result ?: 0.0, 2).str())
+                val resultInKiloText = maskInKilo(rounding(resultInKilo ?: 0.0, 2)?.str())
                 val dashColor = MaterialTheme.colorScheme.outlineVariant
                 Canvas(
                     modifier = Modifier
