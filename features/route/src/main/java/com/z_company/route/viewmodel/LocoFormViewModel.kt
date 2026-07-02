@@ -348,8 +348,29 @@ class LocoFormViewModel(
 
     fun changeLocoType(locoType: LocoType) {
         _currentLoco.update { it?.copy(type = locoType) }
+        // Гарантируем минимум одну секцию нового вида тяги, чтобы пользователь
+        // сразу мог вводить данные.
+        when (locoType) {
+            LocoType.DIESEL -> if (_dieselSectionListState.value.isEmpty()) addingSectionDiesel()
+            LocoType.ELECTRIC -> if (_electricSectionListState.value.isEmpty()) addingSectionElectric()
+        }
         changesHave()
     }
+
+    private fun isBlankOrZero(s: String?): Boolean {
+        if (s.isNullOrBlank()) return true
+        return s.toDoubleOrNull() == 0.0
+    }
+
+    private fun isDieselSectionEmpty(s: DieselSectionFormState): Boolean =
+        isBlankOrZero(s.accepted.data) && isBlankOrZero(s.delivery.data) &&
+                isBlankOrZero(s.refuel.data) && isBlankOrZero(s.refuelInKilo.data)
+
+    private fun isElectricSectionEmpty(s: ElectricSectionFormState): Boolean =
+        isBlankOrZero(s.accepted.data) && isBlankOrZero(s.delivery.data) &&
+                isBlankOrZero(s.recoveryAccepted.data) && isBlankOrZero(s.recoveryDelivery.data) &&
+                isBlankOrZero(s.accepted2.data) && isBlankOrZero(s.delivery2.data) &&
+                isBlankOrZero(s.recoveryAccepted2.data) && isBlankOrZero(s.recoveryDelivery2.data)
 
     fun setNormaElectricCurrent1(value: String) {
         _uiState.update { it.copy(norma1Text = value) }
@@ -802,7 +823,12 @@ class LocoFormViewModel(
 
     /** Свайп секции запрашивает подтверждение, не удаляет напрямую. */
     fun requestDeleteDieselSection(section: DieselSectionFormState) {
-        _uiState.update { it.copy(confirmDeleteDieselSectionId = section.sectionId) }
+        // Пустую секцию (все значения пустые или 0) удаляем сразу, без подтверждения.
+        if (isDieselSectionEmpty(section)) {
+            deleteSectionDiesel(section)
+        } else {
+            _uiState.update { it.copy(confirmDeleteDieselSectionId = section.sectionId) }
+        }
     }
 
     fun cancelDeleteDieselSection() {
@@ -849,9 +875,14 @@ class LocoFormViewModel(
         changesHave()
     }
 
-    /** Свайп секции запрашивает подтверждение, не удаляет напрямую. */
+    /** Свайп секции запрашивает подтверждение, не удаляет напрямую.
+     *  Пустую секцию (все значения пустые или 0) удаляем сразу. */
     fun requestDeleteElectricSection(section: ElectricSectionFormState) {
-        _uiState.update { it.copy(confirmDeleteElectricSectionId = section.sectionId) }
+        if (isElectricSectionEmpty(section)) {
+            deleteSectionElectric(section)
+        } else {
+            _uiState.update { it.copy(confirmDeleteElectricSectionId = section.sectionId) }
+        }
     }
 
     fun cancelDeleteElectricSection() {
