@@ -596,15 +596,15 @@ fun ElectricSectionItem(
                             .padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                    SectionSummaryRow(label = "Расход", value = "${(result ?: 0.0).str()} кВт·ч")
+                    SectionSummaryRow(label = "Расход", value = "${(result ?: 0.0).str()}")
                     resultRecovery?.let {
-                        SectionSummaryRow(label = "Рекуперация", value = "${it.str()} кВт·ч")
+                        SectionSummaryRow(label = "Рекуперация", value = "${it.str()}")
                     }
                     result2?.let {
-                        SectionSummaryRow(label = "Расход (ток 2)", value = "${it.str()} кВт·ч")
+                        SectionSummaryRow(label = "Расход (ток 2)", value = "${it.str()}")
                     }
                     resultRecovery2?.let {
-                        SectionSummaryRow(label = "Рекуперация (ток 2)", value = "${it.str()} кВт·ч")
+                        SectionSummaryRow(label = "Рекуперация (ток 2)", value = "${it.str()}")
                     }
                     }
                 }

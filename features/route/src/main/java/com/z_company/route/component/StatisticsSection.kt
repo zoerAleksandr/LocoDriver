@@ -165,14 +165,14 @@ private fun EnergyTotals(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(text = "НОРМА", style = monoLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            NormaPill(value = norma, unit = "кВт·ч", onValueChange = onNormaChange)
+            NormaPill(value = norma, unit = "", onValueChange = onNormaChange)
         }
         if (norma.isNotBlank()) {
             val n = norma.toDoubleOrZero() ?: 0.0
             // Результат считается от расхода (а не от чистого расхода)
             val result = n - (consumed ?: 0.0)
             val pct = if (n != 0.0) abs(result / n * 100).toInt() else 0
-            ResultCard(result = result, magnitude = groupThousands(rounding(abs(result), 2).str()), unit = "кВт·ч", percent = pct)
+            ResultCard(result = result, magnitude = groupThousands(rounding(abs(result), 2).str()), unit = "", percent = pct)
         }
     }
 }
@@ -203,12 +203,6 @@ private fun EnergyAmountLine(
             text = value,
             style = valueStyle.copy(fontFamily = MonoFont, fontWeight = FontWeight.Bold),
             color = valueColor,
-            modifier = Modifier.alignByBaseline()
-        )
-        Text(
-            text = " кВт·ч",
-            style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.alignByBaseline()
         )
     }
@@ -468,7 +462,7 @@ private fun ResultCard(result: Double, magnitude: String, unit: String, percent:
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = " $unit  ($sign$percent%)",
+                    text = if (unit.isBlank()) " ($sign$percent%)" else " $unit  ($sign$percent%)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 2.dp, bottom = 1.dp)
