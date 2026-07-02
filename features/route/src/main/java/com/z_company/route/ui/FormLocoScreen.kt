@@ -854,8 +854,8 @@ fun FormLocoScreen(
                         }
                     }
 
-                    // Итого — TotalsBlock в одной карточке
-                    if (userSettings?.isShowLocoStatistics != false) {
+                    // Итого — TotalsBlock в одной карточке (показывается всегда)
+                    run {
                         item { GroupHead(text = "Итого") }
                         item {
                             MCard {

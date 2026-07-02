@@ -76,13 +76,6 @@ fun SettingsLocoContent(
                 onCheckedChange = changeShowLocoAuxiliary,
                 style = styleData
             )
-            HorizontalDivider()
-            SettingSwitchRow(
-                text = "Статистика",
-                checked = currentSettings.isShowLocoStatistics,
-                onCheckedChange = changeShowLocoStatistics,
-                style = styleData
-            )
         }
         Text(
             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
