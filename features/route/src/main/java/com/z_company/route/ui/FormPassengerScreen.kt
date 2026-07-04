@@ -1,16 +1,11 @@
 package com.z_company.route.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,31 +15,32 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import com.z_company.route.component.StationDropdownMenu
-import com.z_company.core.ui.theme.Shapes
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -53,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,25 +70,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.z_company.core.R
 import com.z_company.core.ResultState
-import com.z_company.core.util.ConverterLongToTime
-import com.z_company.domain.entities.route.Passenger
-import com.z_company.route.component.BottomShadow
-import com.z_company.route.extention.isScrollInInitialState
-import kotlinx.coroutines.launch
-import com.z_company.core.ui.component.CustomSnackBar
-import com.z_company.route.component.AppDateTimePicker
+import com.z_company.core.ui.theme.MonoFont
+import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.domain.entities.route.Passenger
 import com.z_company.route.component.AppBottomSheet
+import com.z_company.route.component.AppDateTimePicker
 import com.z_company.route.component.BottomSheetAction
+import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.OutlinedTextFieldApp
+import com.z_company.route.component.StationDropdownMenu
+import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.PassengerFormUiState
 import com.z_company.route.viewmodel.PassengerFormViewModel
 import com.z_company.core.util.TimeManager
+import kotlinx.coroutines.launch
 
 @OptIn(
     ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class,
@@ -135,15 +134,14 @@ fun FormPassengerScreen(
         skipPartiallyExpanded = true
     )
 
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val noValueColor = primaryColor.copy(alpha = 0.5f)
+    // Общий пикер даты/времени: какой из двух (Откуда/Куда) сейчас открыт.
+    var pickerTarget by remember { mutableStateOf(PickerTarget.NONE) }
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         snackbarHost = {
             SnackbarHost(snackbarHostState) { snackBarData ->
-                CustomSnackBar(snackBarData = snackBarData)
+                com.z_company.core.ui.component.CustomSnackBar(snackBarData = snackBarData)
             }
         },
         topBar = {
@@ -155,7 +153,7 @@ fun FormPassengerScreen(
                     Text(
                         text = "Пассажиром",
                         style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                            fontWeight = FontWeight.Medium
                         ),
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -188,27 +186,12 @@ fun FormPassengerScreen(
             }
         }
 
-        var showBottomSheetRemoveTimeDeparture by remember {
-            mutableStateOf(false)
-        }
-
+        var showBottomSheetRemoveTimeDeparture by remember { mutableStateOf(false) }
         if (showBottomSheetRemoveTimeDeparture) {
             AppBottomSheet(
                 onDismissRequest = { showBottomSheetRemoveTimeDeparture = false },
                 sheetState = sheetState,
-                headerContent = {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = "Время отправления",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
+                title = "Время отправления",
                 actions = listOf(
                     BottomSheetAction(text = "Удалить значение") {
                         onTimeDepartureChanged(null)
@@ -217,27 +200,12 @@ fun FormPassengerScreen(
             )
         }
 
-        var showBottomSheetRemoveTimeArrival by remember() {
-            mutableStateOf(false)
-        }
-
+        var showBottomSheetRemoveTimeArrival by remember { mutableStateOf(false) }
         if (showBottomSheetRemoveTimeArrival) {
             AppBottomSheet(
                 onDismissRequest = { showBottomSheetRemoveTimeArrival = false },
                 sheetState = sheetState,
-                headerContent = {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = "Время прибытия",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
+                title = "Время прибытия",
                 actions = listOf(
                     BottomSheetAction(text = "Удалить значение") {
                         onTimeArrivalChanged(null)
@@ -246,10 +214,8 @@ fun FormPassengerScreen(
             )
         }
 
-
         AnimatedVisibility(
-            modifier = Modifier
-                .zIndex(1f),
+            modifier = Modifier.zIndex(1f),
             visible = !scrollState.isScrollInInitialState(),
             enter = fadeIn(animationSpec = tween(durationMillis = 300)),
             exit = fadeOut(animationSpec = tween(durationMillis = 300))
@@ -262,38 +228,12 @@ fun FormPassengerScreen(
                 LazyColumn(
                     state = scrollState,
                     modifier = Modifier.testTag("form_passenger_lazy_column"),
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                    contentPadding = PaddingValues(
+                        start = 16.dp, top = 8.dp, end = 16.dp, bottom = 32.dp
+                    )
                 ) {
-                    // итоговое время
-                    item {
-                        if (errorMessage == null) {
-                            val timeResultInFormatted = viewModel.convertTimeToStringFormat(resultTime)
-                            AnimatedVisibility(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 20.dp),
-                                visible = resultTime != null && resultTime > 0,
-                                enter = slideInVertically(animationSpec = tween(durationMillis = 500))
-                                        + fadeIn(animationSpec = tween(durationMillis = 300)),
-                                exit = slideOutVertically(animationSpec = tween(durationMillis = 500))
-                                        + fadeOut(animationSpec = tween(durationMillis = 150))
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = timeResultInFormatted,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = primaryColor
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // ошибка
+                    // ── Ошибка ──
                     item {
                         formUiState.errorMessage?.let {
                             val widthScreen = LocalConfiguration.current.screenWidthDp.toFloat()
@@ -306,8 +246,7 @@ fun FormPassengerScreen(
                                 radius = widthScreen * 2
                             )
                             Card(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth(),
                                 shape = MaterialTheme.shapes.medium,
                                 elevation = CardDefaults.elevatedCardElevation(
                                     defaultElevation = 3.dp,
@@ -322,7 +261,6 @@ fun FormPassengerScreen(
                                             shape = MaterialTheme.shapes.medium
                                         )
                                         .padding(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     Text(
                                         text = it,
@@ -334,402 +272,598 @@ fun FormPassengerScreen(
                         }
                     }
 
+                    // ── ПОЕЗД ──
                     item {
-                        Spacer(modifier = Modifier.height(12.dp))
+                        PassGroup(label = "ПОЕЗД") {
+                            PassFlatCard {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(
+                                                MaterialTheme.colorScheme.surfaceBright,
+                                                CircleShape
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            modifier = Modifier.size(18.dp),
+                                            painter = painterResource(com.z_company.route.R.drawable.ic_card_train_ref),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Text(
+                                        text = "№",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedTextFieldApp(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        value = passenger.trainNumber ?: "",
+                                        onValueChange = { onNumberChanged(it) },
+                                        placeholder = {
+                                            Text(
+                                                text = "поезда",
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
+                                                style = LocalTextStyle.current.copy(
+                                                    fontFamily = MonoFont,
+                                                    fontSize = 22.sp,
+                                                    fontWeight = FontWeight.Light
+                                                )
+                                            )
+                                        },
+                                        textStyle = dataTextStyle.copy(
+                                            fontFamily = MonoFont,
+                                            fontSize = 22.sp,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Decimal,
+                                            imeAction = ImeAction.Next
+                                        ),
+                                        keyboardActions = KeyboardActions(
+                                            onNext = {
+                                                scope.launch { focusManager.moveFocus(FocusDirection.Down) }
+                                            }
+                                        ),
+                                        singleLine = true,
+                                        fieldElevation = 0.dp,
+                                        colorBackgroundEmptyField = Color.Transparent,
+                                        colorBackgroundNotEmptyField = Color.Transparent,
+                                    )
+                                }
+                            }
+                        }
                     }
 
-                    // ПОЕЗД
+                    // ── ОТКУДА ──
                     item {
-                        Text(
-                            modifier = Modifier.fillMaxWidth().padding(start = 4.dp),
-                            text = "ПОЕЗД",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        StationLegCard(
+                            label = "ОТКУДА",
+                            stationPlaceholder = "От станции",
+                            initialStation = passenger.stationDeparture ?: "",
+                            time = passenger.timeDeparture,
+                            dropDownMenuList = dropDownMenuList,
+                            onStationChanged = onStationDepartureChanged,
+                            onChangedDropDownContent = onChangedDropDownContentDepartureStation,
+                            onDeleteStationName = onDeleteStationName,
+                            onOpenPicker = {
+                                pickerTarget = PickerTarget.DEPARTURE
+                            },
+                            onRemoveTime = { showBottomSheetRemoveTimeDeparture = true },
+                            dateAndTimeConverter = dateAndTimeConverter,
+                            dataTextStyle = dataTextStyle,
+                            focusManager = focusManager,
+                            scope = scope
                         )
                     }
-                    // номер поезда
+
+                    // ── В пути ──
                     item {
+                        AnimatedVisibility(
+                            visible = errorMessage == null && resultTime != null && resultTime > 0,
+                            enter = fadeIn(tween(250)),
+                            exit = fadeOut(tween(150))
+                        ) {
+                            DurationBadge(label = "В пути · ${formatTravelDuration(resultTime)}")
+                        }
+                    }
+
+                    // ── КУДА ──
+                    item {
+                        StationLegCard(
+                            label = "КУДА",
+                            stationPlaceholder = "До станции",
+                            initialStation = passenger.stationArrival ?: "",
+                            time = passenger.timeArrival,
+                            dropDownMenuList = dropDownMenuList,
+                            onStationChanged = onStationArrivalChanged,
+                            onChangedDropDownContent = onChangedDropDownContentArrivalStation,
+                            onDeleteStationName = onDeleteStationName,
+                            onOpenPicker = {
+                                pickerTarget = PickerTarget.ARRIVAL
+                            },
+                            onRemoveTime = { showBottomSheetRemoveTimeArrival = true },
+                            dateAndTimeConverter = dateAndTimeConverter,
+                            dataTextStyle = dataTextStyle,
+                            focusManager = focusManager,
+                            scope = scope
+                        )
+                    }
+
+                    // ── УЧЁТ РАБОЧЕГО ВРЕМЕНИ (UI-заглушка) ──
+                    item {
+                        WorkStartCard(
+                            station = passenger.stationArrival,
+                            time = passenger.timeArrival,
+                            dateAndTimeConverter = dateAndTimeConverter
+                        )
+                    }
+
+                    // ── ПРИМЕЧАНИЯ ──
+                    item {
+                        PassGroup(label = "ПРИМЕЧАНИЯ") {
+                            PassFlatCard {
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 64.dp)
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    value = passenger.notes ?: "",
+                                    onValueChange = { onNotesChanged(it) },
+                                    textStyle = dataTextStyle,
+                                    placeholder = {
+                                        Text(
+                                            text = "Например: бригада №2, вагон 7, место 32",
+                                            style = LocalTextStyle.current.copy(
+                                                fontWeight = FontWeight.Normal
+                                            ),
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+                                        )
+                                    },
+                                    minLines = 2,
+                                    fieldElevation = 0.dp,
+                                    colorBackgroundEmptyField = Color.Transparent,
+                                    colorBackgroundNotEmptyField = Color.Transparent,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Пикер даты/времени (общий для «Откуда» и «Куда») ──
+        when (pickerTarget) {
+            PickerTarget.DEPARTURE -> {
+                AppDateTimePicker(
+                    title = "Отправление",
+                    onDateTimeSelected = { timestamp -> onTimeDepartureChanged(timestamp) },
+                    onDismiss = { pickerTarget = PickerTarget.NONE },
+                    startDateTime = currentPassenger?.timeDeparture ?: TimeManager().now(),
+                    timeZoneStr = displayTz,
+                )
+            }
+
+            PickerTarget.ARRIVAL -> {
+                AppDateTimePicker(
+                    title = "Прибытие",
+                    onDateTimeSelected = { timestamp -> onTimeArrivalChanged(timestamp) },
+                    onDismiss = { pickerTarget = PickerTarget.NONE },
+                    startDateTime = currentPassenger?.timeArrival ?: TimeManager().now(),
+                    timeZoneStr = displayTz,
+                )
+            }
+
+            PickerTarget.NONE -> Unit
+        }
+    }
+}
+
+/** Какой пикер даты/времени сейчас открыт (общий для двух карточек). */
+private enum class PickerTarget { NONE, DEPARTURE, ARRIVAL }
+
+/** Форматирует длительность в пути (мс) в «7 ч 40 мин». */
+private fun formatTravelDuration(millis: Long?): String {
+    val total = ((millis ?: 0L) / 60_000L).toInt()
+    val h = total / 60
+    val m = total % 60
+    return when {
+        h > 0 && m > 0 -> "$h ч $m мин"
+        h > 0 -> "$h ч"
+        else -> "$m мин"
+    }
+}
+
+/** Группа полей: верхний caps-лейбл + содержимое. */
+@Composable
+private fun PassGroup(
+    label: String,
+    content: @Composable () -> Unit
+) {
+    Column {
+        Text(
+            modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp),
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontFamily = MonoFont,
+                letterSpacing = 1.sp
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        content()
+    }
+}
+
+/** Белая карточка с мягкой тенью (как в редизайне остальных форм). */
+@Composable
+private fun PassFlatCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(elevation = 1.dp, shape = Shapes.medium)
+            .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+    ) {
+        content()
+    }
+}
+
+/** Тапабельная пилюля «иконка + значение + ›» — для даты и времени. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PickerChip(
+    modifier: Modifier = Modifier,
+    iconRes: Int,
+    value: String,
+    isPlaceholder: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    Row(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceBright, RoundedCornerShape(12.dp))
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            modifier = Modifier.size(16.dp),
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            modifier = Modifier.weight(1f),
+            text = value,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontFamily = MonoFont,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold
+            ),
+            color = if (isPlaceholder)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+            else MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Icon(
+            modifier = Modifier.size(14.dp),
+            painter = painterResource(R.drawable.keyboard_arrow_right_24px),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+        )
+    }
+}
+
+/** Карточка «Откуда / Куда» — станция + дата + время. */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun StationLegCard(
+    label: String,
+    stationPlaceholder: String,
+    initialStation: String,
+    time: Long?,
+    dropDownMenuList: List<String>,
+    onStationChanged: (String) -> Unit,
+    onChangedDropDownContent: (String) -> Unit,
+    onDeleteStationName: (String) -> Unit,
+    onOpenPicker: () -> Unit,
+    onRemoveTime: () -> Unit,
+    dateAndTimeConverter: DateAndTimeConverter?,
+    dataTextStyle: androidx.compose.ui.text.TextStyle,
+    focusManager: androidx.compose.ui.focus.FocusManager,
+    scope: kotlinx.coroutines.CoroutineScope
+) {
+    val focusRequester = remember { FocusRequester() }
+    var stationName by remember {
+        mutableStateOf(
+            TextFieldValue(text = initialStation, selection = TextRange(initialStation.length))
+        )
+    }
+    // Раскрытие списка станций управляется локально по введённому тексту —
+    // как в поле станции в шторке FormTrainScreen (StationEditBottomSheet).
+    var isDropdownExpanded by remember { mutableStateOf(false) }
+
+    PassGroup(label = label) {
+        PassFlatCard {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Станция
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            modifier = Modifier.size(16.dp),
+                            painter = painterResource(com.z_company.route.R.drawable.location_on_24px),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                    ExposedDropdownMenuBox(
+                        modifier = Modifier.weight(1f),
+                        expanded = isDropdownExpanded,
+                        onExpandedChange = { isDropdownExpanded = it }
+                    ) {
                         OutlinedTextFieldApp(
                             modifier = Modifier
-                                .fillMaxWidth(),
-                            value = passenger.trainNumber ?: "",
+                                .fillMaxWidth()
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true)
+                                .focusRequester(focusRequester),
+                            value = stationName,
                             onValueChange = {
-                                onNumberChanged(it)
+                                stationName = it
+                                onChangedDropDownContent(it.text)
+                                onStationChanged(it.text)
+                                isDropdownExpanded = it.text.isNotEmpty()
                             },
+                            textStyle = dataTextStyle.copy(
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
                             placeholder = {
                                 Text(
-                                    text = "поезда",
-                                    color = noValueColor,
+                                    text = stationPlaceholder,
                                     style = LocalTextStyle.current.copy(
-                                        fontWeight = FontWeight.Light
-                                    )
-                                )
-                            },
-                            prefix = {
-                                Text(
-                                    text = "№ ",
-                                    style = LocalTextStyle.current.copy(
-                                        fontWeight = FontWeight.Light
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Normal
                                     ),
-                                    color = noValueColor
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
                                 )
                             },
-                            textStyle = dataTextStyle,
                             keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal,
+                                keyboardType = KeyboardType.Text,
                                 imeAction = ImeAction.Next
                             ),
                             keyboardActions = KeyboardActions(
                                 onNext = {
-                                    scope.launch {
-                                        focusManager.moveFocus(FocusDirection.Down)
-                                    }
+                                    isDropdownExpanded = false
+                                    scope.launch { focusManager.moveFocus(FocusDirection.Down) }
                                 }
                             ),
                             singleLine = true,
-                        )
-                    }
-
-                    item {
-                        Spacer(modifier = Modifier.height(20.dp))
-                    }
-
-                    // ОТКУДА
-                    item {
-                        Text(
-                            modifier = Modifier.fillMaxWidth().padding(start = 4.dp),
-                            text = "ОТКУДА",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    // станция отправления
-                    item {
-                        val focusRequester = remember { FocusRequester() }
-
-                        var stationName by remember {
-                            mutableStateOf(
-                                TextFieldValue(
-                                    text = passenger.stationDeparture ?: "",
-                                    selection = TextRange(
-                                        passenger.stationDeparture?.length ?: 0
-                                    )
-                                )
-                            )
-                        }
-
-                        ExposedDropdownMenuBox(
-                            modifier = Modifier.fillMaxWidth(),
-                            expanded = isExpandedMenuDepartureStation,
-                            onExpandedChange = { changeExpandMenuDepartureStation(it) }
-                        ) {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true)
-                                    .focusRequester(focusRequester),
-                                value = stationName,
-                                onValueChange = {
-                                    stationName = it
-                                    onChangedDropDownContentDepartureStation(it.text)
-                                    onStationDepartureChanged(it.text)
-                                },
-                                textStyle = dataTextStyle,
-                                placeholder = {
-                                    Text(
-                                        text = "От станции",
-                                        style = LocalTextStyle.current.copy(
-                                            fontWeight = FontWeight.Light
-                                        ),
-                                        color = noValueColor
-                                    )
-                                },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Text,
-                                    imeAction = ImeAction.Next
-                                ),
-                                keyboardActions = KeyboardActions(
-                                    onNext = {
-                                        scope.launch {
-                                            focusManager.moveFocus(FocusDirection.Down)
-                                        }
-                                    }
-                                ),
-                                singleLine = true,
-                            )
-
-                            StationDropdownMenu(
-                                expanded = isExpandedMenuDepartureStation,
-                                stations = dropDownMenuList,
-                                onSelect = { selectionStation ->
-                                    onStationDepartureChanged(selectionStation)
-                                    changeExpandMenuDepartureStation(false)
-                                    stationName = stationName.copy(
-                                        text = selectionStation,
-                                        selection = TextRange(selectionStation.length)
-                                    )
-                                },
-                                onDelete = onDeleteStationName,
-                                onDismiss = { changeExpandMenuDepartureStation(false) },
-                                textStyle = dataTextStyle
-                            )
-                        }
-                    }
-
-                    // время отправления
-                    item {
-                        val animatedBackgroundColorsDeparture by animateColorAsState(
-                            targetValue = if (passenger.timeDeparture == null) MaterialTheme.colorScheme.surface
-                            else MaterialTheme.colorScheme.secondary,
-                            animationSpec = tween(
-                                durationMillis = 200,
-                                easing = FastOutSlowInEasing
-                            )
+                            fieldElevation = 0.dp,
+                            colorBackgroundEmptyField = Color.Transparent,
+                            colorBackgroundNotEmptyField = Color.Transparent,
                         )
 
-                        val animatedTextColorsDeparture by animateColorAsState(
-                            targetValue = if (passenger.timeDeparture == null) noValueColor
-                            else primaryColor,
-                            animationSpec = tween(
-                                durationMillis = 200,
-                                easing = FastOutSlowInEasing
-                            )
-                        )
-
-                        var showDepartureDatePicker by remember {
-                            mutableStateOf(false)
-                        }
-
-                        if (showDepartureDatePicker) {
-                            AppDateTimePicker(
-                                title = "Отправление",
-                                onDateTimeSelected = { timestamp ->
-                                    onTimeDepartureChanged(timestamp)
-                                },
-                                onDismiss = { showDepartureDatePicker = false },
-                                startDateTime = passenger.timeDeparture ?: TimeManager().now(),
-                                timeZoneStr = displayTz,
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .shadow(elevation = 1.dp, shape = Shapes.medium)
-                                .background(
-                                    color = animatedBackgroundColorsDeparture,
-                                    shape = Shapes.medium
-                                )
-                                .combinedClickable(
-                                    onClick = {
-                                        showDepartureDatePicker = true
-                                    },
-                                    onLongClick = {
-                                        passenger.timeDeparture?.let {
-                                            showBottomSheetRemoveTimeDeparture = true
-                                        }
-                                    }
-                                )
-                                .padding(12.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            val textDateAndTimeDeparture = passenger.timeDeparture?.let {
-                                dateAndTimeConverter?.getDateAndTime(it)
-                            } ?: "Время отправления"
-
-                            val style = passenger.timeDeparture?.let {
-                                dataTextStyle
-                            } ?: LocalTextStyle.current
-
-                            Text(
-                                text = textDateAndTimeDeparture,
-                                style = style,
-                                color = animatedTextColorsDeparture
-                            )
-                        }
-                    }
-
-                    item {
-                        Spacer(modifier = Modifier.height(20.dp))
-                    }
-
-                    // КУДА
-                    item {
-                        Text(
-                            modifier = Modifier.fillMaxWidth().padding(start = 4.dp),
-                            text = "КУДА",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    // станция прибытия
-                    item {
-                        val focusRequester = remember { FocusRequester() }
-
-                        var stationName by remember {
-                            mutableStateOf(
-                                TextFieldValue(
-                                    text = passenger.stationArrival ?: "",
-                                    selection = TextRange(passenger.stationArrival?.length ?: 0)
-                                )
-                            )
-                        }
-
-                        ExposedDropdownMenuBox(
-                            modifier = Modifier.fillMaxWidth(),
-                            expanded = isExpandedMenuArrivalStation,
-                            onExpandedChange = { changeExpandMenuArrivalStation(it) }
-                        ) {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true)
-                                    .focusRequester(focusRequester)
-                                    .fillMaxWidth(),
-                                value = stationName,
-                                onValueChange = {
-                                    stationName = it
-                                    onChangedDropDownContentArrivalStation(it.text)
-                                    onStationArrivalChanged(it.text)
-                                },
-                                placeholder = {
-                                    Text(
-                                        text = "До станции",
-                                        style = LocalTextStyle.current.copy(
-                                            fontWeight = FontWeight.Light
-                                        ),
-                                        color = noValueColor
-                                    )
-                                },
-                                textStyle = dataTextStyle,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Text,
-                                    imeAction = ImeAction.Next
-                                ),
-                                singleLine = true,
-                            )
-
-                            StationDropdownMenu(
-                                expanded = isExpandedMenuArrivalStation,
-                                stations = dropDownMenuList,
-                                onSelect = { selectionStation ->
-                                    onStationArrivalChanged(selectionStation)
-                                    changeExpandMenuArrivalStation(false)
-                                    stationName = stationName.copy(
-                                        text = selectionStation,
-                                        selection = TextRange(selectionStation.length)
-                                    )
-                                },
-                                onDelete = onDeleteStationName,
-                                onDismiss = { changeExpandMenuArrivalStation(false) },
-                                textStyle = dataTextStyle
-                            )
-                        }
-                    }
-
-                    // время прибытия
-                    item {
-                        val animatedBackgroundColorsArrival by animateColorAsState(
-                            targetValue = if (passenger.timeArrival == null) MaterialTheme.colorScheme.surface
-                            else MaterialTheme.colorScheme.secondary,
-                            animationSpec = tween(
-                                durationMillis = 200,
-                                easing = FastOutSlowInEasing
-                            )
-                        )
-
-                        val animatedTextColorsTimeArrival by animateColorAsState(
-                            targetValue = if (passenger.timeArrival == null) noValueColor
-                            else primaryColor,
-                            animationSpec = tween(
-                                durationMillis = 200,
-                                easing = FastOutSlowInEasing
-                            )
-                        )
-
-                        var showArrivalDatePicker by remember {
-                            mutableStateOf(false)
-                        }
-
-                        if (showArrivalDatePicker) {
-                            AppDateTimePicker(
-                                title = "Отправление",
-                                onDateTimeSelected = { timestamp ->
-                                    onTimeArrivalChanged(timestamp)
-                                },
-                                onDismiss = { showArrivalDatePicker = false },
-                                startDateTime = passenger.timeArrival ?: TimeManager().now(),
-                                timeZoneStr = displayTz,
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .shadow(elevation = 1.dp, shape = Shapes.medium)
-                                .fillMaxWidth()
-                                .background(
-                                    color = animatedBackgroundColorsArrival,
-                                    shape = Shapes.medium
-                                )
-
-                                .combinedClickable(
-                                    onClick = {
-                                        showArrivalDatePicker = true
-                                    },
-                                    onLongClick = {
-                                        passenger.timeArrival?.let {
-                                            showBottomSheetRemoveTimeArrival = true
-                                        }
-                                    }
-                                )
-                                .padding(12.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            val textDateAndTimeArrival =
-                                passenger.timeArrival?.let {
-                                    dateAndTimeConverter?.getDateAndTime(it)
-                                } ?: "Время прибытия"
-
-                            val style = passenger.timeArrival?.let {
-                                dataTextStyle
-                            } ?: LocalTextStyle.current
-                            Text(
-                                text = textDateAndTimeArrival,
-                                style = style,
-                                color = animatedTextColorsTimeArrival
-                            )
-                        }
-                    }
-
-                    item {
-                        Spacer(modifier = Modifier.height(20.dp))
-                    }
-                    // ПРИМЕЧАНИЯ
-                    item {
-                        Text(
-                            modifier = Modifier.fillMaxWidth().padding(start = 4.dp),
-                            text = "ПРИМЕЧАНИЯ",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    item {
-                        OutlinedTextFieldApp(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            value = passenger.notes ?: "",
-                            onValueChange = { onNotesChanged(it) },
-                            textStyle = dataTextStyle,
-                            placeholder = {
-                                Text(
-                                    text = "Примечания",
-                                    style = LocalTextStyle.current.copy(
-                                        fontWeight = FontWeight.Light
-                                    ),
-                                    color = noValueColor
+                        StationDropdownMenu(
+                            expanded = isDropdownExpanded,
+                            stations = dropDownMenuList,
+                            onSelect = { selectionStation ->
+                                onStationChanged(selectionStation)
+                                isDropdownExpanded = false
+                                stationName = stationName.copy(
+                                    text = selectionStation,
+                                    selection = TextRange(selectionStation.length)
                                 )
                             },
-                            shape = Shapes.medium,
+                            onDelete = onDeleteStationName,
+                            onDismiss = { isDropdownExpanded = false },
+                            textStyle = dataTextStyle
                         )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+
+                // Дата + Время
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val hasValue = time != null
+                    PickerChip(
+                        modifier = Modifier.weight(1.4f),
+                        iconRes = com.z_company.route.R.drawable.calendar_today_24px,
+                        value = if (hasValue) dateAndTimeConverter?.getDate(time) ?: "" else "Дата",
+                        isPlaceholder = !hasValue,
+                        onClick = onOpenPicker,
+                        onLongClick = { if (hasValue) onRemoveTime() }
+                    )
+                    PickerChip(
+                        modifier = Modifier.weight(1f),
+                        iconRes = com.z_company.route.R.drawable.schedule_24px,
+                        value = if (hasValue) dateAndTimeConverter?.getTime(time) ?: "" else "Время",
+                        isPlaceholder = !hasValue,
+                        onClick = onOpenPicker,
+                        onLongClick = { if (hasValue) onRemoveTime() }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Бейдж длительности «В пути · 7 ч 40 мин» — между двумя StationLegCard. */
+@Composable
+private fun DurationBadge(label: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        )
+        Row(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(999.dp))
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                modifier = Modifier.size(13.dp),
+                painter = painterResource(com.z_company.route.R.drawable.schedule_24px),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontFamily = MonoFont,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.6.sp
+                ),
+                color = MaterialTheme.colorScheme.tertiary
+            )
+        }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        )
+    }
+}
+
+/**
+ * Карточка «Учёт рабочего времени» → «Явка по прибытию».
+ * UI-заглушка: переключатель локальный, ничего не сохраняет. Строка результата
+ * рассчитывается из станции и времени прибытия («Куда»).
+ */
+@Composable
+private fun WorkStartCard(
+    station: String?,
+    time: Long?,
+    dateAndTimeConverter: DateAndTimeConverter?
+) {
+    var on by rememberSaveable { mutableStateOf(true) }
+
+    PassGroup(label = "УЧЁТ РАБОЧЕГО ВРЕМЕНИ") {
+        PassFlatCard {
+            Column {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Явка по прибытию",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            modifier = Modifier.padding(top = 3.dp),
+                            text = "Явка на работу по прибытию пассажиром.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = on,
+                        onCheckedChange = { on = it },
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.tertiary,
+                            checkedThumbColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    )
+                }
+
+                AnimatedVisibility(visible = on) {
+                    Column {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp)
+                                .height(1.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant)
+                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    modifier = Modifier.size(17.dp),
+                                    painter = painterResource(com.z_company.route.R.drawable.schedule_24px),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "НАЧАЛО РАБОТЫ",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontFamily = MonoFont,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.2.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                                val hasData = !station.isNullOrBlank() && time != null
+                                Text(
+                                    modifier = Modifier.padding(top = 3.dp),
+                                    text = if (hasData)
+                                        "$station · ${dateAndTimeConverter?.getDateAndTime(time) ?: ""}"
+                                    else "—",
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontFamily = MonoFont,
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
                 }
             }
