@@ -40,7 +40,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
@@ -104,7 +106,7 @@ fun StationEditBottomSheet(
     val hintColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
     val dataTextStyle = MaterialTheme.typography.bodyLarge
     val hintStyle = MaterialTheme.typography.bodyMedium
-    val fieldColor = MaterialTheme.colorScheme.surface
+    val fieldColor = MaterialTheme.colorScheme.surfaceBright
     val fieldShape = RoundedCornerShape(14.dp)
 
     val saveAndDismiss: () -> Unit = {
@@ -135,14 +137,36 @@ fun StationEditBottomSheet(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 40.dp)
         ) {
-            // ── Заголовок ──
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = primaryColor,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+            // ── Заголовок + кнопка закрытия ──
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = primaryColor,
+                )
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .clickable { saveAndDismiss() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        modifier = Modifier.size(18.dp),
+                        painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                        contentDescription = "Закрыть",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
             // ── Путь + Название станции (горизонтальный ряд) ──
             Row(
@@ -189,8 +213,10 @@ fun StationEditBottomSheet(
                                 }
                             ),
                             singleLine = true,
-                            colorBackgroundEmptyField = MaterialTheme.colorScheme.surface,
-                            colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
+                            shape = fieldShape,
+                            fieldElevation = 0.dp,
+                            colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                            colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright
                         )
 
                         StationDropdownMenu(
@@ -240,8 +266,10 @@ fun StationEditBottomSheet(
                             onDone = { focusManager.clearFocus() }
                         ),
                         singleLine = true,
-                        colorBackgroundEmptyField = MaterialTheme.colorScheme.surface,
-                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surface
+                        shape = fieldShape,
+                        fieldElevation = 0.dp,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright
                     )
                 }
             }
@@ -303,20 +331,20 @@ fun StationEditBottomSheet(
 
             // ── Кнопка «Готово» ──
             Button(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = Shapes.medium,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    contentColor = MaterialTheme.colorScheme.secondary
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 onClick = saveAndDismiss
             ) {
                 Text(
                     text = "Готово",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onTertiary,
-                    modifier = Modifier.padding(vertical = 4.dp)
                 )
             }
 
@@ -389,9 +417,8 @@ private fun TimeBlock(
     onNow: () -> Unit,
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
-    val fieldColor = MaterialTheme.colorScheme.surface
+    val fieldColor = MaterialTheme.colorScheme.surfaceBright
     val fieldShape = RoundedCornerShape(14.dp)
-    val clearColor = Color(0xFFC4392D)
 
     Column(modifier = Modifier.fillMaxWidth()) {
         // Лейбл + дата
@@ -403,10 +430,14 @@ private fun TimeBlock(
             verticalAlignment = Alignment.Bottom
         ) {
             Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = primaryColor.copy(alpha = 0.5f)
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.4.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (timeMillis != null) {
                 val dateText = formatDateShort(timeMillis)
@@ -440,6 +471,7 @@ private fun TimeBlock(
             Text(
                 text = timeText,
                 style = MaterialTheme.typography.headlineLarge.copy(
+                    fontFamily = com.z_company.core.ui.theme.MonoFont,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp,
                 ),
@@ -448,17 +480,13 @@ private fun TimeBlock(
                 modifier = Modifier.weight(1f),
             )
 
-            // Кнопка очистки (Box всегда 32dp для стабильного layout)
+            // Кнопка очистки (Box всегда 34dp для стабильного layout)
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(34.dp)
                     .then(
                         if (timeMillis != null) Modifier
-                            .border(
-                                width = 1.dp,
-                                color = clearColor.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(8.dp)
-                            )
+                            .clip(CircleShape)
                             .clickable { onClear() }
                         else Modifier
                     ),
@@ -468,8 +496,8 @@ private fun TimeBlock(
                     Icon(
                         painter = painterResource(com.z_company.core.R.drawable.ic_clear),
                         contentDescription = "Очистить",
-                        tint = clearColor,
-                        modifier = Modifier.size(16.dp)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -502,7 +530,7 @@ private fun TimeBlock(
                     .weight(1.3f)
                     .fillMaxHeight()
                     .background(
-                        color = Color(0xFFE8F5E9),
+                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
                         shape = RoundedCornerShape(10.dp)
                     )
                     .clickable { onNow() },
@@ -512,7 +540,7 @@ private fun TimeBlock(
                     text = "Сейчас",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF2E7D32)
+                    color = MaterialTheme.colorScheme.tertiary
                 )
             }
             // +1
@@ -539,7 +567,7 @@ private fun StepButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    val fieldColor = MaterialTheme.colorScheme.surface
+    val fieldColor = MaterialTheme.colorScheme.surfaceBright
     Box(
         modifier = modifier
             .background(
@@ -552,7 +580,9 @@ private fun StepButton(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = com.z_company.core.ui.theme.MonoFont
+            ),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
         )

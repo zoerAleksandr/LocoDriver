@@ -30,6 +30,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
@@ -49,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.util.TimeManager
 import com.z_company.domain.entities.route.UtilsForEntities
 import com.z_company.route.viewmodel.StationFormState
@@ -58,7 +60,7 @@ import java.util.concurrent.TimeUnit
 
 private val TimelineColumnWidth = 24.dp
 private val ContentPadding = 4.dp
-private val DotHeight = 32.dp
+private val DotHeight = 40.dp
 private val StopBadgeWidth = 56.dp
 private val DangerColor = Color(0xFFEF5350)
 
@@ -104,10 +106,22 @@ private fun calculateSegment(
     from: StationTimelineItem,
     to: StationTimelineItem,
 ): SegmentInfo? {
-    val departure = from.timeDeparture ?: from.timeArrival ?: return null
-    val arrival = to.timeArrival ?: to.timeDeparture ?: return null
-    val diff = arrival - departure
-    return if (diff >= 0) SegmentInfo(diff) else null
+    // Перегон = время между отправлением более ранней станции и прибытием более поздней.
+    // Считаем независимо от порядка отображения (при развороте списка from — поздняя),
+    // иначе разница отрицательная и перегон пропадает.
+    val fromDeparture = from.timeDeparture ?: from.timeArrival ?: return null
+    val fromArrival = from.timeArrival ?: from.timeDeparture ?: return null
+    val toDeparture = to.timeDeparture ?: to.timeArrival ?: return null
+    val toArrival = to.timeArrival ?: to.timeDeparture ?: return null
+
+    val diff = if (fromDeparture <= toArrival) {
+        // Обычный порядок: from раньше to
+        toArrival - fromDeparture
+    } else {
+        // Развёрнутый порядок: from позже to
+        fromArrival - toDeparture
+    }
+    return if (diff > 0) SegmentInfo(diff) else null
 }
 
 // ─── Цвета таймлайна ────────────────────────────────────────────────────────
@@ -142,10 +156,17 @@ fun TrainStationTimeline(
     onMoveDown: ((Int) -> Unit)? = null,
     onDismissReorder: (() -> Unit)? = null,
     onStationSwipeDelete: ((Int) -> Unit)? = null,
+    closeSwipeSignal: Int = 0,
+    rowBackgroundColor: Color = Color.Unspecified,
+    // Показывать бейджи «Время в пути / Уч / Техн» внутри списка. Когда false —
+    // они выносятся наружу отдельными пилюлями (см. RouteSummaryRow).
+    showSummary: Boolean = true,
 ) {
     if (stations.isEmpty()) return
 
     val isAnyReordering = reorderingStationId != null
+    val rowBg = if (rowBackgroundColor == Color.Unspecified)
+        MaterialTheme.colorScheme.background else rowBackgroundColor
 
     Column(
         modifier = modifier
@@ -167,7 +188,9 @@ fun TrainStationTimeline(
 
             key(station.id) {
                 // ── Строка станции (со свайпом или без) ──
-                val stationRowContent = @Composable {
+                // swipeOwnsClicks=true — клик/долгое нажатие обрабатывает SwipeToRevealDelete
+                // (в одном жесте со свайпом), поэтому у самой строки clickable отключён.
+                val stationRowContent = @Composable { swipeOwnsClicks: Boolean, revealed: Boolean ->
                     AnimatedVisibility(
                         visible = true,
                         enter = fadeIn() + expandVertically(),
@@ -182,66 +205,32 @@ fun TrainStationTimeline(
                             trainNumber = trainNumber,
                             isAnyReordering = isAnyReordering,
                             isReordering = isReordering,
-                            onStationClick = onStationClick,
-                            onStationLongPress = onStationLongPress,
+                            onStationClick = if (swipeOwnsClicks) null else onStationClick,
+                            onStationLongPress = if (swipeOwnsClicks) null else onStationLongPress,
                             onMoveUp = if (!isFirst) onMoveUp else null,
                             onMoveDown = if (!isLast) onMoveDown else null,
+                            rowBackgroundColor = rowBg,
+                            revealed = revealed,
                         )
                     }
                 }
 
                 if (onStationSwipeDelete != null && !isAnyReordering) {
                     val currentIndex by rememberUpdatedState(index)
-                    val currentOnSwipeDelete by rememberUpdatedState(onStationSwipeDelete)
-                    // Не используем confirmValueChange для side-effect (анти-паттерн в Material3) —
-                    // если callback устанавливает state во время animation, dismissState может
-                    // застрять и красная полоса остаётся видимой. Используем LaunchedEffect.
-                    val dismissState = rememberSwipeToDismissBoxState()
-                    LaunchedEffect(dismissState) {
-                        snapshotFlow { dismissState.currentValue }
-                            .collectLatest { value ->
-                                if (value == SwipeToDismissBoxValue.EndToStart) {
-                                    currentOnSwipeDelete?.invoke(currentIndex)
-                                    // Возвращаем визуально на место — диалог подтверждения
-                                    // покажется через UI state, а строка станции остаётся видимой
-                                    dismissState.snapTo(SwipeToDismissBoxValue.Settled)
-                                }
-                            }
-                    }
-                    SwipeToDismissBox(
+                    // Свайп влево раскрывает кнопку «Удалить» (как у секций локомотива) —
+                    // строка не удаляется сразу, подтверждение показывается через UI state.
+                    SwipeToRevealDelete(
                         modifier = Modifier.fillMaxWidth(),
-                        state = dismissState,
-                        enableDismissFromStartToEnd = false,
-                        backgroundContent = {
-                            val color by animateColorAsState(
-                                when (dismissState.targetValue) {
-                                    SwipeToDismissBoxValue.Settled -> Color.Transparent
-                                    SwipeToDismissBoxValue.EndToStart -> Color(0xFFEF5350).copy(alpha = 0.5f)
-                                    else -> Color.Transparent
-                                }, label = ""
-                            )
-                            Box(
-                                Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        color = color,
-                                        shape = RoundedCornerShape(8.dp)
-                                    ),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                Icon(
-                                    modifier = Modifier.padding(end = 16.dp),
-                                    painter = painterResource(com.z_company.route.R.drawable.delete_24px),
-                                    tint = MaterialTheme.colorScheme.error,
-                                    contentDescription = "Удалить"
-                                )
-                            }
-                        }
-                    ) {
-                        stationRowContent()
+                        onDeleteClick = { onStationSwipeDelete.invoke(currentIndex) },
+                        closeSignal = closeSwipeSignal,
+                        compact = true,
+                        onContentClick = { onStationClick?.invoke(currentIndex) },
+                        onContentLongClick = { onStationLongPress?.invoke(currentIndex) },
+                    ) { revealed ->
+                        stationRowContent(true, revealed)
                     }
                 } else {
-                    stationRowContent()
+                    stationRowContent(false, false)
                 }
 
                 // ── Перегон между станциями ──
@@ -257,9 +246,9 @@ fun TrainStationTimeline(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
         // ── Бейдж суммарного времени в пути ──
-        if (stations.size >= 2) {
+        if (showSummary && stations.size >= 2) {
+            Spacer(modifier = Modifier.height(12.dp))
             val startTime = stations.first().timeDeparture ?: stations.first().timeArrival
             val endTime = stations.last().timeArrival ?: stations.last().timeDeparture
             if (startTime != null && endTime != null && endTime > startTime) {
@@ -330,6 +319,8 @@ private fun StationRow(
     onStationLongPress: ((Int) -> Unit)?,
     onMoveUp: ((Int) -> Unit)?,
     onMoveDown: ((Int) -> Unit)?,
+    rowBackgroundColor: Color = Color.Unspecified,
+    revealed: Boolean = false,
 ) {
     val stopInfo = calculateStop(item)
     val dotColor = if (isFirst || isLast) colors.firstLastDotColor else colors.dotColor
@@ -338,10 +329,19 @@ private fun StationRow(
     val dotSize = 12.dp
     val lineWidth = 2.dp
 
+    // Фон строки: обычный, а в свайпнутом (revealed) состоянии — красноватый,
+    // чтобы вся карточка станции читалась как «готова к удалению».
+    val baseRowColor = if (rowBackgroundColor == Color.Unspecified)
+        MaterialTheme.colorScheme.background else rowBackgroundColor
+    val targetRowColor = if (revealed)
+        MaterialTheme.colorScheme.error.copy(alpha = 0.10f).compositeOver(baseRowColor)
+    else baseRowColor
+    val rowColor by animateColorAsState(targetValue = targetRowColor, label = "rowBg")
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background),
+            .background(rowColor),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // ── Область стрелок (видна когда любая станция в режиме reorder) ──
@@ -733,7 +733,7 @@ private fun TimeText(
 ) {
     Text(
         text = if (millis != null) formatTime(millis) else "—",
-        style = MaterialTheme.typography.bodyMedium,
+        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
         color = color,
         textAlign = TextAlign.Center,
         modifier = Modifier.widthIn(min = 48.dp),
@@ -765,7 +765,7 @@ private fun StopBadge(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelSmall.copy(fontFamily = MonoFont),
             fontWeight = FontWeight.Bold,
             color = textColor,
         )
@@ -815,4 +815,43 @@ fun List<com.z_company.domain.entities.route.Station>.toStationTimelineItems(): 
             trackNumber = station.trackNumber,
         )
     }
+}
+
+// ─── Сводка маршрута ─────────────────────────────────────────────────────────
+// Значения для внешних пилюль «Время в пути / Уч / Техн» (когда showSummary=false).
+
+data class RouteSummaryData(
+    val totalTimeText: String,
+    val sectionSpeed: Double?,
+    val technicalSpeed: Double?,
+)
+
+fun computeRouteSummary(
+    stations: List<StationTimelineItem>,
+    distance: Double?,
+): RouteSummaryData? {
+    if (stations.size < 2) return null
+    val startTime = stations.first().timeDeparture ?: stations.first().timeArrival
+    val endTime = stations.last().timeArrival ?: stations.last().timeDeparture
+    if (startTime == null || endTime == null || endTime <= startTime) return null
+    val totalMillis = endTime - startTime
+
+    var sectionSpeed: Double? = null
+    var technicalSpeed: Double? = null
+    if (distance != null && distance > 0) {
+        sectionSpeed = distance / (totalMillis / 3_600_000.0)
+        var stopTime = 0L
+        for (i in 1 until stations.size - 1) {
+            val arr = stations[i].timeArrival
+            val dep = stations[i].timeDeparture
+            if (arr != null && dep != null && dep > arr) stopTime += dep - arr
+        }
+        val runningTime = totalMillis - stopTime
+        technicalSpeed = if (runningTime > 0) distance / (runningTime / 3_600_000.0) else null
+    }
+    return RouteSummaryData(
+        totalTimeText = formatDuration(totalMillis),
+        sectionSpeed = sectionSpeed,
+        technicalSpeed = technicalSpeed,
+    )
 }

@@ -13,6 +13,10 @@ class TimeManager(val timeZoneId: String = "GMT+3") {
         return ms - (ms % 60_000L)
     }
 
+    /** Текущий момент с секундами (UTC epoch) — для кнопки старт/стоп,
+     *  чтобы секундомер стартовал точно с нуля. */
+    fun nowExact(): Long = System.currentTimeMillis()
+
     /** Форматирует epoch в "HH:mm" в заданном часовом поясе. */
     fun formatTime(millis: Long): String =
         SimpleDateFormat("HH:mm", Locale.getDefault())

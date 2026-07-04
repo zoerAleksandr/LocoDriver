@@ -168,6 +168,7 @@ fun OutlinedTextFieldApp(
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     shape: Shape = OutlinedTextFieldDefaults.shape,
     fieldElevation: androidx.compose.ui.unit.Dp = 1.dp,
+    borderColor: Color = Color.Transparent,
     colorBackgroundEmptyField: Color = MaterialTheme.colorScheme.surface,
     colorBackgroundNotEmptyField: Color = MaterialTheme.colorScheme.secondary,
 ) {
@@ -190,7 +191,12 @@ fun OutlinedTextFieldApp(
     )
 
     BasicTextField(
-        modifier = modifier.shadow(elevation = fieldElevation, shape = Shapes.medium),
+        modifier = modifier
+            .shadow(elevation = fieldElevation, shape = Shapes.medium)
+            .then(
+                if (borderColor != Color.Transparent) Modifier.border(1.dp, borderColor, shape)
+                else Modifier
+            ),
         value = value,
         singleLine = singleLine,
         readOnly = readOnly,

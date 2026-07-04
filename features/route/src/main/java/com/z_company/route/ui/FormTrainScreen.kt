@@ -7,13 +7,16 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +25,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -32,6 +37,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -63,6 +69,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -79,9 +86,11 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.dimensionResource
@@ -94,6 +103,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import com.z_company.core.R
@@ -111,8 +121,10 @@ import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomShadow
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.OutlinedTextFieldApp
+import com.z_company.route.component.ShoulderEditBottomSheet
 import com.z_company.route.component.StationEditBottomSheet
 import com.z_company.route.component.TrainStationTimeline
+import com.z_company.route.component.computeRouteSummary
 import com.z_company.route.component.toTimelineItems
 import com.z_company.route.extention.isScrollInInitialState
 import com.z_company.route.viewmodel.StationFormState
@@ -143,6 +155,9 @@ fun FormTrainScreen(
     onSelectServicePhase: (ServicePhase?) -> Unit,
     selectedServicePhase: ServicePhase?,
     onSettingClick: () -> Unit,
+    onAddServicePhase: (ServicePhase) -> Unit = {},
+    onUpdateServicePhase: (ServicePhase) -> Unit = {},
+    onDeleteServicePhase: (ServicePhase) -> Unit = {},
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val scope = rememberCoroutineScope()
@@ -152,6 +167,11 @@ fun FormTrainScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val hintStyle = MaterialTheme.typography.bodyMedium
     val dataTextStyle = MaterialTheme.typography.bodyLarge
+    // Моноширинный вариант для числовых значений карточек — как в референсе.
+    val monoDataTextStyle = dataTextStyle.copy(
+        fontFamily = com.z_company.core.ui.theme.MonoFont,
+        fontWeight = FontWeight.SemiBold
+    )
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -160,6 +180,8 @@ fun FormTrainScreen(
     val primaryColor = MaterialTheme.colorScheme.primary
     val noValueColor = primaryColor.copy(alpha = 0.5f)
     var showSettingsSheet by remember { mutableStateOf(false) }
+    // Сигнал закрытия свайп-раскрытой строки станции (при отмене подтверждения)
+    var closeSwipeSignal by remember { mutableStateOf(0) }
 
     Scaffold(
         modifier = Modifier
@@ -238,6 +260,14 @@ fun FormTrainScreen(
         }
 
         var showSelectServicePhase by remember { mutableStateOf(false) }
+        // Плечо, выделенное в шторке «Плечи» (ещё не применённое). Сбрасывается на текущее
+        // выбранное при каждом открытии шторки.
+        var selectedInSheet by remember(showSelectServicePhase) {
+            mutableStateOf(selectedServicePhase)
+        }
+        // Вторая шторка — создание/редактирование плеча.
+        var showEditPhaseSheet by remember { mutableStateOf(false) }
+        var editingPhase by remember { mutableStateOf<ServicePhase?>(null) }
 
         // BottomSheet для редактирования/добавления станции
         val editingIndex = formUiState.editingStationIndex
@@ -288,7 +318,10 @@ fun FormTrainScreen(
             )
 
             AppBottomSheet(
-                onDismissRequest = { viewModel.cancelDeleteStation() },
+                onDismissRequest = {
+                    viewModel.cancelDeleteStation()
+                    closeSwipeSignal++
+                },
                 sheetState = confirmDeleteSheetState,
                 title = title,
                 actions = listOf(
@@ -311,7 +344,7 @@ fun FormTrainScreen(
                     viewModel.saveAssistSeries()
                 },
                 sheetState = settingsSheetState,
-                containerColor = MaterialTheme.colorScheme.secondary,
+                containerColor = MaterialTheme.colorScheme.background,
                 dragHandle = {
                     Box(
                         modifier = Modifier
@@ -336,13 +369,33 @@ fun FormTrainScreen(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = "Настройки поезда",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = primaryColor
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Настройки поезда",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = primaryColor
+                        )
+                        TextButton(
+                            onClick = {
+                                showSettingsSheet = false
+                                viewModel.saveAssistSeries()
+                            }
+                        ) {
+                            Text(
+                                text = "Готово",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     TrainAssistSection(
                         title = "Толкач",
@@ -371,7 +424,11 @@ fun FormTrainScreen(
                                 content
                             )
                         },
-                        onDeleteSeries = viewModel::removeSeries
+                        onDeleteSeries = viewModel::removeSeries,
+                        showPositionToggle = true,
+                        firstLabel = "Я толкаю",
+                        secondLabel = "Меня толкают",
+                        onIsFirstChange = viewModel::setPusherIsFirst
                     )
 
                     TrainAssistSection(
@@ -581,91 +638,266 @@ fun FormTrainScreen(
                     }
                 }
             ) {
-                LazyColumn(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .fillMaxHeight(0.9f)
                 ) {
-                    item {
-                        Spacer(modifier = Modifier.height(16.dp))
+                    // ── Заголовок + карандаш (при выделении) + закрытие ──
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 4.dp, bottom = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Плечи",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = primaryColor
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceBright)
+                                .clickable { showSelectServicePhase = false },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(18.dp),
+                                painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                                contentDescription = "Закрыть",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                    // ── Список плеч ──
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        itemsIndexed(
+                            items = servicePhaseList,
+                            key = { _, item -> item.id }
+                        ) { index, item ->
+                            val isSelected = selectedInSheet?.id == item.id
+                            val rowBg by animateColorAsState(
+                                targetValue = if (isSelected)
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f)
+                                else Color.Transparent,
+                                label = "phaseRowBg"
+                            )
+                            Column {
+                                if (index != 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 20.dp)
+                                            .height(0.5.dp)
+                                            .background(MaterialTheme.colorScheme.outlineVariant)
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(rowBg)
+                                        .clickable {
+                                            // Первый тап — выделить; повторный по выделенному — применить.
+                                            if (selectedInSheet?.id == item.id) {
+                                                onSelectServicePhase(item)
+                                                showSelectServicePhase = false
+                                            } else {
+                                                selectedInSheet = item
+                                            }
+                                        }
+                                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text(
+                                        modifier = Modifier.weight(1f),
+                                        text = "${item.departureStation} — ${item.arrivalStation}",
+                                        style = dataTextStyle.copy(
+                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+                                        ),
+                                        color = primaryColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (isSelected) {
+                                        Icon(
+                                            modifier = Modifier.size(18.dp),
+                                            painter = painterResource(com.z_company.route.R.drawable.check_circle_24px),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.tertiary
+                                        )
+                                    }
+                                    Text(
+                                        text = "${item.distance} км",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontFamily = com.z_company.core.ui.theme.MonoFont
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        item {
+                            if (servicePhaseList.isEmpty()) {
+                                Text(
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                                    text = "Список пуст",
+                                    style = dataTextStyle,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    // ── Нижние кнопки: «Выбрать» (при выделении) + «Новое плечо» ──
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 8.dp, bottom = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        AnimatedVisibility(
+                            visible = selectedInSheet != null,
+                            enter = fadeIn(animationSpec = tween(140)) +
+                                    expandVertically(animationSpec = tween(140)),
+                            exit = fadeOut(animationSpec = tween(110)) +
+                                    shrinkVertically(animationSpec = tween(110))
                         ) {
-                            Text(
-                                text = "Плечи",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = primaryColor,
-                                maxLines = 2,
-                                overflow = TextOverflow.Visible
-                            )
-                            Icon(
-                                modifier = Modifier.clickable(
-                                    onClick = onSettingClick
-                                ),
-                                painter = painterResource(R.drawable.ic_edit),
-                                contentDescription = null,
-                                tint = primaryColor
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp),
+                                    shape = Shapes.medium,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    ),
+                                    onClick = {
+                                        selectedInSheet?.let { onSelectServicePhase(it) }
+                                        showSelectServicePhase = false
+                                    }
+                                ) {
+                                    Text(
+                                        text = "Выбрать",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                Button(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp),
+                                    shape = Shapes.medium,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceBright,
+                                        contentColor = MaterialTheme.colorScheme.tertiary
+                                    ),
+                                    elevation = ButtonDefaults.buttonElevation(
+                                        defaultElevation = 0.dp,
+                                        pressedElevation = 0.dp
+                                    ),
+                                    onClick = {
+                                        editingPhase = selectedInSheet
+                                        showEditPhaseSheet = true
+                                    }
+                                ) {
+                                    Icon(
+                                        modifier = Modifier.size(18.dp),
+                                        painter = painterResource(R.drawable.ic_edit),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.tertiary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Редактировать",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
                         }
-                    }
-                    item {
-                        Spacer(modifier = Modifier.height(20.dp))
-                    }
-                    itemsIndexed(
-                        items = servicePhaseList,
-                        key = { _, item -> item.id }
-                    ) { index, item ->
-                        if (index != 0) {
-                            CustomDivider(orientation = Orientation.Horizontal)
-                        }
-                        Row(
+                        Button(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    onSelectServicePhase(item)
-                                    showSelectServicePhase = false
-                                }
-                                .padding(8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .height(52.dp),
+                            shape = Shapes.medium,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceBright,
+                                contentColor = MaterialTheme.colorScheme.tertiary
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 0.dp,
+                                pressedElevation = 0.dp
+                            ),
+                            onClick = {
+                                editingPhase = null
+                                showEditPhaseSheet = true
+                            }
                         ) {
-
-                            Text(
-                                text = "${item.departureStation} - ${item.arrivalStation}",
-                                style = dataTextStyle,
-                                color = primaryColor,
-                                overflow = TextOverflow.Ellipsis
+                            Icon(
+                                modifier = Modifier.size(18.dp),
+                                painter = painterResource(com.z_company.route.R.drawable.add_circle_24px),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary
                             )
-
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "${item.distance} км",
-                                style = dataTextStyle,
-                                color = primaryColor,
-                                overflow = TextOverflow.Ellipsis
+                                text = "Новое плечо",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
                             )
                         }
-                    }
-
-                    item {
-                        if (servicePhaseList.isEmpty()) {
-                            Text(
-                                modifier = Modifier.padding(start = 16.dp),
-                                text = "Список пуст",
-                                style = dataTextStyle,
-                                color = primaryColor,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                    item {
-                        Spacer(modifier = Modifier.height(40.dp))
                     }
                 }
             }
+        }
+
+        // ── Вторая шторка: создание/редактирование плеча (поверх «Плечи») ──
+        if (showEditPhaseSheet) {
+            ShoulderEditBottomSheet(
+                phase = editingPhase,
+                stationList = menuList,
+                onSave = { phase, reverse ->
+                    if (editingPhase == null) {
+                        onAddServicePhase(phase)
+                        if (reverse) {
+                            onAddServicePhase(
+                                ServicePhase(
+                                    departureStation = phase.arrivalStation,
+                                    arrivalStation = phase.departureStation,
+                                    distance = phase.distance
+                                )
+                            )
+                        }
+                    } else {
+                        onUpdateServicePhase(phase)
+                        if (selectedInSheet?.id == phase.id) selectedInSheet = phase
+                    }
+                },
+                onDelete = if (editingPhase != null) {
+                    {
+                        editingPhase?.let { p ->
+                            onDeleteServicePhase(p)
+                            if (selectedInSheet?.id == p.id) selectedInSheet = null
+                        }
+                    }
+                } else null,
+                onDeleteStationName = { viewModel.removeStationName(it) },
+                onDismiss = { showEditPhaseSheet = false }
+            )
         }
 
         AnimatedVisibility(
@@ -684,7 +916,7 @@ fun FormTrainScreen(
                     state = scrollState,
                     modifier = Modifier.testTag("form_train_lazy_column"),
                     horizontalAlignment = Alignment.End,
-                    contentPadding = PaddingValues(16.dp)
+                    contentPadding = PaddingValues(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 16.dp)
                 ) {
                     item {
                         formUiState.errorMessage?.let {
@@ -755,7 +987,9 @@ fun FormTrainScreen(
                                         ) {
                                             Text(
                                                 text = "№ $num",
-                                                style = MaterialTheme.typography.bodySmall,
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    fontFamily = com.z_company.core.ui.theme.MonoFont
+                                                ),
                                                 color = primaryColor
                                             )
                                             Icon(
@@ -775,161 +1009,208 @@ fun FormTrainScreen(
                                 }
                             }
 
+                            val cellLabelStyle =
+                                MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
+                            val cardShape = Shapes.medium
+                            val cardColor = MaterialTheme.colorScheme.secondary
+                            val dividerColor = MaterialTheme.colorScheme.outlineVariant
+
+                            var numberFieldValue by remember {
+                                mutableStateOf(
+                                    TextFieldValue(
+                                        text = train.number ?: "",
+                                        selection = TextRange(train.number?.length ?: 0)
+                                    )
+                                )
+                            }
+
+                            // Синхронизация при внешнем изменении (загрузка данных)
+                            LaunchedEffect(train.number) {
+                                val current = numberFieldValue.text
+                                val external = train.number ?: ""
+                                if (current != external) {
+                                    numberFieldValue = TextFieldValue(
+                                        text = external,
+                                        selection = TextRange(external.length)
+                                    )
+                                }
+                            }
+
                             Row(
                                 modifier = Modifier
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .height(IntrinsicSize.Min),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                OutlinedTextFieldApp(
+                                // Карточка: Плечо | Номер
+                                Row(
                                     modifier = Modifier
-                                        .weight(0.7f),
-                                    value = train.distance?.takeIf { it != "0" } ?: "",
-                                    onValueChange = {
-                                        onDistanceChange(it)
-                                    },
-                                    placeholder = {
+                                        .weight(1f)
+                                        .shadow(elevation = 2.dp, shape = cardShape)
+                                        .clip(cardShape)
+                                        .background(color = cardColor, shape = cardShape),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Ячейка «Плечо»
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(0.85f)
+                                            .padding(vertical = 8.dp)
+                                    ) {
                                         Text(
-                                            text = "Плечо",
-                                            maxLines = 1,
-                                            style = LocalTextStyle.current.copy(
-                                                fontWeight = FontWeight.Light
+                                            text = "Расстояние",
+                                            style = cellLabelStyle,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(start = 16.dp)
+                                        )
+                                        OutlinedTextFieldApp(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            value = train.distance?.takeIf { it != "0" } ?: "",
+                                            onValueChange = { onDistanceChange(it) },
+                                            suffix = {
+                                                val distanceValue =
+                                                    train.distance?.takeIf { it != "0" } ?: ""
+                                                if (distanceValue.isNotBlank()) {
+                                                    Text(
+                                                        text = "км",
+                                                        style = hintStyle,
+                                                        color = noValueColor
+                                                    )
+                                                }
+                                            },
+                                            keyboardOptions = KeyboardOptions(
+                                                keyboardType = KeyboardType.Decimal,
+                                                imeAction = ImeAction.Next
                                             ),
-                                            color = noValueColor
+                                            keyboardActions = KeyboardActions(
+                                                onNext = {
+                                                    scope.launch {
+                                                        focusManager.moveFocus(FocusDirection.Right)
+                                                    }
+                                                }
+                                            ),
+                                            textStyle = monoDataTextStyle,
+                                            singleLine = true,
+                                            fieldElevation = 0.dp,
+                                            colorBackgroundEmptyField = Color.Transparent,
+                                            colorBackgroundNotEmptyField = Color.Transparent,
                                         )
-                                    },
-                                    suffix = {
-                                        val distanceValue =
-                                            train.distance?.takeIf { it != "0" } ?: ""
-                                        if (distanceValue.isNotBlank()) {
-                                            Text(
-                                                text = "км",
-                                                style = hintStyle,
-                                                color = noValueColor
-                                            )
-                                        }
-                                    },
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal,
-                                        imeAction = ImeAction.Next
-                                    ),
-                                    keyboardActions = KeyboardActions(
-                                        onNext = {
-                                            scope.launch {
-                                                focusManager.moveFocus(FocusDirection.Right)
-                                            }
-                                        }
-                                    ),
-                                    textStyle = dataTextStyle,
-                                    singleLine = true,
-                                )
+                                    }
 
-                                var numberFieldValue by remember {
-                                    mutableStateOf(
-                                        TextFieldValue(
-                                            text = train.number ?: "",
-                                            selection = TextRange(train.number?.length ?: 0)
-                                        )
+                                    Box(
+                                        modifier = Modifier
+                                            .width(1.dp)
+                                            .height(40.dp)
+                                            .background(dividerColor)
                                     )
-                                }
 
-                                // Синхронизация при внешнем изменении (загрузка данных)
-                                LaunchedEffect(train.number) {
-                                    val current = numberFieldValue.text
-                                    val external = train.number ?: ""
-                                    if (current != external) {
-                                        numberFieldValue = TextFieldValue(
-                                            text = external,
-                                            selection = TextRange(external.length)
+                                    // Ячейка «Номер»
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1.15f)
+                                            .padding(vertical = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = "Номер",
+                                            style = cellLabelStyle,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(start = 16.dp)
+                                        )
+                                        OutlinedTextFieldApp(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .onFocusChanged { focusState ->
+                                                    numberFieldValue = if (focusState.isFocused) {
+                                                        numberFieldValue.copy(
+                                                            selection = TextRange(numberFieldValue.text.length)
+                                                        )
+                                                    } else {
+                                                        numberFieldValue.copy(
+                                                            selection = TextRange(0)
+                                                        )
+                                                    }
+                                                },
+                                            value = numberFieldValue,
+                                            onValueChange = {
+                                                numberFieldValue = it
+                                                onNumberChanged(it.text)
+                                                if (it.text.isEmpty()) {
+                                                    isTrainInfoVisible = false
+                                                }
+                                            },
+                                            prefix = {
+                                                if (!train.number.isNullOrBlank()) {
+                                                    Text(
+                                                        text = "№ ",
+                                                        style = LocalTextStyle.current.copy(
+                                                            fontWeight = FontWeight.Light
+                                                        ),
+                                                        color = noValueColor
+                                                    )
+                                                }
+                                            },
+                                            suffix = {
+                                                if (!train.number.isNullOrBlank()) {
+                                                    Icon(
+                                                        modifier = Modifier.clickable {
+                                                            focusManager.clearFocus()
+                                                            isTrainInfoVisible = !isTrainInfoVisible
+                                                        },
+                                                        painter = painterResource(com.z_company.route.R.drawable.info_24px),
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.tertiary
+                                                    )
+                                                }
+                                            },
+                                            keyboardOptions = KeyboardOptions(
+                                                keyboardType = KeyboardType.Decimal,
+                                                imeAction = ImeAction.Next
+                                            ),
+                                            keyboardActions = KeyboardActions(
+                                                onNext = {
+                                                    scope.launch {
+                                                        focusManager.moveFocus(FocusDirection.Right)
+                                                    }
+                                                }
+                                            ),
+                                            textStyle = monoDataTextStyle,
+                                            singleLine = true,
+                                            fieldElevation = 0.dp,
+                                            colorBackgroundEmptyField = Color.Transparent,
+                                            colorBackgroundNotEmptyField = Color.Transparent,
                                         )
                                     }
                                 }
 
-                                OutlinedTextFieldApp(
+                                // Кнопка «+» — добавить дополнительный номер поезда.
+                                // Фон непрозрачный (compositeOver), иначе полупрозрачная
+                                // заливка поверх тени даёт «двойную рамку».
+                                val addEnabled = !train.number.isNullOrBlank()
+                                val addButtonColor = if (addEnabled)
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f)
+                                        .compositeOver(cardColor)
+                                else cardColor
+                                Box(
                                     modifier = Modifier
-                                        .weight(1.3f)
-                                        .onFocusChanged { focusState ->
-                                            if (focusState.isFocused) {
-                                                numberFieldValue = numberFieldValue.copy(
-                                                    selection = TextRange(numberFieldValue.text.length)
-                                                )
-                                            } else {
-                                                numberFieldValue = numberFieldValue.copy(
-                                                    selection = TextRange(0)
-                                                )
+                                        .fillMaxHeight()
+                                        .width(56.dp)
+                                        .shadow(elevation = 2.dp, shape = cardShape)
+                                        .clip(cardShape)
+                                        .background(color = addButtonColor, shape = cardShape)
+                                        .clickable(enabled = addEnabled) {
+                                            val num = train.number?.trim()
+                                            if (!num.isNullOrBlank()) {
+                                                viewModel.addAdditionalNumber(num)
+                                                onNumberChanged("")
                                             }
                                         },
-                                    value = numberFieldValue,
-                                    onValueChange = {
-                                        numberFieldValue = it
-                                        onNumberChanged(it.text)
-                                        if (it.text.isEmpty()) {
-                                            isTrainInfoVisible = false
-                                        }
-                                    },
-                                    placeholder = {
-                                        Text(
-                                            text = "Номер",
-                                            style = LocalTextStyle.current.copy(
-                                                fontWeight = FontWeight.Light
-                                            ),
-                                            color = noValueColor
-                                        )
-                                    },
-                                    prefix = {
-                                        if (!train.number.isNullOrBlank()) {
-                                            Text(
-                                                text = "№ ",
-                                                style = LocalTextStyle.current.copy(
-                                                    fontWeight = FontWeight.Light
-                                                ),
-                                                color = noValueColor
-                                            )
-                                        }
-                                    },
-                                    suffix = {
-                                        if (!train.number.isNullOrBlank()) {
-                                            Icon(
-                                                modifier = Modifier.clickable {
-                                                    focusManager.clearFocus()
-                                                    isTrainInfoVisible = !isTrainInfoVisible
-                                                },
-                                                painter = painterResource(com.z_company.route.R.drawable.info_24px),
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.tertiary
-                                            )
-                                        }
-                                    },
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal,
-                                        imeAction = ImeAction.Next
-                                    ),
-                                    keyboardActions = KeyboardActions(
-                                        onNext = {
-                                            scope.launch {
-                                                focusManager.moveFocus(FocusDirection.Right)
-                                            }
-                                        }
-                                    ),
-                                    textStyle = dataTextStyle,
-                                    singleLine = true,
-                                )
-
-                                // Кнопка "+" для добавления дополнительного номера
-                                IconButton(
-                                    onClick = {
-                                        val num = train.number?.trim()
-                                        if (!num.isNullOrBlank()) {
-                                            viewModel.addAdditionalNumber(num)
-                                            onNumberChanged("")
-                                        }
-                                    },
-                                    enabled = !train.number.isNullOrBlank()
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         painter = painterResource(com.z_company.route.R.drawable.add_circle_24px),
                                         contentDescription = "Добавить номер",
-                                        tint = if (!train.number.isNullOrBlank())
+                                        tint = if (addEnabled)
                                             MaterialTheme.colorScheme.tertiary
                                         else
                                             noValueColor
@@ -940,16 +1221,12 @@ fun FormTrainScreen(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .clip(Shapes.medium)
                                         .background(
                                             color = MaterialTheme.colorScheme.surfaceDim,
                                             shape = Shapes.medium
                                         )
-                                        .border(
-                                            width = 0.5.dp,
-                                            color = MaterialTheme.colorScheme.tertiary,
-                                            shape = Shapes.medium
-                                        )
-                                        .padding(12.dp)
+                                        .padding(horizontal = 14.dp, vertical = 12.dp)
                                 ) {
                                     Text(
                                         text = train.trainCategory(),
@@ -961,152 +1238,187 @@ fun FormTrainScreen(
                         }
                     }
                     item {
+                        val cellLabelStyle =
+                            MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
+                        val cardShape = Shapes.medium
+                        val dividerColor = MaterialTheme.colorScheme.outlineVariant
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                .padding(top = 12.dp)
+                                .shadow(elevation = 2.dp, shape = cardShape)
+                                .clip(cardShape)
+                                .background(
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    shape = cardShape
+                                ),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedTextFieldApp(
+                            // Ячейка «Вес»
+                            Column(
                                 modifier = Modifier
-                                    .weight(1f),
-                                value = train.weight?.takeIf { it != "0" } ?: "",
-                                onValueChange = {
-                                    onWeightChanged(it)
-                                },
-                                placeholder = {
-                                    Text(
-                                        text = "Вес",
-                                        style = LocalTextStyle.current.copy(
-                                            fontWeight = FontWeight.Light
-                                        ),
-                                        color = noValueColor
-                                    )
-                                },
-                                suffix = {
-                                    if (!train.weight.isNullOrBlank() && train.weight != "0") {
-                                        Text(
-                                            text = "т.",
-                                            style = hintStyle,
-                                            color = noValueColor
-                                        )
-                                    }
-                                },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Next
-                                ),
-                                keyboardActions = KeyboardActions(
-                                    onNext = {
-                                        scope.launch {
-                                            focusManager.moveFocus(FocusDirection.Right)
+                                    .weight(1f)
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "Вес, т",
+                                    style = cellLabelStyle,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp)
+                                )
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    value = train.weight?.takeIf { it != "0" } ?: "",
+                                    onValueChange = { onWeightChanged(it) },
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = {
+                                            scope.launch {
+                                                focusManager.moveFocus(FocusDirection.Right)
+                                            }
                                         }
-                                    }
-                                ),
-                                textStyle = dataTextStyle,
-                                singleLine = true,
+                                    ),
+                                    textStyle = monoDataTextStyle,
+                                    singleLine = true,
+                                    fieldElevation = 0.dp,
+                                    colorBackgroundEmptyField = Color.Transparent,
+                                    colorBackgroundNotEmptyField = Color.Transparent,
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .height(40.dp)
+                                    .background(dividerColor)
                             )
 
-                            OutlinedTextFieldApp(
+                            // Ячейка «Оси»
+                            Column(
                                 modifier = Modifier
-                                    .weight(1f),
-                                value = train.axle?.takeIf { it != "0" } ?: "",
-                                onValueChange = {
-                                    onAxleChanged(it)
-                                },
-                                placeholder = {
-                                    Text(
-                                        text = "Оси",
-                                        style = LocalTextStyle.current.copy(
-                                            fontWeight = FontWeight.Light
-                                        ),
-                                        color = noValueColor
-                                    )
-                                },
-                                suffix = {
-                                    if (!train.axle.isNullOrBlank() && train.axle != "0") {
-                                        Text(
-                                            text = "о.",
-                                            style = hintStyle,
-                                            color = noValueColor
-                                        )
-                                    }
-                                },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Next
-                                ),
-                                keyboardActions = KeyboardActions(
-                                    onNext = {
-                                        scope.launch {
-                                            focusManager.moveFocus(FocusDirection.Right)
+                                    .weight(1f)
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "Оси",
+                                    style = cellLabelStyle,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp)
+                                )
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    value = train.axle?.takeIf { it != "0" } ?: "",
+                                    onValueChange = { onAxleChanged(it) },
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = {
+                                            scope.launch {
+                                                focusManager.moveFocus(FocusDirection.Right)
+                                            }
                                         }
-                                    }
-                                ),
-                                textStyle = dataTextStyle,
-                                singleLine = true,
+                                    ),
+                                    textStyle = monoDataTextStyle,
+                                    singleLine = true,
+                                    fieldElevation = 0.dp,
+                                    colorBackgroundEmptyField = Color.Transparent,
+                                    colorBackgroundNotEmptyField = Color.Transparent,
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .height(40.dp)
+                                    .background(dividerColor)
                             )
 
-                            OutlinedTextFieldApp(
+                            // Ячейка «Удельное»
+                            Column(
                                 modifier = Modifier
-                                    .weight(1f),
-                                value = train.conditionalLength?.takeIf { it != "0" }
-                                    ?.let { s ->
-                                        val d = s.toDoubleOrNull()
-                                        if (d != null && d == kotlin.math.floor(d)) d.toLong().toString() else s
-                                    } ?: "",
-                                onValueChange = {
-                                    onLengthChanged(it)
-                                },
-                                placeholder = {
+                                    .weight(1f)
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                // Длина в метрах = условная длина × 14 (подсказка рядом с «У.Д.»).
+                                val lengthMeters = train.conditionalLength
+                                    ?.takeIf { it != "0" }
+                                    ?.toDoubleOrNull()
+                                    ?.let { (it * 14).toInt() }
+                                Row(
+                                    modifier = Modifier.padding(start = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
                                     Text(
-                                        text = "у.д.",
-                                        style = LocalTextStyle.current.copy(
-                                            fontWeight = FontWeight.Light
-                                        ),
-                                        color = noValueColor
+                                        text = "У.Д.",
+                                        style = cellLabelStyle,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                },
-                                suffix = {
-                                    if (!train.conditionalLength.isNullOrBlank() && train.conditionalLength != "0") {
+                                    if (lengthMeters != null) {
                                         Text(
-                                            text = "у.д.",
-                                            style = hintStyle,
-                                            color = noValueColor
+                                            text = "· $lengthMeters м",
+                                            style = cellLabelStyle.copy(
+                                                fontFamily = com.z_company.core.ui.theme.MonoFont
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-                                },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done
-                                ),
-                                keyboardActions = KeyboardActions(
-                                    onDone = {
-                                        scope.launch {
-                                            focusManager.clearFocus()
+                                }
+                                OutlinedTextFieldApp(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    value = train.conditionalLength?.takeIf { it != "0" }
+                                        ?.let { s ->
+                                            val d = s.toDoubleOrNull()
+                                            if (d != null && d == kotlin.math.floor(d)) d.toLong().toString() else s
+                                        } ?: "",
+                                    onValueChange = { onLengthChanged(it) },
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onDone = {
+                                            scope.launch {
+                                                focusManager.clearFocus()
+                                            }
                                         }
-                                    }
-                                ),
-                                textStyle = dataTextStyle,
-                                singleLine = true,
-                            )
+                                    ),
+                                    textStyle = monoDataTextStyle,
+                                    singleLine = true,
+                                    fieldElevation = 0.dp,
+                                    colorBackgroundEmptyField = Color.Transparent,
+                                    colorBackgroundNotEmptyField = Color.Transparent,
+                                )
+                            }
                         }
                     }
                     item {
+                        val phase = selectedServicePhase
+                        val cellLabelStyle =
+                            MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
                         val animatedBackgroundColors by animateColorAsState(
-                            targetValue = if (selectedServicePhase == null) MaterialTheme.colorScheme.surface
+                            targetValue = if (phase == null) MaterialTheme.colorScheme.surface
                             else MaterialTheme.colorScheme.secondary,
                             animationSpec = tween(
                                 durationMillis = 200,
                                 easing = FastOutSlowInEasing
                             )
                         )
+                        val accentSoft = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f)
+                            .compositeOver(MaterialTheme.colorScheme.secondary)
 
                         Row(
                             modifier = Modifier
                                 .padding(top = 12.dp)
                                 .shadow(elevation = 1.dp, shape = Shapes.medium)
                                 .fillMaxWidth()
+                                .clip(Shapes.medium)
                                 .clickable {
                                     showSelectServicePhase = true
                                 }
@@ -1114,76 +1426,118 @@ fun FormTrainScreen(
                                     color = animatedBackgroundColors,
                                     shape = Shapes.medium
                                 )
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            val text = if (selectedServicePhase == null) {
-                                "Выбрать плечо"
-                            } else {
-                                "${selectedServicePhase.departureStation} - ${selectedServicePhase.arrivalStation}"
+                            // Иконка-чип
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(accentSoft),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    modifier = Modifier.size(18.dp),
+                                    painter = painterResource(com.z_company.route.R.drawable.ic_card_train_ref),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.tertiary
+                                )
                             }
 
-                            val color = if (selectedServicePhase == null) {
-                                noValueColor
-                            } else {
-                                primaryColor
+                            // «Плечо» + «отправление — прибытие», либо плейсхолдер
+                            Column(modifier = Modifier.weight(1f)) {
+                                if (phase != null) {
+                                    Text(
+                                        text = "Плечо",
+                                        style = cellLabelStyle,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "${phase.departureStation} — ${phase.arrivalStation}",
+                                        style = dataTextStyle.copy(fontWeight = FontWeight.SemiBold),
+                                        color = primaryColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Выбрать плечо",
+                                        style = dataTextStyle,
+                                        color = noValueColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
-                            Text(
-                                text = AnnotatedString(text = text),
-                                style = dataTextStyle,
-                                overflow = TextOverflow.Ellipsis,
-                                color = color
-                            )
-                            if (selectedServicePhase != null) {
-                                Icon(
-                                    modifier = Modifier.clickable {
-                                        onSelectServicePhase(null)
-                                    },
-                                    painter = painterResource(R.drawable.ic_clear),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
+
+                            if (phase != null) {
+                                Text(
+                                    text = "${phase.distance} км",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontFamily = com.z_company.core.ui.theme.MonoFont
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceDim)
+                                        .clickable { onSelectServicePhase(null) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        modifier = Modifier.size(14.dp),
+                                        painter = painterResource(R.drawable.ic_clear),
+                                        contentDescription = "Очистить",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
                     item {
-                        val assistParts = buildList {
-                            currentTrain?.pusher?.let { add(formatAssistInfo("толкач", it)) }
-                            currentTrain?.doubleTraction?.let {
+                        // Каждый заполненный раздел настроек поезда + направление из переключателя.
+                        val assists = buildList {
+                            currentTrain?.pusher?.let {
                                 add(
-                                    formatAssistInfo(
-                                        "двойная тяга",
-                                        it
-                                    )
+                                    Triple(
+                                        "Толкач", it,
+                                        it.isFirst?.let { f -> if (f) "Я толкаю" else "Меня толкают" })
                                 )
+                            }
+                            currentTrain?.doubleTraction?.let {
+                                add(Triple("Двойная тяга", it, null))
                             }
                             currentTrain?.doubledTrain?.let {
                                 add(
-                                    formatAssistInfo(
-                                        "сдвоенный",
-                                        it
-                                    )
+                                    Triple(
+                                        "Сдвоенный поезд", it,
+                                        it.isFirst?.let { f -> if (f) "Я первый" else "Я второй" })
                                 )
                             }
                         }
-                        if (assistParts.isNotEmpty()) {
+                        if (assists.isNotEmpty()) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(top = 8.dp)
+                                    .clip(Shapes.medium)
                                     .clickable { showSettingsSheet = true }
                                     .background(
                                         color = MaterialTheme.colorScheme.surfaceDim,
                                         shape = Shapes.medium
                                     )
-                                    .padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                assistParts.forEach { text ->
-                                    Text(
-                                        text = text,
-                                        style = hintStyle,
-                                        color = primaryColor.copy(alpha = 0.8f)
+                                assists.forEach { (label, assist, direction) ->
+                                    AssistInfoRow(
+                                        label = label,
+                                        assist = assist,
+                                        direction = direction
                                     )
                                 }
                             }
@@ -1191,52 +1545,97 @@ fun FormTrainScreen(
                     }
                     item { Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing))) }
                     item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                val isReversed = formUiState.isStationsReversed
-                                val rotation by animateFloatAsState(
-                                    targetValue = if (isReversed) 180f else 0f,
-                                    animationSpec = tween(durationMillis = 300)
-                                )
-
-                                Icon(
-                                    modifier = Modifier
-                                        .graphicsLayer { rotationZ = rotation }
-                                        .noRippleEffect(
-                                            onClick = {
-                                                viewModel.toggleStationsSortOrder()
-                                            }
-                                        ),
-                                    painter = painterResource(com.z_company.route.R.drawable.sort_24px),
-                                    contentDescription = null
-                                )
-                            }
-
-                            // Правая часть: play/pause
-                            val nextIsDeparture = viewModel.isNextDeparture()
-                            OutlinedButton(
-                                onClick = { viewModel.onGoClicked() },
-                                border = BorderStroke(
-                                    width = 1.dp,
-                                    color = if (nextIsDeparture) MaterialTheme.colorScheme.surfaceContainerLow
-                                    else MaterialTheme.colorScheme.surfaceContainerHigh
-                                )
+                        val stopwatch = rememberStopwatchState(
+                            stationListState?.map {
+                                it.arrival.data to it.departure.data
+                            } ?: emptyList()
+                        )
+                        val nextIsDeparture = viewModel.isNextDeparture()
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                AnimatedContent(targetState = nextIsDeparture) {
-                                    val icon =
-                                        if (it) com.z_company.route.R.drawable.play_arrow_24px
-                                        else com.z_company.route.R.drawable.pause_24px
+                                // Слева: сортировка
+                                Box(
+                                    modifier = Modifier.weight(1f),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    val isReversed = formUiState.isStationsReversed
+                                    val rotation by animateFloatAsState(
+                                        targetValue = if (isReversed) 180f else 0f,
+                                        animationSpec = tween(durationMillis = 300)
+                                    )
                                     Icon(
-                                        painter = painterResource(icon),
-                                        contentDescription = null,
-                                        tint = if (it) MaterialTheme.colorScheme.surfaceContainerLow
-                                        else MaterialTheme.colorScheme.surfaceContainerHigh
+                                        modifier = Modifier
+                                            .graphicsLayer { rotationZ = rotation }
+                                            .noRippleEffect(
+                                                onClick = { viewModel.toggleStationsSortOrder() }
+                                            ),
+                                        painter = painterResource(com.z_company.route.R.drawable.sort_24px),
+                                        contentDescription = null
                                     )
                                 }
+
+                                // Центр: чип секундомера — по вертикали в одну линию с кнопками
+                                if (stopwatch != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(stopwatch.bg)
+                                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = stopwatch.timeText,
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            color = stopwatch.fg
+                                        )
+                                    }
+                                }
+
+                                // Справа: play/pause
+                                Box(
+                                    modifier = Modifier.weight(1f),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    OutlinedButton(
+                                        onClick = { viewModel.onGoClicked() },
+                                        border = BorderStroke(
+                                            width = 1.dp,
+                                            color = if (nextIsDeparture) MaterialTheme.colorScheme.surfaceContainerLow
+                                            else MaterialTheme.colorScheme.surfaceContainerHigh
+                                        )
+                                    ) {
+                                        AnimatedContent(targetState = nextIsDeparture) {
+                                            val icon =
+                                                if (it) com.z_company.route.R.drawable.play_arrow_24px
+                                                else com.z_company.route.R.drawable.pause_24px
+                                            Icon(
+                                                painter = painterResource(icon),
+                                                contentDescription = null,
+                                                tint = if (it) MaterialTheme.colorScheme.surfaceContainerLow
+                                                else MaterialTheme.colorScheme.surfaceContainerHigh
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Подпись под чипом (что показывает секундомер)
+                            if (stopwatch != null) {
+                                Text(
+                                    text = stopwatch.label,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 3.dp),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
@@ -1244,9 +1643,16 @@ fun FormTrainScreen(
                     stationListState?.let { stationList ->
                         item {
                             Text(
-                                modifier = Modifier.fillMaxWidth().padding(start = 0.dp, top = 12.dp, bottom = 4.dp),
+                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
                                 text = "МАРШРУТ",
-                                style = MaterialTheme.typography.labelMedium,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    letterSpacing = androidx.compose.ui.unit.TextUnit(
+                                        1.4f,
+                                        androidx.compose.ui.unit.TextUnitType.Sp
+                                    )
+                                ),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -1255,9 +1661,21 @@ fun FormTrainScreen(
                                 if (formUiState.isStationsReversed) stationList.reversed() else stationList
                             val timelineItems = displayList.toTimelineItems()
 
+                          Column {
                             TrainStationTimeline(
                                 stations = timelineItems,
-                                modifier = Modifier.padding(top = 8.dp),
+                                showSummary = false,
+                                modifier = Modifier
+                                    .padding(top = 8.dp)
+                                    .fillMaxWidth()
+                                    .shadow(elevation = 2.dp, shape = Shapes.medium)
+                                    .clip(Shapes.medium)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        shape = Shapes.medium
+                                    )
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                rowBackgroundColor = MaterialTheme.colorScheme.secondary,
                                 trainNumber = train.number,
                                 reorderingStationId = formUiState.reorderingStationId,
                                 onStationClick = { displayIndex ->
@@ -1298,29 +1716,79 @@ fun FormTrainScreen(
                                     viewModel.requestDeleteStation(originalIndex)
                                 },
                                 distance = train.distance?.toDoubleOrNull(),
+                                closeSwipeSignal = closeSwipeSignal,
                             )
+
+                            // Сводка маршрута — отдельными пилюлями под карточкой (как в референсе).
+                            // Считаем всегда по исходному (не перевёрнутому) порядку станций,
+                            // иначе при развороте списка время в пути отрицательное и сводка пропадает.
+                            val summary = computeRouteSummary(
+                                stationList.toTimelineItems(),
+                                train.distance?.toDoubleOrNull()
+                            )
+                            if (summary != null) {
+                                FlowRow(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    MetaPill(label = "Время в пути:", value = summary.totalTimeText)
+                                    summary.sectionSpeed?.let {
+                                        MetaPill(
+                                            label = "Уч",
+                                            value = "%.1f км/ч".format(it),
+                                            mono = true
+                                        )
+                                    }
+                                    summary.technicalSpeed?.let {
+                                        MetaPill(
+                                            label = "Техн",
+                                            value = "%.1f км/ч".format(it),
+                                            mono = true
+                                        )
+                                    }
+                                }
+                            }
+                          }
                         }
                     }
                     item {
                         Button(
                             modifier = Modifier
                                 .padding(top = 24.dp)
-                                .fillMaxWidth(),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .shadow(
+                                    elevation = 8.dp,
+                                    shape = Shapes.medium,
+                                    clip = false
+                                ),
+                            shape = Shapes.medium,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.tertiary,
-                                contentColor = MaterialTheme.colorScheme.surface
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 0.dp,
+                                pressedElevation = 0.dp
                             ),
                             onClick = {
                                 viewModel.startAddingNewStation()
                             }
                         ) {
+                            Icon(
+                                modifier = Modifier.size(18.dp),
+                                painter = painterResource(com.z_company.route.R.drawable.add_circle_24px),
+                                contentDescription = null
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "+ Добавить станцию",
-                                style = MaterialTheme.typography.bodyMedium.copy(
+                                text = "Добавить станцию",
+                                style = MaterialTheme.typography.bodyLarge.copy(
                                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                                 ),
-                                modifier = Modifier.padding(vertical = 4.dp),
                             )
                         }
                     }
@@ -1351,14 +1819,23 @@ private fun TrainAssistSection(
     isSeriesMenuExpanded: Boolean = false,
     onSeriesMenuExpandedChange: (Boolean) -> Unit = {},
     onSeriesMenuContentChange: (String) -> Unit = {},
-    onDeleteSeries: (String) -> Unit = {}
+    onDeleteSeries: (String) -> Unit = {},
+    // Опциональный сегментированный переключатель направления (для «Толкач»).
+    showPositionToggle: Boolean = false,
+    firstLabel: String = "",
+    secondLabel: String = "",
+    onIsFirstChange: (Boolean) -> Unit = {}
 ) {
     val focusManager = LocalFocusManager.current
-    val surfaceColor = MaterialTheme.colorScheme.surface
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 2.dp, shape = Shapes.medium)
+            .clip(Shapes.medium)
+            .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1397,6 +1874,17 @@ private fun TrainAssistSection(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (showPositionToggle) {
+                        SegmentedToggle(
+                            options = listOf(firstLabel, secondLabel),
+                            activeIndex = when (assist.isFirst) {
+                                true -> 0
+                                false -> 1
+                                else -> -1
+                            },
+                            onSelect = { onIsFirstChange(it == 0) }
+                        )
+                    }
                     var seriesFieldValue by remember(assist.locomotiveSeries) {
                         mutableStateOf(
                             TextFieldValue(
@@ -1434,7 +1922,7 @@ private fun TrainAssistSection(
                                         color = noValueColor
                                     )
                                 },
-                                textStyle = dataTextStyle,
+                                textStyle = dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Text,
@@ -1443,8 +1931,11 @@ private fun TrainAssistSection(
                                 keyboardActions = KeyboardActions(
                                     onNext = { focusManager.moveFocus(FocusDirection.Next) }
                                 ),
-                                colorBackgroundEmptyField = surfaceColor,
-                                colorBackgroundNotEmptyField = surfaceColor
+                        fieldElevation = 0.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.secondary,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.secondary
                             )
 
                             StationDropdownMenu(
@@ -1486,13 +1977,16 @@ private fun TrainAssistSection(
                                     )
                                 }
                             },
-                            textStyle = dataTextStyle,
+                            textStyle = dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(
                                 imeAction = ImeAction.Next
                             ),
-                            colorBackgroundEmptyField = surfaceColor,
-                            colorBackgroundNotEmptyField = surfaceColor
+                        fieldElevation = 0.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.secondary,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.secondary
                         )
                     }
 
@@ -1523,8 +2017,11 @@ private fun TrainAssistSection(
                         keyboardOptions = KeyboardOptions(
                             imeAction = ImeAction.Next
                         ),
-                        colorBackgroundEmptyField = surfaceColor,
-                        colorBackgroundNotEmptyField = surfaceColor
+                        fieldElevation = 0.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.secondary,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.secondary
                     )
                     OutlinedTextFieldApp(
                         modifier = Modifier.fillMaxWidth(),
@@ -1544,17 +2041,16 @@ private fun TrainAssistSection(
                         keyboardOptions = KeyboardOptions(
                             imeAction = ImeAction.Done
                         ),
-                        colorBackgroundEmptyField = surfaceColor,
-                        colorBackgroundNotEmptyField = surfaceColor
+                        fieldElevation = 0.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.secondary,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
         }
 
-        HorizontalDivider(
-            color = primaryColor.copy(alpha = 0.2f),
-            thickness = 0.5.dp
-        )
     }
 }
 
@@ -1580,12 +2076,16 @@ private fun DoubledTrainSection(
     onDeleteSeries: (String) -> Unit = {}
 ) {
     val focusManager = LocalFocusManager.current
-    val surfaceColor = MaterialTheme.colorScheme.surface
     val title = "Сдвоенный поезд"
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 2.dp, shape = Shapes.medium)
+            .clip(Shapes.medium)
+            .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1625,47 +2125,15 @@ private fun DoubledTrainSection(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Переключатель "Я первый" / "Я второй"
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val isFirst = assist.isFirst
-                        if (isFirst == true) {
-                            Button(
-                                onClick = {},
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("Я первый")
-                            }
-                        } else {
-                            OutlinedButton(
-                                onClick = { onIsFirstChange(true) },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("Я первый")
-                            }
-                        }
-
-                        if (isFirst == false) {
-                            Button(
-                                onClick = {},
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("Я второй")
-                            }
-                        } else {
-                            OutlinedButton(
-                                onClick = { onIsFirstChange(false) },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("Я второй")
-                            }
-                        }
-                    }
+                    SegmentedToggle(
+                        options = listOf("Я первый", "Я второй"),
+                        activeIndex = when (assist.isFirst) {
+                            true -> 0
+                            false -> 1
+                            else -> -1
+                        },
+                        onSelect = { onIsFirstChange(it == 0) }
+                    )
 
                     // Текст "Данные второго" / "Данные первого"
                     if (assist.isFirst != null) {
@@ -1714,7 +2182,7 @@ private fun DoubledTrainSection(
                                         color = noValueColor
                                     )
                                 },
-                                textStyle = dataTextStyle,
+                                textStyle = dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Text,
@@ -1723,8 +2191,11 @@ private fun DoubledTrainSection(
                                 keyboardActions = KeyboardActions(
                                     onNext = { focusManager.moveFocus(FocusDirection.Next) }
                                 ),
-                                colorBackgroundEmptyField = surfaceColor,
-                                colorBackgroundNotEmptyField = surfaceColor
+                        fieldElevation = 0.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.secondary,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.secondary
                             )
 
                             StationDropdownMenu(
@@ -1766,13 +2237,16 @@ private fun DoubledTrainSection(
                                     )
                                 }
                             },
-                            textStyle = dataTextStyle,
+                            textStyle = dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(
                                 imeAction = ImeAction.Next
                             ),
-                            colorBackgroundEmptyField = surfaceColor,
-                            colorBackgroundNotEmptyField = surfaceColor
+                        fieldElevation = 0.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.secondary,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.secondary
                         )
                     }
 
@@ -1803,8 +2277,11 @@ private fun DoubledTrainSection(
                         keyboardOptions = KeyboardOptions(
                             imeAction = ImeAction.Next
                         ),
-                        colorBackgroundEmptyField = surfaceColor,
-                        colorBackgroundNotEmptyField = surfaceColor
+                        fieldElevation = 0.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.secondary,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.secondary
                     )
                     OutlinedTextFieldApp(
                         modifier = Modifier.fillMaxWidth(),
@@ -1824,35 +2301,214 @@ private fun DoubledTrainSection(
                         keyboardOptions = KeyboardOptions(
                             imeAction = ImeAction.Done
                         ),
-                        colorBackgroundEmptyField = surfaceColor,
-                        colorBackgroundNotEmptyField = surfaceColor
+                        fieldElevation = 0.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.secondary,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
         }
 
-        HorizontalDivider(
-            color = primaryColor.copy(alpha = 0.2f),
-            thickness = 0.5.dp
+    }
+}
+
+/**
+ * Секундомер маршрута: показывает время с последнего события ≤ текущего момента.
+ * Если последнее событие — прибытие (поезд стоит) → «стоянка», если отправление → «в пути».
+ * До 5 мин — секунды (M:SS), после — только минуты; фон жёлтый после 5 мин, красный после 30
+ * (как чипы стоянки). Под чипом — подпись, что именно показано.
+ */
+private data class StopwatchData(
+    val timeText: String,
+    val bg: Color,
+    val fg: Color,
+    val label: String,
+)
+
+@Composable
+private fun rememberStopwatchState(
+    stationTimes: List<Pair<Long?, Long?>>,
+): StopwatchData? {
+    // Тикаем раз в секунду; берём АБСОЛЮТНОЕ системное время (не накапливаем),
+    // поэтому после сна/дозы первое же обновление показывает корректное время.
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = System.currentTimeMillis()
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+    // Дополнительно мгновенно обновляем время при возврате на экран / разблокировке.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                now = System.currentTimeMillis()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // События: (время, isDeparture). При равном времени приоритет у отправления
+    // (compareBy: false < true) → берём его, поэтому это «в пути», а не «стоянка».
+    val events = buildList {
+        stationTimes.forEach { (arrival, departure) ->
+            arrival?.let { add(it to false) }
+            departure?.let { add(it to true) }
+        }
+    }
+    val last = events
+        .filter { it.first <= now }
+        .maxWithOrNull(compareBy({ it.first }, { it.second })) ?: return null
+
+    val isMoving = last.second
+    val totalSec = (now - last.first).coerceAtLeast(0L) / 1000
+    val totalMin = totalSec / 60
+
+    // Цветом подсвечиваем только стоянку (как чипы стоянки). В пути — всегда нейтральный фон.
+    val neutral = MaterialTheme.colorScheme.surfaceDim to MaterialTheme.colorScheme.primary
+    val (bg, fg) = when {
+        isMoving -> neutral
+        totalMin >= 30 -> Color(0xFFEF5350) to Color.White
+        totalMin >= 5 -> Color(0xFFFFC107) to Color(0xFF3E2723)
+        else -> neutral
+    }
+    val timeText = if (totalMin < 5) {
+        "%d:%02d".format(totalSec / 60, totalSec % 60)
+    } else {
+        "$totalMin мин"
+    }
+    return StopwatchData(
+        timeText = timeText,
+        bg = bg,
+        fg = fg,
+        label = if (isMoving) "в пути" else "стоянка"
+    )
+}
+
+/** Строка инфо-блока для одного раздела настроек поезда: тип + направление (из
+ *  переключателя) сверху, детали (серия/номер/примечание) снизу — без жирного. */
+@Composable
+private fun AssistInfoRow(label: String, assist: TrainAssist, direction: String?) {
+    val details = buildString {
+        assist.locomotiveSeries?.let { append(it) }
+        assist.locomotiveNumber?.let {
+            if (isNotEmpty()) append(" ")
+            append("№$it")
+        }
+        assist.driverName?.let {
+            if (isNotEmpty()) append(" · ")
+            append("ТЧМ $it")
+        }
+        assist.notes?.let {
+            if (isNotEmpty()) append(" · ")
+            append(it)
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (direction != null) {
+                Text(
+                    text = "· $direction",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+        }
+        if (details.isNotBlank()) {
+            Text(
+                text = details,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+/** Пилюля сводки маршрута: «Метка значение» (значение моноширинно при mono=true). */
+@Composable
+private fun MetaPill(label: String, value: String, mono: Boolean = false) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.secondary)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = FontWeight.Medium,
+                fontFamily = if (mono) com.z_company.core.ui.theme.MonoFont else null
+            ),
+            color = MaterialTheme.colorScheme.primary
         )
     }
 }
 
-private fun formatAssistInfo(type: String, assist: TrainAssist): String {
-    return buildString {
-        append("$type: ")
-        assist.locomotiveSeries?.let { append(it) }
-        assist.locomotiveNumber?.let {
-            if (isNotEmpty() && last() != ' ') append(" ")
-            append("№$it")
-        }
-        assist.driverName?.let {
-            if (isNotEmpty() && last() != ' ') append(" ")
-            append("ТЧМ $it")
-        }
-        assist.notes?.let {
-            if (isNotEmpty() && last() != ' ') append(" ")
-            append("($it)")
+/** Сегментированный переключатель (как SegmentedToggle в референсе): дорожка
+ *  [surfaceBright] + белый «ползунок» на активном сегменте. activeIndex = -1 — ничего не выбрано. */
+@Composable
+private fun SegmentedToggle(
+    options: List<String>,
+    activeIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceBright)
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        options.forEachIndexed { i, label ->
+            val active = i == activeIndex
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .then(
+                        if (active) Modifier.shadow(1.dp, RoundedCornerShape(8.dp)) else Modifier
+                    )
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (active) MaterialTheme.colorScheme.secondary else Color.Transparent
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onSelect(i) }
+                    .padding(vertical = 9.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium
+                    ),
+                    color = if (active) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
         }
     }
 }

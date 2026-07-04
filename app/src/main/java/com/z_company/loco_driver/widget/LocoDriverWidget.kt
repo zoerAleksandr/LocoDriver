@@ -841,8 +841,8 @@ class GoActionCallback : ActionCallback, KoinComponent {
         // 1. Get user settings for timezone
         val userSettings = settingsUseCase.getUserSetting()
 
-        // 2. Get current time
-        val now = TimeManager().now()
+        // 2. Get current time (с секундами — чтобы секундомер стартовал с нуля)
+        val now = TimeManager().nowExact()
 
         // 3. Find current route
         val allRoutes = routeUseCase.getListRoutes()

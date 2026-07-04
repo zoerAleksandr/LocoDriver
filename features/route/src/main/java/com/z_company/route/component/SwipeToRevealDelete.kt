@@ -49,10 +49,20 @@ fun SwipeToRevealDelete(
     modifier: Modifier = Modifier,
     onDeleteClick: () -> Unit,
     closeSignal: Int = 0,
-    content: @Composable () -> Unit,
+    // compact — для невысоких строк (таймлайн станций): только иконка без подписи,
+    // чтобы контент не обрезался по высоте.
+    compact: Boolean = false,
+    // Клик / долгое нажатие по контенту. Если заданы — обрабатываются здесь же,
+    // в одном pointerInput со свайпом, чтобы не конфликтовать с горизонтальным
+    // драгом (иначе внешний clickable «съедает» жест и свайп не срабатывает).
+    // Контент в этом случае НЕ должен иметь собственный clickable.
+    onContentClick: (() -> Unit)? = null,
+    onContentLongClick: (() -> Unit)? = null,
+    // content получает флаг revealed — на случай если контенту нужно знать состояние.
+    content: @Composable (revealed: Boolean) -> Unit,
 ) {
     val density = LocalDensity.current
-    val buttonWidth = 96.dp
+    val buttonWidth = if (compact) 72.dp else 96.dp
     val buttonWidthPx = with(density) { buttonWidth.toPx() }
     val offsetX = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -74,11 +84,12 @@ fun SwipeToRevealDelete(
     }
 
     Box(modifier = modifier) {
-        // Фон: красная кнопка «Удалить» справа
+        // Фон: красная кнопка «Удалить» справа.
+        // compact — фон занимает всю высоту карточки (без вертикальных отступов).
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .padding(6.dp),
+                .padding(if (compact) 0.dp else 6.dp),
             contentAlignment = Alignment.CenterEnd
         ) {
             Box(
@@ -98,19 +109,28 @@ fun SwipeToRevealDelete(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (compact) {
                     Icon(
                         painter = painterResource(R.drawable.delete_24px),
                         contentDescription = "Удалить",
                         tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
-                    Text(
-                        text = "УДАЛИТЬ",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.W700),
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            painter = painterResource(R.drawable.delete_24px),
+                            contentDescription = "Удалить",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Text(
+                            text = "УДАЛИТЬ",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.W700),
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
                 }
             }
         }
@@ -132,14 +152,19 @@ fun SwipeToRevealDelete(
                         }
                     )
                 }
-                .pointerInput(revealed) {
-                    if (revealed) {
-                        // В раскрытом состоянии тап по карточке — закрыть (вернуть на место)
-                        detectTapGestures(onTap = { close() })
-                    }
+                .pointerInput(revealed, onContentClick, onContentLongClick) {
+                    detectTapGestures(
+                        onTap = {
+                            // В раскрытом состоянии тап по контенту — закрыть; иначе — клик
+                            if (revealed) close() else onContentClick?.invoke()
+                        },
+                        onLongPress = {
+                            if (!revealed) onContentLongClick?.invoke()
+                        }
+                    )
                 }
         ) {
-            content()
+            content(revealed)
         }
     }
 }

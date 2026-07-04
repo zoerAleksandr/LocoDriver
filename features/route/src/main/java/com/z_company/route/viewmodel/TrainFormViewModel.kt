@@ -408,6 +408,42 @@ class TrainFormViewModel(
         }
     }
 
+    /** Добавить новое плечо в настройки (сохраняется в UserSettings.servicePhases). */
+    fun addServicePhase(phase: ServicePhase) {
+        viewModelScope.launch {
+            val settings = settingsUseCase.getUserSettingFlow().first()
+            val updated = settings.copy(servicePhases = settings.servicePhases + phase)
+            settingsUseCase.saveSetting(updated).first()
+        }
+    }
+
+    /** Обновить существующее плечо (по id). Если оно сейчас выбрано — обновляем ссылку. */
+    fun updateServicePhase(newPhase: ServicePhase) {
+        viewModelScope.launch {
+            val settings = settingsUseCase.getUserSettingFlow().first()
+            val updatedList = settings.servicePhases.map {
+                if (it.id == newPhase.id) newPhase else it
+            }
+            settingsUseCase.saveSetting(settings.copy(servicePhases = updatedList)).first()
+            if (_uiState.value.selectedServicePhase?.id == newPhase.id) {
+                _uiState.update { it.copy(selectedServicePhase = newPhase) }
+                setDistance(newPhase.distance.toString())
+            }
+        }
+    }
+
+    /** Удалить плечо. Если оно было выбрано — снимаем выбор. */
+    fun deleteServicePhase(phase: ServicePhase) {
+        viewModelScope.launch {
+            val settings = settingsUseCase.getUserSettingFlow().first()
+            val updatedList = settings.servicePhases.filterNot { it.id == phase.id }
+            settingsUseCase.saveSetting(settings.copy(servicePhases = updatedList)).first()
+            if (_uiState.value.selectedServicePhase?.id == phase.id) {
+                _uiState.update { it.copy(selectedServicePhase = null) }
+            }
+        }
+    }
+
     private fun saveStationsName(train: Train) {
         viewModelScope.launch(Dispatchers.IO) {
             val list = train.stations
@@ -521,6 +557,14 @@ class TrainFormViewModel(
     fun setPusherNotes(value: String) {
         currentTrain = currentTrain?.copy(
             pusher = (currentTrain?.pusher ?: TrainAssist()).copy(notes = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    /** Направление толкача: true = «Я толкаю», false = «Меня толкают» (через isFirst). */
+    fun setPusherIsFirst(isFirst: Boolean) {
+        currentTrain = currentTrain?.copy(
+            pusher = (currentTrain?.pusher ?: TrainAssist()).copy(isFirst = isFirst)
         )
         changesHave()
     }
@@ -734,7 +778,8 @@ class TrainFormViewModel(
     }
 
     fun onGoClicked() {
-        val now = timeManager.now()
+        // Секунды сохраняем (не обрезаем до минуты), чтобы секундомер стартовал с нуля.
+        val now = timeManager.nowExact()
 
         val hasServicePhase = _uiState.value.selectedServicePhase != null
 

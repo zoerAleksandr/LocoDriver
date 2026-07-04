@@ -471,7 +471,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
     fun onGoClicked() {
         viewModelScope.launch {
             val current = currentRoute?.trains?.lastOrNull()
-            val now = timeManager.now()
+            // Секунды сохраняем (не обрезаем до минуты) — для точного старта секундомера.
+            val now = timeManager.nowExact()
 
             val updatedTrain = withContext(Dispatchers.Default) {
                 if (current == null) {
