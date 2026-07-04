@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
@@ -92,6 +93,7 @@ fun AllRouteScreen(
     var isShowAlertSubscribeDialog by remember { mutableStateOf(false) }
     var isShowNeedSubscribeDialog by remember { mutableStateOf(false) }
     var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
+    var copyRouteId by remember { mutableStateOf<String?>(null) }
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -445,6 +447,36 @@ fun AllRouteScreen(
             )
         }
 
+        // Шторка подтверждения создания копии маршрута
+        copyRouteId?.let { id ->
+            AppBottomSheet(
+                onDismissRequest = { copyRouteId = null },
+                sheetState = sheetState,
+                headerContent = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = "Создать копию маршрута?",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "\nОткроется редактирование копии — исходный маршрут не изменится.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                },
+                actions = listOf(
+                    BottomSheetAction(text = "Создать копию") { viewModel.newRouteClick(id) }
+                )
+            )
+        }
+
         // Контекстное меню при LongClick
         AnimationDialog(
             showDialog = showContextDialog,
@@ -463,7 +495,7 @@ fun AllRouteScreen(
                     syncRoute = viewModel::syncRoute,
                     setFavoriteState = viewModel::setFavoriteRoute,
                     onRouteClick = onRouteClick,
-                    makeCopyRoute = { viewModel.newRouteClick(route.basicData.id) },
+                    makeCopyRoute = { copyRouteId = route.basicData.id },
                     showDialogConfirmRemove = { showDialog, route ->
                         isShowDialogConfirmRemoveRoute = showDialog
                         routeForRemove = route

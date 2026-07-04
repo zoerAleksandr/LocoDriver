@@ -451,6 +451,12 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    fun changeShowOnePersonSwitch(isShow: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isShowOnePersonSwitch = isShow
+        )
+    }
+
     fun changeShowLocoHeating(value: Boolean) {
         sharedPreferenceStorage.setShowLocoHeating(value)
         currentSettings = currentSettings?.copy(isShowLocoHeating = value)

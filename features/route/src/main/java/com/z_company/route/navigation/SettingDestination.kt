@@ -40,6 +40,7 @@ fun SettingDestination(
         changeUsingDefaultWorkTime = settingsViewModel::changeUsingDefaultWorkTime,
         changeConsiderFutureRoute = settingsViewModel::changeConsiderFutureRoute,
         changeShowBreak = settingsViewModel::changeShowBreak,
+        changeShowOnePersonSwitch = settingsViewModel::changeShowOnePersonSwitch,
         changeShowLocoHeating = settingsViewModel::changeShowLocoHeating,
         changeShowLocoAuxiliary = settingsViewModel::changeShowLocoAuxiliary,
         changeShowLocoStatistics = settingsViewModel::changeShowLocoStatistics,

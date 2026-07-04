@@ -214,47 +214,7 @@ fun SettingsRouteContent(
             )
         }
 
-        // Показывать перерыв
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
-                text = "ПЕРЕРЫВ",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(
-                modifier = Modifier
-                    .shadow(elevation = 1.dp, shape = Shapes.medium)
-                    .background(
-                        color = MaterialTheme.colorScheme.secondary,
-                        shape = Shapes.medium
-                    )
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    modifier = Modifier
-                        .padding(end = 12.dp)
-                        .weight(1f),
-                    text = "Показывать перерыв",
-                    style = styleData,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 2
-                )
-                Switch(
-                    checked = currentSettings.isShowBreak,
-                    onCheckedChange = { changeShowBreak(it) }
-                )
-            }
-
-            Text(
-                modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                text = "Показывать поля перерыва в форме маршрута.",
-                style = styleHint,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        // «Показывать перерыв» перенесён в подраздел «Маршрут».
 
         // Стиль выбора времени (вынесен из «Данные по умолчанию» — это не значение
         // по умолчанию для нового маршрута, а UI-настройка диалога выбора времени)

@@ -215,17 +215,23 @@ fun LocoDriverApp(
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
         val localContext = LocalContext.current
+        // Глобальную нижнюю навигацию показываем только на корневых вкладках.
+        // На FormRoute её скрываем — там своя контекстная нижняя панель маршрута,
+        // чтобы не было двух меню одновременно.
         val bottomBarRoutes = setOf(
             HomeRoute.route,
             SalaryCalculationRoute.route,
-            FormRoute.route,
             SettingsScreenRoute.route,
             ProfileRoute.route
         )
 
         val showBottomBar = currentRoute in bottomBarRoutes
 
-        val navBarColor = if (currentRoute in bottomBarRoutes) {
+        // Системную нав-полосу оставляем в цвете surface и на FormRoute —
+        // под белой контекстной панелью маршрута.
+        val surfaceNavBarRoutes = bottomBarRoutes + FormRoute.route
+
+        val navBarColor = if (currentRoute in surfaceNavBarRoutes) {
             surfaceColor
         } else {
             backgroundColor

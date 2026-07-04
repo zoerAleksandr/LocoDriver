@@ -149,17 +149,22 @@ object UtilsForEntities {
     }
 
     /** Длительность перерыва (0 если не задан или невалидный). */
+    /** Отбрасываем секунды и миллисекунды — время учитывается с точностью до минуты. */
+    private fun Long.floorToMinute(): Long = this - this % 60_000L
+
     fun Route.getBreakDuration(): Long {
         val start = this.basicData.timeStartBreak
         val end = this.basicData.timeEndBreak
-        return if (start != null && end != null && end > start) (end - start) else 0L
+        return if (start != null && end != null && end > start) {
+            end.floorToMinute() - start.floorToMinute()
+        } else 0L
     }
 
     fun Route.getWorkTime(): Long? {
         val timeEnd = this.basicData.timeEndWork
         val timeStart = this.basicData.timeStartWork
         return if (timeEnd != null && timeStart != null) {
-            (timeEnd - timeStart) - getBreakDuration()
+            (timeEnd.floorToMinute() - timeStart.floorToMinute()) - getBreakDuration()
         } else {
             null
         }
@@ -256,7 +261,7 @@ object UtilsForEntities {
         val timeEnd = this.timeArrival
         val timeStart = this.timeDeparture
         return if (timeEnd != null && timeStart != null) {
-            timeEnd - timeStart
+            timeEnd.floorToMinute() - timeStart.floorToMinute()
         } else {
             null
         }
@@ -787,7 +792,7 @@ object UtilsForEntities {
                 }
             }
         }
-        return (timeEndFollowing - timeStartFollowing) ?: 0L
+        return (timeEndFollowing?.floorToMinute() - timeStartFollowing?.floorToMinute()) ?: 0L
     }
 
     fun List<Route>.getSingleLocomotiveTime(): Long {
@@ -1055,7 +1060,10 @@ object UtilsForEntities {
             }
 
             if (searchIntervalDistance.contains(summaryDistance)) {
-                summaryTimeFollowing += endWork - startWork
+                // Доплата за плечо обслуживания не начисляется на часы следования
+                // пассажиром — вычитаем их из времени смены.
+                val passengerTime = this.getPassengerTime() ?: 0L
+                summaryTimeFollowing += ((endWork - startWork) - passengerTime).coerceAtLeast(0L)
             }
             return summaryTimeFollowing
         }
@@ -1094,7 +1102,10 @@ object UtilsForEntities {
                 val startWork = this.basicData.timeStartWork
                 val endWork = this.basicData.timeEndWork
                 if (startWork != null && endWork != null) {
-                    resultTime += endWork - startWork
+                    // Доплата за длинносоставный поезд не начисляется на часы
+                    // следования пассажиром — вычитаем их из времени смены.
+                    val passengerTime = this.getPassengerTime() ?: 0L
+                    resultTime += ((endWork - startWork) - passengerTime).coerceAtLeast(0L)
                     return resultTime
                 }
             }
@@ -1137,7 +1148,10 @@ object UtilsForEntities {
                 val startWork = this.basicData.timeStartWork
                 val endWork = this.basicData.timeEndWork
                 if (startWork != null && endWork != null) {
-                    resultTime += endWork - startWork
+                    // Доплата за тяжеловесный поезд не начисляется на часы
+                    // следования пассажиром — вычитаем их из времени смены.
+                    val passengerTime = this.getPassengerTime() ?: 0L
+                    resultTime += ((endWork - startWork) - passengerTime).coerceAtLeast(0L)
                     return resultTime
                 }
             }
@@ -1314,8 +1328,8 @@ object UtilsForEntities {
      */
     fun Train.getTravelTime(): Long? {
         if (stations.size < 2) return null
-        val departure = stations.first().timeDeparture ?: return null
-        val arrival = stations.last().timeArrival ?: return null
+        val departure = stations.first().timeDeparture?.floorToMinute() ?: return null
+        val arrival = stations.last().timeArrival?.floorToMinute() ?: return null
         return if (arrival > departure) arrival - departure else null
     }
 

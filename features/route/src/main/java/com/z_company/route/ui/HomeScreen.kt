@@ -292,6 +292,7 @@ fun HomeScreen(
     }
 
     var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
+    var copyRouteId by remember { mutableStateOf<String?>(null) }
 
     // Тип шторки со списком единиц текущего маршрута (loco/train/passenger), null — скрыта
     var unitsSheetType by remember { mutableStateOf<String?>(null) }
@@ -386,7 +387,7 @@ fun HomeScreen(
                 syncRoute = syncRoute,
                 setFavoriteState = setFavoriteState,
                 onRouteClick = onRouteClick,
-                makeCopyRoute = makeCopyRoute,
+                makeCopyRoute = { id -> copyRouteId = id },
                 showDialogConfirmRemove = { showDialog, route ->
                     routeForRemove = route
                     isShowDialogConfirmRemoveRoute = true
@@ -566,6 +567,36 @@ fun HomeScreen(
                         onDeleteRoute(it)
                     }
                 }
+            )
+        )
+    }
+
+    // Шторка подтверждения создания копии маршрута
+    copyRouteId?.let { id ->
+        AppBottomSheet(
+            onDismissRequest = { copyRouteId = null },
+            sheetState = sheetState,
+            headerContent = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "Создать копию маршрута?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "\nОткроется редактирование копии — исходный маршрут не изменится.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            actions = listOf(
+                BottomSheetAction(text = "Создать копию") { makeCopyRoute(id) }
             )
         )
     }

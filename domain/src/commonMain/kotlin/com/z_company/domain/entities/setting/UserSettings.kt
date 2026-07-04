@@ -38,6 +38,7 @@ data class UserSettings(
     val subscriptionPeriod: Long = 0,
     val isDecimalTime: Boolean = false,
     val isShowBreak: Boolean = true,
+    val isShowOnePersonSwitch: Boolean = true,
     val isShowLocoHeating: Boolean = true,
     val isShowLocoAuxiliary: Boolean = true,
     val isShowLocoStatistics: Boolean = true,

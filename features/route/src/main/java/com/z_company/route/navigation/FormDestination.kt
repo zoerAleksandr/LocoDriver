@@ -103,10 +103,12 @@ fun FormDestination(
         currentRoute = currentRoute,
         exitScreen = { router.showHome(HomeRoute.route) },
         isCopy = formUiState.isCopy,
+        isNewRoute = routeId == NULLABLE_ID,
         onNumberChanged = viewModel::setNumber,
         checkedOnePersonOperation = viewModel::checkedOnePersonOperation,
         onNotesChanged = viewModel::setNotes,
         onSettingClick = router::showSettingsRoute,
+        onFormSettingsClick = router::showSettingsRouteForm,
         onRestSettingClick = router::showSettingsRest,
         resetSaveState = viewModel::resetSaveState,
         onTimeStartWorkChanged = viewModel::setTimeStartWork,
@@ -114,6 +116,7 @@ fun FormDestination(
         onTimeStartBreakChanged = viewModel::setTimeStartBreak,
         onTimeEndBreakChanged = viewModel::setTimeEndBreak,
         isShowBreak = userSetting?.isShowBreak ?: true,
+        isShowOnePersonSwitch = userSetting?.isShowOnePersonSwitch ?: true,
         onRestChanged = viewModel::onRestChanged,
         onChangedLocoClick = router::showChangedLocoForm,
         onNewLocoClick = { viewModel.onAddChildEntity(it, ChildEntityType.LOCOMOTIVE) },
@@ -129,6 +132,11 @@ fun FormDestination(
         onSalarySettingClick = router::showSettingSalary,
         setFavoriteState = viewModel::setFavoriteRoute,
         dateAndTimeConverter = dateAndTimeConverter,
-        showPurchasesScreen = router::showPurchasesScreen
+        showPurchasesScreen = router::showPurchasesScreen,
+        onCopyClick = {
+            currentRoute?.basicData?.id?.let { id ->
+                router.showRouteForm(basicId = id, isMakeCopy = true)
+            }
+        }
     )
 }

@@ -28,5 +28,34 @@ data class SalaryForRouteState(
     val surchargesAtTrain: Double? = null,
     val paymentAtOnePerson: Double? = null,
     val otherSurcharge: Double? = null,
-    val overRestMoney: Double? = null
+    val overRestMoney: Double? = null,
+    // Исходники для пояснений расчёта в шторке
+    val tariffRate: Double? = null,
+    val workTimeForPay: Long? = null,
+    val zonalPercent: Double? = null,
+    val zonalTime: Long? = null,
+    val nightPercent: Double? = null,
+    val onePersonPercent: Double? = null,
+    val onePersonTime: Long? = null,
+    val overRestTime: Long? = null,
+    // Виды применённых доплат за поезд (тяжеловесный, длинносоставный и т.д.)
+    val trainSurchargeTypes: List<String> = emptyList(),
+)
+
+/**
+ * Данные предупреждения «вторая ночь подряд». Причина:
+ *  - два ночных маршрута друг за другом, либо
+ *  - один маршрут захватывает два ночных окна.
+ */
+data class NightWarnState(
+    val rows: List<NightWarnRow>,
+)
+
+data class NightWarnRow(
+    val label: String,
+    val start: Long,
+    val end: Long,
+    val nightMillis: Long,
+    // Интервалы ночных окон внутри маршрута (абсолютные ms) — для графической линии
+    val nightIntervals: List<Pair<Long, Long>> = emptyList(),
 )

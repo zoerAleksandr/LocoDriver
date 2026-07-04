@@ -45,6 +45,7 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
             subscriptionPeriod = us.subscriptionPeriod,
             isDecimalTime = if (us.isDecimalTime) 1L else 0L,
             isShowBreak = if (us.isShowBreak) 1L else 0L,
+            isShowOnePersonSwitch = if (us.isShowOnePersonSwitch) 1L else 0L,
             isShowLocoHeating = if (us.isShowLocoHeating) 1L else 0L,
             isShowLocoAuxiliary = if (us.isShowLocoAuxiliary) 1L else 0L,
             isShowLocoStatistics = if (us.isShowLocoStatistics) 1L else 0L,

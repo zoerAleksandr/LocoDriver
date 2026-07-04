@@ -21,6 +21,89 @@ object CalculateNightTime {
         return if (end > start) end - start else 0L
     }
 
+    /**
+     * Сколько отдельных ночных окон захватывает маршрут. Ночное окно каждого
+     * дня — [день hourStart:minuteStart, (день/след.день) hourEnd:minuteEnd].
+     * Используется для предупреждения «вторая ночь подряд» внутри одного маршрута.
+     */
+    fun getNightWindowsCount(
+        startMillis: Long?,
+        endMillis: Long?,
+        hourStart: Int,
+        minuteStart: Int,
+        hourEnd: Int,
+        minuteEnd: Int,
+        offsetInMoscow: Long,
+    ): Int {
+        if (startMillis == null || endMillis == null || endMillis <= startMillis) return 0
+        val tzStr = getTimeZone(offsetInMoscow)
+        val tz = TimeZone.of(tzStr)
+        val crossesMidnight = hourStart > hourEnd ||
+            (hourStart == hourEnd && minuteStart > minuteEnd)
+
+        var day = Instant.fromEpochMilliseconds(startMillis).toLocalDateTime(tz).date
+        val endDay = Instant.fromEpochMilliseconds(endMillis).toLocalDateTime(tz).date
+        var count = 0
+        while (day <= endDay) {
+            val dayStart = day.atStartOfDayIn(tz).toEpochMilliseconds()
+            val nightStart = withTime(dayStart, hourStart, minuteStart, tzStr)
+            val nightEnd = if (crossesMidnight) {
+                val nextDayStart = day.plus(1, DateTimeUnit.DAY)
+                    .atStartOfDayIn(tz).toEpochMilliseconds()
+                withTime(nextDayStart, hourEnd, minuteEnd, tzStr)
+            } else {
+                withTime(dayStart, hourEnd, minuteEnd, tzStr)
+            }
+            if (overlapDuration(nightStart, nightEnd, startMillis, endMillis) > 0L) {
+                count++
+            }
+            day = day.plus(1, DateTimeUnit.DAY)
+        }
+        return count
+    }
+
+    /**
+     * Интервалы пересечения маршрута с ночными окнами (абсолютные ms).
+     * Для графической линии предупреждения «вторая ночь подряд».
+     */
+    fun getNightIntervals(
+        startMillis: Long?,
+        endMillis: Long?,
+        hourStart: Int,
+        minuteStart: Int,
+        hourEnd: Int,
+        minuteEnd: Int,
+        offsetInMoscow: Long,
+    ): List<Pair<Long, Long>> {
+        if (startMillis == null || endMillis == null || endMillis <= startMillis) return emptyList()
+        val tzStr = getTimeZone(offsetInMoscow)
+        val tz = TimeZone.of(tzStr)
+        val crossesMidnight = hourStart > hourEnd ||
+            (hourStart == hourEnd && minuteStart > minuteEnd)
+
+        var day = Instant.fromEpochMilliseconds(startMillis).toLocalDateTime(tz).date
+        val endDay = Instant.fromEpochMilliseconds(endMillis).toLocalDateTime(tz).date
+        val result = mutableListOf<Pair<Long, Long>>()
+        while (day <= endDay) {
+            val dayStart = day.atStartOfDayIn(tz).toEpochMilliseconds()
+            val nightStart = withTime(dayStart, hourStart, minuteStart, tzStr)
+            val nightEnd = if (crossesMidnight) {
+                val nextDayStart = day.plus(1, DateTimeUnit.DAY)
+                    .atStartOfDayIn(tz).toEpochMilliseconds()
+                withTime(nextDayStart, hourEnd, minuteEnd, tzStr)
+            } else {
+                withTime(dayStart, hourEnd, minuteEnd, tzStr)
+            }
+            val overlapStart = maxOf(nightStart, startMillis)
+            val overlapEnd = minOf(nightEnd, endMillis)
+            if (overlapEnd > overlapStart) {
+                result.add(overlapStart to overlapEnd)
+            }
+            day = day.plus(1, DateTimeUnit.DAY)
+        }
+        return result
+    }
+
     fun getNightTime(
         startMillis: Long?,
         endMillis: Long?,

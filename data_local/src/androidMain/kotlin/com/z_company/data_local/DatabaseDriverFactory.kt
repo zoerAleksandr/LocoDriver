@@ -31,6 +31,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "Settings.db",
             SettingsDatabase.Schema.version.toInt(),
             "UserSettings" to "isShowBreak",
+            "UserSettings" to "isShowOnePersonSwitch",
             "UserSettings" to "isShowLocoHeating",
             "UserSettings" to "isShowLocoAuxiliary",
             "UserSettings" to "isShowLocoStatistics",
@@ -213,6 +214,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
         private val COLUMN_SPECS = mapOf(
             // Settings — все новые столбцы (миграции 1.sqm … 10.sqm)
             "UserSettings.isShowBreak" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowOnePersonSwitch" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.isShowLocoHeating" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.isShowLocoAuxiliary" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.isShowLocoStatistics" to ColumnSpec("INTEGER", false, "1"),

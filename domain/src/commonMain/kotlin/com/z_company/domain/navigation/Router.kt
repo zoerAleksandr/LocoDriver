@@ -15,6 +15,7 @@ interface Router {
     fun showRouteDetails(basicData: BasicData)
     fun showSettings()
     fun showSettingsRoute() { showSettings() }
+    fun showSettingsRouteForm() { showSettings() }
     fun showSettingsLoco() { showSettings() }
     fun showSettingsRest() { showSettings() }
     fun showSettingsSeriesList() { showSettings() }

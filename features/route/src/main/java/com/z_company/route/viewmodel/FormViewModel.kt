@@ -135,6 +135,9 @@ class FormViewModel(
     private val _holidayTime = MutableStateFlow<Long?>(null)
     val holidayTime: StateFlow<Long?> = _holidayTime.asStateFlow()
 
+    private val _nightWarnState = MutableStateFlow<NightWarnState?>(null)
+    val nightWarnState: StateFlow<NightWarnState?> = _nightWarnState.asStateFlow()
+
     private val _userSetting = MutableStateFlow<UserSettings?>(null)
     val userSetting: StateFlow<UserSettings?> = _userSetting.asStateFlow()
 
@@ -251,6 +254,7 @@ class FormViewModel(
                         launch { getFullRest(route) }
                         launch { isValidTime(route) }
                         launch { getPassengerTime(route) }
+                        launch { computeNightWarn(route, settings) }
                     }
                 }
             }
@@ -412,6 +416,14 @@ class FormViewModel(
                 salaryCalculationHelper.getMoneyZonalSurchargeFlow().first()
             }
 
+            val deferredZonalPercent = async {
+                salaryCalculationHelper.getPercentZonalSurchargeFlow().first()
+            }
+
+            val deferredZonalTime = async {
+                salaryCalculationHelper.getTimeZonalSurchargeFlow().first()
+            }
+
             val deferredMoneyAtPassengerTime = async {
                 salaryCalculationHelper.getMoneyAtPassengerFlow().first()
             }
@@ -473,11 +485,11 @@ class FormViewModel(
                         if (prevRoute.basicData.restPointOfTurnover) {
                             val overRestTime = prevRoute.getOverRestTime(route, setting.minTimeRestPointOfTurnover)
                             if (overRestTime > 0L) {
-                                overRestTime.times(setting.selectMonthOfYear.tariffRate * (2.0 / 3.0)) / 3_600_000.toDouble()
-                            } else 0.0
-                        } else 0.0
-                    } else 0.0
-                } else 0.0
+                                (overRestTime.times(setting.selectMonthOfYear.tariffRate * (2.0 / 3.0)) / 3_600_000.toDouble()) to overRestTime
+                            } else 0.0 to 0L
+                        } else 0.0 to 0L
+                    } else 0.0 to 0L
+                } else 0.0 to 0L
             }
 
             // Синхронная логика (не требует async)
@@ -500,6 +512,15 @@ class FormViewModel(
                 }
             }
 
+            // База времени «в одно лицо» — для пояснения-формулы в шторке
+            val deferredOnePersonTime = async {
+                if (isPassengerTrain) {
+                    salaryCalculationHelper.getTimeOnePersonOperationPassengerTrainFlow().first()
+                } else {
+                    salaryCalculationHelper.getTimeOnePersonOperationFlow().first()
+                }
+            }
+
             // Дожидаемся завершения всех асинхронных задач с помощью await().
             // Мы вызываем await() на каждом Deferred, чтобы получить реальные значения.
             // Это блокирует выполнение до тех пор, пока все вычисления не завершатся.
@@ -518,13 +539,30 @@ class FormViewModel(
             val moneyAtHarmfulness = deferredMoneyAtHarmfulness.await()
             val otherSurchargeMoney = deferredOtherSurchargeMoney.await()
             val moneyAtOnePerson = deferredMoneyAtOnePerson.await()
+            val onePersonTime = deferredOnePersonTime.await()
             val surchargeAtDoubledTrainFirst = deferredSurchargeAtDoubledTrainFirst.await()
             val surchargeAtDoubledTrainSecond = deferredSurchargeAtDoubledTrainSecond.await()
-            val overRestMoney = deferredOverRestMoney.await()
+            val (overRestMoney, overRestTime) = deferredOverRestMoney.await()
+            val zonalPercent = deferredZonalPercent.await()
+            val zonalTime = deferredZonalTime.await()
+            val currentSalarySetting = _salarySetting.value
+            val onePersonPercent = if (isPassengerTrain) {
+                currentSalarySetting?.onePersonOperationPassengerTrainPercent
+            } else {
+                currentSalarySetting?.onePersonOperationPercent
+            }
 
             // Теперь, когда все значения получены, выполняем суммирование
             val surchargeAtTrains =
                 surchargeAtExtendedServicePhase + surchargeAtHeavyTrains + surchargeAtLongTrains + surchargeAtDoubledTrainFirst + surchargeAtDoubledTrainSecond
+
+            // Какие именно доплаты за поезд применены — для расшифровки в шторке
+            val trainSurchargeTypes = buildList {
+                if (surchargeAtHeavyTrains != 0.0) add("тяжеловесный")
+                if (surchargeAtLongTrains != 0.0) add("длинносоставный")
+                if (surchargeAtExtendedServicePhase != 0.0) add("удлинённое плечо")
+                if (surchargeAtDoubledTrainFirst + surchargeAtDoubledTrainSecond != 0.0) add("сдвоенный")
+            }
 
             val otherSurcharge =
                 moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney
@@ -550,7 +588,16 @@ class FormViewModel(
                     surchargesAtTrain = surchargeAtTrains,
                     paymentAtOnePerson = moneyAtOnePerson,
                     otherSurcharge = otherSurcharge,
-                    overRestMoney = overRestMoney
+                    overRestMoney = overRestMoney,
+                    tariffRate = setting.selectMonthOfYear.tariffRate,
+                    workTimeForPay = workTime,
+                    zonalPercent = zonalPercent,
+                    zonalTime = zonalTime,
+                    nightPercent = currentSalarySetting?.nightTimePercent,
+                    onePersonPercent = onePersonPercent,
+                    onePersonTime = onePersonTime,
+                    overRestTime = overRestTime,
+                    trainSurchargeTypes = trainSurchargeTypes
                 )
             }
 
@@ -572,6 +619,93 @@ class FormViewModel(
             ).first()
             _uiState.update { it.copy(nightTime = nightMillis) }
         }
+    }
+
+    /**
+     * Предупреждение «вторая ночь подряд»: текущий маршрут захватывает ночное
+     * окно, и предыдущий по времени маршрут (в пределах ~36 ч) — тоже.
+     */
+    private suspend fun computeNightWarn(route: Route, settings: UserSettings) {
+        val start = route.basicData.timeStartWork
+        val end = route.basicData.timeEndWork
+        if (start == null || end == null) {
+            _nightWarnState.value = null
+            return
+        }
+        val offset = currentTimeZoneOffset ?: 0L
+
+        // Правило «вторая ночь подряд» считается по фиксированному окну 00:00–05:00
+        // (не по пользовательским настройкам ночных часов для оплаты).
+        val nightStartHour = 0
+        val nightStartMinute = 0
+        val nightEndHour = 5
+        val nightEndMinute = 0
+
+        suspend fun nightOf(s: Long, e: Long, bs: Long?, be: Long?): Long =
+            CalculateNightTime.getNightTime(
+                startMillis = s, endMillis = e,
+                hourStart = nightStartHour, minuteStart = nightStartMinute,
+                hourEnd = nightEndHour, minuteEnd = nightEndMinute,
+                offsetInMoscow = offset,
+                breakStartMillis = bs, breakEndMillis = be
+            ).first() ?: 0L
+
+        fun intervalsOf(s: Long, e: Long): List<Pair<Long, Long>> =
+            CalculateNightTime.getNightIntervals(
+                startMillis = s, endMillis = e,
+                hourStart = nightStartHour, minuteStart = nightStartMinute,
+                hourEnd = nightEndHour, minuteEnd = nightEndMinute,
+                offsetInMoscow = offset
+            )
+
+        val thisNight = nightOf(start, end, route.basicData.timeStartBreak, route.basicData.timeEndBreak)
+        if (thisNight <= 0L) {
+            _nightWarnState.value = null
+            return
+        }
+
+        // Случай 1: сам маршрут захватывает два ночных окна.
+        val nightWindows = CalculateNightTime.getNightWindowsCount(
+            startMillis = start, endMillis = end,
+            hourStart = nightStartHour, minuteStart = nightStartMinute,
+            hourEnd = nightEndHour, minuteEnd = nightEndMinute,
+            offsetInMoscow = offset
+        )
+        if (nightWindows >= 2) {
+            _nightWarnState.value = NightWarnState(
+                listOf(NightWarnRow("Этот маршрут", start, end, thisNight, intervalsOf(start, end)))
+            )
+            return
+        }
+
+        // Случай 2: предыдущий по времени маршрут (в пределах ~36 ч) тоже ночной.
+        val monthRoutesState = routeUseCase
+            .listRoutesByMonth(settings.selectMonthOfYear, settings.timeZone)
+            .first { it is ResultState.Success }
+        val prev = (monthRoutesState as? ResultState.Success)?.data
+            ?.filter { it.basicData.id != route.basicData.id }
+            ?.filter { it.basicData.timeStartWork != null && it.basicData.timeEndWork != null }
+            ?.filter { (it.basicData.timeStartWork ?: 0L) < start }
+            ?.maxByOrNull { it.basicData.timeStartWork ?: 0L }
+        val prevStart = prev?.basicData?.timeStartWork
+        val prevEnd = prev?.basicData?.timeEndWork
+        val consecutiveLimit = 36L * 3_600_000L
+        if (prev == null || prevStart == null || prevEnd == null || start - prevEnd > consecutiveLimit) {
+            _nightWarnState.value = null
+            return
+        }
+        val prevNight = nightOf(prevStart, prevEnd, prev.basicData.timeStartBreak, prev.basicData.timeEndBreak)
+        if (prevNight <= 0L) {
+            _nightWarnState.value = null
+            return
+        }
+
+        _nightWarnState.value = NightWarnState(
+            listOf(
+                NightWarnRow("Предыдущий маршрут", prevStart, prevEnd, prevNight, intervalsOf(prevStart, prevEnd)),
+                NightWarnRow("Этот маршрут", start, end, thisNight, intervalsOf(start, end))
+            )
+        )
     }
 
     private suspend fun getHolidayTimeInRoute(route: Route, settings: UserSettings) {
@@ -645,13 +779,16 @@ class FormViewModel(
         changesHave()
     }
 
+    // Отбрасываем секунды и миллисекунды — время работы должно быть кратно минуте.
+    private fun Long?.truncateToMinute(): Long? = this?.let { it - it % 60_000L }
+
     fun setTimeStartWork(time: Long?) {
-        _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeStartWork = time)) }
+        _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeStartWork = time.truncateToMinute())) }
         changesHave()
     }
 
     fun setTimeEndWork(time: Long?) {
-        _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeEndWork = time)) }
+        _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeEndWork = time.truncateToMinute())) }
         changesHave()
         if (time != null) {
             checkWorkTimeExceeds12h()
@@ -659,12 +796,12 @@ class FormViewModel(
     }
 
     fun setTimeStartBreak(time: Long?) {
-        _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeStartBreak = time)) }
+        _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeStartBreak = time.truncateToMinute())) }
         changesHave()
     }
 
     fun setTimeEndBreak(time: Long?) {
-        _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeEndBreak = time)) }
+        _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeEndBreak = time.truncateToMinute())) }
         changesHave()
     }
 

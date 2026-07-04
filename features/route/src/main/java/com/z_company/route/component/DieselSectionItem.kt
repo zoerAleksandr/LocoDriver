@@ -379,7 +379,7 @@ fun DieselSectionItem(
             .padding(horizontal = 16.dp, vertical = 6.dp),
         onDeleteClick = { onDeleteItem(item) },
         closeSignal = closeSwipeSignal
-    ) {
+    ) { _ ->
         Card(
             shape = Shapes.medium,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary),

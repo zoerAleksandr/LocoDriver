@@ -62,6 +62,7 @@ import com.z_company.route.ui.settings.SettingsLocoContent
 import com.z_company.route.ui.settings.SettingsNormaContent
 import com.z_company.route.ui.settings.SettingsRestContent
 import com.z_company.route.ui.settings.SettingsRouteContent
+import com.z_company.route.ui.settings.SettingsRouteFormContent
 import com.z_company.route.ui.settings.SettingsShouldersContent
 import com.z_company.route.ui.settings.SettingsSeriesListContent
 import com.z_company.route.ui.settings.SettingsSeriesEditorContent
@@ -82,6 +83,7 @@ import androidx.core.net.toUri
 enum class SettingsSubScreen(val title: String) {
     HUB("Настройки"),
     ROUTE("Основные"),
+    ROUTE_FORM("Маршрут"),
     NORMA("Норма/Регион"),
     ACCOUNTING("Учёт"),
     REST("Отдых"),
@@ -112,6 +114,7 @@ fun SettingsScreen(
     changeUsingDefaultWorkTime: (Boolean) -> Unit,
     changeConsiderFutureRoute: (Boolean) -> Unit,
     changeShowBreak: (Boolean) -> Unit,
+    changeShowOnePersonSwitch: (Boolean) -> Unit,
     changeShowLocoHeating: (Boolean) -> Unit,
     changeShowLocoAuxiliary: (Boolean) -> Unit,
     changeShowLocoStatistics: (Boolean) -> Unit,
@@ -147,6 +150,7 @@ fun SettingsScreen(
                 InitState(SettingsSubScreen.SERIES_EDITOR, null, initialSubScreen.removePrefix("SERIES_EDITOR_"))
             else -> when (initialSubScreen) {
                 "ROUTE" -> InitState(SettingsSubScreen.ROUTE, null, null)
+                "ROUTE_FORM" -> InitState(SettingsSubScreen.ROUTE_FORM, null, null)
                 "NORMA" -> InitState(SettingsSubScreen.NORMA, null, null)
                 "ACCOUNTING" -> InitState(SettingsSubScreen.ACCOUNTING, null, null)
                 "REST" -> InitState(SettingsSubScreen.REST, null, null)
@@ -333,6 +337,14 @@ fun SettingsScreen(
                             )
                         }
 
+                        SettingsSubScreen.ROUTE_FORM -> {
+                            SettingsRouteFormContent(
+                                currentSettings = settings,
+                                changeShowBreak = changeShowBreak,
+                                changeShowOnePersonSwitch = changeShowOnePersonSwitch,
+                            )
+                        }
+
                         SettingsSubScreen.SHOULDERS -> {
                             SettingsShouldersContent(
                                 settingsUiState = settingsUiState,
@@ -432,6 +444,10 @@ private fun SettingsHubContent(
         SettingsNavItem(
             title = "Основные",
             onClick = { onNavigate(SettingsSubScreen.ROUTE) }
+        )
+        SettingsNavItem(
+            title = "Маршрут",
+            onClick = { onNavigate(SettingsSubScreen.ROUTE_FORM) }
         )
         SettingsNavItem(
             title = "Норма/Регион",

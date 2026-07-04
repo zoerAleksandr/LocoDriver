@@ -168,6 +168,10 @@ class RouterImpl(
         requireNavController().navigate(SettingsScreenRoute.buildRoute("ROUTE"))
     }
 
+    override fun showSettingsRouteForm() {
+        requireNavController().navigate(SettingsScreenRoute.buildRoute("ROUTE_FORM"))
+    }
+
     override fun showSettingsLoco() {
         requireNavController().navigate(SettingsScreenRoute.buildRoute("LOCOMOTIVE"))
     }

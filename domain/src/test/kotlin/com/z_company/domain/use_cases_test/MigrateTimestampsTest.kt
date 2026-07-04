@@ -67,6 +67,7 @@ class MigrateTimestampsTest {
         override fun setRemoteObjectIdPhoto(photoId: String, objectId: String): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun clearRepository(): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun setFavoriteRoute(routeId: String, isFavorite: Boolean): Flow<ResultState<Boolean>> = flow { emit(ResultState.Success(isFavorite)) }
+        override fun markUnsynchronized(basicId: String): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
     }
 
     // ==================== Константы ====================

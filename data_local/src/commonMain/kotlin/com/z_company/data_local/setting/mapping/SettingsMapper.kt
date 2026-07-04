@@ -64,6 +64,7 @@ internal object SettingsMapper {
         subscriptionPeriod = row.subscriptionPeriod,
         isDecimalTime = row.isDecimalTime != 0L,
         isShowBreak = row.isShowBreak != 0L,
+        isShowOnePersonSwitch = row.isShowOnePersonSwitch != 0L,
         isShowLocoHeating = row.isShowLocoHeating != 0L,
         isShowLocoAuxiliary = row.isShowLocoAuxiliary != 0L,
         isShowLocoStatistics = row.isShowLocoStatistics != 0L,
