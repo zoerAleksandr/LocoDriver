@@ -428,7 +428,7 @@ fun FormPassengerScreen(
                                     textStyle = dataTextStyle,
                                     placeholder = {
                                         Text(
-                                            text = "Например: бригада №2, вагон 7, место 32",
+                                            text = "Например: номер приказа",
                                             style = LocalTextStyle.current.copy(
                                                 fontWeight = FontWeight.Normal
                                             ),
