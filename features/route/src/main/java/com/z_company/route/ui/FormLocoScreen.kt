@@ -316,6 +316,10 @@ fun FormLocoScreen(
                 val focusManager = LocalFocusManager.current
                 val scope = rememberCoroutineScope()
                 val dataTextStyle = MaterialTheme.typography.bodyLarge
+                // Моно для идентификаторов (серия и номер локомотива — «ВЛ10-1456»).
+                val monoDataTextStyle = dataTextStyle.copy(
+                    fontFamily = com.z_company.core.ui.theme.MonoFont
+                )
 
                 val subTitleTextStyle = MaterialTheme.typography.bodyMedium
 
@@ -543,7 +547,7 @@ fun FormLocoScreen(
                                                 onSeriesChanged(it.text)
                                                 onChangedContentMenu(it.text)
                                             },
-                                            textStyle = dataTextStyle,
+                                            textStyle = monoDataTextStyle,
                                             fieldElevation = 0.dp,
                                             colorBackgroundEmptyField = Color.Transparent,
                                             colorBackgroundNotEmptyField = Color.Transparent,
@@ -570,7 +574,7 @@ fun FormLocoScreen(
                                             },
                                             onDelete = onDeleteSeries,
                                             onDismiss = { onExpandedMenuChange(false) },
-                                            textStyle = dataTextStyle
+                                            textStyle = monoDataTextStyle
                                         )
                                     }
                                 }
@@ -597,7 +601,7 @@ fun FormLocoScreen(
                                     OutlinedTextFieldApp(
                                         modifier = Modifier.fillMaxWidth(),
                                         value = locomotive.number ?: "",
-                                        textStyle = dataTextStyle,
+                                        textStyle = monoDataTextStyle,
                                         fieldElevation = 0.dp,
                                         colorBackgroundEmptyField = Color.Transparent,
                                         colorBackgroundNotEmptyField = Color.Transparent,

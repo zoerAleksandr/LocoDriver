@@ -260,7 +260,11 @@ fun StationEditBottomSheet(
                                 color = hintColor
                             )
                         },
-                        textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium),
+                        // Номер пути — идентификатор → Mono.
+                        textStyle = dataTextStyle.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = com.z_company.core.ui.theme.MonoFont
+                        ),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(
                             onDone = { focusManager.clearFocus() }

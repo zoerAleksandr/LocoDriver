@@ -61,7 +61,10 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -903,15 +906,26 @@ private fun WorkStartCard(
                                     color = MaterialTheme.colorScheme.tertiary
                                 )
                                 val timeText = time?.let { dateAndTimeConverter?.getDateAndTime(it) }
+                                // Название станции — Inter (имя собственное), дата/время — Mono.
+                                val content = buildAnnotatedString {
+                                    when {
+                                        timeText == null -> append("—")
+                                        !station.isNullOrBlank() -> {
+                                            append(station)
+                                            append(" · ")
+                                            withStyle(SpanStyle(fontFamily = MonoFont)) {
+                                                append(timeText)
+                                            }
+                                        }
+                                        else -> withStyle(SpanStyle(fontFamily = MonoFont)) {
+                                            append(timeText)
+                                        }
+                                    }
+                                }
                                 Text(
                                     modifier = Modifier.padding(top = 3.dp),
-                                    text = when {
-                                        timeText == null -> "—"
-                                        !station.isNullOrBlank() -> "$station · $timeText"
-                                        else -> timeText
-                                    },
+                                    text = content,
                                     style = MaterialTheme.typography.bodyLarge.copy(
-                                        fontFamily = MonoFont,
                                         fontWeight = FontWeight.SemiBold
                                     ),
                                     color = MaterialTheme.colorScheme.primary,

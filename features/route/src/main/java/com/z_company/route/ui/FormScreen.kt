@@ -105,6 +105,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -1499,9 +1500,10 @@ private fun LocomotiveSubItem(locomotive: Locomotive, index: Int) {
             color = MaterialTheme.colorScheme.primary
         )
     } else {
+        // Серия и номер локомотива — идентификатор → Mono.
         Text(
             text = "$series $numberText",
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont),
             color = MaterialTheme.colorScheme.primary
         )
     }
@@ -1528,8 +1530,12 @@ private fun TrainSubItem(index: Int, train: Train) {
             ""
         }
 
+        // Номер поезда — Mono (идентификатор), названия станций — Inter (имена собственные).
         Text(
-            text = "№ ${train.number} $stationStart$stationEnd",
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(fontFamily = MonoFont)) { append("№ ${train.number}") }
+                append(" $stationStart$stationEnd")
+            },
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyLarge,
@@ -1556,9 +1562,15 @@ private fun PassengerSubItem(index: Int, passenger: Passenger) {
             " - ${it}"
         } ?: ""
 
-        val text = "$textNumber $textStationDeparture $textStationArrival"
+        // Номер поезда — Mono, названия станций — Inter.
         Text(
-            text = text,
+            text = buildAnnotatedString {
+                if (textNumber.isNotEmpty()) {
+                    withStyle(SpanStyle(fontFamily = MonoFont)) { append(textNumber) }
+                    append(" ")
+                }
+                append("$textStationDeparture $textStationArrival")
+            },
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.primary
         )
@@ -1958,7 +1970,9 @@ private fun FormTimeRow(
         }
         Text(
             text = if (valueText.isNullOrBlank()) "Выбрать" else valueText,
-            style = MaterialTheme.typography.bodyLarge,
+            // Дата/время — Mono (значение), плейсхолдер «Выбрать» — Inter (язык).
+            style = if (valueText.isNullOrBlank()) MaterialTheme.typography.bodyLarge
+            else MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont),
             color = if (valueText.isNullOrBlank()) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
             else MaterialTheme.colorScheme.primary
         )

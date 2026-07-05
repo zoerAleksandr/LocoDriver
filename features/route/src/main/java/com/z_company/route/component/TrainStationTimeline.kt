@@ -50,6 +50,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.util.TimeManager
 import com.z_company.domain.entities.route.UtilsForEntities
@@ -410,11 +413,14 @@ private fun StationRow(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // ── Название станции (+ номер пути если задан) ──
-            val stationDisplayText = buildString {
+            // ── Название станции (Inter) + номер пути (Mono, идентификатор) ──
+            val stationDisplayText = buildAnnotatedString {
                 append(item.stationName.ifBlank { "—" })
                 if (!item.trackNumber.isNullOrBlank()) {
-                    append(" ${item.trackNumber} п.")
+                    append(" ")
+                    withStyle(SpanStyle(fontFamily = MonoFont)) {
+                        append("${item.trackNumber} п.")
+                    }
                 }
             }
             Text(
