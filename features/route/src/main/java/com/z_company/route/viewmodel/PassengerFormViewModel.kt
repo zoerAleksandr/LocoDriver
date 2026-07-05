@@ -47,6 +47,8 @@ class PassengerFormViewModel(
     private val settingsUseCase: SettingsUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
 
+    private val routeBasicId: String = basicId
+
     private val _uiState = MutableStateFlow(PassengerFormUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -110,6 +112,12 @@ class PassengerFormViewModel(
                 if (routeState is ResultState.Success) {
                     routeState.data?.let {
                         route = it
+                        _uiState.update { state ->
+                            state.copy(
+                                routeWorkStart = it.basicData.timeStartWork,
+                                routeWorkEnd = it.basicData.timeEndWork
+                            )
+                        }
                     }
                 }
 
@@ -300,6 +308,78 @@ class PassengerFormViewModel(
         )
         formValidTime()
         changesHave()
+        // Если этот пассажир — источник «явки по прибытию», держим timeStartWork
+        // маршрута синхронным с временем прибытия.
+        currentPassenger?.let { p ->
+            if (p.isWorkStartByArrival) {
+                viewModelScope.launch { syncWorkStartToRoute(p) }
+            }
+        }
+    }
+
+    /**
+     * «Явка по прибытию пассажиром». Включение делает прибытие этого пассажира
+     * началом рабочего времени маршрута (timeStartWork = timeArrival) и снимает
+     * флаг с остальных пассажиров (единственная точка отсчёта). Выключение просто
+     * снимает флаг — timeStartWork остаётся, пользователь может изменить явку вручную.
+     */
+    fun setWorkStartByArrival(enabled: Boolean) {
+        val updated = currentPassenger?.copy(isWorkStartByArrival = enabled) ?: return
+        currentPassenger = updated
+        changesHave()
+        viewModelScope.launch { syncWorkStartToRoute(updated) }
+    }
+
+    /**
+     * Переносит состояние «явки по прибытию» текущего пассажира в маршрут:
+     * обновляет [com.z_company.domain.entities.route.BasicData.timeStartWork],
+     * снимает флаг с других пассажиров и сохраняет маршрут целиком (что также
+     * помечает его несинхронизированным для отправки на сервер).
+     * Использует свежий маршрут из БД, т.к. поле [route] мутируется в formValidTime().
+     */
+    private suspend fun syncWorkStartToRoute(current: Passenger) {
+        // routeDetails эмитит Loading, затем Success — ждём именно Success.
+        val routeId = current.basicId.ifBlank { routeBasicId }
+        val routeState = routeUseCase.routeDetails(routeId).first { it is ResultState.Success }
+        val freshRoute = (routeState as? ResultState.Success)?.data ?: return
+
+        val mergedPassengers = freshRoute.passengers
+            .map { p ->
+                when {
+                    p.passengerId == current.passengerId -> current
+                    // Взаимоисключающе: включение на одном снимает флаг с остальных.
+                    current.isWorkStartByArrival -> p.copy(isWorkStartByArrival = false)
+                    else -> p
+                }
+            }
+            .toMutableList()
+            .also { list ->
+                if (list.none { it.passengerId == current.passengerId }) list.add(current)
+            }
+
+        val currentBasic = freshRoute.basicData
+        val newBasic = if (current.isWorkStartByArrival && current.timeArrival != null) {
+            // Включение: запоминаем прежнюю явку (если ещё не сохранена) и ставим прибытие.
+            currentBasic.copy(
+                timeStartWorkBeforeArrival = currentBasic.timeStartWorkBeforeArrival
+                    ?: currentBasic.timeStartWork,
+                timeStartWork = current.timeArrival
+            )
+        } else if (!current.isWorkStartByArrival) {
+            // Выключение: возвращаем прежнюю явку и очищаем резерв.
+            currentBasic.copy(
+                timeStartWork = currentBasic.timeStartWorkBeforeArrival ?: currentBasic.timeStartWork,
+                timeStartWorkBeforeArrival = null
+            )
+        } else {
+            currentBasic
+        }
+
+        val newRoute = freshRoute.copy(
+            basicData = newBasic,
+            passengers = mergedPassengers
+        )
+        routeUseCase.saveRoute(newRoute).first()
     }
 
     fun setNotes(notes: String) {
@@ -315,7 +395,10 @@ class PassengerFormViewModel(
                 passengers = mutableListOf(
                     Passenger(
                         timeArrival = currentPassenger?.timeArrival,
-                        timeDeparture = currentPassenger?.timeDeparture
+                        timeDeparture = currentPassenger?.timeDeparture,
+                        // Флаг нужен валидатору: для «явки по прибытию» отправление
+                        // до начала работы допустимо (RouteUseCase.isValidPassenger).
+                        isWorkStartByArrival = currentPassenger?.isWorkStartByArrival ?: false
                     )
                 )
             )

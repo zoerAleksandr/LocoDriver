@@ -24,6 +24,8 @@ data class SalaryForRouteState(
     val zonalSurchargeMoney: Double? = null,
     val paymentAtNightTime: Double? = null,
     val paymentAtPassengerTime: Double? = null,
+    // Оплата проезда пассажиром до явки (по тарифу, отдельно от работы)
+    val paymentAtPassengerOutsideTime: Double? = null,
     val paymentHolidayMoney: Double? = null,
     val surchargesAtTrain: Double? = null,
     val paymentAtOnePerson: Double? = null,

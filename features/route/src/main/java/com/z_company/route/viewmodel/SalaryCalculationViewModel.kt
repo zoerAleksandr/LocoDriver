@@ -364,7 +364,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             year = currentMonthOfYear.year,
             month = currentMonthOfYear.month
         ).first()
-        val totalWorkTime = helper.getTotalWorkTime().first()
+        val totalWorkTime = helper.getTotalWorkTimeWithCommute().first()
         val tariffText = if (currentMonthOfYear.dateSetTariffRate == null) {
             "${currentMonthOfYear.tariffRate.str()} ₽"
         } else {

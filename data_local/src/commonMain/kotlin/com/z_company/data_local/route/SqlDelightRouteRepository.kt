@@ -68,7 +68,8 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             notes = updatedBasic.notes,
             isFavorite = if (updatedBasic.isFavorite) 1L else 0L,
             timeStartBreak = updatedBasic.timeStartBreak,
-            timeEndBreak = updatedBasic.timeEndBreak
+            timeEndBreak = updatedBasic.timeEndBreak,
+            timeStartWorkBeforeArrival = updatedBasic.timeStartWorkBeforeArrival
         )
         route.locomotives.forEach { loco ->
             val locoBasicId = loco.basicId.ifBlank { basicId }
@@ -127,7 +128,8 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 stationArrival = passenger.stationArrival,
                 timeArrival = passenger.timeArrival,
                 timeDeparture = passenger.timeDeparture,
-                notes = passenger.notes
+                notes = passenger.notes,
+                isWorkStartByArrival = if (passenger.isWorkStartByArrival) 1L else 0L
             )
         }
         route.photos.forEach { photo ->
@@ -368,7 +370,8 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 stationArrival = passenger.stationArrival,
                 timeArrival = passenger.timeArrival,
                 timeDeparture = passenger.timeDeparture,
-                notes = passenger.notes
+                notes = passenger.notes,
+                isWorkStartByArrival = if (passenger.isWorkStartByArrival) 1L else 0L
             )
             db.basicDataQueries.markUnsynchronized(passenger.basicId)
         }

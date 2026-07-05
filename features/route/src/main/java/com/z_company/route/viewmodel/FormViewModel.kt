@@ -20,6 +20,7 @@ import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
 import com.z_company.domain.repositories.SharedPreferencesRepositories
@@ -293,7 +294,7 @@ class FormViewModel(
                             // (та же логика что и для нового маршрута).
                             if (countLoadRoute == 1) {
                                 // Первая загрузка: устанавливаем весь маршрут из БД
-                                _currentRoute.value = loadedRoute
+                                _currentRoute.value = loadedRoute?.withWorkStartFromPassenger()
                             } else {
                                 // Возврат с подэкрана (Loco/Train/Passenger/Photo):
                                 // обновляем только подразделы, BasicData берём из памяти —
@@ -302,16 +303,24 @@ class FormViewModel(
                                 // иначе возникает бесконечный цикл: autosave→DB emit→changesHave→autosave
                                 loadedRoute?.let { dbRoute ->
                                     _currentRoute.update { inMemory ->
-                                        inMemory?.copy(
+                                        (inMemory?.copy(
                                             locomotives = dbRoute.locomotives,
                                             trains = dbRoute.trains,
                                             passengers = dbRoute.passengers,
                                             photos = dbRoute.photos,
-                                            // timeEndWork set from LocoFormScreen delivery sheet — take from DB
+                                            // timeEndWork set from LocoFormScreen delivery sheet — take from DB.
+                                            // timeStartWork может меняться на экране «Пассажиром»
+                                            // («явка по прибытию») — тоже берём из БД.
                                             basicData = inMemory.basicData.copy(
-                                                timeEndWork = dbRoute.basicData.timeEndWork
+                                                timeEndWork = dbRoute.basicData.timeEndWork,
+                                                timeStartWork = dbRoute.basicData.timeStartWork,
+                                                // резерв прежней явки тоже из БД — иначе автосейв затрёт
+                                                timeStartWorkBeforeArrival = dbRoute.basicData.timeStartWorkBeforeArrival
                                             )
-                                        ) ?: dbRoute
+                                        ) ?: dbRoute)
+                                            // Инвариант: если пассажир помечен «явкой по прибытию», явка
+                                            // всегда равна его прибытию — не полагаемся на тайминг записи в БД.
+                                            .withWorkStartFromPassenger()
                                     }
                                 }
                             }
@@ -388,7 +397,7 @@ class FormViewModel(
         route: Route,
         setting: UserSettings
     ) {
-        val workTime = route.getWorkTime()
+        val workTime = route.getPureWorkTime()
         if (workTime == null) {
             _salaryForRouteState.update { it.copy(isCalculated = false) }
             return
@@ -406,6 +415,12 @@ class FormViewModel(
                 var value = salaryCalculationHelper.getMoneyAtWorkTimeAtTariffSingleRoute().first()
                 if (value < 0.0) value = 0.0
                 value  // Возвращаем значение для await позже
+            }
+
+            // Фактическое тарифное время (после вычета пассажира в смене и т.п.) —
+            // чтобы подсказка «Почасовая оплата» совпадала с суммой.
+            val deferredWorkTimeForPay = async {
+                salaryCalculationHelper.getWorkTimeAtTariffSingleRouteFlow().first().coerceAtLeast(0L)
             }
 
             val deferredMoneyAtNightHours = async {
@@ -426,6 +441,10 @@ class FormViewModel(
 
             val deferredMoneyAtPassengerTime = async {
                 salaryCalculationHelper.getMoneyAtPassengerFlow().first()
+            }
+            // Оплата проезда пассажиром до явки — по тарифу, отдельно от работы.
+            val deferredMoneyAtPassengerOutside = async {
+                salaryCalculationHelper.getMoneyAtPassengerOutsideWorkFlow().first()
             }
 
             val deferredMoneyAtHoliday = async {
@@ -525,9 +544,11 @@ class FormViewModel(
             // Мы вызываем await() на каждом Deferred, чтобы получить реальные значения.
             // Это блокирует выполнение до тех пор, пока все вычисления не завершатся.
             val moneyAtTariffRate = deferredMoneyAtTariffRate.await()
+            val workTimeForPay = deferredWorkTimeForPay.await()
             val moneyAtNightHours = deferredMoneyAtNightHours.await()
             val zonalSurchargeMoney = deferredZonalSurchargeMoney.await()
             val moneyAtPassengerTime = deferredMoneyAtPassengerTime.await()
+            val moneyAtPassengerOutside = deferredMoneyAtPassengerOutside.await()
             val moneyAtHoliday = deferredMoneyAtHoliday.await()
 
             val surchargeAtExtendedServicePhase = deferredSurchargeAtExtendedServicePhase.await()
@@ -568,7 +589,7 @@ class FormViewModel(
                 moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney
 
             val totalMoney =
-                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge + overRestMoney
+                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtPassengerOutside + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge + overRestMoney
 
             // Логи (оставляем как есть)
             Log.d("zzz", "moneyAtTariffRate $moneyAtTariffRate")
@@ -584,13 +605,14 @@ class FormViewModel(
                     paymentAtNightTime = moneyAtNightHours,
                     zonalSurchargeMoney = zonalSurchargeMoney,
                     paymentAtPassengerTime = moneyAtPassengerTime,
+                    paymentAtPassengerOutsideTime = moneyAtPassengerOutside,
                     paymentHolidayMoney = moneyAtHoliday,
                     surchargesAtTrain = surchargeAtTrains,
                     paymentAtOnePerson = moneyAtOnePerson,
                     otherSurcharge = otherSurcharge,
                     overRestMoney = overRestMoney,
                     tariffRate = setting.selectMonthOfYear.tariffRate,
-                    workTimeForPay = workTime,
+                    workTimeForPay = workTimeForPay,
                     zonalPercent = zonalPercent,
                     zonalTime = zonalTime,
                     nightPercent = currentSalarySetting?.nightTimePercent,
@@ -782,8 +804,39 @@ class FormViewModel(
     // Отбрасываем секунды и миллисекунды — время работы должно быть кратно минуте.
     private fun Long?.truncateToMinute(): Long? = this?.let { it - it % 60_000L }
 
+    /**
+     * Инвариант «явки по прибытию»: если есть пассажир с флагом isWorkStartByArrival и
+     * заданным прибытием, явка маршрута = его прибытию. Применяем при загрузке/слиянии
+     * маршрута, чтобы экран не зависел от тайминга записи timeStartWork в БД.
+     */
+    private fun Route.withWorkStartFromPassenger(): Route {
+        val arrival = passengers.firstOrNull {
+            it.isWorkStartByArrival && it.timeArrival != null
+        }?.timeArrival ?: return this
+        return if (basicData.timeStartWork == arrival) this
+        else copy(basicData = basicData.copy(timeStartWork = arrival))
+    }
+
     fun setTimeStartWork(time: Long?) {
         _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeStartWork = time.truncateToMinute())) }
+        changesHave()
+    }
+
+    /**
+     * Отключить «явку по прибытию»: снять флаг со всех пассажиров, чтобы инвариант в
+     * saveRoute больше не перезаписывал timeStartWork прибытием. Нужно, когда пользователь
+     * решил задать явку вручную прямо на этом экране. Резерв прежней явки очищаем — новую
+     * пользователь выставит сам.
+     */
+    fun disableWorkStartByArrival() {
+        _currentRoute.update { route ->
+            route?.copy(
+                passengers = route.passengers
+                    .map { it.copy(isWorkStartByArrival = false) }
+                    .toMutableList(),
+                basicData = route.basicData.copy(timeStartWorkBeforeArrival = null)
+            )
+        }
         changesHave()
     }
 

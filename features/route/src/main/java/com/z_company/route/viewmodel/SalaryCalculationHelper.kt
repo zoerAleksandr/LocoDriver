@@ -12,6 +12,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOnePersonOperationTimePassengerTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
+import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTimeOutsideWork
 import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInLongTrain
@@ -289,6 +290,26 @@ class SalaryCalculationHelper(
                     val result = (firstMoney + secondMoney) / 3_600_000.toDouble()
                     trySend(result)
                 }.collect {}
+            }
+            awaitClose()
+        }
+    }
+
+    // Следование пассажиром ВНЕ рабочего времени («явка по прибытию»): оплачивается
+    // отдельно по тарифу (без процентных надбавок), т.к. это проезд, а не работа.
+    // При этом время входит в getWorkTime (месяц/норма/карточка), но НЕ в базу для
+    // денег — база (getTotalWorkTime) вычитает это время обратно.
+    fun getMoneyAtPassengerOutsideWorkFlow(): Flow<Double> {
+        return channelFlow {
+            if (dateSetTariffRate == null) {
+                val time = routeList.getPassengerTimeOutsideWork(currentMonthOfYear, timeCalculationContext)
+                trySend(time.times(currentMonthOfYear.tariffRate) / 3_600_000.toDouble())
+            } else {
+                val pairRoutes = getTwoRouteList(routeList).first()
+                val firstTime = pairRoutes.first.getPassengerTimeOutsideWork(currentMonthOfYear, timeCalculationContext)
+                val secondTime = pairRoutes.second.getPassengerTimeOutsideWork(currentMonthOfYear, timeCalculationContext)
+                val money = (firstTime.times(dateSetTariffRate.oldRate) + secondTime.times(currentMonthOfYear.tariffRate)) / 3_600_000.toDouble()
+                trySend(money)
             }
             awaitClose()
         }
@@ -1309,9 +1330,20 @@ class SalaryCalculationHelper(
         }
     }
 
+    // База рабочего времени для ДЕНЕГ: «чистая» работа без проезда пассажиром до явки
+    // (getWorkTime теперь включает этот проезд, поэтому вычитаем его обратно). Так
+    // процентные надбавки и переработка считаются только от фактической работы, а
+    // проезд оплачивается отдельно по тарифу (getMoneyAtPassengerOutsideWorkFlow).
     fun getTotalWorkTime(routes: List<Route> = routeList) = flow {
-        val time = routes.getWorkTime(currentMonthOfYear, timeCalculationContext)
+        val time = routes.getWorkTime(currentMonthOfYear, timeCalculationContext) -
+                routes.getPassengerTimeOutsideWork(currentMonthOfYear, timeCalculationContext)
         emit(time)
+    }
+
+    // Полное отработанное время С проездом пассажиром до явки — для ОТОБРАЖЕНИЯ
+    // (экран «Зарплата»), чтобы совпадало с главным экраном и карточкой маршрута.
+    fun getTotalWorkTimeWithCommute(routes: List<Route> = routeList) = flow {
+        emit(routes.getWorkTime(currentMonthOfYear, timeCalculationContext))
     }
 
     private fun getPassengerTime(routeList: List<Route>) =

@@ -1,0 +1,5 @@
+-- Миграция 10: «явка по прибытию пассажиром» — резервная копия прежней явки.
+-- timeStartWorkBeforeArrival хранит timeStartWork, который был до включения
+-- тумблера, чтобы при выключении вернуть его. Локальное поле (на сервер не идёт).
+
+ALTER TABLE BasicData ADD COLUMN timeStartWorkBeforeArrival INTEGER DEFAULT NULL;

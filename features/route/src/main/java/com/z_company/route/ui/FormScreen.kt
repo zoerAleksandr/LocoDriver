@@ -134,6 +134,9 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
+import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTimeWithinWork
+import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTimeOutsideWork
+import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
@@ -314,7 +317,8 @@ fun FormScreen(
             routeNumber = currentRoute?.basicData?.number,
             salaryForRouteState = salaryForRouteState,
             nightTime = nightTime,
-            passengerTime = currentRoute?.getPassengerTime(),
+            passengerTime = currentRoute?.getPassengerTimeWithinWork(),
+            passengerOutsideTime = currentRoute?.getPassengerTimeOutsideWork(),
             holidayTime = holidayTimeValue,
             onSalarySettingClick = {
                 showCalcSheet = false
@@ -640,6 +644,11 @@ fun FormScreen(
                     mutableStateOf(false)
                 }
 
+                // Подтверждение ручного изменения явки при включённой «явке по прибытию».
+                var showChangeStartConfirm by remember {
+                    mutableStateOf(false)
+                }
+
                 var showEndDatePicker by remember {
                     mutableStateOf(false)
                 }
@@ -756,6 +765,22 @@ fun FormScreen(
                     )
                 }
 
+                // Явка определяется прибытием пассажиром — подтверждаем ручное изменение.
+                if (showChangeStartConfirm) {
+                    RouteConfirmDialog(
+                        title = "Изменить время явки?",
+                        message = "Сейчас явка определяется прибытием пассажиром. Если " +
+                                "задать время вручную, режим «явка по прибытию» отключится.",
+                        confirmText = "Изменить",
+                        onDismiss = { showChangeStartConfirm = false },
+                        onConfirm = {
+                            showChangeStartConfirm = false
+                            viewModel.disableWorkStartByArrival()
+                            showStartDatePicker = true
+                        }
+                    )
+                }
+
                 if (showEndDatePicker) {
                     AppDateTimePicker(
                         title = "Сдача",
@@ -813,7 +838,7 @@ fun FormScreen(
                         onDateTimeSelected = { timestamp ->
                             showStartDatePickerCopyRoute = false
                             onTimeStartWorkChanged(timestamp)
-                            val workTimeInMillis = route.getWorkTime()
+                            val workTimeInMillis = route.getPureWorkTime()
                             workTimeInMillis?.let { workTime ->
                                 onTimeEndWorkChanged(timestamp + workTime)
                             }
@@ -846,8 +871,9 @@ fun FormScreen(
                 ) {
                     val startTimeInLong = route.basicData.timeStartWork
                     val endTimeInLong = route.basicData.timeEndWork
-                    // getWorkTime() округляет секунды/мс до минуты (единый источник).
-                    val workTimeInLong = route.getWorkTime()
+                    // «Чистая» работа (сдача − явка): проезд пассажиром до явки показываем
+                    // отдельной строкой, поэтому здесь getPureWorkTime, а не getWorkTime.
+                    val workTimeInLong = route.getPureWorkTime()
                     val workTimeInFormatted =
                         viewModel.convertTimeToStringFormat(workTimeInLong)
 
@@ -1045,6 +1071,37 @@ fun FormScreen(
                                             .padding(horizontal = 20.dp, vertical = 14.dp),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
+                                        // Следование пассажиром ВНЕ рабочего времени («явка по прибытию»):
+                                        // хронологически проезд до явки идёт раньше работы, поэтому — СВЕРХУ.
+                                        // Отдельный самостоятельный итог, равнозначный «Отработано».
+                                        val passengerOutsideWork = route.getPassengerTimeOutsideWork()
+                                        if (passengerOutsideWork > 0L) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = "Пассажиром до явки",
+                                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                                        fontWeight = FontWeight.SemiBold
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.tertiary
+                                                )
+                                                Text(
+                                                    text = ConverterLongToTime.getTimeInStringFormat(passengerOutsideWork),
+                                                    style = MaterialTheme.typography.titleLarge.copy(
+                                                        fontFamily = MonoFont,
+                                                        fontWeight = FontWeight.Bold
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.tertiary
+                                                )
+                                            }
+                                            HorizontalDivider(
+                                                thickness = 1.dp,
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                            )
+                                        }
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             verticalAlignment = Alignment.CenterVertically,
@@ -1096,9 +1153,9 @@ fun FormScreen(
                                                 )
                                             }
                                         }
-                                        // Следование пассажиром
-                                        val passengerFollowTime = route.getPassengerTime()
-                                        if (passengerFollowTime != null && passengerFollowTime > 0L) {
+                                        // Следование пассажиром, входящее в рабочее время
+                                        val passengerWithinWork = route.getPassengerTimeWithinWork()
+                                        if (passengerWithinWork > 0L) {
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 verticalAlignment = Alignment.CenterVertically,
@@ -1121,7 +1178,7 @@ fun FormScreen(
                                                     )
                                                 }
                                                 Text(
-                                                    text = ConverterLongToTime.getTimeInStringFormat(passengerFollowTime),
+                                                    text = ConverterLongToTime.getTimeInStringFormat(passengerWithinWork),
                                                     style = MaterialTheme.typography.bodyMedium.copy(
                                                         fontFamily = MonoFont,
                                                         fontWeight = FontWeight.Bold
@@ -1133,15 +1190,23 @@ fun FormScreen(
                                     }
                                 }
 
+                                val isWorkStartByArrival = route.passengers.any { it.isWorkStartByArrival }
                                 FormTimeRow(
                                     label = "Явка",
                                     valueText = startTimeInLong?.let {
                                         dateAndTimeConverter?.getDateAndTime(it)
                                     },
-                                    onClick = { showStartDatePicker = true },
+                                    onClick = {
+                                        // При «явке по прибытию» — сперва подтверждение ручного изменения.
+                                        if (isWorkStartByArrival) showChangeStartConfirm = true
+                                        else showStartDatePicker = true
+                                    },
                                     onLongClick = {
                                         startTimeInLong?.let { showBottomSheetRemoveTimeStartWork = true }
-                                    }
+                                    },
+                                    // Если явка определяется прибытием пассажиром — показываем это.
+                                    subtitle = if (isWorkStartByArrival)
+                                        "по прибытию пассажиром" else null
                                 )
                                 HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 20.dp),
@@ -1722,6 +1787,54 @@ private fun RouteUnitDeleteDialog(
     )
 }
 
+/** Нейтральный диалог подтверждения (не удаление) — с настраиваемой кнопкой подтверждения. */
+@Composable
+private fun RouteConfirmDialog(
+    title: String,
+    message: String,
+    confirmText: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = Shapes.large,
+        containerColor = MaterialTheme.colorScheme.secondary,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary
+            )
+        },
+        text = {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(
+                    text = confirmText,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    text = "Отмена",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+        }
+    )
+}
+
 /** UPPERCASE mono-заголовок группы. */
 @Composable
 private fun FormGroupHeader(
@@ -1818,6 +1931,7 @@ private fun FormTimeRow(
     valueText: String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    subtitle: String? = null,
 ) {
     Row(
         modifier = Modifier
@@ -1827,11 +1941,21 @@ private fun FormTimeRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    modifier = Modifier.padding(top = 2.dp),
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+        }
         Text(
             text = if (valueText.isNullOrBlank()) "Выбрать" else valueText,
             style = MaterialTheme.typography.bodyLarge,
@@ -2013,6 +2137,7 @@ private fun CalcBottomSheet(
     salaryForRouteState: SalaryForRouteState,
     nightTime: Long?,
     passengerTime: Long?,
+    passengerOutsideTime: Long?,
     holidayTime: Long?,
     onSalarySettingClick: () -> Unit,
 ) {
@@ -2108,6 +2233,9 @@ private fun CalcBottomSheet(
             val passengerHint = timeRateHint(
                 passengerTime, "оплата времени следования пассажиром"
             )
+            val passengerOutsideHint = timeRateHint(
+                passengerOutsideTime, "следование пассажиром до явки"
+            )
             val holidayHint = holidayTime
                 ?.takeIf { it > 0L }
                 ?.let { "${ConverterLongToTime.getTimeInStringFormat(it)} в праздничные дни" }
@@ -2122,6 +2250,7 @@ private fun CalcBottomSheet(
                 add("Зональная надбавка", zonalHint, salaryForRouteState.zonalSurchargeMoney)
                 add("Ночные", nightHint, salaryForRouteState.paymentAtNightTime)
                 add("Пассажиром", passengerHint, salaryForRouteState.paymentAtPassengerTime)
+                add("Пассажиром до явки", passengerOutsideHint, salaryForRouteState.paymentAtPassengerOutsideTime)
                 add("Одно лицо", onePersonHint, salaryForRouteState.paymentAtOnePerson)
                 val trainSurchargeHint = salaryForRouteState.trainSurchargeTypes
                     .takeIf { it.isNotEmpty() }

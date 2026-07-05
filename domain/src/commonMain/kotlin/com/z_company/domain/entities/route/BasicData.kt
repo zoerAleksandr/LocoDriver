@@ -6,6 +6,7 @@ import com.z_company.domain.entities.serializers.DateAsLongSerializer
 import com.z_company.domain.util.generateId
 import kotlin.time.Clock
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 @Serializable
 data class BasicData(
@@ -24,5 +25,13 @@ data class BasicData(
     var notes: String? = null,
     var isFavorite: Boolean = false,
     var timeStartBreak: Long? = null,
-    var timeEndBreak: Long? = null
+    var timeEndBreak: Long? = null,
+    /**
+     * Явка, которая была ДО включения «явки по прибытию пассажиром». Нужна, чтобы
+     * при выключении тумблера вернуть timeStartWork к прежнему значению (иначе он
+     * остаётся равным времени прибытия). Хранится только локально (@Transient — на
+     * сервер не отправляется), поэтому после выгрузки/загрузки с сервера будет null.
+     */
+    @Transient
+    var timeStartWorkBeforeArrival: Long? = null
 )

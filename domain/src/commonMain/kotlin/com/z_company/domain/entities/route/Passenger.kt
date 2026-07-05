@@ -13,5 +13,14 @@ data class Passenger(
     var stationArrival: String? = null,
     var timeArrival: Long? = null,
     var timeDeparture: Long? = null,
-    var notes: String? = null
+    var notes: String? = null,
+    /**
+     * «Явка по прибытию пассажиром»: если true — отсчёт рабочего времени маршрута
+     * начинается не с явки в начальном пункте, а с прибытия пассажиром на станцию
+     * [stationArrival] в момент [timeArrival]. При включении клиент выставляет
+     * [BasicData.timeStartWork] = [timeArrival] (флаг взаимоисключающий среди
+     * пассажиров маршрута). Default false — обратная совместимость со старыми
+     * клиентами/сервером (контракт full-replace, ignoreUnknownKeys).
+     */
+    var isWorkStartByArrival: Boolean = false
 )

@@ -1,0 +1,6 @@
+-- Миграция 9: «Явка по прибытию пассажиром».
+-- isWorkStartByArrival — флаг: отсчёт рабочего времени маршрута начинается
+-- с прибытия пассажиром (timeArrival), а не с явки в начальном пункте.
+-- NOT NULL DEFAULT 0 — старые записи получают false, обратная совместимость.
+
+ALTER TABLE Passenger ADD COLUMN isWorkStartByArrival INTEGER NOT NULL DEFAULT 0;

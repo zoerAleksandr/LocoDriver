@@ -13,6 +13,7 @@ internal object PassengerMapper {
         stationArrival = row.stationArrival,
         timeArrival = row.timeArrival,
         timeDeparture = row.timeDeparture,
-        notes = row.notes
+        notes = row.notes,
+        isWorkStartByArrival = row.isWorkStartByArrival != 0L
     )
 }

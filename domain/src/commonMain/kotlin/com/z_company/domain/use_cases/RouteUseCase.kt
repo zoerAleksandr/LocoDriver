@@ -182,19 +182,43 @@ class RouteUseCase(private val repository: RouteRepository) {
     }
 
     fun saveRoute(route: Route): Flow<ResultState<Unit>> {
-        return if (route.basicData.timeStartWork == null) {
+        // Инвариант «явки по прибытию пассажиром»: если какой-то пассажир помечен
+        // как источник начала работы (isWorkStartByArrival) и у него задано время
+        // прибытия — timeStartWork маршрута всегда равен этому времени. Централизуем
+        // здесь, чтобы правило соблюдалось на всех путях сохранения (FormViewModel,
+        // экран «Пассажиром», WorkSchedule и т.д.), а не только при переключении.
+        val normalizedRoute = applyWorkStartByArrival(route)
+        return if (normalizedRoute.basicData.timeStartWork == null) {
             val currentTimeInMillis = Clock.System.now().toEpochMilliseconds()
             repository.saveRoute(
-                route.copy(
-                    basicData = route.basicData.copy(
+                normalizedRoute.copy(
+                    basicData = normalizedRoute.basicData.copy(
                         timeStartWork = currentTimeInMillis,
                         isSynchronized = false
                     )
                 )
             )
         } else {
-            repository.saveRoute(route.copy(basicData = route.basicData.copy(isSynchronized = false)))
+            repository.saveRoute(
+                normalizedRoute.copy(basicData = normalizedRoute.basicData.copy(isSynchronized = false))
+            )
         }
+    }
+
+    /**
+     * Приводит [Route.basicData]`.timeStartWork` к времени прибытия пассажира,
+     * помеченного [Passenger.isWorkStartByArrival]. Если таких нет — возвращает
+     * маршрут без изменений. Берётся первый подходящий пассажир (флаг взаимо-
+     * исключающий, выставляется на экране «Пассажиром»).
+     */
+    private fun applyWorkStartByArrival(route: Route): Route {
+        val workStart = route.passengers.firstOrNull {
+            it.isWorkStartByArrival && it.timeArrival != null
+        } ?: return route
+        if (route.basicData.timeStartWork == workStart.timeArrival) return route
+        return route.copy(
+            basicData = route.basicData.copy(timeStartWork = workStart.timeArrival)
+        )
     }
 
     fun saveRouteAfterLoading(route: Route): Flow<ResultState<Unit>> {
@@ -346,42 +370,15 @@ class RouteUseCase(private val repository: RouteRepository) {
 
     fun isValidPassenger(route: Route): Flow<ResultState<Unit>> {
         return channelFlow {
-            val startTime = route.basicData.timeStartWork
-            val endTime = route.basicData.timeEndWork
-
             route.passengers.forEach { passenger ->
+                // Единственная жёсткая ошибка — прибытие раньше отправления (невозможная поездка).
+                // Следование ВНЕ окна смены [явка, сдача] теперь допускается: оно просто не
+                // входит в оплату (пользователь видит информационный баннер на экране «Пассажиром»),
+                // поэтому блокирующих проверок «раньше начала / позже окончания» больше нет.
                 if (passenger.timeArrival.lessThan(passenger.timeDeparture)) {
                     trySend(
                         ResultState.Error(
                             ErrorEntity(message = "Прибытие пассажиром раньше отправления. Невозможно сохранить данные.")
-                        )
-                    )
-                }
-                if (passenger.timeDeparture.moreThan(endTime)) {
-                    trySend(
-                        ResultState.Error(
-                            ErrorEntity(message = "Отправление пассажиром позже окончания работы. Невозможно сохранить данные.")
-                        )
-                    )
-                }
-                if (passenger.timeDeparture.lessThan(startTime)) {
-                    trySend(
-                        ResultState.Error(
-                            ErrorEntity(message = "Отправление пассажиром раньше начала работы. Невозможно сохранить данные.")
-                        )
-                    )
-                }
-                if (passenger.timeArrival.moreThan(endTime)) {
-                    trySend(
-                        ResultState.Error(
-                            ErrorEntity(message = "Прибытие пассажиром позже окончания работы. Невозможно сохранить данные.")
-                        )
-                    )
-                }
-                if (passenger.timeArrival.lessThan(startTime)) {
-                    trySend(
-                        ResultState.Error(
-                            ErrorEntity(message = "Прибытие пассажиром раньше начала работы. Невозможно сохранить данные.")
                         )
                     )
                 }

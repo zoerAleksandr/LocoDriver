@@ -234,6 +234,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "MonthOfYear.dateSetTariffRate" to ColumnSpec("TEXT", true, "NULL"),
             // Route — BasicData
             "BasicData.timeStartBreak" to ColumnSpec("INTEGER", true, "NULL"),
+            "BasicData.timeStartWorkBeforeArrival" to ColumnSpec("INTEGER", true, "NULL"),
             "BasicData.timeEndBreak" to ColumnSpec("INTEGER", true, "NULL"),
             // Route — Locomotive
             "Locomotive.auxiliaryCounterAccepted" to ColumnSpec("TEXT", true, "NULL"),
@@ -247,6 +248,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "Train.pusher" to ColumnSpec("TEXT", true, "NULL"),
             "Train.doubleTraction" to ColumnSpec("TEXT", true, "NULL"),
             "Train.doubledTrain" to ColumnSpec("TEXT", true, "NULL"),
+            // Route — Passenger (миграция 9)
+            "Passenger.isWorkStartByArrival" to ColumnSpec("INTEGER", false, "0"),
             // SalarySetting
             "SalarySetting.nightTimePercent" to ColumnSpec("REAL", false, "40.0"),
             "SalarySetting.surchargeLongTrainsList" to ColumnSpec("TEXT", false, "'[]'")
@@ -461,6 +464,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             val routeChecks = arrayOf(
                 "BasicData" to "timeStartBreak",
                 "BasicData" to "timeEndBreak",
+                "BasicData" to "timeStartWorkBeforeArrival",
                 "Locomotive" to "auxiliaryCounterAccepted",
                 "Locomotive" to "auxiliaryCounterDelivery",
                 "Locomotive" to "timeBarrierOut",
@@ -470,7 +474,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 "Train" to "additionalNumbers",
                 "Train" to "pusher",
                 "Train" to "doubleTraction",
-                "Train" to "doubledTrain"
+                "Train" to "doubledTrain",
+                "Passenger" to "isWorkStartByArrival"
             )
             for ((table, column) in routeChecks) {
                 if (!hasTable(db, table)) continue

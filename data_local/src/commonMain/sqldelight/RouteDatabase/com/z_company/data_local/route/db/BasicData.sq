@@ -13,12 +13,13 @@ CREATE TABLE IF NOT EXISTS BasicData (
     notes TEXT,
     isFavorite INTEGER NOT NULL DEFAULT 0,
     timeStartBreak INTEGER,
-    timeEndBreak INTEGER
+    timeEndBreak INTEGER,
+    timeStartWorkBeforeArrival INTEGER
 );
 
 insertOrReplace:
-INSERT OR REPLACE INTO BasicData (id, remoteRouteId, isOnePersonOperation, isSynchronized, remoteObjectId, isDeleted, updatedAt, number, timeStartWork, timeEndWork, restPointOfTurnover, notes, isFavorite, timeStartBreak, timeEndBreak)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO BasicData (id, remoteRouteId, isOnePersonOperation, isSynchronized, remoteObjectId, isDeleted, updatedAt, number, timeStartWork, timeEndWork, restPointOfTurnover, notes, isFavorite, timeStartBreak, timeEndBreak, timeStartWorkBeforeArrival)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getById:
 SELECT * FROM BasicData WHERE id = :id;

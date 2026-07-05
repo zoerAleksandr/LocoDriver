@@ -160,7 +160,12 @@ object UtilsForEntities {
         } else 0L
     }
 
-    fun Route.getWorkTime(): Long? {
+    /**
+     * «Чистое» рабочее время смены: сдача − явка − перерыв. БЕЗ проезда пассажиром
+     * до явки. Для показа строки «Отработано» в детализации (там проезд до явки —
+     * отдельная строка).
+     */
+    fun Route.getPureWorkTime(): Long? {
         val timeEnd = this.basicData.timeEndWork
         val timeStart = this.basicData.timeStartWork
         return if (timeEnd != null && timeStart != null) {
@@ -168,6 +173,16 @@ object UtilsForEntities {
         } else {
             null
         }
+    }
+
+    /**
+     * Отработанное время маршрута — «чистая» работа ПЛЮС проезд пассажиром до явки
+     * («явка по прибытию»), т.к. это время тоже считается отработанным (входит в
+     * месячный итог, норму, переработку, карточку и оплату по тарифу).
+     */
+    fun Route.getWorkTime(): Long? {
+        val pure = getPureWorkTime() ?: return null
+        return pure + getPassengerTimeOutsideWork()
     }
 
     /**
@@ -198,7 +213,8 @@ object UtilsForEntities {
             val bEnd = minOf(breakEnd, clippedEnd)
             if (bEnd > bStart) bEnd - bStart else 0L
         } else 0L
-        return clippedEnd - clippedStart - breakDuration
+        // Проезд пассажиром до явки тоже входит в отработанное время.
+        return clippedEnd - clippedStart - breakDuration + getPassengerTimeOutsideWork()
     }
 
     fun Route.getWorkTimeFlow(): Flow<Long?> {
@@ -390,6 +406,41 @@ object UtilsForEntities {
             totalTime += passenger.getFollowingTime()
         }
         return totalTime
+    }
+
+    /**
+     * Следование пассажиром, ВХОДЯЩЕЕ в рабочее время (обычные пассажиры), обрезанное
+     * по окну смены [явка, сдача] — как в расчёте оплаты. Часть следования вне смены
+     * не считается (иначе в детализации показывалось бы больше, чем оплачивается).
+     */
+    fun Route.getPassengerTimeWithinWork(): Long {
+        val start = this.basicData.timeStartWork ?: return 0L
+        val end = this.basicData.timeEndWork ?: return 0L
+        var total = 0L
+        this.passengers.forEach { p ->
+            if (!p.isWorkStartByArrival) {
+                val dep = p.timeDeparture
+                val arr = p.timeArrival
+                if (dep != null && arr != null) {
+                    val s = maxOf(dep, start).floorToMinute()
+                    val e = minOf(arr, end).floorToMinute()
+                    if (e > s) total += e - s
+                }
+            }
+        }
+        return total
+    }
+
+    /**
+     * Следование пассажиром ВНЕ рабочего времени — проезд к месту «явки по прибытию».
+     * Не входит в отработанное время, но оплачивается отдельно.
+     */
+    fun Route.getPassengerTimeOutsideWork(): Long {
+        var total = 0L
+        this.passengers.forEach { p ->
+            if (p.isWorkStartByArrival) total += p.getFollowingTime() ?: 0L
+        }
+        return total
     }
 
     fun Route.isFuture(offsetInMoscow: Long): Boolean {
@@ -644,7 +695,8 @@ object UtilsForEntities {
                     route.basicData.timeEndWork!!,
                     context
                 )
-                totalTime += time
+                // Проезд пассажиром до явки тоже входит в отработанное время.
+                totalTime += time + route.getPassengerTimeOutsideWork()
             } else {
                 route.getWorkTime().let { time ->
                     totalTime += time ?: 0
@@ -763,6 +815,45 @@ object UtilsForEntities {
             crossMonthTZ = kotlinx.datetime.TimeZone.of(getTimeZone(offsetInMoscow))
         )
         return getPassengerTime(monthOfYear, context)
+    }
+
+    /**
+     * Следование пассажиром ВНЕ рабочего времени («явка по прибытию») за месяц.
+     * Обрезаем только по месяцу (для переходных), НЕ по окну смены — этот проезд
+     * идёт до начала работы и должен оплачиваться целиком.
+     */
+    fun List<Route>.getPassengerTimeOutsideWork(
+        monthOfYear: MonthOfYear,
+        context: TimeCalculationContext
+    ): Long {
+        var passengerTime = 0L
+        this.forEach { route ->
+            route.passengers.forEach { passenger ->
+                if (passenger.isWorkStartByArrival) {
+                    val start = passenger.timeDeparture
+                    val end = passenger.timeArrival
+                    if (start != null && end != null) {
+                        passengerTime += if (passenger.isTransition(context.crossMonthTZ)) {
+                            monthOfYear.getTimeInCurrentMonth(start, end, context)
+                        } else {
+                            end.floorToMinute() - start.floorToMinute()
+                        }
+                    }
+                }
+            }
+        }
+        return passengerTime
+    }
+
+    fun List<Route>.getPassengerTimeOutsideWork(
+        monthOfYear: MonthOfYear,
+        offsetInMoscow: Long
+    ): Long {
+        val context = TimeCalculationContext(
+            localTZ = kotlinx.datetime.TimeZone.of(getTimeZone(offsetInMoscow)),
+            crossMonthTZ = kotlinx.datetime.TimeZone.of(getTimeZone(offsetInMoscow))
+        )
+        return getPassengerTimeOutsideWork(monthOfYear, context)
     }
 
     fun Passenger.getTimeFollowingWithContext(

@@ -18,5 +18,9 @@ data class PassengerFormUiState(
     val isExpandMenuDepartureStation: Boolean = false,
     val isExpandMenuArrivalStation: Boolean = false,
     val stationList: SnapshotStateList<String> = mutableStateListOf(),
+    // Рабочее окно маршрута — чтобы показать, что следование вне [явка, сдача] не
+    // входит в оплату (если «явка по прибытию» выключена).
+    val routeWorkStart: Long? = null,
+    val routeWorkEnd: Long? = null,
     var dateAndTimeConverter: DateAndTimeConverter? = null
 )

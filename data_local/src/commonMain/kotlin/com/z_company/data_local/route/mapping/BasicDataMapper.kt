@@ -33,6 +33,7 @@ internal object BasicDataMapper {
         isFavorite = row.isFavorite != 0L,
         // 0L сохранялось в старом коде вместо null — нормализуем здесь
         timeStartBreak = row.timeStartBreak?.takeIf { it > 0L },
-        timeEndBreak = row.timeEndBreak?.takeIf { it > 0L }
+        timeEndBreak = row.timeEndBreak?.takeIf { it > 0L },
+        timeStartWorkBeforeArrival = row.timeStartWorkBeforeArrival
     )
 }

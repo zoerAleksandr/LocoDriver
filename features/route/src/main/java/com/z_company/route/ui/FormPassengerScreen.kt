@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,8 +27,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -49,18 +48,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -109,6 +105,8 @@ fun FormPassengerScreen(
     onTimeDepartureChanged: (Long?) -> Unit,
     onTimeArrivalChanged: (Long?) -> Unit,
     onNotesChanged: (String) -> Unit,
+    isWorkStartByArrival: Boolean,
+    onWorkStartByArrivalChanged: (Boolean) -> Unit,
     resultTime: Long?,
     errorMessage: String?,
     dropDownMenuList: List<String>,
@@ -233,42 +231,48 @@ fun FormPassengerScreen(
                         start = 16.dp, top = 8.dp, end = 16.dp, bottom = 32.dp
                     )
                 ) {
-                    // ── Ошибка ──
+                    // ── Ошибка (в едином амбер-стиле) ──
                     item {
-                        formUiState.errorMessage?.let {
-                            val widthScreen = LocalConfiguration.current.screenWidthDp.toFloat()
-                            val gradient = Brush.radialGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
-                                    MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                                ),
-                                center = Offset(Float.POSITIVE_INFINITY, 0f),
-                                radius = widthScreen * 2
-                            )
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = MaterialTheme.shapes.medium,
-                                elevation = CardDefaults.elevatedCardElevation(
-                                    defaultElevation = 3.dp,
-                                    pressedElevation = 0.dp
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(
-                                            brush = gradient,
-                                            shape = MaterialTheme.shapes.medium
-                                        )
-                                        .padding(12.dp),
-                                ) {
-                                    Text(
-                                        text = it,
-                                        style = hintStyle,
-                                        color = MaterialTheme.colorScheme.onError
-                                    )
-                                }
+                        formUiState.errorMessage?.let { PassInfoBanner(it) }
+                    }
+
+                    // ── Предупреждение: следование (или его часть) вне окна смены не оплачивается ──
+                    item {
+                        val dep = passenger.timeDeparture
+                        val arr = passenger.timeArrival
+                        val ws = formUiState.routeWorkStart
+                        val we = formUiState.routeWorkEnd
+                        // Предупреждаем, как только ЛЮБОЕ заданное значение (отправление или
+                        // прибытие) выходит за окно смены [явка, сдача] — даже если вторая точка
+                        // ещё не введена. Исключение: если обе точки заданы и прибытие не позже
+                        // отправления — это невалидные данные, показывается красная ошибка, и
+                        // второй баннер не нужен.
+                        val warningText: String? = if (
+                            !isWorkStartByArrival && ws != null && we != null &&
+                            !(dep != null && arr != null && arr <= dep)
+                        ) {
+                            // Время, затем дата.
+                            val startTxt = dateAndTimeConverter?.let {
+                                "${it.getTime(ws)} ${it.getDate(ws)}"
+                            } ?: ""
+                            val endTxt = dateAndTimeConverter?.let {
+                                "${it.getTime(we)} ${it.getDate(we)}"
+                            } ?: ""
+                            when {
+                                dep != null && dep < ws ->
+                                    "Отправление пассажиром раньше явки в $startTxt — не входит в оплату."
+                                arr != null && arr > we ->
+                                    "Прибытие пассажиром позже сдачи в $endTxt — не входит в оплату."
+                                dep != null && dep > we ->
+                                    "Отправление пассажиром позже сдачи в $endTxt — не входит в оплату."
+                                arr != null && arr < ws ->
+                                    "Прибытие пассажиром раньше явки в $startTxt — не входит в оплату."
+                                else -> null
                             }
+                        } else null
+
+                        if (warningText != null) {
+                            PassInfoBanner(warningText)
                         }
                     }
 
@@ -396,9 +400,11 @@ fun FormPassengerScreen(
                         )
                     }
 
-                    // ── УЧЁТ РАБОЧЕГО ВРЕМЕНИ (UI-заглушка) ──
+                    // ── УЧЁТ РАБОЧЕГО ВРЕМЕНИ ──
                     item {
                         WorkStartCard(
+                            checked = isWorkStartByArrival,
+                            onCheckedChange = onWorkStartByArrivalChanged,
                             station = passenger.stationArrival,
                             time = passenger.timeArrival,
                             dateAndTimeConverter = dateAndTimeConverter
@@ -513,6 +519,47 @@ private fun PassFlatCard(
             .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
     ) {
         content()
+    }
+}
+
+/** Единый амбер-баннер для всех сообщений на экране (и ошибок, и предупреждений). */
+@Composable
+private fun PassInfoBanner(text: String) {
+    val warning = MaterialTheme.colorScheme.surfaceContainerHigh
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(Shapes.medium)
+            .background(warning.copy(alpha = 0.10f))
+            .border(
+                width = 1.dp,
+                color = warning.copy(alpha = 0.55f),
+                shape = Shapes.medium
+            )
+            .padding(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(warning.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                modifier = Modifier.size(15.dp),
+                painter = painterResource(com.z_company.route.R.drawable.info_24px),
+                contentDescription = null,
+                tint = warning
+            )
+        }
+        Text(
+            modifier = Modifier.weight(1f),
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
     }
 }
 
@@ -764,16 +811,19 @@ private fun DurationBadge(label: String) {
 
 /**
  * Карточка «Учёт рабочего времени» → «Явка по прибытию».
- * UI-заглушка: переключатель локальный, ничего не сохраняет. Строка результата
- * рассчитывается из станции и времени прибытия («Куда»).
+ * Когда включено — прибытие пассажиром (станция + время «Куда») становится
+ * началом рабочего времени маршрута. Переключатель доступен только если задано
+ * время прибытия — иначе точку отсчёта вычислить нельзя.
  */
 @Composable
 private fun WorkStartCard(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
     station: String?,
     time: Long?,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
-    var on by rememberSaveable { mutableStateOf(true) }
+    val canEnable = time != null
 
     PassGroup(label = "УЧЁТ РАБОЧЕГО ВРЕМЕНИ") {
         PassFlatCard {
@@ -793,14 +843,18 @@ private fun WorkStartCard(
                         )
                         Text(
                             modifier = Modifier.padding(top = 3.dp),
-                            text = "Явка на работу по прибытию пассажиром.",
+                            text = if (canEnable)
+                                "Явка на работу по прибытию пассажиром."
+                            else
+                                "Укажите время прибытия («Куда»), чтобы включить.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Switch(
-                        checked = on,
-                        onCheckedChange = { on = it },
+                        checked = checked,
+                        onCheckedChange = onCheckedChange,
+                        enabled = canEnable,
                         colors = SwitchDefaults.colors(
                             checkedTrackColor = MaterialTheme.colorScheme.tertiary,
                             checkedThumbColor = MaterialTheme.colorScheme.onPrimary
@@ -808,7 +862,7 @@ private fun WorkStartCard(
                     )
                 }
 
-                AnimatedVisibility(visible = on) {
+                AnimatedVisibility(visible = checked && canEnable) {
                     Column {
                         Box(
                             modifier = Modifier
@@ -848,12 +902,14 @@ private fun WorkStartCard(
                                     ),
                                     color = MaterialTheme.colorScheme.tertiary
                                 )
-                                val hasData = !station.isNullOrBlank() && time != null
+                                val timeText = time?.let { dateAndTimeConverter?.getDateAndTime(it) }
                                 Text(
                                     modifier = Modifier.padding(top = 3.dp),
-                                    text = if (hasData)
-                                        "$station · ${dateAndTimeConverter?.getDateAndTime(time) ?: ""}"
-                                    else "—",
+                                    text = when {
+                                        timeText == null -> "—"
+                                        !station.isNullOrBlank() -> "$station · $timeText"
+                                        else -> timeText
+                                    },
                                     style = MaterialTheme.typography.bodyLarge.copy(
                                         fontFamily = MonoFont,
                                         fontWeight = FontWeight.SemiBold
