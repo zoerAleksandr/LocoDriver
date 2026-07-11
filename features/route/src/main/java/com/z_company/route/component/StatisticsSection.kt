@@ -37,7 +37,6 @@ import com.z_company.domain.util.CalculationEnergy.getTotalFuelConsumption
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.plus
 import com.z_company.domain.util.str
-import com.z_company.domain.util.str2decimalSign
 import com.z_company.domain.util.times
 import com.z_company.domain.util.toDoubleOrZero
 import com.z_company.route.viewmodel.DieselSectionFormState
@@ -217,7 +216,8 @@ private fun groupThousands(s: String?): String {
     val intPart = if (dot < 0) body else body.substring(0, dot)
     val frac = if (dot < 0) "" else body.substring(dot)
     val grouped = intPart.reversed().chunked(3).joinToString(" ").reversed()
-    return (if (neg) "−" else "") + grouped + frac
+    // Единый формат по приложению: дробная часть через запятую (12 345.6 → 12 345,6).
+    return (if (neg) "−" else "") + grouped + frac.replace('.', ',')
 }
 
 @Composable
