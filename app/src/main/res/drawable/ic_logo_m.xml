@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="52dp"
+    android:height="48dp"
+    android:viewportWidth="52"
+    android:viewportHeight="48">
+    <!-- Жирный геометрический глиф «M» (лого-лок-ап). Цвет задаётся tint'ом. -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M0,48 L0,0 L13,0 L26,25 L39,0 L52,0 L52,48 L40,48 L40,17 L30,36 L22,36 L12,17 L12,48 Z" />
+</vector>

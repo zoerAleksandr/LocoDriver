@@ -17,6 +17,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -40,9 +45,9 @@ class MainActivity : ComponentActivity(), KoinComponent {
     @OptIn(ExperimentalAnimationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        installSplashScreen().apply {
-            setKeepOnScreenCondition { !mainViewModel.appInitialized.value }
-        }
+        // Системный сплэш убираем сразу (первый кадр) — единственный видимый сплэш
+        // это брендовый Compose-overlay ниже (M + линия + МАШИНИСТ + слоган).
+        installSplashScreen()
         checkIntent(intent)
 //        if (savedInstanceState == null) {
 //            payClient.getIntentInteractor().proceedIntent(intent)
@@ -76,6 +81,19 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 pendingOpenFormWithId = pendingOpenFormWithId,
                 onFormOpenedWithId = mainViewModel::clearOpenFormWithId
             )
+
+            // Единственный сплэш — брендовый лок-ап поверх приложения с самого старта.
+            // Держим пока идёт инициализация И минимальное время (чтобы слоган прочитался).
+            val appInitialized by mainViewModel.appInitialized.collectAsState()
+            var minTimePassed by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) { delay(1500); minTimePassed = true }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !appInitialized || !minTimePassed,
+                enter = androidx.compose.animation.EnterTransition.None,
+                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(400)),
+            ) {
+                com.z_company.loco_driver.ui.BrandedSplash()
+            }
             } // Box
         }
         VKID.logsEnabled = true
