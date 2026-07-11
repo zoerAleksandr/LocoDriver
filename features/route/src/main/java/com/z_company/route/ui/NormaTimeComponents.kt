@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 
 /** Shared row used in both SeriesPickerSheet and SettingsSeriesListContent. */
@@ -38,16 +39,16 @@ fun SeriesRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = series.name,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont),
                 color = MaterialTheme.colorScheme.primary
             )
+            // Показываем «после отстоя» как основной вариант, иначе «из рук в руки».
+            val acc = series.acceptanceDurationMin ?: series.acceptanceHandToHandMin
+            val del = series.deliveryDurationMin ?: series.deliveryHandToHandMin
             val normText = when {
-                series.acceptanceDurationMin != null && series.deliveryDurationMin != null ->
-                    "Приёмка ${series.acceptanceDurationMin} мин · Сдача ${series.deliveryDurationMin} мин"
-                series.acceptanceDurationMin != null ->
-                    "Приёмка ${series.acceptanceDurationMin} мин"
-                series.deliveryDurationMin != null ->
-                    "Сдача ${series.deliveryDurationMin} мин"
+                acc != null && del != null -> "Приёмка $acc мин · Сдача $del мин"
+                acc != null -> "Приёмка $acc мин"
+                del != null -> "Сдача $del мин"
                 else -> "Нормы не заданы"
             }
             Text(

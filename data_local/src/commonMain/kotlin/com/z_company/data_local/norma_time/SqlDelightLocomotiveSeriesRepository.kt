@@ -35,6 +35,8 @@ class SqlDelightLocomotiveSeriesRepository : LocomotiveSeriesRepository, KoinCom
                 type = s.type.name,
                 acceptanceDurationMin = s.acceptanceDurationMin?.toLong(),
                 deliveryDurationMin = s.deliveryDurationMin?.toLong(),
+                acceptanceHandToHandMin = s.acceptanceHandToHandMin?.toLong(),
+                deliveryHandToHandMin = s.deliveryHandToHandMin?.toLong(),
                 updatedAt = s.updatedAt
             )
         }
@@ -47,6 +49,8 @@ class SqlDelightLocomotiveSeriesRepository : LocomotiveSeriesRepository, KoinCom
             type = LocoType.entries.find { it.name == type } ?: LocoType.ELECTRIC,
             acceptanceDurationMin = acceptanceDurationMin?.toInt(),
             deliveryDurationMin = deliveryDurationMin?.toInt(),
+            acceptanceHandToHandMin = acceptanceHandToHandMin?.toInt(),
+            deliveryHandToHandMin = deliveryHandToHandMin?.toInt(),
             updatedAt = updatedAt
         )
 }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -55,6 +56,7 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.repositories.StationNormRepository
 import com.z_company.domain.util.generateId
 import com.z_company.route.component.AppDateTimePicker
@@ -144,6 +146,16 @@ fun TimeBottomSheet(
     val selectedSeries: LocomotiveSeries? = allSeries.find { it.name == selectedSeriesName }
     val seriesInRepo = selectedSeries != null
 
+    // Вариант нормы приёмки/сдачи: false — «После отстоя» (по умолчанию), true — «Из рук в руки».
+    // Выбор запоминается локально между открытиями шторки.
+    val prefs: SharedPreferencesRepositories = koinInject()
+    var normHandToHand by remember { mutableStateOf(prefs.isLocoNormHandToHand()) }
+    // Эффективная норма серии по выбранному варианту.
+    val seriesAcceptanceMin: Int? =
+        if (normHandToHand) selectedSeries?.acceptanceHandToHandMin else selectedSeries?.acceptanceDurationMin
+    val seriesDeliveryMin: Int? =
+        if (normHandToHand) selectedSeries?.deliveryHandToHandMin else selectedSeries?.deliveryDurationMin
+
     var showStationPicker by remember { mutableStateOf(false) }
     var showSeriesPicker by remember { mutableStateOf(false) }
     var showStartPicker by remember { mutableStateOf(false) }
@@ -206,8 +218,8 @@ fun TimeBottomSheet(
 
     // ── Norm logic ──
     val noSeriesNorm = selectedSeries != null && run {
-        if (kind == "acceptance") selectedSeries.acceptanceDurationMin == null
-        else selectedSeries.deliveryDurationMin == null
+        if (kind == "acceptance") seriesAcceptanceMin == null
+        else seriesDeliveryMin == null
     }
     val stationEmpty = selectedStation == null
     val noStationNorm = !stationEmpty && selectedStation!!.let { s ->
@@ -231,12 +243,12 @@ fun TimeBottomSheet(
     }
 
     /** Generic calculation from any delivery anchor field, forward and backward. */
-    fun applyFromField(field: DeliveryAnchorField) {
+    fun applyFromField(field: DeliveryAnchorField, deliveryMin: Int? = seriesDeliveryMin) {
         pendingEndWorkUpdate = null
         workEndAccepted = false
         askingEmptyHint = false
         val barrierMin = selectedStation?.barrierToStartMin ?: 0
-        val durMin = selectedSeries?.deliveryDurationMin ?: 0
+        val durMin = deliveryMin ?: 0
         val workEndMin = selectedStation?.endToWorkEndMin ?: 0
         when (field) {
             DeliveryAnchorField.BARRIER_IN -> {
@@ -279,12 +291,15 @@ fun TimeBottomSheet(
         }
     }
 
-    fun applyNorms() {
+    fun applyNorms(
+        acceptanceMin: Int? = seriesAcceptanceMin,
+        deliveryMin: Int? = seriesDeliveryMin,
+    ) {
         if (kind == "acceptance") {
             val base = routeStartWork ?: return
             val appearMin = selectedStation?.appearanceToStartMin ?: 0
             val newStart = base + appearMin * 60_000L
-            val durMin = selectedSeries?.acceptanceDurationMin ?: 0
+            val durMin = acceptanceMin ?: 0
             val newEnd = newStart + durMin * 60_000L
             val barrierMin = selectedStation?.endToBarrierMin ?: 0
             startTime = newStart; endTime = newEnd; barrierOut = newEnd + barrierMin * 60_000L
@@ -301,7 +316,7 @@ fun TimeBottomSheet(
                         workEnd != null -> DeliveryAnchorField.WORK_END
                         else -> return
                     }
-                    applyFromField(field)
+                    applyFromField(field, deliveryMin)
                     anchorState = DeliveryNormAnchor.FROM_SELECTED
                 }
                 else -> {
@@ -310,6 +325,23 @@ fun TimeBottomSheet(
                     anchorState = DeliveryNormAnchor.ASKING
                 }
             }
+        }
+    }
+
+    // Пере-применение при переключении варианта нормы выполняется синхронно в
+    // обработчике переключателя (applyNormFor) — одним кадром, без промежуточного
+    // состояния со старыми временами (иначе мигали бы красные предупреждения).
+    fun applyNormFor(handToHand: Boolean) {
+        val accMin = if (handToHand) selectedSeries?.acceptanceHandToHandMin
+        else selectedSeries?.acceptanceDurationMin
+        val delMin = if (handToHand) selectedSeries?.deliveryHandToHandMin
+        else selectedSeries?.deliveryDurationMin
+        val variantHasNorm = if (kind == "acceptance") accMin != null else delMin != null
+        if (!variantHasNorm) return
+        if (kind == "acceptance") {
+            if (startTime != null && endTime != null) applyNorms(accMin, delMin)
+        } else {
+            if (anchorState == DeliveryNormAnchor.FROM_SELECTED) applyNorms(accMin, delMin)
         }
     }
 
@@ -339,17 +371,18 @@ fun TimeBottomSheet(
     val canSaveSeriesNorm = !selectedSeriesName.isNullOrBlank() && timesFilledForSeries && run {
         if (seriesInRepo && selectedSeries != null) {
             val dur = ((endTime!! - startTime!!) / 60_000).toInt()
-            val saved = if (kind == "acceptance") selectedSeries.acceptanceDurationMin
-            else selectedSeries.deliveryDurationMin
+            val saved = if (kind == "acceptance") seriesAcceptanceMin else seriesDeliveryMin
             saved == null || saved != dur
         } else {
             true // not in repo → always can add
         }
     }
 
+    val normVariantText = if (normHandToHand) "из рук в руки" else "после отстоя"
     val seriesNormSubtitle = if (!seriesInRepo && !selectedSeriesName.isNullOrBlank())
-        "Добавить в справочник"
-    else if (kind == "acceptance") "Длительность приёмки" else "Длительность сдачи"
+        "Добавить в справочник · $normVariantText"
+    else if (kind == "acceptance") "Длительность приёмки · $normVariantText"
+    else "Длительность сдачи · $normVariantText"
 
     val stationNormSubtitle = if (noStationNorm)
         "Добавить в справочник"
@@ -463,26 +496,21 @@ fun TimeBottomSheet(
                     fontSize = 22.sp, fontWeight = FontWeight.W500, color = textColor()
                 )
                 val normsActive = canApplyNorms && !noSeriesNorm && !stationEmpty && !noStationNorm
-                Row(
+                Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
+                        .clip(Shapes.medium)
                         .background(if (normsActive) accent() else bgSubtle())
                         .then(
-                            if (!normsActive) Modifier.border(1.dp, borderColor(), RoundedCornerShape(999.dp))
+                            if (!normsActive) Modifier.border(1.dp, borderColor(), Shapes.medium)
                             else Modifier
                         )
                         .clickable(enabled = canApplyNorms) { applyNorms() }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        // Вертикальный отступ как у переключателя (segment 9 + outer 3 = 12).
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        painter = painterResource(com.z_company.route.R.drawable.electric_bolt_24px),
-                        contentDescription = null, modifier = Modifier.size(13.dp),
-                        tint = if (normsActive) accentInk() else textFaint()
-                    )
                     Text(
-                        text = "По нормам ПЗВ", fontSize = 13.sp, fontWeight = FontWeight.W500,
+                        text = "Установить по ПЗВ", fontSize = 13.sp, fontWeight = FontWeight.W500,
                         color = if (normsActive) accentInk() else textFaint()
                     )
                 }
@@ -508,6 +536,22 @@ fun TimeBottomSheet(
                     value = selectedStation?.name ?: "Выберите станцию",
                     isEmpty = selectedStation == null,
                     onClick = { showStationPicker = true }
+                )
+            }
+
+            // ── Вариант нормы: После отстоя / Из рук в руки ──
+            if (selectedSeriesName != null) {
+                NormModeSegmented(
+                    handToHand = normHandToHand,
+                    onChange = { v ->
+                        normHandToHand = v
+                        prefs.setLocoNormHandToHand(v)
+                        applyNormFor(v)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 10.dp)
                 )
             }
 
@@ -616,7 +660,7 @@ fun TimeBottomSheet(
                     RowConnector()
                     SheetTimeRowItem(
                         label = "Окончание приёмки", time = fmtTime(endTime),
-                        delta = buildDelta(startTime, endTime, selectedSeries?.acceptanceDurationMin),
+                        delta = buildDelta(startTime, endTime, seriesAcceptanceMin),
                         isFirst = false, isLocked = false,
                         sequenceError = endTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
@@ -670,7 +714,7 @@ fun TimeBottomSheet(
                     RowConnector()
                     SheetTimeRowItem(
                         label = "Окончание сдачи", time = fmtTime(endTime),
-                        delta = buildDelta(startTime, endTime, selectedSeries?.deliveryDurationMin),
+                        delta = buildDelta(startTime, endTime, seriesDeliveryMin),
                         isFirst = false, isLocked = false,
                         sequenceError = endTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
@@ -729,9 +773,17 @@ fun TimeBottomSheet(
                             scope.launch {
                                 val all = seriesRepo.getAll().toMutableList()
                                 if (seriesInRepo && selectedSeries != null) {
-                                    val updated = if (kind == "acceptance")
-                                        selectedSeries.copy(acceptanceDurationMin = dur)
-                                    else selectedSeries.copy(deliveryDurationMin = dur)
+                                    // Сохраняем в поле выбранного варианта (после отстоя / из рук в руки).
+                                    val updated = when {
+                                        kind == "acceptance" && normHandToHand ->
+                                            selectedSeries.copy(acceptanceHandToHandMin = dur)
+                                        kind == "acceptance" ->
+                                            selectedSeries.copy(acceptanceDurationMin = dur)
+                                        normHandToHand ->
+                                            selectedSeries.copy(deliveryHandToHandMin = dur)
+                                        else ->
+                                            selectedSeries.copy(deliveryDurationMin = dur)
+                                    }
                                     val idx = all.indexOfFirst { it.seriesId == updated.seriesId }
                                     if (idx >= 0) all[idx] = updated else all.add(updated)
                                 } else {
@@ -740,8 +792,10 @@ fun TimeBottomSheet(
                                         seriesId = generateId(),
                                         name = selectedSeriesName!!.trim(),
                                         type = locoType,
-                                        acceptanceDurationMin = if (kind == "acceptance") dur else null,
-                                        deliveryDurationMin = if (kind == "delivery") dur else null,
+                                        acceptanceDurationMin = if (kind == "acceptance" && !normHandToHand) dur else null,
+                                        deliveryDurationMin = if (kind == "delivery" && !normHandToHand) dur else null,
+                                        acceptanceHandToHandMin = if (kind == "acceptance" && normHandToHand) dur else null,
+                                        deliveryHandToHandMin = if (kind == "delivery" && normHandToHand) dur else null,
                                         updatedAt = Clock.System.now().toEpochMilliseconds(),
                                     )
                                     all.add(newSeries)
@@ -857,6 +911,46 @@ private fun ContextFieldItem(
                 painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
                 contentDescription = null, modifier = Modifier.size(12.dp), tint = textFaint()
             )
+    }
+}
+
+// ── NormModeSegmented: После отстоя / Из рук в руки ────────────────────────
+@Composable
+private fun NormModeSegmented(
+    handToHand: Boolean,
+    onChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .clip(Shapes.medium)
+            .background(bgSubtle())
+            .border(1.dp, borderColor(), Shapes.medium)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        @Composable
+        fun RowScope.Segment(text: String, selected: Boolean, onClick: () -> Unit) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    // Концентрично внешнему: outer Shapes.medium(16) − padding(3) = 13.
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(if (selected) accent() else Color.Transparent)
+                    .clickable(onClick = onClick)
+                    .padding(vertical = 9.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = text,
+                    fontSize = 13.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = if (selected) accentInk() else textMuted(),
+                )
+            }
+        }
+        Segment("После отстоя", selected = !handToHand) { onChange(false) }
+        Segment("Из рук в руки", selected = handToHand) { onChange(true) }
     }
 }
 

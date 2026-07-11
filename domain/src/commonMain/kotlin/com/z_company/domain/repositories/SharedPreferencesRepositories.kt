@@ -1,8 +1,17 @@
 package com.z_company.domain.repositories
 
+import com.z_company.domain.entities.SchedulePattern
+
 interface SharedPreferencesRepositories {
     fun setLastSyncTimestamp(time: Long)
     fun getLastSyncTimestamp(): Long
+
+    /**
+     * Паттерны графика мастера «Заполнить месяц» (локально, без синхронизации).
+     * Возвращает null, если ещё не сохранялись (мастер засидит дефолты).
+     */
+    fun getSchedulePatterns(): List<SchedulePattern>?
+    fun setSchedulePatterns(patterns: List<SchedulePattern>)
 
     fun getOPKeyRobokassa(): String?
     fun setOPKeyRobokassa(opKey: String?)
@@ -32,6 +41,13 @@ interface SharedPreferencesRepositories {
     fun isShowTravelTime(): Boolean
     fun isShowLocoFormUpdateHint(): Boolean
     fun setLocoFormUpdateHintShown()
+
+    /**
+     * Инфо-окно про оплату недоработки (когда норма не выработана, а средний час
+     * не задан). Один раз нажал «Понятно» — больше не показываем.
+     */
+    fun isUnderworkInfoDismissed(): Boolean
+    fun setUnderworkInfoDismissed()
     fun isLocoSectionTimeExpanded(): Boolean
     fun setLocoSectionTimeExpanded(value: Boolean)
     fun isLocoSectionHeatingExpanded(): Boolean
@@ -54,6 +70,13 @@ interface SharedPreferencesRepositories {
     fun setLocoSectionNormaExpanded(value: Boolean)
     fun isPassenger12hDontAskAgain(): Boolean
     fun setPassenger12hDontAskAgain(value: Boolean)
+
+    /**
+     * Выбор нормы приёмки/сдачи в шторке времени: false — «После отстоя без бригады»
+     * (по умолчанию), true — «Из рук в руки». Запоминается локально между открытиями.
+     */
+    fun isLocoNormHandToHand(): Boolean
+    fun setLocoNormHandToHand(value: Boolean)
     fun isPassenger12hAutoAccepted(): Boolean
     fun setPassenger12hAutoAccepted(value: Boolean)
 

@@ -3,7 +3,10 @@ package com.z_company.data_local
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
+import com.z_company.domain.entities.SchedulePattern
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.koin.core.component.KoinComponent
 
 private val DEFAULT_COEFFICIENTS = listOf("0.84", "0.85", "0.86", "0.87", "0.88")
@@ -18,6 +21,7 @@ private const val TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16 =
 private const val STATION_SORT_REVERSED = "STATION_SORT_REVERSED"
 private const val TOKEN_INPUT_DIESEL_IN_KILO = "TOKEN_INPUT_DIESEL_IN_KILO"
 private const val TOKEN_SHOW_LOCO_FORM_UPDATE_V2_1_7 = "TOKEN_SHOW_LOCO_FORM_UPDATE_V2_1_7"
+private const val TOKEN_UNDERWORK_INFO_DISMISSED = "TOKEN_UNDERWORK_INFO_DISMISSED"
 private const val TOKEN_LOCO_SECTION_TIME = "TOKEN_LOCO_SECTION_TIME"
 private const val TOKEN_LOCO_SECTION_HEATING = "TOKEN_LOCO_SECTION_HEATING"
 private const val TOKEN_LOCO_SECTION_AUXILIARY = "TOKEN_LOCO_SECTION_AUXILIARY"
@@ -38,6 +42,7 @@ private const val TOKEN_SHOW_LOCO_NORMA = "TOKEN_SHOW_LOCO_NORMA"
 private const val TOKEN_SHOW_OTHER_CURRENT = "TOKEN_SHOW_OTHER_CURRENT"
 private const val TOKEN_LOCO_SECTION_NORMA = "TOKEN_LOCO_SECTION_NORMA"
 private const val TOKEN_PASSENGER_12H_DONT_ASK = "TOKEN_PASSENGER_12H_DONT_ASK"
+private const val TOKEN_LOCO_NORM_HAND_TO_HAND = "TOKEN_LOCO_NORM_HAND_TO_HAND"
 private const val TOKEN_PASSENGER_12H_ACCEPTED = "TOKEN_PASSENGER_12H_ACCEPTED"
 
 private const val TOKEN_LAST_SYNC_TIME = "TOKEN_LAST_SYNC_TIME"
@@ -176,6 +181,13 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         editor.putBoolean(TOKEN_SHOW_LOCO_FORM_UPDATE_V2_1_7, false).apply()
     }
 
+    override fun isUnderworkInfoDismissed(): Boolean =
+        sharedpref.getBoolean(TOKEN_UNDERWORK_INFO_DISMISSED, false)
+
+    override fun setUnderworkInfoDismissed() {
+        editor.putBoolean(TOKEN_UNDERWORK_INFO_DISMISSED, true).apply()
+    }
+
     override fun isLocoSectionTimeExpanded(): Boolean =
         sharedpref.getBoolean(TOKEN_LOCO_SECTION_TIME, false)
 
@@ -251,6 +263,13 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun setPassenger12hDontAskAgain(value: Boolean) {
         editor.putBoolean(TOKEN_PASSENGER_12H_DONT_ASK, value).apply()
+    }
+
+    override fun isLocoNormHandToHand(): Boolean =
+        sharedpref.getBoolean(TOKEN_LOCO_NORM_HAND_TO_HAND, false)
+
+    override fun setLocoNormHandToHand(value: Boolean) {
+        editor.putBoolean(TOKEN_LOCO_NORM_HAND_TO_HAND, value).apply()
     }
 
     override fun isPassenger12hAutoAccepted(): Boolean =
@@ -337,5 +356,23 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         current.add(0, timeMillis)
         val trimmed = current.take(5)
         editor.putString("recent_times_$key", trimmed.joinToString(",", "[", "]")).apply()
+    }
+
+    override fun getSchedulePatterns(): List<SchedulePattern>? {
+        val json = sharedpref.getString(SCHEDULE_PATTERNS_KEY, null) ?: return null
+        return try {
+            schedulePatternsJson.decodeFromString<List<SchedulePattern>>(json)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override fun setSchedulePatterns(patterns: List<SchedulePattern>) {
+        editor.putString(SCHEDULE_PATTERNS_KEY, schedulePatternsJson.encodeToString(patterns)).apply()
+    }
+
+    private companion object {
+        const val SCHEDULE_PATTERNS_KEY = "SCHEDULE_PATTERNS"
+        val schedulePatternsJson = Json { ignoreUnknownKeys = true }
     }
 }

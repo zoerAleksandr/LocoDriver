@@ -15,23 +15,46 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
+// Четыре нормы на серию: приёмка/сдача × «После отстоя»/«Из рук в руки».
+enum class SeriesNormField {
+    ACCEPTANCE_PARKING, DELIVERY_PARKING, ACCEPTANCE_HAND, DELIVERY_HAND
+}
+
 data class SeriesEditorState(
     val seriesId: String? = null,
     val name: String = "",
     val type: LocoType = LocoType.ELECTRIC,
+    // «После отстоя без бригады» (вариант по умолчанию)
     val acceptanceDurationMin: Int? = null,
     val deliveryDurationMin: Int? = null,
+    // «Из рук в руки»
+    val acceptanceHandToHandMin: Int? = null,
+    val deliveryHandToHandMin: Int? = null,
     val saved: Boolean = false,
     val deleted: Boolean = false,
-)
+) {
+    fun valueOf(field: SeriesNormField): Int? = when (field) {
+        SeriesNormField.ACCEPTANCE_PARKING -> acceptanceDurationMin
+        SeriesNormField.DELIVERY_PARKING -> deliveryDurationMin
+        SeriesNormField.ACCEPTANCE_HAND -> acceptanceHandToHandMin
+        SeriesNormField.DELIVERY_HAND -> deliveryHandToHandMin
+    }
+}
 
-class SeriesEditorViewModel(private val seriesId: String?) : ViewModel(), KoinComponent {
+class SeriesEditorViewModel(
+    private val seriesId: String?,
+    initialName: String? = null,
+) : ViewModel(), KoinComponent {
     private val repository: LocomotiveSeriesRepository by inject()
 
     // Generate ID once — prevents duplicates on autosave for new series
     private val persistentId: String = seriesId ?: generateId()
 
-    private val _state = MutableStateFlow(SeriesEditorState(seriesId = persistentId))
+    private val _state = MutableStateFlow(
+        // Для «старой» серии (только имя в locomotiveSeriesList, без норм) открываем
+        // редактор с заполненным названием — пользователь дозадаёт приёмку/сдачу.
+        SeriesEditorState(seriesId = persistentId, name = initialName?.trim().orEmpty())
+    )
     val state = _state.asStateFlow()
 
     init {
@@ -46,6 +69,8 @@ class SeriesEditorViewModel(private val seriesId: String?) : ViewModel(), KoinCo
                             type = s.type,
                             acceptanceDurationMin = s.acceptanceDurationMin,
                             deliveryDurationMin = s.deliveryDurationMin,
+                            acceptanceHandToHandMin = s.acceptanceHandToHandMin,
+                            deliveryHandToHandMin = s.deliveryHandToHandMin,
                         )
                     }
                 }
@@ -56,48 +81,49 @@ class SeriesEditorViewModel(private val seriesId: String?) : ViewModel(), KoinCo
     fun setName(value: String) = _state.update { it.copy(name = value) }
     fun setType(value: LocoType) = _state.update { it.copy(type = value) }
 
-    fun incrementAcceptance() = _state.update {
-        it.copy(acceptanceDurationMin = ((it.acceptanceDurationMin ?: 0) + 5).coerceAtMost(240))
+    private fun SeriesEditorState.withValue(field: SeriesNormField, value: Int?): SeriesEditorState =
+        when (field) {
+            SeriesNormField.ACCEPTANCE_PARKING -> copy(acceptanceDurationMin = value)
+            SeriesNormField.DELIVERY_PARKING -> copy(deliveryDurationMin = value)
+            SeriesNormField.ACCEPTANCE_HAND -> copy(acceptanceHandToHandMin = value)
+            SeriesNormField.DELIVERY_HAND -> copy(deliveryHandToHandMin = value)
+        }
+
+    fun increment(field: SeriesNormField) = _state.update {
+        it.withValue(field, ((it.valueOf(field) ?: 0) + 5).coerceAtMost(240))
     }
 
-    fun decrementAcceptance() = _state.update {
-        val cur = it.acceptanceDurationMin
-        if (cur == null || cur <= 0) it
-        else it.copy(acceptanceDurationMin = (cur - 5).coerceAtLeast(0))
+    fun decrement(field: SeriesNormField) = _state.update {
+        val cur = it.valueOf(field)
+        if (cur == null || cur <= 0) it else it.withValue(field, (cur - 5).coerceAtLeast(0))
     }
 
-    fun setAcceptanceDurationMin(value: Int) = _state.update {
-        it.copy(acceptanceDurationMin = value.coerceIn(0, 240))
-    }
-
-    fun incrementDelivery() = _state.update {
-        it.copy(deliveryDurationMin = ((it.deliveryDurationMin ?: 0) + 5).coerceAtMost(240))
-    }
-
-    fun decrementDelivery() = _state.update {
-        val cur = it.deliveryDurationMin
-        if (cur == null || cur <= 0) it
-        else it.copy(deliveryDurationMin = (cur - 5).coerceAtLeast(0))
-    }
-
-    fun setDeliveryDurationMin(value: Int) = _state.update {
-        it.copy(deliveryDurationMin = value.coerceIn(0, 240))
+    fun setField(field: SeriesNormField, value: Int) = _state.update {
+        it.withValue(field, value.coerceIn(0, 240))
     }
 
     /** Autosave — silent, does NOT set saved = true (no navigation side-effect). */
     fun save() {
         val s = _state.value
         if (s.name.isBlank()) return
+        val hasNorm = s.acceptanceDurationMin != null || s.deliveryDurationMin != null ||
+            s.acceptanceHandToHandMin != null || s.deliveryHandToHandMin != null
         viewModelScope.launch {
             val all = repository.getAll().toMutableList()
+            val idx = all.indexOfFirst { it.seriesId == persistentId }
+            // Не создаём новую запись без норм: иначе «старая» серия (только имя в
+            // locomotiveSeriesList), открытая и закрытая без ввода, сохранилась бы
+            // как серия и «переехала» бы из раздела «без норм» наверх.
+            if (idx < 0 && !hasNorm) return@launch
             val updated = LocomotiveSeries(
                 seriesId = persistentId,
                 name = s.name.trim(),
                 type = s.type,
                 acceptanceDurationMin = s.acceptanceDurationMin,
                 deliveryDurationMin = s.deliveryDurationMin,
+                acceptanceHandToHandMin = s.acceptanceHandToHandMin,
+                deliveryHandToHandMin = s.deliveryHandToHandMin,
             )
-            val idx = all.indexOfFirst { it.seriesId == updated.seriesId }
             if (idx >= 0) all[idx] = updated else all.add(updated)
             repository.replaceAll(all).collect {}
         }

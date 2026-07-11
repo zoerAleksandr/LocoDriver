@@ -107,6 +107,10 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setLocoSectionNormaExpanded(value: Boolean) { locoSectionNormaExpanded = value }
     override fun isPassenger12hDontAskAgain(): Boolean = passenger12hDontAskAgain
     override fun setPassenger12hDontAskAgain(value: Boolean) { passenger12hDontAskAgain = value }
+
+    private var locoNormHandToHand: Boolean = false
+    override fun isLocoNormHandToHand(): Boolean = locoNormHandToHand
+    override fun setLocoNormHandToHand(value: Boolean) { locoNormHandToHand = value }
     override fun isPassenger12hAutoAccepted(): Boolean = passenger12hAutoAccepted
     override fun setPassenger12hAutoAccepted(value: Boolean) { passenger12hAutoAccepted = value }
 
@@ -127,5 +131,11 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
         recentCoefficients.remove(value)
         recentCoefficients.add(0, value)
         while (recentCoefficients.size > 5) recentCoefficients.removeAt(recentCoefficients.lastIndex)
+    }
+
+    private var schedulePatterns: List<com.z_company.domain.entities.SchedulePattern>? = null
+    override fun getSchedulePatterns(): List<com.z_company.domain.entities.SchedulePattern>? = schedulePatterns
+    override fun setSchedulePatterns(patterns: List<com.z_company.domain.entities.SchedulePattern>) {
+        schedulePatterns = patterns
     }
 }

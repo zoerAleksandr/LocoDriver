@@ -1,0 +1,5 @@
+-- Миграция 13: вторая пара норм для серии локомотива.
+-- acceptanceDurationMin/deliveryDurationMin — «После отстоя без бригады» (по умолчанию),
+-- новые поля — «Из рук в руки».
+ALTER TABLE LocomotiveSeries ADD COLUMN acceptanceHandToHandMin INTEGER;
+ALTER TABLE LocomotiveSeries ADD COLUMN deliveryHandToHandMin INTEGER;

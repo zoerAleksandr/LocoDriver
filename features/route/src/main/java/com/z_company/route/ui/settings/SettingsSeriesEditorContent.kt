@@ -41,10 +41,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.route.R
 import com.z_company.route.viewmodel.SeriesEditorViewModel
+import com.z_company.route.viewmodel.SeriesNormField
 import kotlinx.coroutines.delay
 
 @Composable
@@ -65,6 +67,8 @@ fun SettingsSeriesEditorContent(
         state.type,
         state.acceptanceDurationMin,
         state.deliveryDurationMin,
+        state.acceptanceHandToHandMin,
+        state.deliveryHandToHandMin,
     ) {
         if (state.name.isNotBlank()) {
             delay(500)
@@ -102,19 +106,25 @@ fun SettingsSeriesEditorContent(
         )
     }
 
-    // Acceptance value dialog
-    var showAcceptanceDialog by remember { mutableStateOf(false) }
-    var acceptanceText by remember { mutableStateOf("") }
-    if (showAcceptanceDialog) {
+    // Единый диалог ввода значения нормы для любого из четырёх полей
+    var dialogField by remember { mutableStateOf<SeriesNormField?>(null) }
+    var dialogText by remember { mutableStateOf("") }
+    dialogField?.let { field ->
+        val title = when (field) {
+            SeriesNormField.ACCEPTANCE_PARKING -> "Приёмка · после отстоя"
+            SeriesNormField.ACCEPTANCE_HAND -> "Приёмка · из рук в руки"
+            SeriesNormField.DELIVERY_PARKING -> "Сдача · после отстоя"
+            SeriesNormField.DELIVERY_HAND -> "Сдача · из рук в руки"
+        }
         AlertDialog(
-            onDismissRequest = { showAcceptanceDialog = false },
+            onDismissRequest = { dialogField = null },
             containerColor = MaterialTheme.colorScheme.secondary,
             titleContentColor = MaterialTheme.colorScheme.primary,
-            title = { Text("Длительность приёмки") },
+            title = { Text(title) },
             text = {
                 OutlinedTextField(
-                    value = acceptanceText,
-                    onValueChange = { acceptanceText = it.filter { c -> c.isDigit() }.take(3) },
+                    value = dialogText,
+                    onValueChange = { dialogText = it.filter { c -> c.isDigit() }.take(3) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     suffix = { Text("мин") },
@@ -123,47 +133,13 @@ fun SettingsSeriesEditorContent(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    val v = acceptanceText.toIntOrNull()
-                    if (v != null) viewModel.setAcceptanceDurationMin(v)
-                    showAcceptanceDialog = false
+                    val v = dialogText.toIntOrNull()
+                    if (v != null) viewModel.setField(field, v)
+                    dialogField = null
                 }) { Text("OK", color = MaterialTheme.colorScheme.tertiary) }
             },
             dismissButton = {
-                TextButton(onClick = { showAcceptanceDialog = false }) {
-                    Text("Отмена", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
-                }
-            }
-        )
-    }
-
-    // Delivery value dialog
-    var showDeliveryDialog by remember { mutableStateOf(false) }
-    var deliveryText by remember { mutableStateOf("") }
-    if (showDeliveryDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeliveryDialog = false },
-            containerColor = MaterialTheme.colorScheme.secondary,
-            titleContentColor = MaterialTheme.colorScheme.primary,
-            title = { Text("Длительность сдачи") },
-            text = {
-                OutlinedTextField(
-                    value = deliveryText,
-                    onValueChange = { deliveryText = it.filter { c -> c.isDigit() }.take(3) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    suffix = { Text("мин") },
-                    label = { Text("Значение") },
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val v = deliveryText.toIntOrNull()
-                    if (v != null) viewModel.setDeliveryDurationMin(v)
-                    showDeliveryDialog = false
-                }) { Text("OK", color = MaterialTheme.colorScheme.tertiary) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeliveryDialog = false }) {
+                TextButton(onClick = { dialogField = null }) {
                     Text("Отмена", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
                 }
             }
@@ -220,7 +196,9 @@ fun SettingsSeriesEditorContent(
                     modifier = Modifier
                         .weight(1f)
                         .padding(start = 16.dp),
+                    // Серия — идентификатор (напр. «ВЛ10у») → моноширинный шрифт.
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        fontFamily = MonoFont,
                         textAlign = TextAlign.End,
                         color = MaterialTheme.colorScheme.primary,
                     ),
@@ -229,7 +207,10 @@ fun SettingsSeriesEditorContent(
                         if (state.name.isEmpty()) {
                             Text(
                                 "Серия",
-                                style = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.End),
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontFamily = MonoFont,
+                                    textAlign = TextAlign.End,
+                                ),
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -288,13 +269,25 @@ fun SettingsSeriesEditorContent(
                 .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
         ) {
             StepperRow(
-                label = "Длительность",
+                label = "После отстоя",
+                sub = "без бригады",
                 value = state.acceptanceDurationMin,
-                onIncrement = viewModel::incrementAcceptance,
-                onDecrement = viewModel::decrementAcceptance,
+                onIncrement = { viewModel.increment(SeriesNormField.ACCEPTANCE_PARKING) },
+                onDecrement = { viewModel.decrement(SeriesNormField.ACCEPTANCE_PARKING) },
                 onValueClick = {
-                    acceptanceText = (state.acceptanceDurationMin ?: 0).toString()
-                    showAcceptanceDialog = true
+                    dialogText = (state.acceptanceDurationMin ?: 0).toString()
+                    dialogField = SeriesNormField.ACCEPTANCE_PARKING
+                }
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+            StepperRow(
+                label = "Из рук в руки",
+                value = state.acceptanceHandToHandMin,
+                onIncrement = { viewModel.increment(SeriesNormField.ACCEPTANCE_HAND) },
+                onDecrement = { viewModel.decrement(SeriesNormField.ACCEPTANCE_HAND) },
+                onValueClick = {
+                    dialogText = (state.acceptanceHandToHandMin ?: 0).toString()
+                    dialogField = SeriesNormField.ACCEPTANCE_HAND
                 }
             )
         }
@@ -313,13 +306,25 @@ fun SettingsSeriesEditorContent(
                 .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
         ) {
             StepperRow(
-                label = "Длительность",
+                label = "После отстоя",
+                sub = "без бригады",
                 value = state.deliveryDurationMin,
-                onIncrement = viewModel::incrementDelivery,
-                onDecrement = viewModel::decrementDelivery,
+                onIncrement = { viewModel.increment(SeriesNormField.DELIVERY_PARKING) },
+                onDecrement = { viewModel.decrement(SeriesNormField.DELIVERY_PARKING) },
                 onValueClick = {
-                    deliveryText = (state.deliveryDurationMin ?: 0).toString()
-                    showDeliveryDialog = true
+                    dialogText = (state.deliveryDurationMin ?: 0).toString()
+                    dialogField = SeriesNormField.DELIVERY_PARKING
+                }
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+            StepperRow(
+                label = "Из рук в руки",
+                value = state.deliveryHandToHandMin,
+                onIncrement = { viewModel.increment(SeriesNormField.DELIVERY_HAND) },
+                onDecrement = { viewModel.decrement(SeriesNormField.DELIVERY_HAND) },
+                onValueClick = {
+                    dialogText = (state.deliveryHandToHandMin ?: 0).toString()
+                    dialogField = SeriesNormField.DELIVERY_HAND
                 }
             )
         }

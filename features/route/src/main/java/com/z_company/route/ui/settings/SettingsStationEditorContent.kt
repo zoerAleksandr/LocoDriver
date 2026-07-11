@@ -39,12 +39,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.route.R
 import com.z_company.route.viewmodel.StationNormEditorViewModel
@@ -132,7 +132,7 @@ fun SettingsStationEditorContent(
     ) {
         // Section hint
         Text(
-            text = "4 интервала, привязанных к этой станции. Используются автоматически при заполнении времени.",
+            text = "Используются автоматически при заполнении времени приёмки и сдачи локомотива на этой станции.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
             modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
@@ -205,6 +205,7 @@ fun SettingsStationEditorContent(
         ) {
             StepperRow(
                 label = "Явка → Начало",
+                sub = "от явки до начала приёмки",
                 value = state.appearanceToStartMin,
                 onIncrement = { viewModel.increment(StationNormField.APPEARANCE_TO_START) },
                 onDecrement = { viewModel.decrement(StationNormField.APPEARANCE_TO_START) },
@@ -216,6 +217,7 @@ fun SettingsStationEditorContent(
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             StepperRow(
                 label = "Конец → КП",
+                sub = "от окончания приёмки до выхода на КП",
                 value = state.endToBarrierMin,
                 onIncrement = { viewModel.increment(StationNormField.END_TO_BARRIER) },
                 onDecrement = { viewModel.decrement(StationNormField.END_TO_BARRIER) },
@@ -241,6 +243,7 @@ fun SettingsStationEditorContent(
         ) {
             StepperRow(
                 label = "КП → Начало",
+                sub = "от выхода на КП до начала сдачи",
                 value = state.barrierToStartMin,
                 onIncrement = { viewModel.increment(StationNormField.BARRIER_TO_START) },
                 onDecrement = { viewModel.decrement(StationNormField.BARRIER_TO_START) },
@@ -252,6 +255,7 @@ fun SettingsStationEditorContent(
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             StepperRow(
                 label = "Конец → Окончание работы",
+                sub = "от окончания сдачи до окончания работы",
                 value = state.endToWorkEndMin,
                 onIncrement = { viewModel.increment(StationNormField.END_TO_WORK_END) },
                 onDecrement = { viewModel.decrement(StationNormField.END_TO_WORK_END) },
@@ -305,6 +309,7 @@ internal fun StepperRow(
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
     onValueClick: () -> Unit,
+    sub: String? = null,
 ) {
     Row(
         modifier = Modifier
@@ -313,14 +318,24 @@ internal fun StepperRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Label — takes all remaining space, wraps if long
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(1f),
-            softWrap = true
-        )
+        // Label (+ пояснение) — takes all remaining space, wraps if long
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                softWrap = true
+            )
+            if (sub != null) {
+                Text(
+                    text = sub,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                    softWrap = true,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
 
         // Stepper control — always on the right
         Row(
@@ -363,7 +378,7 @@ internal fun StepperRow(
             ) {
                 Text(
                     text = if (value != null) "$value мин" else "— мин",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = MonoFont,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center,

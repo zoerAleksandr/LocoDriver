@@ -12,6 +12,8 @@ data class NormaTimeLocomotiveResponse(
     val type: String,
     val acceptanceDurationMin: Int? = null,
     val deliveryDurationMin: Int? = null,
+    val acceptanceHandToHandMin: Int? = null,
+    val deliveryHandToHandMin: Int? = null,
     val updatedAt: Double
 ) {
     fun toDomain(): LocomotiveSeries = LocomotiveSeries(
@@ -20,6 +22,8 @@ data class NormaTimeLocomotiveResponse(
         type = LocoType.entries.find { it.name == type } ?: LocoType.ELECTRIC,
         acceptanceDurationMin = acceptanceDurationMin,
         deliveryDurationMin = deliveryDurationMin,
+        acceptanceHandToHandMin = acceptanceHandToHandMin,
+        deliveryHandToHandMin = deliveryHandToHandMin,
         updatedAt = updatedAt.toLong()
     )
 
@@ -31,6 +35,8 @@ data class NormaTimeLocomotiveResponse(
                 type = series.type.name,
                 acceptanceDurationMin = series.acceptanceDurationMin,
                 deliveryDurationMin = series.deliveryDurationMin,
+                acceptanceHandToHandMin = series.acceptanceHandToHandMin,
+                deliveryHandToHandMin = series.deliveryHandToHandMin,
                 updatedAt = series.updatedAt.toDouble()
             )
     }

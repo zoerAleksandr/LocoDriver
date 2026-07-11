@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.route.LocoType
@@ -34,11 +35,33 @@ import com.z_company.route.viewmodel.SeriesListViewModel
 @Composable
 fun SettingsSeriesListContent(
     viewModel: SeriesListViewModel,
+    legacyNames: List<String>,
     onOpenEditor: (String?) -> Unit,
+    onOpenLegacy: (String) -> Unit,
 ) {
     val series by viewModel.seriesFlow.collectAsState()
-    val electric = series.filter { it.type == LocoType.ELECTRIC }
-    val diesel = series.filter { it.type == LocoType.DIESEL }
+
+    // Серия «с нормой» = задана приёмка и/или сдача. Только такие идут в группы
+    // по типу тяги. Записи без норм считаем такими же «старыми», как имена из
+    // locomotiveSeriesList — они собираются в нижнем разделе «без норм».
+    fun LocomotiveSeries.hasNorm() =
+        acceptanceDurationMin != null || deliveryDurationMin != null ||
+            acceptanceHandToHandMin != null || deliveryHandToHandMin != null
+
+    val withNorms = series.filter { it.hasNorm() }
+    val electric = withNorms.filter { it.type == LocoType.ELECTRIC }
+    val diesel = withNorms.filter { it.type == LocoType.DIESEL }
+
+    val recordNames = series.map { it.name.trim().lowercase() }.toSet()
+    // Нижний раздел: записи без норм (открываются по id) + «старые» имена из
+    // locomotiveSeriesList, которым не сопоставлена запись (открываются по имени).
+    val noNormItems: List<NoNormItem> =
+        series.filter { !it.hasNorm() }.map { NoNormItem(it.name, it.seriesId) } +
+            legacyNames
+                .map { it.trim() }
+                .filter { it.isNotBlank() && it.lowercase() !in recordNames }
+                .distinct()
+                .map { NoNormItem(it, null) }
 
     Column(
         modifier = Modifier
@@ -48,7 +71,7 @@ fun SettingsSeriesListContent(
             .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        if (series.isEmpty()) {
+        if (withNorms.isEmpty() && noNormItems.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -93,6 +116,30 @@ fun SettingsSeriesListContent(
             SeriesGroupCard(items = diesel, onOpenEditor = onOpenEditor)
         }
 
+        // Серии без норм приёмки/сдачи — ниже, с пометкой
+        if (noNormItems.isNotEmpty()) {
+            Text(
+                text = "БЕЗ НОРМ ПРИЁМКИ И СДАЧИ · ${noNormItems.size}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 4.dp)
+            )
+            LegacySeriesCard(
+                items = noNormItems,
+                onClickItem = { item ->
+                    if (item.id != null) onOpenEditor(item.id)
+                    else onOpenLegacy(item.name)
+                }
+            )
+            Text(
+                text = "Серии из прежних версий. Откройте серию и задайте нормы — " +
+                    "они будут подставляться автоматически в шторке локомотива.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                modifier = Modifier.padding(start = 4.dp, top = 6.dp)
+            )
+        }
+
         Spacer(Modifier.height(8.dp))
 
         Row(
@@ -117,6 +164,63 @@ fun SettingsSeriesListContent(
                 color = MaterialTheme.colorScheme.tertiary
             )
         }
+    }
+}
+
+/** Строка без норм: существующая запись (id != null) или «старое» имя (id == null). */
+data class NoNormItem(val name: String, val id: String?)
+
+@Composable
+private fun LegacySeriesCard(
+    items: List<NoNormItem>,
+    onClickItem: (NoNormItem) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 2.dp, shape = Shapes.medium)
+            .background(color = MaterialTheme.colorScheme.secondary, shape = Shapes.medium)
+    ) {
+        items.forEachIndexed { idx, item ->
+            LegacySeriesRow(name = item.name, onClick = { onClickItem(item) })
+            if (idx < items.lastIndex) {
+                HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun LegacySeriesRow(
+    name: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont),
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "Норма приёмки и сдачи не задана",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            )
+        }
+        Icon(
+            painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 

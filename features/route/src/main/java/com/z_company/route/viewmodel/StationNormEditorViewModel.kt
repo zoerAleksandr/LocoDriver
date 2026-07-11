@@ -29,13 +29,20 @@ data class StationEditorState(
     val deleted: Boolean = false,
 )
 
-class StationNormEditorViewModel(private val stationId: String?) : ViewModel(), KoinComponent {
+class StationNormEditorViewModel(
+    private val stationId: String?,
+    initialName: String? = null,
+) : ViewModel(), KoinComponent {
     private val repository: StationNormRepository by inject()
 
     // Generate the ID once — prevents duplicate rows on each autosave for new stations.
     private val persistentId: String = stationId ?: generateId()
 
-    private val _state = MutableStateFlow(StationEditorState(stationId = persistentId))
+    // Для «старой» станции (только имя в stationList, без норм) открываем редактор
+    // с заполненным названием — пользователь дозадаёт нормы интервалов.
+    private val _state = MutableStateFlow(
+        StationEditorState(stationId = persistentId, name = initialName?.trim().orEmpty())
+    )
     val state = _state.asStateFlow()
 
     init {
@@ -108,8 +115,15 @@ class StationNormEditorViewModel(private val stationId: String?) : ViewModel(), 
     fun save() {
         val s = _state.value
         if (s.name.isBlank()) return
+        val hasAnyNorm = s.appearanceToStartMin != null || s.endToBarrierMin != null ||
+            s.barrierToStartMin != null || s.endToWorkEndMin != null
         viewModelScope.launch {
             val all = repository.getAll().toMutableList()
+            val idx = all.indexOfFirst { it.stationId == persistentId }
+            // Не создаём новую запись без норм: иначе «старая» станция (только имя в
+            // stationList), открытая и закрытая без ввода, сохранилась бы записью и
+            // «переехала» бы из раздела «без норм» наверх.
+            if (idx < 0 && !hasAnyNorm) return@launch
             val updated = StationNorm(
                 stationId = persistentId,
                 name = s.name.trim(),
@@ -118,7 +132,6 @@ class StationNormEditorViewModel(private val stationId: String?) : ViewModel(), 
                 barrierToStartMin = s.barrierToStartMin,
                 endToWorkEndMin = s.endToWorkEndMin,
             )
-            val idx = all.indexOfFirst { it.stationId == updated.stationId }
             if (idx >= 0) all[idx] = updated else all.add(updated)
             repository.replaceAll(all).collect {}
         }

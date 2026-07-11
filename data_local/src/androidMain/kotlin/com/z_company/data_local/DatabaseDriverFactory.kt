@@ -27,6 +27,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
         // пропустит 5.sqm, и столбцы никогда не добавятся → SQLiteException.
         ensureSettingsTablesV6("Settings.db")
         ensureSettingsTablesV12("Settings.db")
+        ensureRegionalHolidayTable("Settings.db")
         fixVersionIfColumnsExist(
             "Settings.db",
             SettingsDatabase.Schema.version.toInt(),
@@ -48,6 +49,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "region",
             "MonthOfYear" to "tariffRate",
             "MonthOfYear" to "dateSetTariffRate",
+            "LocomotiveSeries" to "acceptanceHandToHandMin",
+            "LocomotiveSeries" to "deliveryHandToHandMin",
             primaryTable = "UserSettings")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
@@ -109,6 +112,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
                     type TEXT NOT NULL,
                     acceptanceDurationMin INTEGER,
                     deliveryDurationMin INTEGER,
+                    acceptanceHandToHandMin INTEGER,
+                    deliveryHandToHandMin INTEGER,
                     updatedAt INTEGER NOT NULL
                 )
             """.trimIndent())
@@ -123,6 +128,35 @@ actual class DatabaseDriverFactory(private val context: Context) {
                     updatedAt INTEGER NOT NULL
                 )
             """.trimIndent())
+        } finally {
+            db.close()
+        }
+    }
+
+    /**
+     * Создаёт таблицу RegionalHoliday если её нет. Таблица добавлена в схему позже,
+     * а fixVersionIfColumnsExist выставляет версию сразу в targetVersion, из-за чего
+     * SQLDelight не создаёт её на уже существующих БД (была ошибка "no such table:
+     * RegionalHoliday", и Календарь ходил за праздниками в сеть на каждую загрузку).
+     */
+    private fun ensureRegionalHolidayTable(dbName: String) {
+        val dbFile = context.getDatabasePath(dbName)
+        if (!dbFile.exists()) return
+        val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
+        try {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS RegionalHoliday (
+                    region TEXT NOT NULL,
+                    year INTEGER NOT NULL,
+                    month INTEGER NOT NULL,
+                    dayOfMonth INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    PRIMARY KEY (region, year, month, dayOfMonth)
+                )
+            """.trimIndent())
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_regional_holiday_region_year ON RegionalHoliday(region, year)"
+            )
         } finally {
             db.close()
         }
@@ -229,6 +263,9 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.locomotiveSeriesList" to ColumnSpec("TEXT", false, "'[]'"),
             "UserSettings.servicePhases" to ColumnSpec("TEXT", false, "'[]'"),
             "UserSettings.region" to ColumnSpec("TEXT", true, "NULL"),
+
+            "LocomotiveSeries.acceptanceHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
+            "LocomotiveSeries.deliveryHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
             // Settings — MonthOfYear
             "MonthOfYear.tariffRate" to ColumnSpec("REAL", false, "0.0"),
             "MonthOfYear.dateSetTariffRate" to ColumnSpec("TEXT", true, "NULL"),

@@ -4,12 +4,14 @@ CREATE TABLE IF NOT EXISTS LocomotiveSeries (
     type TEXT NOT NULL,
     acceptanceDurationMin INTEGER,
     deliveryDurationMin INTEGER,
+    acceptanceHandToHandMin INTEGER,
+    deliveryHandToHandMin INTEGER,
     updatedAt INTEGER NOT NULL
 );
 
 insertOrReplace:
-INSERT OR REPLACE INTO LocomotiveSeries (seriesId, name, type, acceptanceDurationMin, deliveryDurationMin, updatedAt)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO LocomotiveSeries (seriesId, name, type, acceptanceDurationMin, deliveryDurationMin, acceptanceHandToHandMin, deliveryHandToHandMin, updatedAt)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 getAll:
 SELECT * FROM LocomotiveSeries ORDER BY name;

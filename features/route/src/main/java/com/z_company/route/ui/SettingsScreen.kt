@@ -8,22 +8,24 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,15 +47,15 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
-import com.z_company.core.ui.component.CustomDivider
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.setting.UserSettings
@@ -165,6 +167,11 @@ fun SettingsScreen(
     var currentSubScreen by remember { mutableStateOf(initState.screen) }
     var selectedSeriesId by remember { mutableStateOf(initState.seriesId) }
     var selectedStationId by remember { mutableStateOf(initState.stationId) }
+    // Название «старой» серии (из locomotiveSeriesList, без норм), открываемой
+    // в редакторе для добавления норм приёмки/сдачи. null — обычная новая серия.
+    var prefillSeriesName by remember { mutableStateOf<String?>(null) }
+    // То же для «старой» станции (из stationList, без норм).
+    var prefillStationName by remember { mutableStateOf<String?>(null) }
 
     // Если пользователь попал сразу на под-экран (через deep link из FormLocoScreen
     // и т.п.) — back должен возвращать по backstack, а не в HUB настроек.
@@ -285,7 +292,14 @@ fun SettingsScreen(
                 ) { screen ->
                     when (screen) {
                         SettingsSubScreen.HUB -> {
+                            val seriesRecords =
+                                seriesListViewModel?.seriesFlow?.collectAsState()?.value ?: emptyList()
+                            val stationRecords =
+                                stationListViewModel?.stationsFlow?.collectAsState()?.value ?: emptyList()
                             SettingsHubContent(
+                                currentSettings = settings,
+                                seriesTotalCount = seriesUnionCount(settings.locomotiveSeriesList, seriesRecords.map { it.name }),
+                                stationTotalCount = seriesUnionCount(settings.stationList, stationRecords.map { it.name }),
                                 onNavigate = { currentSubScreen = it },
                                 showSettingSalary = showSettingSalary,
                             )
@@ -375,8 +389,15 @@ fun SettingsScreen(
                             seriesListViewModel?.let { vm ->
                                 SettingsSeriesListContent(
                                     viewModel = vm,
+                                    legacyNames = settings.locomotiveSeriesList,
                                     onOpenEditor = { id ->
                                         selectedSeriesId = id
+                                        prefillSeriesName = null
+                                        currentSubScreen = SettingsSubScreen.SERIES_EDITOR
+                                    },
+                                    onOpenLegacy = { name ->
+                                        selectedSeriesId = null
+                                        prefillSeriesName = name
                                         currentSubScreen = SettingsSubScreen.SERIES_EDITOR
                                     }
                                 )
@@ -385,8 +406,8 @@ fun SettingsScreen(
 
                         SettingsSubScreen.SERIES_EDITOR -> {
                             val editorVm = koinViewModel<SeriesEditorViewModel>(
-                                key = "series_editor_${selectedSeriesId ?: "new"}",
-                                parameters = { parametersOf(selectedSeriesId) }
+                                key = "series_editor_${selectedSeriesId ?: prefillSeriesName ?: "new"}",
+                                parameters = { parametersOf(selectedSeriesId, prefillSeriesName) }
                             )
                             SettingsSeriesEditorContent(
                                 viewModel = editorVm,
@@ -398,8 +419,15 @@ fun SettingsScreen(
                             stationListViewModel?.let { vm ->
                                 SettingsStationListContent(
                                     viewModel = vm,
+                                    legacyNames = settings.stationList,
                                     onOpenEditor = { id ->
                                         selectedStationId = id
+                                        prefillStationName = null
+                                        currentSubScreen = SettingsSubScreen.STATION_EDITOR
+                                    },
+                                    onOpenLegacy = { name ->
+                                        selectedStationId = null
+                                        prefillStationName = name
                                         currentSubScreen = SettingsSubScreen.STATION_EDITOR
                                     }
                                 )
@@ -408,8 +436,8 @@ fun SettingsScreen(
 
                         SettingsSubScreen.STATION_EDITOR -> {
                             val editorVm = koinViewModel<StationNormEditorViewModel>(
-                                key = "station_editor_${selectedStationId ?: "new"}",
-                                parameters = { parametersOf(selectedStationId) }
+                                key = "station_editor_${selectedStationId ?: prefillStationName ?: "new"}",
+                                parameters = { parametersOf(selectedStationId, prefillStationName) }
                             )
                             SettingsStationEditorContent(
                                 viewModel = editorVm,
@@ -425,180 +453,357 @@ fun SettingsScreen(
 
 @Composable
 private fun SettingsHubContent(
+    currentSettings: UserSettings,
+    seriesTotalCount: Int,
+    stationTotalCount: Int,
     onNavigate: (SettingsSubScreen) -> Unit,
     showSettingSalary: () -> Unit,
 ) {
-    val styleHint = MaterialTheme.typography.bodyMedium
-    val styleTitle = MaterialTheme.typography.titleSmall
-    val primaryColor = MaterialTheme.colorScheme.primary
+    val seriesCount = seriesTotalCount
+    val stationCount = stationTotalCount
+    val shouldersCount = currentSettings.servicePhases.size
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp)
-            .padding(bottom = 24.dp)
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 32.dp)
             .testTag("settings_scroll_column"),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SettingsNavItem(
-            title = "Основные",
-            onClick = { onNavigate(SettingsSubScreen.ROUTE) }
-        )
-        SettingsNavItem(
-            title = "Маршрут",
-            onClick = { onNavigate(SettingsSubScreen.ROUTE_FORM) }
-        )
-        SettingsNavItem(
-            title = "Норма/Регион",
-            onClick = { onNavigate(SettingsSubScreen.NORMA) }
-        )
-        SettingsNavItem(
-            title = "Учёт",
-            onClick = { onNavigate(SettingsSubScreen.ACCOUNTING) }
-        )
-        SettingsNavItem(
-            title = "Отдых",
-            onClick = { onNavigate(SettingsSubScreen.REST) }
-        )
-        SettingsNavItem(
-            title = "Плечи",
-            onClick = { onNavigate(SettingsSubScreen.SHOULDERS) }
-        )
-        SettingsNavItem(
-            title = "Локомотив",
-            onClick = { onNavigate(SettingsSubScreen.LOCOMOTIVE) }
-        )
-        SettingsNavItem(
-            title = "Зарплата",
-            onClick = showSettingSalary
-        )
-        SettingsNavItem(
-            title = "Серии локомотивов",
-            onClick = { onNavigate(SettingsSubScreen.SERIES_LIST) }
-        )
-        SettingsNavItem(
-            title = "Станции",
-            onClick = { onNavigate(SettingsSubScreen.STATION_LIST) }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // О приложении
-        Text(
-            modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
-            text = "О приложении",
-            style = styleTitle
-        )
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(elevation = 2.dp, shape = Shapes.medium)
-                .background(
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = Shapes.medium
-                )
-                .padding(16.dp)
-        ) {
-            val context = LocalContext.current
-
-            val versionName = remember {
-                try {
-                    val packageInfo =
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            context.packageManager.getPackageInfo(
-                                context.packageName,
-                                PackageManager.PackageInfoFlags.of(0L)
-                            )
-                        } else {
-                            @Suppress("DEPRECATION")
-                            context.packageManager.getPackageInfo(
-                                context.packageName,
-                                0
-                            )
-                        }
-                    packageInfo.versionName ?: "Unknown"
-                } catch (e: Exception) {
-                    "Unknown"
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val email = "locodriver.app@yandex.ru"
-                Text(
-                    text = "Версия приложения",
-                    style = styleHint,
-                    color = primaryColor.copy(alpha = 0.7f)
-                )
-                Text(
-                    text = versionName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = primaryColor
-                )
-
-                CustomDivider(orientation = Orientation.Horizontal)
-
-                Text(
-                    text = "Поддержка",
-                    style = styleHint,
-                    color = primaryColor.copy(alpha = 0.7f)
-                )
-
-                Text(
-                    modifier = Modifier.noRippleEffect {
-                        val mailIntent = Intent(Intent.ACTION_SENDTO).apply {
-                            data = "mailto:$email".toUri()
-                        }
-
-                        try {
-                            context.startActivity(mailIntent)
-                        } catch (e: Exception) {
-                            val selector = Intent(Intent.ACTION_SENDTO).apply {
-                                data = "mailto:".toUri()
-                            }
-                            context.startActivity(selector)
-                        }
-                    },
-                    text = email,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = primaryColor,
-                    maxLines = 2,
-                    overflow = TextOverflow.Visible
-                )
-            }
+        // ── Справочники норм ──────────────────────────────────────
+        SettingsGroupHeader("Справочники норм", top = 4.dp)
+        SettingsGroupCard {
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.ic_card_locomotive_ref,
+                accent = true,
+                title = "Серии локомотивов",
+                value = "$seriesCount ${pluralRu(seriesCount, "серия", "серии", "серий")}",
+                onClick = { onNavigate(SettingsSubScreen.SERIES_LIST) },
+            )
+            SettingsRowDivider()
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.location_on_24px,
+                accent = true,
+                title = "Станции",
+                value = "$stationCount ${pluralRu(stationCount, "станция", "станции", "станций")}",
+                onClick = { onNavigate(SettingsSubScreen.STATION_LIST) },
+            )
+            SettingsRowDivider()
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.straighten_24px,
+                accent = true,
+                title = "Плечи",
+                value = "$shouldersCount ${pluralRu(shouldersCount, "плечо", "плечи", "плеч")}",
+                onClick = { onNavigate(SettingsSubScreen.SHOULDERS) },
+            )
         }
+
+        // ── Расчёт ────────────────────────────────────────────────
+        SettingsGroupHeader("Расчёт")
+        SettingsGroupCard {
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.wallet_24px,
+                title = "Зарплата",
+                subtitle = "Тарифная ставка и доплаты",
+                onClick = showSettingSalary,
+            )
+            SettingsRowDivider()
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.calendar_today_24px,
+                title = "Норма и регион",
+                value = countryLabel(currentSettings.country),
+                onClick = { onNavigate(SettingsSubScreen.NORMA) },
+            )
+            SettingsRowDivider()
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.baseline_tune_24,
+                title = "Учёт",
+                subtitle = "Ночные часы и будущие маршруты",
+                onClick = { onNavigate(SettingsSubScreen.ACCOUNTING) },
+            )
+            SettingsRowDivider()
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.hotel_24px,
+                title = "Отдых",
+                subtitle = "Нормы домашнего отдыха и в ПО",
+                onClick = { onNavigate(SettingsSubScreen.REST) },
+            )
+        }
+
+        // ── Поездки ───────────────────────────────────────────────
+        SettingsGroupHeader("Поездки")
+        SettingsGroupCard {
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.settings_24px,
+                title = "Основные",
+                subtitle = "Значения по умолчанию для новых маршрутов",
+                onClick = { onNavigate(SettingsSubScreen.ROUTE) },
+            )
+            SettingsRowDivider()
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.description_24px,
+                title = "Маршрут",
+                subtitle = "Поля формы маршрута",
+                onClick = { onNavigate(SettingsSubScreen.ROUTE_FORM) },
+            )
+            SettingsRowDivider()
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.electric_bolt_24px,
+                title = "Локомотив",
+                subtitle = "Поля ввода показаний и вид тяги",
+                onClick = { onNavigate(SettingsSubScreen.LOCOMOTIVE) },
+            )
+        }
+
+        SettingsAboutCard()
+    }
+}
+
+// ── Пуантификатор счётчиков: серия / серии / серий ─────────────────
+private fun pluralRu(n: Int, one: String, few: String, many: String): String {
+    val n10 = n % 10
+    val n100 = n % 100
+    return when {
+        n10 == 1 && n100 != 11 -> one
+        n10 in 2..4 && n100 !in 12..14 -> few
+        else -> many
+    }
+}
+
+private fun countryLabel(code: String): String = when (code) {
+    "RU" -> "Россия"
+    "BY" -> "Беларусь"
+    "KZ" -> "Казахстан"
+    else -> code
+}
+
+// Всего справочных элементов (серий/станций) = записи + «старые» имена из
+// legacy-списка, которым не сопоставлена запись (по имени, без учёта регистра).
+private fun seriesUnionCount(
+    legacyNames: List<String>,
+    recordNames: List<String>,
+): Int {
+    val records = recordNames.map { it.trim().lowercase() }.toSet()
+    val legacyOnly = legacyNames
+        .map { it.trim() }
+        .filter { it.isNotBlank() && it.lowercase() !in records }
+        .distinct()
+    return recordNames.size + legacyOnly.size
+}
+
+// ── UPPERCASE-mono заголовок группы ────────────────────────────────
+@Composable
+private fun SettingsGroupHeader(text: String, top: Dp = 22.dp) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp, top = top, bottom = 8.dp)
+    )
+}
+
+// ── Белая карточка группы: тонкая рамка, 16r, без тени ─────────────
+@Composable
+private fun SettingsGroupCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = Shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(content = content)
     }
 }
 
 @Composable
-private fun SettingsNavItem(
+private fun SettingsRowDivider() {
+    HorizontalDivider(
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.outlineVariant,
+    )
+}
+
+// ── Строка настройки: icon-аватар · заголовок(+sub) · value · шеврон ─
+@Composable
+private fun SettingsRow(
+    iconRes: Int,
     title: String,
+    accent: Boolean = false,
+    subtitle: String? = null,
+    value: String? = null,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(elevation = 2.dp, shape = Shapes.medium)
-            .background(
-                color = MaterialTheme.colorScheme.secondary,
-                shape = Shapes.medium
-            )
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
+        SettingsIconAvatar(iconRes = iconRes, accent = accent)
+        Spacer(modifier = Modifier.size(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
+        if (value != null) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 10.dp),
+            )
+        }
         Icon(
             painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-            modifier = Modifier.size(24.dp)
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
+            modifier = Modifier
+                .padding(start = 4.dp)
+                .size(20.dp)
         )
+    }
+}
+
+// ── Квадратный icon-аватар 34dp: neutral (bgSubtle) / accent (soft) ─
+@Composable
+private fun SettingsIconAvatar(iconRes: Int, accent: Boolean) {
+    val bg = if (accent) MaterialTheme.colorScheme.primaryContainer
+    else MaterialTheme.colorScheme.surfaceBright
+    val tint = if (accent) MaterialTheme.colorScheme.tertiary
+    else MaterialTheme.colorScheme.primary
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .background(color = bg, shape = Shapes.small),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(19.dp)
+        )
+    }
+}
+
+// ── Карточка «О приложении»: логотип · версия · Поддержка(email) ────
+@Composable
+private fun SettingsAboutCard() {
+    SettingsGroupHeader("О приложении")
+
+    val context = LocalContext.current
+    val email = "locodriver.app@yandex.ru"
+    val versionName = remember {
+        try {
+            val packageInfo =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.packageManager.getPackageInfo(
+                        context.packageName,
+                        PackageManager.PackageInfoFlags.of(0L)
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getPackageInfo(context.packageName, 0)
+                }
+            packageInfo.versionName ?: "Unknown"
+        } catch (e: Exception) {
+            "Unknown"
+        }
+    }
+
+    SettingsGroupCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = Shapes.small
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "М",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+            }
+            Spacer(modifier = Modifier.size(13.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Машинист",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "версия $versionName",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
+        SettingsRowDivider()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    val mailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = "mailto:$email".toUri()
+                    }
+                    try {
+                        context.startActivity(mailIntent)
+                    } catch (e: Exception) {
+                        val selector = Intent(Intent.ACTION_SENDTO).apply {
+                            data = "mailto:".toUri()
+                        }
+                        context.startActivity(selector)
+                    }
+                }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SettingsIconAvatar(
+                iconRes = com.z_company.route.R.drawable.ic_mail_24,
+                accent = false,
+            )
+            Spacer(modifier = Modifier.size(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Поддержка",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = email,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
     }
 }
