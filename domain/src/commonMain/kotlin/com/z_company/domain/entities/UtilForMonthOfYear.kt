@@ -47,7 +47,12 @@ object UtilForMonthOfYear {
     fun MonthOfYear.getDayoffHoursIncludingWeekends(): Int {
         var totalRelease = 0
         this.days.forEach { day ->
-            if (day.isReleaseDay && day.releaseType != ReleaseType.ChildCare) {
+            // «Командировка» оплачивается отдельно (по среднему за отработанные
+            // маршруты), поэтому её дни НЕ попадают в общий пул «оплата по среднему».
+            if (day.isReleaseDay &&
+                day.releaseType != ReleaseType.ChildCare &&
+                day.releaseType != ReleaseType.BusinessTrip
+            ) {
                 totalRelease += when (day.tag) {
                     TagForDay.WORKING_DAY -> 8
                     TagForDay.SHORTENED_DAY -> 7

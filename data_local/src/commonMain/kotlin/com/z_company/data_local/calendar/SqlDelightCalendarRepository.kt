@@ -11,6 +11,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.TagForDay
+import com.z_company.domain.entities.calendar.RegionalHoliday
 import com.z_company.domain.repositories.CalendarRepositories
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -129,6 +130,33 @@ class SqlDelightCalendarRepository : CalendarRepositories, KoinComponent {
         return db.monthOfYearQueries.getAll().executeAsList().map { MonthOfYearMapper.toData(it) }
     }
 
+    // ── Локальный кеш названий региональных праздников ───────────────────
+    override suspend fun saveRegionalHolidays(holidays: List<RegionalHoliday>) {
+        db.regionalHolidayQueries.transaction {
+            holidays.forEach { h ->
+                db.regionalHolidayQueries.insertOrReplace(
+                    region = h.region,
+                    year = h.year.toLong(),
+                    month = h.month.toLong(),
+                    dayOfMonth = h.dayOfMonth.toLong(),
+                    name = h.name,
+                )
+            }
+        }
+    }
+
+    override suspend fun getRegionalHolidays(region: String, year: Int): List<RegionalHoliday> {
+        return db.regionalHolidayQueries.getByRegionYear(region, year.toLong()).executeAsList().map { row ->
+            RegionalHoliday(
+                region = row.region,
+                year = row.year.toInt(),
+                month = row.month.toInt(),
+                dayOfMonth = row.dayOfMonth.toInt(),
+                name = row.name,
+            )
+        }
+    }
+
     override fun saveCalendar(calendar: List<MonthOfYear>): Flow<ResultState<Unit>> {
         return flowRequest {
             calendar.forEach { monthOfYear ->
@@ -167,6 +195,8 @@ class SqlDelightCalendarRepository : CalendarRepositories, KoinComponent {
         "Курсы" -> ReleaseType.Courses
         "Донорские" -> ReleaseType.Donor
         "По уходу за ребенком-инвалидом" -> ReleaseType.ChildCare
+        "Выходной" -> ReleaseType.DayOff
+        "Командировка" -> ReleaseType.BusinessTrip
         else -> ReleaseType.Other
     }
 }

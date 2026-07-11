@@ -88,6 +88,9 @@ class CalendarUseCase(
             return@flowRequest
         }
         val holidays = regionalHolidaysRepository.getHolidaysForRegionYear(region, year)
+        // Сохраняем названия в локальную БД, чтобы Календарь не ходил в сеть на
+        // каждую загрузку месяца (праздники меняются раз в год).
+        if (holidays.isNotEmpty()) repositories.saveRegionalHolidays(holidays)
         if (holidays.isEmpty()) return@flowRequest
 
         val byMonth = holidays.groupBy { it.month }
@@ -114,5 +117,19 @@ class CalendarUseCase(
                 repositories.updateMonthOfYear(existing.copy(days = updatedDays)).collect {}
             }
         }
+    }
+
+    /**
+     * Названия региональных праздников за год — из ЛОКАЛЬНОЙ БД (быстро, без сети).
+     * Заполняется при выборе региона в настройках ([applyRegionalHolidays]).
+     * Ленивая миграция: если локально пусто (регион выбран до появления кеша) —
+     * один раз тянем из сети и сохраняем; дальше всегда локально.
+     */
+    suspend fun getRegionalHolidays(region: String, year: Int): List<RegionalHoliday> {
+        val local = repositories.getRegionalHolidays(region, year)
+        if (local.isNotEmpty()) return local
+        val remote = regionalHolidaysRepository?.getHolidaysForRegionYear(region, year) ?: return emptyList()
+        if (remote.isNotEmpty()) repositories.saveRegionalHolidays(remote)
+        return remote
     }
 }

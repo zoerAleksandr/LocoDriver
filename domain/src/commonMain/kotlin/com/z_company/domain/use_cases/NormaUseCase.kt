@@ -39,6 +39,23 @@ class NormaUseCase(
         }
 
     /**
+     * Норма часов на дату — сумма нормы по дням месяца до [upToDayInclusive]
+     * включительно. Для текущего месяца передаётся сегодняшнее число (норма
+     * «на текущую дату»); для завершённого месяца — полная норма (передать
+     * последний день/[Int.MAX_VALUE]). Учитывает отвлечения, как и [normaHoursFlow].
+     *
+     * @param month месяц 0-based
+     * @param upToDayInclusive последний учитываемый день месяца включительно
+     */
+    fun normaHoursToDateFlow(year: Int, month: Int, upToDayInclusive: Int): Flow<Int> =
+        combine(
+            calendarUseCase.loadFlowMonthOfYearListState(),
+            releaseDayUseCase.getByYearMonthFlow(year, month)
+        ) { months, releaseDays ->
+            calculate(months, releaseDays, year, month, upToDayInclusive)
+        }
+
+    /**
      * Разовый синхронный расчёт нормы — для случаев где Flow не нужен.
      *
      * @param year  год
@@ -58,6 +75,7 @@ class NormaUseCase(
         releaseDays: List<ReleaseDay>,
         year: Int,
         month: Int,
+        upToDayInclusive: Int = Int.MAX_VALUE,
     ): Int {
         // Среди дублей MonthOfYear берём с наибольшим числом дней —
         // та же логика дедупликации, что в SettingsViewModel.
@@ -71,6 +89,8 @@ class NormaUseCase(
 
         var norma = 0
         monthOfYear.days.forEach { day ->
+            // Считаем норму только по дням до указанной даты включительно
+            if (day.dayOfMonth > upToDayInclusive) return@forEach
             // Пропускаем: устаревший флаг isReleaseDay ИЛИ день в таблице ReleaseDay
             if (!day.isReleaseDay && day.dayOfMonth !in releaseDayNumbers) {
                 norma += when (day.tag) {

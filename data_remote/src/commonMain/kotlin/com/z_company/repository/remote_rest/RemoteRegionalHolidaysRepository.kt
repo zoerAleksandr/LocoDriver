@@ -26,6 +26,11 @@ class RemoteRegionalHolidaysRepository(
     // Кеш регионов в памяти — они редко меняются
     private val regionsCache = mutableMapOf<String, List<Region>>()
 
+    // Кеш праздников в памяти по ключу "region:year". Праздники меняются раз в год,
+    // а сетевой запрос дорогой (~2.5 c на медленном HTTP-сервере) и раньше делался
+    // на КАЖДУЮ загрузку Календаря/переключение месяца — что и тормозило экран.
+    private val holidaysCache = mutableMapOf<String, List<RegionalHoliday>>()
+
     override suspend fun getRegionsForCountry(country: String): List<Region> {
         regionsCache[country]?.let { return it }
         return try {
@@ -43,18 +48,26 @@ class RemoteRegionalHolidaysRepository(
     }
 
     override suspend fun getHolidaysForRegionYear(region: String, year: Int): List<RegionalHoliday> {
+        val key = "$region:$year"
+        holidaysCache[key]?.let { return it }
         return try {
-            api.getRegionalHolidays(region, year)
+            val loaded = api.getRegionalHolidays(region, year)
+            holidaysCache[key] = loaded // кешируем только успешную сетевую загрузку
+            loaded
         } catch (e: Exception) {
+            // При офлайне — hardcoded fallback, БЕЗ кеширования, чтобы позже повторить сеть.
             fallback.getHolidaysForRegionYear(region, year)
         }
     }
+
 
     /**
      * Строгая загрузка — без fallback. Бросает исключение при сетевых ошибках.
      * Вызывается из SettingsViewModel.changeRegion для pre-flight проверки сети.
      */
     override suspend fun loadHolidaysForRegionYearStrict(region: String, year: Int): List<RegionalHoliday> {
-        return api.getRegionalHolidays(region, year)
+        val loaded = api.getRegionalHolidays(region, year)
+        holidaysCache["$region:$year"] = loaded // прогреваем кеш при смене региона
+        return loaded
     }
 }

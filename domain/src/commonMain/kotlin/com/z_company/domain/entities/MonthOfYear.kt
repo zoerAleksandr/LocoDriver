@@ -78,6 +78,8 @@ object ReleaseTypeSerializer : KSerializer<ReleaseType> {
         "Больничный" -> ReleaseType.SickLeave
         "Отпуск" -> ReleaseType.Vacation
         "По уходу за ребенком-инвалидом" -> ReleaseType.ChildCare
+        "Выходной" -> ReleaseType.DayOff
+        "Командировка" -> ReleaseType.BusinessTrip
         else -> ReleaseType.Other
     }
 
@@ -88,6 +90,7 @@ object ReleaseTypeSerializer : KSerializer<ReleaseType> {
         "Courses" -> ReleaseType.Courses
         "Donor" -> ReleaseType.Donor
         "ChildCare" -> ReleaseType.ChildCare
+        "DayOff" -> ReleaseType.DayOff
         else -> ReleaseType.Other
     }
 }
@@ -99,6 +102,19 @@ sealed class ReleaseType(val text: String) {
     object Courses : ReleaseType("Курсы")
     object Donor : ReleaseType("Донорские")
     object ChildCare : ReleaseType("По уходу за ребенком-инвалидом")
+    // «Выходной» — личный день отдыха; работа в этот день оплачивается ×2.
+    // Default-совместимость: старые клиенты/сервер (fromText/fromGsonType без DayOff)
+    // распознают его как Other — данные не теряются, но семантика ×2 у них не применится.
+    object DayOff : ReleaseType("Выходной")
+
+    // «Командировка» — период, в который пользователь работает (сохраняет
+    // маршруты), но оплата этих маршрутов считается ТОЛЬКО по среднему часу
+    // (SalarySetting.averagePaymentHour), без каких-либо надбавок. Маршруты
+    // командировки исключаются из обычного расчёта зарплаты (см.
+    // SalaryCalculationHelper) и выводятся отдельной строкой «Командировка
+    // (по среднему)». Дни командировки — release-дни: уменьшают норму месяца.
+    // Default-совместимость: старые клиенты/сервер распознают как Other.
+    object BusinessTrip : ReleaseType("Командировка")
     object Other : ReleaseType("Прочее")
 }
 

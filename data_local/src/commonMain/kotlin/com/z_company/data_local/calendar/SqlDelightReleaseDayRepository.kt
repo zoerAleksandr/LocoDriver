@@ -84,6 +84,8 @@ class SqlDelightReleaseDayRepository : ReleaseDayRepository, KoinComponent {
         "Курсы" -> ReleaseType.Courses
         "Донорские" -> ReleaseType.Donor
         "По уходу за ребенком-инвалидом" -> ReleaseType.ChildCare
+        "Выходной" -> ReleaseType.DayOff
+        "Командировка" -> ReleaseType.BusinessTrip
         else -> ReleaseType.Other
     }
 }

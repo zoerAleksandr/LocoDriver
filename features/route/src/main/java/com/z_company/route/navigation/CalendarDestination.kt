@@ -1,0 +1,61 @@
+package com.z_company.route.navigation
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.z_company.domain.navigation.Router
+import com.z_company.route.ui.CalendarScreen
+import com.z_company.route.viewmodel.CalendarViewModel
+
+@Composable
+fun CalendarDestination(
+    router: Router,
+) {
+    val viewModel: CalendarViewModel = viewModel()
+    val state by viewModel.uiState.collectAsState()
+    val plan by viewModel.routePlan.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.prepareScreen()
+    }
+
+    // Обновляем месяц при возврате на экран (после добавления отвлечения/выходного/
+    // редактирования маршрута с дочернего экрана).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.reload()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    CalendarScreen(
+        state = state,
+        plan = plan,
+        onBack = router::back,
+        onShiftMonth = viewModel::shiftMonth,
+        onFillMonth = router::showScheduleWizard,
+        onTripClick = { routeId -> router.showRouteForm(basicId = routeId, isMakeCopy = false) },
+        onEnterRoutePlan = viewModel::enterRoutePlan,
+        onExitRoutePlan = viewModel::exitRoutePlan,
+        onPickTime = viewModel::pickPlanTime,
+        onAddCustomTime = viewModel::addCustomPlanTime,
+        onToggleDay = viewModel::toggleDayPlan,
+        onCreateRoutes = viewModel::createPlannedRoutes,
+        onAddAbsence = { router.showAbsence() },
+        onAddDayoff = viewModel::addDayOff,
+        onDeleteAbsenceDay = viewModel::deleteAbsenceDay,
+        onDeleteAbsencePeriod = viewModel::deleteAbsencePeriod,
+        dateAndTimeConverter = state.dateAndTimeConverter,
+        timeContext = state.timeContext,
+        convertTimeToString = viewModel::formatWorkTime,
+        onDeleteRoute = viewModel::deleteRoute,
+    )
+}
