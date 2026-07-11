@@ -98,17 +98,26 @@ private fun expandScientificNotation(value: Double): String {
     return sb.toString().trimEnd('0').trimEnd('.')
 }
 
-/** Форматирует Double с 2 знаками после запятой (KMP-safe, без java.util.Formatter) */
+/**
+ * Форматирует денежную сумму по российской локали: разряды через неразрывный
+ * пробел, копейки через запятую — «69 928,32». KMP-safe (без java.util.Formatter).
+ * Неразрывный пробел ( ) не даёт сумме переноситься по строкам.
+ */
 private fun formatFixed2(value: Double): String {
     val negative = value < 0
     val abs = if (negative) -value else value
     val rounded = kotlin.math.round(abs * 100).toLong()
     val intPart = rounded / 100
     val fracPart = (rounded % 100).toInt()
+    val intGrouped = intPart.toString()
+        .reversed()
+        .chunked(3)
+        .joinToString(" ")
+        .reversed()
     return buildString {
         if (negative) append('-')
-        append(intPart)
-        append('.')
+        append(intGrouped)
+        append(',')
         append(fracPart.toString().padStart(2, '0'))
     }
 }
@@ -117,6 +126,6 @@ fun Double?.str2decimalSign(): String {
     return if (this == null) "" else formatFixed2(this)
 }
 
-fun Double?.toMoneyString(): String {
-    return if (this == null) "0 ₽" else "${formatFixed2(this)} ₽"
+fun Double?.toMoneyString(currency: String = "₽"): String {
+    return if (this == null) "0 $currency" else "${formatFixed2(this)} $currency"
 }

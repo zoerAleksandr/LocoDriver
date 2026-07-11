@@ -5,6 +5,7 @@ import com.z_company.core.ResultState
 data class SalaryCalculationUIState(
     val screenState: ResultState<Unit> = ResultState.Loading(),
     val month: String = "",
+    val currency: String = "₽",
     val tariffRate: String? = null,
     val normaHours: Int? = null,
     val totalWorkTime: Long? = null,
@@ -62,8 +63,15 @@ data class SalaryCalculationUIState(
     val harmfulnessSurchargeMoney: Double? = null,
     val averagePaymentHours: Long? = null,
     val averagePaymentMoney: Double? = null,
+    val underworkHours: Long? = null,
+    val underworkMoney: Double? = null,
+    // Отработано меньше нормы, но средний час в настройках не задан →
+    // показать инфо-окно с предложением указать его.
+    val showSetAverageHourInfo: Boolean = false,
     val caringForDisableChildrenHours: Long? = null,
     val caringForDisableChildrenMoney: Double? = null,
+    val businessTripHours: Long? = null,
+    val businessTripMoney: Double? = null,
     val totalChargedMoney: Double? = null,
     val retentionNdfl: Double? = null,
     val unionistsRetention: Double? = null,

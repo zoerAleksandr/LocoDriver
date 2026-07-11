@@ -1,10 +1,8 @@
 package com.z_company.route.ui
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,15 +17,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -40,26 +41,29 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.util.str2decimalSign
-import com.z_company.route.viewmodel.SalaryCalculationUIState
-import com.z_company.core.ui.component.CustomDivider
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.viewmodel.PdfViewModel
+import com.z_company.route.viewmodel.SalaryCalculationUIState
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
 import org.koin.compose.koinInject
 
@@ -70,9 +74,6 @@ fun SalaryCalculationScreen(
     uiState: SalaryCalculationUIState,
     onSettingsSalaryClick: () -> Unit,
 ) {
-    val styleHint = MaterialTheme.typography.bodyMedium
-    val colorPrimary = MaterialTheme.colorScheme.primary
-
     val context = LocalContext.current
     val pdfViewModel: PdfViewModel = koinInject()
     var showPdfDialog by remember { mutableStateOf(false) }
@@ -99,24 +100,23 @@ fun SalaryCalculationScreen(
         }
     }
 
-    // Состояния для информационных блоков
-    var infoBlockVisible by rememberSaveable { mutableStateOf(true) }
+    // Предупреждение о неустановленной тарифной ставке (без привязки к валюте:
+    // разбираем ведущее число тарифа — 0 или отсутствие = не установлена).
     var infoSetTariffRate by remember { mutableStateOf(false) }
-
-    // Определяем, нужно ли показывать предупреждение о тарифной ставке
     LaunchedEffect(uiState.tariffRate) {
-        infoSetTariffRate = uiState.tariffRate == "0,00 ₽" || uiState.tariffRate == null
+        val rate = uiState.tariffRate?.substringBefore(' ')?.replace(',', '.')?.toDoubleOrNull()
+        infoSetTariffRate = uiState.tariffRate == null || rate == 0.0
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            Column(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
             TopAppBar(
                 title = {
                     Text(
                         text = "Зарплата",
                         style = MaterialTheme.typography.titleMedium,
-                        color = colorPrimary
+                        color = MaterialTheme.colorScheme.primary
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
@@ -150,20 +150,6 @@ fun SalaryCalculationScreen(
                     }
                 }
             )
-            // Hero — К выдаче
-            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-                Text(
-                    text = "К ВЫДАЧЕ · ${uiState.month.uppercase()}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = "${uiState.toBeCredited?.str2decimalSign() ?: "0,00"} ₽",
-                    style = MaterialTheme.typography.displayMedium,
-                    color = colorPrimary,
-                )
-            }
-            }
         },
     ) { paddingValues ->
         if (uiState.screenState is ResultState.Loading) {
@@ -175,7 +161,6 @@ fun SalaryCalculationScreen(
                 }
             }
         } else {
-            // Основной контейнер - LazyColumn для вертикальной прокрутки
             LazyColumn(
                 modifier = Modifier
                     .padding(paddingValues)
@@ -183,129 +168,36 @@ fun SalaryCalculationScreen(
                     .padding(horizontal = 16.dp)
                     .testTag("salary_lazy_column"),
             ) {
-                // Информационный блок с предупреждением
-                item {
-                    AnimatedVisibility(visible = infoBlockVisible) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceDim,
-                                    shape = Shapes.medium
-                                )
-                                .border(
-                                    0.5.dp,
-                                    MaterialTheme.colorScheme.tertiary.copy(),
-                                    Shapes.medium
-                                )
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.End,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                style = styleHint,
-                                color = colorPrimary,
-                                text = "Данный расчет носит информационный характер, некоторые виды выплат могут отличаться в зависимости от внутренних нормативных документов вашего депо."
-                            )
-                            Button(
-                                shape = Shapes.medium,
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                                onClick = { infoBlockVisible = false }
-                            ) {
-                                Text(
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    text = "Понятно"
-                                )
-                            }
-                        }
-                    }
-                }
+                // Hero — крупная сумма «К выдаче»
+                item { SalaryHero(month = uiState.month, amount = uiState.toBeCredited, currency = uiState.currency) }
 
                 // Предупреждение о неустановленной тарифной ставке
                 item {
                     AnimatedVisibility(visible = infoSetTariffRate) {
-                        Column(
-                            modifier = Modifier
-                                .padding(top = 8.dp)
-                                .fillMaxWidth()
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceDim,
-                                    shape = Shapes.medium
-                                )
-                                .border(0.5.dp, MaterialTheme.colorScheme.tertiary, Shapes.medium)
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.End
-                        ) {
-                            Text(
-                                style = styleHint,
-                                color = colorPrimary,
-                                text = "Не установлена тарифная ставка. Перейдите в настройки для её указания."
-                            )
-                        }
+                        TariffWarningCard()
                     }
                 }
 
-                // Заголовок для таблицы начислений
+                // Начисления
+                item { GroupHeader("Начисления") }
                 item {
-                    Text(
-                        text = "НАЧИСЛЕНИЯ",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                    AccrualsCard(
+                        uiState = uiState,
+                        convertTimeToStringFormat = viewModel::convertTimeToStringFormat
                     )
                 }
 
-                // Таблица начислений
-                item {
-                    EarningsTable(uiState = uiState, convertTimeToStringFormat = viewModel::convertTimeToStringFormat)
-                }
+                // Удержания
+                item { GroupHeader("Удержания") }
+                item { DeductionsCard(uiState = uiState) }
 
-                // Заголовок для таблицы удержаний
-                item {
-                    Text(
-                        text = "УДЕРЖАНИЯ",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
-                    )
-                }
+                // Итог «К выдаче» — акцентный тёмный блок
+                item { TotalPayoutBlock(amount = uiState.toBeCredited) }
 
-                // Таблица удержаний
-                item {
-                    RetentionsTable(uiState = uiState)
-                }
+                // Пояснение
+                item { SalaryDisclaimer() }
 
-                // Итоговая строка "К выдаче" — акцентный блок
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = Shapes.medium
-                            )
-                            .padding(horizontal = 20.dp, vertical = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "К ВЫДАЧЕ",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                        Text(
-                            text = uiState.toBeCredited?.str2decimalSign() ?: "0,00 ₽",
-                            style = MaterialTheme.typography.displayMedium.copy(
-                                fontSize = 24.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                }
-
-                item { Spacer(modifier = Modifier.height(32.dp)) } // Нижний отступ для удобства
+                item { Spacer(modifier = Modifier.height(32.dp)) }
             }
         }
     }
@@ -332,551 +224,628 @@ fun SalaryCalculationScreen(
             onDismiss = { pdfUri = null }
         )
     }
+
+    // Инфо-окно: отработано меньше нормы, но средний час не задан — предлагаем
+    // указать его. «Понятно» закрывает навсегда (флаг в настройках), «В настройки»
+    // ведёт в настройки ЗП (в этой сессии окно тоже скрываем).
+    var underworkInfoSessionDismissed by rememberSaveable { mutableStateOf(false) }
+    if (uiState.showSetAverageHourInfo && !underworkInfoSessionDismissed) {
+        AlertDialog(
+            onDismissRequest = { underworkInfoSessionDismissed = true },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Text(
+                    text = "Оплата недоработки",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            },
+            text = {
+                Text(
+                    text = "За выбранный период отработано меньше нормы. Укажите средний час в настройках зарплаты — и приложение рассчитает оплату недоработки за недостающие часы.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    underworkInfoSessionDismissed = true
+                    onSettingsSalaryClick()
+                }) {
+                    Text("В настройки", color = MaterialTheme.colorScheme.tertiary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.dismissUnderworkInfoForever()
+                    underworkInfoSessionDismissed = true
+                }) {
+                    Text("Понятно", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+        )
+    }
 }
 
 // ===========================================
-// Таблица начислений (с горизонтальной прокруткой)
+// Hero — «К ВЫДАЧЕ · МЕСЯЦ» + крупная mono-сумма
 // ===========================================
 @Composable
-private fun EarningsTable(uiState: SalaryCalculationUIState, convertTimeToStringFormat: (Long?) -> String) {
-    val scrollState = rememberScrollState() // Состояние для горизонтальной прокрутки
-    val hintStyle = MaterialTheme.typography.bodyMedium
-
-    // Список строк таблицы (вид выплаты, часы, процент, сумма)
-    val rows = listOfNotNull(
-        // Основные выплаты
-        EarningsRow(
-            "Оплата по тарифу",
-            uiState.paymentAtTariffHours,
-            null,
-            uiState.paymentAtTariffMoney
-        ),
-        EarningsRow(
-            "Ночные часы",
-            uiState.paymentNightTimeHours,
-            uiState.paymentNightTimePercent,
-            uiState.paymentNightTimeMoney
-        ),
-        EarningsRow(
-            "Пассажиром",
-            uiState.paymentAtPassengerHours,
-            null,
-            uiState.paymentAtPassengerMoney
-        ),
-        EarningsRow(
-            "Резервом",
-            uiState.paymentAtSingleLocomotiveHours,
-            null,
-            uiState.paymentAtSingleLocomotiveMoney
-        ),
-        EarningsRow("Праздничные", uiState.paymentHolidayHours, null, uiState.paymentHolidayMoney),
-        EarningsRow(
-            "Оплата по среднему",
-            uiState.averagePaymentHours,
-            null,
-            uiState.averagePaymentMoney
-        ),
-        EarningsRow(
-            "По уходу за ребенком-инвалидом",
-            uiState.caringForDisableChildrenHours,
-            null,
-            uiState.caringForDisableChildrenMoney
-        ),
-
-
-        // Надбавки
-        uiState.zonalSurchargePercent?.let {
-            EarningsRow(
-                "Зональная надбавка",
-                null,
-                it,
-                uiState.zonalSurchargeMoney
+private fun SalaryHero(month: String, amount: Double?, currency: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 16.dp)
+    ) {
+        Text(
+            text = if (month.isBlank()) "К ВЫДАЧЕ" else "К ВЫДАЧЕ · ${month.uppercase()}",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = formatMoney(amount),
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-1.5).sp,
+                ),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
             )
-        },
-        uiState.surchargeQualificationClassPercent?.let {
-            EarningsRow(
-                "Надбавка за класс квалификации",
-                null,
-                it,
-                uiState.surchargeQualificationClassMoney
+            Text(
+                text = " $currency",
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        },
-        uiState.onePersonOperationPercent?.let {
-            EarningsRow(
-                "В одно лицо (грузовые)",
-                uiState.onePersonOperationHours,
-                it,
-                uiState.onePersonOperationMoney
-            )
-        },
-        uiState.onePersonOperationPassengerTrainPercent?.let {
-            EarningsRow(
-                "В одно лицо (пассажирские)",
-                uiState.onePersonOperationPassengerTrainHours,
-                it,
-                uiState.onePersonOperationPassengerTrainMoney
-            )
-        },
-        uiState.harmfulnessSurchargePercent?.let {
-            EarningsRow(
-                "Вредность",
-                null,
-                it,
-                uiState.harmfulnessSurchargeMoney
-            )
-        },
-        uiState.districtSurchargeCoefficient?.let {
-            EarningsRow(
-                "Районный коэффициент",
-                null,
-                it,
-                uiState.districtSurchargeMoney
-            )
-        },
-        uiState.nordicSurchargePercent?.let {
-            EarningsRow(
-                "Северная надбавка",
-                null,
-                it,
-                uiState.nordicSurchargeMoney
-            )
-        },
-        uiState.otherSurchargePercent?.let {
-            EarningsRow(
-                "Прочие надбавки",
-                null,
-                it,
-                uiState.otherSurchargeMoney
-            )
-        },
-        uiState.restInExcessOfTheNormMoney?.takeIf { it > 0 }?.let {
-            EarningsRow(
-                "Переотдых",
-                uiState.restInExcessOfTheNormTime,
-                null,
-                it
-            )
-        },
-
-        // Добавляем списки надбавок (если не пустые)
-        *(0 until minOf(
-            uiState.surchargeExtendedServicePhaseHour.size,
-            uiState.surchargeExtendedServicePhasePercent.size,
-            uiState.surchargeExtendedServicePhaseMoney.size
-        )).mapNotNull { i ->
-            val money = uiState.surchargeExtendedServicePhaseMoney.getOrNull(i) ?: 0.0
-            if (money > 0) {
-                EarningsRow(
-                    "Удлиненное плечо (${uiState.surchargeExtendedServicePhasePercent[i] ?: ""}%)",
-                    uiState.surchargeExtendedServicePhaseHour.getOrNull(i),
-                    uiState.surchargeExtendedServicePhasePercent.getOrNull(i)?.toDoubleOrNull(),
-                    money
-                )
-            } else null
-        }.toTypedArray(),
-
-        *(0 until minOf(
-            uiState.surchargeHeavyTransHour.size,
-            uiState.surchargeHeavyTransPercent.size,
-            uiState.surchargeHeavyTransMoney.size
-        )).mapNotNull { i ->
-            val money = uiState.surchargeHeavyTransMoney.getOrNull(i) ?: 0.0
-            if (money > 0) {
-                EarningsRow(
-                    "Тяжелые поезда (${uiState.surchargeHeavyTransPercent[i] ?: ""}%)",
-                    uiState.surchargeHeavyTransHour.getOrNull(i),
-                    uiState.surchargeHeavyTransPercent.getOrNull(i)?.toDoubleOrNull(),
-                    money
-                )
-            } else null
-        }.toTypedArray(),
-
-        *(0 until minOf(
-            uiState.surchargeLongTrainHour.size,
-            uiState.surchargeLongTrainPercent.size,
-            uiState.surchargeLongTrainMoney.size
-        )).mapNotNull { i ->
-            val money = uiState.surchargeLongTrainMoney.getOrNull(i) ?: 0.0
-            if (money > 0) {
-                EarningsRow(
-                    "Длинносост. (${uiState.surchargeLongTrainPercent[i] ?: ""}%)",
-                    uiState.surchargeLongTrainHour.getOrNull(i),
-                    uiState.surchargeLongTrainPercent.getOrNull(i)?.toDoubleOrNull(),
-                    money
-                )
-            } else null
-        }.toTypedArray(),
-
-        uiState.surchargeDoubledTrainFirstMoney?.takeIf { it > 0 }?.let {
-            EarningsRow(
-                "Сдвоенные поезда (30%)",
-                uiState.surchargeDoubledTrainFirstHours,
-                30.0,
-                it
-            )
-        },
-        uiState.surchargeDoubledTrainSecondMoney?.takeIf { it > 0 }?.let {
-            EarningsRow(
-                "Сдвоенные поезда (15%)",
-                uiState.surchargeDoubledTrainSecondHours,
-                15.0,
-                it
-            )
-        },
-
-        // Сверхурочные
-        EarningsRow(
-            "Сверхурочные часы",
-            uiState.paymentAtOvertimeHours,
-            null,
-            uiState.paymentAtOvertimeMoney
-        ),
-        uiState.surchargeAtOvertime05Money?.takeIf { it > 0 }?.let {
-            EarningsRow(
-                "Доплата за сверхурочные (50%)",
-                uiState.surchargeAtOvertime05Hours,
-                50.0,
-                uiState.surchargeAtOvertime05Money
-            )
-        },
-        uiState.surchargeAtOvertimeMoney?.takeIf { it > 0 }?.let {
-            EarningsRow(
-                "Доплата за сверхурочные (100%)",
-                uiState.surchargeAtOvertimeHours,
-                100.0,
-                uiState.surchargeAtOvertimeMoney
-            )
-        },
-
-        // Итог начислений
-        EarningsRow("Всего начислено", null, null, uiState.totalChargedMoney, isTotal = true)
-    ).filter { row ->
-        // Фильтр: показываем только строки с ненулевыми суммами (кроме итога)
-        row.isTotal || (row.money != null && row.money > 0)
-    }
-
-    val density = LocalDensity.current
-    val screenWidth = LocalConfiguration.current.screenWidthDp.dp - 32.dp
-
-    // Изменено: Убрал TextMeasurer и расчет maxWidth с measure. Вместо этого добавил скрытый Box для измерения ширины с IntrinsicSize.Max и onGloballyPositioned.
-    // Для чего: Чтобы измерить ширину текстов динамически на рендере с помощью IntrinsicSize.Max (как предлагал пользователь), без ручного measure. Это учитывает display size лучше, так как измерение происходит в реальном контексте Compose. Собираем max ширину для каждого столбца в state.
-    var maxTitleWidth by remember { mutableStateOf(0.dp) }
-    var maxHoursWidth by remember { mutableStateOf(0.dp) }
-    var maxPercentWidth by remember { mutableStateOf(0.dp) }
-    var maxMoneyWidth by remember { mutableStateOf(0.dp) }
-    Box {
-        // Скрытый composable для измерения
-        Box(modifier = Modifier.alpha(0f)) {
-            Row(
-                modifier = Modifier
-                    .horizontalScroll(scrollState)
-            ) {
-                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
-                    Text("Вид выплаты", style = hintStyle, maxLines = 2)
-                    rows.forEach { row ->
-                        Text(
-                            row.title,
-                            style = hintStyle,
-                            maxLines = 2,
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp, vertical = 4.dp)
-                                .onGloballyPositioned { coords ->
-                                    val widthDp = with(density) { coords.size.width.toDp() } + 16.dp
-                                    if (widthDp > maxTitleWidth) maxTitleWidth = widthDp
-                                })
-                    }
-                }
-                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
-                    Text("Часы", style = hintStyle)
-                    rows.forEach { row ->
-                        Text(row.hours?.let { convertTimeToStringFormat(it) } ?: "",
-                            style = hintStyle,
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp, vertical = 4.dp)
-                                .onGloballyPositioned { coords ->
-                                    val widthDp = with(density) { coords.size.width.toDp() } + 16.dp
-                                    if (widthDp > maxHoursWidth) {
-                                        maxHoursWidth = widthDp
-                                        Log.d("zzz", "maxHoursWidth измеряемое $maxHoursWidth")
-                                    }
-                                })
-                    }
-                }
-                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
-                    Text("%", style = hintStyle)
-                    rows.forEach { row ->
-                        Text(row.percent?.let { "%.1f".format(it) } ?: "",
-                            style = hintStyle,
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp, vertical = 4.dp)
-                                .onGloballyPositioned { coords ->
-                                    val widthDp = with(density) { coords.size.width.toDp() } + 16.dp
-                                    if (widthDp > maxPercentWidth) maxPercentWidth = widthDp
-                                })
-                    }
-                }
-                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
-                    Text("Сумма", style = hintStyle)
-                    rows.forEach { row ->
-                        Text(
-                            row.money?.str2decimalSign() ?: "",
-                            style = hintStyle,
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp, vertical = 4.dp)
-                                .onGloballyPositioned { coords ->
-                                    val widthDp = with(density) { coords.size.width.toDp() } + 16.dp
-                                    if (widthDp > maxMoneyWidth) maxMoneyWidth = widthDp
-                                })
-                    }
-                }
-            }
-        }
-
-        // Изменено: Добавил minOf для maxTitleWidth с screenWidth / 2, как в исходном.
-        // Для чего: Чтобы сохранить ограничение ширины первого столбца, как было.
-        maxTitleWidth = minOf(maxTitleWidth, screenWidth / 2)
-
-        // Вычисляем общую рассчитанную ширину
-        val totalCalculatedWidth = maxTitleWidth + maxHoursWidth + maxPercentWidth + maxMoneyWidth
-
-        // Если общая ширина меньше ширины экрана, добавляем разницу к последнему столбцу
-        if (totalCalculatedWidth != 0.dp && totalCalculatedWidth < screenWidth) {
-            val extraWidth = screenWidth - totalCalculatedWidth
-            maxMoneyWidth += extraWidth
-        }
-
-        Column {
-            // Заголовок таблицы с горизонтальной прокруткой
-            Row(
-                modifier = Modifier
-                    .horizontalScroll(scrollState)
-                    .padding(vertical = 8.dp)
-            ) {
-                TableCell(
-                    text = "Вид выплаты",
-                    width = maxTitleWidth,
-                    maxLines = 2,
-                    isHeader = true,
-                    contentAlignment = Alignment.CenterStart
-                )
-                TableCell(
-                    text = "Часы",
-                    width = maxHoursWidth,
-                    isHeader = true,
-                    contentAlignment = Alignment.Center
-                )
-                TableCell(
-                    text = "%",
-                    width = maxPercentWidth,
-                    isHeader = true,
-                    contentAlignment = Alignment.Center
-                )
-                TableCell(
-                    text = "Сумма",
-                    width = maxMoneyWidth,
-                    isHeader = true,
-                    contentAlignment = Alignment.CenterEnd
-                )
-            }
-
-            CustomDivider(orientation = Orientation.Horizontal)
-
-            // Строки таблицы
-            rows.forEach { row ->
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(scrollState)
-                        .background(if (row.isTotal) MaterialTheme.colorScheme.surfaceDim else Color.Transparent)
-                ) {
-                    TableCell(
-                        text = row.title,
-                        width = maxTitleWidth,
-                        maxLines = 2,
-                        contentAlignment = Alignment.CenterStart
-                    )
-                    TableCell(
-                        text = row.hours?.let { convertTimeToStringFormat(it) }
-                            ?: "",
-                        width = maxHoursWidth,
-                        contentAlignment = Alignment.Center
-                    )
-                    TableCell(
-                        text = row.percent?.let { "%.1f".format(it) } ?: "",
-                        width = maxPercentWidth,
-                        contentAlignment = Alignment.Center
-                    )
-                    TableCell(
-                        text = row.money?.str2decimalSign() ?: "",
-                        width = maxMoneyWidth,
-                        contentAlignment = Alignment.CenterEnd
-                    )
-                }
-                CustomDivider(orientation = Orientation.Horizontal)
-            }
         }
     }
 }
 
 // ===========================================
-// Таблица удержаний (с горизонтальной прокруткой)
+// Заголовок группы карточек — mono-caption
 // ===========================================
 @Composable
-private fun RetentionsTable(uiState: SalaryCalculationUIState) {
-    val scrollState = rememberScrollState() // Состояние для горизонтальной прокрутки
-    val hintStyle = MaterialTheme.typography.bodyMedium
-
-    val retentionNames = listOf("НДФЛ (13%)", "Профсоюз", "Прочие удержания", "Всего удержано")
-
-    val rows = listOfNotNull(
-        uiState.retentionNdfl?.takeIf { it > 0 }?.let { RetentionRow(retentionNames[0], it) },
-        uiState.unionistsRetention?.takeIf { it > 0 }?.let { RetentionRow(retentionNames[1], it) },
-        uiState.otherRetention?.takeIf { it > 0 }?.let { RetentionRow(retentionNames[2], it) },
-        uiState.totalRetention?.takeIf { it > 0 }
-            ?.let { RetentionRow(retentionNames[3], it, isTotal = true) }
+private fun GroupHeader(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp, top = 20.dp, bottom = 8.dp)
     )
+}
 
+// ===========================================
+// Карточка (белая поверхность + тонкая рамка, 16r)
+// ===========================================
+@Composable
+private fun PayCard(content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = Shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column { content() }
+    }
+}
+
+// ===========================================
+// Прокручиваемая таблица начислений/удержаний.
+//
+// При нормальном размере шрифта столбцы заполняют ширину карточки и имена
+// переносятся в 2 строки — как в референсе. При крупном системном шрифте или
+// узком экране содержимое не обрезается, а прокручивается по горизонтали
+// (иначе суммы и часы схлопываются). Ширины столбцов измеряются по контенту,
+// «сумма» дотягивается до правого края.
+// ===========================================
+private enum class ColType { NAME, VALUE, MONEY }
+
+private data class CellVal(val text: String, val faint: Boolean = false)
+
+private data class PayColumn(val header: String, val type: ColType)
+
+@Composable
+private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) {
+    val scroll = rememberScrollState()
     val density = LocalDensity.current
-    val screenWidth = LocalConfiguration.current.screenWidthDp.dp - 32.dp
+    // Ширина карточки ≈ ширина экрана минус горизонтальные отступы LazyColumn (16+16).
+    val cardWidth = LocalConfiguration.current.screenWidthDp.dp - 32.dp
+    val leadInset = 16.dp
+    val trailInset = 16.dp
 
-    var maxTitleWidth by remember { mutableStateOf(0.dp) }
-    var maxAmountWidth by remember { mutableStateOf(0.dp) }
+    val nameStyle = MaterialTheme.typography.bodyMedium
+    val valueStyle = MaterialTheme.typography.bodyMedium.copy(
+        fontFamily = MonoFont, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+    )
+    val moneyStyle = MaterialTheme.typography.bodyMedium.copy(
+        fontFamily = MonoFont, fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
+    )
+    fun styleFor(type: ColType): TextStyle = when (type) {
+        ColType.NAME -> nameStyle
+        ColType.VALUE -> valueStyle
+        ColType.MONEY -> moneyStyle
+    }
 
+    // Измеренные «естественные» ширины столбцов (по контенту, без ограничений).
+    // Хранятся отдельно от итоговых ширин, чтобы измерение не зациклилось.
+    val natural = remember(columns, rows) {
+        List(columns.size) { mutableStateOf(0.dp) }
+    }
+    val measureScroll = rememberScrollState()
+
+    // Итоговые ширины столбцов на основе измеренных.
+    // Столбец «Вид …» получает место, оставшееся после числовых столбцов
+    // (длинные имена переносятся в 2 строки, как в референсе). Если числовые
+    // столбцы сами шире карточки (крупный шрифт) — имя ужимается до минимума,
+    // и таблица прокручивается по горизонтали, ничего не обрезая.
+    val target = cardWidth - leadInset - trailInset - 6.dp
+    val nameIdx = columns.indexOfFirst { it.type == ColType.NAME }
+    val moneyIdx = columns.indexOfLast { it.type == ColType.MONEY }
+    val display = natural.map { it.value }.toMutableList()
+    if (nameIdx >= 0) {
+        val numericTotal = display.filterIndexed { i, _ -> i != nameIdx }.fold(0.dp) { a, d -> a + d }
+        val availForName = target - numericTotal
+        display[nameIdx] = if (availForName >= 120.dp) {
+            // Числа помещаются — имя занимает остаток и переносится (нормальный шрифт).
+            minOf(natural[nameIdx].value, availForName)
+        } else {
+            // Числа сами шире карточки (крупный шрифт): даём имени до половины карточки,
+            // таблица прокручивается по горизонтали, суммы не обрезаются.
+            maxOf(minOf(natural[nameIdx].value, cardWidth / 2), 88.dp)
+        }
+    }
+    // Если суммарно уже ширины карточки — дотягиваем «сумму» до правого края.
+    val colsTotal = display.fold(0.dp) { a, d -> a + d }
+    if (moneyIdx >= 0 && colsTotal > 0.dp && colsTotal < target) {
+        display[moneyIdx] = display[moneyIdx] + (target - colsTotal)
+    }
+
+    // Скрытый проход измерения и реальный контент лежат в одном Box (перекрываются),
+    // чтобы измерение не занимало собственную высоту.
     Box {
-        // Скрытый composable для измерения
+        // Измерение (невидимое, без ограничения ширины — через horizontalScroll).
         Box(modifier = Modifier.alpha(0f)) {
-            Row {
-                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
-                    Text("Вид удержания", style = hintStyle, maxLines = 2)
-                    rows.forEach { row ->
-                        Text(
-                            row.title,
-                            style = hintStyle,
-                            maxLines = 2,
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp, vertical = 4.dp)
-                                .onGloballyPositioned { coords ->
-                                    val widthDp = with(density) { coords.size.width.toDp() } + 16.dp
-                                    if (widthDp > maxTitleWidth) maxTitleWidth = widthDp
-                                })
-                    }
-                }
-                Column(modifier = Modifier.width(IntrinsicSize.Max)) {
-                    Text("Сумма", style = hintStyle)
-                    rows.forEach { row ->
-                        Text(
-                            row.amount.str2decimalSign(),
-                            style = hintStyle,
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp, vertical = 4.dp)
-                                .onGloballyPositioned { coords ->
-                                    val widthDp = with(density) { coords.size.width.toDp() } + 16.dp
-                                    if (widthDp > maxAmountWidth) maxAmountWidth = widthDp
-                                })
+            Row(modifier = Modifier.horizontalScroll(measureScroll)) {
+                columns.forEachIndexed { c, col ->
+                    Column {
+                        val texts = listOf(col.header) + rows.map { it[c].text }
+                        val measureStyle = styleFor(col.type)
+                        texts.forEach { text ->
+                            Text(
+                                text = text,
+                                style = measureStyle,
+                                maxLines = 1,
+                                modifier = Modifier.onGloballyPositioned { coords ->
+                                    val w = with(density) { coords.size.width.toDp() } + 16.dp
+                                    if (w > natural[c].value) natural[c].value = w
+                                },
+                            )
+                        }
                     }
                 }
             }
-        }
-
-        // Изменено: Добавил minOf для maxTitleWidth с screenWidth / 2.
-        // Для чего: Чтобы сохранить ограничение, как в исходном коде.
-        maxTitleWidth = minOf(maxTitleWidth, screenWidth / 2)
-
-        // Вычисляем общую рассчитанную ширину
-        val totalCalculatedWidth = maxTitleWidth + maxAmountWidth
-
-        // Если общая ширина меньше ширины экрана, добавляем разницу к первому столбцу (как в исходном)
-        if (totalCalculatedWidth < screenWidth) {
-            val extraWidth = screenWidth - totalCalculatedWidth
-            maxTitleWidth += extraWidth
         }
 
         Column {
+            // Заголовок столбцов
             Row(
                 modifier = Modifier
-                    .horizontalScroll(scrollState)
-//                .padding(vertical = 8.dp)
+                    .horizontalScroll(scroll)
+                    .padding(top = 11.dp, bottom = 9.dp),
             ) {
-                TableCell(
-                    text = "Вид удержания",
-                    width = maxTitleWidth,
-                    maxLines = 2,
-                    isHeader = true,
-                    contentAlignment = Alignment.CenterStart
-                )
-                TableCell(
-                    text = "Сумма",
-                    width = maxAmountWidth,
-                    isHeader = true,
-                    contentAlignment = Alignment.CenterEnd
-                )
+                Spacer(modifier = Modifier.width(leadInset))
+                columns.forEachIndexed { c, col ->
+                    HeaderCell(text = col.header, width = display[c], type = col.type)
+                }
+                Spacer(modifier = Modifier.width(trailInset))
             }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-            CustomDivider(orientation = Orientation.Horizontal)
-
-            rows.forEach { row ->
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(scrollState)
-                        .background(if (row.isTotal) MaterialTheme.colorScheme.surfaceDim else Color.Transparent)
-                ) {
-                    TableCell(
-                        text = row.title,
-                        width = maxTitleWidth,
-                        maxLines = 2,
-                        contentAlignment = Alignment.CenterStart
-                    )
-                    TableCell(
-                        text = row.amount.str2decimalSign(),
-                        width = maxAmountWidth,
-                        contentAlignment = Alignment.CenterEnd
+            // Строки данных
+            rows.forEachIndexed { r, row ->
+                Row(modifier = Modifier.horizontalScroll(scroll)) {
+                    Spacer(modifier = Modifier.width(leadInset))
+                    columns.forEachIndexed { c, col ->
+                        DataCell(cell = row[c], width = display[c], type = col.type)
+                    }
+                    Spacer(modifier = Modifier.width(trailInset))
+                }
+                if (r < rows.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 20.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant,
                     )
                 }
-                CustomDivider(orientation = Orientation.Horizontal)
             }
         }
     }
 }
 
+@Composable
+private fun HeaderCell(text: String, width: Dp, type: ColType) {
+    Box(
+        modifier = Modifier.width(width).padding(horizontal = 4.dp),
+        contentAlignment = if (type == ColType.NAME) Alignment.CenterStart else Alignment.CenterEnd,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            textAlign = if (type == ColType.NAME) TextAlign.Start else TextAlign.End,
+        )
+    }
+}
+
+@Composable
+private fun DataCell(cell: CellVal, width: Dp, type: ColType) {
+    val style = when (type) {
+        ColType.NAME -> MaterialTheme.typography.bodyMedium
+        ColType.VALUE -> MaterialTheme.typography.bodyMedium.copy(
+            fontFamily = MonoFont, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+        )
+        ColType.MONEY -> MaterialTheme.typography.bodyMedium.copy(
+            fontFamily = MonoFont, fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
+        )
+    }
+    val color = when (type) {
+        ColType.NAME, ColType.MONEY -> MaterialTheme.colorScheme.primary
+        ColType.VALUE -> if (cell.faint) MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+        else MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Box(
+        modifier = Modifier.width(width).padding(horizontal = 4.dp, vertical = 13.dp),
+        contentAlignment = if (type == ColType.NAME) Alignment.CenterStart else Alignment.CenterEnd,
+    ) {
+        Text(
+            text = cell.text,
+            style = style,
+            color = color,
+            maxLines = if (type == ColType.NAME) 2 else 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = if (type == ColType.NAME) TextAlign.Start else TextAlign.End,
+        )
+    }
+}
+
 // ===========================================
-// Вспомогательные data-классы и компонент ячейки таблицы
+// Итоговая строка внутри карточки — accent-tint фон
 // ===========================================
-private data class EarningsRow(
+@Composable
+private fun PayTotalRow(name: String, amount: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = name,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = amount,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = MonoFont,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+            ),
+            color = MaterialTheme.colorScheme.tertiary,
+            maxLines = 1,
+        )
+    }
+}
+
+// ===========================================
+// Таблица начислений
+// ===========================================
+@Composable
+private fun AccrualsCard(
+    uiState: SalaryCalculationUIState,
+    convertTimeToStringFormat: (Long?) -> String,
+) {
+    val columns = listOf(
+        PayColumn("ВИД ВЫПЛАТЫ", ColType.NAME),
+        PayColumn("ЧАСЫ", ColType.VALUE),
+        PayColumn("%", ColType.VALUE),
+        PayColumn("СУММА", ColType.MONEY),
+    )
+    val rows = buildAccrualRows(uiState).map { row ->
+        listOf(
+            CellVal(row.title),
+            CellVal(row.hours?.let { convertTimeToStringFormat(it) } ?: "—", faint = row.hours == null),
+            CellVal(row.percent?.let { formatPercent(it) } ?: "—", faint = row.percent == null),
+            CellVal(formatMoney(row.money)),
+        )
+    }
+
+    PayCard {
+        PayScrollTable(columns = columns, rows = rows)
+        PayTotalRow(
+            name = "Всего начислено",
+            amount = formatMoney(uiState.totalChargedMoney),
+        )
+    }
+}
+
+// ===========================================
+// Таблица удержаний
+// ===========================================
+@Composable
+private fun DeductionsCard(uiState: SalaryCalculationUIState) {
+    val columns = listOf(
+        PayColumn("ВИД УДЕРЖАНИЯ", ColType.NAME),
+        PayColumn("СУММА", ColType.MONEY),
+    )
+    val rows = listOfNotNull(
+        uiState.retentionNdfl?.takeIf { it > 0 }?.let { "НДФЛ (13 %)" to it },
+        uiState.unionistsRetention?.takeIf { it > 0 }?.let { "Профсоюз" to it },
+        uiState.otherRetention?.takeIf { it > 0 }?.let { "Прочие удержания" to it },
+    ).map { (name, amount) ->
+        listOf(CellVal(name), CellVal(formatMoney(amount)))
+    }
+
+    PayCard {
+        PayScrollTable(columns = columns, rows = rows)
+        PayTotalRow(
+            name = "Всего удержано",
+            amount = formatMoney(uiState.totalRetention),
+        )
+    }
+}
+
+// ===========================================
+// Итог «К выдаче» — тёмный акцентный блок
+// ===========================================
+@Composable
+private fun TotalPayoutBlock(amount: Double?) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 22.dp)
+            .background(MaterialTheme.colorScheme.primary, Shapes.medium)
+            .padding(horizontal = 20.dp, vertical = 20.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "К ВЫДАЧЕ",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
+        )
+        Text(
+            text = formatMoney(amount),
+            style = MaterialTheme.typography.displayMedium.copy(
+                fontFamily = MonoFont,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 26.sp,
+                letterSpacing = (-1).sp,
+            ),
+            color = MaterialTheme.colorScheme.onPrimary,
+            maxLines = 1,
+        )
+    }
+}
+
+// ===========================================
+// Пояснение (info-иконка + текст)
+// ===========================================
+@Composable
+private fun SalaryDisclaimer() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 6.dp, end = 6.dp, top = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(
+            painter = painterResource(com.z_company.route.R.drawable.info_24px),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .padding(top = 1.dp)
+                .height(16.dp)
+                .width(16.dp),
+        )
+        Text(
+            text = "Расчёт носит информационный характер: некоторые виды выплат могут отличаться в зависимости от нормативных документов вашего депо.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+// ===========================================
+// Предупреждение о неустановленной тарифной ставке
+// ===========================================
+@Composable
+private fun TariffWarningCard() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 4.dp),
+        shape = Shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Icon(
+                painter = painterResource(com.z_company.route.R.drawable.info_24px),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier
+                    .padding(top = 1.dp)
+                    .height(18.dp)
+                    .width(18.dp),
+            )
+            Text(
+                text = "Не установлена тарифная ставка. Перейдите в настройки для её указания.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+// ===========================================
+// Формирование строк начислений (только ненулевые суммы)
+// ===========================================
+private data class AccrualRow(
     val title: String,
     val hours: Long?,
     val percent: Double?,
     val money: Double?,
-    val isTotal: Boolean = false
 )
 
-private data class RetentionRow(
-    val title: String,
-    val amount: Double,
-    val isTotal: Boolean = false
-)
+private fun formatPercent(value: Double): String = "%.1f".format(value).replace('.', ',')
 
-@Composable
-private fun TableCell(
-    modifier: Modifier = Modifier,
-    text: String,
-    width: Dp,  // Динамическая ширина, вычисленная на основе контента
-    maxLines: Int = 1,
-    isHeader: Boolean = false,
-    contentAlignment: Alignment = Alignment.Center
-) {
-    Box(
-        modifier = modifier
-            .width(width)  // Используем вычисленную максимальную ширину
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        contentAlignment = contentAlignment
-    ) {
-        Text(
-            text = if (isHeader) text.uppercase() else text,
-            style = if (isHeader) MaterialTheme.typography.labelMedium
-                    else MaterialTheme.typography.bodyMedium,
-            color = if (isHeader) MaterialTheme.colorScheme.onSurfaceVariant
-                    else MaterialTheme.colorScheme.primary,
-            maxLines = maxLines,
-            overflow = TextOverflow.Ellipsis,
+// Денежный формат — общий для приложения (str2decimalSign → «69 928,32»).
+// null трактуем как ноль, чтобы в шапке/итогах всегда было «0,00».
+private fun formatMoney(value: Double?): String = (value ?: 0.0).str2decimalSign()
+
+private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow> = listOfNotNull(
+    // Основные выплаты
+    AccrualRow("Оплата по тарифу", uiState.paymentAtTariffHours, null, uiState.paymentAtTariffMoney),
+    AccrualRow(
+        "Ночные часы",
+        uiState.paymentNightTimeHours,
+        uiState.paymentNightTimePercent,
+        uiState.paymentNightTimeMoney
+    ),
+    AccrualRow("Пассажиром", uiState.paymentAtPassengerHours, null, uiState.paymentAtPassengerMoney),
+    AccrualRow(
+        "Резервом",
+        uiState.paymentAtSingleLocomotiveHours,
+        null,
+        uiState.paymentAtSingleLocomotiveMoney
+    ),
+    AccrualRow("Праздничные", uiState.paymentHolidayHours, null, uiState.paymentHolidayMoney),
+    AccrualRow("Оплата по среднему", uiState.averagePaymentHours, null, uiState.averagePaymentMoney),
+    uiState.underworkMoney?.takeIf { it > 0 }?.let {
+        AccrualRow("Оплата недоработки", uiState.underworkHours, null, it)
+    },
+    AccrualRow(
+        "По уходу за ребенком-инвалидом",
+        uiState.caringForDisableChildrenHours,
+        null,
+        uiState.caringForDisableChildrenMoney
+    ),
+    uiState.businessTripHours?.takeIf { it > 0 }?.let {
+        AccrualRow("Командировка (по среднему)", it, null, uiState.businessTripMoney)
+    },
+
+    // Надбавки
+    uiState.zonalSurchargePercent?.let {
+        AccrualRow("Зональная надбавка", null, it, uiState.zonalSurchargeMoney)
+    },
+    uiState.surchargeQualificationClassPercent?.let {
+        AccrualRow("Надбавка за класс квалификации", null, it, uiState.surchargeQualificationClassMoney)
+    },
+    uiState.onePersonOperationPercent?.let {
+        AccrualRow("В одно лицо (грузовые)", uiState.onePersonOperationHours, it, uiState.onePersonOperationMoney)
+    },
+    uiState.onePersonOperationPassengerTrainPercent?.let {
+        AccrualRow(
+            "В одно лицо (пассажирские)",
+            uiState.onePersonOperationPassengerTrainHours,
+            it,
+            uiState.onePersonOperationPassengerTrainMoney
         )
-    }
-}
+    },
+    uiState.harmfulnessSurchargePercent?.let {
+        AccrualRow("Вредность", null, it, uiState.harmfulnessSurchargeMoney)
+    },
+    uiState.districtSurchargeCoefficient?.let {
+        AccrualRow("Районный коэффициент", null, it, uiState.districtSurchargeMoney)
+    },
+    uiState.nordicSurchargePercent?.let {
+        AccrualRow("Северная надбавка", null, it, uiState.nordicSurchargeMoney)
+    },
+    uiState.otherSurchargePercent?.let {
+        AccrualRow("Прочие надбавки", null, it, uiState.otherSurchargeMoney)
+    },
+    uiState.restInExcessOfTheNormMoney?.takeIf { it > 0 }?.let {
+        AccrualRow("Переотдых", uiState.restInExcessOfTheNormTime, null, it)
+    },
+
+    // Списки надбавок
+    *(0 until minOf(
+        uiState.surchargeExtendedServicePhaseHour.size,
+        uiState.surchargeExtendedServicePhasePercent.size,
+        uiState.surchargeExtendedServicePhaseMoney.size
+    )).mapNotNull { i ->
+        val money = uiState.surchargeExtendedServicePhaseMoney.getOrNull(i) ?: 0.0
+        if (money > 0) {
+            AccrualRow(
+                "Удлиненное плечо (${uiState.surchargeExtendedServicePhasePercent[i] ?: ""}%)",
+                uiState.surchargeExtendedServicePhaseHour.getOrNull(i),
+                uiState.surchargeExtendedServicePhasePercent.getOrNull(i)?.toDoubleOrNull(),
+                money
+            )
+        } else null
+    }.toTypedArray(),
+
+    *(0 until minOf(
+        uiState.surchargeHeavyTransHour.size,
+        uiState.surchargeHeavyTransPercent.size,
+        uiState.surchargeHeavyTransMoney.size
+    )).mapNotNull { i ->
+        val money = uiState.surchargeHeavyTransMoney.getOrNull(i) ?: 0.0
+        if (money > 0) {
+            AccrualRow(
+                "Тяжелые поезда (${uiState.surchargeHeavyTransPercent[i] ?: ""}%)",
+                uiState.surchargeHeavyTransHour.getOrNull(i),
+                uiState.surchargeHeavyTransPercent.getOrNull(i)?.toDoubleOrNull(),
+                money
+            )
+        } else null
+    }.toTypedArray(),
+
+    *(0 until minOf(
+        uiState.surchargeLongTrainHour.size,
+        uiState.surchargeLongTrainPercent.size,
+        uiState.surchargeLongTrainMoney.size
+    )).mapNotNull { i ->
+        val money = uiState.surchargeLongTrainMoney.getOrNull(i) ?: 0.0
+        if (money > 0) {
+            AccrualRow(
+                "Длинносост. (${uiState.surchargeLongTrainPercent[i] ?: ""}%)",
+                uiState.surchargeLongTrainHour.getOrNull(i),
+                uiState.surchargeLongTrainPercent.getOrNull(i)?.toDoubleOrNull(),
+                money
+            )
+        } else null
+    }.toTypedArray(),
+
+    uiState.surchargeDoubledTrainFirstMoney?.takeIf { it > 0 }?.let {
+        AccrualRow("Сдвоенные поезда (30%)", uiState.surchargeDoubledTrainFirstHours, 30.0, it)
+    },
+    uiState.surchargeDoubledTrainSecondMoney?.takeIf { it > 0 }?.let {
+        AccrualRow("Сдвоенные поезда (15%)", uiState.surchargeDoubledTrainSecondHours, 15.0, it)
+    },
+
+    // Сверхурочные
+    AccrualRow("Сверхурочные часы", uiState.paymentAtOvertimeHours, null, uiState.paymentAtOvertimeMoney),
+    uiState.surchargeAtOvertime05Money?.takeIf { it > 0 }?.let {
+        AccrualRow("Доплата за сверхурочные (50%)", uiState.surchargeAtOvertime05Hours, 50.0, it)
+    },
+    uiState.surchargeAtOvertimeMoney?.takeIf { it > 0 }?.let {
+        AccrualRow("Доплата за сверхурочные (100%)", uiState.surchargeAtOvertimeHours, 100.0, it)
+    },
+).filter { it.money != null && it.money > 0 }

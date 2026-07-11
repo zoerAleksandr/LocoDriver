@@ -1,5 +1,6 @@
 package com.z_company.route.viewmodel
 
+import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursExcludingWeekends
@@ -32,11 +33,17 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.datetime.Instant
+import kotlinx.datetime.toLocalDateTime
 
 class SalaryCalculationHelper(
     private val userSettings: UserSettings,
     private val salarySetting: SalarySetting,
-    private val routeList: List<Route>,
+    allRoutes: List<Route>,
+    // Индивидуальная норма (в часах) для расчёта оплаты недоработки: на текущую
+    // дату для текущего месяца, полная — для завершённого. 0 → недоработка не
+    // считается (расчёт одного маршрута / будущий месяц).
+    private val effectiveNormaHoursForUnderwork: Int = 0,
 ) {
     val currentMonthOfYear = userSettings.selectMonthOfYear
     val dateSetTariffRate = currentMonthOfYear.dateSetTariffRate
@@ -45,6 +52,33 @@ class SalaryCalculationHelper(
     val date = userSettings.selectMonthOfYear.dateSetTariffRate?.dateNewRate ?: 1
     val firstDate = 1
     val lastDate = userSettings.selectMonthOfYear.days.lastOrNull()?.dayOfMonth ?: 28
+
+    // ── Командировка ──────────────────────────────────────────────────
+    // Дни командировки (release-дни с типом BusinessTrip). Маршруты, начатые
+    // в эти дни, оплачиваются ТОЛЬКО по среднему часу — без надбавок. Поэтому
+    // они полностью исключаются из обычного расчёта (`routeList` ниже — уже без
+    // них) и обрабатываются отдельной строкой «Командировка (по среднему)».
+    private val businessTripDays: Set<Int> = currentMonthOfYear.days
+        .filter { it.isReleaseDay && it.releaseType == ReleaseType.BusinessTrip }
+        .map { it.dayOfMonth }
+        .toSet()
+
+    @OptIn(kotlin.time.ExperimentalTime::class)
+    private fun Route.startsInBusinessTrip(): Boolean {
+        if (businessTripDays.isEmpty()) return false
+        val startMs = basicData.timeStartWork ?: return false
+        val date = Instant.fromEpochMilliseconds(startMs)
+            .toLocalDateTime(timeCalculationContext.localTZ).date
+        return date.year == currentMonthOfYear.year &&
+                date.monthNumber == currentMonthOfYear.month + 1 &&
+                businessTripDays.contains(date.dayOfMonth)
+    }
+
+    private val businessTripRoutes: List<Route> = allRoutes.filter { it.startsInBusinessTrip() }
+
+    // Все обычные расчёты (тариф, надбавки, сверхурочные, отработанное время)
+    // работают ТОЛЬКО с этим списком — без маршрутов командировки.
+    private val routeList: List<Route> = allRoutes.filterNot { it.startsInBusinessTrip() }
 
     fun getWorkTimeAtTariffFlow(): Flow<Long> {
         return channelFlow {
@@ -1008,6 +1042,52 @@ class SalaryCalculationHelper(
         }
     }
 
+    // ── Оплата недоработки ────────────────────────────────────────────
+    // Если отработано меньше индивидуальной нормы (с учётом отвлечений) —
+    // недостающее время. Норма приходит из ViewModel: на текущую дату (для
+    // текущего месяца) или полная (для завершённого). Отработанное берём с
+    // проездом до явки — как отображается на экране.
+    fun getUnderworkTimeFlow(): Flow<Long> = flow {
+        if (effectiveNormaHoursForUnderwork <= 0) {
+            emit(0L)
+            return@flow
+        }
+        val worked = getTotalWorkTimeWithCommute().first()
+        val normaInLong = effectiveNormaHoursForUnderwork.toLong() * 3_600_000L
+        emit((normaInLong - worked).coerceAtLeast(0L))
+    }
+
+    // Оплата недоработки = недостающие часы × средний час.
+    fun getMoneyUnderworkFlow(): Flow<Double> = flow {
+        val underworkInLong = getUnderworkTimeFlow().first()
+        val hours = underworkInLong.toDouble() / 3_600_000
+        emit(salarySetting.averagePaymentHour.times(hours))
+    }
+
+    // ── Командировка ──────────────────────────────────────────────────
+    // Отработанное время в маршрутах командировки (с проездом пассажиром до
+    // явки — как в отображении общего отработанного времени).
+    fun getBusinessTripTimeFlow(): Flow<Long> {
+        return flow {
+            val time = businessTripRoutes.getWorkTime(currentMonthOfYear, timeCalculationContext)
+            emit(time)
+        }
+    }
+
+    // true, если среди переданных маршрутов есть хотя бы один в периоде командировки.
+    // Для формы (один маршрут) означает, что этот маршрут — командировочный.
+    fun hasBusinessTripRoutes(): Boolean = businessTripRoutes.isNotEmpty()
+
+    // Оплата маршрутов командировки — ТОЛЬКО по среднему часу, без надбавок.
+    fun getMoneyBusinessTripFlow(): Flow<Double> {
+        return flow {
+            val hoursInLong = getBusinessTripTimeFlow().first()
+            val hours = hoursInLong.toDouble() / 3_600_000
+            val money = salarySetting.averagePaymentHour.times(hours)
+            emit(money)
+        }
+    }
+
     fun getHoursCaringForDisableChildren(): Flow<Long> {
         return flow {
             val hours = currentMonthOfYear.getDayoffHoursExcludingWeekends()
@@ -1174,11 +1254,15 @@ class SalaryCalculationHelper(
             val holidayMoney = getMoneyAtHolidayFlow().first()
             val averageMoney = getMoneyAverageFlow().first()
             val averageMoneyCaringForDisableChildren = getMoneyCaringForDisableChildren().first()
+            val businessTripMoney = getMoneyBusinessTripFlow().first()
             val nordicSurcharge = getMoneyNordicSurcharge().first()
             val districtSurcharge = getMoneyDistrictSurcharge().first()
+            // Оплата недоработки — по среднему часу, без районных/северных надбавок
+            // (средний час их уже учитывает).
+            val underworkMoney = getMoneyUnderworkFlow().first()
 
             val totalMoney =
-                baseMoney + holidayMoney + averageMoney + averageMoneyCaringForDisableChildren + nordicSurcharge + districtSurcharge
+                baseMoney + holidayMoney + averageMoney + averageMoneyCaringForDisableChildren + businessTripMoney + nordicSurcharge + districtSurcharge + underworkMoney
 
             emit(totalMoney)
         }

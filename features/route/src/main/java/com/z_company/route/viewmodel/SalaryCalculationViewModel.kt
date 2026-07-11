@@ -13,6 +13,7 @@ import com.z_company.domain.use_cases.NormaUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.util.currencySymbol
 import com.z_company.domain.util.str
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +44,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val normaUseCase: NormaUseCase by inject()
+    private val sharedPreferenceStorage: com.z_company.domain.repositories.SharedPreferencesRepositories by inject()
     private val _userSetting = MutableStateFlow(UserSettings())
     val userSetting = _userSetting.asStateFlow()
     private var job: Job? = null
@@ -98,23 +100,26 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     ) {
         val currentTimeInMillis = Calendar.getInstance().timeInMillis
         val currentMonthOfYear = userSettings.selectMonthOfYear
+        val currency = currencySymbol(userSettings.country)
         val routeList = if (userSettings.isConsiderFutureRoute) {
             allRoutes
         } else {
             allRoutes.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
         }
+        val effectiveNormaHours = computeEffectiveNormaHours(currentMonthOfYear)
         run {
             val salaryCalculationHelper = SalaryCalculationHelper(
                 userSettings = userSettings,
                 salarySetting = salarySetting,
-                routeList = routeList
+                allRoutes = routeList,
+                effectiveNormaHoursForUnderwork = effectiveNormaHours
             )
             job?.cancel()
             // Параллельный вызов методов с ожиданием завершения
             job = CoroutineScope(Dispatchers.IO).launch {
                 // Список асинхронных задач, каждая возвращает PartialState
                 val tasks = listOf(
-                    async { setHeaderData(currentMonthOfYear, salaryCalculationHelper) },
+                    async { setHeaderData(currentMonthOfYear, salaryCalculationHelper, currency) },
                     async { setToTariffTimeData(salaryCalculationHelper) },
                     async { setNightTimeData(salarySetting, salaryCalculationHelper) },
                     async { setSingleLocomotiveData(salaryCalculationHelper) },
@@ -139,6 +144,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                     async { setDistrictSurchargeData(salaryCalculationHelper) },
                     async { setNordicSurchargeData(salaryCalculationHelper) },
                     async { setAveragePaymentData(salaryCalculationHelper) },
+                    async { setUnderworkData(salaryCalculationHelper, salarySetting) },
+                    async { setBusinessTripData(salaryCalculationHelper) },
                     async { setCaringForDisableChildrenPaymentData(salaryCalculationHelper) },
                     async { setOtherSurchargeData(salaryCalculationHelper) },
                     async { setRestInExcessOfTheNormData(salaryCalculationHelper) },
@@ -258,10 +265,18 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                             ?: acc.averagePaymentHours,
                         averagePaymentMoney = partial.averagePaymentMoney
                             ?: acc.averagePaymentMoney,
+                        underworkTime = partial.underworkTime ?: acc.underworkTime,
+                        underworkMoney = partial.underworkMoney ?: acc.underworkMoney,
+                        showSetAverageHourInfo = partial.showSetAverageHourInfo
+                            ?: acc.showSetAverageHourInfo,
                         caringForDisableChildrenHours = partial.caringForDisableChildrenHours
                             ?: acc.caringForDisableChildrenHours,
                         caringForDisableChildrenMoney = partial.caringForDisableChildrenMoney
                             ?: acc.caringForDisableChildrenMoney,
+                        businessTripHours = partial.businessTripHours
+                            ?: acc.businessTripHours,
+                        businessTripMoney = partial.businessTripMoney
+                            ?: acc.businessTripMoney,
                         totalChargedMoney = partial.totalChargedMoney ?: acc.totalChargedMoney,
                         retentionNdfl = partial.retentionNdfl ?: acc.retentionNdfl,
                         unionistsRetention = partial.unionistsRetention ?: acc.unionistsRetention,
@@ -280,6 +295,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                     currentState.copy(  // Пояснение: copy на полном UIState, заменяем все поля из combinedPartial
                         screenState = ResultState.Success(Unit),  // Устанавливаем Success в конце
                         month = combinedPartial.month,
+                        currency = currency,
                         normaHours = combinedPartial.normaHours,
                         totalWorkTime = combinedPartial.totalWorkTime,
                         tariffRate = combinedPartial.tariffRate,
@@ -337,8 +353,13 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         harmfulnessSurchargeMoney = combinedPartial.harmfulnessSurchargeMoney,
                         averagePaymentHours = combinedPartial.averagePaymentHours,
                         averagePaymentMoney = combinedPartial.averagePaymentMoney,
+                        underworkHours = combinedPartial.underworkTime,
+                        underworkMoney = combinedPartial.underworkMoney,
+                        showSetAverageHourInfo = combinedPartial.showSetAverageHourInfo ?: false,
                         caringForDisableChildrenHours = combinedPartial.caringForDisableChildrenHours,
                         caringForDisableChildrenMoney = combinedPartial.caringForDisableChildrenMoney,
+                        businessTripHours = combinedPartial.businessTripHours,
+                        businessTripMoney = combinedPartial.businessTripMoney,
                         totalChargedMoney = combinedPartial.totalChargedMoney,
                         retentionNdfl = combinedPartial.retentionNdfl,
                         unionistsRetention = combinedPartial.unionistsRetention,
@@ -357,7 +378,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     // Метод для установки заголовочных данных (месяц, норма часов, общее время работы, тариф).
     private suspend fun setHeaderData(
         currentMonthOfYear: MonthOfYear,
-        helper: SalaryCalculationHelper
+        helper: SalaryCalculationHelper,
+        currency: String
     ): PartialState {
         // Используем NormaUseCase — учитывает региональные праздники и дни отвлечений
         val normaHours = normaUseCase.normaHoursFlow(
@@ -366,9 +388,9 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         ).first()
         val totalWorkTime = helper.getTotalWorkTimeWithCommute().first()
         val tariffText = if (currentMonthOfYear.dateSetTariffRate == null) {
-            "${currentMonthOfYear.tariffRate.str()} ₽"
+            "${currentMonthOfYear.tariffRate.str()} $currency"
         } else {
-            "${currentMonthOfYear.dateSetTariffRate!!.oldRate.str()} / ${currentMonthOfYear.tariffRate.str()} ₽"
+            "${currentMonthOfYear.dateSetTariffRate!!.oldRate.str()} / ${currentMonthOfYear.tariffRate.str()} $currency"
         }
         return PartialState(
             month = getMonthFullText(currentMonthOfYear.month),
@@ -614,6 +636,56 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    // Оплата недоработки (время недоработки + сумма по среднему часу).
+    // Если недоработка есть, но средний час не задан — поднимаем флаг для инфо-окна.
+    private suspend fun setUnderworkData(
+        helper: SalaryCalculationHelper,
+        salarySetting: SalarySetting
+    ): PartialState {
+        val time = helper.getUnderworkTimeFlow().first()
+        val money = helper.getMoneyUnderworkFlow().first()
+        val averageHourSet = salarySetting.averagePaymentHour > 0.0
+        // Инфо-окно не показываем, если пользователь уже закрыл его через «Понятно».
+        val alreadyDismissed = sharedPreferenceStorage.isUnderworkInfoDismissed()
+        return PartialState(
+            underworkTime = time,
+            underworkMoney = money,
+            showSetAverageHourInfo = time > 0L && !averageHourSet && !alreadyDismissed
+        )
+    }
+
+    // «Понятно» в инфо-окне про недоработку — запоминаем навсегда, больше не показываем.
+    fun dismissUnderworkInfoForever() {
+        sharedPreferenceStorage.setUnderworkInfoDismissed()
+        _uiState.update { it.copy(showSetAverageHourInfo = false) }
+    }
+
+    // Норма для расчёта недоработки: текущий месяц → на сегодня; завершённый →
+    // полная; будущий → 0 (недоработки нет). Месяцы 0-based (как в Calendar).
+    private suspend fun computeEffectiveNormaHours(month: com.z_company.domain.entities.MonthOfYear): Int {
+        val calendar = Calendar.getInstance()
+        val nowYm = calendar.get(Calendar.YEAR) * 12 + calendar.get(Calendar.MONTH)
+        val selectedYm = month.year * 12 + month.month
+        return when {
+            selectedYm > nowYm -> 0
+            selectedYm < nowYm -> normaUseCase.normaHoursFlow(month.year, month.month).first()
+            else -> normaUseCase.normaHoursToDateFlow(
+                month.year, month.month, calendar.get(Calendar.DAY_OF_MONTH)
+            ).first()
+        }
+    }
+
+    // Метод для установки данных по командировке (часы, сумма по среднему).
+    private suspend fun setBusinessTripData(helper: SalaryCalculationHelper): PartialState {
+        val hours = helper.getBusinessTripTimeFlow().first()
+        val money = helper.getMoneyBusinessTripFlow().first()
+
+        return PartialState(
+            businessTripHours = hours,
+            businessTripMoney = money
+        )
+    }
+
     // Метод для установки данных по уходу за ребенком инвалидом
     private suspend fun setCaringForDisableChildrenPaymentData(helper: SalaryCalculationHelper): PartialState {
         val hours = helper.getHoursCaringForDisableChildren().first()
@@ -739,8 +811,13 @@ data class PartialState(
     val harmfulnessSurchargeMoney: Double? = null,
     val averagePaymentHours: Long? = null,
     val averagePaymentMoney: Double? = null,
+    val underworkTime: Long? = null,
+    val underworkMoney: Double? = null,
+    val showSetAverageHourInfo: Boolean? = null,
     val caringForDisableChildrenHours: Long? = null,
     val caringForDisableChildrenMoney: Double? = null,
+    val businessTripHours: Long? = null,
+    val businessTripMoney: Double? = null,
     val totalChargedMoney: Double? = null,
     val retentionNdfl: Double? = null,
     val unionistsRetention: Double? = null,

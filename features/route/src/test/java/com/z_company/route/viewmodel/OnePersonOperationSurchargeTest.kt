@@ -42,7 +42,7 @@ class OnePersonOperationSurchargeTest {
         return SalaryCalculationHelper(
             userSettings = userSettings,
             salarySetting = salarySetting,
-            routeList = routes
+            allRoutes = routes
         )
     }
 
