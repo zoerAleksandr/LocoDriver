@@ -61,6 +61,12 @@ import com.z_company.route.viewmodel.ProfileViewModel
 import com.z_company.core.util.isEmailValid
 import com.z_company.repository.remote_rest.AuthState
 import com.z_company.route.R
+import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.SwitchApp
 import androidx.compose.runtime.collectAsState
@@ -74,6 +80,83 @@ import coil.compose.AsyncImage
 import com.z_company.route.viewmodel.VkUserInfo
 
 const val MIN_LENGTH_PASSWORD = 4
+
+// ── Хелперы редизайна профиля (по референсу android-profile.jsx) ─────
+@Composable
+private fun ProfileGroupLabel(text: String) {
+    Text(
+        modifier = Modifier.padding(start = 16.dp, top = 22.dp, bottom = 8.dp),
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun ProfileAvatarPlaceholder() {
+    Box(
+        modifier = Modifier
+            .size(84.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceBright),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painterResource(R.drawable.person_24px),
+            contentDescription = null,
+            modifier = Modifier.size(44.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+// Мини-бейдж VK перед «Вход через VK ID».
+@Composable
+private fun VkBadge() {
+    Box(
+        modifier = Modifier
+            .size(18.dp)
+            .clip(RoundedCornerShape(5.dp))
+            .background(Color(0xFF0077FF)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("VK", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+// Tonal-кнопка синхронизации (Сохранить/Загрузить) с облаком и лоадером.
+@Composable
+private fun SyncCloudButton(
+    iconRes: Int,
+    line1: String,
+    line2: String,
+    loading: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .clip(Shapes.medium)
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), Shapes.medium)
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (loading) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
+        } else {
+            Icon(painterResource(iconRes), contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+        }
+        Text(
+            text = "$line1\n$line2",
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
 
 @SuppressLint("CoroutineCreationDuringComposition")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -256,31 +339,23 @@ fun ProfileScreen(
 
     var showEditEmailDialog by remember { mutableStateOf(false) }
 
-    AnimationDialog(
-        showDialog = showEditEmailDialog,
-        onDismissRequest = {
-            showEditEmailDialog = false
-            viewModel.resetUpdateEmailState()  // Сбрасываем состояние при закрытии
-        }
-    )
-    {
-        // 1. Состояние из ViewModel
+    if (showEditEmailDialog) {
+        // Состояние из ViewModel
         val updateEmailState by viewModel.uiState
             .map { it.updateEmailState }
             .collectAsState(initial = null)
 
-        // 2. Локальная ошибка — показываем под TextField
+        // Локальная ошибка — показываем под TextField
         var errorMessage by remember { mutableStateOf<String?>(null) }
+        var emailValue by remember { mutableStateOf(viewModel.currentEmail) }
 
-        // 3. Сбрасываем состояние ViewModel каждый раз, когда диалог открывается
-        LaunchedEffect(showEditEmailDialog) {
-            if (showEditEmailDialog) {
-                viewModel.resetUpdateEmailState()
-                errorMessage = null                    // Очищаем ошибку при открытии
-            }
+        // Сброс состояния при открытии диалога
+        LaunchedEffect(Unit) {
+            viewModel.resetUpdateEmailState()
+            errorMessage = null
         }
 
-        // 4. Реакция на результат запроса
+        // Реакция на результат запроса
         LaunchedEffect(updateEmailState) {
             updateEmailState?.let { state ->
                 when (state) {
@@ -293,7 +368,6 @@ fun ProfileScreen(
 
                     is ResultState.Error -> {
                         errorMessage = state.entity.message   // Показываем ошибку под полем
-                        // Диалог НЕ закрываем!
                         viewModel.resetUpdateEmailState()
                     }
 
@@ -302,96 +376,71 @@ fun ProfileScreen(
             }
         }
 
-        var emailValue by remember {
-            mutableStateOf(viewModel.currentEmail)
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .background(MaterialTheme.colorScheme.surface, Shapes.medium)
-                .padding(horizontal = 16.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.End
-        ) {
-            Text(
-                text = "Новый email",
-                style = MaterialTheme.typography.titleSmall,
-                color = primaryColor,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            OutlinedTextFieldApp(
-                modifier = Modifier.fillMaxWidth(),
-                value = emailValue,
-                onValueChange = {
-                    emailValue = it
-                    errorMessage = null                    // Очищаем ошибку при вводе
-                },
-                textStyle = MaterialTheme.typography.bodyLarge,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Done
-                ),
-                isError = errorMessage != null,            // Подсвечиваем поле красным
-                supportingText = {
-                    if (errorMessage != null) {
-                        Text(
-                            text = errorMessage.orEmpty(),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Button(
-                    modifier = Modifier.padding(end = 12.dp),
-                    shape = Shapes.medium,
-                    onClick = {
-                        showEditEmailDialog = false
-                        errorMessage = null
+        AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
+            onDismissRequest = {
+                showEditEmailDialog = false
+                viewModel.resetUpdateEmailState()
+            },
+            title = { Text("Новый email", fontSize = 17.sp, fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextFieldApp(
+                    modifier = Modifier.fillMaxWidth(),
+                    value = emailValue,
+                    onValueChange = {
+                        emailValue = it
+                        errorMessage = null                    // Очищаем ошибку при вводе
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Отмена", style = styleData, color = MaterialTheme.colorScheme.secondary)
-                }
-
+                    singleLine = true,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Done
+                    ),
+                    isError = errorMessage != null,            // Подсвечиваем поле красным
+                    supportingText = {
+                        if (errorMessage != null) {
+                            Text(
+                                text = errorMessage.orEmpty(),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                )
+            },
+            confirmButton = {
                 Button(
-                    shape = Shapes.medium,
                     enabled = emailValue.isEmailValid() &&
                             updateEmailState !is ResultState.Loading,
-                    onClick = { viewModel.updateEmail(emailValue) },
+                    shape = Shapes.medium,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceBright,
+                    ),
+                    onClick = { viewModel.updateEmail(emailValue) }
                 ) {
                     if (updateEmailState is ResultState.Loading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.secondary,
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text(
-                            "Сохранить",
-                            style = styleData,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
+                        Text("Сохранить", color = MaterialTheme.colorScheme.secondary)
                     }
                 }
-            }
-        }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showEditEmailDialog = false
+                    errorMessage = null
+                }) { Text("Отмена", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            },
+        )
     }
 
     SyncProgressDialog(
@@ -774,183 +823,129 @@ fun ProfileScreen(
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                             }
-                            // ===================== АККАУНТ =====================
+                            // ===================== ШАПКА ПРОФИЛЯ =====================
                             item {
-                                Text(
-                                    modifier = Modifier.padding(
-                                        start = 16.dp,
-                                        bottom = 8.dp,
-                                        top = 8.dp
-                                    ),
-                                    text = "АККАУНТ",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
                                 Box(
                                     modifier = Modifier
-                                        .shadow(elevation = 1.dp, shape = Shapes.medium)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.secondary,
-                                            shape = Shapes.medium
-                                        )
-                                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                                        .fillMaxWidth()
+                                        .shadow(1.dp, Shapes.medium)
+                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+                                        .padding(vertical = 20.dp, horizontal = 18.dp),
                                 ) {
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        // E-mail
-                                        Column(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                                        )
-                                        {
-                                            Text(
-                                                text = "E-mail",
-                                                style = styleHint,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            AsyncData(
-                                                resultState = uiState.userDetailsState,
-                                                loadingContent = {
-                                                    CircularProgressIndicator(
-                                                        modifier = Modifier.size(
-                                                            24.dp
-                                                        ), strokeWidth = 2.dp
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    ) {
+                                        AsyncData(
+                                            resultState = uiState.vkUserState,
+                                            loadingContent = { CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp) },
+                                            errorContent = {
+                                                ProfileAvatarPlaceholder()
+                                                Text(
+                                                    "Войдите через VK ID — подтянем фото и имя автоматически",
+                                                    style = styleHint,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    textAlign = TextAlign.Center,
+                                                )
+                                                OneTap(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    onAuth = { _, accessToken -> viewModel.attachVKID(accessToken.userID.toString()) },
+                                                    onFail = { _, f -> scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") } },
+                                                    signInAnotherAccountButtonEnabled = true,
+                                                )
+                                            }
+                                        ) { vkUser ->
+                                            val serverVkId = (uiState.userDetailsState as? ResultState.Success)?.data?.vkId
+                                            val isVkLinkedOnServer = !serverVkId.isNullOrEmpty()
+                                            if (vkUser != null) {
+                                                if (vkUser.photoUrl != null) {
+                                                    AsyncImage(
+                                                        model = vkUser.photoUrl,
+                                                        contentDescription = null,
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier
+                                                            .size(84.dp)
+                                                            .clip(CircleShape),
                                                     )
-                                                },
-                                                errorContent = {
-                                                    Text(
-                                                        "Ошибка загрузки",
-                                                        style = styleData,
-                                                        color = primaryColor
-                                                    )
+                                                } else {
+                                                    ProfileAvatarPlaceholder()
                                                 }
-                                            ) { user ->
-                                                user?.let {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Text(
-                                                            text = it.email,
-                                                            style = styleData,
-                                                            color = primaryColor,
-                                                            maxLines = 2,
-                                                            overflow = TextOverflow.Ellipsis,
-                                                            modifier = Modifier
-                                                                .weight(1f)
-                                                                .padding(end = 8.dp)
-                                                        )
-
-                                                        Icon(
-                                                            modifier = Modifier
-                                                                .size(24.dp)
-                                                                .clickable(
-                                                                    onClick = {
-                                                                        showEditEmailDialog = true
-                                                                    }
-                                                                ),
-                                                            painter = painterResource(com.z_company.core.R.drawable.ic_edit),
-                                                            contentDescription = null,
-                                                            tint = primaryColor
-                                                        )
-                                                    }
+                                                Text(
+                                                    text = vkUser.name,
+                                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                )
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                ) {
+                                                    VkBadge()
+                                                    Text("Вход через VK ID", style = styleHint, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                 }
+                                            } else {
+                                                ProfileAvatarPlaceholder()
+                                                Text(
+                                                    "Войдите через VK ID — подтянем фото и имя автоматически",
+                                                    style = styleHint,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    textAlign = TextAlign.Center,
+                                                )
+                                                OneTap(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    onAuth = { _, accessToken ->
+                                                        val vkId = accessToken.userID.toString()
+                                                        if (isVkLinkedOnServer) viewModel.onVkAuthForLinkedAccount(vkId) else viewModel.attachVKID(vkId)
+                                                    },
+                                                    onFail = { _, f -> scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") } },
+                                                    signInAnotherAccountButtonEnabled = true,
+                                                )
                                             }
                                         }
-                                        CustomDivider(orientation = Orientation.Horizontal)
-                                        // VK
-                                        Column(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Text(
-                                                text = "VK",
-                                                style = styleHint,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            AsyncData(
-                                                resultState = uiState.vkUserState,
-                                                loadingContent = {
-                                                    CircularProgressIndicator(
-                                                        modifier = Modifier.size(24.dp),
-                                                        strokeWidth = 2.dp
-                                                    )
-                                                },
-                                                errorContent = {
-                                                    OneTap(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(),
-                                                        onAuth = { _, accessToken ->
-                                                            viewModel.attachVKID(accessToken.userID.toString())
-                                                        },
-                                                        onFail = { oneTapAuth, vkIdAuthFail ->
-                                                            Log.d(
-                                                                "zzz",
-                                                                "onFail $oneTapAuth ${vkIdAuthFail.description}"
-                                                            )
-                                                            scope.launch {
-                                                                snackbarHostState.showSnackbar("Ошибка привязки VK: ${vkIdAuthFail.description}")
-                                                            }
-                                                        },
-                                                        signInAnotherAccountButtonEnabled = true,
-                                                    )
-                                                    scope.launch {
-                                                        snackbarHostState.showSnackbar("${it.entity.message}")
-                                                    }
-                                                }
-                                            ) { vkUser ->
-                                                // serverVkId != "" означает VK уже привязан на сервере
-                                                val serverVkId = (uiState.userDetailsState as? ResultState.Success)?.data?.vkId
-                                                val isVkLinkedOnServer = !serverVkId.isNullOrEmpty()
+                                    }
+                                }
+                            }
 
-                                                if (vkUser != null) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                                    ) {
-                                                        Text(
-                                                            text = vkUser.name,
-                                                            style = styleData,
-                                                            color = primaryColor
-                                                        )
-                                                        if (vkUser.photoUrl != null) {
-                                                            AsyncImage(
-                                                                model = vkUser.photoUrl,
-                                                                contentDescription = null,
-                                                                contentScale = ContentScale.Crop,
-                                                                modifier = Modifier
-                                                                    .height(with(LocalDensity.current) { styleData.fontSize.toDp() * 1.4f })
-                                                                    .aspectRatio(1f)
-                                                                    .clip(CircleShape)
-                                                            )
-                                                        }
-                                                    }
-                                                } else {
-                                                    OneTap(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(),
-                                                        onAuth = { _, accessToken ->
-                                                            val vkId = accessToken.userID.toString()
-                                                            if (isVkLinkedOnServer) {
-                                                                // VK уже привязан на сервере — не нужно повторно
-                                                                // вызывать attachVKID. Просто сохраняем SDK-сессию
-                                                                // и берём данные пользователя.
-                                                                viewModel.onVkAuthForLinkedAccount(vkId)
-                                                            } else {
-                                                                viewModel.attachVKID(vkId)
-                                                            }
-                                                        },
-                                                        onFail = { oneTapAuth, vkIdAuthFail ->
-                                                            Log.d(
-                                                                "zzz",
-                                                                "onFail $oneTapAuth ${vkIdAuthFail.description}"
-                                                            )
-                                                            scope.launch {
-                                                                snackbarHostState.showSnackbar("Ошибка привязки VK: ${vkIdAuthFail.description}")
-                                                            }
-                                                        },
-                                                        signInAnotherAccountButtonEnabled = true,
-                                                    )
+                            // ===================== EMAIL =====================
+                            item {
+                                ProfileGroupLabel("EMAIL")
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .shadow(1.dp, Shapes.medium)
+                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+                                        .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                                ) {
+                                    AsyncData(
+                                        resultState = uiState.userDetailsState,
+                                        loadingContent = { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) },
+                                        errorContent = { Text("Ошибка загрузки", style = styleData, color = primaryColor) }
+                                    ) { user ->
+                                        user?.let {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(40.dp)
+                                                        .clip(RoundedCornerShape(12.dp))
+                                                        .background(MaterialTheme.colorScheme.surfaceBright),
+                                                    contentAlignment = Alignment.Center,
+                                                ) {
+                                                    Icon(painterResource(R.drawable.ic_mail_24), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.tertiary)
+                                                }
+                                                Text(
+                                                    text = it.email,
+                                                    style = styleData,
+                                                    color = primaryColor,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f),
+                                                )
+                                                IconButton(onClick = { showEditEmailDialog = true }) {
+                                                    Icon(painterResource(com.z_company.core.R.drawable.ic_edit), contentDescription = "Изменить почту", tint = MaterialTheme.colorScheme.tertiary)
                                                 }
                                             }
                                         }
@@ -960,446 +955,170 @@ fun ProfileScreen(
 
                             // ===================== ПОДПИСКА =====================
                             item {
-                                Text(
-                                    modifier = Modifier.padding(
-                                        start = 16.dp,
-                                        bottom = 8.dp,
-                                        top = 22.dp
-                                    ),
-                                    text = "ПОДПИСКА",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Box(
+                                ProfileGroupLabel("ПОДПИСКА")
+                                val onCard = if (hasSubscription) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+                                Row(
                                     modifier = Modifier
-                                        .shadow(elevation = 1.dp, shape = Shapes.medium)
+                                        .fillMaxWidth()
+                                        .shadow(1.dp, Shapes.medium)
                                         .background(
-                                            color = MaterialTheme.colorScheme.secondary,
-                                            shape = Shapes.medium
+                                            if (hasSubscription) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                                            Shapes.medium,
                                         )
                                         .clickable { onBillingClick() }
-                                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                                        .fillMaxWidth(),
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                                 ) {
-                                    AsyncData(
-                                        resultState = uiState.purchasesEndTime,
-                                        loadingContent = {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(
-                                                    24.dp
-                                                ), strokeWidth = 2.dp
-                                            )
-                                        },
-                                        errorContent = {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(
+                                                if (hasSubscription) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.12f)
+                                                else MaterialTheme.colorScheme.surfaceBright
+                                            ),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            painterResource(com.z_company.core.R.drawable.ic_star),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(24.dp),
+                                            tint = if (hasSubscription) onCard else MaterialTheme.colorScheme.tertiary,
+                                        )
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             Text(
-                                                "Ошибка загрузки",
-                                                style = styleData,
-                                                color = primaryColor
+                                                "Машинист Pro",
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                                color = onCard,
+                                            )
+                                            if (hasSubscription) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(999.dp))
+                                                        .background(MaterialTheme.colorScheme.surfaceTint.copy(alpha = 0.16f))
+                                                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                                                ) {
+                                                    Text("АКТИВНА", fontFamily = MonoFont, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, color = MaterialTheme.colorScheme.surfaceTint)
+                                                }
+                                            }
+                                        }
+                                        AsyncData(
+                                            resultState = uiState.purchasesEndTime,
+                                            loadingContent = { },
+                                            errorContent = { },
+                                        ) { purchaseInfo ->
+                                            Text(
+                                                text = if (hasSubscription) "$purchaseInfo" else "Оформить подписку — откроется больше возможностей",
+                                                style = styleHint,
+                                                color = if (hasSubscription) onCard.copy(alpha = 0.65f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(top = 2.dp),
                                             )
                                         }
-                                    ) { purchaseInfo ->
-                                        val text = "$purchaseInfo"
-                                        Text(text = text, style = styleData, color = primaryColor)
                                     }
+                                    Icon(
+                                        painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = onCard.copy(alpha = 0.5f),
+                                    )
                                 }
                             }
 
                             // ===================== СИНХРОНИЗАЦИЯ =====================
                             item {
-                                Text(
-                                    modifier = Modifier.padding(
-                                        start = 16.dp,
-                                        bottom = 8.dp,
-                                        top = 22.dp
-                                    ),
-                                    text = "СИНХРОНИЗАЦИЯ",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                AnimatedVisibility(visible = hasSubscription) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .shadow(elevation = 1.dp, shape = Shapes.medium)
-                                            .background(
-                                                color = MaterialTheme.colorScheme.secondary,
-                                                shape = Shapes.medium
-                                            )
-                                            .padding(16.dp)
+                                ProfileGroupLabel("СИНХРОНИЗАЦИЯ")
+                                if (hasSubscription) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                                     ) {
-                                        AsyncData(
-                                            resultState = uiState.userDetailsState,
-                                            loadingContent = {
-                                                Row(
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) {
-                                                    Text(
-                                                        "Загрузка...",
-                                                        style = styleData,
-                                                        color = primaryColor
-                                                    )
-                                                    CircularProgressIndicator(
-                                                        modifier = Modifier.size(24.dp),
-                                                        strokeWidth = 2.dp
-                                                    )
-                                                }
-                                            },
-                                            errorContent = {
-                                                Text(
-                                                    "Ошибка загрузки",
-                                                    style = styleData,
-                                                    color = primaryColor
-                                                )
-                                            }
-                                        ) { user ->
-                                            user?.let { u ->
-                                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                    uiState.updateAt?.let { timeInMillis ->
-                                                        val textSyncDate =
-                                                            uiState.dateAndTimeConverter?.getDateAndTime(
-                                                                timeInMillis
-                                                            ) ?: ""
-                                                        Text(
-                                                            text = "Последнее обновление данных",
-                                                            style = styleHint,
-                                                            maxLines = 2,
-                                                            overflow = TextOverflow.Visible,
-                                                            color = primaryColor
-                                                        )
-                                                        Text(
-                                                            text = textSyncDate,
-                                                            style = styleData,
-                                                            overflow = TextOverflow.Visible,
-                                                            color = primaryColor
-                                                        )
-
-                                                    }
-                                                    CustomDivider(orientation = Orientation.Horizontal)
-
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .clickable { viewModel.startSyncUpload() },
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text(
-                                                            "Отправить в облако",
-                                                            style = styleData,
-                                                            color = primaryColor,
-                                                            maxLines = 2,
-                                                            overflow = TextOverflow.Visible,
-                                                            modifier = Modifier
-                                                                .weight(1f)
-                                                                .padding(end = 12.dp)
-                                                        )
-                                                        AsyncData(
-                                                            resultState = uiState.uploadState,
-                                                            loadingContent = {
-                                                                CircularProgressIndicator(
-                                                                    modifier = Modifier.size(
-                                                                        24.dp
-                                                                    ),
-                                                                    strokeWidth = 2.dp
-                                                                )
-                                                            }) {
-                                                            Icon(
-                                                                tint = MaterialTheme.colorScheme.tertiary,
-                                                                painter = painterResource(id = com.z_company.core.R.drawable.rounded_cloud_upload_24),
-                                                                contentDescription = null
-                                                            )
-                                                        }
-                                                    }
-                                                    CustomDivider(orientation = Orientation.Horizontal)
-
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .clickable { viewModel.startSyncDownload() },
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Text(
-                                                            "Загрузить из облака",
-                                                            style = styleData,
-                                                            color = primaryColor,
-                                                            maxLines = 2,
-                                                            overflow = TextOverflow.Visible,
-                                                            modifier = Modifier
-                                                                .weight(1f)
-                                                                .padding(end = 12.dp)
-                                                        )
-                                                        AsyncData(
-                                                            resultState = uiState.downloadState,
-                                                            loadingContent = {
-                                                                CircularProgressIndicator(
-                                                                    modifier = Modifier.size(
-                                                                        24.dp
-                                                                    ),
-                                                                    strokeWidth = 2.dp
-                                                                )
-                                                            }) {
-                                                            Icon(
-                                                                tint = MaterialTheme.colorScheme.tertiary,
-                                                                painter = painterResource(id = com.z_company.core.R.drawable.rounded_cloud_download_24),
-                                                                contentDescription = null
-                                                            )
-                                                        }
-                                                    }
-                                                    AnimatedVisibility(
-                                                        visible = uiState.downloadRouteProgress != null,
-                                                        enter = fadeIn() + expandVertically(),
-                                                        exit = fadeOut() + shrinkVertically()
-                                                    ) {
-                                                        Column(
-                                                            modifier = Modifier
-                                                                .fillMaxWidth()
-                                                                .padding(16.dp)
-                                                                .background(
-                                                                    MaterialTheme.colorScheme.surfaceVariant,
-                                                                    RoundedCornerShape(8.dp)
-                                                                )
-                                                                .padding(16.dp),
-                                                            horizontalAlignment = Alignment.CenterHorizontally
-                                                        ) {
-                                                            val (saved, total) = uiState.downloadRouteProgress
-                                                                ?: (0 to 0)
-                                                            Text(
-                                                                text = "Загрузка маршрутов: $saved из $total",
-                                                                style = MaterialTheme.typography.bodyMedium,
-                                                                color = MaterialTheme.colorScheme.onSurface
-                                                            )
-                                                            Spacer(modifier = Modifier.height(8.dp))
-                                                            LinearProgressIndicator(
-                                                                progress = if (total > 0) saved.toFloat() / total.toFloat() else 0f,
-                                                                modifier = Modifier.fillMaxWidth(),
-                                                                color = MaterialTheme.colorScheme.primary,
-                                                                trackColor = MaterialTheme.colorScheme.surface
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                        SyncCloudButton(
+                                            iconRes = com.z_company.core.R.drawable.rounded_cloud_upload_24,
+                                            line1 = "Сохранить",
+                                            line2 = "в облако",
+                                            loading = uiState.uploadState is ResultState.Loading,
+                                            modifier = Modifier.weight(1f),
+                                            onClick = { viewModel.startSyncUpload() },
+                                        )
+                                        SyncCloudButton(
+                                            iconRes = com.z_company.core.R.drawable.rounded_cloud_download_24,
+                                            line1 = "Загрузить",
+                                            line2 = "из облака",
+                                            loading = uiState.downloadState is ResultState.Loading,
+                                            modifier = Modifier.weight(1f),
+                                            onClick = { viewModel.startSyncDownload() },
+                                        )
+                                    }
+                                    uiState.updateAt?.let { timeInMillis ->
+                                        val textSyncDate = uiState.dateAndTimeConverter?.getDateAndTime(timeInMillis) ?: ""
+                                        Text(
+                                            text = "Последнее сохранение: $textSyncDate",
+                                            style = styleHint,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(start = 4.dp, top = 10.dp),
+                                        )
+                                    }
+                                    AnimatedVisibility(
+                                        visible = uiState.downloadRouteProgress != null,
+                                        enter = fadeIn() + expandVertically(),
+                                        exit = fadeOut() + shrinkVertically(),
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 12.dp)
+                                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                                                .padding(16.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                        ) {
+                                            val (saved, total) = uiState.downloadRouteProgress ?: (0 to 0)
+                                            Text(
+                                                text = "Загрузка маршрутов: $saved из $total",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            LinearProgressIndicator(
+                                                progress = if (total > 0) saved.toFloat() / total.toFloat() else 0f,
+                                                modifier = Modifier.fillMaxWidth(),
+                                                color = MaterialTheme.colorScheme.primary,
+                                                trackColor = MaterialTheme.colorScheme.surface,
+                                            )
                                         }
                                     }
-                                }
-                                if (!hasSubscription) {
-                                    Text(
-                                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                                        text = "Раздел синхронизации доступен после оплаты подписки.",
-                                        style = styleHint,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
                                 } else {
                                     Text(
-                                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                                        text = "Выгрузка на сервер маршрутных листов, отвлечений и других настроек выполняется автоматически раз в 36 часов.",
+                                        modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                                        text = "Раздел синхронизации доступен после оплаты подписки.",
                                         style = styleHint,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }
 
-
-                            // ===================== КНОПКИ =====================
+                            // ===================== ВЫХОД =====================
                             item {
-                                Button(
+                                OutlinedButton(
+                                    onClick = { viewModel.logOut() },
                                     modifier = Modifier
-                                        .padding(top = 16.dp)
-                                        .fillMaxWidth(),
+                                        .padding(top = 22.dp)
+                                        .fillMaxWidth()
+                                        .height(50.dp),
                                     shape = Shapes.medium,
-                                    elevation = ButtonDefaults.elevatedButtonElevation(
-                                        defaultElevation = 1.dp
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error
                                     ),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                    onClick = { viewModel.logOut() }
                                 ) {
                                     Text(
-                                        "Выйти",
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        style = MaterialTheme.typography.bodySmall
+                                        "Выйти из аккаунта",
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                                     )
                                 }
                             }
-//
-//                        item {
-//                            Button(
-//                                modifier = Modifier
-//                                    .padding(top = 16.dp)
-//                                    .fillMaxWidth(),
-//                                shape = Shapes.medium,
-//                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 1.dp
-//                                ),
-//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-//                                onClick = { viewModel.test() }
-//                            ) {
-//                                Text(
-//                                    "ТЕСТ ПОЛУЧЕНИЕ ПОЛЬЗОВАТЕЛЯ",
-//                                    color = MaterialTheme.colorScheme.secondary,
-//                                    style = MaterialTheme.typography.bodySmall
-//                                )
-//                            }
-//                        }
-//
-//                        item {
-//                            Button(
-//                                modifier = Modifier
-//                                    .padding(top = 16.dp)
-//                                    .fillMaxWidth(),
-//                                shape = Shapes.medium,
-//                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 1.dp
-//                                ),
-//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-//                                onClick = { viewModel.removeUsersVKID() }
-//                            ) {
-//                                Text(
-//                                    "ТЕСТ УДАЛЕНИЕ VKID",
-//                                    color = MaterialTheme.colorScheme.secondary,
-//                                    style = MaterialTheme.typography.bodySmall
-//                                )
-//                            }
-//                        }
-//
-//                        item {
-//                            Button(
-//                                modifier = Modifier
-//                                    .padding(top = 16.dp)
-//                                    .fillMaxWidth(),
-//                                shape = Shapes.medium,
-//                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 1.dp
-//                                ),
-//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-//                                onClick = { viewModel.saveUserSettingInRemote() }
-//                            ) {
-//                                Text(
-//                                    "Test SAVE UserSetting",
-//                                    color = MaterialTheme.colorScheme.secondary,
-//                                    style = MaterialTheme.typography.bodySmall
-//                                )
-//                            }
-//                        }
-//
-//                        item {
-//                            Button(
-//                                modifier = Modifier
-//                                    .padding(top = 16.dp)
-//                                    .fillMaxWidth(),
-//                                shape = Shapes.medium,
-//                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 1.dp
-//                                ),
-//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-//                                onClick = { viewModel.getUserSettingFromRemote() }
-//                            ) {
-//                                Text(
-//                                    "Test GET UserSetting",
-//                                    color = MaterialTheme.colorScheme.secondary,
-//                                    style = MaterialTheme.typography.bodySmall
-//                                )
-//                            }
-//                        }
-//
-//                        item {
-//                            Button(
-//                                modifier = Modifier
-//                                    .padding(top = 16.dp)
-//                                    .fillMaxWidth(),
-//                                shape = Shapes.medium,
-//                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 1.dp
-//                                ),
-//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-//                                onClick = { viewModel.saveSalarySettingInRemote() }
-//                            ) {
-//                                Text(
-//                                    "Test SAVE SalarySetting",
-//                                    color = MaterialTheme.colorScheme.secondary,
-//                                    style = MaterialTheme.typography.bodySmall
-//                                )
-//                            }
-//                        }
-//
-//                        item {
-//                            Button(
-//                                modifier = Modifier
-//                                    .padding(top = 16.dp)
-//                                    .fillMaxWidth(),
-//                                shape = Shapes.medium,
-//                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 1.dp
-//                                ),
-//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-//                                onClick = { viewModel.getSalarySettingFromRemote() }
-//                            ) {
-//                                Text(
-//                                    "Test GET SalarySetting",
-//                                    color = MaterialTheme.colorScheme.secondary,
-//                                    style = MaterialTheme.typography.bodySmall
-//                                )
-//                            }
-//                        }
-//                        item {
-//                            Button(
-//                                modifier = Modifier
-//                                    .padding(top = 16.dp)
-//                                    .fillMaxWidth(),
-//                                shape = Shapes.medium,
-//                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 1.dp
-//                                ),
-//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-//                                onClick = { viewModel.saveMonthOfYearList() }
-//                            ) {
-//                                Text(
-//                                    "Test SAVE Calendar",
-//                                    color = MaterialTheme.colorScheme.secondary,
-//                                    style = MaterialTheme.typography.bodySmall
-//                                )
-//                            }
-//                        }
-//
-//                        item {
-//                            Button(
-//                                modifier = Modifier
-//                                    .padding(top = 16.dp)
-//                                    .fillMaxWidth(),
-//                                shape = Shapes.medium,
-//                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 1.dp
-//                                ),
-//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-//                                onClick = { viewModel.getMonthOfYearList() }
-//                            ) {
-//                                Text(
-//                                    "Test GET Calendar",
-//                                    color = MaterialTheme.colorScheme.secondary,
-//                                    style = MaterialTheme.typography.bodySmall
-//                                )
-//                            }
-//                        }
-//
-//                        item {
-//                            Button(
-//                                modifier = Modifier
-//                                    .padding(top = 16.dp)
-//                                    .fillMaxWidth(),
-//                                shape = Shapes.medium,
-//                                elevation = ButtonDefaults.elevatedButtonElevation(
-//                                    defaultElevation = 1.dp
-//                                ),
-//                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-//                                onClick = { viewModel.getRoutesFromRemote() }
-//                            ) {
-//                                Text(
-//                                    "Test GET Routes",
-//                                    color = MaterialTheme.colorScheme.secondary,
-//                                    style = MaterialTheme.typography.bodySmall
-//                                )
-//                            }
-//                        }
-
                             item { Spacer(modifier = Modifier.height(24.dp)) }
                         }
                     }
