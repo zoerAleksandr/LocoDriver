@@ -51,6 +51,6 @@ val viewModelModule = module {
     single { PdfViewModel(androidApplication()) }
     viewModel { SeriesListViewModel() }
     viewModel { StationNormListViewModel() }
-    viewModel { (id: String?) -> SeriesEditorViewModel(id) }
-    viewModel { (id: String?) -> StationNormEditorViewModel(id) }
+    viewModel { (id: String?, name: String?) -> SeriesEditorViewModel(id, name) }
+    viewModel { (id: String?, name: String?) -> StationNormEditorViewModel(id, name) }
 }

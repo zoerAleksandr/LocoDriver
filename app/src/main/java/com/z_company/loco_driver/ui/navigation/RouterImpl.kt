@@ -22,6 +22,10 @@ import com.z_company.route.navigation.SelectReleaseDaysScreenRoute
 import com.z_company.route.navigation.SettingSalaryRoute
 import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.WorkScheduleScreenRoute
+import com.z_company.route.navigation.CalendarRoute
+import com.z_company.route.navigation.ScheduleWizardRoute
+import com.z_company.route.navigation.AbsenceRoute
+import com.z_company.route.navigation.StatisticsRoute
 import com.z_company.route.navigation.login.LogInScreenRoute
 import com.z_company.route.navigation.login.RecoveryPasswordRoute
 import com.z_company.route.navigation.login.SignInScreenRoute
@@ -158,6 +162,22 @@ class RouterImpl(
         requireNavController().navigate(
             WorkScheduleScreenRoute.route
         )
+    }
+
+    override fun showCalendar() {
+        requireNavController().navigate(CalendarRoute.route)
+    }
+
+    override fun showScheduleWizard() {
+        requireNavController().navigate(ScheduleWizardRoute.route)
+    }
+
+    override fun showAbsence() {
+        requireNavController().navigate(AbsenceRoute.route)
+    }
+
+    override fun showStatistics() {
+        requireNavController().navigate(StatisticsRoute.route)
     }
 
     override fun showSettings() {

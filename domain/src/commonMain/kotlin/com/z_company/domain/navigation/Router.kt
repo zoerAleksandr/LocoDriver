@@ -38,4 +38,8 @@ interface Router {
     fun showSettingSalary()
     fun showAllRoute()
     fun showWorkScheduleScreen()
+    fun showCalendar()
+    fun showScheduleWizard()
+    fun showAbsence()
+    fun showStatistics()
 }
