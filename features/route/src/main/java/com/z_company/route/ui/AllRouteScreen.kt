@@ -435,8 +435,27 @@ fun AllRouteScreen(
             AppBottomSheet(
                 onDismissRequest = { isShowDialogConfirmRemoveRoute = false },
                 sheetState = sheetState,
-                title = "Удалить маршрут?\n" +
-                        "от ${viewModel.dateAndTimeConverter?.getDateAndTime(value = routeForRemove?.basicData?.timeStartWork) ?: ""} ",
+                headerContent = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = "Удалить маршрут?",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "от ${viewModel.dateAndTimeConverter?.getDateAndTime(value = routeForRemove?.basicData?.timeStartWork) ?: ""}",
+                            fontFamily = com.z_company.core.ui.theme.MonoFont,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                },
                 actions = listOf(
                     BottomSheetAction(text = "Да, удалить") {
                         routeForRemove?.let {

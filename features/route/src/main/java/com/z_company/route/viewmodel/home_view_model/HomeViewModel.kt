@@ -755,7 +755,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         val salaryCalculationHelper = SalaryCalculationHelper(
             userSettings = userSettings,
             salarySetting = salarySetting,
-            routeList = filteredRouteList
+            allRoutes = filteredRouteList
         )
 
         viewModelScope.launch(Dispatchers.Default) {

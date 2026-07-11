@@ -3,6 +3,7 @@
 package com.z_company.domain.entities.route
 
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.TimePeriod
@@ -53,7 +54,11 @@ object UtilsForEntities {
         var holidayTime = 0L
         val timeZoneStr = getTimeZone(userSetting.timeZone)
         val tz = TimeZone.of(timeZoneStr)
-        val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
+        // «Выходной» (личный день отдыха) оплачивается как праздник — работа в
+        // этот день по двойному тарифу. Поэтому включаем DayOff-дни в holiday-пул.
+        val holidayList = monthOfYear.days.filter {
+            it.tag == TagForDay.HOLIDAY || (it.isReleaseDay && it.releaseType == ReleaseType.DayOff)
+        }
         if (holidayList.isNotEmpty()) {
             holidayList.forEach { day ->
                 val startHolidayInLong = LocalDateTime(
@@ -907,7 +912,11 @@ object UtilsForEntities {
             var holidayTime = 0L
 
             val tz = context.localTZ
-            val holidayList = monthOfYear.days.filter { it.tag == TagForDay.HOLIDAY }
+            // «Выходной» (личный день отдыха) оплачивается как праздник — работа в
+        // этот день по двойному тарифу. Поэтому включаем DayOff-дни в holiday-пул.
+        val holidayList = monthOfYear.days.filter {
+            it.tag == TagForDay.HOLIDAY || (it.isReleaseDay && it.releaseType == ReleaseType.DayOff)
+        }
             if (holidayList.isNotEmpty()) {
                 holidayList.forEach { day ->
                     val startHolidayInLong = LocalDateTime(

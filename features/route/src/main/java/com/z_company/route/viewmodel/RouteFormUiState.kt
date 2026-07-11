@@ -31,6 +31,12 @@ data class SalaryForRouteState(
     val paymentAtOnePerson: Double? = null,
     val otherSurcharge: Double? = null,
     val overRestMoney: Double? = null,
+    // Оплата за маршрут командировки — только по среднему часу (без надбавок).
+    // Когда > 0, остальные строки расчёта равны 0 (маршрут исключён из обычного расчёта).
+    val businessTripMoney: Double? = null,
+    // true — маршрут попадает в период командировки (оплата только по среднему часу).
+    // Может быть true при businessTripMoney == 0, если средний час не задан.
+    val isBusinessTrip: Boolean = false,
     // Исходники для пояснений расчёта в шторке
     val tariffRate: Double? = null,
     val workTimeForPay: Long? = null,

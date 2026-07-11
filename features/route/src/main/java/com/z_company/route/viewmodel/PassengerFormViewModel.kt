@@ -169,6 +169,21 @@ class PassengerFormViewModel(
         }
     }
 
+    /**
+     * Пустой ли пассажир: ни одно значимое поле не заполнено. Используется, чтобы
+     * не сохранять абсолютно пустой объект, если пользователь открыл форму нового
+     * пассажира и вышел, ничего не введя.
+     */
+    private fun isPassengerEmpty(passenger: Passenger): Boolean {
+        return passenger.trainNumber.isNullOrBlank() &&
+                passenger.stationDeparture.isNullOrBlank() &&
+                passenger.stationArrival.isNullOrBlank() &&
+                passenger.timeArrival == null &&
+                passenger.timeDeparture == null &&
+                passenger.notes.isNullOrBlank() &&
+                !passenger.isWorkStartByArrival
+    }
+
     override fun onCleared() {
         autoSaveJob?.cancel()
         savePassengerJob?.cancel()
@@ -176,6 +191,9 @@ class PassengerFormViewModel(
             val state = _uiState.value.passengerDetailState
             if (state is ResultState.Success) {
                 state.data?.let { passenger ->
+                    // Не сохраняем абсолютно пустой новый объект (форма открыта и закрыта
+                    // без ввода). Существующего пассажира сохраняем всегда.
+                    if (isNewPassenger && isPassengerEmpty(passenger)) return@launch
                     passengerUseCase.savePassenger(passenger).collect {}
                 }
             }

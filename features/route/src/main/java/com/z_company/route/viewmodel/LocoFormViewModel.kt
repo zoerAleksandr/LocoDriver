@@ -1298,6 +1298,37 @@ class LocoFormViewModel(
         }
     }
 
+    /**
+     * Пустой ли локомотив: нет серии/номера, времён приёмки/сдачи, станций, норм,
+     * счётчиков и данных ни в одной секции. Новая форма всегда содержит одну секцию
+     * по умолчанию (с подставленным коэффициентом) — сам по себе коэффициент вводом
+     * не считается, поэтому используем isDieselSectionEmpty/isElectricSectionEmpty.
+     * Нужно, чтобы не сохранять абсолютно пустой объект, если форму нового локомотива
+     * открыли и закрыли без ввода.
+     */
+    private fun isLocoEmpty(loco: Locomotive): Boolean {
+        val sectionsEmpty = _dieselSectionListState.value.all { isDieselSectionEmpty(it) } &&
+                _electricSectionListState.value.all { isElectricSectionEmpty(it) }
+        return loco.series.isNullOrBlank() &&
+                loco.number.isNullOrBlank() &&
+                loco.timeStartOfAcceptance == null &&
+                loco.timeEndOfAcceptance == null &&
+                loco.timeStartOfDelivery == null &&
+                loco.timeEndOfDelivery == null &&
+                loco.timeBarrierOut == null &&
+                loco.timeBarrierIn == null &&
+                loco.acceptanceStationId == null &&
+                loco.deliveryStationId == null &&
+                (loco.normaElectricCurrent1 ?: 0.0) == 0.0 &&
+                (loco.normaElectricCurrent2 ?: 0.0) == 0.0 &&
+                loco.normaDiesel.isNullOrBlank() &&
+                (loco.heatingCounterAccepted ?: 0.0) == 0.0 &&
+                (loco.heatingCounterDelivery ?: 0.0) == 0.0 &&
+                (loco.auxiliaryCounterAccepted ?: 0.0) == 0.0 &&
+                (loco.auxiliaryCounterDelivery ?: 0.0) == 0.0 &&
+                sectionsEmpty
+    }
+
     override fun onCleared() {
         autoSaveJob?.cancel()
         saveLocoJob?.cancel()
@@ -1305,6 +1336,9 @@ class LocoFormViewModel(
         // save завершится даже после того, как ViewModel уже очищена)
         CoroutineScope(NonCancellable + Dispatchers.IO).launch {
             _currentLoco.value?.let { loco ->
+                // Не сохраняем абсолютно пустой новый объект (форма открыта и закрыта
+                // без ввода). Существующий локомотив сохраняем всегда.
+                if (isNewLoco && isLocoEmpty(loco)) return@let
                 val updatedLoco = loco.copy(
                     dieselSectionList = _dieselSectionListState.value.map { state ->
                         SectionDiesel(

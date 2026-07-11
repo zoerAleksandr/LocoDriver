@@ -240,7 +240,9 @@ class PdfGenerator(private val context: Context) {
     private fun fmtDT(millis: Long?) = millis?.takeIf { it > 0L }?.let { "${timeManager.formatDate(it)} ${timeManager.formatTime(it)}" }
     private fun fmtDur(ms: Long?) = ms?.let { ConverterLongToTime.getTimeInStringFormat(it) }
     // Значения, которые после округления до 2 знаков дают 0.00, не отображаем
-    private fun fmtMoney(v: Double?) = if (v == null || kotlin.math.abs(v) < 0.005) "" else "${"%.2f".format(v)} ₽"
+    // Валюта расчётного листа — задаётся в drawSalary() по стране из настроек.
+    private var payCurrency: String = "₽"
+    private fun fmtMoney(v: Double?) = if (v == null || kotlin.math.abs(v) < 0.005) "" else "${"%.2f".format(v)} $payCurrency"
     private fun fmtHours(v: Long?) = if (v == null || v == 0L) "" else ConverterLongToTime.getTimeInStringFormat(v)
     private fun fmtPct(v: Double?) = if (v == null || v == 0.0) "" else "${v}%"
     private fun fmtPctStr(v: String?) = if (v.isNullOrBlank() || v == "0" || v == "0.0") "" else "$v%"
@@ -940,6 +942,7 @@ class PdfGenerator(private val context: Context) {
                             is ReleaseType.Courses -> "Курсы"
                             is ReleaseType.Donor -> "Донор"
                             is ReleaseType.ChildCare -> "Уход"
+                            is ReleaseType.BusinessTrip -> "Команд."
                             else -> "Отвл."
                         }
                         val textW = paintTiny.measureText(label)
@@ -1037,6 +1040,7 @@ class PdfGenerator(private val context: Context) {
     // ─── Salary section ───────────────────────────────────────────────────────────
 
     private fun drawSalary(pm: PageManager, s: SalaryCalculationUIState, monthLabel: String = "") {
+        payCurrency = s.currency   // валюта расчётного листа — по стране из настроек (₽ / ₸ / Br)
         val monthTitle = monthLabel.ifBlank { s.month }
         pm.text("Расчётный лист${if (monthTitle.isNotBlank()) " за $monthTitle" else ""}", paintTitle)
         pm.y += 2f
@@ -1064,6 +1068,7 @@ class PdfGenerator(private val context: Context) {
         row("Праздничные", s.paymentHolidayHours, null, s.paymentHolidayMoney)
         row("По среднему", s.averagePaymentHours, null, s.averagePaymentMoney)
         row("По уходу за ребёнком-инвалидом", s.caringForDisableChildrenHours, null, s.caringForDisableChildrenMoney)
+        row("Командировка (по среднему)", s.businessTripHours, null, s.businessTripMoney)
 
         // Percentage-only surcharges
         fun rowPct(desc: String, pct: Double?, money: Double?) {

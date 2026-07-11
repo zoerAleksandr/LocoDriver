@@ -58,6 +58,10 @@ fun SwipeToRevealDelete(
     // Контент в этом случае НЕ должен иметь собственный clickable.
     onContentClick: (() -> Unit)? = null,
     onContentLongClick: (() -> Unit)? = null,
+    // Вертикальный отступ красного фона от краёв карточки. По умолчанию 6dp
+    // (карточки секций имеют свой внешний отступ). Для карточек без отступа —
+    // передать 0.dp, чтобы фон «Удалить» был ровно высотой карточки.
+    backgroundVerticalPadding: androidx.compose.ui.unit.Dp = 6.dp,
     // content получает флаг revealed — на случай если контенту нужно знать состояние.
     content: @Composable (revealed: Boolean) -> Unit,
 ) {
@@ -89,7 +93,10 @@ fun SwipeToRevealDelete(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .padding(if (compact) 0.dp else 6.dp),
+                .padding(
+                    horizontal = if (compact) 0.dp else 6.dp,
+                    vertical = if (compact) 0.dp else backgroundVerticalPadding,
+                ),
             contentAlignment = Alignment.CenterEnd
         ) {
             Box(

@@ -249,6 +249,31 @@ class TrainFormViewModel(
         }
     }
 
+    /**
+     * Пустой ли поезд: ни номеров, ни характеристик, ни станций, ни толкача/
+     * двойной тяги/сдвоенного, ни выбранного плеча. Нужно, чтобы не сохранять
+     * абсолютно пустой объект, если форму нового поезда открыли и закрыли без ввода.
+     * Станции берутся из [stationsListState], т.к. в [Train] они переносятся только при save.
+     */
+    private fun isTrainEmpty(train: Train): Boolean {
+        val stationsEmpty = stationsListState.all { s ->
+            s.station.data.isNullOrBlank() && s.arrival.data == null &&
+                    s.departure.data == null && s.trackNumber.isNullOrBlank()
+        }
+        return train.number.isNullOrBlank() &&
+                train.additionalNumbers.all { it.isBlank() } &&
+                train.distance.isNullOrBlank() &&
+                train.weight.isNullOrBlank() &&
+                train.axle.isNullOrBlank() &&
+                train.conditionalLength.isNullOrBlank() &&
+                !train.isHeavyLongDistance &&
+                train.pusher == null &&
+                train.doubleTraction == null &&
+                train.doubledTrain == null &&
+                uiState.value.selectedServicePhase == null &&
+                stationsEmpty
+    }
+
     override fun onCleared() {
         autoSaveJob?.cancel()
         saveTrainJob?.cancel()
@@ -256,6 +281,9 @@ class TrainFormViewModel(
             val state = _uiState.value.trainDetailState
             if (state is ResultState.Success) {
                 state.data?.let { train ->
+                    // Не сохраняем абсолютно пустой новый объект (форма открыта и закрыта
+                    // без ввода). Существующий поезд сохраняем всегда.
+                    if (isNewTrain && isTrainEmpty(train)) return@launch
                     train.servicePhase = uiState.value.selectedServicePhase
                     train.stations = stationsListState.map { s ->
                         Station(

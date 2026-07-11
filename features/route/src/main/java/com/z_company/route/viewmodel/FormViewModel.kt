@@ -226,8 +226,11 @@ class FormViewModel(
             }
         }
 
+        // Реактивная подписка (не .first()): при изменении настроек зарплаты
+        // (например, «средний час») в других экранах форма пересчитывает оплату
+        // сразу по возвращении, а не только при следующем открытии.
         viewModelScope.launch {
-            _salarySetting.value = salarySettingUseCase.salarySettingFlow().first()
+            salarySettingUseCase.salarySettingFlow().collect { _salarySetting.value = it }
         }
 
         // Комбинированный flow для всех вычислений (реактивно на изменения route и settings)
@@ -244,7 +247,7 @@ class FormViewModel(
                     val salaryCalculationHelper = SalaryCalculationHelper(
                         userSettings = settings,
                         salarySetting = salSetting,
-                        routeList = routeList
+                        allRoutes = routeList
                     )
                     coroutineScope {
                         launch { calculateSalary(salaryCalculationHelper, route, settings) }
@@ -588,8 +591,13 @@ class FormViewModel(
             val otherSurcharge =
                 moneyAtQualificationClass + nordicSurcharge + districtSurcharge + moneyAtHarmfulness + otherSurchargeMoney
 
+            // Командировка: если маршрут попадает в дни командировки, все обычные
+            // составляющие выше равны 0 (маршрут исключён из расчёта), а оплата —
+            // только по среднему часу.
+            val businessTripMoney = salaryCalculationHelper.getMoneyBusinessTripFlow().first()
+
             val totalMoney =
-                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtPassengerOutside + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge + overRestMoney
+                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtPassengerOutside + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge + overRestMoney + businessTripMoney
 
             // Логи (оставляем как есть)
             Log.d("zzz", "moneyAtTariffRate $moneyAtTariffRate")
@@ -611,6 +619,8 @@ class FormViewModel(
                     paymentAtOnePerson = moneyAtOnePerson,
                     otherSurcharge = otherSurcharge,
                     overRestMoney = overRestMoney,
+                    businessTripMoney = businessTripMoney,
+                    isBusinessTrip = salaryCalculationHelper.hasBusinessTripRoutes(),
                     tariffRate = setting.selectMonthOfYear.tariffRate,
                     workTimeForPay = workTimeForPay,
                     zonalPercent = zonalPercent,
@@ -1151,6 +1161,15 @@ class FormViewModel(
     }
 
     fun onSaveClick() {
+        // Новый маршрут, в который ничего не ввели и который ещё не попал в БД, —
+        // не сохраняем: пользователь открыл форму и сразу нажал «назад». Просто выходим,
+        // чтобы не плодить пустые черновики. (onCleared здесь не спасает — эта кнопка
+        // делает явное сохранение до ухода с экрана.)
+        if (isNewRoute && !isPersistedToDb && !_uiState.value.changesHaveState) {
+            sharedPreferenceStorage.setTokenIsChangeHave(false)
+            _uiState.update { it.copy(exitFromScreen = true) }
+            return
+        }
         viewModelScope.launch {
             // Sentry-лог для пользователя VKID 17260416
             val vkId = SecureDataStore.getVkIdFlow(application).first()

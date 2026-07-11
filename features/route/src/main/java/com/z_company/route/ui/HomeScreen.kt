@@ -199,8 +199,8 @@ fun HomeScreen(
     onAllRouteClick: () -> Unit,
     isNextDeparture: () -> Boolean,
     saveTimeEvent: SharedFlow<String>,
-    onWorkScheduleScreen: () -> Unit,
-    onClickVacation: () -> Unit,
+    onCalendar: () -> Unit,
+    onStatistics: () -> Unit = {},
     normaHours: Int? = null,
     unsyncedRoutesCount: Int = 0,
     onSyncClick: () -> Unit = {},
@@ -559,8 +559,27 @@ fun HomeScreen(
         AppBottomSheet(
             onDismissRequest = { isShowDialogConfirmRemoveRoute = false },
             sheetState = sheetState,
-            title = "Удалить маршрут?\n" +
-                    "от ${dateAndTimeConverter?.getDateMiniAndTime(value = routeForRemove?.basicData?.timeStartWork) ?: ""} ",
+            headerContent = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "Удалить маршрут?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "от ${dateAndTimeConverter?.getDateMiniAndTime(value = routeForRemove?.basicData?.timeStartWork) ?: ""}",
+                        fontFamily = com.z_company.core.ui.theme.MonoFont,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            },
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") {
                     routeForRemove?.let {
@@ -747,7 +766,14 @@ fun HomeScreen(
                             Spacer(modifier = Modifier.height(16.dp))
                         }
                         HorizontalPager(
-                            modifier = Modifier.animateItem(),
+                            // Тап по верхней плашке с прогресс-барами → экран «Статистика»
+                            modifier = Modifier
+                                .animateItem()
+                                .clickable(
+                                    interactionSource = interactionSource,
+                                    indication = null,
+                                    onClick = onStatistics,
+                                ),
                             state = pagerState,
                             // verticalAlignment=Top + Card.wrapContentHeight(Align.Top)
                             // не дают карточке растягиваться на высоту самой
@@ -1215,10 +1241,12 @@ fun HomeScreen(
                         ) {
                             // Все карточки используют единый компонент ActionCard
                             // для консистентного стиля (layout, шрифт, цвета).
+                            // Единая плашка «Календарь» — заменяет прежние
+                            // «График» и «Отвлечения» (теперь один экран).
                             item {
                                 ActionCard(
                                     modifier = Modifier.padding(start = 12.dp),
-                                    title = "График",
+                                    title = "Календарь",
                                     iconRes = R.drawable.ic_card_calendar,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
                                     widthScreen = widthScreen,
@@ -1229,13 +1257,14 @@ fun HomeScreen(
                                         }
                                     },
                                     minHeightDp = maxHeightBox.toDp(),
-                                    onClick = { onWorkScheduleScreen() }
+                                    onClick = { onCalendar() }
                                 )
                             }
+                            // Плашка «Статистика» — экран сводной статистики
                             item {
                                 ActionCard(
-                                    title = "Отвлечения",
-                                    iconRes = R.drawable.ic_card_vacation,
+                                    title = "Статистика",
+                                    iconRes = R.drawable.ic_card_statistics,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
                                     widthScreen = widthScreen,
                                     interactionSource = interactionSource,
@@ -1245,7 +1274,7 @@ fun HomeScreen(
                                         }
                                     },
                                     minHeightDp = maxHeightBox.toDp(),
-                                    onClick = { onClickVacation() }
+                                    onClick = { onStatistics() }
                                 )
                             }
                             // Карточка "PDF" — открывает диалог формирования PDF

@@ -142,6 +142,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
 import com.z_company.domain.util.str
+import com.z_company.domain.util.currencySymbol
 import com.z_company.domain.util.toMoneyString
 import com.z_company.route.R
 import com.z_company.route.component.AppBottomSheet
@@ -209,6 +210,8 @@ fun FormScreen(
     onCopyClick: () -> Unit
 ) {
     val displayTz = dateAndTimeConverter?.timeZoneText ?: "GMT+3"
+    // Валюта — по стране из настроек (₽ / ₸ / Br). Касается только денег пользователя.
+    val currency = currencySymbol(viewModel.userSetting.collectAsState().value?.country)
     val scope = rememberCoroutineScope()
     val scrollState = rememberLazyListState()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -321,6 +324,7 @@ fun FormScreen(
             passengerTime = currentRoute?.getPassengerTimeWithinWork(),
             passengerOutsideTime = currentRoute?.getPassengerTimeOutsideWork(),
             holidayTime = holidayTimeValue,
+            currency = currency,
             onSalarySettingClick = {
                 showCalcSheet = false
                 onSalarySettingClick()
@@ -912,7 +916,10 @@ fun FormScreen(
                                 }
                             }
 
-                            FormGroupHeader(text = "Основные данные")
+                            FormGroupHeader(
+                                text = "Основные данные",
+                                badge = if (salaryForRouteState.isBusinessTrip) "КОМ" else null,
+                            )
                             FormMCard {
                                 Row(
                                     modifier = Modifier
@@ -997,9 +1004,9 @@ fun FormScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 val calcText = if (salaryForRouteState.isCalculated) {
-                                    salaryForRouteState.totalPayment.toMoneyString()
+                                    salaryForRouteState.totalPayment.toMoneyString(currency)
                                 } else {
-                                    null.toMoneyString()
+                                    null.toMoneyString(currency)
                                 }
                                 FormTile(
                                     modifier = Modifier.weight(1f),
@@ -1009,7 +1016,7 @@ fun FormScreen(
                                     valueFilled = salaryForRouteState.isCalculated,
                                     icon = {
                                         Text(
-                                            text = "₽",
+                                            text = currency,
                                             style = MaterialTheme.typography.titleSmall,
                                             color = MaterialTheme.colorScheme.tertiary
                                         )
@@ -1852,20 +1859,57 @@ private fun RouteConfirmDialog(
 private fun FormGroupHeader(
     text: String,
     modifier: Modifier = Modifier,
+    badge: String? = null,
 ) {
-    Text(
-        modifier = modifier.padding(start = 4.dp),
-        text = text.uppercase(),
-        style = MaterialTheme.typography.labelMedium.copy(
-            fontFamily = MonoFont,
-            fontSize = 11.sp,
-            letterSpacing = TextUnit(1.2f, TextUnitType.Sp)
-        ),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis
+    val headerStyle = MaterialTheme.typography.labelMedium.copy(
+        fontFamily = MonoFont,
+        fontSize = 11.sp,
+        letterSpacing = TextUnit(1.2f, TextUnitType.Sp)
     )
+    if (badge == null) {
+        Text(
+            modifier = modifier.padding(start = 4.dp),
+            text = text.uppercase(),
+            style = headerStyle,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    } else {
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(start = 4.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = text.uppercase(),
+                style = headerStyle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = BusinessTripColor.copy(alpha = 0.16f),
+                        shape = RoundedCornerShape(6.dp),
+                    )
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            ) {
+                Text(
+                    text = badge,
+                    style = headerStyle,
+                    color = BusinessTripColor,
+                )
+            }
+        }
+    }
 }
+
+// Цвет метки «Командировка» — согласован с календарём (CalendarScreen.BusinessTripColor).
+private val BusinessTripColor = Color(0xFF30B0C7)
 
 /** Белая карточка-контейнер (surface, скругление 16, мягкая тень). */
 @Composable
@@ -2153,6 +2197,7 @@ private fun CalcBottomSheet(
     passengerTime: Long?,
     passengerOutsideTime: Long?,
     holidayTime: Long?,
+    currency: String,
     onSalarySettingClick: () -> Unit,
 ) {
     RouteSheetShell(
@@ -2187,7 +2232,7 @@ private fun CalcBottomSheet(
                     color = MaterialTheme.colorScheme.tertiary
                 )
                 Text(
-                    text = salaryForRouteState.totalPayment.toMoneyString(),
+                    text = salaryForRouteState.totalPayment.toMoneyString(currency),
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontFamily = MonoFont,
                         fontWeight = FontWeight.Bold
@@ -2198,10 +2243,42 @@ private fun CalcBottomSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Маршрут в командировке оплачивается только по среднему часу. Если
+            // средний час не задан — сумма 0, поясняем это пользователю и даём
+            // быстрый переход в настройки зарплаты.
+            val averageHourMissing = salaryForRouteState.isBusinessTrip &&
+                    (salaryForRouteState.businessTripMoney == null ||
+                            salaryForRouteState.businessTripMoney == 0.0)
+            if (averageHourMissing) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(Shapes.medium)
+                        .background(BusinessTripColor.copy(alpha = 0.14f))
+                        .clickable { onSalarySettingClick() }
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = "Маршрут в командировке",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = BusinessTripColor,
+                    )
+                    Text(
+                        text = "Оплачивается только по среднему часу, без надбавок. " +
+                                "Средний час не указан — поэтому сумма 0. " +
+                                "Нажмите, чтобы задать его в настройках зарплаты.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
             // Формулы-пояснения из реальных исходников расчёта
             val rateStr = salaryForRouteState.tariffRate
                 ?.takeIf { it != 0.0 }
-                ?.let { it.toMoneyString() }
+                ?.let { it.toMoneyString(currency) }
             val hourlyHint = if (rateStr != null && salaryForRouteState.workTimeForPay != null) {
                 "${ConverterLongToTime.getTimeInStringFormat(salaryForRouteState.workTimeForPay)} × $rateStr/ч"
             } else {
@@ -2273,6 +2350,7 @@ private fun CalcBottomSheet(
                 add("Доплаты за поезд", trainSurchargeHint, salaryForRouteState.surchargesAtTrain)
                 add("Прочие доплаты", "дополнительные начисления", salaryForRouteState.otherSurcharge)
                 add("Переотдых", overRestHint, salaryForRouteState.overRestMoney)
+                add("Командировка (по среднему)", "оплата только по среднему часу", salaryForRouteState.businessTripMoney)
             }
 
             if (rows.isNotEmpty()) {
@@ -2308,7 +2386,7 @@ private fun CalcBottomSheet(
                                 )
                             }
                             Text(
-                                text = value.toMoneyString(),
+                                text = value.toMoneyString(currency),
                                 style = MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont),
                                 color = MaterialTheme.colorScheme.primary
                             )
