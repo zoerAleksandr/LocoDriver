@@ -29,9 +29,7 @@ fun SettingsLocoContent(
     currentSettings: UserSettings,
     changeShowLocoHeating: (Boolean) -> Unit,
     changeShowLocoAuxiliary: (Boolean) -> Unit,
-    changeShowLocoStatistics: (Boolean) -> Unit,
     changeDefaultLocoType: () -> Unit,
-    changeShowLocoNorma: (Boolean) -> Unit,
     changeShowOtherCurrent: (Boolean) -> Unit,
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
@@ -46,30 +44,15 @@ fun SettingsLocoContent(
             .padding(bottom = 24.dp)
     ) {
         // --- Показывать поля ---
-        Text(
-            modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
-            text = "ПОКАЗАТЕЛИ",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(elevation = 1.dp, shape = Shapes.medium)
-                .background(
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = Shapes.medium
-                )
-                .padding(vertical = 4.dp)
-        )
-        {
+        SettingsGroupHeader("ПОКАЗАТЕЛИ")
+        SettingsCard {
             SettingSwitchRow(
                 text = "Отопление",
                 checked = currentSettings.isShowLocoHeating,
                 onCheckedChange = changeShowLocoHeating,
                 style = styleData
             )
-            HorizontalDivider()
+            SettingsRowDivider()
             SettingSwitchRow(
                 text = "Собственные нужды",
                 checked = currentSettings.isShowLocoAuxiliary,
@@ -87,16 +70,8 @@ fun SettingsLocoContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         // --- Смена рода тока ---
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(elevation = 1.dp, shape = Shapes.medium)
-                .background(
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = Shapes.medium
-                )
-                .padding(vertical = 4.dp)
-        ) {
+        SettingsGroupHeader("РОД ТОКА")
+        SettingsCard {
             SettingSwitchRow(
                 text = "Смена рода тока",
                 checked = currentSettings.isShowOtherCurrent,
@@ -114,29 +89,28 @@ fun SettingsLocoContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         // --- Вид тяги ---
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(elevation = 1.dp, shape = Shapes.medium)
-                .background(
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = Shapes.medium
+        SettingsGroupHeader("ПО УМОЛЧАНИЮ")
+        SettingsCard {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .noRippleEffect { changeDefaultLocoType() }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = "Вид тяги",
+                    style = styleData,
+                    color = primaryColor
                 )
-                .noRippleEffect { changeDefaultLocoType() }
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                modifier = Modifier.weight(1f),
-                text = "Вид тяги",
-                style = styleData,
-                color = primaryColor
-            )
-            Text(
-                text = currentSettings.defaultLocoType.text,
-                style = styleData,
-                color = primaryColor
-            )
+                Text(
+                    text = currentSettings.defaultLocoType.text,
+                    style = styleData,
+                    color = primaryColor
+                )
+            }
         }
         Text(
             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
@@ -157,7 +131,7 @@ private fun SettingSwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

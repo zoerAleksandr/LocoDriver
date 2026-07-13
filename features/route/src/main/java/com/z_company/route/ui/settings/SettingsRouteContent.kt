@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.component.CustomDivider
 import com.z_company.route.component.AppTimePicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.setting.UserSettings
@@ -54,6 +55,7 @@ fun SettingsRouteContent(
     changeShowBreak: (Boolean) -> Unit,
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
+    val styleValueMono = styleData.copy(fontFamily = MonoFont)
     val styleHint = MaterialTheme.typography.bodyMedium
     val styleTitle = MaterialTheme.typography.titleSmall
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -85,29 +87,15 @@ fun SettingsRouteContent(
     ) {
         // Данные по умолчанию
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
-                text = "ДАННЫЕ ПО УМОЛЧАНИЮ",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Column(
-                modifier = Modifier
-                    .shadow(elevation = 1.dp, shape = Shapes.medium)
-                    .background(
-                        color = MaterialTheme.colorScheme.secondary,
-                        shape = Shapes.medium
-                    )
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            SettingsGroupHeader("ДАННЫЕ ПО УМОЛЧАНИЮ")
+            SettingsCard {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .noRippleEffect { viewModel.changeDefaultLocoType() },
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .noRippleEffect { viewModel.changeDefaultLocoType() }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         modifier = Modifier.weight(1f),
@@ -121,12 +109,13 @@ fun SettingsRouteContent(
                         color = primaryColor
                     )
                 }
-                CustomDivider(orientation = Orientation.Horizontal)
+                SettingsRowDivider()
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .noRippleEffect { viewModel.changeTimeFormat() },
+                        .noRippleEffect { viewModel.changeTimeFormat() }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -144,17 +133,19 @@ fun SettingsRouteContent(
                     Text(
                         modifier = Modifier.padding(end = 12.dp),
                         text = text,
-                        style = styleData,
+                        style = styleValueMono,
                         color = primaryColor,
                         overflow = TextOverflow.Ellipsis,
                         maxLines = 2
                     )
                 }
 
-                CustomDivider(orientation = Orientation.Horizontal)
+                SettingsRowDivider()
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -176,13 +167,13 @@ fun SettingsRouteContent(
 
                 AnimatedVisibility(visible = currentSettings.usingDefaultWorkTime) {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        CustomDivider(orientation = Orientation.Horizontal)
-                        Spacer(modifier = Modifier.height(8.dp))
+                        SettingsRowDivider()
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .noRippleEffect { showWorkTimeDialog = true },
+                                .noRippleEffect { showWorkTimeDialog = true }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -198,7 +189,7 @@ fun SettingsRouteContent(
                                 text = ConverterLongToTime.getTimeInStringFormat(
                                     currentSettings.defaultWorkTime
                                 ),
-                                style = styleData,
+                                style = styleValueMono,
                                 color = primaryColor,
                             )
                         }
@@ -227,13 +218,14 @@ fun SettingsRouteContent(
             )
             Row(
                 modifier = Modifier
-                    .shadow(elevation = 1.dp, shape = Shapes.medium)
+                    .fillMaxWidth()
+                    .shadow(elevation = 2.dp, shape = Shapes.medium)
                     .background(
                         color = MaterialTheme.colorScheme.secondary,
                         shape = Shapes.medium
                     )
                     .noRippleEffect { viewModel.changeTimePickerStyle() }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -300,13 +292,13 @@ private fun Passenger12hSettingsSection(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(elevation = 1.dp, shape = Shapes.medium)
+                .shadow(elevation = 2.dp, shape = Shapes.medium)
                 .background(
                     color = MaterialTheme.colorScheme.secondary,
                     shape = Shapes.medium
                 )
                 .clickable { showOptionSheet = true }
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
             Text(
                 text = currentOption.label,

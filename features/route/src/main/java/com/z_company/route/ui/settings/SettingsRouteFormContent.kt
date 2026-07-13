@@ -43,29 +43,15 @@ fun SettingsRouteFormContent(
             .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
-            text = "ЭЛЕМЕНТЫ ФОРМЫ",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(elevation = 1.dp, shape = Shapes.medium)
-                .background(
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = Shapes.medium
-                )
-                .padding(vertical = 4.dp)
-        ) {
+        SettingsGroupHeader("ЭЛЕМЕНТЫ ФОРМЫ", top = 4.dp)
+        SettingsCard {
             RouteFormSwitchRow(
                 text = "Показывать перерыв",
                 checked = currentSettings.isShowBreak,
                 onCheckedChange = changeShowBreak,
                 style = styleData
             )
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+            SettingsRowDivider()
             RouteFormSwitchRow(
                 text = "Переключатель «Одно лицо»",
                 checked = currentSettings.isShowOnePersonSwitch,
@@ -92,7 +78,7 @@ private fun RouteFormSwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

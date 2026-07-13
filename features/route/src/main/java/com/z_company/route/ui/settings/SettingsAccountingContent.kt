@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.z_company.route.component.AppTimePicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.setting.UserSettings
@@ -92,26 +93,13 @@ fun SettingsAccountingContent(
     ) {
         // Ночь
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
-                text = "НОЧНЫЕ ЧАСЫ",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Column(
-                modifier = Modifier
-                    .shadow(elevation = 1.dp, shape = Shapes.medium)
-                    .background(
-                        color = MaterialTheme.colorScheme.secondary,
-                        shape = Shapes.medium
-                    )
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            SettingsGroupHeader("НОЧНЫЕ ЧАСЫ")
+            SettingsCard {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .noRippleEffect { showNightTimeStartDialog = true },
+                        .noRippleEffect { showNightTimeStartDialog = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -125,7 +113,7 @@ fun SettingsAccountingContent(
                     )
                     Text(
                         text = currentSettings.nightTime.toString(),
-                        style = styleData,
+                        style = styleData.copy(fontFamily = MonoFont),
                         color = primaryColor
                     )
                 }
@@ -141,23 +129,15 @@ fun SettingsAccountingContent(
 
         // Будущие маршруты
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
-                text = "БУДУЩИЕ МАРШРУТЫ",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(
-                modifier = Modifier
-                    .shadow(elevation = 1.dp, shape = Shapes.medium)
-                    .background(
-                        color = MaterialTheme.colorScheme.secondary,
-                        shape = Shapes.medium
-                    )
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            SettingsGroupHeader("БУДУЩИЕ МАРШРУТЫ")
+            SettingsCard {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                 Text(
                     modifier = Modifier
                         .padding(end = 12.dp)
@@ -171,6 +151,7 @@ fun SettingsAccountingContent(
                     checked = currentSettings.isConsiderFutureRoute,
                     onCheckedChange = { changeConsiderFutureRoute(it) }
                 )
+                }
             }
 
             Text(

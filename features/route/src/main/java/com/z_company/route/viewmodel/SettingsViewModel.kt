@@ -467,16 +467,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         currentSettings = currentSettings?.copy(isShowLocoAuxiliary = value)
     }
 
-    fun changeShowLocoStatistics(value: Boolean) {
-        sharedPreferenceStorage.setShowLocoStatistics(value)
-        currentSettings = currentSettings?.copy(isShowLocoStatistics = value)
-    }
-
-    fun changeShowLocoNorma(value: Boolean) {
-        sharedPreferenceStorage.setShowLocoNorma(value)
-        currentSettings = currentSettings?.copy(isShowLocoNorma = value)
-    }
-
     fun changeShowOtherCurrent(value: Boolean) {
         sharedPreferenceStorage.setShowOtherCurrent(value)
         currentSettings = currentSettings?.copy(isShowOtherCurrent = value)

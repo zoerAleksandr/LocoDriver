@@ -119,8 +119,6 @@ fun SettingsScreen(
     changeShowOnePersonSwitch: (Boolean) -> Unit,
     changeShowLocoHeating: (Boolean) -> Unit,
     changeShowLocoAuxiliary: (Boolean) -> Unit,
-    changeShowLocoStatistics: (Boolean) -> Unit,
-    changeShowLocoNorma: (Boolean) -> Unit,
     changeShowOtherCurrent: (Boolean) -> Unit,
     setTimeZone: (Long) -> Unit,
     timeZoneRussiaList: List<TimeZoneRussia>,
@@ -378,9 +376,7 @@ fun SettingsScreen(
                                 currentSettings = settings,
                                 changeShowLocoHeating = changeShowLocoHeating,
                                 changeShowLocoAuxiliary = changeShowLocoAuxiliary,
-                                changeShowLocoStatistics = changeShowLocoStatistics,
                                 changeDefaultLocoType = viewModel::changeDefaultLocoType,
-                                changeShowLocoNorma = changeShowLocoNorma,
                                 changeShowOtherCurrent = changeShowOtherCurrent,
                             )
                         }

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.component.CustomDivider
 import com.z_company.route.component.AppTimePicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.setting.UserSettings
@@ -37,6 +38,7 @@ fun SettingsRestContent(
     homeRestTimeChanged: (Long) -> Unit,
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
+    val styleValueMono = styleData.copy(fontFamily = MonoFont)
     val styleHint = MaterialTheme.typography.bodyMedium
     val primaryColor = MaterialTheme.colorScheme.primary
 
@@ -79,20 +81,13 @@ fun SettingsRestContent(
             .padding(horizontal = 12.dp)
             .padding(bottom = 24.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .shadow(elevation = 1.dp, shape = Shapes.medium)
-                .background(
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = Shapes.medium
-                )
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        SettingsGroupHeader("МИНИМАЛЬНЫЙ ОТДЫХ", top = 4.dp)
+        SettingsCard {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .noRippleEffect { showRestDialog = true },
+                    .noRippleEffect { showRestDialog = true }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -108,16 +103,17 @@ fun SettingsRestContent(
                     text = ConverterLongToTime.getTimeInStringFormat(
                         currentSettings.minTimeRestPointOfTurnover
                     ),
-                    style = styleData,
+                    style = styleValueMono,
                     color = primaryColor
                 )
             }
-            CustomDivider(orientation = Orientation.Horizontal)
+            SettingsRowDivider()
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .noRippleEffect { showHomeRestDialog = true },
+                    .noRippleEffect { showHomeRestDialog = true }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -134,7 +130,7 @@ fun SettingsRestContent(
                     text = ConverterLongToTime.getTimeInStringFormat(
                         currentSettings.minTimeHomeRest
                     ),
-                    style = styleData,
+                    style = styleValueMono,
                     color = primaryColor,
                 )
             }
@@ -144,7 +140,7 @@ fun SettingsRestContent(
             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
             text = "Установите время минимального отдыха. Это значение будет использовано при расчете отдыха после поездки.",
             style = styleHint,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

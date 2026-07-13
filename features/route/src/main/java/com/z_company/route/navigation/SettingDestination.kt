@@ -43,8 +43,6 @@ fun SettingDestination(
         changeShowOnePersonSwitch = settingsViewModel::changeShowOnePersonSwitch,
         changeShowLocoHeating = settingsViewModel::changeShowLocoHeating,
         changeShowLocoAuxiliary = settingsViewModel::changeShowLocoAuxiliary,
-        changeShowLocoStatistics = settingsViewModel::changeShowLocoStatistics,
-        changeShowLocoNorma = settingsViewModel::changeShowLocoNorma,
         changeShowOtherCurrent = settingsViewModel::changeShowOtherCurrent,
         timeZoneRussiaList = settingsViewModel.timeZoneList,
         setTimeZone = settingsViewModel::setTimeZone,
