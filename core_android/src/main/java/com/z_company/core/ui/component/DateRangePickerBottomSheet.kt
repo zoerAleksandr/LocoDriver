@@ -22,6 +22,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
+import androidx.compose.ui.text.font.FontWeight
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -196,15 +198,20 @@ fun DateRangePickerBottomSheet(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
+                        .padding(horizontal = 12.dp, vertical = 12.dp)
+                        .height(52.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        contentColor = MaterialTheme.colorScheme.secondary
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     shape = Shapes.medium,
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
-                    Text(text = "Применить", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = "Применить",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                 }
             }
 
@@ -421,8 +428,10 @@ fun FullCalendarForRange(
                 Text(
                     text = day,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                        fontFamily = MonoFont,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     ),
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center
@@ -508,7 +517,11 @@ fun FullCalendarForRange(
 
                                     Text(
                                         text = dayNumber.toString(),
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontFamily = MonoFont,
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 16.sp,
+                                        ),
                                         color = if (isInRange) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
                                     )
                                 }

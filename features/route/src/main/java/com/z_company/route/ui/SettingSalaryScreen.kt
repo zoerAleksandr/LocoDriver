@@ -7,10 +7,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
@@ -33,6 +39,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -51,14 +58,20 @@ import com.z_company.core.ui.component.AsyncDataValue
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.DateRangePickerBottomSheet
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
+import androidx.compose.ui.text.font.FontWeight
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.setting.SurchargeHeavyTrains
 import com.z_company.domain.entities.setting.SurchargeLongTrains
+import androidx.compose.material3.rememberModalBottomSheetState
 import com.z_company.route.component.AnimationDialog
+import com.z_company.route.component.AppBottomSheet
+import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.OutlinedTextFieldApp
+import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.viewmodel.SettingSalaryUIState
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -129,6 +142,11 @@ fun SettingSalaryScreen(
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintStyle = MaterialTheme.typography.bodyMedium
+    // Цифры в полях ввода — моноширинные (значения/деньги), 17sp SemiBold как в дизайне.
+    val payFieldStyle = MaterialTheme.typography.bodyLarge.copy(
+        fontFamily = MonoFont,
+        fontWeight = FontWeight.SemiBold,
+    )
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val paddingLarge = 6.dp
@@ -144,6 +162,27 @@ fun SettingSalaryScreen(
     }
 
     var isShowSetDateTariffRateDialog by remember { mutableStateOf(false) }
+    // Подтверждение удаления строки доплаты (свайп раскрывает «Удалить», потом спрашиваем).
+    var pendingTierDelete by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var tierCloseSignal by remember { mutableStateOf(0) }
+
+    pendingTierDelete?.let { action ->
+        val tierDeleteSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        AppBottomSheet(
+            onDismissRequest = {
+                pendingTierDelete = null
+                tierCloseSignal++
+            },
+            sheetState = tierDeleteSheetState,
+            title = "Удалить доплату?",
+            actions = listOf(
+                BottomSheetAction(text = "Да, удалить") {
+                    action()
+                    pendingTierDelete = null
+                }
+            )
+        )
+    }
 
     AnimationDialog(
         showDialog = isShowSetDateTariffRateDialog,
@@ -345,172 +384,115 @@ fun SettingSalaryScreen(
                 currentMonthOfYear?.dateSetTariffRate?.let {
                     dateSetTariffRate = it.dateNewRate
                 }
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        text = "Тарифная ставка, руб.",
-                        overflow = TextOverflow.Visible,
-                        style = hintStyle,
-                        color = primaryColor,
-                        maxLines = 2,
-                    )
-                    Row(
-                        modifier = Modifier.clickable(
-                            onClick = {
-                                isShowSetDateTariffRateDialog = true
-                            }
-                        ),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "на $dateSetTariffRate",
-                            overflow = TextOverflow.Visible,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-
-                        Text(
-                            text = getMonthFullText(currentMonthOfYear?.month),
-                            overflow = TextOverflow.Visible,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-
-                        Text(
-                            text = currentMonthOfYear?.year.toString(),
-                            overflow = TextOverflow.Visible,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                    }
-
-                    AsyncDataValue(resultState = tariffRateValueState) { tariffRateValue ->
-                        tariffRateValue?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = tariffRateValue,
-                                onValueChange = { value ->
-                                    setTariffRate(value)
-                                },
-                                isError = isErrorInputTariffRate,
-                                supportingText = {
-                                    if (isErrorInputTariffRate) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
-                        }
-                    }
-
-                    if (currentMonthOfYear?.dateSetTariffRate != null) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                        ) {
-                            Text(
-                                text = "Тарифная ставка, руб. ",
-                                overflow = TextOverflow.Visible,
-                                style = hintStyle,
-                                maxLines = 2,
-                                color = primaryColor
-                            )
+                PayCard {
+                    PayFieldSlot(
+                        label = "Тарифная ставка",
+                        action = {
                             Row(
-                                modifier = Modifier.clickable(
-                                    onClick = {
-                                        isShowSetDateTariffRateDialog = true
-                                    }
-                                ),
+                                modifier = Modifier.clickable { isShowSetDateTariffRateDialog = true },
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Text(
-                                    text = "до $dateSetTariffRate",
-                                    overflow = TextOverflow.Visible,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.tertiary
-                                )
-
-                                Text(
-                                    text = getMonthFullText(currentMonthOfYear.month),
-                                    overflow = TextOverflow.Visible,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.tertiary
-                                )
-
-                                Text(
-                                    text = currentMonthOfYear.year.toString(),
-                                    overflow = TextOverflow.Visible,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.tertiary
-                                )
+                                Text("на $dateSetTariffRate", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                                Text(getMonthFullText(currentMonthOfYear?.month), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                                Text(currentMonthOfYear?.year.toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
                             }
                         }
-                        AsyncDataValue(resultState = oldTariffRateValueState) { oldTariffRateValue ->
-                            oldTariffRateValue?.let {
-                                OutlinedTextFieldApp(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
-                                    value = oldTariffRateValue,
-                                    onValueChange = { value ->
-                                        setOldTariffRate(value)
-                                    },
-                                    isError = isErrorInputTariffRate,
-                                    supportingText = {
-                                        if (isErrorInputTariffRate) {
-                                            Text(text = "Некорректные данные")
-                                        }
-                                    },
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal
-                                    )
-                                )
+                    ) {
+                        AsyncDataValue(resultState = tariffRateValueState) { v ->
+                            v?.let { PayInput(it, setTariffRate, "₽", isErrorInputTariffRate) }
+                        }
+                    }
+                    if (currentMonthOfYear?.dateSetTariffRate != null) {
+                        PaySep()
+                        PayFieldSlot(
+                            label = "Тарифная ставка",
+                            action = {
+                                Row(
+                                    modifier = Modifier.clickable { isShowSetDateTariffRateDialog = true },
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text("до $dateSetTariffRate", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                                    Text(getMonthFullText(currentMonthOfYear.month), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                                    Text(currentMonthOfYear.year.toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+                                }
+                            }
+                        ) {
+                            AsyncDataValue(resultState = oldTariffRateValueState) { v ->
+                                v?.let { PayInput(it, setOldTariffRate, "₽", isErrorInputTariffRate) }
                             }
                         }
                     }
+                    PaySep()
+                    PayFieldSlot("Средний час") {
+                        AsyncDataValue(resultState = uiState.averagePaymentHour) { v ->
+                            v?.let { PayInput(it, setAveragePaymentHour, "₽", uiState.isErrorInputAveragePayment) }
+                        }
+                    }
                 }
             }
+
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                PayCard {
+                    PayFieldSlot("Зональная надбавка") {
+                        AsyncDataValue(resultState = zonalSurchargeValueState) { v ->
+                            v?.let { PayInput(it, setZonalSurcharge, "%", isErrorInputZonalSurcharge) }
+                        }
+                    }
+                    PaySep()
+                    PayFieldSlot("Доплаты за класс и права") {
+                        AsyncDataValue(resultState = surchargeQualificationClassValueState) { v ->
+                            v?.let { PayInput(it, setSurchargeQualificationClass, "%", isErrorInputSurchargeQualificationClass) }
+                        }
+                    }
+                    PaySep()
+                    PayFieldSlot("Работа в одно лицо (грузовой)") {
+                        AsyncDataValue(resultState = onePersonOperationPercent) { v ->
+                            v?.let { PayInput(it, setOnePersonOperationPercent, "%", isErrorInputOnePersonOperation) }
+                        }
+                    }
+                    PaySep()
+                    PayFieldSlot("Работа в одно лицо (пассажирский)") {
+                        AsyncDataValue(resultState = onePersonOperationPassengerTrainPercent) { v ->
+                            v?.let { PayInput(it, setOnePersonOperationPassengerTrainPercent, "%", isErrorInputOnePersonOperationPassengerTrain) }
+                        }
+                    }
+                    PaySep()
+                    PayFieldSlot("Доплата за вредность") {
+                        AsyncDataValue(resultState = harmfulnessPercentState) { v ->
+                            v?.let { PayInput(it, setHarmfulnessPercent, "%", isErrorInputHarmfulness) }
+                        }
+                    }
+                    PaySep()
+                    PayFieldSlot("Северная надбавка") {
+                        AsyncDataValue(resultState = uiState.nordicCoefficient) { v ->
+                            v?.let { PayInput(it, setNordicCoefficient, "%", uiState.isErrorInputNordicCoefficient) }
+                        }
+                    }
+                    PaySep()
+                    PayFieldSlot("Районный коэффициент") {
+                        AsyncDataValue(resultState = uiState.districtCoefficient) { v ->
+                            v?.let { PayInput(it, setDistrictCoefficient, "%", uiState.isErrorInputDistrictCoefficient) }
+                        }
+                    }
+                }
+            }
+
+            item {
+                PayTierSection(
+                    label = "Доплата за тяж. поезда",
+                    onAdd = addSurchargeHeavyTran,
                 ) {
-                    Text(
-                        text = "Средний час, руб.",
-                        overflow = TextOverflow.Visible,
-                        style = hintStyle,
-                        maxLines = 2,
-                        color = primaryColor
-                    )
-                    AsyncDataValue(resultState = uiState.averagePaymentHour) { averagePaymentHourValue ->
-                        averagePaymentHourValue?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = averagePaymentHourValue,
-                                onValueChange = { value ->
-                                    setAveragePaymentHour(value)
-                                },
-                                isError = uiState.isErrorInputAveragePayment,
-                                supportingText = {
-                                    if (uiState.isErrorInputAveragePayment) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
+                    surchargeHeavyTrainsState.forEachIndexed { index, item ->
+                        key(item.id) {
+                            PayTierRow(
+                                onDelete = { pendingTierDelete = { onSurchargeHeavyTrainDismissed(index) } },
+                                closeSignal = tierCloseSignal,
+                                value1 = item.weight,
+                                onValue1 = { setSurchargeHeavyTrainWeight(index, it) },
+                                unit1 = "т.",
+                                value2 = item.percentSurcharge,
+                                onValue2 = { setSurchargeHeavyTrainPercent(index, it) },
+                                unit2 = "%",
                             )
                         }
                     }
@@ -518,76 +500,21 @@ fun SettingSalaryScreen(
             }
 
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                PayTierSection(
+                    label = "Доплата за длинносост. поезда",
+                    onAdd = addSurchargeLongTrain,
                 ) {
-                    Text(
-                        text = "Зональная надбавка, %",
-                        overflow = TextOverflow.Visible,
-                        maxLines = 2,
-                        style = hintStyle,
-                        color = primaryColor
-                    )
-                    AsyncDataValue(resultState = zonalSurchargeValueState) { zonalSurchargeValue ->
-                        zonalSurchargeValue?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = zonalSurchargeValue,
-                                onValueChange = { value ->
-                                    setZonalSurcharge(value)
-                                },
-                                isError = isErrorInputZonalSurcharge,
-                                supportingText = {
-                                    if (isErrorInputZonalSurcharge) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        text = "Доплаты за класс и права, %",
-                        overflow = TextOverflow.Visible,
-                        maxLines = 2,
-                        style = hintStyle,
-                        color = primaryColor
-                    )
-                    AsyncDataValue(resultState = surchargeQualificationClassValueState) { surchargeQualificationClassValue ->
-                        surchargeQualificationClassValue?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = surchargeQualificationClassValue,
-                                onValueChange = { value ->
-                                    setSurchargeQualificationClass(value)
-                                },
-                                isError = isErrorInputSurchargeQualificationClass,
-                                supportingText = {
-                                    if (isErrorInputSurchargeQualificationClass) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
+                    surchargeLongTrainsState.forEachIndexed { index, item ->
+                        key(item.id) {
+                            PayTierRow(
+                                onDelete = { pendingTierDelete = { onSurchargeLongTrainDismissed(index) } },
+                                closeSignal = tierCloseSignal,
+                                value1 = item.conditionalLength,
+                                onValue1 = { setSurchargeLongTrainLength(index, it) },
+                                unit1 = "ваг.",
+                                value2 = item.percentSurcharge,
+                                onValue2 = { setSurchargeLongTrainPercent(index, it) },
+                                unit2 = "%",
                             )
                         }
                     }
@@ -595,38 +522,21 @@ fun SettingSalaryScreen(
             }
 
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
+                PayTierSection(
+                    label = "Доплата за удлиненное плечо",
+                    onAdd = addServicePhase,
                 ) {
-                    Text(
-                        text = "Работа в одно лицо (грузовой), %",
-                        overflow = TextOverflow.Visible,
-                        maxLines = 2,
-                        style = hintStyle,
-                        color = primaryColor
-                    )
-                    AsyncDataValue(resultState = onePersonOperationPercent) { onePersonPercent ->
-                        onePersonPercent?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = onePersonPercent,
-                                onValueChange = { value ->
-                                    setOnePersonOperationPercent(value)
-                                },
-                                isError = isErrorInputOnePersonOperation,
-                                supportingText = {
-                                    if (isErrorInputOnePersonOperation) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
+                    surchargeExtendedServicePhaseValueState.forEachIndexed { index, item ->
+                        key(item.id) {
+                            PayTierRow(
+                                onDelete = { pendingTierDelete = { onServicePhaseDismissed(index) } },
+                                closeSignal = tierCloseSignal,
+                                value1 = item.distance,
+                                onValue1 = { setSurchargeExtendedServicePhaseDistance(index, it) },
+                                unit1 = "км",
+                                value2 = item.percentSurcharge,
+                                onValue2 = { setSurchargeExtendedServicePhasePercent(index, it) },
+                                unit2 = "%",
                             )
                         }
                     }
@@ -634,534 +544,10 @@ fun SettingSalaryScreen(
             }
 
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        text = "Работа в одно лицо (пассажирский), %",
-                        overflow = TextOverflow.Visible,
-                        maxLines = 2,
-                        style = hintStyle,
-                        color = primaryColor
-                    )
-                    AsyncDataValue(resultState = onePersonOperationPassengerTrainPercent) { onePersonOperationPassengerTrainPercent ->
-                        onePersonOperationPassengerTrainPercent?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = onePersonOperationPassengerTrainPercent,
-                                onValueChange = { value ->
-                                    setOnePersonOperationPassengerTrainPercent(value)
-                                },
-                                isError = isErrorInputOnePersonOperationPassengerTrain,
-                                supportingText = {
-                                    if (isErrorInputOnePersonOperationPassengerTrain) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        text = "Доплата за вредность, %",
-                        overflow = TextOverflow.Visible,
-                        maxLines = 2,
-                        style = hintStyle,
-                        color = primaryColor
-                    )
-                    AsyncDataValue(resultState = harmfulnessPercentState) { harmfulnessPercent ->
-                        harmfulnessPercent?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = harmfulnessPercent,
-                                onValueChange = { value ->
-                                    setHarmfulnessPercent(value)
-                                },
-                                isError = isErrorInputHarmfulness,
-                                supportingText = {
-                                    if (isErrorInputHarmfulness) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        text = "Северная надбавка, %",
-                        overflow = TextOverflow.Visible,
-                        maxLines = 2,
-                        style = hintStyle,
-                        color = primaryColor
-                    )
-                    AsyncDataValue(resultState = uiState.nordicCoefficient) { nordicCoefficient ->
-                        nordicCoefficient?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = nordicCoefficient,
-                                onValueChange = { value ->
-                                    setNordicCoefficient(value)
-                                },
-                                isError = uiState.isErrorInputNordicCoefficient,
-                                supportingText = {
-                                    if (uiState.isErrorInputNordicCoefficient) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        text = "Районный коэффициент, %",
-                        overflow = TextOverflow.Visible,
-                        maxLines = 2,
-                        style = hintStyle,
-                        color = primaryColor
-                    )
-
-                    AsyncDataValue(resultState = uiState.districtCoefficient) { districtCoefficient ->
-                        districtCoefficient?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = districtCoefficient,
-                                onValueChange = { value ->
-                                    setDistrictCoefficient(value)
-                                },
-                                isError = uiState.isErrorInputDistrictCoefficient,
-                                supportingText = {
-                                    if (uiState.isErrorInputDistrictCoefficient) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        modifier = Modifier.weight(1f),
-                        text = "Доплата за тяж. поезда",
-                        overflow = TextOverflow.Visible,
-                        style = hintStyle,
-                        color = primaryColor,
-                        maxLines = 2
-                    )
-
-                    Text(
-                        modifier = Modifier.noRippleEffect {
-                            addSurchargeHeavyTran()
-                        },
-                        text = "Добавить",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-
-                }
-            }
-
-            itemsIndexed(
-                items = surchargeHeavyTrainsState,
-                key = { _, item -> item.id }
-            ) { index, item ->
-                val dismissState = rememberSwipeToDismissBoxState()
-                if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-                    onSurchargeHeavyTrainDismissed(index)
-                }
-                SwipeToDismissBox(
-                    state = dismissState,
-                    enableDismissFromStartToEnd = false,
-                    backgroundContent = {
-                        val color by animateColorAsState(
-                            when (dismissState.targetValue) {
-                                SwipeToDismissBoxValue.Settled -> Color.Transparent
-                                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
-                                else -> Color.Transparent
-                            }, label = ""
-                        )
-                        Box(
-                            Modifier
-                                .padding(top = 6.dp)
-                                .fillMaxSize()
-                                .background(color = color, shape = Shapes.medium),
-                            contentAlignment = Alignment.CenterEnd
-                        ) {
-                            Icon(
-                                modifier = Modifier.padding(end = 16.dp),
-                                painter = painterResource(com.z_company.route.R.drawable.delete_24px),
-                                tint = MaterialTheme.colorScheme.onError,
-                                contentDescription = null
-                            )
-                        }
-                    }
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(top = 6.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.background,
-                                shape = Shapes.medium
-                            )
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextFieldApp(
-                            modifier = Modifier.weight(1f),
-                            value = item.weight,
-                            onValueChange = { value ->
-                                setSurchargeHeavyTrainWeight(index, value)
-                            },
-                            singleLine = true,
-                            suffix = {
-                                Text(
-                                    text = "т.",
-                                    style = hintStyle
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal
-                            )
-                        )
-                        OutlinedTextFieldApp(
-                            modifier = Modifier.weight(1f),
-                            value = item.percentSurcharge,
-                            onValueChange = { value ->
-                                setSurchargeHeavyTrainPercent(index, value)
-                            },
-                            singleLine = true,
-                            suffix = {
-                                Text(
-                                    text = "%",
-                                    style = hintStyle
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal
-                            )
-                        )
-                    }
-                }
-            }
-
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        modifier = Modifier.weight(1f),
-                        text = "Доплата за длинносост. поезда",
-                        overflow = TextOverflow.Visible,
-                        style = hintStyle,
-                        color = primaryColor,
-                        maxLines = 2
-                    )
-
-                    Text(
-                        modifier = Modifier.noRippleEffect {
-                            addSurchargeLongTrain()
-                        },
-                        text = "Добавить",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-
-                }
-            }
-
-            itemsIndexed(
-                items = surchargeLongTrainsState,
-                key = { _, item -> item.id }
-            ) { index, item ->
-                val dismissState = rememberSwipeToDismissBoxState()
-                if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-                    onSurchargeLongTrainDismissed(index)
-                }
-                SwipeToDismissBox(
-                    state = dismissState,
-                    enableDismissFromStartToEnd = false,
-                    backgroundContent = {
-                        val color by animateColorAsState(
-                            when (dismissState.targetValue) {
-                                SwipeToDismissBoxValue.Settled -> Color.Transparent
-                                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
-                                else -> Color.Transparent
-                            }, label = ""
-                        )
-                        Box(
-                            Modifier
-                                .padding(top = 6.dp)
-                                .fillMaxSize()
-                                .background(color = color, shape = Shapes.medium),
-                            contentAlignment = Alignment.CenterEnd
-                        ) {
-                            Icon(
-                                modifier = Modifier.padding(end = 16.dp),
-                                painter = painterResource(com.z_company.route.R.drawable.delete_24px),
-                                tint = MaterialTheme.colorScheme.onError,
-                                contentDescription = null
-                            )
-                        }
-                    }
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(top = 6.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.background,
-                                shape = Shapes.medium
-                            )
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextFieldApp(
-                            modifier = Modifier.weight(1f),
-                            value = item.conditionalLength,
-                            onValueChange = { value ->
-                                setSurchargeLongTrainLength(index, value)
-                            },
-                            singleLine = true,
-                            suffix = {
-                                Text(
-                                    text = "ваг.",
-                                    style = hintStyle
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal
-                            )
-                        )
-                        OutlinedTextFieldApp(
-                            modifier = Modifier.weight(1f),
-                            value = item.percentSurcharge,
-                            onValueChange = { value ->
-                                setSurchargeLongTrainPercent(index, value)
-                            },
-                            singleLine = true,
-                            suffix = {
-                                Text(
-                                    text = "%",
-                                    style = hintStyle
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal
-                            )
-                        )
-                    }
-                }
-            }
-
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        modifier = Modifier
-                            .weight(1f),
-                        text = "Доплата за удлиненное плечо",
-                        overflow = TextOverflow.Ellipsis,
-                        style = hintStyle,
-                        maxLines = 2,
-                        color = primaryColor
-                    )
-                    Text(
-                        modifier = Modifier.noRippleEffect {
-                            addServicePhase()
-                        },
-                        text = "Добавить",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-                }
-            }
-
-            itemsIndexed(
-                items = surchargeExtendedServicePhaseValueState,
-                key = { _, item -> item.id }
-            ) { index, item ->
-                val dismissState = rememberSwipeToDismissBoxState()
-
-                if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-                    onServicePhaseDismissed(index)
-                }
-
-                SwipeToDismissBox(
-                    state = dismissState,
-                    enableDismissFromStartToEnd = false,
-                    backgroundContent = {
-                        val color by animateColorAsState(
-                            when (dismissState.targetValue) {
-                                SwipeToDismissBoxValue.Settled -> Color.Transparent
-                                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
-                                else -> Color.Transparent
-                            }, label = ""
-                        )
-                        Box(
-                            Modifier
-                                .fillMaxSize()
-                                .padding(top = 6.dp)
-                                .background(color = color, shape = Shapes.medium),
-                            contentAlignment = Alignment.CenterEnd
-                        ) {
-                            Icon(
-                                modifier = Modifier.padding(end = 16.dp),
-                                painter = painterResource(com.z_company.route.R.drawable.delete_24px),
-                                tint = MaterialTheme.colorScheme.onError,
-                                contentDescription = null
-                            )
-                        }
-                    }
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(top = 6.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.background,
-                                shape = Shapes.medium
-                            )
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextFieldApp(
-                            modifier = Modifier.weight(1f),
-                            value = item.distance,
-                            onValueChange = { value ->
-                                setSurchargeExtendedServicePhaseDistance(index, value)
-                            },
-                            singleLine = true,
-                            suffix = {
-                                Text(
-                                    text = "км",
-                                    style = hintStyle
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal
-                            )
-                        )
-
-                        OutlinedTextFieldApp(
-                            modifier = Modifier.weight(1f),
-                            value = item.percentSurcharge,
-                            onValueChange = { value ->
-                                setSurchargeExtendedServicePhasePercent(index, value)
-                            },
-                            singleLine = true,
-                            suffix = {
-                                Text(
-                                    text = "%",
-                                    style = hintStyle
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal
-                            )
-                        )
-                    }
-                }
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        text = "Другие надбавки, %",
-                        overflow = TextOverflow.Visible,
-                        style = hintStyle,
-                        color = primaryColor,
-                        maxLines = 2
-                    )
-                    AsyncDataValue(resultState = uiState.otherSurchargeState) { otherSurcharge ->
-                        otherSurcharge?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = otherSurcharge,
-                                onValueChange = { value ->
-                                    setOtherSurcharge(value)
-                                },
-                                isError = uiState.isErrorInputOtherSurcharge,
-                                supportingText = {
-                                    if (uiState.isErrorInputOtherSurcharge) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
+                PayCard {
+                    PayFieldSlot("Другие надбавки") {
+                        AsyncDataValue(resultState = uiState.otherSurchargeState) { v ->
+                            v?.let { PayInput(it, setOtherSurcharge, "%", uiState.isErrorInputOtherSurcharge) }
                         }
                     }
                 }
@@ -1174,126 +560,194 @@ fun SettingSalaryScreen(
                     style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = paddingLarge),
+                        .padding(top = paddingLarge + 12.dp),
                 )
             }
 
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        text = "Подоходный налог, %",
-                        overflow = TextOverflow.Visible,
-                        style = hintStyle,
-                        maxLines = 2,
-                        color = primaryColor
-                    )
-                    AsyncDataValue(resultState = ndflValueState) { ndflValue ->
-                        ndflValue?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = ndflValue,
-                                onValueChange = { value ->
-                                    setNDFL(value)
-                                },
-                                isError = isErrorInputNdfl,
-                                supportingText = {
-                                    if (isErrorInputNdfl) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
+                PayCard {
+                    PayFieldSlot("Подоходный налог") {
+                        AsyncDataValue(resultState = ndflValueState) { v ->
+                            v?.let { PayInput(it, setNDFL, "%", isErrorInputNdfl) }
+                        }
+                    }
+                    PaySep()
+                    PayFieldSlot("Профсоюз") {
+                        AsyncDataValue(resultState = unionistsRetentionState) { v ->
+                            v?.let { PayInput(it, setUnionistsRetention, "%", isErrorInputUnionistsRetention) }
+                        }
+                    }
+                    PaySep()
+                    PayFieldSlot("Прочие удержания") {
+                        AsyncDataValue(resultState = otherRetentionValueState) { v ->
+                            v?.let { PayInput(it, setOtherRetention, "%", isErrorInputOtherRetention) }
                         }
                     }
                 }
             }
 
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        text = "Профсоюз, %",
-                        overflow = TextOverflow.Visible,
-                        style = hintStyle,
-                        maxLines = 2,
-                        color = primaryColor
-                    )
-                    AsyncDataValue(resultState = unionistsRetentionState) { unionistsRetention ->
-                        unionistsRetention?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = unionistsRetention,
-                                onValueChange = { value ->
-                                    setUnionistsRetention(value)
-                                },
-                                isError = isErrorInputUnionistsRetention,
-                                supportingText = {
-                                    if (isErrorInputUnionistsRetention) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
-                        }
-                    }
-                }
-            }
+            item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
 
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = paddingLarge),
-                    verticalArrangement = Arrangement.spacedBy(paddingSmall)
-                ) {
-                    Text(
-                        text = "Прочие удержания, %",
-                        overflow = TextOverflow.Visible,
-                        style = hintStyle,
-                        maxLines = 2,
-                        color = primaryColor
-                    )
-                    AsyncDataValue(resultState = otherRetentionValueState) { otherRetentionValue ->
-                        otherRetentionValue?.let {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                value = otherRetentionValue,
-                                onValueChange = { value ->
-                                    setOtherRetention(value)
-                                },
-                                isError = isErrorInputOtherRetention,
-                                supportingText = {
-                                    if (isErrorInputOtherRetention) {
-                                        Text(text = "Некорректные данные")
-                                    }
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal
-                                )
-                            )
-                        }
-                    }
-                }
+// ─── Общие примитивы формы ЗП (по референсу design/src/salary-settings.jsx) ───
+// Карточка-группа: белый surface, мягкая тень, 16r. Поля внутри — filled bgSubtle.
+@Composable
+private fun PayCard(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+            .shadow(1.dp, Shapes.medium)
+            .background(MaterialTheme.colorScheme.secondary, Shapes.medium),
+        content = content,
+    )
+}
+
+// Разделитель строк внутри карточки (full-width, как Sep inset=0 в дизайне).
+@Composable
+private fun PaySep() {
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+// Слот поля: лейбл (+ опц. действие справа) сверху, поле снизу.
+@Composable
+private fun PayFieldSlot(
+    label: String,
+    action: (@Composable () -> Unit)? = null,
+    input: @Composable () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                modifier = Modifier.weight(1f),
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            action?.invoke()
+        }
+        Spacer(Modifier.height(8.dp))
+        input()
+    }
+}
+
+// Filled-инпут: mono-значение + единица справа (suffix). Серый bgSubtle, 12r, без тени.
+@Composable
+private fun PayInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    unit: String? = null,
+    isError: Boolean = false,
+    keyboardType: KeyboardType = KeyboardType.Decimal,
+    modifier: Modifier = Modifier.fillMaxWidth(),
+) {
+    val style = MaterialTheme.typography.bodyLarge.copy(
+        fontFamily = MonoFont,
+        fontWeight = FontWeight.SemiBold,
+    )
+    OutlinedTextFieldApp(
+        modifier = modifier,
+        value = value,
+        onValueChange = onValueChange,
+        textStyle = style,
+        isError = isError,
+        supportingText = if (isError) {
+            { Text(text = "Некорректные данные") }
+        } else null,
+        singleLine = true,
+        shape = RoundedCornerShape(12.dp),
+        fieldElevation = 0.dp,
+        colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+        suffix = unit?.let {
+            {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+    )
+}
+
+// Карточка пороговой доплаты: заголовок + «Добавить» сверху, затем строки [порог·ед][%].
+@Composable
+private fun PayTierSection(
+    label: String,
+    onAdd: () -> Unit,
+    rows: @Composable ColumnScope.() -> Unit,
+) {
+    PayCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                modifier = Modifier.weight(1f),
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                modifier = Modifier.noRippleEffect { onAdd() },
+                text = "Добавить",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+        }
+        rows()
+    }
+}
+
+// Строка порога: два filled-поля [порог·ед][%] + свайп-раскрытие «Удалить» (как на Главной).
+@Composable
+private fun PayTierRow(
+    onDelete: () -> Unit,
+    closeSignal: Int,
+    value1: String,
+    onValue1: (String) -> Unit,
+    unit1: String,
+    value2: String,
+    onValue2: (String) -> Unit,
+    unit2: String,
+) {
+    Column {
+        SwipeToRevealDelete(
+            onDeleteClick = onDelete,
+            closeSignal = closeSignal,
+            compact = true,
+            backgroundVerticalPadding = 0.dp,
+        ) { _ ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.secondary)
+                    .padding(start = 16.dp, end = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                PayInput(value1, onValue1, unit1, modifier = Modifier.weight(1f))
+                PayInput(value2, onValue2, unit2, modifier = Modifier.weight(1f))
             }
         }
+        Spacer(Modifier.height(12.dp))
     }
 }
