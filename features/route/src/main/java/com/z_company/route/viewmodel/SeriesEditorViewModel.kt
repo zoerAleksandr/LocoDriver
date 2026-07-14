@@ -90,12 +90,12 @@ class SeriesEditorViewModel(
         }
 
     fun increment(field: SeriesNormField) = _state.update {
-        it.withValue(field, ((it.valueOf(field) ?: 0) + 5).coerceAtMost(240))
+        it.withValue(field, ((it.valueOf(field) ?: 0) + 1).coerceAtMost(240))
     }
 
     fun decrement(field: SeriesNormField) = _state.update {
         val cur = it.valueOf(field)
-        if (cur == null || cur <= 0) it else it.withValue(field, (cur - 5).coerceAtLeast(0))
+        if (cur == null || cur <= 0) it else it.withValue(field, (cur - 1).coerceAtLeast(0))
     }
 
     fun setField(field: SeriesNormField, value: Int) = _state.update {

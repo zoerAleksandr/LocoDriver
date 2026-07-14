@@ -76,36 +76,6 @@ fun SettingsSeriesEditorContent(
         }
     }
 
-    // Type picker dialog
-    var showTypePicker by remember { mutableStateOf(false) }
-    if (showTypePicker) {
-        AlertDialog(
-            onDismissRequest = { showTypePicker = false },
-            containerColor = MaterialTheme.colorScheme.secondary,
-            titleContentColor = MaterialTheme.colorScheme.primary,
-            title = { Text("Тип тяги") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TypeOption(
-                        label = "⚡ Электровоз",
-                        selected = state.type == LocoType.ELECTRIC,
-                        onClick = { viewModel.setType(LocoType.ELECTRIC); showTypePicker = false }
-                    )
-                    TypeOption(
-                        label = "💧 Тепловоз",
-                        selected = state.type == LocoType.DIESEL,
-                        onClick = { viewModel.setType(LocoType.DIESEL); showTypePicker = false }
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showTypePicker = false }) {
-                    Text("Отмена", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
-                }
-            }
-        )
-    }
-
     // Единый диалог ввода значения нормы для любого из четырёх полей
     var dialogField by remember { mutableStateOf<SeriesNormField?>(null) }
     var dialogText by remember { mutableStateOf("") }
@@ -113,7 +83,7 @@ fun SettingsSeriesEditorContent(
         val title = when (field) {
             SeriesNormField.ACCEPTANCE_PARKING -> "Приёмка · после отстоя"
             SeriesNormField.ACCEPTANCE_HAND -> "Приёмка · из рук в руки"
-            SeriesNormField.DELIVERY_PARKING -> "Сдача · после отстоя"
+            SeriesNormField.DELIVERY_PARKING -> "Сдача · в отстой"
             SeriesNormField.DELIVERY_HAND -> "Сдача · из рук в руки"
         }
         AlertDialog(
@@ -222,37 +192,18 @@ fun SettingsSeriesEditorContent(
 
             HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
 
-            // Type — tappable row with chevron, opens dialog
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showTypePicker = true }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Тип",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = if (state.type == LocoType.ELECTRIC) "⚡ Электровоз" else "💧 Тепловоз",
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Icon(
-                        painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
+            // Type — inline radio (как переключатель «Вид тяги» в «Основных»)
+            SettingsRadioRow(
+                label = "Электровоз",
+                selected = state.type == LocoType.ELECTRIC,
+                onClick = { viewModel.setType(LocoType.ELECTRIC) },
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+            SettingsRadioRow(
+                label = "Тепловоз",
+                selected = state.type == LocoType.DIESEL,
+                onClick = { viewModel.setType(LocoType.DIESEL) },
+            )
         }
 
         // ПРИЁМКА
@@ -306,7 +257,7 @@ fun SettingsSeriesEditorContent(
                 .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
         ) {
             StepperRow(
-                label = "После отстоя",
+                label = "В отстой",
                 sub = "без бригады",
                 value = state.deliveryDurationMin,
                 onIncrement = { viewModel.increment(SeriesNormField.DELIVERY_PARKING) },
@@ -359,42 +310,6 @@ fun SettingsSeriesEditorContent(
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.error
-            )
-        }
-    }
-}
-
-@Composable
-private fun TypeOption(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (selected) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
-                else MaterialTheme.colorScheme.surface
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (selected) MaterialTheme.colorScheme.tertiary
-            else MaterialTheme.colorScheme.primary
-        )
-        if (selected) {
-            Icon(
-                painter = painterResource(com.z_company.route.R.drawable.check_circle_24px),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.size(18.dp)
             )
         }
     }
