@@ -108,7 +108,7 @@ fun SettingsScreen(
     restTimeChanged: (Long) -> Unit,
     homeRestTimeChanged: (Long) -> Unit,
     logOut: () -> Unit,
-    showReleaseDaySelectScreen: () -> Unit,
+    showAbsenceScreen: () -> Unit,
     resetUploadState: () -> Unit,
     resetDownloadState: () -> Unit,
     changeStartNightTime: (Int, Int) -> Unit,
@@ -306,7 +306,7 @@ fun SettingsScreen(
                         SettingsSubScreen.NORMA -> {
                             SettingsNormaContent(
                                 currentSettings = settings,
-                                showReleaseDaySelectScreen = showReleaseDaySelectScreen,
+                                showAbsenceScreen = showAbsenceScreen,
                                 timeZoneRussiaList = timeZoneRussiaList,
                                 setTimeZone = setTimeZone,
                                 setCountry = viewModel::changeCountry,

@@ -31,7 +31,7 @@ fun SettingDestination(
         workTimeChanged = settingsViewModel::changeDefaultWorkTime,
         restTimeChanged = settingsViewModel::changeMinTimeRest,
         homeRestTimeChanged = settingsViewModel::changeMinTimeHomeRest,
-        showReleaseDaySelectScreen = router::showSelectReleaseDayScreen,
+        showAbsenceScreen = router::showAbsence,
         logOut = router::showSignIn,
         resetUploadState = settingsViewModel::resetUploadState,
         resetDownloadState = settingsViewModel::resetDownloadState,

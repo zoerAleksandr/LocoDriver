@@ -102,7 +102,7 @@ private fun SpinnerIndicator(
 @Composable
 fun SettingsNormaContent(
     currentSettings: UserSettings,
-    showReleaseDaySelectScreen: () -> Unit,
+    showAbsenceScreen: () -> Unit,
     timeZoneRussiaList: List<TimeZoneRussia>,
     setTimeZone: (Long) -> Unit,
     setCountry: (String) -> Unit,
@@ -374,7 +374,7 @@ fun SettingsNormaContent(
             Text(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showReleaseDaySelectScreen() }
+                    .clickable { showAbsenceScreen() }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 text = "Изменить норму",
                 color = MaterialTheme.colorScheme.tertiary,
@@ -393,24 +393,16 @@ fun SettingsNormaContent(
             val selected = countries.find { it.code == currentSettings.country } ?: countries[0]
 
             SettingsFormFieldSlot(label = "Страна") {
-                SettingsFilledDropdown(value = "${selected.flag} ${selected.name}") { dismiss ->
-                    countries.forEach { option ->
-                        val isSelected = currentSettings.country == option.code
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = "${option.flag} ${option.name}",
-                                    color = if (isSelected) MaterialTheme.colorScheme.tertiary else primaryColor,
-                                    style = styleHint
-                                )
-                            },
-                            onClick = {
-                                setCountry(option.code)
-                                dismiss()
-                            }
+                SettingsFilledDropdown(
+                    value = "${selected.flag} ${selected.name}",
+                    options = countries.map { option ->
+                        SettingsDropdownOption(
+                            text = "${option.flag} ${option.name}",
+                            isSelected = currentSettings.country == option.code,
+                            onSelect = { setCountry(option.code) },
                         )
                     }
-                }
+                )
             }
         }
 
@@ -450,40 +442,28 @@ fun SettingsNormaContent(
                             regionsForCountry.firstOrNull { it.code == code }?.displayName
                         } ?: "Стандартный календарь"
 
-                        SettingsFilledDropdown(value = selectedName) { dismiss ->
-                            // Опция "Стандартный календарь" (region = null) — выделена,
-                            // т.к. это особый пункт (сброс региона).
-                            val isStandardSelected = currentSettings.region == null
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
+                        SettingsFilledDropdown(
+                            value = selectedName,
+                            // Первый пункт «Стандартный календарь» (region = null) — сброс региона.
+                            options = buildList {
+                                add(
+                                    SettingsDropdownOption(
                                         text = "Стандартный календарь",
-                                        color = if (isStandardSelected) MaterialTheme.colorScheme.tertiary else primaryColor,
-                                        style = styleHint
+                                        isSelected = currentSettings.region == null,
+                                        onSelect = { setRegion(null) },
                                     )
-                                },
-                                onClick = {
-                                    setRegion(null)
-                                    dismiss()
-                                }
-                            )
-                            regionsForCountry.forEach { region ->
-                                val isSelected = currentSettings.region == region.code
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = region.displayName,
-                                            color = if (isSelected) MaterialTheme.colorScheme.tertiary else primaryColor,
-                                            style = styleHint
-                                        )
-                                    },
-                                    onClick = {
-                                        setRegion(region.code)
-                                        dismiss()
-                                    }
                                 )
+                                regionsForCountry.forEach { region ->
+                                    add(
+                                        SettingsDropdownOption(
+                                            text = region.displayName,
+                                            isSelected = currentSettings.region == region.code,
+                                            onSelect = { setRegion(region.code) },
+                                        )
+                                    )
+                                }
                             }
-                        }
+                        )
                     }
                 }
             }
@@ -508,24 +488,19 @@ fun SettingsNormaContent(
                             mutableStateOf(currentTimeZone)
                         }
 
-                        SettingsFilledDropdown(value = selectedTimeZone.description) { dismiss ->
-                            timeZoneRussiaList.forEach { item ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = item.description,
-                                            color = primaryColor,
-                                            style = styleHint
-                                        )
-                                    },
-                                    onClick = {
+                        SettingsFilledDropdown(
+                            value = selectedTimeZone.description,
+                            options = timeZoneRussiaList.map { item ->
+                                SettingsDropdownOption(
+                                    text = item.description,
+                                    isSelected = item.offsetOfMoscow == currentSettings.timeZone,
+                                    onSelect = {
                                         selectedTimeZone = item
                                         setTimeZone(item.offsetOfMoscow)
-                                        dismiss()
-                                    }
+                                    },
                                 )
                             }
-                        }
+                        )
                     }
                 }
             }
@@ -543,23 +518,16 @@ fun SettingsNormaContent(
                         CrossMonthTimezone.MOSCOW to "По московскому времени"
                     )
                     val current = options.find { it.first == currentSettings.crossMonthTimezone } ?: options[0]
-                    SettingsFilledDropdown(value = current.second) { dismiss ->
-                        options.forEach { (value, label) ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = label,
-                                        color = primaryColor,
-                                        style = styleHint
-                                    )
-                                },
-                                onClick = {
-                                    setCrossMonthTimezone(value)
-                                    dismiss()
-                                }
+                    SettingsFilledDropdown(
+                        value = current.second,
+                        options = options.map { (value, label) ->
+                            SettingsDropdownOption(
+                                text = label,
+                                isSelected = value == currentSettings.crossMonthTimezone,
+                                onSelect = { setCrossMonthTimezone(value) },
                             )
                         }
-                    }
+                    )
                 }
             }
         }

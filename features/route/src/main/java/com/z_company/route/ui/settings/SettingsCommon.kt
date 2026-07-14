@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -123,7 +124,7 @@ internal fun SettingsFormFieldSlot(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = hint,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 maxLines = Int.MAX_VALUE,
                 overflow = TextOverflow.Visible,
@@ -149,14 +150,21 @@ internal fun SettingsFilledReadonlyField(value: String, modifier: Modifier = Mod
     )
 }
 
+// Пункт выпадающего списка формы.
+internal data class SettingsDropdownOption(
+    val text: String,
+    val isSelected: Boolean = false,
+    val onSelect: () -> Unit,
+)
+
 // Filled выпадающий список (bgSubtle, 12r, стрелка) в стиле полей ЗП.
-// menuContent получает dismiss() для закрытия меню после выбора.
+// Пункты разделены линиями; выбранный подсвечен акцентом.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsFilledDropdown(
     value: String,
+    options: List<SettingsDropdownOption>,
     modifier: Modifier = Modifier.fillMaxWidth(),
-    menuContent: @Composable ColumnScope.(dismiss: () -> Unit) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
@@ -184,7 +192,29 @@ internal fun SettingsFilledDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            menuContent { expanded = false }
+            options.forEachIndexed { index, option ->
+                if (index > 0) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                }
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = option.text,
+                            color = if (option.isSelected) {
+                                MaterialTheme.colorScheme.tertiary
+                            } else MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    },
+                    onClick = {
+                        option.onSelect()
+                        expanded = false
+                    }
+                )
+            }
         }
     }
 }
