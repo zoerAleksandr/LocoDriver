@@ -476,16 +476,6 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         currentSettings = currentSettings?.copy(isShowOtherCurrent = value)
     }
 
-    fun changeShowLocoStatistics(value: Boolean) {
-        sharedPreferenceStorage.setShowLocoStatistics(value)
-        currentSettings = currentSettings?.copy(isShowLocoStatistics = value)
-    }
-
-    fun changeShowLocoNorma(value: Boolean) {
-        sharedPreferenceStorage.setShowLocoNorma(value)
-        currentSettings = currentSettings?.copy(isShowLocoNorma = value)
-    }
-
     fun setTimeZone(timeZone: Long) {
         currentSettings = currentSettings?.copy(
             timeZone = timeZone

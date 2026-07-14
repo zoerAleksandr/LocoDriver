@@ -6,10 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.z_company.domain.entities.route.LocoType
@@ -20,8 +16,6 @@ fun SettingsLocoContent(
     currentSettings: UserSettings,
     changeShowLocoHeating: (Boolean) -> Unit,
     changeShowLocoAuxiliary: (Boolean) -> Unit,
-    changeShowLocoStatistics: (Boolean) -> Unit,
-    changeShowLocoNorma: (Boolean) -> Unit,
     changeShowOtherCurrent: (Boolean) -> Unit,
     setDefaultLocoType: (LocoType) -> Unit,
 ) {
@@ -32,8 +26,6 @@ fun SettingsLocoContent(
             .padding(horizontal = 16.dp)
             .padding(top = 4.dp, bottom = 28.dp)
     ) {
-        var showTractionSheet by remember { mutableStateOf(false) }
-
         // ── Поля ввода показаний ──
         SettingsGroupHeader("ПОЛЯ ВВОДА ПОКАЗАНИЙ", top = 8.dp, startPad = 4.dp)
         SettingsCard {
@@ -47,18 +39,6 @@ fun SettingsLocoContent(
                 label = "Собственные нужды",
                 checked = currentSettings.isShowLocoAuxiliary,
                 onCheckedChange = changeShowLocoAuxiliary,
-            )
-            SettingsCardSep()
-            SettingsSwitchRow(
-                label = "Статистика",
-                checked = currentSettings.isShowLocoStatistics,
-                onCheckedChange = changeShowLocoStatistics,
-            )
-            SettingsCardSep()
-            SettingsSwitchRow(
-                label = "Норма",
-                checked = currentSettings.isShowLocoNorma,
-                onCheckedChange = changeShowLocoNorma,
             )
         }
         SettingsSectionNote("Показывать эти поля в форме локомотива для ввода показаний.")
@@ -74,29 +54,18 @@ fun SettingsLocoContent(
         }
         SettingsSectionNote("Для переменно-постоянных электровозов.")
 
-        // ── По умолчанию ──
-        SettingsGroupHeader("ПО УМОЛЧАНИЮ", top = 20.dp, startPad = 4.dp)
+        // ── Вид тяги по умолчанию (inline radio, как в «Основных») ──
+        SettingsGroupHeader("ВИД ТЯГИ", top = 20.dp, startPad = 4.dp)
         SettingsCard {
-            SettingsSelectRow(
-                label = "Вид тяги",
-                value = currentSettings.defaultLocoType.text,
-                onClick = { showTractionSheet = true },
-            )
+            LocoType.entries.forEachIndexed { index, type ->
+                if (index > 0) SettingsCardSep()
+                SettingsRadioRow(
+                    label = type.text,
+                    selected = currentSettings.defaultLocoType == type,
+                    onClick = { setDefaultLocoType(type) },
+                )
+            }
         }
         SettingsSectionNote("Будет выбран при добавлении локомотива.")
-
-        if (showTractionSheet) {
-            SettingsPickerSheet(
-                title = "Вид тяги",
-                onDismiss = { showTractionSheet = false },
-                options = LocoType.entries.map { type ->
-                    SettingsPickerOption(
-                        label = type.text,
-                        selected = currentSettings.defaultLocoType == type,
-                        onSelect = { setDefaultLocoType(type) },
-                    )
-                },
-            )
-        }
     }
 }
