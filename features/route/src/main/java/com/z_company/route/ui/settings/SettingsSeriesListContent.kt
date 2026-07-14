@@ -131,6 +131,13 @@ fun SettingsSeriesListContent(
                     else onOpenLegacy(item.name)
                 }
             )
+            Text(
+                text = "Откройте серию и задайте нормы — они будут подставляться " +
+                    "автоматически в шторке локомотива.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                modifier = Modifier.padding(start = 4.dp, top = 6.dp)
+            )
         }
 
         Spacer(Modifier.height(8.dp))

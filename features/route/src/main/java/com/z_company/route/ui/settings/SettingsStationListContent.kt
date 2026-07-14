@@ -116,8 +116,7 @@ fun SettingsStationListContent(
                 }
             )
             Text(
-                text = "Станции из прежних версий и с незаданными нормами. Откройте " +
-                    "станцию и задайте нормы интервалов.",
+                text = "Откройте станцию и задайте нормы интервалов.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                 modifier = Modifier.padding(start = 4.dp, top = 6.dp)
