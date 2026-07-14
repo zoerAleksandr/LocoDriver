@@ -67,10 +67,11 @@ class SeriesEditorViewModel(
                             seriesId = s.seriesId,
                             name = s.name,
                             type = s.type,
-                            acceptanceDurationMin = s.acceptanceDurationMin,
-                            deliveryDurationMin = s.deliveryDurationMin,
-                            acceptanceHandToHandMin = s.acceptanceHandToHandMin,
-                            deliveryHandToHandMin = s.deliveryHandToHandMin,
+                            // 0 из старых данных трактуем как «не задано» (прочерк).
+                            acceptanceDurationMin = s.acceptanceDurationMin?.takeIf { it > 0 },
+                            deliveryDurationMin = s.deliveryDurationMin?.takeIf { it > 0 },
+                            acceptanceHandToHandMin = s.acceptanceHandToHandMin?.takeIf { it > 0 },
+                            deliveryHandToHandMin = s.deliveryHandToHandMin?.takeIf { it > 0 },
                         )
                     }
                 }
@@ -95,11 +96,13 @@ class SeriesEditorViewModel(
 
     fun decrement(field: SeriesNormField) = _state.update {
         val cur = it.valueOf(field)
-        if (cur == null || cur <= 0) it else it.withValue(field, (cur - 1).coerceAtLeast(0))
+        // 0 = «не задано» (прочерк, не считается нормой) — храним null, а не 0.
+        if (cur == null || cur <= 0) it else it.withValue(field, (cur - 1).takeIf { v -> v > 0 })
     }
 
     fun setField(field: SeriesNormField, value: Int) = _state.update {
-        it.withValue(field, value.coerceIn(0, 240))
+        // 0 трактуем как «не задано» → null (иначе серия попадёт в список «с нормами»).
+        it.withValue(field, value.coerceIn(0, 240).takeIf { v -> v > 0 })
     }
 
     /** Autosave — silent, does NOT set saved = true (no navigation side-effect). */

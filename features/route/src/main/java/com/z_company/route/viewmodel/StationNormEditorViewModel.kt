@@ -54,10 +54,11 @@ class StationNormEditorViewModel(
                         it.copy(
                             stationId = s.stationId,
                             name = s.name,
-                            appearanceToStartMin = s.appearanceToStartMin,
-                            endToBarrierMin = s.endToBarrierMin,
-                            barrierToStartMin = s.barrierToStartMin,
-                            endToWorkEndMin = s.endToWorkEndMin,
+                            // 0 из старых данных трактуем как «не задано» (прочерк).
+                            appearanceToStartMin = s.appearanceToStartMin?.takeIf { it > 0 },
+                            endToBarrierMin = s.endToBarrierMin?.takeIf { it > 0 },
+                            barrierToStartMin = s.barrierToStartMin?.takeIf { it > 0 },
+                            endToWorkEndMin = s.endToWorkEndMin?.takeIf { it > 0 },
                         )
                     }
                 }
@@ -81,28 +82,30 @@ class StationNormEditorViewModel(
     }
 
     fun decrement(field: StationNormField) = _state.update { s ->
+        // 0 = «не задано» (прочерк, не считается нормой) — храним null, а не 0.
         when (field) {
             StationNormField.APPEARANCE_TO_START -> {
                 val cur = s.appearanceToStartMin
-                if (cur == null || cur <= 0) s else s.copy(appearanceToStartMin = cur - 1)
+                if (cur == null || cur <= 0) s else s.copy(appearanceToStartMin = (cur - 1).takeIf { it > 0 })
             }
             StationNormField.END_TO_BARRIER -> {
                 val cur = s.endToBarrierMin
-                if (cur == null || cur <= 0) s else s.copy(endToBarrierMin = cur - 1)
+                if (cur == null || cur <= 0) s else s.copy(endToBarrierMin = (cur - 1).takeIf { it > 0 })
             }
             StationNormField.BARRIER_TO_START -> {
                 val cur = s.barrierToStartMin
-                if (cur == null || cur <= 0) s else s.copy(barrierToStartMin = cur - 1)
+                if (cur == null || cur <= 0) s else s.copy(barrierToStartMin = (cur - 1).takeIf { it > 0 })
             }
             StationNormField.END_TO_WORK_END -> {
                 val cur = s.endToWorkEndMin
-                if (cur == null || cur <= 0) s else s.copy(endToWorkEndMin = cur - 1)
+                if (cur == null || cur <= 0) s else s.copy(endToWorkEndMin = (cur - 1).takeIf { it > 0 })
             }
         }
     }
 
     fun setField(field: StationNormField, value: Int) = _state.update { s ->
-        val v = value.coerceIn(0, 120)
+        // 0 трактуем как «не задано» → null (иначе станция попадёт в список «с нормами»).
+        val v = value.coerceIn(0, 120).takeIf { it > 0 }
         when (field) {
             StationNormField.APPEARANCE_TO_START -> s.copy(appearanceToStartMin = v)
             StationNormField.END_TO_BARRIER -> s.copy(endToBarrierMin = v)
