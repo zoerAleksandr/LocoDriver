@@ -376,8 +376,10 @@ fun SettingsScreen(
                                 currentSettings = settings,
                                 changeShowLocoHeating = changeShowLocoHeating,
                                 changeShowLocoAuxiliary = changeShowLocoAuxiliary,
-                                changeDefaultLocoType = viewModel::changeDefaultLocoType,
+                                changeShowLocoStatistics = viewModel::changeShowLocoStatistics,
+                                changeShowLocoNorma = viewModel::changeShowLocoNorma,
                                 changeShowOtherCurrent = changeShowOtherCurrent,
+                                setDefaultLocoType = viewModel::setDefaultLocoType,
                             )
                         }
 

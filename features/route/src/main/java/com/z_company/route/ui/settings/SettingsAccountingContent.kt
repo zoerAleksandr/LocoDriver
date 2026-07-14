@@ -87,79 +87,29 @@ fun SettingsAccountingContent(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp)
-            .padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(horizontal = 16.dp)
+            .padding(top = 4.dp, bottom = 28.dp),
     ) {
-        // Ночь
-        Column(modifier = Modifier.fillMaxWidth()) {
-            SettingsGroupHeader("НОЧНЫЕ ЧАСЫ")
-            SettingsCard {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .noRippleEffect { showNightTimeStartDialog = true }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Ночь",
-                        style = styleData,
-                        color = primaryColor,
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 2,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = currentSettings.nightTime.toString(),
-                        style = styleData.copy(fontFamily = MonoFont),
-                        color = primaryColor
-                    )
-                }
-            }
-
-            Text(
-                modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                text = "Установите время ночных часов для расчета ночных.",
-                style = styleHint,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        SettingsGroupHeader("НОЧНЫЕ ЧАСЫ", top = 8.dp, startPad = 4.dp)
+        SettingsCard {
+            SettingsSelectRow(
+                label = "Ночь",
+                value = currentSettings.nightTime.toString(),
+                mono = true,
+                onClick = { showNightTimeStartDialog = true },
             )
         }
+        SettingsSectionNote("Интервал ночных часов для расчёта доплаты за работу ночью.")
 
-        // Будущие маршруты
-        Column(modifier = Modifier.fillMaxWidth()) {
-            SettingsGroupHeader("БУДУЩИЕ МАРШРУТЫ")
-            SettingsCard {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                Text(
-                    modifier = Modifier
-                        .padding(end = 12.dp)
-                        .weight(1f),
-                    text = "Учитывать будущие маршруты",
-                    style = styleData,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 2
-                )
-                Switch(
-                    checked = currentSettings.isConsiderFutureRoute,
-                    onCheckedChange = { changeConsiderFutureRoute(it) }
-                )
-                }
-            }
-
-            Text(
-                modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                text = "Маршруты, время явки которых не наступило, будут учитываться при подсчете отработаного времени.",
-                style = styleHint,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        SettingsGroupHeader("БУДУЩИЕ МАРШРУТЫ", top = 20.dp, startPad = 4.dp)
+        SettingsCard {
+            SettingsSwitchRow(
+                label = "Учитывать будущие маршруты",
+                sub = "С ещё не наступившей явкой",
+                checked = currentSettings.isConsiderFutureRoute,
+                onCheckedChange = changeConsiderFutureRoute,
             )
         }
+        SettingsSectionNote("Маршруты, время явки которых не наступило, будут учитываться при подсчёте отработанного времени.")
     }
 }

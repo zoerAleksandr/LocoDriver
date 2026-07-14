@@ -38,9 +38,9 @@ import com.z_company.route.component.OutlinedTextFieldApp
 
 // UPPERCASE-mono заголовок группы
 @Composable
-internal fun SettingsGroupHeader(text: String, top: Dp = 0.dp) {
+internal fun SettingsGroupHeader(text: String, top: Dp = 0.dp, startPad: Dp = 16.dp) {
     Text(
-        modifier = Modifier.padding(start = 16.dp, top = top, bottom = 8.dp),
+        modifier = Modifier.padding(start = startPad, top = top, bottom = 8.dp),
         text = text,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,

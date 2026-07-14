@@ -78,69 +78,29 @@ fun SettingsRestContent(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp)
-            .padding(bottom = 24.dp)
+            .padding(horizontal = 16.dp)
+            .padding(top = 4.dp, bottom = 28.dp)
     ) {
-        SettingsGroupHeader("МИНИМАЛЬНЫЙ ОТДЫХ", top = 4.dp)
+        SettingsGroupHeader("МИНИМАЛЬНЫЙ ОТДЫХ", top = 8.dp, startPad = 4.dp)
         SettingsCard {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .noRippleEffect { showRestDialog = true }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Отдых в ПО",
-                    style = styleData,
-                    color = primaryColor,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 2,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = ConverterLongToTime.getTimeInStringFormat(
-                        currentSettings.minTimeRestPointOfTurnover
-                    ),
-                    style = styleValueMono,
-                    color = primaryColor
-                )
-            }
-            SettingsRowDivider()
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .noRippleEffect { showHomeRestDialog = true }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Домашний отдых",
-                    style = styleData,
-                    color = primaryColor,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 2,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Text(
-                    text = ConverterLongToTime.getTimeInStringFormat(
-                        currentSettings.minTimeHomeRest
-                    ),
-                    style = styleValueMono,
-                    color = primaryColor,
-                )
-            }
+            SettingsFieldRow(
+                label = "Отдых в ПО",
+                value = ConverterLongToTime.getTimeInStringFormat(
+                    currentSettings.minTimeRestPointOfTurnover
+                ),
+                mono = true,
+                onClick = { showRestDialog = true },
+            )
+            SettingsCardSep()
+            SettingsFieldRow(
+                label = "Домашний отдых",
+                value = ConverterLongToTime.getTimeInStringFormat(
+                    currentSettings.minTimeHomeRest
+                ),
+                mono = true,
+                onClick = { showHomeRestDialog = true },
+            )
         }
-
-        Text(
-            modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-            text = "Установите время минимального отдыха. Это значение будет использовано при расчете отдыха после поездки.",
-            style = styleHint,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        SettingsSectionNote("Установите время минимального отдыха. Это значение будет использовано при расчёте отдыха после поездки.")
     }
 }

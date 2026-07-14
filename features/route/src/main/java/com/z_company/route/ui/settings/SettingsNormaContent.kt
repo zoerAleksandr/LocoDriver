@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -338,198 +339,173 @@ fun SettingsNormaContent(
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
-            .padding(bottom = 24.dp),
+            .padding(top = 4.dp, bottom = 28.dp),
     ) {
-        // Норма часов
-        SettingsFormCard {
+        var activeSheet by remember { mutableStateOf<NormaSheet?>(null) }
+
+        // ── Норма часов ──
+        SettingsGroupHeader("НОРМА ЧАСОВ", top = 8.dp, startPad = 4.dp)
+        SettingsCard {
             val currentMonth = getMonthFullText(currentSettings.selectMonthOfYear.month)
-            // Используем normaHours из NormaUseCase (всегда актуальный, с учётом
-            // регионального календаря). Fallback — getPersonalNormaHours() на случай
-            // первого запуска до загрузки данных.
+            // normaHours из NormaUseCase (актуальный, с региональным календарём);
+            // fallback — getPersonalNormaHours() до загрузки данных.
             val effectiveNorma = normaHours
                 ?: currentSettings.selectMonthOfYear.getPersonalNormaHours()
-            val personalNormaText =
-                ConverterLongToTime.getTimeInStringFormat(
-                    effectiveNorma.toLong().times(3_600_000)
-                )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Норма на $currentMonth",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = styleHint
-                )
-                Text(
-                    text = personalNormaText,
-                    style = styleData.copy(fontFamily = MonoFont),
-                    color = primaryColor,
-                )
-            }
-            SettingsFormSep()
+            val personalNormaText = ConverterLongToTime.getTimeInStringFormat(
+                effectiveNorma.toLong().times(3_600_000)
+            )
+            SettingsFieldRow(
+                label = "$currentMonth ${currentSettings.selectMonthOfYear.year}",
+                value = personalNormaText,
+                mono = true,
+            )
+            SettingsCardSep()
             Text(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { showAbsenceScreen() }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 18.dp, vertical = 13.dp),
                 text = "Изменить норму",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.tertiary,
-                style = MaterialTheme.typography.bodySmall
             )
         }
+        SettingsSectionNote("Месячная норма рабочего времени. По ней считается переработка и недоработка.")
 
-        // Страна производственного календаря
-        SettingsFormCard {
-            data class CountryOption(val code: String, val name: String, val flag: String)
-            val countries = listOf(
-                CountryOption("RU", "Россия", "🇷🇺"),
-                CountryOption("KZ", "Казахстан", "🇰🇿"),
-                CountryOption("BY", "Беларусь", "🇧🇾"),
-            )
-            val selected = countries.find { it.code == currentSettings.country } ?: countries[0]
+        // ── Страна ──
+        SettingsGroupHeader("СТРАНА", top = 20.dp, startPad = 4.dp)
+        val countryEmoji = when (currentSettings.country) {
+            "KZ" -> "🇰🇿"
+            "BY" -> "🇧🇾"
+            else -> "🇷🇺"
+        }
+        val countryName = when (currentSettings.country) {
+            "KZ" -> "Казахстан"
+            "BY" -> "Беларусь"
+            else -> "Россия"
+        }
+        SettingsSelectTile(
+            value = countryName,
+            leadingEmoji = countryEmoji,
+            onClick = { activeSheet = NormaSheet.COUNTRY },
+        )
 
-            SettingsFormFieldSlot(label = "Страна") {
-                SettingsFilledDropdown(
-                    value = "${selected.flag} ${selected.name}",
-                    options = countries.map { option ->
-                        SettingsDropdownOption(
-                            text = "${option.flag} ${option.name}",
-                            isSelected = currentSettings.country == option.code,
-                            onSelect = { setCountry(option.code) },
-                        )
-                    }
+        // ── Регион (только РФ) ──
+        if (currentSettings.country == "RU" && (regionsForCountry.isNotEmpty() || isRegionsLoading)) {
+            SettingsGroupHeader("РЕГИОН", top = 20.dp, startPad = 4.dp)
+            val selectedRegionName = currentSettings.region?.let { code ->
+                regionsForCountry.firstOrNull { it.code == code }?.displayName
+            } ?: "Стандартный календарь"
+            if (regionsForCountry.isEmpty() && isRegionsLoading) {
+                SettingsSelectTile(value = "Загрузка регионов…", onClick = {})
+            } else {
+                SettingsSelectTile(
+                    value = selectedRegionName,
+                    onClick = { activeSheet = NormaSheet.REGION },
+                )
+            }
+            SettingsSectionNote("Региональные праздники добавятся к стандартному календарю.")
+        }
+
+        // ── Домашний часовой пояс ──
+        SettingsGroupHeader("ДОМАШНИЙ ЧАСОВОЙ ПОЯС", top = 20.dp, startPad = 4.dp)
+        when (currentSettings.country) {
+            "KZ" -> SettingsSelectTile(value = "UTC+5 (Kazakhstan Time, KZT)", onClick = {})
+            "BY" -> SettingsSelectTile(value = "UTC+3 (Минск)", onClick = {})
+            else -> {
+                val currentTimeZone = timeZoneRussiaList.find {
+                    it.offsetOfMoscow == currentSettings.timeZone
+                } ?: timeZoneRussiaList.getOrNull(1)
+                SettingsSelectTile(
+                    value = currentTimeZone?.description ?: "",
+                    onClick = { activeSheet = NormaSheet.TIMEZONE },
                 )
             }
         }
+        SettingsSectionNote("Установите местный часовой пояс. Учитывается при расчёте ночных, праздничных часов и переходных поездках.")
 
-        // Регион (только для России — дополнительные праздничные дни
-        // субъектов РФ накладываются поверх стандартного календаря).
-        // Показываем секцию даже пока грузится список регионов — иначе
-        // пользователь не понимает что данные ещё догружаются и думает
-        // что регион не настраивается.
-        if (currentSettings.country == "RU" && (regionsForCountry.isNotEmpty() || isRegionsLoading)) {
-            SettingsFormCard {
-                SettingsFormFieldSlot(
-                    label = "Регион",
-                    hint = "Региональные праздники добавятся к стандартному календарю"
-                ) {
-                    if (regionsForCountry.isEmpty() && isRegionsLoading) {
-                        // Лоадер с подписью — занимает место dropdown, пока грузится список.
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            SpinnerIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = primaryColor.copy(alpha = 0.6f)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Загрузка списка регионов…",
-                                style = styleHint,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            )
-                        }
-                    } else {
-                        val selectedName = currentSettings.region?.let { code ->
-                            regionsForCountry.firstOrNull { it.code == code }?.displayName
-                        } ?: "Стандартный календарь"
-
-                        SettingsFilledDropdown(
-                            value = selectedName,
-                            // Первый пункт «Стандартный календарь» (region = null) — сброс региона.
-                            options = buildList {
-                                add(
-                                    SettingsDropdownOption(
-                                        text = "Стандартный календарь",
-                                        isSelected = currentSettings.region == null,
-                                        onSelect = { setRegion(null) },
-                                    )
-                                )
-                                regionsForCountry.forEach { region ->
-                                    add(
-                                        SettingsDropdownOption(
-                                            text = region.displayName,
-                                            isSelected = currentSettings.region == region.code,
-                                            onSelect = { setRegion(region.code) },
-                                        )
-                                    )
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        // Домашний часовой пояс
-        SettingsFormCard {
-            SettingsFormFieldSlot(
-                label = "Домашний часовой пояс",
-                hint = "Установите местный часовой пояс. Будет учитываться при расчете ночных, праздничных часов и переходных поездках."
-            ) {
-                when (currentSettings.country) {
-                    "KZ" -> SettingsFilledReadonlyField(value = "UTC+5 (Kazakhstan Time, KZT)")
-                    "BY" -> SettingsFilledReadonlyField(value = "UTC+3 (Минск)")
-                    else -> {
-                        val currentTimeZone: TimeZoneRussia =
-                            timeZoneRussiaList.find {
-                                it.offsetOfMoscow == currentSettings.timeZone
-                            } ?: timeZoneRussiaList[1]
-
-                        var selectedTimeZone by remember(currentSettings.timeZone) {
-                            mutableStateOf(currentTimeZone)
-                        }
-
-                        SettingsFilledDropdown(
-                            value = selectedTimeZone.description,
-                            options = timeZoneRussiaList.map { item ->
-                                SettingsDropdownOption(
-                                    text = item.description,
-                                    isSelected = item.offsetOfMoscow == currentSettings.timeZone,
-                                    onSelect = {
-                                        selectedTimeZone = item
-                                        setTimeZone(item.offsetOfMoscow)
-                                    },
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        // Переходные маршруты — только для России с часовым поясом, отличным от московского
+        // ── Переходные маршруты (РФ, немосковский пояс) ──
         if (currentSettings.country == "RU" && currentSettings.timeZone != 0L) {
-            SettingsFormCard {
-                SettingsFormFieldSlot(
-                    label = "Переходные маршруты",
-                    hint = "Определяет по какому времени считается к какому месяцу относится переходной маршрут."
-                ) {
-                    val options = listOf(
-                        CrossMonthTimezone.LOCAL to "По местному времени",
-                        CrossMonthTimezone.MOSCOW to "По московскому времени"
+            SettingsGroupHeader("ПЕРЕХОДНЫЕ МАРШРУТЫ", top = 20.dp, startPad = 4.dp)
+            val transitionLabel =
+                if (currentSettings.crossMonthTimezone == CrossMonthTimezone.MOSCOW)
+                    "По московскому времени" else "По местному времени"
+            SettingsSelectTile(
+                value = transitionLabel,
+                onClick = { activeSheet = NormaSheet.TRANSITION },
+            )
+            SettingsSectionNote("Определяет, по какому времени переходной маршрут относится к месяцу.")
+        }
+
+        // ── Пикеры ──
+        when (activeSheet) {
+            NormaSheet.COUNTRY -> SettingsPickerSheet(
+                title = "Страна",
+                onDismiss = { activeSheet = null },
+                options = listOf(
+                    Triple("RU", "Россия", "🇷🇺"),
+                    Triple("KZ", "Казахстан", "🇰🇿"),
+                    Triple("BY", "Беларусь", "🇧🇾"),
+                ).map { (code, name, flag) ->
+                    SettingsPickerOption(
+                        label = name,
+                        leadingEmoji = flag,
+                        selected = currentSettings.country == code,
+                        onSelect = { setCountry(code) },
                     )
-                    val current = options.find { it.first == currentSettings.crossMonthTimezone } ?: options[0]
-                    SettingsFilledDropdown(
-                        value = current.second,
-                        options = options.map { (value, label) ->
-                            SettingsDropdownOption(
-                                text = label,
-                                isSelected = value == currentSettings.crossMonthTimezone,
-                                onSelect = { setCrossMonthTimezone(value) },
+                },
+            )
+            NormaSheet.REGION -> SettingsPickerSheet(
+                title = "Регион",
+                hint = "Региональные праздники добавятся к стандартному календарю.",
+                onDismiss = { activeSheet = null },
+                options = buildList {
+                    add(
+                        SettingsPickerOption(
+                            label = "Стандартный календарь",
+                            selected = currentSettings.region == null,
+                            onSelect = { setRegion(null) },
+                        )
+                    )
+                    regionsForCountry.forEach { region ->
+                        add(
+                            SettingsPickerOption(
+                                label = region.displayName,
+                                selected = currentSettings.region == region.code,
+                                onSelect = { setRegion(region.code) },
                             )
-                        }
+                        )
+                    }
+                },
+            )
+            NormaSheet.TIMEZONE -> SettingsPickerSheet(
+                title = "Часовой пояс",
+                onDismiss = { activeSheet = null },
+                options = timeZoneRussiaList.map { item ->
+                    SettingsPickerOption(
+                        label = item.description,
+                        selected = item.offsetOfMoscow == currentSettings.timeZone,
+                        onSelect = { setTimeZone(item.offsetOfMoscow) },
                     )
-                }
-            }
+                },
+            )
+            NormaSheet.TRANSITION -> SettingsPickerSheet(
+                title = "Переходные маршруты",
+                onDismiss = { activeSheet = null },
+                options = listOf(
+                    CrossMonthTimezone.LOCAL to "По местному времени",
+                    CrossMonthTimezone.MOSCOW to "По московскому времени",
+                ).map { (value, label) ->
+                    SettingsPickerOption(
+                        label = label,
+                        selected = value == currentSettings.crossMonthTimezone,
+                        onSelect = { setCrossMonthTimezone(value) },
+                    )
+                },
+            )
+            null -> {}
         }
     }
 }
+
+private enum class NormaSheet { COUNTRY, REGION, TIMEZONE, TRANSITION }

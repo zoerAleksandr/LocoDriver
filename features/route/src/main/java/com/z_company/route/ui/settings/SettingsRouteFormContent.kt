@@ -1,30 +1,18 @@
 package com.z_company.route.ui.settings
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.setting.UserSettings
 
 /**
  * Подраздел настроек «Маршрут» — управление отображением элементов
- * формы маршрута (по аналогии с подразделом «Локомотив»).
+ * формы маршрута.
  */
 @Composable
 fun SettingsRouteFormContent(
@@ -32,68 +20,29 @@ fun SettingsRouteFormContent(
     changeShowBreak: (Boolean) -> Unit,
     changeShowOnePersonSwitch: (Boolean) -> Unit,
 ) {
-    val styleData = MaterialTheme.typography.bodyLarge
-    val styleHint = MaterialTheme.typography.bodyMedium
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp)
-            .padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = 16.dp)
+            .padding(top = 4.dp, bottom = 28.dp),
     ) {
-        SettingsGroupHeader("ЭЛЕМЕНТЫ ФОРМЫ", top = 4.dp)
+        SettingsGroupHeader("ЭЛЕМЕНТЫ ФОРМЫ", top = 8.dp, startPad = 4.dp)
         SettingsCard {
-            RouteFormSwitchRow(
-                text = "Показывать перерыв",
+            SettingsSwitchRow(
+                label = "Показывать перерыв",
+                sub = "Поля перерыва в форме маршрута",
                 checked = currentSettings.isShowBreak,
                 onCheckedChange = changeShowBreak,
-                style = styleData
             )
-            SettingsRowDivider()
-            RouteFormSwitchRow(
-                text = "Переключатель «Одно лицо»",
+            SettingsCardSep()
+            SettingsSwitchRow(
+                label = "Переключатель «Одно лицо»",
+                sub = "Отметка работы в одно лицо в маршруте",
                 checked = currentSettings.isShowOnePersonSwitch,
                 onCheckedChange = changeShowOnePersonSwitch,
-                style = styleData
             )
         }
-        Text(
-            modifier = Modifier.padding(start = 16.dp, top = 4.dp),
-            text = "Управляет отображением элементов в форме маршрута.",
-            style = styleHint,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun RouteFormSwitchRow(
-    text: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    style: TextStyle,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            modifier = Modifier
-                .padding(end = 12.dp)
-                .weight(1f),
-            text = text,
-            style = style,
-            overflow = TextOverflow.Ellipsis,
-            maxLines = 2
-        )
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange
-        )
+        SettingsSectionNote("Управляет отображением элементов в форме маршрута.")
     }
 }
