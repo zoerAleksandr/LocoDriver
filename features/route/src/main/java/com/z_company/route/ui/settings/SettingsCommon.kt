@@ -89,6 +89,20 @@ internal fun SettingsFormSep() {
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
+// Пояснительная подпись ВНУТРИ карточки (как hint в Норма/Регион): bodySmall,
+// приглушённый. Ставится последним элементом карточки.
+@Composable
+internal fun SettingsCardHint(text: String) {
+    Text(
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 14.dp),
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        maxLines = Int.MAX_VALUE,
+        overflow = TextOverflow.Visible,
+    )
+}
+
 // Слот поля формы: лейбл (+ опц. действие справа) сверху, контент снизу,
 // затем опциональная пояснительная подпись.
 @Composable

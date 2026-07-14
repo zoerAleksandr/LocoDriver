@@ -15,8 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.component.CustomDivider
+import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.AppTimePicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.theme.MonoFont
@@ -195,14 +196,9 @@ fun SettingsRouteContent(
                         }
                     }
                 }
-            }
 
-            Text(
-                modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                text = "Эти значения будут установлены по умолчанию при создании нового маршрута.",
-                style = styleHint,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                SettingsCardHint("Эти значения будут установлены по умолчанию при создании нового маршрута.")
+            }
         }
 
         // «Показывать перерыв» перенесён в подраздел «Маршрут».
@@ -216,45 +212,37 @@ fun SettingsRouteContent(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(elevation = 2.dp, shape = Shapes.medium)
-                    .background(
-                        color = MaterialTheme.colorScheme.secondary,
-                        shape = Shapes.medium
-                    )
-                    .noRippleEffect { viewModel.changeTimePickerStyle() }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
+            SettingsCard {
+                Row(
                     modifier = Modifier
-                        .padding(end = 12.dp)
-                        .weight(1f),
-                    text = "Стиль выбора времени",
-                    style = styleData,
-                    color = primaryColor,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 2
-                )
-                val pickerText = if (currentSettings.useStandardTimePicker) "Системный" else "Кастомный"
-                Text(
-                    text = pickerText,
-                    style = styleData,
-                    color = primaryColor,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 2
-                )
-            }
+                        .fillMaxWidth()
+                        .noRippleEffect { viewModel.changeTimePickerStyle() }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .weight(1f),
+                        text = "Стиль выбора времени",
+                        style = styleData,
+                        color = primaryColor,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 2
+                    )
+                    val pickerText = if (currentSettings.useStandardTimePicker) "Системный" else "Кастомный"
+                    Text(
+                        text = pickerText,
+                        style = styleData,
+                        color = primaryColor,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 2
+                    )
+                }
 
-            Text(
-                modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-                text = "Системный — стандартный диалог Android, Кастомный — встроенный пикер с быстрым набором.",
-                style = styleHint,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                SettingsCardHint("Системный — стандартный диалог Android, Кастомный — встроенный пикер с быстрым набором.")
+            }
         }
 
         // Пассажир при >12 часах
@@ -276,104 +264,72 @@ private fun Passenger12hSettingsSection(
     var showOptionSheet by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
-            text = "СВЫШЕ 12 ЧАСОВ",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
-            text = "Свыше 12-ти часов относить в следование пассажиром",
-            style = styleTitle,
-            color = primaryColor
-        )
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(elevation = 2.dp, shape = Shapes.medium)
-                .background(
-                    color = MaterialTheme.colorScheme.secondary,
-                    shape = Shapes.medium
+        SettingsGroupHeader("СВЫШЕ 12 ЧАСОВ")
+        SettingsCard {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .noRippleEffect { showOptionSheet = true }
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+            ) {
+                Text(
+                    text = "Свыше 12-ти часов относить в следование пассажиром",
+                    style = styleData,
+                    color = primaryColor
                 )
-                .clickable { showOptionSheet = true }
-                .padding(horizontal = 16.dp, vertical = 14.dp)
-        ) {
-            Text(
-                text = currentOption.label,
-                style = styleData,
-                color = primaryColor
-            )
-        }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = currentOption.label,
+                    style = styleData.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
 
-        Text(
-            modifier = Modifier.padding(start = 16.dp, top = 8.dp),
-            text = currentOption.hint,
-            style = styleHint,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+            SettingsCardHint(currentOption.hint)
+        }
     }
 
     if (showOptionSheet) {
         val optionSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        AppBottomSheet(
             onDismissRequest = { showOptionSheet = false },
             sheetState = optionSheetState,
-            containerColor = MaterialTheme.colorScheme.secondary,
-            shape = Shapes.large
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 40.dp)
-            ) {
-                Text(
-                    text = "Свыше 12-ти часов относить в следование пассажиром",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = primaryColor,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp),
-                    textAlign = TextAlign.Center
-                )
-
-                Passenger12hOption.entries.forEach { option ->
-                    val isSelected = option == currentOption
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp)
-                            .shadow(
-                                elevation = if (isSelected) 4.dp else 1.dp,
-                                shape = Shapes.medium
+            title = "Свыше 12-ти часов относить в следование пассажиром",
+            contentAfterHeader = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Passenger12hOption.entries.forEachIndexed { index, option ->
+                        if (index > 0) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant,
                             )
-                            .background(
+                        }
+                        val isSelected = option == currentOption
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setPassenger12hOption(option)
+                                    showOptionSheet = false
+                                }
+                                .padding(horizontal = 16.dp, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                modifier = Modifier.weight(1f),
+                                text = option.label,
+                                style = styleData.copy(
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                ),
                                 color = if (isSelected)
-                                    MaterialTheme.colorScheme.surfaceContainerLow
+                                    MaterialTheme.colorScheme.tertiary
                                 else
-                                    MaterialTheme.colorScheme.surface,
-                                shape = Shapes.medium
+                                    primaryColor
                             )
-                            .clickable {
-                                viewModel.setPassenger12hOption(option)
-                                showOptionSheet = false
-                            }
-                            .padding(horizontal = 16.dp, vertical = 14.dp)
-                    ) {
-                        Text(
-                            text = option.label,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (isSelected)
-                                MaterialTheme.colorScheme.secondary
-                            else
-                                primaryColor
-                        )
+                        }
                     }
                 }
             }
-        }
+        )
     }
 }
