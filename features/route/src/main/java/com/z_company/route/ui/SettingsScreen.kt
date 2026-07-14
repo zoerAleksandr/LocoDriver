@@ -547,7 +547,7 @@ private fun SettingsHubContent(
             )
             SettingsRowDivider()
             SettingsRow(
-                iconRes = com.z_company.route.R.drawable.electric_bolt_24px,
+                iconRes = com.z_company.route.R.drawable.ic_card_locomotive_ref,
                 title = "Локомотив",
                 subtitle = "Поля ввода показаний и вид тяги",
                 onClick = { onNavigate(SettingsSubScreen.LOCOMOTIVE) },
