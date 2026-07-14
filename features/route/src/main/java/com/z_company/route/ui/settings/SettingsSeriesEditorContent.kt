@@ -81,9 +81,9 @@ fun SettingsSeriesEditorContent(
     var dialogText by remember { mutableStateOf("") }
     dialogField?.let { field ->
         val title = when (field) {
-            SeriesNormField.ACCEPTANCE_PARKING -> "Приёмка · после отстоя"
+            SeriesNormField.ACCEPTANCE_PARKING -> "Приёмка · из депо"
             SeriesNormField.ACCEPTANCE_HAND -> "Приёмка · из рук в руки"
-            SeriesNormField.DELIVERY_PARKING -> "Сдача · в отстой"
+            SeriesNormField.DELIVERY_PARKING -> "Сдача · в депо"
             SeriesNormField.DELIVERY_HAND -> "Сдача · из рук в руки"
         }
         AlertDialog(
@@ -220,7 +220,7 @@ fun SettingsSeriesEditorContent(
                 .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
         ) {
             StepperRow(
-                label = "После отстоя",
+                label = "Из депо",
                 sub = "без бригады",
                 value = state.acceptanceDurationMin,
                 onIncrement = { viewModel.increment(SeriesNormField.ACCEPTANCE_PARKING) },
@@ -257,7 +257,7 @@ fun SettingsSeriesEditorContent(
                 .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
         ) {
             StepperRow(
-                label = "В отстой",
+                label = "В депо",
                 sub = "без бригады",
                 value = state.deliveryDurationMin,
                 onIncrement = { viewModel.increment(SeriesNormField.DELIVERY_PARKING) },
