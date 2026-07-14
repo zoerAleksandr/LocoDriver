@@ -127,7 +127,7 @@ fun SettingsRouteContent(
         }
 
         // ── Свыше 12 часов ──
-        SettingsGroupHeader("СВЫШЕ 12 ЧАСОВ", top = 20.dp, startPad = 4.dp)
+        SettingsGroupHeader("СВЫШЕ 12 ЧАСОВ - ПАССАЖИРОМ", top = 20.dp, startPad = 4.dp)
         SettingsCard {
             Passenger12hOption.entries.forEachIndexed { index, option ->
                 if (index > 0) SettingsCardSep()
