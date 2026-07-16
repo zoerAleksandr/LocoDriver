@@ -1,121 +1,327 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Превью развёрнутого виджета (RemoteViews-safe, самодостаточное). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_background_gradient">
+    android:orientation="vertical"
+    android:background="@drawable/widget_card_bg"
+    android:padding="18dp">
 
-    <!-- Top: time / norm + remaining -->
+    <!-- ── Блок нормы ── -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="top"
-        android:orientation="vertical"
-        android:padding="12dp">
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="ОТРАБОТАНО"
+            android:fontFamily="@font/jetbrains_mono_semibold"
+            android:textColor="@color/widget_text_muted"
+            android:textSize="10sp"
+            android:letterSpacing="0.13"
+            android:maxLines="1" />
+
+        <FrameLayout
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:background="@drawable/widget_brand_chip">
+
+            <ImageView
+                android:layout_width="15dp"
+                android:layout_height="14dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_logo_m"
+                android:tint="@color/widget_ink_on"
+                android:contentDescription="Машинист" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="bottom"
+        android:layout_marginTop="8dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="187:20"
+            android:fontFamily="@font/jetbrains_mono_extrabold"
+            android:textColor="@color/widget_text"
+            android:textSize="44sp"
+            android:includeFontPadding="false" />
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:gravity="bottom"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:gravity="end"
+            android:paddingBottom="3dp">
 
-            <!-- Left: time / norm -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="+11:20"
+                android:fontFamily="@font/jetbrains_mono_bold"
+                android:textColor="@color/widget_warning"
+                android:textSize="15sp"
+                android:layout_gravity="end" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="сверх нормы"
+                android:textColor="@color/widget_text_muted"
+                android:textSize="11.5sp"
+                android:layout_marginTop="3dp"
+                android:layout_gravity="end" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ProgressBar
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="8dp"
+        android:layout_marginTop="14dp"
+        android:max="100"
+        android:progress="100"
+        android:secondaryProgress="100"
+        android:progressDrawable="@drawable/widget_norm_progress" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="норма "
+            android:textColor="@color/widget_text_muted"
+            android:textSize="11.5sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="176:00"
+            android:fontFamily="@font/jetbrains_mono_semibold"
+            android:textColor="@color/widget_text"
+            android:textSize="11.5sp" />
+    </LinearLayout>
+
+    <!-- ── Разделитель ── -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="14dp"
+        android:background="@color/widget_card_stroke" />
+
+    <!-- ── Текущий маршрут ── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="ТЕКУЩИЙ МАРШРУТ"
+            android:fontFamily="@font/jetbrains_mono_semibold"
+            android:textColor="@color/widget_text_muted"
+            android:textSize="10sp"
+            android:letterSpacing="0.13"
+            android:maxLines="1" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="№147"
+            android:fontFamily="@font/jetbrains_mono_bold"
+            android:textColor="@color/widget_text"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="9dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Иланская"
+            android:textColor="@color/widget_text"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginHorizontal="6dp"
+            android:src="@drawable/widget_ic_arrow_right"
+            android:contentDescription="→" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Боготол"
+            android:textColor="@color/widget_text"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="14dp"
+        android:background="@color/widget_card_stroke" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="№2654 · СТОЯНКА С 23:48"
+        android:fontFamily="@font/jetbrains_mono_semibold"
+        android:textColor="@color/widget_text_muted"
+        android:textSize="10sp"
+        android:letterSpacing="0.1"
+        android:maxLines="1"
+        android:layout_marginBottom="10dp" />
+
+    <!-- ── Кнопки записи ── -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <!-- Записанная -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/widget_stamp_done_bg"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="10dp">
+
+            <FrameLayout
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:background="@drawable/widget_stamp_icon_done">
+
+                <ImageView
+                    android:layout_width="17dp"
+                    android:layout_height="17dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/widget_ic_arrow_down_on"
+                    android:contentDescription="" />
+            </FrameLayout>
+
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:layout_marginStart="10dp"
                 android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Прибытие"
+                    android:textColor="@color/widget_text_muted"
+                    android:textSize="11sp"
+                    android:maxLines="1" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:gravity="bottom"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="2dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:maxLines="1"
-                        android:text="164:30"
-                        android:textColor="#f0f0f0"
-                        android:textSize="44sp"
-                        android:textStyle="bold" />
+                        android:text="23:48"
+                        android:fontFamily="@font/jetbrains_mono_bold"
+                        android:textColor="@color/widget_text"
+                        android:textSize="16sp" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:maxLines="1"
-                        android:text=" / 176ч"
-                        android:textColor="#92b2e5"
-                        android:textSize="22sp" />
+                    <ImageView
+                        android:layout_width="13dp"
+                        android:layout_height="13dp"
+                        android:layout_marginStart="4dp"
+                        android:src="@drawable/widget_ic_check"
+                        android:contentDescription="" />
                 </LinearLayout>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:text="Отработано / норма"
-                    android:textColor="#EBE8E8"
-                    android:textSize="10sp" />
             </LinearLayout>
+        </LinearLayout>
 
-            <!-- Right: remaining -->
+        <FrameLayout
+            android:layout_width="8dp"
+            android:layout_height="1dp" />
+
+        <!-- Активная -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/widget_stamp_active_bg"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="10dp">
+
+            <FrameLayout
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:background="@drawable/widget_stamp_icon_pending">
+
+                <ImageView
+                    android:layout_width="17dp"
+                    android:layout_height="17dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/widget_ic_arrow_up"
+                    android:contentDescription="" />
+            </FrameLayout>
+
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:gravity="end"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
                 android:orientation="vertical">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:text="11:30"
-                    android:textColor="#92b2e5"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                    android:text="Отправление"
+                    android:textColor="@color/widget_text_muted"
+                    android:textSize="11sp"
+                    android:maxLines="1" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:text="до нормы"
-                    android:textColor="#EBE8E8"
-                    android:textSize="10sp" />
+                    android:text="Записать"
+                    android:textColor="@color/widget_accent"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="2dp"
+                    android:maxLines="1" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
-
-    <!-- Bottom: rest info + next report -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:orientation="vertical"
-        android:padding="12dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="Домашний отдых"
-            android:textColor="#92b2e5"
-            android:textSize="12sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="Продлится 15ч 30мин"
-            android:textColor="#f0f0f0"
-            android:textSize="12sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:maxLines="1"
-            android:text="След. явка 05.03 08:00"
-            android:textColor="#92b2e5"
-            android:textSize="11sp" />
-    </LinearLayout>
-</FrameLayout>
+</LinearLayout>

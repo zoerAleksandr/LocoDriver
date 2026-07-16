@@ -8,8 +8,18 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <!-- Widget colors -->
-    <color name="widget_text_primary">#FFFFFFFF</color>
-    <color name="widget_text_secondary">#B3FFFFFF</color>
-    <color name="widget_accent">#FF4FC3F7</color>
+    <!-- ─── Widget palette · LIGHT (M.light from design system) ─── -->
+    <color name="widget_card_bg">#FFFFFFFF</color>       <!-- bgElevated -->
+    <color name="widget_card_stroke">#0F0A0E14</color>   <!-- border rgba(10,14,20,.06) -->
+    <color name="widget_track">#FFE7E9EC</color>        <!-- bgSubtle -->
+    <color name="widget_text">#FF0A0E14</color>
+    <color name="widget_text_muted">#8C0A0E14</color>    <!-- rgba(10,14,20,.55) -->
+    <color name="widget_accent">#FF00A0F5</color>
+    <color name="widget_accent_ink">#FFFFFFFF</color>
+    <color name="widget_accent_soft">#1A00A0F5</color>   <!-- rgba(0,160,245,.10) -->
+    <color name="widget_success">#FF00B341</color>
+    <color name="widget_warning">#FFFF8A00</color>
+    <color name="widget_ink">#FF0A0E14</color>          <!-- brand chip bg -->
+    <color name="widget_ink_on">#FFFFFFFF</color>       <!-- logo tint on chip -->
+    <color name="widget_border_strong">#240A0E14</color> <!-- rgba(10,14,20,.14) -->
 </resources>

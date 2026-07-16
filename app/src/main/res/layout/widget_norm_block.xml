@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Превью малого виджета (RemoteViews-safe, самодостаточное). -->
+<!-- Развёрнутый виджет · верхний блок «Отработано / норма». -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@drawable/widget_card_bg"
-    android:padding="16dp">
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
 
+    <!-- Шапка: лейбл + чип «М» -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -20,18 +19,19 @@
             android:text="ОТРАБОТАНО"
             android:fontFamily="@font/jetbrains_mono_semibold"
             android:textColor="@color/widget_text_muted"
-            android:textSize="9.5sp"
-            android:letterSpacing="0.12"
-            android:maxLines="1" />
+            android:textSize="10sp"
+            android:letterSpacing="0.13"
+            android:maxLines="1"
+            android:ellipsize="end" />
 
         <FrameLayout
-            android:layout_width="22dp"
-            android:layout_height="22dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
             android:background="@drawable/widget_brand_chip">
 
             <ImageView
-                android:layout_width="14dp"
-                android:layout_height="13dp"
+                android:layout_width="15dp"
+                android:layout_height="14dp"
                 android:layout_gravity="center"
                 android:src="@drawable/ic_logo_m"
                 android:tint="@color/widget_ink_on"
@@ -39,53 +39,61 @@
         </FrameLayout>
     </LinearLayout>
 
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="187:20"
-        android:fontFamily="@font/jetbrains_mono_extrabold"
-        android:textColor="@color/widget_text"
-        android:textSize="38sp"
-        android:includeFontPadding="false" />
-
+    <!-- Метрика + дельта -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginTop="4dp">
+        android:gravity="bottom"
+        android:layout_marginTop="8dp">
 
-        <TextView
+        <ImageView
+            android:id="@+id/metric_image"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="+11:20"
-            android:fontFamily="@font/jetbrains_mono_bold"
-            android:textColor="@color/widget_warning"
-            android:textSize="12.5sp" />
+            android:adjustViewBounds="true"
+            android:contentDescription="Отработано" />
 
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:text="сверх нормы"
-            android:textColor="@color/widget_text_muted"
-            android:textSize="11.5sp"
-            android:layout_marginStart="6dp" />
+            android:orientation="vertical"
+            android:gravity="end"
+            android:layout_marginStart="12dp"
+            android:paddingBottom="3dp">
+
+            <TextView
+                android:id="@+id/delta_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="+11:20"
+                android:fontFamily="@font/jetbrains_mono_bold"
+                android:textColor="@color/widget_warning"
+                android:textSize="15sp"
+                android:layout_gravity="end"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/delta_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="сверх нормы"
+                android:textColor="@color/widget_text_muted"
+                android:textSize="11.5sp"
+                android:layout_marginTop="3dp"
+                android:layout_gravity="end"
+                android:maxLines="1" />
+        </LinearLayout>
     </LinearLayout>
 
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
+    <!-- Индикатор нормы -->
     <ProgressBar
+        android:id="@+id/norm_bar"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
         android:layout_height="8dp"
+        android:layout_marginTop="14dp"
         android:max="100"
         android:progress="100"
         android:secondaryProgress="100"
@@ -103,14 +111,17 @@
             android:layout_height="wrap_content"
             android:text="норма "
             android:textColor="@color/widget_text_muted"
-            android:textSize="11.5sp" />
+            android:textSize="11.5sp"
+            android:maxLines="1" />
 
         <TextView
+            android:id="@+id/norm_value"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="176:00"
             android:fontFamily="@font/jetbrains_mono_semibold"
             android:textColor="@color/widget_text"
-            android:textSize="11.5sp" />
+            android:textSize="11.5sp"
+            android:maxLines="1" />
     </LinearLayout>
 </LinearLayout>

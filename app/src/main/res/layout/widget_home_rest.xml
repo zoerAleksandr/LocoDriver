@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Состояние «Домашний отдых» (homeRest): блок продолжительности + окончание.
+     Кнопка «Добавить маршрут» рендерится отдельно в Glance (клик). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ДОМАШНИЙ ОТДЫХ"
+        android:fontFamily="@font/jetbrains_mono_semibold"
+        android:textColor="@color/widget_text_muted"
+        android:textSize="10sp"
+        android:letterSpacing="0.13"
+        android:maxLines="1"
+        android:layout_marginBottom="10dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/widget_subtle_block"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="14dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ПРОДОЛЖИТЕЛЬНОСТЬ"
+            android:fontFamily="@font/jetbrains_mono_semibold"
+            android:textColor="@color/widget_text_muted"
+            android:textSize="10sp"
+            android:letterSpacing="0.13"
+            android:maxLines="1" />
+
+        <ImageView
+            android:id="@+id/hr_duration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:layout_marginTop="4dp"
+            android:contentDescription="Продолжительность" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginVertical="12dp"
+            android:background="@color/widget_border_strong" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="17dp"
+                android:layout_height="17dp"
+                android:src="@drawable/widget_ic_calendar"
+                android:contentDescription="" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Закончится"
+                android:textColor="@color/widget_text_muted"
+                android:textSize="13sp"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/hr_end"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="end"
+                android:text="16.07 · 18:45"
+                android:textColor="@color/widget_text"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

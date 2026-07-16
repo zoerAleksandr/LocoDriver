@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Состояние «Отдых в ПО» (rest): две плитки — короткий и полный. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ОТДЫХ В ПО"
+        android:fontFamily="@font/jetbrains_mono_semibold"
+        android:textColor="@color/widget_text_muted"
+        android:textSize="10sp"
+        android:letterSpacing="0.13"
+        android:maxLines="1"
+        android:layout_marginBottom="10dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <!-- Короткий -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="@drawable/widget_subtle_block"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="12dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <FrameLayout
+                    android:layout_width="7dp"
+                    android:layout_height="7dp"
+                    android:background="@drawable/widget_dot_success" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="КОРОТКИЙ"
+                    android:fontFamily="@font/jetbrains_mono_semibold"
+                    android:textColor="@color/widget_text_muted"
+                    android:textSize="9.5sp"
+                    android:letterSpacing="0.1"
+                    android:maxLines="1" />
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/rest_short_dur"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:layout_marginTop="6dp"
+                android:contentDescription="Короткий отдых" />
+
+            <TextView
+                android:id="@+id/rest_short_end"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="до 25.04 15:16"
+                android:textColor="@color/widget_text_muted"
+                android:textSize="13sp"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:layout_width="10dp"
+            android:layout_height="1dp" />
+
+        <!-- Полный -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="@drawable/widget_subtle_block"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="12dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <FrameLayout
+                    android:layout_width="7dp"
+                    android:layout_height="7dp"
+                    android:background="@drawable/widget_dot_warning" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="ПОЛНЫЙ"
+                    android:fontFamily="@font/jetbrains_mono_semibold"
+                    android:textColor="@color/widget_text_muted"
+                    android:textSize="9.5sp"
+                    android:letterSpacing="0.1"
+                    android:maxLines="1" />
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/rest_full_dur"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:layout_marginTop="6dp"
+                android:contentDescription="Полный отдых" />
+
+            <TextView
+                android:id="@+id/rest_full_end"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="до 25.04 17:46"
+                android:textColor="@color/widget_text_muted"
+                android:textSize="13sp"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

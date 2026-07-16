@@ -1,59 +1,40 @@
 package com.z_company.loco_driver.widget
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.graphics.Typeface
-import android.text.Spannable
-import android.text.SpannableStringBuilder
-import android.text.style.ForegroundColorSpan
-import android.text.style.RelativeSizeSpan
-import android.text.style.StyleSpan
 import android.util.Log
-import android.view.View
 import android.widget.RemoteViews
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
-import androidx.glance.Image
 import androidx.glance.ImageProvider
+import androidx.glance.LocalContext
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.clickable
+import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
-import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.updateAppWidgetState
-import androidx.glance.LocalContext
 import androidx.glance.background
 import androidx.glance.currentState
-import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
-import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
-import androidx.glance.layout.size
 import androidx.glance.layout.width
+import androidx.glance.layout.wrapContentHeight
 import androidx.glance.state.GlanceStateDefinition
 import androidx.glance.state.PreferencesGlanceStateDefinition
-import androidx.glance.text.FontWeight
-import androidx.glance.text.Text
-import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import com.z_company.core.ResultState
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
@@ -79,13 +60,21 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
 import java.util.TimeZone
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 
+/**
+ * Развёрнутый виджет (4×4): блок нормы за месяц + текущий маршрут с быстрой
+ * записью прибытия/отправления, либо (без активного маршрута) — состояние отдыха
+ * и кнопка добавления маршрута, как на главном экране.
+ * Дизайн — design/src/widgets.jsx. Тема адаптивная (values / values-night).
+ */
 class LocoDriverWidget : GlanceAppWidget() {
 
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // Load fresh data from DB before providing content
         try {
             withContext(Dispatchers.IO) {
                 WidgetDataLoader.loadAndPush(context)
@@ -101,394 +90,218 @@ class LocoDriverWidget : GlanceAppWidget() {
         }
     }
 
-    @SuppressLint("RestrictedApi")
     @Composable
     private fun WidgetContent() {
         val prefs = currentState<Preferences>()
-        val totalTimeText = prefs[Keys.TOTAL_TIME_TEXT] ?: "--:--"
-        val normHours = prefs[Keys.NORM_HOURS] ?: ""
-        val hasCurrentRoute = prefs[Keys.HAS_CURRENT_ROUTE] ?: false
-        val isDepartureNext = prefs[Keys.IS_DEPARTURE_NEXT] ?: true
-        val stateInfoLine1 = prefs[Keys.STATE_INFO_LINE1] ?: ""
-        val stateInfoLine2 = prefs[Keys.STATE_INFO_LINE2] ?: ""
-        val stateInfoLine3 = prefs[Keys.STATE_INFO_LINE3] ?: ""
-        val stateInfoLine4 = prefs[Keys.STATE_INFO_LINE4] ?: ""
-        val stateInfoLine5 = prefs[Keys.STATE_INFO_LINE5] ?: ""
-        val nextReportText = prefs[Keys.NEXT_REPORT_TEXT] ?: ""
-        val normRemainingText = prefs[Keys.NORM_REMAINING_TEXT] ?: ""
-        val isOvertime = prefs[Keys.IS_OVERTIME] ?: false
-        val trainNumberText = prefs[Keys.TRAIN_NUMBER_TEXT] ?: ""
-        val statusText = prefs[Keys.STATUS_TEXT] ?: ""
-        val statusTimeText = prefs[Keys.STATUS_TIME_TEXT] ?: ""
+        val context = LocalContext.current
 
+        val norm = NormData(
+            workedHm = prefs[WKeys.WORKED_HM] ?: "--:--",
+            normHm = prefs[WKeys.NORM_HM] ?: "",
+            deltaText = prefs[WKeys.DELTA_TEXT] ?: "",
+            isOvertime = prefs[WKeys.IS_OVERTIME] ?: false,
+            hasNorm = prefs[WKeys.HAS_NORM] ?: false,
+            barMax = prefs[WKeys.BAR_MAX] ?: 100,
+            barProgress = prefs[WKeys.BAR_PROGRESS] ?: 0,
+            barSecondary = prefs[WKeys.BAR_SECONDARY] ?: 0,
+        )
+        val state = prefs[WKeys.STATE] ?: "none"
+
+        val normRv = RemoteViews(context.packageName, R.layout.widget_norm_block).also {
+            WidgetRender.populateNorm(context, it, norm, metricSizeSp = 44f)
+        }
+
+        // Карточка обёртывает контент по высоте (как в референсе — компактная
+        // карточка на обоях), а не заливает всю выделенную область виджета.
+        // Свободное место виджета остаётся прозрачным.
         Box(
             modifier = GlanceModifier
-                .fillMaxSize()
-                .cornerRadius(16.dp)
-                .background(ImageProvider(R.drawable.widget_background_gradient))
+                .fillMaxWidth()
+                .wrapContentHeight()
+                .cornerRadius(24.dp)
+                .background(ImageProvider(R.drawable.widget_card_bg))
                 .clickable(actionRunCallback<OpenAppActionCallback>())
-                .padding(12.dp)
+                .padding(18.dp)
         ) {
-            Column(
-                modifier = GlanceModifier.fillMaxSize()
-            ) {
-                // ─── Top: work time / norm (left) + remaining (right) ───
-                AutoSizedTopRow(
-                    totalTimeText = totalTimeText,
-                    normHours = normHours,
-                    normRemainingText = normRemainingText,
-                    isOvertime = isOvertime
+            Column(modifier = GlanceModifier.fillMaxWidth().wrapContentHeight()) {
+                AndroidRemoteViews(
+                    remoteViews = normRv,
+                    modifier = GlanceModifier.fillMaxWidth().wrapContentHeight()
                 )
 
-                // ─── Bottom: different layout for current route vs rest ───
-                if (hasCurrentRoute) {
-                    // ─── Current route: action bar centered, report text at bottom ───
-
-                    // Top spacer — pushes action bar to center
-                    Spacer(modifier = GlanceModifier.defaultWeight())
-
-                    // Wide action button (centered vertically)
-                    Row(
+                if (state != "none") {
+                    // Разделитель под блоком нормы
+                    Spacer(modifier = GlanceModifier.height(14.dp))
+                    Box(
                         modifier = GlanceModifier
                             .fillMaxWidth()
-                            .cornerRadius(12.dp)
-                            .background(WidgetColors.addButtonBackground)
-                            .clickable(actionRunCallback<GoActionCallback>())
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Play/stop icon on the left
-                        Image(
-                            provider = ImageProvider(
-                                if (isDepartureNext) R.drawable.widget_play else R.drawable.widget_stop
-                            ),
-                            contentDescription = if (isDepartureNext) "Отправление" else "Прибытие",
-                            modifier = GlanceModifier.size(36.dp)
-                        )
+                            .height(1.dp)
+                            .background(ImageProvider(R.drawable.widget_divider))
+                    ) {}
+                    Spacer(modifier = GlanceModifier.height(14.dp))
 
-                        // Action text centered in remaining space
-                        Column(
-                            modifier = GlanceModifier.defaultWeight(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            val actionText = if (isDepartureNext)
-                                "Сохранить время отправления"
-                            else
-                                "Сохранить время прибытия"
-                            Text(
-                                text = actionText,
-                                style = TextStyle(
-                                    color = ColorProvider(WidgetColors.addButtonText),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
-                                ),
-                                maxLines = 1
-                            )
-
-                            // Detail line: "п. №3390 стоянка с 00:47"
-                            val detailParts = listOf(trainNumberText, statusText, statusTimeText)
-                                .filter { it.isNotEmpty() }
-                            val detailText = detailParts.joinToString(" ")
-                            if (detailText.isNotEmpty()) {
-                                Text(
-                                    text = detailText,
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.addButtonText),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Normal
-                                    ),
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                    }
-
-                    // Bottom spacer — pushes report text to bottom
-                    Spacer(modifier = GlanceModifier.defaultWeight())
-
-                    // "Текущая явка 01.03 08:00" at the very bottom
-                    if (stateInfoLine1.isNotEmpty()) {
-                        Text(
-                            text = stateInfoLine1,
-                            style = TextStyle(
-                                color = ColorProvider(WidgetColors.accent),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            ),
-                            maxLines = 1
-                        )
-                    }
-                } else {
-                    // ─── No current route: rest info (left) + add button (right) ───
-                    Spacer(modifier = GlanceModifier.defaultWeight())
-                    Row(
-                        modifier = GlanceModifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        // Left: state info lines + next report
-                        Column(
-                            modifier = GlanceModifier.defaultWeight().padding(end = 8.dp)
-                        ) {
-                            if (stateInfoLine1.isNotEmpty()) {
-                                Text(
-                                    text = stateInfoLine1,
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.accent),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    maxLines = 1
-                                )
-                            }
-                            // Spacer between rest type and rest values
-                            if (stateInfoLine1.isNotEmpty() && stateInfoLine2.isNotEmpty()) {
-                                Spacer(modifier = GlanceModifier.height(6.dp))
-                            }
-                            if (stateInfoLine2.isNotEmpty()) {
-                                Text(
-                                    text = stateInfoLine2,
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.textPrimary),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Normal
-                                    ),
-                                    maxLines = 1
-                                )
-                            }
-                            if (stateInfoLine3.isNotEmpty()) {
-                                Text(
-                                    text = stateInfoLine3,
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.textPrimary),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Normal
-                                    ),
-                                    maxLines = 1
-                                )
-                            }
-                            // Spacer between short and full rest
-                            if (stateInfoLine3.isNotEmpty() && stateInfoLine4.isNotEmpty()) {
-                                Spacer(modifier = GlanceModifier.height(6.dp))
-                            }
-                            if (stateInfoLine4.isNotEmpty()) {
-                                Text(
-                                    text = stateInfoLine4,
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.textPrimary),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Normal
-                                    ),
-                                    maxLines = 1
-                                )
-                            }
-                            if (stateInfoLine5.isNotEmpty()) {
-                                Text(
-                                    text = stateInfoLine5,
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.textPrimary),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Normal
-                                    ),
-                                    maxLines = 1
-                                )
-                            }
-                            if (nextReportText.isNotEmpty()) {
-                                Spacer(modifier = GlanceModifier.height(8.dp))
-                                Text(
-                                    text = nextReportText,
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.accent),
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    maxLines = 1
-                                )
-                            }
-                        }
-
-                        // Right: add route button
-                        Box(
-                            modifier = GlanceModifier
-                                .width(90.dp)
-                                .cornerRadius(12.dp)
-                                .background(WidgetColors.addButtonBackground)
-                                .clickable(actionRunCallback<AddRouteActionCallback>())
-                                .padding(vertical = 6.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Image(
-                                    provider = ImageProvider(R.drawable.widget_add_dark),
-                                    contentDescription = "Добавить маршрут",
-                                    modifier = GlanceModifier.size(40.dp)
-                                )
-                                Spacer(modifier = GlanceModifier.height(2.dp))
-                                Text(
-                                    text = "Добавить",
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.addButtonText),
-                                        fontSize = 10.sp
-                                    )
-                                )
-                                Text(
-                                    text = "маршрут",
-                                    style = TextStyle(
-                                        color = ColorProvider(WidgetColors.addButtonText),
-                                        fontSize = 10.sp
-                                    )
-                                )
-                            }
-                        }
+                    when (state) {
+                        "current" -> RouteSection(context, prefs)
+                        "upcoming", "upcoming_unknown" -> UpcomingSection(context, prefs)
+                        "rest" -> RestPoSection(context, prefs)
+                        "home_rest" -> HomeRestSection(context, prefs)
                     }
                 }
             }
         }
     }
 
-    /** Auto-sized top row using AndroidRemoteViews with autoSizeTextType */
+    /** Нижняя секция с активным маршрутом: хедер + две кнопки записи. */
     @Composable
-    private fun AutoSizedTopRow(
-        totalTimeText: String,
-        normHours: String,
-        normRemainingText: String,
-        isOvertime: Boolean
-    ) {
-        val context = LocalContext.current
-        val remoteViews = RemoteViews(context.packageName, R.layout.widget_autosize_top_row).apply {
-            // Build spannable for time + norm
-            setTextViewText(R.id.time_norm_text, buildTimeNormSpan(totalTimeText, normHours))
-
-            // Remaining / overtime
-            if (normRemainingText.isNotEmpty()) {
-                val remainingColor = if (isOvertime) 0xFFeb9e9e.toInt() else 0xFF92b2e5.toInt()
-                setTextViewText(R.id.remaining_text, normRemainingText)
-                setTextColor(R.id.remaining_text, remainingColor)
-
-                val labelText = if (isOvertime) "переработка" else "до нормы"
-                setTextViewText(R.id.remaining_label, labelText)
-
-                setViewVisibility(R.id.remaining_container, View.VISIBLE)
-            } else {
-                setViewVisibility(R.id.remaining_container, View.GONE)
-            }
+    private fun RouteSection(context: Context, prefs: Preferences) {
+        val headerRv = RemoteViews(context.packageName, R.layout.widget_route_header).also {
+            WidgetRender.populateRouteHeader(
+                rv = it,
+                routeNumber = prefs[WKeys.ROUTE_NUMBER] ?: "",
+                from = prefs[WKeys.STATION_FROM] ?: "",
+                to = prefs[WKeys.STATION_TO] ?: "",
+                trainLine = prefs[WKeys.TRAIN_LINE] ?: "",
+            )
         }
+        val isDepartureNext = prefs[WKeys.IS_DEPARTURE_NEXT] ?: true
+        val doneTime = prefs[WKeys.STAMP_DONE_TIME] ?: ""
 
         AndroidRemoteViews(
-            remoteViews = remoteViews,
-            modifier = GlanceModifier.fillMaxWidth().height(78.dp)
-        )
-    }
-
-    /** Build SpannableString: "164:30" (white, bold, 44sp) + " / 176ч" (accent, 22sp) */
-    private fun buildTimeNormSpan(totalTimeText: String, normHours: String): CharSequence {
-        val builder = SpannableStringBuilder()
-        builder.append(totalTimeText)
-        builder.setSpan(
-            ForegroundColorSpan(0xFFf0f0f0.toInt()),
-            0, totalTimeText.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        builder.setSpan(
-            StyleSpan(Typeface.BOLD),
-            0, totalTimeText.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            remoteViews = headerRv,
+            modifier = GlanceModifier.fillMaxWidth().wrapContentHeight()
         )
 
-        if (normHours.isNotEmpty()) {
-            val normStart = builder.length
-            builder.append(" / $normHours")
-            builder.setSpan(
-                ForegroundColorSpan(0xFF92b2e5.toInt()),
-                normStart, builder.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        Spacer(modifier = GlanceModifier.height(12.dp))
+
+        Row(modifier = GlanceModifier.fillMaxWidth()) {
+            // Прибытие — активна, если следующее действие = прибытие
+            val arrivalActive = !isDepartureNext
+            val arrivalRv = WidgetRender.stampButton(
+                context, isActive = arrivalActive, isDeparture = false, doneTime = doneTime
             )
-            builder.setSpan(
-                RelativeSizeSpan(0.5f),
-                normStart, builder.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            val arrivalMod = GlanceModifier.defaultWeight().let {
+                if (arrivalActive) it.clickable(actionRunCallback<GoActionCallback>()) else it
+            }
+            Box(modifier = arrivalMod) {
+                AndroidRemoteViews(arrivalRv, GlanceModifier.fillMaxWidth().wrapContentHeight())
+            }
+
+            Spacer(modifier = GlanceModifier.width(8.dp))
+
+            // Отправление — активна, если следующее действие = отправление
+            val departureActive = isDepartureNext
+            val departureRv = WidgetRender.stampButton(
+                context, isActive = departureActive, isDeparture = true, doneTime = doneTime
             )
+            val departureMod = GlanceModifier.defaultWeight().let {
+                if (departureActive) it.clickable(actionRunCallback<GoActionCallback>()) else it
+            }
+            Box(modifier = departureMod) {
+                AndroidRemoteViews(departureRv, GlanceModifier.fillMaxWidth().wrapContentHeight())
+            }
         }
-
-        return builder
     }
 
-    /** Widget color palette — matches app dark theme (Color.kt) */
-    private object WidgetColors {
-        val background = Color(0xE6333333)          // DarkBackground with 90% alpha
-        val buttonBackground = Color(0x33363636)    // DarkSecondaryContainer with 20% alpha
-        val textPrimary = Color(0xFFf0f0f0)         // DarkPrimary
-        val textSecondary = Color(0xFFEBE8E8)       // DarkOnSurface
-        val accent = Color(0xFF92b2e5)              // DarkTertiary
-        val overtimeColor = Color(0xFFeb9e9e)       // DarkError — for overtime indicator
-        val addButtonBackground = Color(0xDDf0f0f0) // Light background for "Добавить" button
-        val addButtonText = Color(0xFF333333)        // Dark text for "Добавить" button
+    /** Состояние «Следующий маршрут». */
+    @Composable
+    private fun UpcomingSection(context: Context, prefs: Preferences) {
+        val rv = WidgetRender.buildUpcoming(
+            context = context,
+            number = prefs[WKeys.UP_NUMBER] ?: "",
+            time = prefs[WKeys.UP_TIME] ?: "",
+            date = prefs[WKeys.UP_DATE] ?: "",
+            from = prefs[WKeys.UP_FROM] ?: "",
+            to = prefs[WKeys.UP_TO] ?: "",
+            known = (prefs[WKeys.STATE] ?: "") == "upcoming",
+        )
+        AndroidRemoteViews(rv, GlanceModifier.fillMaxWidth().wrapContentHeight())
     }
 
-    /** Preference keys */
-    object Keys {
-        val TOTAL_TIME_TEXT = stringPreferencesKey("total_time_text")
-        val NORM_HOURS = stringPreferencesKey("norm_hours")
-        val MONTH_YEAR = stringPreferencesKey("month_year")
-        val HAS_CURRENT_ROUTE = booleanPreferencesKey("has_current_route")
-        val REPORT_TIME = stringPreferencesKey("report_time")
-        val IS_DEPARTURE_NEXT = booleanPreferencesKey("is_departure_next")
-        val LAST_ACTION_TEXT = stringPreferencesKey("last_action_text")
-        val STATE_INFO_LINE1 = stringPreferencesKey("state_info_line1")
-        val STATE_INFO_LINE2 = stringPreferencesKey("state_info_line2")
-        val STATE_INFO_LINE3 = stringPreferencesKey("state_info_line3")
-        val STATE_INFO_LINE4 = stringPreferencesKey("state_info_line4")
-        val STATE_INFO_LINE5 = stringPreferencesKey("state_info_line5")
-        val NEXT_REPORT_TEXT = stringPreferencesKey("next_report_text")
-        val NORM_REMAINING_TEXT = stringPreferencesKey("norm_remaining_text")
-        val IS_OVERTIME = booleanPreferencesKey("is_overtime")
-        val TRAIN_NUMBER_TEXT = stringPreferencesKey("train_number_text")
-        val STATUS_TEXT = stringPreferencesKey("status_text")
-        val STATUS_TIME_TEXT = stringPreferencesKey("status_time_text")
+    /** Состояние «Отдых в ПО». */
+    @Composable
+    private fun RestPoSection(context: Context, prefs: Preferences) {
+        val rv = WidgetRender.buildRestPo(
+            context = context,
+            shortDur = prefs[WKeys.REST_SHORT_DUR] ?: "",
+            shortEnd = prefs[WKeys.REST_SHORT_END] ?: "",
+            fullDur = prefs[WKeys.REST_FULL_DUR] ?: "",
+            fullEnd = prefs[WKeys.REST_FULL_END] ?: "",
+        )
+        AndroidRemoteViews(rv, GlanceModifier.fillMaxWidth().wrapContentHeight())
+    }
+
+    /** Состояние «Домашний отдых» + кнопка «Добавить маршрут». */
+    @Composable
+    private fun HomeRestSection(context: Context, prefs: Preferences) {
+        val rv = WidgetRender.buildHomeRest(
+            context = context,
+            dur = prefs[WKeys.HR_DUR] ?: "",
+            end = prefs[WKeys.HR_END] ?: "",
+        )
+        AndroidRemoteViews(rv, GlanceModifier.fillMaxWidth().wrapContentHeight())
+
+        Spacer(modifier = GlanceModifier.height(10.dp))
+
+        val addBtnRv = RemoteViews(context.packageName, R.layout.widget_add_button_wide)
+        Box(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .cornerRadius(14.dp)
+                .background(ImageProvider(R.drawable.widget_accent_btn_bg))
+                .clickable(actionRunCallback<AddRouteActionCallback>())
+        ) {
+            AndroidRemoteViews(addBtnRv, GlanceModifier.fillMaxWidth().wrapContentHeight())
+        }
     }
 
     companion object {
         suspend fun updateAllWidgets(
             context: Context,
-            totalTimeText: String,
-            normHours: String,
-            monthYear: String,
-            hasCurrentRoute: Boolean,
-            reportTime: String,
+            norm: NormData,
+            state: String,
+            routeNumber: String,
+            stationFrom: String,
+            stationTo: String,
+            trainLine: String,
             isDepartureNext: Boolean,
-            lastActionText: String,
-            stateInfoLine1: String,
-            stateInfoLine2: String,
-            stateInfoLine3: String,
-            stateInfoLine4: String,
-            stateInfoLine5: String,
-            nextReportText: String,
-            normRemainingText: String,
-            isOvertime: Boolean,
-            trainNumberText: String,
-            statusText: String,
-            statusTimeText: String
+            stampDoneTime: String,
+            upTime: String, upDate: String, upNumber: String,
+            upFrom: String, upTo: String,
+            restShortDur: String, restShortEnd: String,
+            restFullDur: String, restFullEnd: String,
+            hrDur: String, hrEnd: String,
         ) {
             val manager = GlanceAppWidgetManager(context)
             val glanceIds = manager.getGlanceIds(LocoDriverWidget::class.java)
             glanceIds.forEach { glanceId ->
                 updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
                     prefs.toMutablePreferences().apply {
-                        this[Keys.TOTAL_TIME_TEXT] = totalTimeText
-                        this[Keys.NORM_HOURS] = normHours
-                        this[Keys.MONTH_YEAR] = monthYear
-                        this[Keys.HAS_CURRENT_ROUTE] = hasCurrentRoute
-                        this[Keys.REPORT_TIME] = reportTime
-                        this[Keys.IS_DEPARTURE_NEXT] = isDepartureNext
-                        this[Keys.LAST_ACTION_TEXT] = lastActionText
-                        this[Keys.STATE_INFO_LINE1] = stateInfoLine1
-                        this[Keys.STATE_INFO_LINE2] = stateInfoLine2
-                        this[Keys.STATE_INFO_LINE3] = stateInfoLine3
-                        this[Keys.STATE_INFO_LINE4] = stateInfoLine4
-                        this[Keys.STATE_INFO_LINE5] = stateInfoLine5
-                        this[Keys.NEXT_REPORT_TEXT] = nextReportText
-                        this[Keys.NORM_REMAINING_TEXT] = normRemainingText
-                        this[Keys.IS_OVERTIME] = isOvertime
-                        this[Keys.TRAIN_NUMBER_TEXT] = trainNumberText
-                        this[Keys.STATUS_TEXT] = statusText
-                        this[Keys.STATUS_TIME_TEXT] = statusTimeText
+                        this[WKeys.WORKED_HM] = norm.workedHm
+                        this[WKeys.NORM_HM] = norm.normHm
+                        this[WKeys.DELTA_TEXT] = norm.deltaText
+                        this[WKeys.IS_OVERTIME] = norm.isOvertime
+                        this[WKeys.HAS_NORM] = norm.hasNorm
+                        this[WKeys.BAR_MAX] = norm.barMax
+                        this[WKeys.BAR_PROGRESS] = norm.barProgress
+                        this[WKeys.BAR_SECONDARY] = norm.barSecondary
+                        this[WKeys.STATE] = state
+                        this[WKeys.ROUTE_NUMBER] = routeNumber
+                        this[WKeys.STATION_FROM] = stationFrom
+                        this[WKeys.STATION_TO] = stationTo
+                        this[WKeys.TRAIN_LINE] = trainLine
+                        this[WKeys.IS_DEPARTURE_NEXT] = isDepartureNext
+                        this[WKeys.STAMP_DONE_TIME] = stampDoneTime
+                        this[WKeys.UP_TIME] = upTime
+                        this[WKeys.UP_DATE] = upDate
+                        this[WKeys.UP_NUMBER] = upNumber
+                        this[WKeys.UP_FROM] = upFrom
+                        this[WKeys.UP_TO] = upTo
+                        this[WKeys.REST_SHORT_DUR] = restShortDur
+                        this[WKeys.REST_SHORT_END] = restShortEnd
+                        this[WKeys.REST_FULL_DUR] = restFullDur
+                        this[WKeys.REST_FULL_END] = restFullEnd
+                        this[WKeys.HR_DUR] = hrDur
+                        this[WKeys.HR_END] = hrEnd
                     }
                 }
                 LocoDriverWidget().update(context, glanceId)
@@ -514,29 +327,17 @@ object WidgetDataLoader : KoinComponent {
             TimeZone.getTimeZone("GMT+3")
         ).timeInMillis
 
-        // Determine current month from system clock (not from persisted selectMonthOfYear)
-        // Always use Moscow time (UTC+3) so month boundary matches what user sees
+        // Determine current month from system clock (Moscow time, UTC+3).
         val cal = Calendar.getInstance(TimeZone.getTimeZone("GMT+3"))
         val currentMonth = cal.get(Calendar.MONTH) // 0-based, как MonthOfYear.month
         val currentYear = cal.get(Calendar.YEAR)
-        // Используем selectMonthOfYear из настроек — в нём актуальные отвлечения
         val monthOfYear: MonthOfYear? = userSettings.selectMonthOfYear.let {
             if (it.month == currentMonth && it.year == currentYear) it else {
-                // Fallback: ищем в calendarUseCase
                 calendarUseCase.loadMonthOfYearList().find { m ->
                     m.month == currentMonth && m.year == currentYear
                 }
             }
         }
-
-        // Month label
-        val monthYear = if (monthOfYear != null) {
-            val monthNames = arrayOf(
-                "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-                "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
-            )
-            "${monthNames.getOrElse(monthOfYear.month) { "" }} ${monthOfYear.year}"
-        } else ""
 
         // Load all routes
         val allRoutes = routeUseCase.getListRoutes()
@@ -574,12 +375,29 @@ object WidgetDataLoader : KoinComponent {
         val totalTimeMillis = if (monthOfYear != null) {
             filteredRouteList.getWorkTime(monthOfYear, userSettings.timeZone)
         } else 0L
-        val totalTimeText = ConverterLongToTime.getTimeInStringFormat(totalTimeMillis)
 
-        // Individual norm hours
-        val normHours = if (monthOfYear != null) {
-            "${monthOfYear.getPersonalNormaHours()}ч"
-        } else ""
+        // Norm
+        val normHoursInt = monthOfYear?.getPersonalNormaHours() ?: 0
+        val normMillis = normHoursInt.toLong() * 3_600_000L
+        val hasNorm = normHoursInt > 0
+        val diff = totalTimeMillis - normMillis
+        val isOvertime = diff >= 0
+        // Переработка — со знаком «+»; остаток до нормы — без знака.
+        val deltaText = (if (isOvertime) "+" else "") +
+            ConverterLongToTime.getTimeInStringFormat(abs(diff))
+
+        val workedMin = (totalTimeMillis / 60_000L).toInt()
+        val normMin = (normMillis / 60_000L).toInt()
+        val norm = NormData(
+            workedHm = ConverterLongToTime.getTimeInStringFormat(totalTimeMillis),
+            normHm = ConverterLongToTime.getTimeInStringFormat(normMillis),
+            deltaText = deltaText,
+            isOvertime = isOvertime,
+            hasNorm = hasNorm,
+            barMax = if (hasNorm) max(workedMin, normMin) else 0,
+            barProgress = if (hasNorm) min(workedMin, normMin) else 0,
+            barSecondary = if (hasNorm) workedMin else 0,
+        )
 
         // Current route
         val currentRoute = allRoutes.findCurrentRoute(
@@ -587,85 +405,98 @@ object WidgetDataLoader : KoinComponent {
             userSettings = userSettings
         )
         val hasCurrentRoute = currentRoute != null
+        val lastTrain = currentRoute?.trains?.lastOrNull()
 
-        // isDepartureNext
-        val isDepartureNext = if (hasCurrentRoute) {
-            nextIsDeparture(currentRoute?.trains?.lastOrNull())
-        } else true
+        val isDepartureNext = if (hasCurrentRoute) nextIsDeparture(lastTrain) else true
 
-        // Report time
         val dateAndTimeConverter = DateAndTimeConverter(userSettings)
-        val reportTime = if (hasCurrentRoute) {
-            dateAndTimeConverter.getDateMiniAndTime(currentRoute?.basicData?.timeStartWork)
-        } else ""
-
-        // Button info (train number, status, time — under play/stop button)
         val buttonInfo = computeButtonInfo(currentRoute, dateAndTimeConverter)
 
-        // Norm remaining / overtime
-        val normHoursInt = monthOfYear?.getPersonalNormaHours() ?: 0
-        val normMillis = normHoursInt.toLong() * 3_600_000L
-        val diff = totalTimeMillis - normMillis
-        val isOvertime = diff >= 0
-        val remainingMillis = if (isOvertime) diff else -diff
-        val normRemainingText = if (normHoursInt > 0) {
-            ConverterLongToTime.getTimeInStringFormat(remainingMillis)
+        // Route header fields
+        val routeNumber = lastTrain?.number?.takeIf { it.isNotBlank() }?.let { "№$it" } ?: ""
+        val stationFrom = lastTrain?.stations?.firstOrNull()?.stationName?.trim().orEmpty()
+        val stationTo = if ((lastTrain?.stations?.size ?: 0) > 1) {
+            lastTrain?.stations?.lastOrNull()?.stationName?.trim().orEmpty()
         } else ""
+        // Подпись над кнопками: статус текущего поезда, капсом.
+        val trainLine = listOf(buttonInfo.statusText, buttonInfo.rawTime)
+            .filter { it.isNotEmpty() }
+            .joinToString(" ")
+            .uppercase()
 
-        // State info lines (middle section)
-        val stateInfo = computeStateInfo(
-            hasCurrentRoute = hasCurrentRoute,
-            currentRoute = currentRoute,
-            allRoutes = allRoutes,
-            currentTimeInMillis = currentTimeInMillis,
-            userSettings = userSettings,
-            dateAndTimeConverter = dateAndTimeConverter
-        )
+        // ─── Состояние нижнего блока (как на главном экране) ───
+        val state: String
+        var upTime = ""; var upDate = ""; var upNumber = ""
+        var upFrom = ""; var upTo = ""
+        var restShortDur = ""; var restShortEnd = ""
+        var restFullDur = ""; var restFullEnd = ""
+        var hrDur = ""; var hrEnd = ""
 
-        // Next report text
-        val futureRoute = allRoutes.findNextFutureRoute(currentTimeInMillis)
-        val nextReportText = if (futureRoute != null) {
-            "След. явка ${dateAndTimeConverter.getDateMiniAndTime(futureRoute.basicData.timeStartWork)}"
-        } else "След. явка неизвестна"
+        if (hasCurrentRoute) {
+            state = "current"
+        } else {
+            val rh = computeRestHome(
+                allRoutes, currentTimeInMillis, userSettings, dateAndTimeConverter
+            )
+            val futureRoute = allRoutes.findNextFutureRoute(currentTimeInMillis)
+            when {
+                // Отдых в ПО приоритетнее «Следующего маршрута».
+                rh != null && rh.isPO -> {
+                    state = "rest"
+                    restShortDur = rh.shortDur; restShortEnd = rh.shortEnd
+                    restFullDur = rh.fullDur; restFullEnd = rh.fullEnd
+                }
+                // Иначе (в т.ч. при домашнем отдыхе) — следующий маршрут, если он есть.
+                futureRoute != null -> {
+                    upTime = dateAndTimeConverter.getTime(futureRoute.basicData.timeStartWork)
+                    upDate = dateAndTimeConverter.getDate(futureRoute.basicData.timeStartWork)
+                    upNumber = futureRoute.basicData.number?.takeIf { it.isNotBlank() }
+                        ?.let { "№$it" } ?: ""
+                    upFrom = futureRoute.trains.firstOrNull()?.stations?.firstOrNull()
+                        ?.stationName?.trim().orEmpty()
+                    upTo = futureRoute.trains.lastOrNull()?.stations?.lastOrNull()
+                        ?.stationName?.trim().orEmpty()
+                    state = if (upFrom.isNotEmpty() || upTo.isNotEmpty()) "upcoming"
+                        else "upcoming_unknown"
+                }
+                // Домашний отдых — когда следующего маршрута нет.
+                rh != null -> {
+                    state = "home_rest"
+                    hrDur = rh.hrDur; hrEnd = rh.hrEnd
+                }
+                else -> state = "none"
+            }
+        }
 
         LocoDriverWidget.updateAllWidgets(
             context = context,
-            totalTimeText = totalTimeText,
-            normHours = normHours,
-            monthYear = monthYear,
-            hasCurrentRoute = hasCurrentRoute,
-            reportTime = reportTime,
+            norm = norm,
+            state = state,
+            routeNumber = routeNumber,
+            stationFrom = stationFrom,
+            stationTo = stationTo,
+            trainLine = trainLine,
             isDepartureNext = isDepartureNext,
-            lastActionText = "",
-            stateInfoLine1 = stateInfo.line1,
-            stateInfoLine2 = stateInfo.line2,
-            stateInfoLine3 = stateInfo.line3,
-            stateInfoLine4 = stateInfo.line4,
-            stateInfoLine5 = stateInfo.line5,
-            nextReportText = nextReportText,
-            normRemainingText = normRemainingText,
-            isOvertime = isOvertime,
-            trainNumberText = buttonInfo.trainNumber,
-            statusText = buttonInfo.statusText,
-            statusTimeText = buttonInfo.statusTime
+            stampDoneTime = buttonInfo.rawTime,
+            upTime = upTime, upDate = upDate, upNumber = upNumber,
+            upFrom = upFrom, upTo = upTo,
+            restShortDur = restShortDur, restShortEnd = restShortEnd,
+            restFullDur = restFullDur, restFullEnd = restFullEnd,
+            hrDur = hrDur, hrEnd = hrEnd,
         )
 
-        // Update small widget
-        LocoDriverSmallWidget.updateAllSmallWidgets(
-            context = context,
-            totalTimeText = totalTimeText,
-            normHours = normHours
-        )
+        // Update small widget (только блок нормы)
+        LocoDriverSmallWidget.updateAllSmallWidgets(context = context, data = norm)
     }
 
-    /** Button info: train number, status text, status time */
+    /** Button info: train number, status text, status time (raw HH:MM). */
     data class ButtonInfo(
         val trainNumber: String,  // "п. №3" or ""
         val statusText: String,   // "В пути" / "Стоянка" or ""
-        val statusTime: String    // "с 13:45" or ""
+        val rawTime: String,      // "13:45" or ""
     )
 
-    /** Compute button info from last train: train number, status, time */
+    /** Compute button info from last train: status + time of last recorded event. */
     fun computeButtonInfo(
         currentRoute: Route?,
         dateAndTimeConverter: DateAndTimeConverter
@@ -686,46 +517,38 @@ object WidgetDataLoader : KoinComponent {
             if (s.timeDeparture != null) {
                 return ButtonInfo(
                     trainNumber = trainNumber,
-                    statusText = "В пути",
-                    statusTime = "с ${dateAndTimeConverter.getTime(s.timeDeparture)}"
+                    statusText = "В пути с",
+                    rawTime = dateAndTimeConverter.getTime(s.timeDeparture)
                 )
             }
             if (s.timeArrival != null) {
                 return ButtonInfo(
                     trainNumber = trainNumber,
-                    statusText = "Стоянка",
-                    statusTime = "с ${dateAndTimeConverter.getTime(s.timeArrival)}"
+                    statusText = "Стоянка с",
+                    rawTime = dateAndTimeConverter.getTime(s.timeArrival)
                 )
             }
         }
         return ButtonInfo(trainNumber, "", "")
     }
 
-    private data class StateInfo(
-        val line1: String,
-        val line2: String,
-        val line3: String,
-        val line4: String = "",
-        val line5: String = ""
+    private data class RestHome(
+        val isPO: Boolean,
+        val shortDur: String = "", val shortEnd: String = "",
+        val fullDur: String = "", val fullEnd: String = "",
+        val hrDur: String = "", val hrEnd: String = "",
     )
 
-    /** Compute state info: report time / rest info / empty */
-    private fun computeStateInfo(
-        hasCurrentRoute: Boolean,
-        currentRoute: Route?,
+    /**
+     * Рассчитывает состояние отдыха по предыдущему завершённому маршруту:
+     * отдых в ПО (короткий/полный) либо домашний отдых. null — нет данных.
+     */
+    private fun computeRestHome(
         allRoutes: List<Route>,
         currentTimeInMillis: Long,
         userSettings: com.z_company.domain.entities.setting.UserSettings,
-        dateAndTimeConverter: DateAndTimeConverter
-    ): StateInfo {
-        // State 1: Current route — show report time
-        if (hasCurrentRoute && currentRoute != null) {
-            val reportText =
-                "Текущая явка ${dateAndTimeConverter.getDateMiniAndTime(currentRoute.basicData.timeStartWork)}"
-            return StateInfo(reportText, "", "")
-        }
-
-        // State 2: No current route — find previous completed route
+        dtc: DateAndTimeConverter
+    ): RestHome? {
         val previousRoute = allRoutes
             .filter {
                 it.basicData.timeEndWork != null &&
@@ -733,68 +556,59 @@ object WidgetDataLoader : KoinComponent {
                     it.basicData.timeStartWork != null
             }
             .maxByOrNull { it.basicData.timeEndWork ?: 0L }
+            ?: return null
 
-        if (previousRoute != null) {
-            val startWork = previousRoute.basicData.timeStartWork!!
-            val endWork = previousRoute.basicData.timeEndWork!!
-            val workTime = endWork - startWork
+        val startWork = previousRoute.basicData.timeStartWork!!
+        val endWork = previousRoute.basicData.timeEndWork!!
+        val workTime = endWork - startWork
 
-            if (previousRoute.basicData.restPointOfTurnover) {
-                // Turnaround rest
-                val minTime = userSettings.minTimeRestPointOfTurnover
-                val shortRest = maxOf(workTime / 2, minTime)
-                val fullRest = maxOf(workTime, minTime)
-                val shortDuration =
-                    "Короткий ${ConverterLongToTime.formatDurationFromMillis(shortRest)}"
-                val shortEnd =
-                    "до ${dateAndTimeConverter.getDateMiniAndTime(endWork + shortRest)}"
-                val fullDuration =
-                    "Полный ${ConverterLongToTime.formatDurationFromMillis(fullRest)}"
-                val fullEnd =
-                    "до ${dateAndTimeConverter.getDateMiniAndTime(endWork + fullRest)}"
-                return StateInfo("Отдых в ПО", shortDuration, shortEnd, fullDuration, fullEnd)
-            } else {
-                // Home rest — с учётом цепочки предыдущих маршрутов с отдыхом в ПО
-                val sorted = allRoutes
-                    .filter { it.basicData.timeStartWork != null && it.basicData.timeEndWork != null }
-                    .sortedByDescending { it.basicData.timeStartWork!! }
+        if (previousRoute.basicData.restPointOfTurnover) {
+            val minTime = userSettings.minTimeRestPointOfTurnover
+            val shortRest = maxOf(workTime / 2, minTime)
+            val fullRest = maxOf(workTime, minTime)
+            return RestHome(
+                isPO = true,
+                shortDur = ConverterLongToTime.getTimeInStringFormat(shortRest),
+                shortEnd = "до ${dtc.getDateMiniAndTime(endWork + shortRest)}",
+                fullDur = ConverterLongToTime.getTimeInStringFormat(fullRest),
+                fullEnd = "до ${dtc.getDateMiniAndTime(endWork + fullRest)}",
+            )
+        } else {
+            val sorted = allRoutes
+                .filter { it.basicData.timeStartWork != null && it.basicData.timeEndWork != null }
+                .sortedByDescending { it.basicData.timeStartWork!! }
 
-                val idx = sorted.indexOfFirst { it.basicData.id == previousRoute.basicData.id }
-                val chain = mutableListOf(previousRoute)
+            val idx = sorted.indexOfFirst { it.basicData.id == previousRoute.basicData.id }
+            val chain = mutableListOf(previousRoute)
 
-                if (idx != -1) {
-                    var nextIdx = idx + 1
-                    while (nextIdx < sorted.size) {
-                        if (sorted[nextIdx].basicData.restPointOfTurnover == true) {
-                            chain.add(sorted[nextIdx])
-                            nextIdx++
-                        } else {
-                            break
-                        }
-                    }
+            if (idx != -1) {
+                var nextIdx = idx + 1
+                while (nextIdx < sorted.size) {
+                    if (sorted[nextIdx].basicData.restPointOfTurnover == true) {
+                        chain.add(sorted[nextIdx])
+                        nextIdx++
+                    } else break
                 }
-
-                val sumWork = chain.sumOf { it.basicData.timeEndWork!! - it.basicData.timeStartWork!! }
-                var sumRest = 0L
-                for (i in 1 until chain.size) {
-                    sumRest += chain[i - 1].basicData.timeStartWork!! - chain[i].basicData.timeEndWork!!
-                }
-
-                val rawDuration = (sumWork.toDouble() * 2.6).toLong()
-                val duration = maxOf(rawDuration - sumRest, userSettings.minTimeHomeRest)
-                val endRestTime = endWork + duration
-                val durationLine =
-                    "Продлится ${ConverterLongToTime.formatDurationFromMillis(duration)}"
-                val endLine = "До ${dateAndTimeConverter.getDateMiniAndTime(endRestTime)}"
-                return StateInfo("Домашний отдых", durationLine, endLine)
             }
-        }
 
-        // State 3: No routes at all
-        return StateInfo("", "", "")
+            val sumWork = chain.sumOf { it.basicData.timeEndWork!! - it.basicData.timeStartWork!! }
+            var sumRest = 0L
+            for (i in 1 until chain.size) {
+                sumRest += chain[i - 1].basicData.timeStartWork!! - chain[i].basicData.timeEndWork!!
+            }
+
+            val rawDuration = (sumWork.toDouble() * 2.6).toLong()
+            val duration = maxOf(rawDuration - sumRest, userSettings.minTimeHomeRest)
+            val endRestTime = endWork + duration
+            return RestHome(
+                isPO = false,
+                hrDur = ConverterLongToTime.getTimeInStringFormat(duration),
+                hrEnd = dtc.getDateMiniAndTime(endRestTime),
+            )
+        }
     }
 
-    /** Determine if next action is departure (same logic as HomeViewModel) */
+    /** Determine if next action is departure (same logic as HomeViewModel). */
     fun nextIsDeparture(train: Train?): Boolean {
         if (train == null) return true
         val stations = train.stations
@@ -814,8 +628,8 @@ object WidgetDataLoader : KoinComponent {
 }
 
 /**
- * ActionCallback for play/stop button — executes onGoClicked logic
- * directly from the widget without opening the Activity.
+ * ActionCallback for the active quick-stamp button — records the next event
+ * (departure or arrival) directly from the widget, then refreshes.
  */
 class GoActionCallback : ActionCallback, KoinComponent {
 
@@ -838,13 +652,9 @@ class GoActionCallback : ActionCallback, KoinComponent {
     }
 
     private suspend fun executeGoClicked(context: Context) {
-        // 1. Get user settings for timezone
         val userSettings = settingsUseCase.getUserSetting()
-
-        // 2. Get current time (с секундами — чтобы секундомер стартовал с нуля)
         val now = TimeManager().nowExact()
 
-        // 3. Find current route
         val allRoutes = routeUseCase.getListRoutes()
         val currentTimeInMillis = Calendar.getInstance(
             TimeZone.getTimeZone("GMT+3")
@@ -854,18 +664,15 @@ class GoActionCallback : ActionCallback, KoinComponent {
             userSettings = userSettings
         ) ?: return
 
-        // 4. Get the last train
         val current = currentRoute.trains.lastOrNull()
 
         if (current == null) {
-            // 5a. No train exists — create a new one
             val newTrain = Train(
                 basicId = currentRoute.basicData.id,
                 stations = mutableListOf(Station(timeDeparture = now))
             )
             trainUseCase.saveTrain(newTrain).first { it is ResultState.Success }
         } else {
-            // 5b. Build updated train (same logic as HomeViewModel.onGoClicked)
             val stations = current.stations.toMutableList()
             if (stations.isEmpty()) {
                 stations.add(Station(timeDeparture = now))
@@ -907,34 +714,9 @@ class GoActionCallback : ActionCallback, KoinComponent {
             trainUseCase.updateTrain(updatedTrain).first { it is ResultState.Success }
         }
 
-        // 6. Update only button-related fields (isDepartureNext, trainNumber, status, statusTime).
-        //    Do NOT recalculate norm/totalTime to avoid race condition with HomeViewModel
-        //    which will push the full recalculated data shortly after.
-        val updatedRoutes = routeUseCase.getListRoutes()
-        val updatedRoute = updatedRoutes.findCurrentRoute(
-            currentTimeInMillis = currentTimeInMillis,
-            userSettings = userSettings
-        )
-        val updatedTrain = updatedRoute?.trains?.lastOrNull()
-        val newIsDeparture = WidgetDataLoader.nextIsDeparture(updatedTrain)
-
-        val dateAndTimeConverter = DateAndTimeConverter(userSettings)
-        val buttonInfo = WidgetDataLoader.computeButtonInfo(updatedRoute, dateAndTimeConverter)
-
-        // Update only button prefs
-        val manager = GlanceAppWidgetManager(context)
-        val glanceIds = manager.getGlanceIds(LocoDriverWidget::class.java)
-        glanceIds.forEach { id ->
-            updateAppWidgetState(context, PreferencesGlanceStateDefinition, id) { prefs ->
-                prefs.toMutablePreferences().apply {
-                    this[LocoDriverWidget.Keys.IS_DEPARTURE_NEXT] = newIsDeparture
-                    this[LocoDriverWidget.Keys.TRAIN_NUMBER_TEXT] = buttonInfo.trainNumber
-                    this[LocoDriverWidget.Keys.STATUS_TEXT] = buttonInfo.statusText
-                    this[LocoDriverWidget.Keys.STATUS_TIME_TEXT] = buttonInfo.statusTime
-                }
-            }
-            LocoDriverWidget().update(context, id)
-        }
+        // Refresh all widget data (norm остаётся прежней — пересчёт быстрый и без гонки,
+        // т.к. запись коснулась только станций текущего рейса).
+        WidgetDataLoader.loadAndPush(context)
     }
 }
 
@@ -957,7 +739,6 @@ class AddRouteActionCallback : ActionCallback {
 
 /**
  * ActionCallback for tapping widget body — opens MainActivity at HomeScreen.
- * Ensures navigation always goes to Home, even if FormScreen was previously open.
  */
 class OpenAppActionCallback : ActionCallback {
     override suspend fun onAction(

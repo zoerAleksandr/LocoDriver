@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ─── Widget palette · DARK (M.dark from design system) ─── -->
+    <color name="widget_card_bg">#FF2A2B2D</color>       <!-- bgElevated dark -->
+    <color name="widget_card_stroke">#14FFFFFF</color>   <!-- border rgba(255,255,255,.08) -->
+    <color name="widget_track">#FF1A1B1D</color>        <!-- bgSubtle dark -->
+    <color name="widget_text">#FFF5F5F5</color>
+    <color name="widget_text_muted">#99F5F5F5</color>    <!-- rgba(245,245,245,.60) -->
+    <color name="widget_accent">#FF33BFFF</color>
+    <color name="widget_accent_ink">#FF0A0E14</color>
+    <color name="widget_accent_soft">#2933BFFF</color>   <!-- rgba(51,191,255,.16) -->
+    <color name="widget_success">#FF4ADE80</color>
+    <color name="widget_warning">#FFFFB547</color>
+    <color name="widget_ink">#FF060708</color>          <!-- brand chip bg dark -->
+    <color name="widget_ink_on">#FFFFFFFF</color>
+    <color name="widget_border_strong">#29FFFFFF</color> <!-- rgba(255,255,255,.16) -->
+</resources>

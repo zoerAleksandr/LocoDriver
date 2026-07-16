@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Превью малого виджета (RemoteViews-safe, самодостаточное). -->
+<!-- Малый виджет (2×2): блок «Отработано / норма за месяц». -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/widget_card_bg"
     android:padding="16dp">
 
+    <!-- Шапка: лейбл + брендовый чип «М» -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -14,6 +14,7 @@
         android:gravity="center_vertical">
 
         <TextView
+            android:id="@+id/label_text"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -22,7 +23,8 @@
             android:textColor="@color/widget_text_muted"
             android:textSize="9.5sp"
             android:letterSpacing="0.12"
-            android:maxLines="1" />
+            android:maxLines="1"
+            android:ellipsize="end" />
 
         <FrameLayout
             android:layout_width="22dp"
@@ -44,15 +46,15 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
 
-    <TextView
+    <!-- Метрика -->
+    <ImageView
+        android:id="@+id/metric_image"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="187:20"
-        android:fontFamily="@font/jetbrains_mono_extrabold"
-        android:textColor="@color/widget_text"
-        android:textSize="38sp"
-        android:includeFontPadding="false" />
+        android:adjustViewBounds="true"
+        android:contentDescription="Отработано" />
 
+    <!-- Дельта -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -61,20 +63,25 @@
         android:layout_marginTop="4dp">
 
         <TextView
+            android:id="@+id/delta_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="+11:20"
             android:fontFamily="@font/jetbrains_mono_bold"
             android:textColor="@color/widget_warning"
-            android:textSize="12.5sp" />
+            android:textSize="12.5sp"
+            android:maxLines="1" />
 
         <TextView
+            android:id="@+id/delta_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="сверх нормы"
             android:textColor="@color/widget_text_muted"
             android:textSize="11.5sp"
-            android:layout_marginStart="6dp" />
+            android:layout_marginStart="6dp"
+            android:maxLines="1"
+            android:ellipsize="end" />
     </LinearLayout>
 
     <FrameLayout
@@ -82,7 +89,9 @@
         android:layout_height="0dp"
         android:layout_weight="1" />
 
+    <!-- Индикатор нормы -->
     <ProgressBar
+        android:id="@+id/norm_bar"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
         android:layout_height="8dp"
@@ -103,14 +112,17 @@
             android:layout_height="wrap_content"
             android:text="норма "
             android:textColor="@color/widget_text_muted"
-            android:textSize="11.5sp" />
+            android:textSize="11.5sp"
+            android:maxLines="1" />
 
         <TextView
+            android:id="@+id/norm_value"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="176:00"
             android:fontFamily="@font/jetbrains_mono_semibold"
             android:textColor="@color/widget_text"
-            android:textSize="11.5sp" />
+            android:textSize="11.5sp"
+            android:maxLines="1" />
     </LinearLayout>
 </LinearLayout>

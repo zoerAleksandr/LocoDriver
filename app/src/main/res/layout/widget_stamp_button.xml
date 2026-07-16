@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Кнопка быстрой записи прибытия/отправления. Состояния (active / done)
+     задаются в рантайме через RemoteViews. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/stamp_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/widget_stamp_active_bg"
+    android:paddingHorizontal="12dp"
+    android:paddingVertical="10dp">
+
+    <FrameLayout
+        android:id="@+id/stamp_icon_box"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:background="@drawable/widget_stamp_icon_pending">
+
+        <ImageView
+            android:id="@+id/stamp_icon"
+            android:layout_width="17dp"
+            android:layout_height="17dp"
+            android:layout_gravity="center"
+            android:src="@drawable/widget_ic_arrow_down"
+            android:contentDescription="" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="10dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/stamp_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Прибытие"
+            android:textColor="@color/widget_text_muted"
+            android:textSize="11sp"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <!-- Активная: «Записать» -->
+        <TextView
+            android:id="@+id/stamp_action"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Записать"
+            android:textColor="@color/widget_accent"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:layout_marginTop="2dp"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <!-- Записанная: время + галочка -->
+        <LinearLayout
+            android:id="@+id/stamp_done_row"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="2dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/stamp_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="23:48"
+                android:fontFamily="@font/jetbrains_mono_bold"
+                android:textColor="@color/widget_text"
+                android:textSize="16sp"
+                android:maxLines="1" />
+
+            <ImageView
+                android:layout_width="13dp"
+                android:layout_height="13dp"
+                android:layout_marginStart="4dp"
+                android:src="@drawable/widget_ic_check"
+                android:contentDescription="записано" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
