@@ -101,6 +101,24 @@ import ru.rustore.sdk.appupdate.model.InstallStatus
 import ru.rustore.sdk.appupdate.model.UpdateAvailability
 data class OpenRouteFormEvent(val basicId: String?, val isMakeCopy: Boolean)
 
+/** Тип отдыха между маршрутами для блока состояния на главном экране. */
+enum class RestBlockType { POINT_OF_TURNOVER, HOME }
+
+/**
+ * Состояние блока отдыха на главном экране. Времена — абсолютные (ms epoch),
+ * живые счётчики («Отдыхаете», «осталось») экран считает от текущего времени.
+ *
+ * @param restStart      время начала отдыха = сдача предыдущего маршрута.
+ * @param shortRestEnd   конец короткого отдыха (только для [RestBlockType.POINT_OF_TURNOVER]).
+ * @param fullRestEnd    конец полного отдыха (для дома — единственная граница).
+ */
+data class RestBlockState(
+    val type: RestBlockType,
+    val restStart: Long,
+    val shortRestEnd: Long?,
+    val fullRestEnd: Long,
+)
+
 class HomeViewModel : ViewModel(), KoinComponent {
     private val timeManager = TimeManager()
     private val routeUseCase: RouteUseCase by inject()
@@ -172,6 +190,15 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     var nextFutureRoute by mutableStateOf<Route?>(null)
 
+    // Блок отдыха (в ПО / домашний) для главного экрана. Кандидат: экран сам решает,
+    // показывать ли, с учётом приоритета (см. HomeScreen) и живого времени.
+    var restBlockState by mutableStateOf<RestBlockState?>(null)
+        private set
+
+    // Одноразовый таймер: когда полный отдых заканчивается при открытом приложении —
+    // пересчитывает состояние (следующий маршрут / пусто), чтобы блок исчез сам.
+    private var restTransitionJob: Job? = null
+
     private val _countdownToNextRoute = MutableSharedFlow<Long>(replay = 1)
     val countdownToNextRoute = _countdownToNextRoute.asSharedFlow()
 
@@ -203,6 +230,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     private val _yearList = MutableStateFlow<List<Int>>(emptyList())
     val yearList: StateFlow<List<Int>> = _yearList.asStateFlow()
+
+    // Отсортированный список доступных (год, месяц) — для переключения месяца стрелками.
+    private val _monthYearList = MutableStateFlow<List<Pair<Int, Int>>>(emptyList())
+    val monthYearList: StateFlow<List<Pair<Int, Int>>> = _monthYearList.asStateFlow()
 
     override fun onCleared() {
         super.onCleared()
@@ -353,6 +384,160 @@ class HomeViewModel : ViewModel(), KoinComponent {
         nextFutureRoute = next
         next?.basicData?.timeStartWork?.let { startWork ->
             countdownTimer(startWork)
+        }
+
+        // Маршрут завершился при открытом приложении — мог начаться отдых.
+        viewModelScope.launch { recomputeRestBlock(allRoutesGlobal) }
+    }
+
+    /**
+     * Пересчитывает [currentRoute] и [nextFutureRoute] от полного списка маршрутов
+     * [allRoutes] (все месяцы). Вызывается реактивно при любом изменении маршрутов
+     * (getListRoutesAsFlow), чтобы блоки «Текущий/Следующий маршрут» на главном экране
+     * мгновенно отражали ситуацию.
+     *
+     * Раньше эти поля пересчитывались только в routesFlow.collect, который реагирует на
+     * список маршрутов ВЫБРАННОГО месяца. Из-за этого удаление маршрута из другого месяца
+     * (например «следующего») не убирало блок до повторного входа на экран, а внутри
+     * выбранного месяца был race с обновлением allRoutesGlobal в отдельном коллекторе.
+     *
+     * Идемпотентна: секундомер (workTimer) и обратный отсчёт (countdownTimer)
+     * перезапускаются только при реальной смене маршрута (по id или timeStartWork), иначе
+     * они сбрасывались бы на каждом эмите БД.
+     */
+    private fun updateCurrentAndNextRoute(allRoutes: List<Route>) {
+        val userSettings = currentUserSetting ?: return
+        val tz = TimeZone.getTimeZone(DateAndTimeConverter(userSettings).timeZoneText)
+        val currentTimeInMillis = getInstance(tz).timeInMillis
+
+        val prevCurrent = currentRoute
+        val newCurrent = allRoutes.findCurrentRoute(currentTimeInMillis, userSettings)
+        currentRoute = newCurrent
+
+        if (newCurrent != null) {
+            val currentChanged =
+                prevCurrent?.basicData?.id != newCurrent.basicData.id ||
+                    prevCurrent?.basicData?.timeStartWork != newCurrent.basicData.timeStartWork
+            if (currentChanged) {
+                newCurrent.basicData.timeStartWork?.let { workTimer(it) }
+            }
+            nextFutureRoute = null
+            countdownTimerJob?.cancel()
+        } else {
+            // Текущего маршрута нет — останавливаем секундомер, если он шёл
+            if (prevCurrent != null) timerJob?.cancel()
+
+            val prevNext = nextFutureRoute
+            val newNext = allRoutes.findNextFutureRoute(currentTimeInMillis)
+            nextFutureRoute = newNext
+            if (newNext != null) {
+                val nextChanged =
+                    prevNext?.basicData?.id != newNext.basicData.id ||
+                        prevNext?.basicData?.timeStartWork != newNext.basicData.timeStartWork
+                if (nextChanged) {
+                    newNext.basicData.timeStartWork?.let { countdownTimer(it) }
+                }
+            } else {
+                countdownTimerJob?.cancel()
+                _countdownToNextRoute.tryEmit(0L)
+            }
+        }
+    }
+
+    /**
+     * Пересчитывает [restBlockState] от полного списка маршрутов [allRoutes].
+     *
+     * Определяет последний завершённый маршрут и по его признаку
+     * [BasicData.restPointOfTurnover] выбирает тип отдыха:
+     *  - true  → отдых в пункте оборота (короткий + полный),
+     *  - false → домашний отдых (одна граница — полный отдых).
+     *
+     * Расчёт короткого/полного отдыха делегируется в [RouteActionsHelper] (те же формулы,
+     * что и в шторке отдыха), чтобы значения совпадали по всему приложению.
+     *
+     * Границы показа блока:
+     *  - Отдых в ПО длится до явки следующего (обратного) маршрута — короткий/полный
+     *    отдых лишь маркеры внутри окна. Если следующего маршрута нет — до конца полного
+     *    отдыха.
+     *  - Домашний отдых — до конца полного (рекомендованного) отдыха.
+     *
+     * Если открыт текущий маршрут — отдых не показываем.
+     */
+    private suspend fun recomputeRestBlock(allRoutes: List<Route>) {
+        restTransitionJob?.cancel()
+
+        if (currentRoute != null) {
+            restBlockState = null
+            return
+        }
+
+        val userSettings = currentUserSetting
+        val tz = if (userSettings != null) {
+            TimeZone.getTimeZone(DateAndTimeConverter(userSettings).timeZoneText)
+        } else {
+            TimeZone.getDefault()
+        }
+        val now = getInstance(tz).timeInMillis
+
+        val previous = allRoutes
+            .filter {
+                val end = it.basicData.timeEndWork
+                it.basicData.timeStartWork != null && end != null && end < now
+            }
+            .maxByOrNull { it.basicData.timeEndWork ?: 0L }
+
+        if (previous == null) {
+            restBlockState = null
+            return
+        }
+
+        val restStart = previous.basicData.timeEndWork ?: run {
+            restBlockState = null
+            return
+        }
+
+        // Граница окна отдыха — до неё блок показывается, по её достижении скрывается.
+        val boundary: Long?
+        val newState: RestBlockState? = if (previous.basicData.restPointOfTurnover) {
+            val shortEnd = routeHelper.calculateShortRest(previous).first()?.second
+            val fullEnd = routeHelper.calculateFullRest(previous).first()?.second
+            // Отдых в ПО — до явки следующего (обратного) маршрута; если его нет —
+            // до конца полного отдыха.
+            val nextStart = allRoutes.findNextFutureRoute(now)?.basicData?.timeStartWork
+            boundary = nextStart ?: fullEnd
+            if (boundary == null || now >= boundary) null
+            else RestBlockState(
+                type = RestBlockType.POINT_OF_TURNOVER,
+                restStart = restStart,
+                shortRestEnd = shortEnd,
+                fullRestEnd = fullEnd ?: boundary,
+            )
+        } else {
+            val homeResult = routeHelper.calculationHomeRest(previous)
+                .first { it is ResultState.Success || it is ResultState.Error }
+            val fullEnd = (homeResult as? ResultState.Success)?.data?.second
+            boundary = fullEnd
+            if (fullEnd == null || now >= fullEnd) null
+            else RestBlockState(
+                type = RestBlockType.HOME,
+                restStart = restStart,
+                shortRestEnd = null,
+                fullRestEnd = fullEnd,
+            )
+        }
+
+        restBlockState = newState
+
+        // Планируем автоскрытие блока в момент достижения границы окна отдыха.
+        if (newState != null && boundary != null) {
+            val delayMs = boundary - now
+            if (delayMs > 0) {
+                restTransitionJob = viewModelScope.launch {
+                    delay(delayMs)
+                    updateCurrentAndNextRoute(allRoutesGlobal)
+                    recomputeRestBlock(allRoutesGlobal)
+                }
+            }
         }
     }
 
@@ -1316,6 +1501,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     val years = list.map { it.year }.distinct().sorted()
                     _monthList.value = months
                     _yearList.value = years
+                    _monthYearList.value = list
+                        .map { it.year to it.month }
+                        .distinct()
+                        .sortedWith(compareBy({ it.first }, { it.second }))
                 }
         }
     }
@@ -1420,6 +1609,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 allRoutesGlobal = allRoutes
                 val unsyncedCount = allRoutes.count { !it.basicData.isSynchronized }
                 _uiState.update { it.copy(unsyncedRoutesCount = unsyncedCount) }
+                // Реактивно обновляем блоки «Текущий/Следующий маршрут» при любом
+                // изменении маршрутов (удаление/добавление/правка) в любом месяце.
+                updateCurrentAndNextRoute(allRoutes)
+                recomputeRestBlock(allRoutes)
             }
         }
     }

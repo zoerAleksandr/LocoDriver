@@ -236,9 +236,18 @@ fun ItemHomeScreen(
                         Column(modifier = Modifier.fillMaxWidth()) {
                             trainsToShow.forEach { train ->
                                 val tn = if (!train.number.isNullOrBlank()) "№${train.number} " else ""
-                                val s1 = train.stations.firstOrNull()?.stationName ?: ""
-                                val s2 = if (train.stations.size > 1) " — ${train.stations.last().stationName ?: ""}" else ""
-                                val info = "$tn$s1$s2"
+                                // Черту « — » ставим только между реально заполненными
+                                // названиями станций, иначе у поезда без станций на карточке
+                                // появлялась «голая» черта без значений.
+                                val first = train.stations.firstOrNull()?.stationName?.takeIf { it.isNotBlank() }
+                                val last = if (train.stations.size > 1) {
+                                    train.stations.last().stationName?.takeIf { it.isNotBlank() }
+                                } else null
+                                val path = when {
+                                    first != null && last != null -> "$first — $last"
+                                    else -> first ?: last ?: ""
+                                }
+                                val info = "$tn$path".trim()
                                 if (info.isNotBlank()) {
                                     Text(
                                         modifier = Modifier.fillMaxWidth(),

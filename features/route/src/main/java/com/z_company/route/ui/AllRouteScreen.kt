@@ -709,7 +709,11 @@ fun AllRouteScreen(
                                     isHolidayTimeInRoute = routeState.isHoliday,
                                     isLongCompositionTrain = routeState.isLongCompositionTrain,
                                     isExtendedServicePhaseTrains = routeState.isExtendedServicePhaseTrains,
-                                    number = displayedRoutes.size - index
+                                    number = displayedRoutes.size - index,
+                                    // Для переходных маршрутов показываем только ту часть
+                                    // отработанного времени, что попадает в выбранный месяц.
+                                    monthOfYear = state.currentMonthOfYear,
+                                    timeCalculationContext = viewModel.timeCalculationContext,
                                 )
 
                                 val showRestLine = if (index + 1 < displayedRoutes.size) {

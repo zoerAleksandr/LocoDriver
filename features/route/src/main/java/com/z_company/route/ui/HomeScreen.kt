@@ -81,6 +81,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -130,6 +131,7 @@ import com.z_company.route.component.HomeScreenSkeleton
 import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.home_view_model.ItemState
+import com.z_company.route.viewmodel.home_view_model.RestBlockType
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -293,6 +295,9 @@ fun HomeScreen(
 
     var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
     var copyRouteId by remember { mutableStateOf<String?>(null) }
+    // Шторка подтверждения перехода на официальный сайт (клик по логотипу «Машинист»)
+    var showSiteConfirmSheet by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
 
     // Тип шторки со списком единиц текущего маршрута (loco/train/passenger), null — скрыта
     var unitsSheetType by remember { mutableStateOf<String?>(null) }
@@ -410,8 +415,10 @@ fun HomeScreen(
             ModalBottomSheet(
                 onDismissRequest = { showMonthSheetVisible = false },
                 sheetState = monthSheetState,
-                containerColor = MaterialTheme.colorScheme.secondary,
-                tonalElevation = 8.dp
+                containerColor = MaterialTheme.colorScheme.surface,
+                // tonalElevation=0, иначе Material накладывает surfaceTint (=Success, зелёный)
+                // и белая шторка становится мятной.
+                tonalElevation = 0.dp
             ) {
                 Column(
                     modifier = Modifier
@@ -620,6 +627,39 @@ fun HomeScreen(
         )
     }
 
+    // Шторка подтверждения перехода на официальный сайт приложения
+    if (showSiteConfirmSheet) {
+        AppBottomSheet(
+            onDismissRequest = { showSiteConfirmSheet = false },
+            sheetState = sheetState,
+            headerContent = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "Перейти на сайт?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Будет выполнен переход на официальный сайт приложения locodriver.ru",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp)
+                    )
+                }
+            },
+            actions = listOf(
+                BottomSheetAction(text = "Перейти") {
+                    uriHandler.openUri("https://locodriver.ru")
+                }
+            )
+        )
+    }
+
     val lightBrushMain = Brush.linearGradient(
         1f to MaterialTheme.colorScheme.surface,
         1f to MaterialTheme.colorScheme.surface,
@@ -650,7 +690,13 @@ fun HomeScreen(
                         containerColor = Color.Transparent
                     ),
                     title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                                .clickable { showSiteConfirmSheet = true }
+                                .padding(vertical = 4.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
                                 text = "М",
                                 style = MaterialTheme.typography.headlineLarge,
@@ -674,33 +720,71 @@ fun HomeScreen(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
-                        IconButton(onClick = { }) {
-                            Icon(
-                                painter = painterResource(R.drawable.person_24px),
-                                contentDescription = "Профиль",
-                                tint = MaterialTheme.colorScheme.primary
+                    }
+                )
+                // Заголовок месяца (отступ слева 16dp как у остального контента) +
+                // стрелки переключения месяца.
+                val monthYearListState by viewModel.monthYearList.collectAsState()
+                val currentIndex = currentMonthOfYear?.let { cur ->
+                    monthYearListState.indexOfFirst { it.first == cur.year && it.second == cur.month }
+                } ?: -1
+                val hasPrevMonth = currentIndex > 0
+                val hasNextMonth = currentIndex in 0 until monthYearListState.lastIndex
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                            .clickable { showMonthSheetVisible = true }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        Text(
+                            text = textMonth,
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        if (yearText.isNotEmpty()) {
+                            Text(
+                                modifier = Modifier.padding(start = 6.dp),
+                                text = yearText,
+                                style = MaterialTheme.typography.headlineLarge.copy(
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
-                )
-                // Заголовок месяца — большой, кликабельный
-                TextButton(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    onClick = { showMonthSheetVisible = true }
-                ) {
-                    Text(
-                        text = textMonth,
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    if (yearText.isNotEmpty()) {
-                        Text(
-                            modifier = Modifier.padding(start = 6.dp),
-                            text = yearText,
-                            style = MaterialTheme.typography.headlineLarge.copy(
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    IconButton(
+                        onClick = {
+                            monthYearListState.getOrNull(currentIndex - 1)?.let { selectYearAndMonth(it) }
+                        },
+                        enabled = hasPrevMonth,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.keyboard_arrow_left_24px),
+                            contentDescription = "Предыдущий месяц",
+                            tint = if (hasPrevMonth) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            monthYearListState.getOrNull(currentIndex + 1)?.let { selectYearAndMonth(it) }
+                        },
+                        enabled = hasNextMonth,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.keyboard_arrow_right_24px),
+                            contentDescription = "Следующий месяц",
+                            tint = if (hasNextMonth) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
                         )
                     }
                 }
@@ -1000,7 +1084,26 @@ fun HomeScreen(
                     }
                 }
 
-                if (currentRoute == null && nextFutureRoute != null) {
+                // Приоритет блоков состояния (когда нет текущего маршрута):
+                //  Отдых в ПО  >  Следующий маршрут  >  Домашний отдых.
+                val restCandidate = viewModel.restBlockState
+                val showRestPO = currentRoute == null &&
+                    restCandidate?.type == RestBlockType.POINT_OF_TURNOVER
+                val showNextRoute = currentRoute == null && !showRestPO && nextFutureRoute != null
+                val showRestHome = currentRoute == null && !showRestPO && !showNextRoute &&
+                    restCandidate?.type == RestBlockType.HOME
+
+                if (showRestPO && restCandidate != null) {
+                    item {
+                        RestPointOfTurnoverBlock(
+                            state = restCandidate,
+                            dateAndTimeConverter = dateAndTimeConverter,
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                }
+
+                if (showNextRoute && nextFutureRoute != null) {
                     item {
                         Column(
                             modifier = Modifier
@@ -1096,6 +1199,16 @@ fun HomeScreen(
                     }
                 }
 
+                if (showRestHome && restCandidate != null) {
+                    item {
+                        HomeRestBlock(
+                            state = restCandidate,
+                            dateAndTimeConverter = dateAndTimeConverter,
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                }
+
                 item {
                     Column(
                         modifier = Modifier
@@ -1110,7 +1223,7 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "ПОСЛЕДНИЕ МАРШРУТЫ · ${listRouteState.size}",
+                                text = "ПОСЛЕДНИЕ МАРШРУТЫ",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -1123,7 +1236,7 @@ fun HomeScreen(
                                 Text(
                                     color = MaterialTheme.colorScheme.tertiary,
                                     style = MaterialTheme.typography.bodySmall,
-                                    text = "Все"
+                                    text = "Все (${listRouteState.size})"
                                 )
                             }
                         }
@@ -1723,7 +1836,7 @@ private fun ActionCard(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier.size(72.dp),
                     painter = painterResource(iconRes),
                     contentDescription = title,
                     tint = iconTint,
