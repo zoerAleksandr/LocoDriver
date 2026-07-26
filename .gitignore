@@ -37,3 +37,7 @@ features/tracking/build/
 
 # Claude Code local permissions
 .claude/settings.local.json
+
+# Design references (local only) & scratch screenshots
+design/
+scratch_home.png
