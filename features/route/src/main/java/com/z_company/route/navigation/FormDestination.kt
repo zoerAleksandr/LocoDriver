@@ -68,11 +68,13 @@ fun FormDestination(
 
                     FormScreenEvent.RouteSaved -> {
                         // Не показываем тост здесь: FormScreen ещё активен и его
-                        // SnackbarHost поглотит событие из Channel до того как HomeScreen
+                        // SnackbarHost поглотит событие из Channel до того как экран-источник
                         // станет активным коллектором. Тост «Маршрут сохранен» показывается
                         // из FormViewModel после завершения навигации (delay + sync).
                         launch { viewModel.prepareReviewDialog() }
-                        router.showHome(HomeRoute.route)
+                        // Возврат на экран, откуда открыли форму (Главный / Все маршруты /
+                        // Поиск), а не всегда на Главный.
+                        router.back()
                     }
 
                     is FormScreenEvent.NavigateToChildForm -> {
@@ -101,7 +103,7 @@ fun FormDestination(
         formUiState = formUiState,
         dialogRestUiState = dialogRestUiState,
         currentRoute = currentRoute,
-        exitScreen = { router.showHome(HomeRoute.route) },
+        exitScreen = { router.back() },
         isCopy = formUiState.isCopy,
         isNewRoute = routeId == NULLABLE_ID,
         onNumberChanged = viewModel::setNumber,

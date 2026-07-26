@@ -1161,11 +1161,14 @@ class FormViewModel(
     }
 
     fun onSaveClick() {
-        // Новый маршрут, в который ничего не ввели и который ещё не попал в БД, —
-        // не сохраняем: пользователь открыл форму и сразу нажал «назад». Просто выходим,
-        // чтобы не плодить пустые черновики. (onCleared здесь не спасает — эта кнопка
-        // делает явное сохранение до ухода с экрана.)
-        if (isNewRoute && !isPersistedToDb && !_uiState.value.changesHaveState) {
+        // Нет несохранённых изменений — не пересохраняем маршрут при выходе, просто
+        // закрываем экран. Покрывает два случая: пустой новый черновик (открыли и сразу
+        // «назад») и открытие существующего маршрута на просмотр без правок — раньше он
+        // всё равно перезаписывался. Shared-preview и isDeleted исключаем: им нужна
+        // фактическая запись (снятие isDeleted).
+        val needsPersistAnyway =
+            _isSharedPreview.value || currentRoute.value?.basicData?.isDeleted == true
+        if (!_uiState.value.changesHaveState && !needsPersistAnyway) {
             sharedPreferenceStorage.setTokenIsChangeHave(false)
             _uiState.update { it.copy(exitFromScreen = true) }
             return
