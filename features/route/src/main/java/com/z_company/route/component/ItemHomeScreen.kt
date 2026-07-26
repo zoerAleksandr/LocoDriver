@@ -1,6 +1,13 @@
 package com.z_company.route.component
 
 import android.annotation.SuppressLint
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -12,13 +19,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.DismissDirection
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.SwipeToDismiss
@@ -97,6 +109,9 @@ fun ItemHomeScreen(
     monthOfYear: MonthOfYear? = null,
     offsetInMoscow: Long = 0L,
     timeCalculationContext: TimeCalculationContext? = null,
+    // Итог оплаты за смену для блока «Расчёт за смену» в развёрнутой карточке.
+    // null → блок не показывается (например, на Главном/в Календаре).
+    shiftPaymentText: String? = null,
 ) {
 
     // --- мемоизируем тяжёлые вычисления по route ---
@@ -152,7 +167,9 @@ fun ItemHomeScreen(
     // Свайп-удаление как у станции/секции локомотива: раскрывает красную кнопку
     // «УДАЛИТЬ», по нажатию → onRequestDelete (подтверждение показывает экран).
     SwipeToRevealDelete(
-        modifier = Modifier
+        // Уважаем переданный modifier (например, padding/animateItem с экрана «Все
+        // маршруты»); раньше он игнорировался и внешние отступы не применялись.
+        modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 65.dp),
         onDeleteClick = { onRequestDelete(route) },
@@ -229,10 +246,18 @@ fun ItemHomeScreen(
                         )
                     }
 
-                    // Поезда: основной (первый) всегда одной строкой; в expanded —
-                    // остальные поезда списком ниже. #номер маршрута — только в футере.
-                    if (sortedTrains.isNotEmpty()) {
-                        val trainsToShow = if (isExpand) sortedTrains else sortedTrains.take(1)
+                    // Свёрнутый вид (как на Главном): основной поезд одной строкой,
+                    // «+N» для остальных показывает футер ниже. В развёрнутом виде
+                    // поезда выводятся отдельной группой с иконками (см. ниже).
+                    AnimatedVisibility(
+                        visible = !isExpand && sortedTrains.isNotEmpty(),
+                        // tween без пружины — без отскока и «подёргивания» на затухании.
+                        enter = expandVertically(tween(220, easing = FastOutSlowInEasing)) +
+                            fadeIn(tween(220)),
+                        exit = shrinkVertically(tween(220, easing = FastOutSlowInEasing)) +
+                            fadeOut(tween(220)),
+                    ) {
+                        val trainsToShow = sortedTrains.take(1)
                         Column(modifier = Modifier.fillMaxWidth()) {
                             trainsToShow.forEach { train ->
                                 val tn = if (!train.number.isNullOrBlank()) "№${train.number} " else ""
@@ -266,77 +291,105 @@ fun ItemHomeScreen(
                         }
                     }
 
-                    // Локомотивы/пассажиры — только в развёрнутом режиме
-                    if (isExpand) {
-                        if (false) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                sortedTrains.forEach { train ->
-                                        val trainNumber = if (!train.number.isNullOrBlank()) {
-                                            "\u2116${train.number} "
-                                        } else {
-                                            ""
-                                        }
-                                        val stationStart = if (train.stations.isNotEmpty()) {
-                                            train.stations.first().stationName ?: ""
-                                        } else {
-                                            ""
-                                        }
+                    // Развёрнутый вид (по дизайну «Все маршруты»): группы единиц с
+                    // иконками — Локомотивы / Поезда / Пассажиром — и итог оплаты.
+                    // Плавное раскрытие/сворачивание по переключателю плотности.
+                    // Если разворачивать нечего — не показываем даже разделитель.
+                    val hasExpandedContent = route.locomotives.isNotEmpty() ||
+                        sortedTrains.isNotEmpty() ||
+                        route.passengers.isNotEmpty() ||
+                        !route.basicData.notes.isNullOrBlank() ||
+                        shiftPaymentText != null
+                    AnimatedVisibility(
+                        visible = isExpand && hasExpandedContent,
+                        // tween без пружины — без отскока и «подёргивания» на затухании.
+                        enter = expandVertically(tween(220, easing = FastOutSlowInEasing)) +
+                            fadeIn(tween(220)),
+                        exit = shrinkVertically(tween(220, easing = FastOutSlowInEasing)) +
+                            fadeOut(tween(220)),
+                    ) {
+                      Column(
+                          modifier = Modifier.fillMaxWidth(),
+                          verticalArrangement = Arrangement.spacedBy(4.dp),
+                      ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .height(1.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant)
+                        )
 
-                                        val stationEnd =
-                                            if (train.stations.isNotEmpty() && train.stations.size > 1) {
-                                                " - ${train.stations.last().stationName ?: ""}"
-                                            } else {
-                                                ""
-                                            }
-                                        if (!"$trainNumber$stationStart$stationEnd".isBlank()) {
-                                            AutoSizeText(
-                                                text = "$trainNumber$stationStart$stationEnd",
-                                                maxTextSize = requiredSizeText,
-                                                minTextSize = 10.sp,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                onTextLayout = { textLayoutResult ->
-                                                    val size =
-                                                        textLayoutResult.layoutInput.style.fontSize
-                                                    changingTextSize(size)
-                                                }
-                                            )
-                                        }
-                                    }
-                            }
-                        }
                         if (route.locomotives.isNotEmpty()) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
+                            RouteUnitGroup(label = "Локомотивы") {
                                 route.locomotives.forEach { loco ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        AutoSizeText(
-                                            maxTextSize = requiredSizeText,
-                                            minTextSize = 10.sp,
-                                            maxLines = 1,
-                                            text = "${loco.series ?: ""} ${loco.number ?: ""}",
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
+                                    RouteUnitRow(
+                                        iconRes = R.drawable.ic_card_locomotive_ref,
+                                        title = loco.series?.takeIf { it.isNotBlank() } ?: "Локомотив",
+                                        titleMono = loco.number?.takeIf { it.isNotBlank() },
+                                    )
                                 }
                             }
                         }
-                        if (!route.basicData.notes.isNullOrBlank()) {
-                            Box(modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-                                AutoSizeText(
-                                    maxTextSize = requiredSizeText,
-                                    minTextSize = 10.sp,
-                                    maxLines = 2,
-                                    text = "${route.basicData.notes}",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+
+                        if (sortedTrains.isNotEmpty()) {
+                            RouteUnitGroup(label = "Поезда") {
+                                sortedTrains.forEach { train ->
+                                    val first = train.stations.firstOrNull()
+                                        ?.stationName?.takeIf { it.isNotBlank() }
+                                    val last = if (train.stations.size > 1) {
+                                        train.stations.last().stationName?.takeIf { it.isNotBlank() }
+                                    } else null
+                                    val path = when {
+                                        first != null && last != null -> "$first — $last"
+                                        else -> first ?: last
+                                    }
+                                    RouteUnitRow(
+                                        iconRes = R.drawable.ic_card_train_ref,
+                                        title = train.number?.takeIf { it.isNotBlank() }
+                                            ?.let { "№$it" } ?: "Поезд",
+                                        subtitle = path,
+                                    )
+                                }
                             }
                         }
+
+                        if (route.passengers.isNotEmpty()) {
+                            RouteUnitGroup(label = "Пассажиром") {
+                                route.passengers.forEach { passenger ->
+                                    val dep = passenger.stationDeparture?.takeIf { it.isNotBlank() }
+                                    val arr = passenger.stationArrival?.takeIf { it.isNotBlank() }
+                                    val path = when {
+                                        dep != null && arr != null -> "$dep — $arr"
+                                        else -> dep ?: arr
+                                    }
+                                    RouteUnitRow(
+                                        iconRes = R.drawable.ic_card_passenger_ref,
+                                        title = passenger.trainNumber?.takeIf { it.isNotBlank() }
+                                            ?.let { "№$it" } ?: "Поездка",
+                                        subtitle = path,
+                                    )
+                                }
+                            }
+                        }
+
+                        if (!route.basicData.notes.isNullOrBlank()) {
+                            Text(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp),
+                                text = route.basicData.notes!!,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+
+                        shiftPaymentText?.let { payment ->
+                            ShiftPaymentBlock(payment = payment)
+                        }
+                      }
                     }
 
                     Row(
@@ -482,4 +535,118 @@ fun ItemHomeScreen(
                 }
             }
         }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Развёрнутая карточка: группа единиц (Локомотивы/Поезда/Пассажиром)
+// ─────────────────────────────────────────────────────────────
+@Composable
+private fun RouteUnitGroup(
+    label: String,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontFamily = com.z_company.core.ui.theme.MonoFont,
+                letterSpacing = 1.2.sp,
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        )
+        content()
+    }
+}
+
+// Строка единицы: иконка-аватар в мягком круге + название (+ моно-номер) + подпись.
+@Composable
+private fun RouteUnitRow(
+    iconRes: Int,
+    title: String,
+    titleMono: String? = null,
+    subtitle: String? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (!titleMono.isNullOrBlank()) {
+                    Text(
+                        text = " · $titleMono",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = com.z_company.core.ui.theme.MonoFont,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+// Итог оплаты за смену — нейтральный блок в подложке.
+@Composable
+private fun ShiftPaymentBlock(payment: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceBright)
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "Расчёт за смену",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = payment,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontFamily = com.z_company.core.ui.theme.MonoFont,
+                fontWeight = FontWeight.Bold,
+            ),
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
 }

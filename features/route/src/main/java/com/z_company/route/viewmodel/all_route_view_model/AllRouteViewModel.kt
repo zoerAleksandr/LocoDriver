@@ -18,6 +18,7 @@ import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.calculateWorkTimeWithSettings
 import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
 import com.z_company.domain.entities.route.UtilsForEntities.isExtendedServicePhaseTrains
@@ -29,6 +30,9 @@ import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.util.TimeCalculationContext
+import com.z_company.domain.util.currencySymbol
+import com.z_company.domain.util.toMoneyString
+import com.z_company.route.viewmodel.computeRouteTotalPayment
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.RoutesManager
@@ -74,7 +78,15 @@ data class RoutesUiState(
     val removeRouteState: ResultState<Unit>? = null,
     val restoreSubscriptionState: ResultState<String>? = null,
     val showConfirmDialogRemoveRoute: Boolean = false,
-    val isExpandedView: Boolean = false
+    val isExpandedView: Boolean = false,
+    // Показывать ли объединение «отдых в ПО» (трей с коннектором). По умолчанию вкл.
+    val showTurnaroundRest: Boolean = true,
+    // Итог оплаты по каждому маршруту (id → отформатированная сумма с валютой),
+    // показывается в развёрнутой карточке блоком «Расчёт за смену».
+    val routePayments: Map<String, String> = emptyMap(),
+    // Отработанное время за месяц (с учётом настройки «Учитывать будущие маршруты»),
+    // формат HH:MM — показывается рядом со счётчиком маршрутов.
+    val monthWorkedTimeText: String = ""
 )
 
 enum class SortOption {
@@ -147,6 +159,10 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     private val _yearList = MutableStateFlow<List<Int>>(emptyList())
     val yearList: StateFlow<List<Int>> = _yearList.asStateFlow()
 
+    // Хронологический список доступных месяцев (year, month) — для листания стрелками.
+    private val _monthYearList = MutableStateFlow<List<Pair<Int, Int>>>(emptyList())
+    val monthYearList: StateFlow<List<Pair<Int, Int>>> = _monthYearList.asStateFlow()
+
     init {
         // Загружаем сохранённые настройки UI один раз при создании ViewModel
         val savedSort = sharedPreferenceStorage.getSortOption()?.let { SortOption.valueOf(it) }
@@ -154,8 +170,14 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
         val savedFiltersStrings = sharedPreferenceStorage.getSelectedFilters() ?: setOf(RouteFilter.ALL.name)
         val savedFilters = savedFiltersStrings.map { RouteFilter.valueOf(it) }.toSet()
         val savedExpanded = sharedPreferenceStorage.isExpandedView()
+        val savedShowRest = sharedPreferenceStorage.isShowTurnaroundRest()
         _uiState.update {
-            it.copy(sortOption = savedSort, selectedFilters = savedFilters, isExpandedView = savedExpanded)
+            it.copy(
+                sortOption = savedSort,
+                selectedFilters = savedFilters,
+                isExpandedView = savedExpanded,
+                showTurnaroundRest = savedShowRest,
+            )
         }
 
         viewModelScope.launch {
@@ -165,6 +187,10 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                     val years = list.map { it.year }.distinct().sorted()
                     _monthList.value = months
                     _yearList.value = years
+                    _monthYearList.value = list
+                        .map { it.year to it.month }
+                        .distinct()
+                        .sortedWith(compareBy({ it.first }, { it.second }))
                 }
         }
 
@@ -219,14 +245,52 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 val user = userSettings ?: return@collectLatest
 
                 val filtered = applyFilters(rawRoutes, filters, salarySetting = salary)
+                // Отработанное за месяц по всем маршрутам (не по фильтру), с учётом
+                // настройки «Учитывать будущие маршруты».
+                val monthWorked = rawRoutes.map { it.route }.calculateWorkTimeWithSettings(
+                    monthOfYear = user.selectMonthOfYear,
+                    userSettings = user,
+                    currentTimeInMillis = System.currentTimeMillis(),
+                )
                 _uiState.update {
                     it.copy(
                         filteredRoutes = filtered,
                         isLoading = false,
-                        currentMonthOfYear = user.selectMonthOfYear
+                        currentMonthOfYear = user.selectMonthOfYear,
+                        monthWorkedTimeText = convertTimeToStringFormat(monthWorked)
                     )
                 }
             }
+        }
+
+        // Поток 3: считает итог оплаты по каждому маршруту месяца для блока
+        // «Расчёт за смену» в развёрнутой карточке. Реагирует на список маршрутов
+        // и на настройки (тариф/зарплата). collectLatest отменяет незавершённый
+        // пересчёт при новой эмиссии. Фильтры на суммы не влияют, поэтому считаем
+        // по «сырым» маршрутам месяца.
+        viewModelScope.launch(Dispatchers.Default) {
+            combine(latestRawRoutes, combinedData) { raw, settings -> raw to settings }
+                .collectLatest { (raw, settings) ->
+                    val user = settings.userSettings ?: return@collectLatest
+                    val salary = settings.salarySetting ?: return@collectLatest
+                    // Сортировка по началу работы нужна для доплаты за переотдых.
+                    val sortedRoutes = raw.map { it.route }
+                        .sortedBy { it.basicData.timeStartWork ?: Long.MAX_VALUE }
+                    val currency = currencySymbol(user.country)
+                    val payments = LinkedHashMap<String, String>()
+                    sortedRoutes.forEach { route ->
+                        val total = try {
+                            computeRouteTotalPayment(route, user, salary, sortedRoutes)
+                        } catch (e: Exception) {
+                            e.sendToSentry("AllRouteViewModel", "recomputePayments")
+                            null
+                        }
+                        if (total != null) {
+                            payments[route.basicData.id] = total.toMoneyString(currency)
+                        }
+                    }
+                    _uiState.update { it.copy(routePayments = payments) }
+                }
         }
     }
 
@@ -526,6 +590,17 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     fun toggleExpandedView() {
         _uiState.update { it.copy(isExpandedView = !it.isExpandedView) }
         sharedPreferenceStorage.setIsExpandedView(_uiState.value.isExpandedView)
+    }
+
+    /**
+     * Переключает показ объединения «отдых в ПО» и сохраняет выбор в prefs.
+     * @return новое значение (true — объединение показывается).
+     */
+    fun toggleShowTurnaroundRest(): Boolean {
+        val newValue = !_uiState.value.showTurnaroundRest
+        _uiState.update { it.copy(showTurnaroundRest = newValue) }
+        sharedPreferenceStorage.setShowTurnaroundRest(newValue)
+        return newValue
     }
 
     fun reload() {

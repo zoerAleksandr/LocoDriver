@@ -31,6 +31,7 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var sortOption: String? = null
     private var selectedFilters: Set<String>? = null
     private var expandedView: Boolean = false
+    private var showTurnaroundRest: Boolean = true
     private var showTravelTime: Boolean = false
     private var showLocoFormUpdateHint: Boolean = true
     private var locoSectionTimeExpanded: Boolean = false
@@ -81,6 +82,8 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setSelectedFilters(values: Set<String>) { selectedFilters = values }
     override fun isExpandedView(): Boolean = expandedView
     override fun setIsExpandedView(value: Boolean) { expandedView = value }
+    override fun isShowTurnaroundRest(): Boolean = showTurnaroundRest
+    override fun setShowTurnaroundRest(value: Boolean) { showTurnaroundRest = value }
     override fun toggleShowTravelTime(value: Boolean) { showTravelTime = value }
     override fun isShowTravelTime(): Boolean = showTravelTime
     override fun isShowLocoFormUpdateHint(): Boolean = showLocoFormUpdateHint

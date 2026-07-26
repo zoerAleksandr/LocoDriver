@@ -30,6 +30,7 @@ private const val TOKEN_LOCO_SECTION_STATISTICS = "TOKEN_LOCO_SECTION_STATISTICS
 private const val SORT_OPTION_TAG = "SORT_OPTION"
 private const val SELECTED_FILTERS_TAG = "SELECTED_FILTERS"
 private const val IS_EXPANDED_VIEW_TAG = "IS_EXPANDED_VIEW"
+private const val SHOW_TURNAROUND_REST_TAG = "SHOW_TURNAROUND_REST"
 private const val SHOW_TRAVEL_TIME_TAG = "SHOW_TRAVEL_TIME"
 private const val TOKEN_IS_MIGRATED = "TOKEN_IS_MIGRATED"
 
@@ -165,6 +166,13 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun setIsExpandedView(value: Boolean) {
         editor.putBoolean(IS_EXPANDED_VIEW_TAG, value).apply()
+    }
+
+    override fun isShowTurnaroundRest(): Boolean =
+        sharedpref.getBoolean(SHOW_TURNAROUND_REST_TAG, true)
+
+    override fun setShowTurnaroundRest(value: Boolean) {
+        editor.putBoolean(SHOW_TURNAROUND_REST_TAG, value).apply()
     }
 
     override fun toggleShowTravelTime(value: Boolean) {

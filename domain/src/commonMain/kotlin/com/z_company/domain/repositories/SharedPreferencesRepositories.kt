@@ -37,6 +37,10 @@ interface SharedPreferencesRepositories {
     fun setSelectedFilters(values: Set<String>)
     fun isExpandedView(): Boolean
     fun setIsExpandedView(value: Boolean)
+    // Показывать ли объединение смежных плеч «туда → отдых в ПО → обратно» на
+    // экране «Все маршруты» (трей с коннектором). По умолчанию включено.
+    fun isShowTurnaroundRest(): Boolean
+    fun setShowTurnaroundRest(value: Boolean)
     fun toggleShowTravelTime(value: Boolean)
     fun isShowTravelTime(): Boolean
     fun isShowLocoFormUpdateHint(): Boolean

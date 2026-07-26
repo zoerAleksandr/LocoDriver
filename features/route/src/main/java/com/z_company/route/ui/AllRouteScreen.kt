@@ -1,10 +1,17 @@
 package com.z_company.route.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,14 +33,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.flowWithLifecycle
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.MonthFullText.getMonthFullText
+import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeInMonth
+import com.z_company.domain.util.TimeCalculationContext
+import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.R
+import com.z_company.route.util.TurnaroundRest
+import com.z_company.route.viewmodel.home_view_model.ItemState
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
@@ -44,6 +58,7 @@ import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.component.PreviewRouteDialog
 import com.z_company.route.component.RadioButtonWithLabel
 import com.z_company.route.util.toShareIntent
+import com.z_company.route.util.turnaroundRestBetween
 import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.all_route_view_model.AllRouteViewModel
 import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
@@ -116,6 +131,20 @@ fun AllRouteScreen(
                 it.route.getWorkTime() ?: 0L
             })
         }
+    }
+
+    // Строки списка: одиночная карточка или трей-пара «поездка с отдыхом в ПО».
+    // Пара — два смежных маршрута туда→обратно, обёрнутые в общий контейнер.
+    val allRouteRows = remember(
+        displayedRoutes, state.currentMonthOfYear, viewModel.timeCalculationContext,
+        state.showTurnaroundRest
+    ) {
+        buildAllRouteRows(
+            routes = displayedRoutes,
+            monthOfYear = state.currentMonthOfYear,
+            ctx = viewModel.timeCalculationContext,
+            groupTurnaroundRest = state.showTurnaroundRest,
+        )
     }
 
     // states for context actions (long click)
@@ -210,6 +239,45 @@ fun AllRouteScreen(
                     )
                 },
                 actions = {
+                    // Переключатель показа объединения «отдых в ПО» (трей с коннектором).
+                    // Активен (accent) — показываем; выключен (muted) — плоский список.
+                    IconButton(onClick = {
+                        val shown = viewModel.toggleShowTurnaroundRest()
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(
+                                if (shown) "Отдых в ПО показан"
+                                else "Отдых в ПО скрыт"
+                            )
+                        }
+                    }) {
+                        Icon(
+                            painter = painterResource(R.drawable.hotel_24px),
+                            contentDescription = if (state.showTurnaroundRest) {
+                                "Скрыть отдыхи в ПО"
+                            } else {
+                                "Показать отдыхи в ПО"
+                            },
+                            tint = if (state.showTurnaroundRest) {
+                                MaterialTheme.colorScheme.surfaceContainerLow
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            },
+                        )
+                    }
+                    // Переключатель плотности карточек: свёрнуто ⇄ развёрнуто (для
+                    // всех карточек сразу). Развёрнутая карточка показывает локомотивы,
+                    // поезда, следование пассажиром и расчёт за смену.
+                    IconButton(onClick = { viewModel.toggleExpandedView() }) {
+                        Icon(
+                            painter = painterResource(
+                                if (state.isExpandedView) R.drawable.collapse_rows_24px
+                                else R.drawable.expand_rows_24px
+                            ),
+                            contentDescription = if (state.isExpandedView) "Свернуть карточки" else "Развернуть карточки",
+                            tint = if (state.isExpandedView) MaterialTheme.colorScheme.surfaceContainerLow
+                            else MaterialTheme.colorScheme.primary,
+                        )
+                    }
                     IconButton(
                         onClick = { if (!isPdfGenerating) showPdfDialog = true },
                         enabled = !isPdfGenerating,
@@ -220,8 +288,9 @@ fun AllRouteScreen(
                                 strokeWidth = 2.dp,
                             )
                         } else {
+                            // Та же иконка, что на карточке «PDF» в инструментах Главного.
                             Icon(
-                                painter = painterResource(R.drawable.picture_as_pdf_24px),
+                                painter = painterResource(R.drawable.ic_card_pdf),
                                 contentDescription = "PDF",
                                 tint = MaterialTheme.colorScheme.primary,
                             )
@@ -559,6 +628,14 @@ fun AllRouteScreen(
                 state.currentMonthOfYear?.month?.let { getMonthFullText(it) } ?: ""
             val yearText = state.currentMonthOfYear?.year?.toString() ?: ""
 
+            // Стрелки листают доступные месяцы, тап по названию открывает шторку выбора.
+            val monthYearList by viewModel.monthYearList.collectAsState()
+            val currentMonthIndex = state.currentMonthOfYear?.let { cur ->
+                monthYearList.indexOfFirst { it.first == cur.year && it.second == cur.month }
+            } ?: -1
+            val hasPrevMonth = currentMonthIndex > 0
+            val hasNextMonth = currentMonthIndex in 0 until monthYearList.lastIndex
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -566,19 +643,48 @@ fun AllRouteScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                IconButton(onClick = { isMonthSheetVisible = true }) {
-                    Text("‹", style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                IconButton(
+                    onClick = {
+                        monthYearList.getOrNull(currentMonthIndex - 1)
+                            ?.let { viewModel.setCurrentMonth(it) }
+                    },
+                    enabled = hasPrevMonth,
+                    modifier = Modifier.size(48.dp),
+                ) {
+                    Text("‹", fontSize = 34.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                        color = if (hasPrevMonth) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
                 }
-                Text(
+                Row(
                     modifier = Modifier.clickable { isMonthSheetVisible = true },
-                    text = "$monthText $yearText",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                IconButton(onClick = { isMonthSheetVisible = true }) {
-                    Text("›", style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = monthText,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = yearText,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(
+                    onClick = {
+                        monthYearList.getOrNull(currentMonthIndex + 1)
+                            ?.let { viewModel.setCurrentMonth(it) }
+                    },
+                    enabled = hasNextMonth,
+                    modifier = Modifier.size(48.dp),
+                ) {
+                    Text("›", fontSize = 34.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                        color = if (hasNextMonth) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
                 }
             }
 
@@ -618,11 +724,18 @@ fun AllRouteScreen(
                     )
                 }
 
-                // Счётчик
+                // Счётчик маршрутов + отработанное время за месяц (моно).
                 val routeCount = state.routes.size
+                val counterText = if (state.monthWorkedTimeText.isNotBlank()) {
+                    "$routeCount · ${state.monthWorkedTimeText}"
+                } else {
+                    "$routeCount"
+                }
                 Text(
-                    text = "$routeCount",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = counterText,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = com.z_company.core.ui.theme.MonoFont,
+                    ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
@@ -665,89 +778,105 @@ fun AllRouteScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .testTag("all_route_lazy_column"),
-                        contentPadding = PaddingValues(8.dp)
+                        // Горизонтальный отступ вынесен на сами элементы: одиночные
+                        // карточки инсетятся на 8dp, а трей-пара выходит на всю ширину.
+                        contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
                         viewModel.dateAndTimeConverter?.let { converter ->
-                            itemsIndexed(
-                                items = displayedRoutes,
-                                key = { _, it -> it.route.basicData.id }
-                            ) { index, routeState ->
-                                val route = routeState.route
-                                val background = if (routeState.isFuture) {
-                                    MaterialTheme.colorScheme.surfaceBright
-                                } else if (routeState.isTransition) {
-                                    MaterialTheme.colorScheme.surfaceDim
-                                } else {
-                                    MaterialTheme.colorScheme.secondary
-                                }
-                                val routeId = route.basicData.id
-                                val onClickMemo = remember(routeId) { { onRouteClick(routeId) } }
-                                val onRequestDeleteMemo: (Route) -> Unit = remember(route) {
-                                    { _ ->
-                                        isShowDialogConfirmRemoveRoute = true
-                                        routeForRemove = route
-                                    }
-                                }
-                                val onLongClickMemo = remember(route) {
-                                    {
-                                        routeForPreview = route
-                                        showContextDialog = true
-                                    }
-                                }
-
-                                ItemHomeScreen(
-                                    modifier = Modifier.animateItem(),
-                                    route = route,
-                                    convertTimeToString = viewModel::convertTimeToStringFormat,
-                                    onClick = onClickMemo,
-                                    onRequestDelete = onRequestDeleteMemo,
-                                    isExpand = state.isExpandedView,
-                                    onLongClick = onLongClickMemo,
-                                    containerColor = background,
-                                    dateAndTimeConverter = converter,
-                                    isHeavyTrains = routeState.isHeavyTrains,
-                                    isHolidayTimeInRoute = routeState.isHoliday,
-                                    isLongCompositionTrain = routeState.isLongCompositionTrain,
-                                    isExtendedServicePhaseTrains = routeState.isExtendedServicePhaseTrains,
-                                    number = displayedRoutes.size - index,
-                                    // Для переходных маршрутов показываем только ту часть
-                                    // отработанного времени, что попадает в выбранный месяц.
-                                    monthOfYear = state.currentMonthOfYear,
-                                    timeCalculationContext = viewModel.timeCalculationContext,
+                            items(
+                                items = allRouteRows,
+                                key = { it.key }
+                            ) { row ->
+                                val placementSpec = androidx.compose.animation.core.tween<
+                                    androidx.compose.ui.unit.IntOffset>(
+                                    durationMillis = 220,
+                                    easing = androidx.compose.animation.core.FastOutSlowInEasing,
                                 )
-
-                                val showRestLine = if (index + 1 < displayedRoutes.size) {
-                                    val r1 = route
-                                    val r2 = displayedRoutes[index + 1].route
-                                    val t1 = r1.basicData.timeStartWork ?: Long.MAX_VALUE
-                                    val t2 = r2.basicData.timeStartWork ?: Long.MAX_VALUE
-                                    if (t1 < t2) r1.basicData.restPointOfTurnover
-                                    else r2.basicData.restPointOfTurnover
-                                } else false
-
-                                if (showRestLine) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(12.dp),
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Box(
+                                when (row) {
+                                    is SingleRouteRow -> {
+                                        val route = row.item.route
+                                        val routeId = route.basicData.id
+                                        RouteCardItem(
                                             modifier = Modifier
-                                                .width(1.dp)
-                                                .fillMaxHeight()
-                                                .background(MaterialTheme.colorScheme.primary)
+                                                .animateItem(placementSpec = placementSpec)
+                                                .padding(horizontal = 8.dp),
+                                            routeState = row.item,
+                                            number = row.number,
+                                            isExpand = state.isExpandedView,
+                                            monthOfYear = state.currentMonthOfYear,
+                                            timeCalculationContext = viewModel.timeCalculationContext,
+                                            dateAndTimeConverter = converter,
+                                            convertTimeToString = viewModel::convertTimeToStringFormat,
+                                            shiftPaymentText = state.routePayments[routeId],
+                                            onClick = { onRouteClick(routeId) },
+                                            onRequestDelete = { r ->
+                                                isShowDialogConfirmRemoveRoute = true
+                                                routeForRemove = r
+                                            },
+                                            onLongClick = {
+                                                routeForPreview = route
+                                                showContextDialog = true
+                                            },
                                         )
-                                        Spacer(modifier = Modifier.width(5.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .width(1.dp)
-                                                .fillMaxHeight()
-                                                .background(MaterialTheme.colorScheme.primary)
-                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
                                     }
-                                } else {
-                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    is TripGroupRow -> {
+                                        // Трей «Поездка с отдыхом»: два плеча в общем фоне,
+                                        // шапка с суммой часов, между карточками — коннектор.
+                                        TripGroupTray(
+                                            modifier = Modifier.animateItem(placementSpec = placementSpec),
+                                            totalWorkText = viewModel.convertTimeToStringFormat(row.totalWorkMs),
+                                        ) {
+                                            val upperRoute = row.upper.route
+                                            val lowerRoute = row.lower.route
+                                            RouteCardItem(
+                                                routeState = row.upper,
+                                                number = row.upperNumber,
+                                                isExpand = state.isExpandedView,
+                                                monthOfYear = state.currentMonthOfYear,
+                                                timeCalculationContext = viewModel.timeCalculationContext,
+                                                dateAndTimeConverter = converter,
+                                                convertTimeToString = viewModel::convertTimeToStringFormat,
+                                                shiftPaymentText = state.routePayments[upperRoute.basicData.id],
+                                                onClick = { onRouteClick(upperRoute.basicData.id) },
+                                                onRequestDelete = { r ->
+                                                    isShowDialogConfirmRemoveRoute = true
+                                                    routeForRemove = r
+                                                },
+                                                onLongClick = {
+                                                    routeForPreview = upperRoute
+                                                    showContextDialog = true
+                                                },
+                                            )
+                                            TurnaroundRestConnector(
+                                                station = row.rest.station,
+                                                durationText = viewModel.convertTimeToStringFormat(
+                                                    row.rest.durationMs
+                                                ),
+                                            )
+                                            RouteCardItem(
+                                                routeState = row.lower,
+                                                number = row.lowerNumber,
+                                                isExpand = state.isExpandedView,
+                                                monthOfYear = state.currentMonthOfYear,
+                                                timeCalculationContext = viewModel.timeCalculationContext,
+                                                dateAndTimeConverter = converter,
+                                                convertTimeToString = viewModel::convertTimeToStringFormat,
+                                                shiftPaymentText = state.routePayments[lowerRoute.basicData.id],
+                                                onClick = { onRouteClick(lowerRoute.basicData.id) },
+                                                onRequestDelete = { r ->
+                                                    isShowDialogConfirmRemoveRoute = true
+                                                    routeForRemove = r
+                                                },
+                                                onLongClick = {
+                                                    routeForPreview = lowerRoute
+                                                    showContextDialog = true
+                                                },
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                    }
                                 }
                             }
                         }
@@ -950,5 +1079,239 @@ private fun FiltersRow(selected: Set<RouteFilter>, onToggle: (RouteFilter) -> Un
             },
             label = "Сдвоенный"
         )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Коннектор «Отдых в ПО» между двумя плечами внутри трея.
+// Пилюля на surface с тенью (чтобы читалась на фоне accentSoft-трея): иконка-кровать
+// + «Отдых в ПО · станция» + моно-длительность. Сверху и снизу — короткий пунктир.
+// Презентационный, в подсчёты/выборки не входит.
+// ─────────────────────────────────────────────────────────────
+@Composable
+private fun TurnaroundRestConnector(
+    station: String,
+    durationText: String,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            // Отрицательный отступ, чтобы «вжаться» в gap между карточками.
+            .padding(vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        DashedVerticalLine()
+        Row(
+            modifier = Modifier
+                .padding(vertical = 2.dp)
+                .shadow(3.dp, RoundedCornerShape(50))
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(50))
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.hotel_24px),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.size(16.dp),
+            )
+            Text(
+                text = if (station.isNotBlank()) "Отдых в ПО · $station" else "Отдых в ПО",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            if (durationText.isNotBlank()) {
+                Text(
+                    text = durationText,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = com.z_company.core.ui.theme.MonoFont,
+                    ),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                )
+            }
+        }
+        DashedVerticalLine()
+    }
+}
+
+// Короткий вертикальный пунктир (цвет — borderStrong = outline).
+@Composable
+private fun DashedVerticalLine() {
+    val color = MaterialTheme.colorScheme.outline
+    Canvas(
+        modifier = Modifier
+            .width(2.dp)
+            .height(8.dp)
+    ) {
+        drawLine(
+            color = color,
+            start = Offset(size.width / 2f, 0f),
+            end = Offset(size.width / 2f, size.height),
+            strokeWidth = size.width,
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 4f), 0f),
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Строки списка «Все маршруты»: одиночная карточка или трей-пара «отдых в ПО».
+// ─────────────────────────────────────────────────────────────
+private sealed interface AllRouteRow {
+    val key: String
+}
+
+private data class SingleRouteRow(
+    val item: ItemState,
+    val number: Int,
+) : AllRouteRow {
+    override val key: String get() = item.route.basicData.id
+}
+
+private data class TripGroupRow(
+    val upper: ItemState,
+    val upperNumber: Int,
+    val lower: ItemState,
+    val lowerNumber: Int,
+    val rest: TurnaroundRest,
+    val totalWorkMs: Long,
+) : AllRouteRow {
+    override val key: String get() = "trip_${upper.route.basicData.id}"
+}
+
+// Отработанное время плеча так же, как показывает карточка (учёт переходных месяцев).
+private fun workTimeForCard(
+    route: Route,
+    monthOfYear: MonthOfYear?,
+    ctx: TimeCalculationContext,
+): Long = if (monthOfYear != null) {
+    route.getWorkTimeInMonth(monthOfYear, ctx) ?: 0L
+} else {
+    route.getWorkTime() ?: 0L
+}
+
+// Собирает плоский список в строки: смежные пары туда→обратно (флаг «отдых в ПО»
+// у раннего плеча) сворачиваются в один трей. Три плеча подряд связываются попарно.
+private fun buildAllRouteRows(
+    routes: List<ItemState>,
+    monthOfYear: MonthOfYear?,
+    ctx: TimeCalculationContext,
+    groupTurnaroundRest: Boolean,
+): List<AllRouteRow> {
+    val rows = mutableListOf<AllRouteRow>()
+    val total = routes.size
+    var i = 0
+    while (i < total) {
+        val cur = routes[i]
+        val curNumber = total - i
+        val next = routes.getOrNull(i + 1)
+        // Если пользователь отключил объединение — плоский список без треев.
+        val rest = if (groupTurnaroundRest) {
+            next?.let { turnaroundRestBetween(cur.route, it.route) }
+        } else null
+        if (rest != null && next != null) {
+            rows.add(
+                TripGroupRow(
+                    upper = cur,
+                    upperNumber = curNumber,
+                    lower = next,
+                    lowerNumber = total - (i + 1),
+                    rest = rest,
+                    totalWorkMs = workTimeForCard(cur.route, monthOfYear, ctx) +
+                        workTimeForCard(next.route, monthOfYear, ctx),
+                )
+            )
+            i += 2
+        } else {
+            rows.add(SingleRouteRow(item = cur, number = curNumber))
+            i += 1
+        }
+    }
+    return rows
+}
+
+// Одна карточка маршрута со всей обвязкой (фон по типу маршрута + колбэки).
+@Composable
+private fun RouteCardItem(
+    routeState: ItemState,
+    number: Int,
+    isExpand: Boolean,
+    monthOfYear: MonthOfYear?,
+    timeCalculationContext: TimeCalculationContext,
+    dateAndTimeConverter: DateAndTimeConverter,
+    convertTimeToString: (Long?) -> String,
+    shiftPaymentText: String?,
+    onClick: () -> Unit,
+    onRequestDelete: (Route) -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val background = when {
+        routeState.isFuture -> MaterialTheme.colorScheme.surfaceBright
+        routeState.isTransition -> MaterialTheme.colorScheme.surfaceDim
+        else -> MaterialTheme.colorScheme.secondary
+    }
+    ItemHomeScreen(
+        modifier = modifier,
+        route = routeState.route,
+        convertTimeToString = convertTimeToString,
+        onClick = onClick,
+        onRequestDelete = onRequestDelete,
+        isExpand = isExpand,
+        onLongClick = onLongClick,
+        containerColor = background,
+        dateAndTimeConverter = dateAndTimeConverter,
+        isHeavyTrains = routeState.isHeavyTrains,
+        isHolidayTimeInRoute = routeState.isHoliday,
+        isLongCompositionTrain = routeState.isLongCompositionTrain,
+        isExtendedServicePhaseTrains = routeState.isExtendedServicePhaseTrains,
+        number = number,
+        monthOfYear = monthOfYear,
+        timeCalculationContext = timeCalculationContext,
+        shiftPaymentText = shiftPaymentText,
+    )
+}
+
+// Трей пары «поездка с отдыхом в ПО»: общий фон accentSoft, шапка с итогом часов
+// обоих плеч. Выходит на всю ширину (карточки внутри инсетятся на 8dp и сохраняют
+// обычную ширину). Итог часов — единственная суммируемая величина, только отображение.
+@Composable
+private fun TripGroupTray(
+    totalWorkText: String,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            // Нейтральный серый контейнер — не путать с голубым фоном переходного
+            // маршрута (surfaceDim). Акцент «отдыха» остаётся в шапке и пилюле.
+            .background(MaterialTheme.colorScheme.surfaceBright)
+            .padding(horizontal = 8.dp, vertical = 10.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 6.dp, top = 2.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.hotel_24px),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.size(16.dp),
+            )
+            Text(
+                text = "Поездка с отдыхом · $totalWorkText".uppercase(),
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontFamily = com.z_company.core.ui.theme.MonoFont,
+                    letterSpacing = 0.8.sp,
+                ),
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+            )
+        }
+        content()
     }
 }
