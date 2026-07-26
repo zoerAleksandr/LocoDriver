@@ -289,6 +289,11 @@ class RouteActionsHelper() : KoinComponent {
             val endTime = route.basicData.timeEndWork!! + duration
 
             emit(ResultState.Success(Pair(duration, endTime)))
+        } catch (c: kotlin.coroutines.cancellation.CancellationException) {
+            // Отмена коллектора (collectLatest / .first()) бросает CancellationException
+            // (в т.ч. AbortFlowException) через emit — её нельзя глотать и переэмитить,
+            // иначе «Flow exception transparency is violated». Пробрасываем дальше.
+            throw c
         } catch (t: Throwable) {
             emit(ResultState.Error(ErrorEntity(t)))
         }
