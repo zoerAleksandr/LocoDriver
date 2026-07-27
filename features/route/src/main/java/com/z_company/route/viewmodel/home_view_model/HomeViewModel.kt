@@ -616,7 +616,14 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 difference = startWorkTime - getInstance(tz).timeInMillis
                 if (difference <= 0) {
                     _countdownToNextRoute.tryEmit(0L)
-                    nextFutureRoute = null
+                    // Время явки следующего маршрута наступило — он становится текущим.
+                    // Пересчитываем блоки в отдельной корутине (текущая — countdownTimerJob —
+                    // будет отменена внутри updateCurrentAndNextRoute), чтобы «Следующий маршрут»
+                    // сразу же сменился на «Текущий маршрут» без ожидания эмита из БД.
+                    viewModelScope.launch {
+                        updateCurrentAndNextRoute(allRoutesGlobal)
+                        recomputeRestBlock(allRoutesGlobal)
+                    }
                     break
                 }
                 _countdownToNextRoute.tryEmit(difference)
