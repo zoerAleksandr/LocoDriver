@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -41,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
@@ -67,6 +69,7 @@ import com.z_company.domain.entities.route.SearchResponse
 import com.z_company.domain.util.splitBySpaceAndComma
 import com.z_company.route.R
 import com.z_company.route.component.BottomShadow
+import com.z_company.route.component.ChipApp
 import com.z_company.route.component.SearchSettingBottomSheet
 import kotlinx.coroutines.launch
 import com.z_company.route.component.SearchBar
@@ -169,10 +172,13 @@ fun SearchScreen(
                 inputContent = {
                     FlowRow(
                         modifier = Modifier.padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         hints.forEach { s ->
-                            AssistChip(
+                            ChipApp(
+                                selected = false,
+                                label = s.trim(),
                                 onClick = {
                                     if (s.contains(query.text)) {
                                         setQueryValue(TextFieldValue(s))
@@ -180,27 +186,15 @@ fun SearchScreen(
                                         setQueryValue(TextFieldValue("${query.text} $s"))
                                     }
                                     onSearch()
-                                }, label = {
-                                    Box(
-                                        modifier = Modifier
-                                            .wrapContentSize()
-                                            .padding(4.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = s.trim(),
-                                            style = hintStyle,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                })
+                                }
+                            )
                         }
                     }
                 }) { resultList ->
                 resultList?.let { list ->
                     LazyColumn(
                         modifier = Modifier.padding(top = 12.dp),
-                        verticalArrangement = Arrangement.Top,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                         state = scrollState
                     ) {
                         if (list.isEmpty()) {
@@ -266,6 +260,16 @@ fun HistoryResponse(
     LazyColumn(
         modifier = Modifier.fillMaxWidth(), state = scrollState
     ) {
+        if (historyList.isNotEmpty()) {
+            item {
+                Text(
+                    modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+                    text = "НЕДАВНИЕ ЗАПРОСЫ",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         items(historyList) { request ->
             HistoryItem(
                 modifier = Modifier.animateItem(),
@@ -295,7 +299,7 @@ fun HistoryItem(
             Icon(
                 painterResource(id = R.drawable.outline_history_24),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 modifier = Modifier
@@ -309,7 +313,7 @@ fun HistoryItem(
                 Icon(
                     painter = painterResource(com.z_company.core.R.drawable.ic_clear),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -325,33 +329,65 @@ private fun SearchListItem(
     entityString: EntityString?,
     onClick: () -> Unit
 ) {
-    val date = SimpleDateFormat(
-        DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()
-    ).format(route.basicData.timeStartWork)
+    val date = route.basicData.timeStartWork?.let {
+        SimpleDateFormat(DateAndTimeFormat.DATE_FORMAT, Locale.getDefault()).format(it)
+    } ?: ""
 
-    val hintStyle = MaterialTheme.typography.bodyMedium
+    val tagLabel = when (searchTag) {
+        SearchTag.BASIC_DATA -> "Основные данные"
+        SearchTag.LOCO -> "Локомотив"
+        SearchTag.TRAIN -> "Поезд"
+        SearchTag.PASSENGER -> "Следование пассажиром"
+        SearchTag.NOTES -> "Примечания"
+    }
+
+    val numberText = route.basicData.number?.takeIf { it.isNotBlank() }
+        ?.let { "№$it" } ?: "Маршрут"
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .noRippleEffect {
-                onClick.invoke()
-            }) {
-        Text(
-            text = date,
-            style = hintStyle,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp, start = 16.dp)
-                .shadow(elevation = 1.dp, shape = Shapes.medium)
-                .background(
-                    color = MaterialTheme.colorScheme.surface, shape = Shapes.medium
-                )
-                .padding(8.dp)
+            .shadow(elevation = 1.dp, shape = Shapes.medium)
+            .background(color = MaterialTheme.colorScheme.surface, shape = Shapes.medium)
+            .clip(Shapes.medium)
+            .clickable { onClick.invoke() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        // Шапка карточки: анкер маршрута (№ + дата) — как на карточках Главного/Маршрутов.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            Text(
+                text = numberText,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = com.z_company.core.ui.theme.MonoFont,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            if (date.isNotBlank()) {
+                Text(
+                    text = date,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = com.z_company.core.ui.theme.MonoFont,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        // Лейбл группы, в которой нашлось совпадение (как заголовки групп в карточке).
+        Text(
+            text = tagLabel.uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontFamily = com.z_company.core.ui.theme.MonoFont,
+                letterSpacing = 1.2.sp,
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        )
+        Box(modifier = Modifier.fillMaxWidth()) {
             val shownText = when (searchTag) {
                 SearchTag.BASIC_DATA -> {
                     StringBuilder(entityString?.basicDataStr(route.basicData) ?: "")
@@ -419,7 +455,7 @@ private fun SearchListItem(
 
             Text(
                 text = textWithSelection,
-                style = hintStyle,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary
             )
         }
@@ -428,15 +464,28 @@ private fun SearchListItem(
 
 @Composable
 private fun ItemEmptyList() {
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(24.dp), contentAlignment = Alignment.Center
+            .padding(top = 48.dp, start = 24.dp, end = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        Icon(
+            painter = painterResource(id = R.drawable.search_24px),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.size(40.dp)
+        )
         Text(
             text = "Ничего не найдено",
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "Измените запрос или проверьте фильтры",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
         )
     }
 }

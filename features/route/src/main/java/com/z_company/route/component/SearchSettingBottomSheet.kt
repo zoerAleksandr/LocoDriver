@@ -8,9 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.z_company.route.component.AppDateTimePicker
 import com.z_company.core.ui.theme.Shapes
@@ -36,7 +35,6 @@ fun SearchSettingBottomSheet(
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val hintStyle = MaterialTheme.typography.bodyMedium
-    val dataStyle = MaterialTheme.typography.bodyLarge
 
     val primaryColor = MaterialTheme.colorScheme.primary
 
@@ -146,201 +144,55 @@ fun SearchSettingBottomSheet(
             horizontalAlignment = Alignment.Start
         ) {
             Text(
-                modifier = Modifier.padding(top = 32.dp),
-                text = "Где искать",
-                style = dataStyle,
-                color = primaryColor,
-                textAlign = TextAlign.Center
+                modifier = Modifier.padding(top = 24.dp),
+                text = "ГДЕ ИСКАТЬ",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             FlowRow(
-                modifier = Modifier.padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                modifier = Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                filter.generalData.let { pair ->
-                    FilterChip(
+                listOf(
+                    filter.generalData,
+                    filter.locoData,
+                    filter.trainData,
+                    filter.passengerData,
+                    filter.notesData,
+                ).forEach { pair ->
+                    ChipApp(
                         selected = pair.second,
-                        onClick = {
-                            setFilter(
-                                Pair(
-                                    FilterNames.GENERAL_DATA.value,
-                                    !pair.second
-                                )
-                            )
-                        },
-                        label = {
-                            Text(
-                                modifier = Modifier.padding(4.dp),
-                                text = pair.first,
-                                style = hintStyle,
-                                color = primaryColor
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.surfaceDim,
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            selected = pair.second,
-                            enabled = pair.second,
-                            selectedBorderWidth = 1.dp,
-                            selectedBorderColor = MaterialTheme.colorScheme.tertiary,
-                            disabledBorderColor = Color.Transparent
-                        )
-                    )
-                }
-
-                filter.locoData.let { pair ->
-                    FilterChip(
-                        selected = pair.second,
-                        onClick = {
-                            setFilter(
-                                Pair(
-                                    FilterNames.LOCO_DATA.value,
-                                    !pair.second
-                                )
-                            )
-                        },
-                        label = {
-                            Text(
-                                modifier = Modifier.padding(4.dp),
-                                text = pair.first,
-                                style = hintStyle,
-                                color = primaryColor
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.surfaceDim
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            selected = pair.second,
-                            enabled = pair.second,
-                            selectedBorderWidth = 1.dp,
-                            selectedBorderColor = MaterialTheme.colorScheme.tertiary,
-                            disabledBorderColor = Color.Transparent
-                        )
-                    )
-                }
-
-                filter.trainData.let { pair ->
-                    FilterChip(
-                        selected = pair.second,
-                        onClick = {
-                            setFilter(
-                                Pair(
-                                    FilterNames.TRAIN_DATA.value,
-                                    !pair.second
-                                )
-                            )
-                        },
-                        label = {
-                            Text(
-                                modifier = Modifier.padding(4.dp),
-                                text = pair.first,
-                                style = hintStyle,
-                                color = primaryColor
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.surfaceDim
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            selected = pair.second,
-                            enabled = pair.second,
-                            selectedBorderWidth = 1.dp,
-                            selectedBorderColor = MaterialTheme.colorScheme.tertiary,
-                            disabledBorderColor = Color.Transparent
-                        )
-                    )
-                }
-
-                filter.passengerData.let { pair ->
-                    FilterChip(
-                        selected = pair.second,
-                        onClick = {
-                            setFilter(
-                                Pair(
-                                    FilterNames.PASSENGER_DATA.value,
-                                    !pair.second
-                                )
-                            )
-                        },
-                        label = {
-                            Text(
-                                modifier = Modifier.padding(4.dp),
-                                text = pair.first,
-                                style = hintStyle,
-                                color = primaryColor
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.surfaceDim
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            selected = pair.second,
-                            enabled = pair.second,
-                            selectedBorderWidth = 1.dp,
-                            selectedBorderColor = MaterialTheme.colorScheme.tertiary,
-                            disabledBorderColor = Color.Transparent
-                        )
-                    )
-                }
-
-                filter.notesData.let { pair ->
-                    FilterChip(
-                        selected = pair.second,
-                        onClick = {
-                            setFilter(
-                                Pair(
-                                    FilterNames.NOTES_DATA.value,
-                                    !pair.second
-                                )
-                            )
-                        },
-                        label = {
-                            Text(
-                                modifier = Modifier.padding(4.dp),
-                                text = pair.first,
-                                style = hintStyle,
-                                color = primaryColor
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.surfaceDim
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            selected = pair.second,
-                            enabled = pair.second,
-                            selectedBorderWidth = 1.dp,
-                            selectedBorderColor = MaterialTheme.colorScheme.tertiary,
-                            disabledBorderColor = Color.Transparent
-                        )
+                        label = pair.first,
+                        onClick = { setFilter(Pair(pair.first, !pair.second)) }
                     )
                 }
             }
             Text(
                 modifier = Modifier.padding(top = 32.dp),
-                text = "Период времени",
-                style = dataStyle,
-                textAlign = TextAlign.Center,
-                color = primaryColor
+                text = "ПЕРИОД ВРЕМЕНИ",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp),
+                    .padding(top = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
+                        .clip(Shapes.medium)
                         .clickable {
                             showDatePickerStart = true
                         }
                         .border(
                             width = 1.dp,
-                            shape = Shapes.small,
+                            shape = Shapes.medium,
                             color = MaterialTheme.colorScheme.outline
                         )
-                        .padding(horizontal = 18.dp, vertical = 6.dp),
+                        .padding(horizontal = 18.dp, vertical = 14.dp),
                 ) {
                     val dateStartText = dateAndTimeConverter?.getDateFromDateLong(startDate) ?: ""
                     val startPeriodText = "c $dateStartText"
@@ -355,15 +207,16 @@ fun SearchSettingBottomSheet(
                 Box(
                     modifier = Modifier
                         .weight(1f)
+                        .clip(Shapes.medium)
                         .clickable {
                             showDatePickerEnd = true
                         }
                         .border(
                             width = 1.dp,
-                            shape = Shapes.small,
+                            shape = Shapes.medium,
                             color = MaterialTheme.colorScheme.outline
                         )
-                        .padding(horizontal = 18.dp, vertical = 6.dp),
+                        .padding(horizontal = 18.dp, vertical = 14.dp),
                 ) {
                     val dateEndText = dateAndTimeConverter?.getDateFromDateLong(endDate) ?: ""
                     val endPeriodText = "по $dateEndText"
