@@ -185,7 +185,11 @@ class CalendarViewModel : ViewModel(), KoinComponent {
     fun toggleDayPlan(day: Int) {
         val s = _routePlan.value
         if (s.activeTime == null) return
-        if (_uiState.value.absenceByDay.containsKey(day)) return // на отвлечение нельзя
+        // На отвлечение (отпуск/больничный/…) маршрут ставить нельзя. Но «Выходной» —
+        // это перенос выходного дня, работа в него допустима (оплата ×2), поэтому явку
+        // в такой день разрешаем.
+        val absence = _uiState.value.absenceByDay[day]
+        if (absence != null && absence.type != ReleaseType.DayOff) return
         val days = s.plannedDays.toMutableSet()
         if (!days.add(day)) days.remove(day)
         _routePlan.value = s.copy(plannedDays = days)

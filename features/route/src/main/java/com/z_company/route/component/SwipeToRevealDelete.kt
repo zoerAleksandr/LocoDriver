@@ -62,15 +62,20 @@ fun SwipeToRevealDelete(
     // (карточки секций имеют свой внешний отступ). Для карточек без отступа —
     // передать 0.dp, чтобы фон «Удалить» был ровно высотой карточки.
     backgroundVerticalPadding: androidx.compose.ui.unit.Dp = 6.dp,
+    // Идентификатор элемента (например, id маршрута). Состояние свайпа привязано
+    // к нему: когда в тот же слот композиции попадает ДРУГОЙ элемент (после удаления
+    // соседнего в списке/на главном), offsetX/revealed сбрасываются — иначе новый
+    // элемент отрисовывался бы уже в раскрытом («свайпнутом») положении.
+    itemKey: Any? = Unit,
     // content получает флаг revealed — на случай если контенту нужно знать состояние.
     content: @Composable (revealed: Boolean) -> Unit,
 ) {
     val density = LocalDensity.current
     val buttonWidth = if (compact) 72.dp else 96.dp
     val buttonWidthPx = with(density) { buttonWidth.toPx() }
-    val offsetX = remember { Animatable(0f) }
+    val offsetX = remember(itemKey) { Animatable(0f) }
     val scope = rememberCoroutineScope()
-    var revealed by remember { mutableStateOf(false) }
+    var revealed by remember(itemKey) { mutableStateOf(false) }
 
     fun close() {
         revealed = false

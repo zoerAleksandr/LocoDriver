@@ -14,10 +14,18 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.toInstant
 
 object UtilForMonthOfYear {
+    // «Выходной» (DayOff) — это перенос выходного дня, а не отвлечение: работник
+    // отдыхает в этот день, но отрабатывает другой, поэтому месячная норма НЕ
+    // меняется (в отличие от отпуска/больничного). Такой день не уменьшает норму
+    // и не входит в пул «оплата по среднему» — единственный эффект DayOff —
+    // ×2 при работе (см. UtilsForEntities.isHolidayTimeInRoute).
+    private fun Day.reducesNorma(): Boolean =
+        isReleaseDay && releaseType != ReleaseType.DayOff
+
     fun MonthOfYear.getPersonalNormaHours(): Int {
         var normaOfMonth = 0
         this.days.forEach { day ->
-            if (!day.isReleaseDay) {
+            if (!day.reducesNorma()) {
                 normaOfMonth += when (day.tag) {
                     TagForDay.WORKING_DAY -> 8
                     TagForDay.SHORTENED_DAY -> 7
@@ -49,9 +57,12 @@ object UtilForMonthOfYear {
         this.days.forEach { day ->
             // «Командировка» оплачивается отдельно (по среднему за отработанные
             // маршруты), поэтому её дни НЕ попадают в общий пул «оплата по среднему».
+            // «Выходной» (DayOff) — перенос выходного, а не отвлечение: не входит
+            // в пул «оплата по среднему» (см. Day.reducesNorma / getPersonalNormaHours).
             if (day.isReleaseDay &&
                 day.releaseType != ReleaseType.ChildCare &&
-                day.releaseType != ReleaseType.BusinessTrip
+                day.releaseType != ReleaseType.BusinessTrip &&
+                day.releaseType != ReleaseType.DayOff
             ) {
                 totalRelease += when (day.tag) {
                     TagForDay.WORKING_DAY -> 8
@@ -99,7 +110,7 @@ object UtilForMonthOfYear {
         var normaOfMonth = 0
         if (currentDate.monthNumber - 1 == this.month) {
             this.days.forEach { day ->
-                if (day.isReleaseDay) {
+                if (day.reducesNorma()) {
                     return@forEach
                 }
                 if (currentDate.dayOfMonth >= day.dayOfMonth) {
@@ -121,7 +132,7 @@ object UtilForMonthOfYear {
     ): Int {
         var normaOfMonth = 0
         this.days.forEach { day ->
-            if (!day.isReleaseDay) {
+            if (!day.reducesNorma()) {
                 if (day.dayOfMonth in period.first..period.second) {
                     normaOfMonth += when (day.tag) {
                         TagForDay.WORKING_DAY -> 8

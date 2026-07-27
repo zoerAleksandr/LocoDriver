@@ -5,6 +5,10 @@ import com.z_company.core.ResultState
 data class SalaryCalculationUIState(
     val screenState: ResultState<Unit> = ResultState.Loading(),
     val month: String = "",
+    // Индекс месяца (0-based) и год расчёта — для заголовка «Июль 2026» и стрелок
+    // переключения месяца на экране (как на главном).
+    val monthIndex: Int? = null,
+    val year: Int? = null,
     val currency: String = "₽",
     val tariffRate: String? = null,
     val normaHours: Int? = null,

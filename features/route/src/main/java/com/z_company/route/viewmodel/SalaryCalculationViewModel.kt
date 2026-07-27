@@ -9,6 +9,7 @@ import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.NormaUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
@@ -44,15 +45,30 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val normaUseCase: NormaUseCase by inject()
+    private val calendarUseCase: CalendarUseCase by inject()
     private val sharedPreferenceStorage: com.z_company.domain.repositories.SharedPreferencesRepositories by inject()
     private val _userSetting = MutableStateFlow(UserSettings())
     val userSetting = _userSetting.asStateFlow()
     private var job: Job? = null
+    private var setMonthJob: Job? = null
 
     private val _uiState = MutableStateFlow(SalaryCalculationUIState())
     val uiState = _uiState.asStateFlow()
 
+    // Список доступных месяцев (год, месяц 0-based) из производственного календаря —
+    // для стрелок переключения месяца на экране (как на главном).
+    private val _monthYearList = MutableStateFlow<List<Pair<Int, Int>>>(emptyList())
+    val monthYearList = _monthYearList.asStateFlow()
+
     init {
+        viewModelScope.launch {
+            calendarUseCase.loadFlowMonthOfYearListState().collect { list ->
+                _monthYearList.value = list
+                    .map { it.year to it.month }
+                    .distinct()
+                    .sortedWith(compareBy({ it.first }, { it.second }))
+            }
+        }
         viewModelScope.launch {
             try {
                 combine(
@@ -80,7 +96,23 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     override fun onCleared() {
         super.onCleared()
         job?.cancel()
+        setMonthJob?.cancel()
         viewModelScope.coroutineContext.cancelChildren()  // Отмена всех дочерних корутин
+    }
+
+    /**
+     * Переключить месяц расчёта. Записываем выбранный месяц в настройки —
+     * реактивная подписка в init пересчитает зарплату за новый месяц.
+     * [yearAndMonth] — (год, месяц 0-based), как в [monthYearList].
+     */
+    fun selectYearAndMonth(yearAndMonth: Pair<Int, Int>) {
+        setMonthJob?.cancel()
+        setMonthJob = viewModelScope.launch {
+            val month = calendarUseCase.loadFlowMonthOfYearListState().first()
+                .find { it.year == yearAndMonth.first && it.month == yearAndMonth.second }
+                ?: return@launch
+            settingsUseCase.setCurrentMonthOfYear(month).first()
+        }
     }
 
     fun convertTimeToStringFormat(timeToLong: Long?): String {
@@ -295,6 +327,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                     currentState.copy(  // Пояснение: copy на полном UIState, заменяем все поля из combinedPartial
                         screenState = ResultState.Success(Unit),  // Устанавливаем Success в конце
                         month = combinedPartial.month,
+                        monthIndex = currentMonthOfYear.month,
+                        year = currentMonthOfYear.year,
                         currency = currency,
                         normaHours = combinedPartial.normaHours,
                         totalWorkTime = combinedPartial.totalWorkTime,

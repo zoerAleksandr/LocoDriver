@@ -3,10 +3,13 @@ package com.z_company.route.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,7 +20,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,15 +32,18 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
@@ -59,7 +69,9 @@ import androidx.compose.ui.unit.sp
 import com.z_company.core.ResultState
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
+import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.util.str2decimalSign
+import com.z_company.route.component.ChipApp
 import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.viewmodel.PdfViewModel
@@ -107,6 +119,10 @@ fun SalaryCalculationScreen(
         val rate = uiState.tariffRate?.substringBefore(' ')?.replace(',', '.')?.toDoubleOrNull()
         infoSetTariffRate = uiState.tariffRate == null || rate == 0.0
     }
+
+    // Список доступных месяцев + состояние шторки выбора месяца (как на главном).
+    val monthYearList by viewModel.monthYearList.collectAsState()
+    var showMonthSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -168,8 +184,19 @@ fun SalaryCalculationScreen(
                     .padding(horizontal = 16.dp)
                     .testTag("salary_lazy_column"),
             ) {
+                // Переключатель месяца расчёта (месяц + год + стрелки) — как на главном.
+                item {
+                    SalaryMonthSelector(
+                        monthIndex = uiState.monthIndex,
+                        year = uiState.year,
+                        monthYearList = monthYearList,
+                        onSelect = viewModel::selectYearAndMonth,
+                        onMonthClick = { showMonthSheet = true },
+                    )
+                }
+
                 // Hero — крупная сумма «К выдаче»
-                item { SalaryHero(month = uiState.month, amount = uiState.toBeCredited, currency = uiState.currency) }
+                item { SalaryHero(amount = uiState.toBeCredited, currency = uiState.currency) }
 
                 // Предупреждение о неустановленной тарифной ставке
                 item {
@@ -225,6 +252,20 @@ fun SalaryCalculationScreen(
         )
     }
 
+    // Шторка выбора месяца/года (как на главном): чипы месяцев и лет + «Применить».
+    if (showMonthSheet && uiState.monthIndex != null && uiState.year != null) {
+        SalaryMonthSheet(
+            currentMonthIndex = uiState.monthIndex!!,
+            currentYear = uiState.year!!,
+            monthYearList = monthYearList,
+            onApply = { year, month ->
+                viewModel.selectYearAndMonth(year to month)
+                showMonthSheet = false
+            },
+            onDismiss = { showMonthSheet = false },
+        )
+    }
+
     // Инфо-окно: отработано меньше нормы, но средний час не задан — предлагаем
     // указать его. «Понятно» закрывает навсегда (флаг в настройках), «В настройки»
     // ведёт в настройки ЗП (в этой сессии окно тоже скрываем).
@@ -268,17 +309,179 @@ fun SalaryCalculationScreen(
 }
 
 // ===========================================
+// Переключатель месяца расчёта: «Июль 2026» + стрелки ‹ ›
+// (тот же паттерн, что на главном экране).
+// ===========================================
+@Composable
+private fun SalaryMonthSelector(
+    monthIndex: Int?,
+    year: Int?,
+    monthYearList: List<Pair<Int, Int>>,
+    onSelect: (Pair<Int, Int>) -> Unit,
+    onMonthClick: () -> Unit,
+) {
+    val currentIndex = if (monthIndex != null && year != null) {
+        monthYearList.indexOfFirst { it.first == year && it.second == monthIndex }
+    } else -1
+    val hasPrev = currentIndex > 0
+    val hasNext = currentIndex in 0 until monthYearList.lastIndex
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { onMonthClick() }
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Text(
+                text = monthIndex?.let { getMonthFullText(it) } ?: "",
+                style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            year?.let {
+                Text(
+                    modifier = Modifier.padding(start = 6.dp),
+                    text = it.toString(),
+                    style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        IconButton(
+            onClick = { monthYearList.getOrNull(currentIndex - 1)?.let(onSelect) },
+            enabled = hasPrev,
+        ) {
+            Icon(
+                painter = painterResource(com.z_company.route.R.drawable.keyboard_arrow_left_24px),
+                contentDescription = "Предыдущий месяц",
+                tint = if (hasPrev) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+            )
+        }
+        IconButton(
+            onClick = { monthYearList.getOrNull(currentIndex + 1)?.let(onSelect) },
+            enabled = hasNext,
+        ) {
+            Icon(
+                painter = painterResource(com.z_company.route.R.drawable.keyboard_arrow_right_24px),
+                contentDescription = "Следующий месяц",
+                tint = if (hasNext) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+            )
+        }
+    }
+}
+
+// ===========================================
+// Шторка выбора месяца и года (тот же паттерн, что на главном экране):
+// чипы месяцев + чипы лет + кнопка «Применить».
+// ===========================================
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun SalaryMonthSheet(
+    currentMonthIndex: Int,
+    currentYear: Int,
+    monthYearList: List<Pair<Int, Int>>,
+    onApply: (year: Int, month: Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val monthList = monthYearList.map { it.second }.distinct().sorted()
+    val yearList = monthYearList.map { it.first }.distinct().sorted()
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        // tonalElevation=0, иначе Material накладывает surfaceTint и белая шторка мятнеет.
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Text(
+                text = "Выберите месяц и год",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 24.dp),
+            )
+
+            var selectedMonth by remember { mutableIntStateOf(currentMonthIndex) }
+            var selectedYear by remember { mutableIntStateOf(currentYear) }
+
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                monthList.forEach { m ->
+                    ChipApp(
+                        selected = selectedMonth == m,
+                        onClick = { selectedMonth = m },
+                        label = getMonthFullText(m),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                yearList.forEach { y ->
+                    ChipApp(
+                        selected = selectedYear == y,
+                        onClick = { selectedYear = y },
+                        label = "$y",
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = { onApply(selectedYear, selectedMonth) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = Shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
+            ) {
+                Text(
+                    text = "Применить",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+// ===========================================
 // Hero — «К ВЫДАЧЕ · МЕСЯЦ» + крупная mono-сумма
 // ===========================================
 @Composable
-private fun SalaryHero(month: String, amount: Double?, currency: String) {
+private fun SalaryHero(amount: Double?, currency: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 16.dp)
     ) {
+        // Месяц вынесен в отдельный переключатель над Hero, поэтому здесь — только «К ВЫДАЧЕ».
         Text(
-            text = if (month.isBlank()) "К ВЫДАЧЕ" else "К ВЫДАЧЕ · ${month.uppercase()}",
+            text = "К ВЫДАЧЕ",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

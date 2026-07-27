@@ -769,8 +769,10 @@ private fun DayCell(
     val isWeekend = weekendIndex >= 5
     val ac = absence?.let { releaseColor(it.type) }
     val isPlanned = planning && plannedTime != null
-    // В планировании дни с отвлечением недоступны — глушим.
-    val dimmed = planning && absence != null && !isPlanned
+    // В планировании дни с отвлечением недоступны — глушим. Исключение — «Выходной»:
+    // это перенос выходного дня, явку в него можно ставить, поэтому не глушим.
+    val dimmed = planning && absence != null &&
+        absence.type != ReleaseType.DayOff && !isPlanned
 
     val bg = when {
         isPlanned -> cs.tertiary
@@ -1032,66 +1034,42 @@ private fun DayDetails(
     }
 
     if (showDeleteAbsence && absence != null) {
-        AbsenceDeleteDialog(
-            absence = absence,
-            monthIndex = state.month,
-            onDeleteDay = { showDeleteAbsence = false; onDeleteAbsenceDay(selectedDay) },
-            onDeletePeriod = { showDeleteAbsence = false; onDeleteAbsencePeriod(absence.periodStart, absence.periodEnd) },
-            onDismiss = { showDeleteAbsence = false },
-        )
-    }
-}
-
-@Composable
-private fun AbsenceDeleteDialog(
-    absence: AbsenceInfo,
-    monthIndex: Int,
-    onDeleteDay: () -> Unit,
-    onDeletePeriod: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-    val multi = absence.periodDays > 1
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = cs.surface,
-        title = { Text("Удалить «${absence.label}»?", fontSize = 17.sp, fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (multi) {
+        val absenceSheetState = rememberModalBottomSheetState()
+        val multi = absence.periodDays > 1
+        AppBottomSheet(
+            onDismissRequest = { showDeleteAbsence = false },
+            sheetState = absenceSheetState,
+            headerContent = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                     Text(
-                        "Отвлечение занимает ${absence.periodStart}–${absence.periodEnd} ${monthGenitive(monthIndex)} (${absence.periodDays} ${daysWord(absence.periodDays)}). Что удалить?",
-                        fontSize = 14.sp, color = cs.onSurfaceVariant, lineHeight = 20.sp,
+                        "Удалить «${absence.label}»?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = cs.primary,
+                        textAlign = TextAlign.Center,
                     )
-                    Spacer(Modifier.height(2.dp))
-                    DeleteOptionButton("Только этот день", danger = false, onClick = onDeleteDay)
-                    DeleteOptionButton("Весь период · ${absence.periodDays} ${daysWord(absence.periodDays)}", danger = true, onClick = onDeletePeriod)
-                } else {
-                    Text("Удалить это отвлечение?", fontSize = 14.sp, color = cs.onSurfaceVariant)
-                    Spacer(Modifier.height(2.dp))
-                    DeleteOptionButton("Удалить", danger = true, onClick = onDeleteDay)
+                    if (multi) {
+                        Text(
+                            "Занимает ${absence.periodStart}–${absence.periodEnd} ${monthGenitive(state.month)} · ${absence.periodDays} ${daysWord(absence.periodDays)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = cs.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                 }
-            }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
-    )
-}
-
-@Composable
-private fun DeleteOptionButton(label: String, danger: Boolean, onClick: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (danger) cs.error.copy(alpha = 0.10f) else cs.surfaceBright)
-            .border(1.dp, if (danger) cs.error.copy(alpha = 0.35f) else cs.outlineVariant, RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-            .padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = if (danger) cs.error else cs.primary)
+            },
+            actions = if (multi) listOf(
+                BottomSheetAction(text = "Только этот день") { onDeleteAbsenceDay(selectedDay) },
+                BottomSheetAction(text = "Весь период · ${absence.periodDays} ${daysWord(absence.periodDays)}") {
+                    onDeleteAbsencePeriod(absence.periodStart, absence.periodEnd)
+                },
+            ) else listOf(
+                BottomSheetAction(text = "Да, удалить") { onDeleteAbsenceDay(selectedDay) },
+            ),
+        )
     }
 }
 

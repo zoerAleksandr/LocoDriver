@@ -2,6 +2,7 @@ package com.z_company.domain.use_cases
 
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleaseDay
+import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.TagForDay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -84,15 +85,26 @@ class NormaUseCase(
             .maxByOrNull { it.days.size }
             ?: return 0
 
-        // Дни отвлечений из новой таблицы ReleaseDay (добавленные после миграции)
-        val releaseDayNumbers = releaseDays.map { it.dayOfMonth }.toSet()
+        // Дни отвлечений из новой таблицы ReleaseDay (добавленные после миграции).
+        // «Выходной» (DayOff) — перенос выходного дня, а не отвлечение: он НЕ
+        // уменьшает норму месяца (работник отрабатывает другой день). Поэтому
+        // DayOff-дни исключаем из набора «пропускаемых» — они считаются в норму
+        // как обычные дни. Единственный эффект DayOff — ×2 при работе.
+        val releaseDayNumbers = releaseDays
+            .filter { it.releaseType != ReleaseType.DayOff }
+            .map { it.dayOfMonth }
+            .toSet()
 
         var norma = 0
         monthOfYear.days.forEach { day ->
             // Считаем норму только по дням до указанной даты включительно
             if (day.dayOfMonth > upToDayInclusive) return@forEach
-            // Пропускаем: устаревший флаг isReleaseDay ИЛИ день в таблице ReleaseDay
-            if (!day.isReleaseDay && day.dayOfMonth !in releaseDayNumbers) {
+            // Пропускаем норму-уменьшающие отвлечения: устаревший флаг isReleaseDay
+            // (кроме DayOff) ИЛИ день в таблице ReleaseDay (уже без DayOff).
+            val isNormReducingRelease =
+                (day.isReleaseDay && day.releaseType != ReleaseType.DayOff) ||
+                    day.dayOfMonth in releaseDayNumbers
+            if (!isNormReducingRelease) {
                 norma += when (day.tag) {
                     TagForDay.WORKING_DAY   -> 8
                     TagForDay.SHORTENED_DAY -> 7

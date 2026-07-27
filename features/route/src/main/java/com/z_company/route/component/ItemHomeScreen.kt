@@ -176,6 +176,9 @@ fun ItemHomeScreen(
         onContentClick = onClick,
         onContentLongClick = onLongClick,
         backgroundVerticalPadding = 0.dp,
+        // Привязываем состояние свайпа к id маршрута: когда после удаления в тот же
+        // слот попадает следующий маршрут, свайп сбрасывается (не «прилипает»).
+        itemKey = route.basicData.id,
     ) { _ ->
             Card(
                 modifier = Modifier
