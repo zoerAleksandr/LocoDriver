@@ -54,7 +54,12 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
             country = us.country,
             crossMonthTimezone = us.crossMonthTimezone.name,
             useStandardTimePicker = if (us.useStandardTimePicker) 1L else 0L,
-            region = us.region
+            region = us.region,
+            isShowTrain = if (us.isShowTrain) 1L else 0L,
+            isShowOtherWork = if (us.isShowOtherWork) 1L else 0L,
+            otherWorkTypeList = SettingsMapper.encodeStringList(us.otherWorkTypeList),
+            isShowLocomotive = if (us.isShowLocomotive) 1L else 0L,
+            isShowPassenger = if (us.isShowPassenger) 1L else 0L
         )
     }
 

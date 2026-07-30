@@ -4,6 +4,7 @@
     <string name="locomotive">Локомотив</string>
     <string name="train">Поезд</string>
     <string name="passenger">Пассажиром</string>
+    <string name="other_work">Прочая работа</string>
     <string name="notes">Примечания</string>
 
     <string name="msg_route_deleted">Маршрут удален</string>

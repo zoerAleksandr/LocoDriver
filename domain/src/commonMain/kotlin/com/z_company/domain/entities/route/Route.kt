@@ -8,5 +8,6 @@ data class Route(
     var locomotives: MutableList<Locomotive> = mutableListOf(),
     var trains: MutableList<Train> = mutableListOf(),
     var passengers: MutableList<Passenger> = mutableListOf(),
+    var otherWorks: MutableList<OtherWork> = mutableListOf(),
     var photos: MutableList<Photo> = mutableListOf()
 )

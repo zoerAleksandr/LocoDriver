@@ -76,6 +76,11 @@ internal object SettingsMapper {
         }.getOrElse { CrossMonthTimezone.LOCAL },
         useStandardTimePicker = row.useStandardTimePicker != 0L,
         region = row.region,
+        isShowLocomotive = row.isShowLocomotive != 0L,
+        isShowTrain = row.isShowTrain != 0L,
+        isShowPassenger = row.isShowPassenger != 0L,
+        isShowOtherWork = row.isShowOtherWork != 0L,
+        otherWorkTypeList = runCatching { decodeStringList(row.otherWorkTypeList) }.getOrElse { emptyList() },
     )
 }
 

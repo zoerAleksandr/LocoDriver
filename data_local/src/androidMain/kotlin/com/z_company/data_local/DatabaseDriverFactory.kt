@@ -47,6 +47,11 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "locomotiveSeriesList",
             "UserSettings" to "servicePhases",
             "UserSettings" to "region",
+            "UserSettings" to "isShowTrain",
+            "UserSettings" to "isShowOtherWork",
+            "UserSettings" to "otherWorkTypeList",
+            "UserSettings" to "isShowLocomotive",
+            "UserSettings" to "isShowPassenger",
             "MonthOfYear" to "tariffRate",
             "MonthOfYear" to "dateSetTariffRate",
             "LocomotiveSeries" to "acceptanceHandToHandMin",
@@ -263,6 +268,11 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.locomotiveSeriesList" to ColumnSpec("TEXT", false, "'[]'"),
             "UserSettings.servicePhases" to ColumnSpec("TEXT", false, "'[]'"),
             "UserSettings.region" to ColumnSpec("TEXT", true, "NULL"),
+            "UserSettings.isShowTrain" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowOtherWork" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.otherWorkTypeList" to ColumnSpec("TEXT", false, "'[]'"),
+            "UserSettings.isShowLocomotive" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowPassenger" to ColumnSpec("INTEGER", false, "1"),
 
             "LocomotiveSeries.acceptanceHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
             "LocomotiveSeries.deliveryHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
@@ -494,6 +504,25 @@ actual class DatabaseDriverFactory(private val context: Context) {
                     )
                 """.trimIndent())
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_Locomotive_basicId ON Locomotive(basicId)")
+            }
+
+            // Создаём OtherWork («прочая работа», миграция 11), если её ещё нет —
+            // на случай форс-бампа версии в обход .sqm.
+            if (!hasTable(db, "OtherWork")) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS OtherWork (
+                        otherWorkId TEXT NOT NULL PRIMARY KEY,
+                        basicId TEXT NOT NULL,
+                        remoteObjectId TEXT,
+                        workType TEXT,
+                        timeStart INTEGER,
+                        timeEnd INTEGER,
+                        station TEXT,
+                        notes TEXT,
+                        FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_OtherWork_basicId ON OtherWork(basicId)")
             }
 
             // Добавляем недостающие столбцы (для случаев когда таблицы не пересоздавались).

@@ -461,6 +461,30 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    fun changeShowLocomotive(isShow: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isShowLocomotive = isShow
+        )
+    }
+
+    fun changeShowTrain(isShow: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isShowTrain = isShow
+        )
+    }
+
+    fun changeShowPassenger(isShow: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isShowPassenger = isShow
+        )
+    }
+
+    fun changeShowOtherWork(isShow: Boolean) {
+        currentSettings = currentSettings?.copy(
+            isShowOtherWork = isShow
+        )
+    }
+
     fun changeShowLocoHeating(value: Boolean) {
         sharedPreferenceStorage.setShowLocoHeating(value)
         currentSettings = currentSettings?.copy(isShowLocoHeating = value)

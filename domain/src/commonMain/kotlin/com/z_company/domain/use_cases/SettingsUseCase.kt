@@ -179,6 +179,37 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
         }
     }
 
+    /** Добавляет пользовательский тип «прочей работы» в список настроек (без дублей). */
+    suspend fun setOtherWorkType(type: String) {
+        if (type.isBlank()) return
+        withContext(Dispatchers.Default) {
+            val result = settingsRepository.getFlowSettingsState()
+                .first { it is ResultState.Success || it is ResultState.Error }
+            val settings = if (result is ResultState.Success) result.data else null
+            settings?.let { s ->
+                val newList = (listOf(type) + s.otherWorkTypeList)
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                settingsRepository.setSettings(s.copy(otherWorkTypeList = newList))
+                    .first { it is ResultState.Success || it is ResultState.Error }
+            }
+        }
+    }
+
+    /** Удаляет пользовательский тип «прочей работы» из списка настроек. */
+    suspend fun removeOtherWorkType(type: String) {
+        withContext(Dispatchers.Default) {
+            val result = settingsRepository.getFlowSettingsState()
+                .first { it is ResultState.Success || it is ResultState.Error }
+            val settings = if (result is ResultState.Success) result.data else null
+            settings?.let { s ->
+                val newList = s.otherWorkTypeList.filterNot { it == type }
+                settingsRepository.setSettings(s.copy(otherWorkTypeList = newList))
+                    .first { it is ResultState.Success || it is ResultState.Error }
+            }
+        }
+    }
+
     suspend fun setLocomotiveSeriesList(series: List<String>) {
         withContext(Dispatchers.Default) {
             var result = settingsRepository.getFlowSettingsState().first { it is ResultState.Success || it is ResultState.Error }

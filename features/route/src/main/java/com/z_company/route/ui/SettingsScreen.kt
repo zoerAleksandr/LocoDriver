@@ -117,6 +117,10 @@ fun SettingsScreen(
     changeConsiderFutureRoute: (Boolean) -> Unit,
     changeShowBreak: (Boolean) -> Unit,
     changeShowOnePersonSwitch: (Boolean) -> Unit,
+    changeShowLocomotive: (Boolean) -> Unit,
+    changeShowTrain: (Boolean) -> Unit,
+    changeShowPassenger: (Boolean) -> Unit,
+    changeShowOtherWork: (Boolean) -> Unit,
     changeShowLocoHeating: (Boolean) -> Unit,
     changeShowLocoAuxiliary: (Boolean) -> Unit,
     changeShowOtherCurrent: (Boolean) -> Unit,
@@ -354,6 +358,10 @@ fun SettingsScreen(
                                 currentSettings = settings,
                                 changeShowBreak = changeShowBreak,
                                 changeShowOnePersonSwitch = changeShowOnePersonSwitch,
+                                changeShowLocomotive = changeShowLocomotive,
+                                changeShowTrain = changeShowTrain,
+                                changeShowPassenger = changeShowPassenger,
+                                changeShowOtherWork = changeShowOtherWork,
                             )
                         }
 

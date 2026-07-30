@@ -1,0 +1,32 @@
+CREATE TABLE IF NOT EXISTS OtherWork (
+    otherWorkId TEXT NOT NULL PRIMARY KEY,
+    basicId TEXT NOT NULL,
+    remoteObjectId TEXT,
+    workType TEXT,
+    timeStart INTEGER,
+    timeEnd INTEGER,
+    station TEXT,
+    notes TEXT,
+    FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS index_OtherWork_basicId ON OtherWork(basicId);
+
+insertOrReplace:
+INSERT OR REPLACE INTO OtherWork (otherWorkId, basicId, remoteObjectId, workType, timeStart, timeEnd, station, notes)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+getById:
+SELECT * FROM OtherWork WHERE otherWorkId = :otherWorkId;
+
+getByBasicId:
+SELECT * FROM OtherWork WHERE basicId = :basicId;
+
+delete:
+DELETE FROM OtherWork WHERE otherWorkId = :otherWorkId;
+
+setRemoteObjectId:
+UPDATE OtherWork SET remoteObjectId = :remoteObjectId WHERE otherWorkId = :otherWorkId;
+
+countAll:
+SELECT COUNT(*) FROM OtherWork;

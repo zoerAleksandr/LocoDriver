@@ -14,6 +14,7 @@ import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
+import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
@@ -25,6 +26,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHol
 import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.LocomotiveUseCase
+import com.z_company.domain.use_cases.OtherWorkUseCase
 import com.z_company.domain.use_cases.PassengerUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
@@ -79,6 +81,7 @@ class FormViewModel(
     private val locoUseCase: LocomotiveUseCase by inject()
     private val trainUseCase: TrainUseCase by inject()
     private val passengerUseCase: PassengerUseCase by inject()
+    private val otherWorkUseCase: OtherWorkUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val routeHelper: RouteActionsHelper by inject()
@@ -194,6 +197,8 @@ class FormViewModel(
     private val deletedLocoList = mutableListOf<Locomotive>()
     private val deletedTrainList = mutableListOf<Train>()
     private val deletedPassengerList = mutableListOf<Passenger>()
+    private val deletedOtherWorkList = mutableListOf<OtherWork>()
+    private var deleteOtherWorkJob: Job? = null
 
     private var countLoadRoute = 0
 
@@ -310,6 +315,7 @@ class FormViewModel(
                                             locomotives = dbRoute.locomotives,
                                             trains = dbRoute.trains,
                                             passengers = dbRoute.passengers,
+                                            otherWorks = dbRoute.otherWorks,
                                             photos = dbRoute.photos,
                                             // timeEndWork set from LocoFormScreen delivery sheet — take from DB.
                                             // timeStartWork может меняться на экране «Пассажиром»
@@ -368,6 +374,7 @@ class FormViewModel(
         deleteLocoJob?.cancel()
         deleteTrainJob?.cancel()
         deletePassengerJob?.cancel()
+        deleteOtherWorkJob?.cancel()
         // Финальное сохранение при уходе с экрана —
         // ТОЛЬКО если маршрут уже в БД И были несохранённые изменения.
         // Без этого условия пустой/неизменённый маршрут перезаписывался бы при каждом
@@ -980,6 +987,17 @@ class FormViewModel(
         changesHave()
     }
 
+    fun onDeleteOtherWork(otherWork: OtherWork) {
+        _currentRoute.update { route ->
+            route?.copy(otherWorks = route.otherWorks.filter { it != otherWork } as MutableList<OtherWork>)
+        }
+        deletedOtherWorkList.add(otherWork)
+        deleteOtherWorkJob = viewModelScope.launch(Dispatchers.IO) {
+            otherWorkUseCase.removeOtherWork(otherWork).collect {}
+        }
+        changesHave()
+    }
+
     /**
      * Нормализует timeStartWork до минутной точности для сравнения дублей.
      * DateTimePickerApp уже обнуляет секунды/миллисекунды, но дополнительная
@@ -1084,6 +1102,9 @@ class FormViewModel(
                         }
                         deletedPassengerList.forEach { passenger ->
                             passengerUseCase.removePassenger(passenger).collect {}
+                        }
+                        deletedOtherWorkList.forEach { otherWork ->
+                            otherWorkUseCase.removeOtherWork(otherWork).collect {}
                         }
                         _events.emit(FormScreenEvent.RouteSaved)
                         // Оба тоста показываем из этого scope ПОСЛЕ навигации:
@@ -1340,6 +1361,7 @@ class FormViewModel(
                         locomotives = dbRoute.locomotives,
                         trains = dbRoute.trains,
                         passengers = dbRoute.passengers,
+                        otherWorks = dbRoute.otherWorks,
                         photos = dbRoute.photos
                     ) ?: dbRoute
                 }

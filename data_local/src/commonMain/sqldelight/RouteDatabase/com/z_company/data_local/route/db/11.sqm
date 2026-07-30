@@ -1,0 +1,19 @@
+-- Миграция 11: раздел «Прочая работа» (OtherWork).
+-- Зонтичный подраздел маршрута наряду с локомотивом/поездом/пассажиром.
+-- Информационный: время начала/окончания, станция, тип работы, примечания.
+-- Все прикладные поля nullable — обратная совместимость (full-replace,
+-- ignoreUnknownKeys). Свежая установка получает таблицу через Schema.create.
+
+CREATE TABLE IF NOT EXISTS OtherWork (
+    otherWorkId TEXT NOT NULL PRIMARY KEY,
+    basicId TEXT NOT NULL,
+    remoteObjectId TEXT,
+    workType TEXT,
+    timeStart INTEGER,
+    timeEnd INTEGER,
+    station TEXT,
+    notes TEXT,
+    FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS index_OtherWork_basicId ON OtherWork(basicId);

@@ -498,8 +498,11 @@ class PassengerFormViewModel(
     }
 
     fun removeStationName(value: String) {
+        // Обновляем и отображаемый список (currentStationList), иначе открытая шторка
+        // не убирает станцию визуально; плюс удаляем из общих настроек.
+        initStationList.remove(value)
+        currentStationList.remove(value)
         viewModelScope.launch {
-            initStationList.remove(value)
             settingsUseCase.removeStation(value)
         }
     }

@@ -19,6 +19,7 @@ private const val TOKEN_SUBSCRIPTION_EXPIRATION_TAG = "TOKEN_SUBSCRIPTION_EXPIRA
 private const val TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16 =
     "TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16"
 private const val STATION_SORT_REVERSED = "STATION_SORT_REVERSED"
+private const val LAST_OTHER_WORK_TYPE_TAG = "LAST_OTHER_WORK_TYPE_TAG"
 private const val TOKEN_INPUT_DIESEL_IN_KILO = "TOKEN_INPUT_DIESEL_IN_KILO"
 private const val TOKEN_SHOW_LOCO_FORM_UPDATE_V2_1_7 = "TOKEN_SHOW_LOCO_FORM_UPDATE_V2_1_7"
 private const val TOKEN_UNDERWORK_INFO_DISMISSED = "TOKEN_UNDERWORK_INFO_DISMISSED"
@@ -152,6 +153,17 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun setSortOption(value: String) {
         editor.putString(SORT_OPTION_TAG, value).apply()
+    }
+
+    override fun getLastOtherWorkType(): String? =
+        sharedpref.getString(LAST_OTHER_WORK_TYPE_TAG, null)
+
+    override fun setLastOtherWorkType(value: String?) {
+        if (value.isNullOrBlank()) {
+            editor.remove(LAST_OTHER_WORK_TYPE_TAG).apply()
+        } else {
+            editor.putString(LAST_OTHER_WORK_TYPE_TAG, value).apply()
+        }
     }
 
     override fun getSelectedFilters(): Set<String>? =

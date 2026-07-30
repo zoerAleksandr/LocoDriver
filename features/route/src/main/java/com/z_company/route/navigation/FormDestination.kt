@@ -82,6 +82,7 @@ fun FormDestination(
                             ChildEntityType.LOCOMOTIVE -> router.showEmptyLocoForm(event.basicId)
                             ChildEntityType.TRAIN -> router.showEmptyTrainForm(event.basicId)
                             ChildEntityType.PASSENGER -> router.showEmptyPassengerForm(event.basicId)
+                            ChildEntityType.OTHER_WORK -> router.showEmptyOtherWorkForm(event.basicId)
                         }
                     }
                 }
@@ -129,6 +130,13 @@ fun FormDestination(
         onChangePassengerClick = router::showChangePassengerForm,
         onNewPassengerClick = { viewModel.onAddChildEntity(it, ChildEntityType.PASSENGER) },
         onDeletePassenger = viewModel::onDeletePassenger,
+        isShowLocomotive = userSetting?.isShowLocomotive ?: true,
+        isShowTrain = userSetting?.isShowTrain ?: true,
+        isShowPassenger = userSetting?.isShowPassenger ?: true,
+        isShowOtherWork = userSetting?.isShowOtherWork ?: true,
+        onChangeOtherWorkClick = router::showChangeOtherWorkForm,
+        onNewOtherWorkClick = { viewModel.onAddChildEntity(it, ChildEntityType.OTHER_WORK) },
+        onDeleteOtherWork = viewModel::onDeleteOtherWork,
         nightTime = formUiState.nightTime,
         salaryForRouteState = salaryState,
         onSalarySettingClick = router::showSettingSalary,

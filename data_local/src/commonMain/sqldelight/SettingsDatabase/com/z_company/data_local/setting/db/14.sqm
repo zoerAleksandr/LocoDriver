@@ -1,0 +1,7 @@
+-- Миграция 14: тумблеры видимости разделов формы + пользовательские типы прочей работы.
+-- isShowTrain / isShowOtherWork — показывать ли «Поезд» / «Прочая работа» в форме
+-- маршрута (по умолчанию включены). otherWorkTypeList — кастомные типы прочей работы
+-- пользователя (JSON-массив строк, как stationList/locomotiveSeriesList).
+ALTER TABLE UserSettings ADD COLUMN isShowTrain INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE UserSettings ADD COLUMN isShowOtherWork INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE UserSettings ADD COLUMN otherWorkTypeList TEXT NOT NULL DEFAULT '[]';

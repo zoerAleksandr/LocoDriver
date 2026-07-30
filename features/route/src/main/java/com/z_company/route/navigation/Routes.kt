@@ -117,6 +117,28 @@ object FormPassenger: AppRoutes("FormPassenger") {
         "$basicRoute/$basicId?$passengerId"
 }
 
+object FormOtherWork: AppRoutes("FormOtherWork") {
+    private const val paramOtherWorkId = "otherWorkId"
+    private const val paramBasicId = "basicId"
+    override val route: String = "$basicRoute/{$paramBasicId}?{$paramOtherWorkId}"
+    val navArguments = listOf(
+        navArgument(paramOtherWorkId) {
+            type = NavType.StringType
+            nullable = true
+        },
+        navArgument(paramBasicId) {
+            type = NavType.StringType
+            nullable = true
+        }
+    )
+    fun getOtherWorkId(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramOtherWorkId)
+    fun getBasicId(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramBasicId)
+    fun buildDetailsRoute(otherWorkId: String?, basicId: String) =
+        "$basicRoute/$basicId?$otherWorkId"
+}
+
 object SearchRoute: AppRoutes("SearchRoute")
 object PurchasesRoute: AppRoutes("PurchasesRoute")
 

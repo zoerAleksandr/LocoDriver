@@ -2,6 +2,7 @@ package com.z_company.domain.navigation
 
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
+import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Train
 
@@ -31,6 +32,8 @@ interface Router {
     fun showEmptyTrainForm(basicId: String)
     fun showChangePassengerForm(passenger: Passenger)
     fun showEmptyPassengerForm(basicId: String)
+    fun showChangeOtherWorkForm(otherWork: OtherWork)
+    fun showEmptyOtherWorkForm(basicId: String)
     fun showSelectReleaseDayScreen()
     fun showPurchasesScreen()
     fun showMoreInfo(monthOfYearId: String)

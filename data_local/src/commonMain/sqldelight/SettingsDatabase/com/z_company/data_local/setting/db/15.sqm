@@ -1,0 +1,4 @@
+-- Миграция 15: тумблеры видимости разделов «Локомотив» и «Пассажиром» в форме маршрута.
+-- По умолчанию включены.
+ALTER TABLE UserSettings ADD COLUMN isShowLocomotive INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE UserSettings ADD COLUMN isShowPassenger INTEGER NOT NULL DEFAULT 1;

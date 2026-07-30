@@ -17,6 +17,7 @@ val useCaseModule = module {
     single { LoadCalendarFromStorage(repositories = get()) }
     single { TrainUseCase(repository = get()) }
     single { PassengerUseCase(repository = get()) }
+    single { OtherWorkUseCase(repository = get()) }
     single { PhotoUseCase(repository = get()) }
     single { SettingsUseCase(settingsRepository = get()) }
     single { SearchRouteUseCase(repository = get()) }

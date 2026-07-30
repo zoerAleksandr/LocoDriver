@@ -11,11 +11,13 @@ import com.z_company.core.ResultState.Companion.flowRequest
 import com.z_company.data_local.route.db.RouteDatabase
 import com.z_company.data_local.route.mapping.BasicDataMapper
 import com.z_company.data_local.route.mapping.LocomotiveMapper
+import com.z_company.data_local.route.mapping.OtherWorkMapper
 import com.z_company.data_local.route.mapping.PassengerMapper
 import com.z_company.data_local.route.mapping.PhotoMapper
 import com.z_company.data_local.route.mapping.TrainMapper
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
+import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Photo
 import com.z_company.domain.entities.route.Route
@@ -40,12 +42,14 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         val locomotives = db.locomotiveQueries.getByBasicId(basicData.id).executeAsList()
         val trains = db.trainQueries.getByBasicId(basicData.id).executeAsList()
         val passengers = db.passengerQueries.getByBasicId(basicData.id).executeAsList()
+        val otherWorks = db.otherWorkQueries.getByBasicId(basicData.id).executeAsList()
         val photos = db.photoQueries.getByBasicId(basicData.id).executeAsList()
         return Route(
             basicData = BasicDataMapper.toData(basicData),
             locomotives = locomotives.map { LocomotiveMapper.toData(it) }.toMutableList(),
             trains = trains.map { TrainMapper.toData(it) }.toMutableList(),
             passengers = passengers.map { PassengerMapper.toData(it) }.toMutableList(),
+            otherWorks = otherWorks.map { OtherWorkMapper.toData(it) }.toMutableList(),
             photos = photos.map { PhotoMapper.toData(it) }.toMutableList()
         )
     }
@@ -132,6 +136,19 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 isWorkStartByArrival = if (passenger.isWorkStartByArrival) 1L else 0L
             )
         }
+        route.otherWorks.forEach { otherWork ->
+            val owBasicId = otherWork.basicId.ifBlank { basicId }
+            db.otherWorkQueries.insertOrReplace(
+                otherWorkId = otherWork.otherWorkId,
+                basicId = owBasicId,
+                remoteObjectId = otherWork.remoteObjectId,
+                workType = otherWork.workType,
+                timeStart = otherWork.timeStart,
+                timeEnd = otherWork.timeEnd,
+                station = otherWork.station,
+                notes = otherWork.notes
+            )
+        }
         route.photos.forEach { photo ->
             val photoBasicId = photo.basicId.ifBlank { basicId }
             db.photoQueries.insertOrReplace(
@@ -156,8 +173,12 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         val passengerTrigger = db.passengerQueries.countAll()
             .asFlow()
             .mapToOne(Dispatchers.Default)
+        // Триггер: любое изменение в таблице OtherWork (прочая работа) вызывает переэмиссию
+        val otherWorkTrigger = db.otherWorkQueries.countAll()
+            .asFlow()
+            .mapToOne(Dispatchers.Default)
 
-        return combine(basicDataFlow, trainTrigger, passengerTrigger) { basicDataList, _, _ ->
+        return combine(basicDataFlow, trainTrigger, passengerTrigger, otherWorkTrigger) { basicDataList, _, _, _ ->
             basicDataList.map { assembleRoute(it) }
         }
     }
@@ -178,8 +199,11 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             val passengerTrigger = db.passengerQueries.countAll()
                 .asFlow()
                 .mapToOne(Dispatchers.Default)
+            val otherWorkTrigger = db.otherWorkQueries.countAll()
+                .asFlow()
+                .mapToOne(Dispatchers.Default)
 
-            combine(basicDataFlow, trainTrigger, passengerTrigger) { list, _, _ ->
+            combine(basicDataFlow, trainTrigger, passengerTrigger, otherWorkTrigger) { list, _, _, _ ->
                 ResultState.Success(list.map { assembleRoute(it) })
             }
         }
@@ -195,8 +219,11 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         val passengerTrigger = db.passengerQueries.countAll()
             .asFlow()
             .mapToOne(Dispatchers.Default)
+        val otherWorkTrigger = db.otherWorkQueries.countAll()
+            .asFlow()
+            .mapToOne(Dispatchers.Default)
 
-        return combine(basicDataFlow, trainTrigger, passengerTrigger) { list, _, _ ->
+        return combine(basicDataFlow, trainTrigger, passengerTrigger, otherWorkTrigger) { list, _, _, _ ->
             list.map { assembleRoute(it) }
         }
     }
@@ -214,19 +241,19 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             emit(ResultState.Loading())
             emitAll(
                 combine(
-                    db.basicDataQueries.getById(routeId)
-                        .asFlow().mapToOneOrNull(Dispatchers.Default),
-                    db.locomotiveQueries.getByBasicId(routeId)
-                        .asFlow().mapToList(Dispatchers.Default),
-                    db.trainQueries.getByBasicId(routeId)
-                        .asFlow().mapToList(Dispatchers.Default),
-                    db.passengerQueries.getByBasicId(routeId)
-                        .asFlow().mapToList(Dispatchers.Default),
-                    db.photoQueries.getByBasicId(routeId)
-                        .asFlow().mapToList(Dispatchers.Default)
-                ) { basicData, locos, trains, passengers, photos ->
-                    basicData?.let { bd ->
-                        ResultState.Success(
+                    combine(
+                        db.basicDataQueries.getById(routeId)
+                            .asFlow().mapToOneOrNull(Dispatchers.Default),
+                        db.locomotiveQueries.getByBasicId(routeId)
+                            .asFlow().mapToList(Dispatchers.Default),
+                        db.trainQueries.getByBasicId(routeId)
+                            .asFlow().mapToList(Dispatchers.Default),
+                        db.passengerQueries.getByBasicId(routeId)
+                            .asFlow().mapToList(Dispatchers.Default),
+                        db.photoQueries.getByBasicId(routeId)
+                            .asFlow().mapToList(Dispatchers.Default)
+                    ) { basicData, locos, trains, passengers, photos ->
+                        basicData?.let { bd ->
                             Route(
                                 basicData = BasicDataMapper.toData(bd),
                                 locomotives = locos.map { LocomotiveMapper.toData(it) }.toMutableList(),
@@ -234,8 +261,20 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                                 passengers = passengers.map { PassengerMapper.toData(it) }.toMutableList(),
                                 photos = photos.map { PhotoMapper.toData(it) }.toMutableList()
                             )
+                        }
+                    },
+                    db.otherWorkQueries.getByBasicId(routeId)
+                        .asFlow().mapToList(Dispatchers.Default)
+                ) { route, otherWorks ->
+                    if (route == null) {
+                        ResultState.Success(null) as ResultState<Route?>
+                    } else {
+                        ResultState.Success(
+                            route.copy(
+                                otherWorks = otherWorks.map { OtherWorkMapper.toData(it) }.toMutableList()
+                            )
                         ) as ResultState<Route?>
-                    } ?: ResultState.Success(null)
+                    }
                 }.catch { e ->
                     emit(ResultState.Error(ErrorEntity(e)))
                 }
@@ -280,6 +319,19 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
 
     override fun loadPassengerListByBasicId(basicId: String): List<Passenger> {
         return db.passengerQueries.getByBasicId(basicId).executeAsList().map { PassengerMapper.toData(it) }
+    }
+
+    override fun loadOtherWork(otherWorkId: String): Flow<ResultState<OtherWork?>> {
+        return flowMap {
+            db.otherWorkQueries.getById(otherWorkId)
+                .asFlow()
+                .mapToOneOrNull(Dispatchers.Default)
+                .map { ow -> ResultState.Success(ow?.let { OtherWorkMapper.toData(it) }) }
+        }
+    }
+
+    override fun loadOtherWorkListByBasicId(basicId: String): List<OtherWork> {
+        return db.otherWorkQueries.getByBasicId(basicId).executeAsList().map { OtherWorkMapper.toData(it) }
     }
 
     override fun loadPhoto(photoId: String): Flow<ResultState<Photo?>> {
@@ -377,6 +429,22 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
+    override fun saveOtherWork(otherWork: OtherWork): Flow<ResultState<Unit>> {
+        return flowRequest {
+            db.otherWorkQueries.insertOrReplace(
+                otherWorkId = otherWork.otherWorkId.ifBlank { generateId() },
+                basicId = otherWork.basicId,
+                remoteObjectId = otherWork.remoteObjectId,
+                workType = otherWork.workType,
+                timeStart = otherWork.timeStart,
+                timeEnd = otherWork.timeEnd,
+                station = otherWork.station,
+                notes = otherWork.notes
+            )
+            db.basicDataQueries.markUnsynchronized(otherWork.basicId)
+        }
+    }
+
     override fun savePhoto(photo: Photo): Flow<ResultState<Unit>> {
         return flowRequest {
             db.photoQueries.insertOrReplace(
@@ -406,6 +474,10 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         return flowRequest { db.passengerQueries.setRemoteObjectId(objectId, passengerId) }
     }
 
+    override fun setRemoteObjectIdOtherWork(otherWorkId: String, objectId: String): Flow<ResultState<Unit>> {
+        return flowRequest { db.otherWorkQueries.setRemoteObjectId(objectId, otherWorkId) }
+    }
+
     override fun setRemoteObjectIdPhoto(photoId: String, objectId: String): Flow<ResultState<Unit>> {
         return flowRequest { db.photoQueries.setRemoteObjectId(objectId, photoId) }
     }
@@ -430,6 +502,10 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
 
     override fun removePassenger(passenger: Passenger): Flow<ResultState<Unit>> {
         return flowRequest { db.passengerQueries.delete(passenger.passengerId) }
+    }
+
+    override fun removeOtherWork(otherWork: OtherWork): Flow<ResultState<Unit>> {
+        return flowRequest { db.otherWorkQueries.delete(otherWork.otherWorkId) }
     }
 
     override fun removePhoto(photo: Photo): Flow<ResultState<Unit>> {

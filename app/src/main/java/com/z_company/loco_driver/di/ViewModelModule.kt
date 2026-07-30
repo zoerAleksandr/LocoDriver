@@ -5,6 +5,7 @@ import com.z_company.route.viewmodel.all_route_view_model.AllRouteViewModel
 import com.z_company.route.viewmodel.FormViewModel
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.LocoFormViewModel
+import com.z_company.route.viewmodel.OtherWorkFormViewModel
 import com.z_company.route.viewmodel.PassengerFormViewModel
 import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.ProfileViewModel
@@ -40,6 +41,9 @@ val viewModelModule = module {
     }
     viewModel { (passengerId: String?, basicId: String) ->
         PassengerFormViewModel(passengerId = passengerId, basicId = basicId)
+    }
+    viewModel { (otherWorkId: String?, basicId: String) ->
+        OtherWorkFormViewModel(otherWorkId = otherWorkId, basicId = basicId)
     }
     viewModel { SearchViewModel() }
     viewModel { PurchasesViewModel() }

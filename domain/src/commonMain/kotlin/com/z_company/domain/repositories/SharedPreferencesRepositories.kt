@@ -105,4 +105,8 @@ interface SharedPreferencesRepositories {
     /** Флаг одноразовой миграции тегов дней из MonthOfYear → ProductionCalendarDay */
     fun isProductionCalendarMigrationDone(): Boolean
     fun setProductionCalendarMigrationDone()
+
+    /** Последний выбранный тип «прочей работы» — подставляется по умолчанию в новую запись. */
+    fun getLastOtherWorkType(): String?
+    fun setLastOtherWorkType(value: String?)
 }

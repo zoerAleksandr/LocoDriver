@@ -62,11 +62,20 @@ fun Route.reidentifyForImport(): Route {
         )
     }.toMutableList()
 
+    val newOtherWorks = otherWorks.map { otherWork ->
+        otherWork.copy(
+            otherWorkId = generateId(),
+            basicId = newBasicId,
+            remoteObjectId = null
+        )
+    }.toMutableList()
+
     return Route(
         basicData = newBasicData,
         locomotives = newLocomotives,
         trains = newTrains,
         passengers = newPassengers,
+        otherWorks = newOtherWorks,
         photos = mutableListOf()
     )
 }

@@ -1,6 +1,6 @@
 package com.z_company.route.viewmodel
 
-enum class ChildEntityType { LOCOMOTIVE, TRAIN, PASSENGER }
+enum class ChildEntityType { LOCOMOTIVE, TRAIN, PASSENGER, OTHER_WORK }
 
 sealed class FormScreenEvent {
     object ActivatedFavoriteRoute: FormScreenEvent()

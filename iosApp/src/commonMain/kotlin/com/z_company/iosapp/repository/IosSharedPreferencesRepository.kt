@@ -78,6 +78,10 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun isInputDieselInKilo(): Boolean = inputDieselInKilo
     override fun getSortOption(): String? = sortOption
     override fun setSortOption(value: String) { sortOption = value }
+
+    private var lastOtherWorkType: String? = null
+    override fun getLastOtherWorkType(): String? = lastOtherWorkType
+    override fun setLastOtherWorkType(value: String?) { lastOtherWorkType = value }
     override fun getSelectedFilters(): Set<String>? = selectedFilters
     override fun setSelectedFilters(values: Set<String>) { selectedFilters = values }
     override fun isExpandedView(): Boolean = expandedView

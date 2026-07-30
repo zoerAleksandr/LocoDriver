@@ -130,6 +130,7 @@ import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Locomotive
+import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
@@ -202,6 +203,13 @@ fun FormScreen(
     onChangePassengerClick: (passenger: Passenger) -> Unit,
     onNewPassengerClick: (basicId: String) -> Unit,
     onDeletePassenger: (passenger: Passenger) -> Unit,
+    isShowLocomotive: Boolean,
+    isShowTrain: Boolean,
+    isShowPassenger: Boolean,
+    isShowOtherWork: Boolean,
+    onChangeOtherWorkClick: (otherWork: OtherWork) -> Unit,
+    onNewOtherWorkClick: (basicId: String) -> Unit,
+    onDeleteOtherWork: (otherWork: OtherWork) -> Unit,
     nightTime: Long?,
     onSalarySettingClick: () -> Unit,
     setFavoriteState: () -> Unit,
@@ -1290,58 +1298,82 @@ fun FormScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             val basicId = route.basicData.id
-                            ItemAddingScreen(
-                                title = stringResource(id = R.string.locomotive),
-                                iconRes = R.drawable.ic_card_locomotive_ref,
-                                contentList = route.locomotives,
-                                onChangeElementClick = onChangedLocoClick,
-                                onNewElementClick = onNewLocoClick,
-                                basicId = basicId,
-                                onDeleteClick = { loco ->
-                                    pendingDeleteTitle = "Удалить локомотив?"
-                                    pendingDeleteMessage =
-                                        "Локомотив будет убран из маршрута. Это действие нельзя отменить."
-                                    pendingDeleteAction = { onDeleteLoco(loco) }
+                            if (isShowLocomotive) {
+                                ItemAddingScreen(
+                                    title = stringResource(id = R.string.locomotive),
+                                    iconRes = R.drawable.ic_card_locomotive_ref,
+                                    contentList = route.locomotives,
+                                    onChangeElementClick = onChangedLocoClick,
+                                    onNewElementClick = onNewLocoClick,
+                                    basicId = basicId,
+                                    onDeleteClick = { loco ->
+                                        pendingDeleteTitle = "Удалить локомотив?"
+                                        pendingDeleteMessage =
+                                            "Локомотив будет убран из маршрута. Это действие нельзя отменить."
+                                        pendingDeleteAction = { onDeleteLoco(loco) }
+                                    }
+                                ) { index, locomotive ->
+                                    LocomotiveSubItem(locomotive, index)
                                 }
-                            ) { index, locomotive ->
-                                LocomotiveSubItem(locomotive, index)
                             }
-                            ItemAddingScreen(
-                                title = stringResource(id = R.string.train),
-                                iconRes = R.drawable.ic_card_train_ref,
-                                // Сортировка: поезда с временем отправления первой станции — по убыванию
-                                // (последний отправившийся сверху), поезда без времени — в порядке добавления.
-                                contentList = route.trains
-                                    .filter { it.stations.firstOrNull()?.timeDeparture != null }
-                                    .sortedByDescending { it.stations.firstOrNull()?.timeDeparture } +
-                                    route.trains.filter { it.stations.firstOrNull()?.timeDeparture == null },
-                                onChangeElementClick = onChangeTrainClick,
-                                onNewElementClick = onNewTrainClick,
-                                basicId = basicId,
-                                onDeleteClick = { train ->
-                                    pendingDeleteTitle = "Удалить поезд?"
-                                    pendingDeleteMessage =
-                                        "Поезд будет убран из маршрута. Это действие нельзя отменить."
-                                    pendingDeleteAction = { onDeleteTrain(train) }
+                            if (isShowTrain) {
+                                ItemAddingScreen(
+                                    title = stringResource(id = R.string.train),
+                                    iconRes = R.drawable.ic_card_train_ref,
+                                    // Сортировка: поезда с временем отправления первой станции — по убыванию
+                                    // (последний отправившийся сверху), поезда без времени — в порядке добавления.
+                                    contentList = route.trains
+                                        .filter { it.stations.firstOrNull()?.timeDeparture != null }
+                                        .sortedByDescending { it.stations.firstOrNull()?.timeDeparture } +
+                                        route.trains.filter { it.stations.firstOrNull()?.timeDeparture == null },
+                                    onChangeElementClick = onChangeTrainClick,
+                                    onNewElementClick = onNewTrainClick,
+                                    basicId = basicId,
+                                    onDeleteClick = { train ->
+                                        pendingDeleteTitle = "Удалить поезд?"
+                                        pendingDeleteMessage =
+                                            "Поезд будет убран из маршрута. Это действие нельзя отменить."
+                                        pendingDeleteAction = { onDeleteTrain(train) }
+                                    }
+                                ) { index, train ->
+                                    TrainSubItem(index, train)
                                 }
-                            ) { index, train ->
-                                TrainSubItem(index, train)
                             }
-                            ItemAddingScreen(
-                                title = stringResource(id = R.string.passenger),
-                                iconRes = R.drawable.ic_card_passenger_ref,
-                                contentList = route.passengers,
-                                onChangeElementClick = onChangePassengerClick,
-                                onNewElementClick = onNewPassengerClick,
-                                basicId = basicId,
-                                onDeleteClick = { passenger ->
-                                    pendingDeleteTitle = "Удалить поездку пассажиром?"
-                                    pendingDeleteMessage =
-                                        "Запись будет убрана из маршрута. Это действие нельзя отменить."
-                                    pendingDeleteAction = { onDeletePassenger(passenger) }
+                            if (isShowOtherWork) {
+                                ItemAddingScreen(
+                                    title = stringResource(id = R.string.other_work),
+                                    iconRes = R.drawable.ic_card_other_work_ref,
+                                    contentList = route.otherWorks,
+                                    onChangeElementClick = onChangeOtherWorkClick,
+                                    onNewElementClick = onNewOtherWorkClick,
+                                    basicId = basicId,
+                                    onDeleteClick = { otherWork ->
+                                        pendingDeleteTitle = "Удалить запись?"
+                                        pendingDeleteMessage =
+                                            "Запись прочей работы будет убрана из маршрута. Это действие нельзя отменить."
+                                        pendingDeleteAction = { onDeleteOtherWork(otherWork) }
+                                    }
+                                ) { index, otherWork ->
+                                    OtherWorkSubItem(index, otherWork)
                                 }
-                            ) { index, passenger ->
-                                PassengerSubItem(index, passenger)
+                            }
+                            if (isShowPassenger) {
+                                ItemAddingScreen(
+                                    title = stringResource(id = R.string.passenger),
+                                    iconRes = R.drawable.ic_card_passenger_ref,
+                                    contentList = route.passengers,
+                                    onChangeElementClick = onChangePassengerClick,
+                                    onNewElementClick = onNewPassengerClick,
+                                    basicId = basicId,
+                                    onDeleteClick = { passenger ->
+                                        pendingDeleteTitle = "Удалить поездку пассажиром?"
+                                        pendingDeleteMessage =
+                                            "Запись будет убрана из маршрута. Это действие нельзя отменить."
+                                        pendingDeleteAction = { onDeletePassenger(passenger) }
+                                    }
+                                ) { index, passenger ->
+                                    PassengerSubItem(index, passenger)
+                                }
                             }
 
                             Column(
@@ -1578,6 +1610,28 @@ private fun PassengerSubItem(index: Int, passenger: Passenger) {
                 }
                 append("$textStationDeparture $textStationArrival")
             },
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+@Composable
+private fun OtherWorkSubItem(index: Int, otherWork: OtherWork) {
+    val type = otherWork.workType?.takeIf { it.isNotBlank() }
+    val station = otherWork.station?.takeIf { it.isNotBlank() }
+    if (type == null && station == null) {
+        Text(
+            text = "Прочая работа № ${index + 1}",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+    } else {
+        val stationSuffix = station?.let { " · $it" } ?: ""
+        Text(
+            text = "${type ?: "Прочая работа"}$stationSuffix",
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.primary
         )

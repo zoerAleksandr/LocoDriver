@@ -3,12 +3,14 @@ package com.z_company.loco_driver.ui.navigation
 import androidx.navigation.NavHostController
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
+import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.navigation.Router
 import com.z_company.route.navigation.AllRouteScreenRoute
 import com.z_company.route.navigation.DetailsRoute
 import com.z_company.route.navigation.FormLoco
+import com.z_company.route.navigation.FormOtherWork
 import com.z_company.route.navigation.FormPassenger
 import com.z_company.route.navigation.FormRoute
 import com.z_company.route.navigation.FormTrain
@@ -119,6 +121,18 @@ class RouterImpl(
     override fun showEmptyPassengerForm(basicId: String) {
         requireNavController().navigate(
             FormPassenger.buildDetailsRoute(passengerId = null, basicId = basicId)
+        )
+    }
+
+    override fun showChangeOtherWorkForm(otherWork: OtherWork) {
+        requireNavController().navigate(
+            FormOtherWork.buildDetailsRoute(otherWork.otherWorkId, otherWork.basicId)
+        )
+    }
+
+    override fun showEmptyOtherWorkForm(basicId: String) {
+        requireNavController().navigate(
+            FormOtherWork.buildDetailsRoute(otherWorkId = null, basicId = basicId)
         )
     }
 

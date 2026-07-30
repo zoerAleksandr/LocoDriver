@@ -63,6 +63,12 @@ fun NavGraphBuilder.homeGraph(
             FormPassengerDestination(router = router, backStackEntry = backStackEntry)
         }
         composableScreen(
+            route = FormOtherWork.route,
+            arguments = FormOtherWork.navArguments
+        ) { backStackEntry ->
+            FormOtherWorkDestination(router = router, backStackEntry = backStackEntry)
+        }
+        composableScreen(
             route = SearchRoute.route
         ) {
             SearchDestination(router = router)

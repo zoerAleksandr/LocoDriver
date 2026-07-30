@@ -19,6 +19,10 @@ fun SettingsRouteFormContent(
     currentSettings: UserSettings,
     changeShowBreak: (Boolean) -> Unit,
     changeShowOnePersonSwitch: (Boolean) -> Unit,
+    changeShowLocomotive: (Boolean) -> Unit,
+    changeShowTrain: (Boolean) -> Unit,
+    changeShowPassenger: (Boolean) -> Unit,
+    changeShowOtherWork: (Boolean) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -43,6 +47,37 @@ fun SettingsRouteFormContent(
                 onCheckedChange = changeShowOnePersonSwitch,
             )
         }
-        SettingsSectionNote("Управляет отображением элементов в форме маршрута.")
+
+        SettingsGroupHeader("РАЗДЕЛЫ МАРШРУТА", top = 20.dp, startPad = 4.dp)
+        SettingsCard {
+            SettingsSwitchRow(
+                label = "Показывать локомотив",
+                sub = "Раздел «Локомотив» в форме маршрута",
+                checked = currentSettings.isShowLocomotive,
+                onCheckedChange = changeShowLocomotive,
+            )
+            SettingsCardSep()
+            SettingsSwitchRow(
+                label = "Показывать поездную работу",
+                sub = "Раздел «Поезд» в форме маршрута",
+                checked = currentSettings.isShowTrain,
+                onCheckedChange = changeShowTrain,
+            )
+            SettingsCardSep()
+            SettingsSwitchRow(
+                label = "Показывать пассажиром",
+                sub = "Раздел «Пассажиром» в форме маршрута",
+                checked = currentSettings.isShowPassenger,
+                onCheckedChange = changeShowPassenger,
+            )
+            SettingsCardSep()
+            SettingsSwitchRow(
+                label = "Показывать прочую работу",
+                sub = "Маневровая, вывозная, при депо и др.",
+                checked = currentSettings.isShowOtherWork,
+                onCheckedChange = changeShowOtherWork,
+            )
+        }
+        SettingsSectionNote("Управляет отображением разделов и элементов в форме маршрута.")
     }
 }
