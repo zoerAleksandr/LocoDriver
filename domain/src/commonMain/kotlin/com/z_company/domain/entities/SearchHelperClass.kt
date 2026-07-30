@@ -8,6 +8,7 @@ data class FilterSearch(
     val locoData: Pair<String, Boolean> = Pair(FilterNames.LOCO_DATA.value, true),
     val trainData: Pair<String, Boolean> = Pair(FilterNames.TRAIN_DATA.value, true),
     val passengerData: Pair<String, Boolean> = Pair(FilterNames.PASSENGER_DATA.value, true),
+    val otherWorkData: Pair<String, Boolean> = Pair(FilterNames.OTHER_WORK_DATA.value, true),
     val notesData: Pair<String, Boolean> = Pair(FilterNames.NOTES_DATA.value, true),
     val timePeriod: TimePeriod = TimePeriod(null, null)
 )
@@ -17,6 +18,7 @@ enum class FilterNames(val value: String){
     LOCO_DATA("локомотив"),
     TRAIN_DATA("поезд"),
     PASSENGER_DATA("следование пассажиром"),
+    OTHER_WORK_DATA("прочая работа"),
     NOTES_DATA("примечания")
 }
 
@@ -26,7 +28,7 @@ data class TimePeriod(
 )
 
 enum class SearchTag {
-    BASIC_DATA, LOCO, TRAIN, PASSENGER, NOTES
+    BASIC_DATA, LOCO, TRAIN, PASSENGER, OTHER_WORK, NOTES
 }
 
 data class RouteWithTag(val tag: SearchTag, val route: Route)

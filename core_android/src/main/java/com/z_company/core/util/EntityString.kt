@@ -4,6 +4,7 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
+import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.SectionDiesel
 import com.z_company.domain.entities.route.SectionElectric
@@ -164,6 +165,25 @@ class EntityString(setting: UserSettings) {
             } ?: ""
             val stationText = "\n   • $name $timeArrival$timeDeparture"
             text.append(stationText)
+        }
+        return text.toString()
+    }
+
+    fun otherWorkStr(otherWork: OtherWork): String {
+        val text = StringBuilder("Прочая работа")
+        otherWork.workType?.let { type ->
+            if (type.isNotBlank()) text.append(". $type")
+        }
+        otherWork.station?.let { station ->
+            if (station.isNotBlank()) text.append("\n$station")
+        }
+        if (otherWork.timeStart != null || otherWork.timeEnd != null) {
+            val start = otherWork.timeStart?.let { dateAndTimeConverter.getDateAndTime(it) } ?: ""
+            val end = otherWork.timeEnd?.let { " - ${dateAndTimeConverter.getDateAndTime(it)}" } ?: ""
+            text.append("\n$start$end")
+        }
+        otherWork.notes?.let { notes ->
+            if (notes.isNotBlank()) text.append("\n$notes")
         }
         return text.toString()
     }

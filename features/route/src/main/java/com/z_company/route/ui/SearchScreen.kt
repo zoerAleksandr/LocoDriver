@@ -338,6 +338,7 @@ private fun SearchListItem(
         SearchTag.LOCO -> "Локомотив"
         SearchTag.TRAIN -> "Поезд"
         SearchTag.PASSENGER -> "Следование пассажиром"
+        SearchTag.OTHER_WORK -> "Прочая работа"
         SearchTag.NOTES -> "Примечания"
     }
 
@@ -424,6 +425,18 @@ private fun SearchListItem(
                             text.append(entityString?.passengerStr(passenger))
                         } else {
                             text.append("\n\n${entityString?.passengerStr(passenger)}")
+                        }
+                    }
+                    text
+                }
+
+                SearchTag.OTHER_WORK -> {
+                    val text = StringBuilder()
+                    route.otherWorks.forEachIndexed { index, otherWork ->
+                        if (index == 0) {
+                            text.append(entityString?.otherWorkStr(otherWork))
+                        } else {
+                            text.append("\n\n${entityString?.otherWorkStr(otherWork)}")
                         }
                     }
                     text

@@ -54,6 +54,7 @@ class SearchRouteUseCase(val repository: RouteRepository) {
         val locoMatch: List<String>,
         val trainMatch: List<String>,
         val passengerMatch: List<String>,
+        val otherWorkMatch: List<String>,
         val notesMatch: String?,
         val keyValues: Set<String>,
         val vocabulary: List<String>,
@@ -160,6 +161,18 @@ class SearchRouteUseCase(val repository: RouteRepository) {
             p.joinToString(" ").lowercase()
         }
 
+        // ---- Прочая работа ----
+        val otherWorkMatch = route.otherWorks.map { work ->
+            val p = ArrayList<String>()
+            p += "прочая работа"
+            key(work.workType); work.workType?.let { p += it }
+            key(work.station); work.station?.let { p += it }
+            work.timeStart?.let { p += c.getDateAndTime(it) }
+            work.timeEnd?.let { p += c.getDateAndTime(it) }
+            work.notes?.let { p += it }
+            p.joinToString(" ").lowercase()
+        }
+
         // ---- Примечания маршрута ----
         val notesMatch = route.basicData.notes?.takeIf { it.isNotBlank() }?.lowercase()
 
@@ -170,6 +183,7 @@ class SearchRouteUseCase(val repository: RouteRepository) {
             locoMatch = locoMatch,
             trainMatch = trainMatch,
             passengerMatch = passengerMatch,
+            otherWorkMatch = otherWorkMatch,
             notesMatch = notesMatch,
             keyValues = keys.mapTo(HashSet()) { it.lowercase() },
             vocabulary = keys.toList(),
@@ -225,6 +239,9 @@ class SearchRouteUseCase(val repository: RouteRepository) {
             }
             if (filter.passengerData.second && entry.passengerMatch.any { containsAll(it, tokens) }) {
                 matches += Scored(RouteWithTag(SearchTag.PASSENGER, entry.route), entry, score)
+            }
+            if (filter.otherWorkData.second && entry.otherWorkMatch.any { containsAll(it, tokens) }) {
+                matches += Scored(RouteWithTag(SearchTag.OTHER_WORK, entry.route), entry, score)
             }
             if (filter.notesData.second &&
                 entry.notesMatch != null && containsAll(entry.notesMatch, tokens)
