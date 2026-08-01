@@ -5,10 +5,10 @@ enum AppTab {
 }
 
 struct AppCoordinator: View {
-    @State private var selectedTab: AppTab = .home
+    @ObservedObject private var router = AppRouter.shared
 
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: $router.selectedTab) {
             NavigationStack {
                 HomeView()
             }

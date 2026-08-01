@@ -13,6 +13,7 @@
 		A11A11A101000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A11A11A001000003 /* Assets.xcassets */; };
 		C11C11C101000001 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = C11C11C001000002 /* Sentry */; };
 		A11A11A101000100 /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000100 /* AppCoordinator.swift */; };
+		A11A11A101000110 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000110 /* AppRouter.swift */; };
 		A11A11A101000200 /* ViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000200 /* ViewModelWrapper.swift */; };
 		A11A11A101000201 /* HomeViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000201 /* HomeViewModelWrapper.swift */; };
 		A11A11A101000202 /* FormViewModelWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A11A001000202 /* FormViewModelWrapper.swift */; };
@@ -45,6 +46,7 @@
 		A11A11A001000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Info.plist; sourceTree = "<group>"; };
 		A11A11A001000010 /* LocoDriver iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "LocoDriver iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A11A11A001000100 /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppCoordinator.swift; path = Navigation/AppCoordinator.swift; sourceTree = "<group>"; };
+		A11A11A001000110 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppRouter.swift; path = Navigation/AppRouter.swift; sourceTree = "<group>"; };
 		A11A11A001000200 /* ViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ViewModelWrapper.swift; path = ViewModels/ViewModelWrapper.swift; sourceTree = "<group>"; };
 		A11A11A001000201 /* HomeViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeViewModelWrapper.swift; path = ViewModels/HomeViewModelWrapper.swift; sourceTree = "<group>"; };
 		A11A11A001000202 /* FormViewModelWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FormViewModelWrapper.swift; path = ViewModels/FormViewModelWrapper.swift; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 			isa = PBXGroup;
 			children = (
 				A11A11A001000100 /* AppCoordinator.swift */,
+				A11A11A001000110 /* AppRouter.swift */,
 			);
 			name = Navigation;
 			sourceTree = "<group>";
@@ -367,6 +370,7 @@
 				A11A11A101000001 /* iOSApp.swift in Sources */,
 				A11A11A101000002 /* ContentView.swift in Sources */,
 				A11A11A101000100 /* AppCoordinator.swift in Sources */,
+				A11A11A101000110 /* AppRouter.swift in Sources */,
 				A11A11A101000200 /* ViewModelWrapper.swift in Sources */,
 				A11A11A101000201 /* HomeViewModelWrapper.swift in Sources */,
 				A11A11A101000202 /* FormViewModelWrapper.swift in Sources */,

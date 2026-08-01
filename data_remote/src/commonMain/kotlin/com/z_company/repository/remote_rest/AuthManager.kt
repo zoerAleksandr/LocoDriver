@@ -8,6 +8,7 @@ import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.ServerResponseException
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -177,15 +178,34 @@ class AuthManager(
         }
     }
 
-    fun forgotPassword(email: String): Flow<ResponseState> = flow {
-        emit(ResponseState.Loading)
+    /**
+     * Запуск сброса пароля.
+     *
+     * Контракт сервера (harden/password-reset): ответ намеренно не раскрывает,
+     * зарегистрирован ли email — при 200 письмо отправляется только если аккаунт
+     * существует, но клиент этого различить НЕ может (защита от перебора).
+     *  - 200 → [ForgotPasswordState.Success] (нейтральное «проверьте почту»).
+     *  - 429 → [ForgotPasswordState.RateLimited] (превышен лимит запросов).
+     *  - прочее → [ForgotPasswordState.Error] (сеть/сервер).
+     *
+     * Тело ответа НЕ парсим — ориентируемся только на статус-код, т.к. текст
+     * на сервере может меняться.
+     */
+    fun forgotPassword(email: String): Flow<ForgotPasswordState> = flow {
+        emit(ForgotPasswordState.Loading)
         try {
             apiForSendEmail.forgotPassword(email)
-            emit(ResponseState.Success)
+            emit(ForgotPasswordState.Success)
         } catch (e: ClientRequestException) {
-            emit(ResponseState.Error("Ошибка: ${e.response.status.value} - ${e.message}"))
+            if (e.response.status == HttpStatusCode.TooManyRequests) {
+                emit(ForgotPasswordState.RateLimited)
+            } else {
+                emit(ForgotPasswordState.Error("Не удалось отправить запрос. Попробуйте позже."))
+            }
+        } catch (e: ServerResponseException) {
+            emit(ForgotPasswordState.Error("Сервер временно недоступен. Попробуйте позже."))
         } catch (e: Exception) {
-            emit(ResponseState.Error("Ошибка: ${e.message}"))
+            emit(ForgotPasswordState.Error("Не удалось отправить запрос. Проверьте подключение к интернету."))
         }
     }
 
@@ -230,4 +250,18 @@ sealed class ResponseState {
     object Loading : ResponseState()
     object Success : ResponseState()
     data class Error(val errorMessage: String) : ResponseState()
+}
+
+/**
+ * Состояние запроса на сброс пароля (POST /v1/page/forgot_password).
+ * [Success] — успех по статус-коду 200 (нейтральный ответ, письмо могло не
+ * прийти, если аккаунта нет — клиент это не различает).
+ * [RateLimited] — сервер вернул 429 (превышен лимит).
+ */
+sealed class ForgotPasswordState {
+    object Initial : ForgotPasswordState()
+    object Loading : ForgotPasswordState()
+    object Success : ForgotPasswordState()
+    object RateLimited : ForgotPasswordState()
+    data class Error(val errorMessage: String) : ForgotPasswordState()
 }

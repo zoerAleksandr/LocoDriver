@@ -9,7 +9,6 @@ import com.z_company.domain.entities.route.Train
 interface Router {
     fun showSignIn()
     fun showLogIn()
-    fun showRecoveryPassword()
     fun showStartScreen()
     fun showHome(startingRoute: String)
     fun showRouteForm(basicId: String? = null, isMakeCopy: Boolean = false)

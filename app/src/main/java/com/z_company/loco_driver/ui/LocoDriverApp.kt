@@ -76,6 +76,8 @@ fun LocoDriverApp(
     onFormOpened: () -> Unit = {},
     pendingNavigateHome: Boolean = false,
     onNavigatedHome: () -> Unit = {},
+    pendingNavigateProfile: Boolean = false,
+    onNavigatedProfile: () -> Unit = {},
     pendingOpenFormWithId: String? = null,
     onFormOpenedWithId: () -> Unit = {}
 ) {
@@ -194,6 +196,22 @@ fun LocoDriverApp(
             if (pendingNavigateHome) {
                 navController.popBackStack(HomeRoute.route, inclusive = false)
                 onNavigatedHome()
+            }
+        }
+
+        // Deep link locodriver://profile → экран Профиль.
+        // Тот же паттерн, что и клик по вкладке нижнего меню (BottomNavigationBar).
+        LaunchedEffect(pendingNavigateProfile) {
+            if (pendingNavigateProfile) {
+                if (navController.currentDestination?.route != ProfileRoute.route) {
+                    val startDest = navController.graph.findStartDestination()
+                    navController.navigate(ProfileRoute.route) {
+                        popUpTo(startDest.id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+                onNavigatedProfile()
             }
         }
 

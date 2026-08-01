@@ -32,6 +32,7 @@ import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.AuthManager
 import com.z_company.repository.remote_rest.AuthState
+import com.z_company.repository.remote_rest.ForgotPasswordState
 import com.z_company.repository.remote_rest.ResponseState
 import com.z_company.repository.remote_rest.GetUserProfileState
 import com.z_company.repository.remote_rest.RegistrationState
@@ -173,8 +174,13 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     private val _migrationUiState = MutableStateFlow(MigrationState())
     val migrationUiState = _migrationUiState.asStateFlow()
 
-    private val _responseState = MutableStateFlow<ResponseState>(ResponseState.Initial)
+    private val _responseState = MutableStateFlow<ForgotPasswordState>(ForgotPasswordState.Initial)
     val forgotEmailState = _responseState.asStateFlow()
+
+    // Локальный кулдаун кнопки «Создать новый пароль» — защита от 429.
+    private val _forgotCooldownSeconds = MutableStateFlow(0)
+    val forgotCooldownSeconds = _forgotCooldownSeconds.asStateFlow()
+    private var forgotCooldownJob: Job? = null
 
 
     var currentEmail by mutableStateOf("")
@@ -791,12 +797,31 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     }
 
     fun forgotRequest(email: String) {
+        // Локальный кулдаун ещё активен — не шлём повторный запрос.
+        if (_forgotCooldownSeconds.value > 0) return
+
         forgotJob?.cancel()
         forgotJob = viewModelScope.launch {
-            authManager.forgotPassword(email).collect { state ->
-                Log.d("zzz", "forgotPassword $state")
+            authManager.forgotPassword(email.filterNot { it.isWhitespace() }).collect { state ->
                 _responseState.value = state
+                // 200 и 429 — оба завершают попытку, запускаем кулдаун.
+                if (state is ForgotPasswordState.Success || state is ForgotPasswordState.RateLimited) {
+                    startForgotCooldown()
+                }
             }
+        }
+    }
+
+    private fun startForgotCooldown() {
+        forgotCooldownJob?.cancel()
+        forgotCooldownJob = viewModelScope.launch {
+            var left = FORGOT_COOLDOWN_SECONDS
+            while (left > 0) {
+                _forgotCooldownSeconds.value = left
+                delay(1000L)
+                left--
+            }
+            _forgotCooldownSeconds.value = 0
         }
     }
 
@@ -897,7 +922,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     }
 
     fun forgotResetState() {
-        _responseState.value = ResponseState.Initial
+        _responseState.value = ForgotPasswordState.Initial
     }
 
     private fun saveRouteInLocal(routes: List<Route>) {
@@ -1208,5 +1233,9 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     _registeredUiState.value = state
                 }
         }
+    }
+
+    companion object {
+        private const val FORGOT_COOLDOWN_SECONDS = 60
     }
 }

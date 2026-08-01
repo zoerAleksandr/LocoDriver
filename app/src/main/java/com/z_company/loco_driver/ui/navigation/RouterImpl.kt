@@ -29,7 +29,6 @@ import com.z_company.route.navigation.ScheduleWizardRoute
 import com.z_company.route.navigation.AbsenceRoute
 import com.z_company.route.navigation.StatisticsRoute
 import com.z_company.route.navigation.login.LogInScreenRoute
-import com.z_company.route.navigation.login.RecoveryPasswordRoute
 import com.z_company.route.navigation.login.SignInScreenRoute
 
 class RouterImpl(
@@ -48,10 +47,6 @@ class RouterImpl(
 
     override fun showLogIn() {
         requireNavController().navigate(LogInScreenRoute.route)
-    }
-
-    override fun showRecoveryPassword() {
-        requireNavController().navigate(RecoveryPasswordRoute.route)
     }
 
     override fun showStartScreen() {

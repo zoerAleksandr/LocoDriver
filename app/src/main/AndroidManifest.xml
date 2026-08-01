@@ -92,6 +92,16 @@
                 <data android:scheme="locodriver" android:host="share" />
             </intent-filter>
 
+            <!-- Переход на экран Профиль с сайта: locodriver://profile
+                 Кастомная схема — единственный кросс-платформенный способ
+                 (на iOS нет Universal Links). Работает и на Android, и на iOS. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="locodriver" android:host="profile" />
+            </intent-filter>
+
             <!-- Открытие .zroute файлов с кастомным MIME (прямой шаринг из приложения) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

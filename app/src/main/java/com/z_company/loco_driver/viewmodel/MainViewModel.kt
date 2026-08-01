@@ -97,6 +97,13 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     fun requestNavigateHome() { _pendingNavigateHome.value = true }
     fun clearNavigateHome() { _pendingNavigateHome.value = false }
 
+    // Deep link locodriver://profile → экран Профиль
+    private val _pendingNavigateProfile = MutableStateFlow(false)
+    val pendingNavigateProfile: StateFlow<Boolean> = _pendingNavigateProfile.asStateFlow()
+
+    fun requestNavigateProfile() { _pendingNavigateProfile.value = true }
+    fun clearNavigateProfile() { _pendingNavigateProfile.value = false }
+
     fun setPendingImportRoute(route: Route) {
         _pendingImportRoute.value = route
     }

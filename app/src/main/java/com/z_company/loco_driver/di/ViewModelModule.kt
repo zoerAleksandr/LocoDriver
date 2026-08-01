@@ -20,7 +20,6 @@ import com.z_company.route.viewmodel.StationNormListViewModel
 import com.z_company.route.viewmodel.StationNormEditorViewModel
 import com.z_company.route.viewmodel.TrainFormViewModel
 import com.z_company.route.viewmodel.WorkScheduleViewModel
-import com.z_company.route.viewmodel.login.PasswordRecoveryViewModel
 import org.koin.android.ext.koin.androidApplication
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
@@ -30,7 +29,6 @@ val viewModelModule = module {
         FormViewModel(application = androidApplication(), routeId = routeId,  isCopy = isCopy)
     }
     viewModel { HomeViewModel() }
-    viewModel { PasswordRecoveryViewModel() }
     viewModel { SettingsViewModel() }
     viewModel { MainViewModel() }
     viewModel { (locoId: String?, basicId: String) ->

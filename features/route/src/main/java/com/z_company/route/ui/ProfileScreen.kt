@@ -59,6 +59,9 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.repository.remote_rest.RegistrationState
 import com.z_company.route.viewmodel.ProfileViewModel
 import com.z_company.core.util.isEmailValid
+import com.z_company.core.util.isVpnActive
+import com.z_company.core.util.vpnAwareErrorMessage
+import com.z_company.core.util.VPN_ERROR_HINT
 import com.z_company.repository.remote_rest.AuthState
 import com.z_company.route.R
 import androidx.compose.foundation.border
@@ -71,7 +74,7 @@ import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.SwitchApp
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.text.input.ImeAction
-import com.z_company.repository.remote_rest.ResponseState
+import com.z_company.repository.remote_rest.ForgotPasswordState
 import com.z_company.route.component.AnimationDialog
 import com.z_company.route.viewmodel.SyncType
 import kotlinx.coroutines.flow.map
@@ -208,24 +211,38 @@ fun ProfileScreen(
     val migrationUiState by viewModel.migrationUiState.collectAsState()
 
     val forgotEmailState by viewModel.forgotEmailState.collectAsState()
+    val forgotCooldownSeconds by viewModel.forgotCooldownSeconds.collectAsState()
 
     LaunchedEffect(forgotEmailState) {
         when (forgotEmailState) {
-            is ResponseState.Initial -> {
+            is ForgotPasswordState.Initial -> {
 
             }
 
-            is ResponseState.Loading -> {
+            is ForgotPasswordState.Loading -> {
                 snackbarHostState.showSnackbar("Отправляем запрос...")
             }
 
-            is ResponseState.Success -> {
-                snackbarHostState.showSnackbar("Писмо отравлено на почту $email")
+            // 200 — нейтральный ответ. Не раскрываем, зарегистрирован ли email.
+            is ForgotPasswordState.Success -> {
+                snackbarHostState.showSnackbar(
+                    "Если такой email зарегистрирован, мы отправили на него ссылку. " +
+                        "Проверьте входящие и папку «Спам».",
+                    duration = SnackbarDuration.Long
+                )
                 viewModel.forgotResetState()
             }
 
-            is ResponseState.Error -> {
-                snackbarHostState.showSnackbar((forgotEmailState as ResponseState.Error).errorMessage)
+            // 429 — превышен лимит запросов.
+            is ForgotPasswordState.RateLimited -> {
+                snackbarHostState.showSnackbar("Слишком много попыток, попробуйте позже")
+                viewModel.forgotResetState()
+            }
+
+            is ForgotPasswordState.Error -> {
+                snackbarHostState.showSnackbar(
+                    vpnAwareErrorMessage(ctx, (forgotEmailState as ForgotPasswordState.Error).errorMessage)
+                )
                 viewModel.forgotResetState()
             }
         }
@@ -261,7 +278,7 @@ fun ProfileScreen(
     LaunchedEffect(authUiState) {
         if (authUiState is AuthState.Error) {
             snackbarHostState.showSnackbar(
-                message = (authUiState as AuthState.Error).errorMessage,
+                message = vpnAwareErrorMessage(ctx, (authUiState as AuthState.Error).errorMessage),
                 duration = SnackbarDuration.Long
             )
             viewModel.resetAuthState() // Сброс состояния после показа ошибки
@@ -274,7 +291,7 @@ fun ProfileScreen(
             val errorText = if ((registeredUiState as RegistrationState.Error).code == 409) {
                 "Пользователь уже зарегистрирован."
             } else {
-                (registeredUiState as RegistrationState.Error).message
+                vpnAwareErrorMessage(ctx, (registeredUiState as RegistrationState.Error).message)
             }
             snackbarHostState.showSnackbar(
                 message = errorText,
@@ -763,9 +780,12 @@ fun ProfileScreen(
                 // Профиль
                 else if (isLoggedIn) {
                     if (uiState.isProfileNetworkError) {
+                        val vpnActive = remember(uiState.isProfileNetworkError) { isVpnActive(ctx) }
                         Box(modifier = Modifier.fillMaxSize()) {
                             Column(
-                                modifier = Modifier.align(Alignment.Center),
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .padding(horizontal = 32.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
@@ -777,10 +797,19 @@ fun ProfileScreen(
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "Нет интернета",
+                                    text = if (vpnActive) "Возможно, мешает VPN" else "Нет интернета",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.outline
                                 )
+                                if (vpnActive) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = VPN_ERROR_HINT,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.outline,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
                             }
                             Button(
                                 onClick = viewModel::refresh,
@@ -1297,11 +1326,14 @@ fun ProfileScreen(
                                     )
 
                                     if (login) {
+                                        val onCooldown = forgotCooldownSeconds > 0
                                         TextButton(
-                                            onClick = { viewModel.forgotRequest(email) }
+                                            onClick = { viewModel.forgotRequest(email) },
+                                            enabled = !onCooldown
                                         ) {
                                             Text(
-                                                text = "Создать новый пароль",
+                                                text = if (onCooldown) "Повторить через $forgotCooldownSeconds с"
+                                                else "Создать новый пароль",
                                                 style = buttonTextStyle,
                                                 color = MaterialTheme.colorScheme.tertiary
                                             )

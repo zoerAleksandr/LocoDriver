@@ -25,6 +25,11 @@ struct iOSApp: App {
         WindowGroup {
             ContentView()
                 .onOpenURL { url in
+                    // Deep link: locodriver://profile — переход на экран Профиль.
+                    if url.scheme == "locodriver" && url.host == "profile" {
+                        AppRouter.shared.selectedTab = .profile
+                        return
+                    }
                     // Deep link: locodriver://share/{id}
                     // Обрабатываем в Kotlin-слое: загрузить Route, сохранить локально,
                     // AppNavHost переключится на FormRoute с новым id.

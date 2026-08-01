@@ -20,7 +20,6 @@ internal class IosRouterImpl : Router {
     // Auth — на iOS пока нет отдельного флоу авторизации, переходим на Home
     override fun showSignIn() = navigate(HomeRoute.route)
     override fun showLogIn() = navigate(HomeRoute.route)
-    override fun showRecoveryPassword() = navigate(HomeRoute.route)
     override fun showStartScreen() = navigate(HomeRoute.route)
     override fun showHome(startingRoute: String) = navigate(HomeRoute.route)
 

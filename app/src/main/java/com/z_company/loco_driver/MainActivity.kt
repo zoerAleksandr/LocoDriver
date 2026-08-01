@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
             val pendingImportRoute by mainViewModel.pendingImportRoute.collectAsState()
             val pendingFormOpen by mainViewModel.pendingFormOpen.collectAsState()
             val pendingNavigateHome by mainViewModel.pendingNavigateHome.collectAsState()
+            val pendingNavigateProfile by mainViewModel.pendingNavigateProfile.collectAsState()
             val pendingOpenFormWithId by mainViewModel.pendingOpenFormWithId.collectAsState()
             Box(
                 modifier = Modifier
@@ -78,6 +79,8 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 onFormOpened = mainViewModel::clearOpenForm,
                 pendingNavigateHome = pendingNavigateHome,
                 onNavigatedHome = mainViewModel::clearNavigateHome,
+                pendingNavigateProfile = pendingNavigateProfile,
+                onNavigatedProfile = mainViewModel::clearNavigateProfile,
                 pendingOpenFormWithId = pendingOpenFormWithId,
                 onFormOpenedWithId = mainViewModel::clearOpenFormWithId
             )
@@ -110,6 +113,14 @@ class MainActivity : ComponentActivity(), KoinComponent {
             } catch (e: Exception) {
                 // Показать ошибку
             }
+        }
+
+        // Deep link: переход на экран Профиль с сайта — locodriver://profile
+        if (i?.action == Intent.ACTION_VIEW && data != null &&
+            data.scheme == ShareRouteManager.SHARE_SCHEME && data.host == "profile"
+        ) {
+            mainViewModel.requestNavigateProfile()
+            return
         }
 
         // Deep link: публичная ссылка на маршрут.
