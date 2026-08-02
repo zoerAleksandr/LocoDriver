@@ -40,7 +40,6 @@ fun HomeDestination(
         makeCopyRoute = { basicId ->
             router.showRouteForm(basicId = basicId, isMakeCopy = true)
         },
-        onMoreInfoClick = { router.showMoreInfo(it) },
         onDeleteRoute = homeViewModel::removeRoute,
         onSearchClick = { router.showSearch() },
         totalTime = homeViewModel.timeWithoutHoliday,

@@ -155,7 +155,6 @@ fun HomeScreen(
     uiState: ResultState<Unit>,
     listRouteState: List<ItemState>,
     onRouteClick: (String) -> Unit,
-    onMoreInfoClick: (String) -> Unit,
     makeCopyRoute: (String) -> Unit,
     onDeleteRoute: (Route) -> Unit,
     onSearchClick: () -> Unit,

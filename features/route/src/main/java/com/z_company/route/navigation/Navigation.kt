@@ -89,11 +89,6 @@ fun NavGraphBuilder.homeGraph(
             UpdatePresentationBlockDestination(router = router)
         }
         composableScreen(
-            route = WorkScheduleScreenRoute.route
-        ){
-            WorkScheduleDestination(router = router)
-        }
-        composableScreen(
             route = AllRouteScreenRoute.route
         ){
             AllRouteScreenDestination(router = router)
@@ -112,16 +107,6 @@ fun NavGraphBuilder.homeGraph(
         }
         composableScreen(AbsenceRoute.route) {
             AbsenceDestination(router = router)
-        }
-        composableScreen(NormsRoute.route) {
-            com.z_company.route.ui.stub.NormsScreen(
-                onBack = { router.back() }
-            )
-        }
-        composableScreen(WidgetsInfoRoute.route) {
-            com.z_company.route.ui.stub.WidgetsInfoScreen(
-                onBack = { router.back() }
-            )
         }
     }
 }

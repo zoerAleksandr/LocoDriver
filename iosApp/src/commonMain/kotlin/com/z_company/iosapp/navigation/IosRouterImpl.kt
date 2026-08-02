@@ -55,11 +55,9 @@ internal class IosRouterImpl : Router {
 
     override fun showSelectReleaseDayScreen() = navigate(SelectReleaseDaysScreenRoute.route)
     override fun showPurchasesScreen() = navigate(PurchasesRoute.route)
-    override fun showMoreInfo(monthOfYearId: String) = navigate(MoreInfoRoute.buildRoute(monthOfYearId))
     override fun showSalaryCalculation() = navigate(SalaryCalculationRoute.route)
     override fun showSettingSalary() = navigate(SettingSalaryRoute.route)
     override fun showAllRoute() = navigate(AllRouteScreenRoute.route)
-    override fun showWorkScheduleScreen() = navigate(WorkScheduleScreenRoute.route)
 
     private fun navigate(route: String) {
         navController?.navigate(route)

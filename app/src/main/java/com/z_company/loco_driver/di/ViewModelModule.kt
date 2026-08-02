@@ -19,7 +19,6 @@ import com.z_company.route.viewmodel.SeriesEditorViewModel
 import com.z_company.route.viewmodel.StationNormListViewModel
 import com.z_company.route.viewmodel.StationNormEditorViewModel
 import com.z_company.route.viewmodel.TrainFormViewModel
-import com.z_company.route.viewmodel.WorkScheduleViewModel
 import org.koin.android.ext.koin.androidApplication
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
@@ -48,7 +47,6 @@ val viewModelModule = module {
     single(createdAtStart = true) { SalaryCalculationViewModel() }
     viewModel { SettingSalaryViewModel() }
     viewModel { AllRouteViewModel(androidApplication()) }
-    viewModel { WorkScheduleViewModel() }
     viewModel { ProfileViewModel() }
     single { PdfViewModel(androidApplication()) }
     viewModel { SeriesListViewModel() }

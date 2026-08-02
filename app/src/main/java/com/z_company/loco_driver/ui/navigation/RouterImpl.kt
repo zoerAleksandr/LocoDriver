@@ -16,14 +16,12 @@ import com.z_company.route.navigation.FormRoute
 import com.z_company.route.navigation.FormTrain
 import com.z_company.route.navigation.HomeFeature
 import com.z_company.route.navigation.HomeRoute
-import com.z_company.route.navigation.MoreInfoRoute
 import com.z_company.route.navigation.PurchasesRoute
 import com.z_company.route.navigation.SalaryCalculationRoute
 import com.z_company.route.navigation.SearchRoute
 import com.z_company.route.navigation.SelectReleaseDaysScreenRoute
 import com.z_company.route.navigation.SettingSalaryRoute
 import com.z_company.route.navigation.SettingsScreenRoute
-import com.z_company.route.navigation.WorkScheduleScreenRoute
 import com.z_company.route.navigation.CalendarRoute
 import com.z_company.route.navigation.ScheduleWizardRoute
 import com.z_company.route.navigation.AbsenceRoute
@@ -143,12 +141,6 @@ class RouterImpl(
         )
     }
 
-    override fun showMoreInfo(monthOfYearId: String) {
-        requireNavController().navigate(
-            MoreInfoRoute.buildRoute(monthOfYearId)
-        )
-    }
-
     override fun showSalaryCalculation() {
         requireNavController().navigate(
             SalaryCalculationRoute.route
@@ -164,12 +156,6 @@ class RouterImpl(
     override fun showAllRoute() {
         requireNavController().navigate(
             AllRouteScreenRoute.route
-        )
-    }
-
-    override fun showWorkScheduleScreen() {
-        requireNavController().navigate(
-            WorkScheduleScreenRoute.route
         )
     }
 

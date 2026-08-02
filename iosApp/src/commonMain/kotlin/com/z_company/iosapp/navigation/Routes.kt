@@ -54,12 +54,4 @@ internal object PurchasesRoute { const val route = "PurchasesRoute" }
 internal object SettingsScreenRoute { const val route = "SettingsScreen" }
 internal object ProfileRoute { const val route = "ProfileRoute" }
 internal object AllRouteScreenRoute { const val route = "AllRouteScreenRoute" }
-internal object WorkScheduleScreenRoute { const val route = "WorkScheduleScreenRoute" }
 internal object SelectReleaseDaysScreenRoute { const val route = "SelectReleaseDaysScreen" }
-
-internal object MoreInfoRoute {
-    private const val paramMonthOfYearId = "monthId"
-    const val route = "MoreInfoRoute/{$paramMonthOfYearId}"
-
-    fun buildRoute(monthOfYearId: String) = "MoreInfoRoute/$monthOfYearId"
-}

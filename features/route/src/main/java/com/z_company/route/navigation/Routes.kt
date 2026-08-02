@@ -142,26 +142,10 @@ object FormOtherWork: AppRoutes("FormOtherWork") {
 object SearchRoute: AppRoutes("SearchRoute")
 object PurchasesRoute: AppRoutes("PurchasesRoute")
 
-object MoreInfoRoute: AppRoutes("MoreInfoRoute") {
-    private const val paramMonthOfYearId = "paramMonthOfYearId"
-    override val route: String = "$basicRoute/{$paramMonthOfYearId}"
-    val navArguments = listOf(
-        navArgument(paramMonthOfYearId) {
-            type = NavType.StringType
-            nullable = false
-        }
-    )
-    fun getMonthOfYearId(backStackEntry: NavBackStackEntry): String? =
-        backStackEntry.arguments?.getString(paramMonthOfYearId)
-    fun buildRoute(monthId: String) =
-        "$basicRoute/$monthId"
-}
-
 object SalaryCalculationRoute: AppRoutes("SalaryCalculationRoute")
 object SettingSalaryRoute: AppRoutes("SettingSalaryRoute")
 object UpdatePresentationBlockRoute: AppRoutes("UpdatePresentationBlockRoute")
 object AllRouteScreenRoute: AppRoutes("AllRouteScreenRoute")
-object WorkScheduleScreenRoute: AppRoutes("WorkScheduleScreenRoute")
 object SettingsScreenRoute : AppRoutes("SettingsScreen") {
     private const val paramSubScreen = "subScreen"
     override val route: String = "$basicRoute?$paramSubScreen={$paramSubScreen}"
@@ -185,5 +169,3 @@ object StatisticsRoute: AppRoutes("StatisticsRoute")
 object CalendarRoute: AppRoutes("CalendarRoute")
 object ScheduleWizardRoute: AppRoutes("ScheduleWizardRoute")
 object AbsenceRoute: AppRoutes("AbsenceRoute")
-object NormsRoute: AppRoutes("NormsRoute")
-object WidgetsInfoRoute: AppRoutes("WidgetsInfoRoute")

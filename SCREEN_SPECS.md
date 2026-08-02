@@ -330,6 +330,611 @@ FormScreen). Явка (locked) не удаляется. Для «Окончан�
 
 ---
 
+## 3. Навигация и общая структура приложения
+
+Единая `Activity` (Android) с Compose-навигацией; на iOS — `TabView` (5 вкладок).
+Навигация вынесена в интерфейс `Router` (`domain.navigation.Router`), реализуемый
+на каждой платформе (`RouterImpl` на Android). Экраны НЕ знают про `NavController` —
+дёргают методы `router.showX()`.
+
+### 3.1. Точка входа и стартовый экран
+
+- Старт: `showStartScreen()` → `HomeFeature` → `HomeRoute` (Главный).
+- Первый запуск: онбординг `FirstPresentationBlockScreen` (приветственный блок,
+  единственная кнопка «Далее» → `onNextClick`), затем главный экран.
+- Deep link шаринга: `locodriver://share/{id}` — загружает расшаренный маршрут в
+  `SharedRouteHolder` и открывает форму маршрута в режиме preview (см. 5.6).
+
+### 3.2. Карта переходов (методы Router)
+
+| Метод | Экран назначения | Раздел |
+|---|---|---|
+| `showStartScreen` / `showHome` | Главный (HomeScreen) | 4 |
+| `showRouteForm(basicId?, isMakeCopy)` | Форма маршрута (FormScreen) | 5 |
+| `showEmpty/ChangedLocoForm` | Локомотив (FormLocoScreen) | 1 |
+| `showEmpty/ChangeTrainForm` | Поезд (FormTrainScreen) | 6 |
+| `showEmpty/ChangePassengerForm` | Пассажиром (FormPassengerScreen) | 7 |
+| `showEmpty/ChangeOtherWorkForm` | Прочая работа (FormOtherWorkScreen) | 8 |
+| `showAllRoute` | Все маршруты (AllRouteScreen) | 9 |
+| `showSearch` | Поиск (SearchScreen) | 10 |
+| `showSalaryCalculation` | Расчёт зарплаты (SalaryCalculationScreen) | 11 |
+| `showSettingSalary` | Настройки зарплаты (SettingSalaryScreen) | 12 |
+| `showStatistics` | Статистика (StatisticsScreen) | 13 |
+| `showCalendar` | Календарь (CalendarScreen) | 14 |
+| `showScheduleWizard` | Мастер «Заполнить месяц» | 15 |
+| `showAbsence` / `showSelectReleaseDayScreen` | Отвлечения | 16 |
+| `showSettings*` | Настройки + под-разделы (ROUTE/LOCOMOTIVE/REST/SERIES_LIST/STATION_LIST/…) | 17 |
+| `showPurchasesScreen` | Покупки/подписка | 19 |
+| `showSignIn` / `showLogIn` | Вход / регистрация (аутентификация ведётся из Профиля) | 18 |
+
+- `showSettingsSeriesEditor(id)` / `showSettingsStationEditor(id)` открывают
+  редактор нормы серии/станции внутри раздела «Настройки» (те же редакторы, что и
+  в пикерах шторки времени — см. 2.10).
+- `back()` / `navigationUp()` — возврат по стеку.
+
+### 3.3. Инварианты, общие для всех форм
+
+Все под-формы маршрута (Локомотив, Поезд, Пассажиром, Прочая работа) следуют
+одному контракту (эталон — Локомотив, раздел 1):
+
+1. **Автосохранение с дебаунсом 500 мс** (`changesHave()` → `triggerAutoSave()`).
+2. **Guard пустого объекта**: полностью пустой новый объект не сохраняется при
+   выходе (`isXEmpty()` в каждой VM), чтобы «открыл-закрыл» не плодил мусор.
+3. **Финальное сохранение в `onCleared()`** через `NonCancellable + IO`.
+4. **Выход с несохранёнными изменениями** → диалог подтверждения
+   (`confirmExitDialogShow` / `ConfirmExitDialog`). «Выйти без сохранения» для
+   нового объекта — удаляет его из БД (`exitWithoutSaving`).
+5. **Автодополнение станций/серий**: общий список станций/серий из `UserSettings`,
+   фильтр по префиксу (`startsWith`, ignoreCase), удаление строки из общего списка
+   через `removeStation`/`removeLocomotiveSeries`.
+6. Времена — `Long` (epoch ms), обрезаются до минуты (`truncateToMinute`).
+
+---
+
+## 4. Главный экран (HomeScreen)
+
+Дашборд выбранного рабочего месяца: маршруты, суммарные метрики, итоговая
+зарплата, живые блоки «текущий/следующий маршрут» и «отдых», быстрые переходы.
+
+### 4.1. Данные и загрузка
+
+- **ViewModel**: `HomeViewModel` (`KoinComponent`). Реактивно наблюдает настройки,
+  список маршрутов выбранного месяца (`routeUseCase.routeListByMonthFlow`, с
+  `debounce(300)` и `flatMapLatest` по `routeParams`), настройки зарплаты.
+- Выбранный месяц — `UserSettings.selectMonthOfYear`; списки доступных месяцев/лет
+  и `monthYearList` (год, месяц) — для стрелок и пикера переключения месяца.
+- Все тяжёлые расчёты идут параллельно (`Dispatchers.Default`, `coroutineScope`) и
+  реактивно пересчитываются при изменении маршрутов ИЛИ настроек зарплаты.
+
+### 4.2. Метрики месяца (все в `HomeUiState`)
+
+Считаются по отфильтрованному списку (`filterByConsiderFutureRoute` — с учётом
+настройки «Учитывать будущие маршруты»):
+
+- `totalTimeWithHoliday` — отработано (с праздничными); `timeWithoutHoliday` — без.
+- `nightTimeInRouteList` — ночные (по `CalculateNightTime`, местный ЧП).
+- `holidayHours` — работа в праздники; `dayOffHours` — выходные (личные дни ×2).
+- `singleLocomotiveTimeState` — одиночное следование.
+- `extendedServicePhaseTime` / `heavyTrainsTime` / `longDistanceTrainsTime` —
+  удлинённое плечо / тяжеловесные / длинносоставные.
+- `onePersonOperationTime` — «в одно лицо» (грузовые + пассажирские).
+- `passengerTimeInRouteList` — время следования пассажиром.
+- `toBeCredited` — итоговая зарплата «К выдаче» (через `SalaryCalculationHelper`) —
+  показывается в топ-баре.
+- `normaHours` — норма часов месяца (через `NormaUseCase`: регион + отвлечения +
+  производственный календарь). Остаток/переработка = `отработано − норма`.
+- Виджет главного экрана обновляется теми же данными (`WidgetUpdater`).
+
+### 4.3. Живые блоки состояния (счётчики реального времени)
+
+- **Текущий маршрут** (`findCurrentRoute`): секундомер «в работе» (`workTimer`) от
+  явки; при наступлении `timeEndWork` (даже пока приложение было закрыто/Doze) —
+  `handleRouteEnded()` пересчитывает без БД. Секундомер считает от РЕАЛЬНОГО
+  времени (не накопительно), чтобы не отставать после блокировки.
+- **Следующий маршрут** (`findNextFutureRoute`): обратный отсчёт до явки
+  (`countdownTimer`); при обнулении маршрут становится «текущим» без ожидания БД.
+- **Блок отдыха** (`recomputeRestBlock`): по последнему завершённому маршруту и его
+  флагу `restPointOfTurnover` — либо отдых в пункте оборота (короткий+полный), либо
+  домашний (одна граница). Границы — те же формулы, что в шторке отдыха
+  (`RouteActionsHelper`). Автоскрытие по достижении границы окна (`restTransitionJob`).
+- **Кнопка «GO»** (`onGoClicked`): для текущего маршрута сохраняет время
+  отправления/прибытия на станции последнего поезда (чередование departure/arrival,
+  с учётом плеча обслуживания). Секунды сохраняются для точного старта секундомера.
+
+### 4.4. UI-разделы и действия
+
+1. **Топ-бар**: выбранный месяц (стрелки/пикер месяца-года), сумма «К выдаче»,
+   иконка поиска.
+2. Карточки-плитки быстрого доступа: «Календарь», «Статистика», «Поиск», «График»,
+   «Отвлечения» и др.
+3. Блоки метрик месяца + блоки текущего/следующего маршрута/отдыха.
+4. Список маршрутов месяца (карточки). Действия по маршруту: избранное
+   (`setFavoriteRoute`), удалить (`removeRoute` — soft-delete + snackbar), поделиться
+   (`shareRoute` → публичная ссылка + системный share-sheet), синхронизировать
+   (`syncRoute`).
+5. Кнопка «+» — новый маршрут (через проверку подписки).
+6. **Ручная синхронизация** (`manualSync`): диалог прогресса по этапам
+   (UserSettings / SalarySettings / ReleaseDays / Routes), обработка сетевых ошибок,
+   отчёт по числу сохранённых/ошибочных маршрутов.
+7. Обновление приложения через RuStore (`initUpdateManager`, flexible update).
+
+---
+
+## 5. Форма маршрута (FormScreen)
+
+Корневая форма рейса (`Route`). Хранит `BasicData` (времена работы, номер, флаги,
+заметки) и является контейнером под-разделов: Локомотив, Поезд, Пассажиром,
+Прочая работа, Фото.
+
+### 5.1. Вход и данные
+
+- **ViewModel**: `FormViewModel(routeId, isCopy, application)`.
+  - `routeId == NULLABLE_ID` → новый маршрут (создаётся `Route(BasicData(id=UUID))`,
+    в БД не пишется до первого изменения).
+  - `isCopy` → загружается существующий, но с новым `basicData.id`.
+- Реактивно наблюдает настройки, настройки зарплаты, текущий маршрут; при изменении
+  любого — пересчитывает всё (зарплата за маршрут, ночные, праздничные, отдых,
+  валидность времени, пассажирское время, предупреждение «вторая ночь подряд»).
+
+### 5.2. Сохранение (persistence) — важные инварианты
+
+- **Автосейв дебаунс 500 мс** (`triggerAutoSave`). Новый/копия пишется в БД только
+  при первом изменении; после этого — `subscribeToChanges` (подписка на дочерние
+  сущности из БД).
+- **`BasicData` держится в памяти**, из БД подтягиваются только под-разделы
+  (`locomotives/trains/passengers/otherWorks/photos`) — иначе автосейв→emit БД
+  затирает ввод пользователя. Исключения, которые берутся из БД: `timeEndWork` (его
+  пишет шторка сдачи локо), `timeStartWork` и `timeStartWorkBeforeArrival` (меняет
+  экран «Пассажиром» при «явке по прибытию»).
+- Удаление под-сущности (`onDeleteLoco/Train/Passenger/OtherWork`) — сразу из БД
+  (иначе emit БД восстановит её в UI).
+- `onCleared` дописывает маршрут только если он уже в БД И есть несохранённые
+  изменения (`NonCancellable`).
+
+### 5.3. UI-разделы
+
+1. **Топ-бар**: «‹ Маршрут», overflow-меню (Поделиться, Избранное, Удалить),
+   кнопка сохранения/выхода.
+2. **ВРЕМЯ РАБОТЫ**: явка (`timeStartWork`), сдача (`timeEndWork`), перерыв
+   (`timeStartBreak`/`timeEndBreak` — показывается по настройке «Показывать
+   перерыв»). Все — через `AppDateTimePicker` в поясе `displayTimeZone` (GMT+3 для
+   RU/BY). Ввод обрезается до минуты.
+3. **Номер маршрута** (`setNumber`).
+4. Переключатель **«В одно лицо»** (`isOnePersonOperation`, показывается по настройке).
+5. Переключатель **«Следование резервом / отдых в ПО»** (`restPointOfTurnover`) —
+   определяет тип отдыха.
+6. Секции-контейнеры (по настройкам видимости): **ЛОКОМОТИВ**, **ПОЕЗД**,
+   **ПАССАЖИРОМ**, **ПРОЧАЯ РАБОТА**, **ФОТО** — карточки дочерних сущностей +
+   «Добавить …». Тап по «Добавить» / карточке: `preSaveRoute()` (гарантирует
+   родителя в БД) → навигация в под-форму.
+7. **Заметки** (`setNotes`).
+8. Блоки расчёта: **ОТДЫХ** (короткий/полный/домашний — `DialogRestUiState`),
+   ночные/праздничные, **РАСЧЁТ ЗА СМЕНУ** (`SalaryForRouteState` — по строкам:
+   тариф, ночные, зональная, пассажир, праздничные, доплаты за поезд, «в одно лицо»,
+   переотдых, командировка; со всплывающими пояснениями-формулами).
+
+### 5.4. Расчёт зарплаты за маршрут (`SalaryForRouteState`)
+
+`calculateSalary` собирает через `SalaryCalculationHelper` параллельно (`async`):
+оплата по тарифу, ночные, зональная надбавка (%+время), пассажир (в смене + проезд
+до явки по тарифу), праздничные, доплаты за поезд (тяжеловесный / длинносоставный /
+удлинённое плечо / сдвоенный), классность, северные, районные, вредность, «в одно
+лицо» (обычный или пассажирский поезд по номеру — `passengerTrainNumberList`),
+переотдых (по предыдущему маршруту с `restPointOfTurnover`), прочие надбавки.
+**Командировка**: если маршрут в днях командировки — все обычные строки = 0, оплата
+только по среднему часу (`businessTripMoney`).
+
+### 5.5. Валидации и предупреждения
+
+- Валидность последовательности времён (`isValidBasicData`) → `errorMessage`.
+- **«Вторая ночь подряд»** (`computeNightWarn`): либо маршрут захватывает два ночных
+  окна, либо предыдущий по времени маршрут (в пределах 36 ч) тоже ночной. Окно
+  фиксированное 00:00–05:00 (НЕ пользовательские ночные для оплаты).
+- **Смена > 12 ч** (`checkWorkTimeExceeds12h`): предлагает шторку добавить
+  следование пассажиром на «хвост» смены (`Passenger12hBottomSheet`), с опцией
+  «не спрашивать» / «автоматически» (в `SharedPreferences`).
+
+### 5.6. Дубли и шаринг
+
+- **Дубль по явке** (`findDuplicateByStartWork`, точность до минуты): при сохранении
+  показывает шторку «Маршрут с такой явкой уже сохранён» → «Заменить» / «Оставить
+  оба» / «Отмена».
+- **Shared preview**: маршрут по публичной ссылке лежит в БД с `isDeleted=true`;
+  шторка приветствия предлагает сохранить (`saveSharedRouteAndExit` — снимает
+  `isDeleted`, проверяет дубль).
+- **Поделиться** (`onShareClick`): создаёт публичную ссылку (`ShareRouteManager`),
+  требует авторизации.
+- После сохранения — snackbar «Маршрут сохранён», затем фоновая синхронизация
+  одного маршрута (`syncManager.syncRoute`) со snackbar «сохранён в облаке».
+
+---
+
+## 6. Экран «Поезд» (FormTrainScreen)
+
+Форма одного поезда (`Train`) внутри маршрута: номера, характеристики, станции
+следования, плечо обслуживания, вспомогательная тяга.
+
+### 6.1. Данные и сохранение
+
+- **ViewModel**: `TrainFormViewModel(trainId, basicId)`. Стандартный контракт форм
+  (автосейв 500 мс, guard пустого — `isTrainEmpty`, финал в `onCleared`).
+- Станции ведутся отдельным `stationsListState: List<StationFormState>` (id, имя,
+  прибытие, отправление, номер пути) и переносятся в `Train.stations` только при
+  сохранении.
+
+### 6.2. UI-разделы
+
+1. **Топ-бар**: «‹ Поезд».
+2. **Номер поезда** (`number`) + доп. номера (`additionalNumbers`, добавить/удалить).
+3. **Характеристики**: расстояние (`distance`), вес (`weight`), оси (`axle`),
+   условная длина (`conditionalLength`). ⚠️ Вес/оси/длина по сети — строки.
+4. **Плечо обслуживания** (`ServicePhase`): выбор из списка (из `UserSettings`).
+   Выбор плеча подставляет расстояние и станции отправления/прибытия. При сохранении
+   поезда, если первая+последняя станции не совпадают ни с одним плечом — шторка
+   «Создать плечо?» (с опцией обратного направления) → сохраняется в настройки.
+   Плечи можно создавать/редактировать/удалять прямо здесь (`ShoulderEditBottomSheet`).
+5. **Станции следования**: список, каждая — имя (автодополнение), прибытие,
+   отправление, номер пути. Добавление/удаление/переупорядочивание (drag),
+   редактирование через шторку (`StationEditBottomSheet`). Порядок сортировки строк
+   (прямой/обратный) запоминается (`isReversedSortStationList`). При наличии плеча
+   новые станции вставляются ПЕРЕД конечной станцией плеча.
+6. **Кнопка «GO»** (`onGoClicked`): проставляет текущее время в следующее свободное
+   поле станции (чередование прибытие/отправление, с учётом плеча).
+7. **Вспомогательная тяга** (`TrainAssist`, серия/номер/машинист/заметки):
+   - **Толкач** (`pusher`) — с направлением `isFirst` («Я толкаю» / «Меня толкают»).
+   - **Двойная тяга** (`doubleTraction`).
+   - **Сдвоенный поезд** (`doubledTrain`) — с направлением `isFirst`.
+   Серии вспомогательной тяги сохраняются в общий список серий.
+
+### 6.3. Валидация
+
+`checkFormValidStation` (`isValidTrain`) — проверяет последовательность времён
+станций; ошибка → `errorMessage`, блокирует сохранение.
+
+---
+
+## 7. Экран «Пассажиром» (FormPassengerScreen)
+
+Форма следования пассажиром (`Passenger`): станция/время отправления и прибытия,
+номер поезда, «явка по прибытию».
+
+### 7.1. Данные и сохранение
+
+- **ViewModel**: `PassengerFormViewModel(passengerId, basicId)`. Контракт форм
+  (автосейв 500 мс, guard `isPassengerEmpty`, финал в `onCleared`).
+- Валидация времени (`isValidPassenger`) → `resultTime` (прибытие − отправление) и
+  `errorMessage`. Для «явки по прибытию» отправление до начала работы допустимо.
+
+### 7.2. «Явка по прибытию» — ключевая бизнес-логика
+
+`setWorkStartByArrival(enabled)`: делает прибытие ЭТОГО пассажира началом рабочего
+времени маршрута (`BasicData.timeStartWork = timeArrival`) и снимает флаг с
+остальных пассажиров (единственная точка отсчёта). Через `syncWorkStartToRoute`:
+- Включение: запоминает прежнюю явку в `timeStartWorkBeforeArrival` и ставит прибытие.
+- Выключение: возвращает прежнюю явку из резерва и очищает резерв.
+- Изменение времени прибытия при активном флаге — держит `timeStartWork` синхронным.
+Сохраняет весь маршрут (помечая несинхронизированным).
+
+### 7.3. UI-разделы
+
+1. **Топ-бар**: «‹ Пассажиром», очистить поля (`clearAllField`).
+2. Номер поезда (`trainNumber`).
+3. Станция отправления / прибытия (автодополнение).
+4. Время отправления / прибытия → результат (`resultTime`).
+5. Переключатель **«Явка по прибытию»** (показывает рабочее окно маршрута
+   `routeWorkStart/End`, чтобы обозначить, что следование вне окна не в оплате).
+6. Заметки.
+
+---
+
+## 8. Экран «Прочая работа» (FormOtherWorkScreen)
+
+Произвольная работа в рамках смены (`OtherWork`): тип, станция, время начала/конца.
+
+### 8.1. Данные и сохранение
+
+- **ViewModel**: `OtherWorkFormViewModel(otherWorkId, basicId)`. Контракт форм
+  (автосейв 500 мс, guard `isOtherWorkEmpty`, финал в `onCleared`; станция в общий
+  список сохраняется только финальным значением при выходе, не на каждый keystroke).
+- `recalcResultTime`: `resultTime = конец − начало`; ошибка если конец ≤ начало.
+
+### 8.2. Типы работ и автоподстановка времени
+
+- **Тип работы** (`workType`): предопределённые (`OtherWork.PREDEFINED_TYPES`) +
+  пользовательские (из `UserSettings`). Добавление/удаление своих типов. Последний
+  выбранный тип запоминается и подставляется в новую запись.
+- **«От явки до окончания работы»** (`applyTimeFromWork`): начало=явка, конец=сдача
+  маршрута.
+- **«От приёмки до сдачи локомотива»** (`applyTimeFromLoco`): при нескольких локо —
+  шторка выбора. Приоритет — время КП (выезд→начало, въезд→окончание), иначе конец
+  приёмки / начало сдачи локо. Границы не пересекаются: +1 мин / −1 мин.
+
+### 8.3. UI-разделы
+
+Топ-бар «‹ Прочая работа»; тип (dropdown с управлением списком); станция
+(автодополнение); время начала/конца + кнопки автоподстановки; результат; заметки.
+
+---
+
+## 9. Экран «Все маршруты» (AllRouteScreen)
+
+Полный список маршрутов выбранного месяца с фильтрами, сортировкой и сводкой.
+
+- **ViewModel**: `AllRouteViewModel`. Загружает маршруты месяца, считает для каждого
+  оплату (`routePayments`, форматированная сумма с валютой) и отработанное время
+  месяца (`monthWorkedTimeText`).
+- **Фильтры** (`RouteFilter`, множественный выбор; `ALL` сбрасывает): избранные,
+  тяжеловесные, удлинённое плечо, следование резервом, в одно лицо, свыше 12 ч,
+  длинносоставные, с перерывом, толкач, двойная тяга, сдвоенный.
+- **Сортировка** (`SortOption`): по дате ↑/↓, по времени работы ↑/↓.
+- **Вид**: свёрнутый/развёрнутый (`isExpandedView` — в развёрнутой карточке блок
+  «Расчёт за смену»); объединение «отдых в ПО» коннектором между маршрутами
+  (`showTurnaroundRest`, запоминается в prefs).
+- Действия по маршруту: избранное, удалить (с подтверждением), синхронизировать,
+  поделиться. Новый маршрут — с проверкой подписки. Переключение месяца
+  (`setCurrentMonth`).
+
+---
+
+## 10. Экран «Поиск» (SearchScreen)
+
+Поиск по всем маршрутам с историей запросов, подсказками и фильтрами.
+
+- **ViewModel**: `SearchViewModel`. Строит **индекс поиска** один раз при изменении
+  списка маршрутов/настроек (не на каждое нажатие) — сам поиск идёт по индексу без
+  обращений к БД. Дебаунс ввода; немедленный поиск по кнопке (`sendRequest`).
+- Состояние (`SearchUIState`): история (`searchHistoryList`, `SearchResponse`),
+  подсказки (`hints`), результаты (`searchResultList: List<RouteWithTag>` — маршрут
+  с тегом-причиной совпадения), фильтр (`FilterSearch`).
+- Фильтры: по полю (`setSearchFilter`, пара «поле → вкл»), по периоду
+  (`setPeriodFilter`, `TimePeriod`). История: добавление (`addResponse`), удаление
+  (`removeHistoryResponse`).
+- UI: поле ввода; блоки истории / подсказок / результатов переключаются флагами
+  `isVisibleHistory/Hints/Result`.
+
+---
+
+## 11. Экран «Расчёт зарплаты» (SalaryCalculationScreen)
+
+Детальный помесячный расчёт зарплаты по всем строкам начислений и удержаний.
+
+- **ViewModel**: `SalaryCalculationViewModel`. Реактивно пересчитывает при смене
+  месяца (`selectYearAndMonth` пишет месяц в настройки) и настроек зарплаты. Каждая
+  строка считается отдельным `set…Data(helper) → PartialState`, результаты
+  сливаются в `SalaryCalculationUIState`. Расчёт — через `SalaryCalculationHelper`.
+- **Строки начислений** (каждая — часы + сумма, часть с процентом): по тарифу;
+  ночные (%); одиночное следование; пассажир; праздничные (оплата + доплата);
+  сверхурочные (первые часы ×0.5 и последующие); зональная (%); классность (%);
+  удлинённое плечо / тяжеловесные / длинносоставные (списки по порогам); сдвоенный
+  (первый/второй); «в одно лицо» (грузовой и пассажирский поезд, %); переотдых;
+  вредность (%); северные (%); районные (коэффициент); средний час; **недоработка**
+  (если отработано < нормы; при отсутствии среднего часа — инфо-окно с предложением
+  задать, `showSetAverageHourInfo` / `dismissUnderworkInfoForever`); уход за
+  детьми-инвалидами; командировка.
+- **Итого/удержания**: начислено (`totalChargedMoney`), НДФЛ, профсоюз, прочие
+  удержания, **К выдаче** (`toBeCredited`).
+- Заголовок: месяц/год со стрелками (как на главном), символ валюты (₽/₸/Br),
+  тарифная ставка, норма часов (`computeEffectiveNormaHours` через `NormaUseCase`).
+
+---
+
+## 12. Экран «Настройки зарплаты» (SettingSalaryScreen)
+
+Ввод всех параметров расчёта (`SalarySetting` + `MonthOfYear.tariffRate`).
+
+- **ViewModel**: `SettingSalaryViewModel`. Каждое поле — свой сеттер; значения —
+  строки с флагом ошибки ввода (`isErrorInput…`). Все поля в `SettingSalaryUIState`.
+- **Тарифная ставка** — особый случай: при изменении диалог «Применить только к
+  этому месяцу / к текущему и последующим» (`saveSettingAndOnlyMonthTariffRate` /
+  `…CurrentAndNextMonth`), с датой начала действия (`setDateSetTariffRate`, старая
+  ставка `oldTariffRate`).
+- Поля: средний час, районный коэффициент, северный коэффициент, зональная надбавка,
+  классность, «в одно лицо» (грузовой/пассажирский %), вредность %, прочая надбавка,
+  НДФЛ, профсоюз, прочие удержания.
+- **Списки порогов** (добавить/изменить/удалить строку): доплаты за тяжеловесные
+  (вес→%), длинносоставные (длина→%), удлинённое плечо (расстояние→%).
+
+---
+
+## 13. Экран «Статистика» (StatisticsScreen)
+
+Аналитика по маршрутам: вкладки «Месяц», «Год», «История». ViewModel считает
+метрики (переиспользуя `UtilsForEntities` и `SalaryCalculationHelper` — те же
+расчёты, что на главном) и отдаёт УЖЕ отформатированный `StatisticsUiState`; экран
+только рендерит.
+
+- **ViewModel**: `StatisticsViewModel`. Вкладки (`setTab`), навигация по периодам
+  (`prevPeriod`/`nextPeriod`), сравнение с базовым периодом (`setCompare` /
+  `setCompareCustomMonth` / `setCompareCustomYear`).
+- **Месяц**: сетка метрик (`StatMetric`: значение, дельта к базовому периоду, мини-
+  бар текущий/предыдущий), первая метрика крупная; топ направлений
+  (`StatTopDirection`).
+- **Год**: hero-значение + помесячные столбцы (`StatMonthBar`).
+- **История**: итоги за всё время (`StatHistoryMetric`), строки «год за годом»
+  (`StatYearRow`), выбор метрики (`selectHistoryMetric`).
+- **Детализация метрики** (тап по плашке, `openDetail`): overlay с hero, помесячными
+  интерактивными столбцами (`StatDetailBar`, выбор месяца — `selectDetailMonth`) и
+  разбивкой по направлениям (donut, `StatDonutSeg`).
+- Форматтеры (`StatFormat`): часы:минуты, деньги (тыс./млн + валюта), расстояние
+  (км/тыс. км), русские десятичные, склонение «год/года/лет».
+
+---
+
+## 14. Экран «Календарь» (CalendarScreen)
+
+Объединяет в одном месяце поездки (маршруты) и отвлечения (личные дни).
+
+- **ViewModel**: `CalendarViewModel`. Грузит маршруты месяца → `tripsByDay`
+  (по дню явки), дни-отвлечения из `MonthOfYear.days` → `absenceByDay`, суммарное
+  отработанное → `totalWorkedText`. Переключение месяца (`shiftMonth`, только если
+  есть в производственном календаре).
+- **Ячейка дня**: поездки (`TripInfo`) и/или отвлечение (`AbsenceInfo`); федеральные
+  праздники РФ подписываются по фиксированным датам (ст.112 ТК РФ), переносы — просто
+  «Праздничный день».
+- **Режим планирования** (`enterRoutePlan`): выбор времени явки (чипы `TimeOption`
+  из настроек + своё время `addCustomPlanTime`), отметка дней (`toggleDayPlan`) →
+  `createPlannedRoutes` создаёт черновики маршрутов с `timeStartWork` на выбранные
+  дни (через `toEpochMillis`, пояс GMT+3).
+- **Отвлечения**: добавить «Выходной» на день (`addDayOff`, личный день ×2 тариф);
+  удалить день (`deleteAbsenceDay`) или весь период (`deleteAbsencePeriod`).
+- Удаление маршрута (`deleteRoute` — soft-delete + sync). `reload` при возврате.
+
+---
+
+## 15. Мастер «Заполнить месяц» (ScheduleWizardScreen)
+
+- **ViewModel**: `ScheduleWizardViewModel`. По паттерну графика раскладывает смены
+  на месяц и создаёт черновики маршрутов (`Route` c `timeStartWork/timeEndWork`) на
+  каждый рабочий день. Соответствует дизайну `schedule-wizard.jsx`.
+- **Паттерны** (`SchedulePattern`) хранятся ЛОКАЛЬНО (SharedPreferences): стандартные
+  (2/2, 4/4, 2/1) можно удалить; «свой» цикл-конструктор (`CUSTOM_PATTERN_ID`) после
+  применения сохраняется новым паттерном. Тип дня — `ShiftKind` (DAY/NIGHT/OFF).
+- **Шаг 1**: выбор/редактирование паттерна (тап по дню цикла → пикер типа;
+  добавить/убрать день цикла), время дневной и ночной смены (своё у каждой),
+  первый день цикла в месяце. **Шаг 2**: предпросмотр раскладки на месяц.
+- `apply()` создаёт маршруты (проверка подписки → `needSubscription`); длительность
+  смены — в минутах, через полночь → +24 ч.
+
+> Старый экран «График» (`WorkScheduleScreen` + `WorkScheduleViewModel`) удалён как
+> мёртвый код — его заменили Календарь (14) и этот Мастер.
+
+---
+
+## 16. Отвлечения (AbsenceScreen / SelectReleaseDaysScreen)
+
+Личные нерабочие дни (отпуск, больничный, курсы, уход и т.п.) — «release-дни»,
+влияют на норму часов.
+
+### 16.1. Новое отвлечение (AbsenceScreen)
+
+- **ViewModel**: `AbsenceViewModel`. Выбор диапазона дат в месяце (тап: 1-й — начало,
+  2-й — конец диапазона, 3-й — сброс) + тип (`ReleaseType`, без «Выходного» —
+  он отдельным пунктом). Норма-часы за диапазон (`rangeHours`): только рабочие дни
+  (кроме «по уходу» — все дни). `save()` пишет в `ReleaseDayRepository`.
+
+### 16.2. Список отвлечений / норма месяца (SelectReleaseDaysScreen)
+
+- **ViewModel**: `SelectReleaseDaysViewModel`. Периоды отвлечений (`ReleasePeriod`)
+  строятся из `MonthOfYear.days` (обогащённых release-флагами). Добавить/удалить
+  период (`addReleasePeriod`/`deleteReleasePeriod`). Смена месяца (`setCurrentMonth`).
+  Отдельно — сохранение тарифной ставки и полей `MonthOfYear` (`saveNormaHours`).
+
+---
+
+## 17. Экран «Настройки» (SettingsScreen)
+
+Общие настройки приложения; открывается сразу в нужном под-разделе
+(`showSettings*` → аргумент ROUTE/ROUTE_FORM/LOCOMOTIVE/REST/SERIES_LIST/
+STATION_LIST/SERIES_EDITOR_{id}/STATION_EDITOR_{id}).
+
+- **ViewModel**: `SettingsViewModel`. Все поля в `SettingsUiState` (`UserSettings`).
+- **Время**: формат (обычный/десятичный, `changeTimeFormat`), стиль пикера
+  (`changeTimePickerStyle`), часовой пояс (`setTimeZone`), пояс переходных
+  маршрутов (`setCrossMonthTimezone`: MOSCOW/LOCAL), ночные часы
+  (`changeStart/EndNightTime`).
+- **Работа**: время по умолчанию (`changeDefaultWorkTime` + `usingDefaultWorkTime`),
+  тип локо по умолчанию (`setDefaultLocoType`), учитывать будущие маршруты,
+  показывать перерыв, поведение «пассажир >12ч» (`Passenger12hOption`).
+- **Видимость блоков формы**: локомотив, поезд, пассажиром, прочая работа, «в одно
+  лицо», отопление/собственные нужды локо, другой род тока.
+- **Отдых**: мин. время отдыха в ПО (`changeMinTimeRest`), мин. домашний отдых.
+- **Плечи обслуживания** (`ServicePhase`): добавить/изменить/удалить, диалог ввода.
+- **Справочники**: список серий локомотивов, список станций (удаление строк),
+  редакторы норм серии/станции (те же, что в шторке времени — см. 2.10).
+- **Регион/страна и норма**: смена страны (`changeCountry` → загрузка
+  производственного календаря, `CountryLoadingState`), смена региона
+  (`changeRegion` — АТОМАРНО: pre-flight проверка сети, коммит только при успехе,
+  `RegionLoadingState`); норма часов (`normaHours`) реактивно через `NormaUseCase`.
+- Синхронизация настроек (upload/download).
+
+---
+
+## 18. Экран «Профиль» и аутентификация (ProfileScreen)
+
+Аккаунт, подписка, синхронизация, вход/регистрация, миграция данных.
+
+- **ViewModel**: `ProfileViewModel`. Данные пользователя (`UserRemote`), срок
+  подписки (`purchasesEndTime`), VK-профиль (`VkUserInfo`).
+- **Аутентификация**: вход по email/паролю (`authWithEmail`), по VK ID
+  (`authWithVKID`); регистрация (`registeredUserByEmail`/`ByVKID`); подтверждение
+  email (`resentVerificationEmailButton`, `updateEmail`); восстановление пароля
+  (`forgotRequest`/`forgotResetState`); привязка VK ID к существующему аккаунту
+  (`attachVKID`, `onVkAuthForLinkedAccount`), отвязка (`removeUsersVKID`); обновление
+  VK-токена (`vkIdRefreshToken`); выход (`logOut`).
+- **Синхронизация** (общая с главным/профилем): upload (`startSyncUpload`,
+  `firstUpload`) и download (`startSyncDownload`) с диалогом прогресса по этапам
+  (`SyncStepState` × `SyncType`), обработкой сетевых ошибок и отчётом по маршрутам.
+- **Миграция** данных (`startMigration`, `MigrationState`) — перенос локальных
+  данных в аккаунт при первом входе (маршруты + настройки, с прогрессом).
+
+---
+
+## 19. Экран «Покупки» / подписка (PurchasesScreen)
+
+Оформление платной подписки через Robokassa (Android; на iOS — отложено, релиз без
+платной подписки — см. CODEBASE).
+
+- **ViewModel**: `PurchasesViewModel`. Список продуктов и покупок
+  (`refreshProductsAndPurchases`), выбор продукта (`onProductClick`), формирование
+  `PaymentParams` (с токеном сохранённой карты для повторных платежей).
+- **Проверка оплаты** (`checkPaymentOnServer`): сервер обновляет подписку через
+  асинхронный webhook (Result URL), поэтому — **поллинг с повторами**, а не один
+  запрос. `sdkConfirmed=true` → 10×3 с; `false` → 5×3 с. Итог: успех →
+  диалог успеха; подтверждено SDK, но сервер не обработал → «в обработке»; иначе →
+  ошибка. Восстановление покупок (`restoreSubscribe`).
+
+---
+
+## 20. Онбординг и вход
+
+- **Онбординг** (`FirstPresentationBlockScreen`) — приветственный блок при первом
+  запуске, кнопка «Далее» → главный экран.
+- **Экраны входа/регистрации** (`SignInScreenRoute` / `LogInScreenRoute`) —
+  доступны через `router.showSignIn()` / `showLogIn()`. Вся логика аутентификации
+  ведётся из `ProfileViewModel` (см. 18): email/пароль + VK ID; платежи — Robokassa.
+
+---
+
+## 21. Экспорт PDF (маршрутный лист / расчёт / график)
+
+Формирование PDF и передача его в системный share-sheet. Не отдельный экран —
+вызывается диалогом `PdfContentDialog` с главного, «Все маршруты», «Расчёт
+зарплаты», «График».
+
+- **ViewModel**: `PdfViewModel` (singleton). Данные подаются экранами извне
+  (`updateSalaryState`, `updateRoutes(routes, monthLabel)`, `updateCalendarDays`).
+- **Выбор разделов** (`PdfSections`, диалог с чекбоксами): маршруты
+  (`includeRouteDetails`), график (`includeSchedule`), расчёт зарплаты
+  (`includeSalary`).
+- `generateAndShare(sections, routes, monthLabel, calendarDays)`: если включён
+  расчёт — берёт готовый `SalaryCalculationUIState` (или ждёт singleton-VM расчёта
+  до 8 с), строит PDF через `PdfGenerator`, отдаёт `Uri` через `FileProvider`
+  (authority `${packageName}.fileprovider`) → экран открывает share-sheet.
+  Флаг `_isGenerating` (защита от повторного запуска), ошибки → `_errorMessage`.
+- Предпросмотр маршрута перед экспортом — `PreviewRouteDialog`.
+
+---
+
+## 22. Служебные и легаси-экраны
+
+- **«Что нового» после обновления** (`UpdatePresentationBlockScreen`,
+  `UpdatePresentationBlockRoute`) — блок онбординга с данными
+  `OnBoardingItems.getDataUpdatePresentation()`, кнопка → главный экран. Тот же
+  компонент `PresentationBlock`, что и первый онбординг (см. 20).
+- **`DetailsRoute` / `Router.showRouteDetails`**: на Android НЕ зарегистрирован в
+  NavHost (`Navigation.kt`) — мёртвая ветка; **оставлен намеренно**, потому что
+  используется живым iOS-экраном (`iosApp/.../screen/HomeScreen.kt`). Не удалять без
+  чистки iOS.
+
+> **Проверено (аудит покрытия и мёртвого кода):** все экраны, зарегистрированные в
+> `features/route/.../navigation/Navigation.kt`, плюс онбординг и PDF-экспорт описаны
+> в разделах 1–22. «Белых пятен» среди действующих экранов нет. Удалён мёртвый код:
+> старый «График» (`WorkScheduleScreen`+VM), экраны-заглушки `NormsScreen` /
+> `WidgetsInfoScreen`, цепочка `MoreInfo` (`showMoreInfo` / `MoreInfoRoute` /
+> `onMoreInfoClick`) — вместе со ссылками в `Router`, `RouterImpl`, DI и iOS-модуле.
+
+---
+
 ## Приложение. Где смотреть в коде (Android-эталон)
 
 - Форма локомотива: `features/route/.../ui/FormLocoScreen.kt`,
@@ -342,3 +947,46 @@ FormScreen). Явка (locked) не удаляется. Для «Окончан�
   `viewmodel/StationNormEditorViewModel.kt`, `viewmodel/SeriesEditorViewModel.kt`.
 - Сущности: `domain/.../entities/route/Locomotive.kt`,
   `domain/.../entities/norma_time/StationNorm.kt`, `LocomotiveSeries.kt`.
+
+### Экраны и ViewModel'и (разделы 3–20)
+
+Все экраны — в `features/route/src/main/java/com/z_company/route/`
+(`ui/*Screen.kt` + `viewmodel/*ViewModel.kt`), навигация — `Router`
+(`domain/navigation/Router.kt`, реализация `app/.../ui/navigation/RouterImpl.kt`).
+
+| Раздел | Экран (`ui/`) | ViewModel (`viewmodel/`) |
+|---|---|---|
+| 4 Главный | `HomeScreen.kt`, `HomeStateBlocks.kt` | `home_view_model/HomeViewModel.kt` |
+| 5 Маршрут | `FormScreen.kt` | `FormViewModel.kt` (`RouteFormUiState`, `SalaryForRouteState`) |
+| 6 Поезд | `FormTrainScreen.kt` | `TrainFormViewModel.kt` (`TrainFormUiState`, `TrainFieldState`) |
+| 7 Пассажиром | `FormPassengerScreen.kt` | `PassengerFormViewModel.kt` |
+| 8 Прочая работа | `FormOtherWorkScreen.kt` | `OtherWorkFormViewModel.kt` |
+| 9 Все маршруты | `AllRouteScreen.kt` | `all_route_view_model/AllRouteViewModel.kt` |
+| 10 Поиск | `SearchScreen.kt` | `SearchViewModel.kt` |
+| 11 Расчёт зарплаты | `SalaryCalculationScreen.kt` | `SalaryCalculationViewModel.kt` + `SalaryCalculationHelper.kt` |
+| 12 Настройки зарплаты | `SettingSalaryScreen.kt` | `SettingSalaryViewModel.kt` |
+| 13 Статистика | `StatisticsScreen.kt` | `StatisticsViewModel.kt` (`StatisticsUiState`, `StatFormat`) |
+| 14 Календарь | `CalendarScreen.kt` | `CalendarViewModel.kt` |
+| 15 Мастер «Заполнить месяц» | `ScheduleWizardScreen.kt` | `ScheduleWizardViewModel.kt` |
+| 16 Отвлечения | `AbsenceScreen.kt`, `SelectReleaseDaysScreen.kt` | `AbsenceViewModel.kt`, `SelectReleaseDaysViewModel.kt` |
+| 17 Настройки | `SettingsScreen.kt` | `SettingsViewModel.kt` |
+| 18 Профиль / вход | `ProfileScreen.kt` | `ProfileViewModel.kt` |
+| 19 Покупки | `PurchasesScreen.kt` | `PurchasesViewModel.kt` |
+| 20 Онбординг | `ui/login/FirstPresentationBlockScreen.kt` | — |
+| 21 PDF-экспорт | `component/PdfContentDialog.kt`, `PreviewRouteDialog.kt`, `util/PdfGenerator.kt` | `PdfViewModel.kt` |
+| 22 «Что нового» | `ui/UpdatePresentationBlockScreen.kt` | — |
+
+Реестр навигации (что зарегистрировано в NavHost) — `navigation/Navigation.kt`;
+маршруты — `navigation/Routes.kt`, `navigation/*Destination.kt`.
+
+- Общие компоненты форм: `component/AppBottomSheet.kt`, `AppInputBottomSheet.kt`,
+  `ConfirmExitDialog.kt`, `AppAlertDialog.kt`, `ShoulderEditBottomSheet.kt` (плечо),
+  `StationEditBottomSheet.kt` (станция поезда), `Passenger12hBottomSheet.kt`,
+  `SearchSettingBottomSheet.kt`, `SyncProgressDialog.kt`.
+- Доменные расчёты: `domain/.../util/` (`CalculateNightTime.kt`,
+  `TimeCalculationContext.kt`), `domain/.../entities/route/UtilsForEntities.kt`
+  (метрики маршрутов), use cases `NormaUseCase`, `RouteUseCase`, `CalendarUseCase`.
+- Сущности разделов: `route/Route.kt`, `route/BasicData.kt`, `route/Train.kt`
+  (+`TrainAssist`, `Station`), `route/Passenger.kt`, `route/OtherWork.kt`,
+  `setting/SalarySetting.kt`, `setting/ServicePhase.kt`, `MonthOfYear.kt`,
+  `Day.kt`/`ReleaseType.kt`.
