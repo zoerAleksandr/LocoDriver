@@ -29,7 +29,7 @@ class SettingManager(
         remoteRestApi.saveUserSetting(token = bearerToken, body = userSettings)
         emit(ResultState.Success(Unit))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     fun getUserSettingFromRemote(
@@ -39,7 +39,7 @@ class SettingManager(
         val setting = remoteRestApi.getUserSetting(token = bearerToken)
         emit(ResultState.Success(setting))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     fun saveSalarySettingInRemote(
@@ -50,7 +50,7 @@ class SettingManager(
         remoteRestApi.saveSalarySetting(token = bearerToken, body = salarySetting)
         emit(ResultState.Success(Unit))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     fun getSalarySettingFromRemote(
@@ -60,7 +60,7 @@ class SettingManager(
         val setting = remoteRestApi.getSalarySetting(token = bearerToken)
         emit(ResultState.Success(setting))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     fun saveMonthOfYearListInRemote(
@@ -71,7 +71,7 @@ class SettingManager(
         remoteRestApi.saveMonthOfYearList(token = bearerToken, body = monthOfYearList)
         emit(ResultState.Success(Unit))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     fun getMonthOfYearListFromRemote(
@@ -81,7 +81,7 @@ class SettingManager(
         val months = remoteRestApi.getMonthOfYearList(token = bearerToken)
         emit(ResultState.Success(months))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     // --- ReleaseDay ---
@@ -94,7 +94,7 @@ class SettingManager(
         remoteRestApi.saveReleaseDays(token = bearerToken, body = days)
         emit(ResultState.Success(Unit))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     fun getReleaseDaysFromRemote(
@@ -104,7 +104,7 @@ class SettingManager(
         val days = remoteRestApi.getReleaseDays(token = bearerToken)
         emit(ResultState.Success(days))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     // --- NormaTime ---
@@ -117,7 +117,7 @@ class SettingManager(
         remoteRestApi.saveNormaTimeLocomotives(token = bearerToken, body = series)
         emit(ResultState.Success(Unit))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     fun getNormaTimeLocomotivesFromRemote(
@@ -127,7 +127,7 @@ class SettingManager(
         val series = remoteRestApi.getNormaTimeLocomotives(token = bearerToken)
         emit(ResultState.Success(series))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     fun saveNormaTimeStationsInRemote(
@@ -138,7 +138,7 @@ class SettingManager(
         remoteRestApi.saveNormaTimeStations(token = bearerToken, body = stations)
         emit(ResultState.Success(Unit))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     fun getNormaTimeStationsFromRemote(
@@ -148,7 +148,7 @@ class SettingManager(
         val stations = remoteRestApi.getNormaTimeStations(token = bearerToken)
         emit(ResultState.Success(stations))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     // --- ProductionCalendar ---
@@ -161,6 +161,6 @@ class SettingManager(
         val days = remoteRestApi.getProductionCalendar(country = country, year = year)
         emit(ResultState.Success(days))
     }.catch { e ->
-        emit(ResultState.Error(ErrorEntity(throwable = e)))
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 }

@@ -51,6 +51,7 @@ import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.repository.SecureTokenStorage
+import com.z_company.repository.remote_rest.NetworkErrorMapper
 import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.repository.remote_rest.ShareRouteManager
 import com.z_company.repository.remote_rest.SyncManager
@@ -1224,14 +1225,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    // Экран «Нет интернета» — только для реальных транспортных ошибок; ответ
+    // сервера с кодом ошибки (валидация 422, сбой 5xx) показывается как ошибка шага.
     private fun isNetworkErrorMessage(msg: String): Boolean =
-        msg.contains("Нет соединения", ignoreCase = true) ||
-        msg.contains("Unable to resolve", ignoreCase = true) ||
-        msg.contains("Connection refused", ignoreCase = true) ||
-        msg.contains("timeout", ignoreCase = true) ||
-        msg.contains("Failed to connect", ignoreCase = true) ||
-        msg.contains("Network is unreachable", ignoreCase = true) ||
-        msg.contains("ECONNREFUSED", ignoreCase = true)
+        NetworkErrorMapper.isConnectivityMessage(msg)
     private fun parseSyncStep(message: String): String? = when {
         message.contains("UserSettings") -> "UserSettings"
         message.contains("SalarySetting") -> "SalarySettings"

@@ -35,6 +35,7 @@ import com.z_company.repository.remote_rest.AuthState
 import com.z_company.repository.remote_rest.ForgotPasswordState
 import com.z_company.repository.remote_rest.ResponseState
 import com.z_company.repository.remote_rest.GetUserProfileState
+import com.z_company.repository.remote_rest.NetworkErrorMapper
 import com.z_company.repository.remote_rest.RegistrationState
 import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.repository.remote_rest.SettingManager
@@ -312,14 +313,11 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    // Экран «Нет интернета» показываем только для реальных транспортных ошибок.
+    // Ответ сервера с кодом ошибки (валидация 422, сбой 5xx) сюда не попадает —
+    // такие сообщения показываются как ошибка конкретного шага с деталями.
     private fun isNetworkErrorMessage(msg: String): Boolean =
-        msg.contains("Нет соединения", ignoreCase = true) ||
-        msg.contains("Unable to resolve", ignoreCase = true) ||
-        msg.contains("Connection refused", ignoreCase = true) ||
-        msg.contains("timeout", ignoreCase = true) ||
-        msg.contains("Failed to connect", ignoreCase = true) ||
-        msg.contains("Network is unreachable", ignoreCase = true) ||
-        msg.contains("ECONNREFUSED", ignoreCase = true)
+        NetworkErrorMapper.isConnectivityMessage(msg)
 
 
     private fun parseSyncUploadStep(message: String): String? = when {

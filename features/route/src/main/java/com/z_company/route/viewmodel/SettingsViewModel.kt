@@ -23,6 +23,7 @@ import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.NormaUseCase
 import com.z_company.domain.use_cases.ProductionCalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.repository.remote_rest.NetworkErrorMapper
 import com.z_company.repository.remote_rest.SettingManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -769,14 +770,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     }
 
     private fun isNetworkErrorMessage(msg: String): Boolean =
-        msg.contains("Unable to resolve", ignoreCase = true) ||
-        msg.contains("Connection refused", ignoreCase = true) ||
-        msg.contains("timeout", ignoreCase = true) ||
-        msg.contains("Failed to connect", ignoreCase = true) ||
-        msg.contains("Network is unreachable", ignoreCase = true) ||
-        msg.contains("ECONNREFUSED", ignoreCase = true) ||
-        msg.contains("UnknownHostException", ignoreCase = true) ||
-        msg.contains("ConnectException", ignoreCase = true)
+        NetworkErrorMapper.isConnectivityMessage(msg)
 
     private suspend fun fetchAndApplyCalendar(country: String, year: Int) {
         settingManager.getProductionCalendarFromRemote(country, year).collect { state ->
