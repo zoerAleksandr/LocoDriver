@@ -70,6 +70,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.MonoFont
+import com.z_company.route.component.AppInputBottomSheet
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.SwitchApp
 import androidx.compose.runtime.collectAsState
@@ -362,11 +363,10 @@ fun ProfileScreen(
             .map { it.updateEmailState }
             .collectAsState(initial = null)
 
-        // Локальная ошибка — показываем под TextField
+        // Локальная ошибка — показываем под полем
         var errorMessage by remember { mutableStateOf<String?>(null) }
-        var emailValue by remember { mutableStateOf(viewModel.currentEmail) }
 
-        // Сброс состояния при открытии диалога
+        // Сброс состояния при открытии шторки
         LaunchedEffect(Unit) {
             viewModel.resetUpdateEmailState()
             errorMessage = null
@@ -393,70 +393,19 @@ fun ProfileScreen(
             }
         }
 
-        AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surface,
+        AppInputBottomSheet(
             onDismissRequest = {
                 showEditEmailDialog = false
                 viewModel.resetUpdateEmailState()
             },
-            title = { Text("Новый email", fontSize = 17.sp, fontWeight = FontWeight.Bold) },
-            text = {
-                OutlinedTextFieldApp(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = emailValue,
-                    onValueChange = {
-                        emailValue = it
-                        errorMessage = null                    // Очищаем ошибку при вводе
-                    },
-                    singleLine = true,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    textStyle = MaterialTheme.typography.bodyLarge,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Email,
-                        imeAction = ImeAction.Done
-                    ),
-                    isError = errorMessage != null,            // Подсвечиваем поле красным
-                    supportingText = {
-                        if (errorMessage != null) {
-                            Text(
-                                text = errorMessage.orEmpty(),
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                )
-            },
-            confirmButton = {
-                Button(
-                    enabled = emailValue.isEmailValid() &&
-                            updateEmailState !is ResultState.Loading,
-                    shape = Shapes.medium,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        disabledContainerColor = MaterialTheme.colorScheme.surfaceBright,
-                    ),
-                    onClick = { viewModel.updateEmail(emailValue) }
-                ) {
-                    if (updateEmailState is ResultState.Loading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = MaterialTheme.colorScheme.secondary,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text("Сохранить", color = MaterialTheme.colorScheme.secondary)
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showEditEmailDialog = false
-                    errorMessage = null
-                }) { Text("Отмена", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            },
+            title = "Новый email",
+            initialValue = viewModel.currentEmail,
+            onConfirm = { viewModel.updateEmail(it) },
+            keyboardType = KeyboardType.Email,
+            isValid = { it.isEmailValid() },
+            errorText = errorMessage,
+            isLoading = updateEmailState is ResultState.Loading,
+            onValueChange = { errorMessage = null },
         )
     }
 

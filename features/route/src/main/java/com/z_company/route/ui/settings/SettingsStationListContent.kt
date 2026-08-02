@@ -38,25 +38,32 @@ fun SettingsStationListContent(
     onOpenLegacy: (String) -> Unit,
 ) {
     val stations by viewModel.stationsFlow.collectAsState()
-    val withNorms = stations.filter {
-        it.appearanceToStartMin != null && it.endToBarrierMin != null &&
-            it.barrierToStartMin != null && it.endToWorkEndMin != null
-    }
-    val withoutNormsRecords = stations.filter {
-        it.appearanceToStartMin == null || it.endToBarrierMin == null ||
-            it.barrierToStartMin == null || it.endToWorkEndMin == null
-    }
+    // «С нормами» — станция, где задана хотя бы одна норма интервала (остальные
+    // показываем прочерком). «Без норм» — где не задано ничего.
+    fun hasAnyNorm(s: StationNorm) = s.appearanceToStartMin != null || s.endToBarrierMin != null ||
+        s.barrierToStartMin != null || s.endToWorkEndMin != null
+    val withNorms = stations.filter { hasAnyNorm(it) }
+    val withoutNormsRecords = stations.filter { !hasAnyNorm(it) }
 
     // Раздел «без норм» = записи с неполными нормами (открываются по id) + «старые»
     // имена из stationList, которым не сопоставлена запись (открываются по имени).
+    // Для частично заполненных станций показываем, какие нормы уже заданы.
     val recordNames = stations.map { it.name.trim().lowercase() }.toSet()
-    val noNormItems: List<NoNormItem> =
-        withoutNormsRecords.map { NoNormItem(it.name, it.stationId) } +
+    val noNormItems: List<StationNoNorm> =
+        withoutNormsRecords.map { s ->
+            val hasAny = s.appearanceToStartMin != null || s.endToBarrierMin != null ||
+                s.barrierToStartMin != null || s.endToWorkEndMin != null
+            StationNoNorm(
+                name = s.name,
+                id = s.stationId,
+                subtitle = if (hasAny) stationNormSummary(s) else null
+            )
+        } +
             legacyNames
                 .map { it.trim() }
                 .filter { it.isNotBlank() && it.lowercase() !in recordNames }
                 .distinct()
-                .map { NoNormItem(it, null) }
+                .map { StationNoNorm(it, null, null) }
 
     Column(
         modifier = Modifier
@@ -150,10 +157,21 @@ fun SettingsStationListContent(
     }
 }
 
+/**
+ * Подпись «какие нормы есть у станции». Незаданные интервалы — 0.
+ * Группировка: Приёмка (явка→начало / конец→КП), Сдача (КП→начало / конец→работа).
+ */
+private fun stationNormSummary(s: StationNorm): String =
+    "Приёмка ${s.appearanceToStartMin ?: 0}/${s.endToBarrierMin ?: 0} · " +
+        "Сдача ${s.barrierToStartMin ?: 0}/${s.endToWorkEndMin ?: 0}"
+
+/** Станция без полного набора норм. subtitle — какие нормы уже заданы, либо null. */
+private data class StationNoNorm(val name: String, val id: String?, val subtitle: String?)
+
 @Composable
 private fun StationNoNormCard(
-    items: List<NoNormItem>,
-    onClickItem: (NoNormItem) -> Unit,
+    items: List<StationNoNorm>,
+    onClickItem: (StationNoNorm) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -178,7 +196,7 @@ private fun StationNoNormCard(
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "Нормы не заданы",
+                        text = item.subtitle ?: "Нормы не заданы",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                     )
@@ -224,19 +242,11 @@ private fun StationGroupCard(
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    if (showNorms && s.appearanceToStartMin != null && s.endToBarrierMin != null &&
-                        s.barrierToStartMin != null && s.endToWorkEndMin != null
-                    ) {
+                    if (showNorms) {
                         Text(
-                            text = "Приём +${s.appearanceToStartMin}/+${s.endToBarrierMin} · Сдача +${s.barrierToStartMin}/+${s.endToWorkEndMin}",
+                            text = stationNormSummary(s),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                        )
-                    } else if (!showNorms) {
-                        Text(
-                            text = "Нормы не заданы",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                         )
                     }
                 }

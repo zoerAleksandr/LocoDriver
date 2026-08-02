@@ -179,11 +179,22 @@ fun SettingsScreen(
     // и т.п.) — back должен возвращать по backstack, а не в HUB настроек.
     // Если пользователь открыл настройки с HUB и перешёл во вложенный — back возвращает в HUB.
     val enteredDirectly = remember { initialSubScreen != null }
+    // Редактор станции/серии открыт напрямую (deep link из FormLocoScreen),
+    // а не из списка внутри настроек. Тогда back/Готово возвращают на форму,
+    // а не в список. Сбрасывается в false при заходе в редактор из списка.
+    var editorEnteredDirectly by remember {
+        mutableStateOf(
+            initState.screen == SettingsSubScreen.STATION_EDITOR ||
+                initState.screen == SettingsSubScreen.SERIES_EDITOR
+        )
+    }
 
     BackHandler(currentSubScreen != SettingsSubScreen.HUB) {
         when (currentSubScreen) {
-            SettingsSubScreen.SERIES_EDITOR -> currentSubScreen = SettingsSubScreen.SERIES_LIST
-            SettingsSubScreen.STATION_EDITOR -> currentSubScreen = SettingsSubScreen.STATION_LIST
+            SettingsSubScreen.SERIES_EDITOR ->
+                if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.SERIES_LIST
+            SettingsSubScreen.STATION_EDITOR ->
+                if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.STATION_LIST
             else -> {
                 if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
             }
@@ -202,8 +213,10 @@ fun SettingsScreen(
                     if (currentSubScreen != SettingsSubScreen.HUB) {
                         IconButton(onClick = {
                             when (currentSubScreen) {
-                                SettingsSubScreen.SERIES_EDITOR -> currentSubScreen = SettingsSubScreen.SERIES_LIST
-                                SettingsSubScreen.STATION_EDITOR -> currentSubScreen = SettingsSubScreen.STATION_LIST
+                                SettingsSubScreen.SERIES_EDITOR ->
+                                    if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.SERIES_LIST
+                                SettingsSubScreen.STATION_EDITOR ->
+                                    if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.STATION_LIST
                                 else -> if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
                             }
                         }) {
@@ -397,11 +410,13 @@ fun SettingsScreen(
                                     onOpenEditor = { id ->
                                         selectedSeriesId = id
                                         prefillSeriesName = null
+                                        editorEnteredDirectly = false
                                         currentSubScreen = SettingsSubScreen.SERIES_EDITOR
                                     },
                                     onOpenLegacy = { name ->
                                         selectedSeriesId = null
                                         prefillSeriesName = name
+                                        editorEnteredDirectly = false
                                         currentSubScreen = SettingsSubScreen.SERIES_EDITOR
                                     }
                                 )
@@ -415,7 +430,10 @@ fun SettingsScreen(
                             )
                             SettingsSeriesEditorContent(
                                 viewModel = editorVm,
-                                onDone = { currentSubScreen = SettingsSubScreen.SERIES_LIST }
+                                onDone = {
+                                    if (editorEnteredDirectly) onBack()
+                                    else currentSubScreen = SettingsSubScreen.SERIES_LIST
+                                }
                             )
                         }
 
@@ -427,11 +445,13 @@ fun SettingsScreen(
                                     onOpenEditor = { id ->
                                         selectedStationId = id
                                         prefillStationName = null
+                                        editorEnteredDirectly = false
                                         currentSubScreen = SettingsSubScreen.STATION_EDITOR
                                     },
                                     onOpenLegacy = { name ->
                                         selectedStationId = null
                                         prefillStationName = name
+                                        editorEnteredDirectly = false
                                         currentSubScreen = SettingsSubScreen.STATION_EDITOR
                                     }
                                 )
@@ -445,7 +465,10 @@ fun SettingsScreen(
                             )
                             SettingsStationEditorContent(
                                 viewModel = editorVm,
-                                onDone = { currentSubScreen = SettingsSubScreen.STATION_LIST }
+                                onDone = {
+                                    if (editorEnteredDirectly) onBack()
+                                    else currentSubScreen = SettingsSubScreen.STATION_LIST
+                                }
                             )
                         }
                     }

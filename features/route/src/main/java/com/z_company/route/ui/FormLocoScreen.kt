@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
@@ -179,10 +180,11 @@ fun FormLocoScreen(
     if (formUiState.isShowUpdateHint) {
         AlertDialog(
             onDismissRequest = viewModel::dismissUpdateHint,
-            containerColor = MaterialTheme.colorScheme.secondary,
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(28.dp),
             titleContentColor = MaterialTheme.colorScheme.primary,
-            textContentColor = MaterialTheme.colorScheme.onBackground,
-            title = { Text("Обновление") },
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            title = { Text("Обновление", fontSize = 22.sp, fontWeight = FontWeight.W600) },
             text = {
                 Text(
                     "В форму локомотива добавлены новые поля: счётчики отопления и собственных нужд.\n\n" +
@@ -512,6 +514,15 @@ fun FormLocoScreen(
                                     selection = TextRange(locomotive.series?.length ?: 0)
                                 )
                             )
+                        }
+                        // Серию можно поменять из шторки времени (onSeriesChanged →
+                        // setSeries). Подхватываем внешнее изменение, не мешая набору:
+                        // если текст уже совпадает (пользователь печатает) — не трогаем.
+                        LaunchedEffect(locomotive.series) {
+                            val ext = locomotive.series ?: ""
+                            if (ext != seriesName.text) {
+                                seriesName = TextFieldValue(ext, TextRange(ext.length))
+                            }
                         }
 
                         val cellLabelStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)

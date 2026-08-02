@@ -121,6 +121,7 @@ import androidx.lifecycle.flowWithLifecycle
 import coil.compose.AsyncImagePainter.State.Empty.painter
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.CustomSnackBar
+import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.component.AppDateTimePicker
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
 import com.z_company.core.ui.snackbar.ISnackbarManager
@@ -1821,42 +1822,15 @@ private fun RouteUnitDeleteDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    AlertDialog(
+    AppAlertDialog(
         onDismissRequest = onDismiss,
-        shape = Shapes.large,
-        containerColor = MaterialTheme.colorScheme.secondary,
-        title = {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.primary
-            )
-        },
-        text = {
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    text = "Удалить",
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(
-                    text = "Отмена",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-            }
-        }
+        title = title,
+        text = message,
+        confirmText = "Удалить",
+        onConfirm = onConfirm,
+        isDestructive = true,
+        dismissText = "Отмена",
+        onDismiss = onDismiss,
     )
 }
 
@@ -1869,42 +1843,14 @@ private fun RouteConfirmDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    AlertDialog(
+    AppAlertDialog(
         onDismissRequest = onDismiss,
-        shape = Shapes.large,
-        containerColor = MaterialTheme.colorScheme.secondary,
-        title = {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.primary
-            )
-        },
-        text = {
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    text = confirmText,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(
-                    text = "Отмена",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-            }
-        }
+        title = title,
+        text = message,
+        confirmText = confirmText,
+        onConfirm = onConfirm,
+        dismissText = "Отмена",
+        onDismiss = onDismiss,
     )
 }
 

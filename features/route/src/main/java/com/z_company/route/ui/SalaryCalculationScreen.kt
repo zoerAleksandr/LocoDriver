@@ -71,6 +71,7 @@ import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.util.str2decimalSign
+import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.component.ChipApp
 import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
@@ -271,39 +272,20 @@ fun SalaryCalculationScreen(
     // ведёт в настройки ЗП (в этой сессии окно тоже скрываем).
     var underworkInfoSessionDismissed by rememberSaveable { mutableStateOf(false) }
     if (uiState.showSetAverageHourInfo && !underworkInfoSessionDismissed) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { underworkInfoSessionDismissed = true },
-            containerColor = MaterialTheme.colorScheme.surface,
-            title = {
-                Text(
-                    text = "Оплата недоработки",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+            title = "Оплата недоработки",
+            text = "За выбранный период отработано меньше нормы. Укажите средний час в настройках зарплаты — и приложение рассчитает оплату недоработки за недостающие часы.",
+            confirmText = "В настройки",
+            onConfirm = {
+                underworkInfoSessionDismissed = true
+                onSettingsSalaryClick()
             },
-            text = {
-                Text(
-                    text = "За выбранный период отработано меньше нормы. Укажите средний час в настройках зарплаты — и приложение рассчитает оплату недоработки за недостающие часы.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    underworkInfoSessionDismissed = true
-                    onSettingsSalaryClick()
-                }) {
-                    Text("В настройки", color = MaterialTheme.colorScheme.tertiary)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    viewModel.dismissUnderworkInfoForever()
-                    underworkInfoSessionDismissed = true
-                }) {
-                    Text("Понятно", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            },
+            dismissText = "Понятно",
+            onDismiss = {
+                viewModel.dismissUnderworkInfoForever()
+                underworkInfoSessionDismissed = true
+            }
         )
     }
 }

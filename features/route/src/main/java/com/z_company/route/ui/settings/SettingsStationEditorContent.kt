@@ -18,14 +18,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.z_company.route.component.AppInputBottomSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -82,43 +79,24 @@ fun SettingsStationEditorContent(
     var dialogText by remember { mutableStateOf("") }
 
     dialogField?.let { field ->
-        AlertDialog(
+        AppInputBottomSheet(
             onDismissRequest = { dialogField = null },
-            containerColor = MaterialTheme.colorScheme.secondary,
-            titleContentColor = MaterialTheme.colorScheme.primary,
-            textContentColor = MaterialTheme.colorScheme.primary,
-            title = {
-                Text(
-                    when (field) {
-                        StationNormField.APPEARANCE_TO_START -> "Явка → Начало"
-                        StationNormField.END_TO_BARRIER -> "Конец → КП"
-                        StationNormField.BARRIER_TO_START -> "КП → Начало"
-                        StationNormField.END_TO_WORK_END -> "Конец → Окончание работы"
-                    }
-                )
+            title = when (field) {
+                StationNormField.APPEARANCE_TO_START -> "Явка → Начало"
+                StationNormField.END_TO_BARRIER -> "Конец → КП"
+                StationNormField.BARRIER_TO_START -> "КП → Начало"
+                StationNormField.END_TO_WORK_END -> "Конец → Окончание работы"
             },
-            text = {
-                OutlinedTextField(
-                    value = dialogText,
-                    onValueChange = { dialogText = it.filter { c -> c.isDigit() }.take(3) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    suffix = { Text("мин") },
-                    label = { Text("Значение") },
-                )
+            initialValue = dialogText,
+            onConfirm = { v ->
+                v.toIntOrNull()?.let { viewModel.setField(field, it) }
+                dialogField = null
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    val v = dialogText.toIntOrNull()
-                    if (v != null) viewModel.setField(field, v)
-                    dialogField = null
-                }) { Text("OK", color = MaterialTheme.colorScheme.tertiary) }
-            },
-            dismissButton = {
-                TextButton(onClick = { dialogField = null }) {
-                    Text("Отмена", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
-                }
-            }
+            label = "Значение",
+            suffix = "мин",
+            keyboardType = KeyboardType.Number,
+            transform = { it.filter { c -> c.isDigit() }.take(3) },
+            isValid = { it.toIntOrNull() != null },
         )
     }
 

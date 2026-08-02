@@ -90,19 +90,28 @@ class SeriesEditorViewModel(
             SeriesNormField.DELIVERY_HAND -> copy(deliveryHandToHandMin = value)
         }
 
-    fun increment(field: SeriesNormField) = _state.update {
-        it.withValue(field, ((it.valueOf(field) ?: 0) + 1).coerceAtMost(240))
+    fun increment(field: SeriesNormField) {
+        _state.update {
+            it.withValue(field, ((it.valueOf(field) ?: 0) + 1).coerceAtMost(240))
+        }
+        save()
     }
 
-    fun decrement(field: SeriesNormField) = _state.update {
-        val cur = it.valueOf(field)
-        // 0 = «не задано» (прочерк, не считается нормой) — храним null, а не 0.
-        if (cur == null || cur <= 0) it else it.withValue(field, (cur - 1).takeIf { v -> v > 0 })
+    fun decrement(field: SeriesNormField) {
+        _state.update {
+            val cur = it.valueOf(field)
+            // 0 = «не задано» (прочерк, не считается нормой) — храним null, а не 0.
+            if (cur == null || cur <= 0) it else it.withValue(field, (cur - 1).takeIf { v -> v > 0 })
+        }
+        save()
     }
 
-    fun setField(field: SeriesNormField, value: Int) = _state.update {
-        // 0 трактуем как «не задано» → null (иначе серия попадёт в список «с нормами»).
-        it.withValue(field, value.coerceIn(0, 240).takeIf { v -> v > 0 })
+    fun setField(field: SeriesNormField, value: Int) {
+        _state.update {
+            // 0 трактуем как «не задано» → null (иначе серия попадёт в список «с нормами»).
+            it.withValue(field, value.coerceIn(0, 240).takeIf { v -> v > 0 })
+        }
+        save()
     }
 
     /** Autosave — silent, does NOT set saved = true (no navigation side-effect). */

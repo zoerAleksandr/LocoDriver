@@ -1,23 +1,8 @@
 package com.z_company.route.component
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.z_company.core.ui.theme.Shapes
+import androidx.compose.ui.text.input.KeyboardType
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfirmEmailDialog(
     onDismissRequest: () -> Unit,
@@ -26,49 +11,16 @@ fun ConfirmEmailDialog(
     onChangeEmail: (String) -> Unit,
     enableButtonConfirmVerification: Boolean
 ) {
-    BasicAlertDialog(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                color = MaterialTheme.colorScheme.surface,
-                shape = Shapes.medium
-            ),
+    AppInputBottomSheet(
         onDismissRequest = onDismissRequest,
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(24.dp)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.End
-        ) {
-            OutlinedTextFieldApp(
-                value = emailForConfirm,
-                onValueChange = onChangeEmail,
-                textStyle = MaterialTheme.typography.bodyLarge
-            )
-            Text(
-                text = "На данный email будет отправлено письмо со ссылкой для верификации аккаунта.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Button(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 24.dp),
-                onClick = { onConfirmButton() },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                ),
-                shape = Shapes.medium,
-                enabled = enableButtonConfirmVerification
-            ) {
-                Text(
-                    text = "Отправить письмо",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-            }
-        }
-    }
+        title = "Подтверждение email",
+        initialValue = emailForConfirm,
+        onConfirm = { onConfirmButton() },
+        confirmText = "Отправить письмо",
+        hint = "На данный email будет отправлено письмо со ссылкой для верификации аккаунта.",
+        keyboardType = KeyboardType.Email,
+        onValueChange = onChangeEmail,
+        // Валидность считает родитель.
+        isValid = { enableButtonConfirmVerification },
+    )
 }

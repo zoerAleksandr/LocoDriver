@@ -45,6 +45,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.z_company.loco_driver.ui.navigation.RouterImpl
 import com.z_company.loco_driver.ui.theme.LocoDriverTheme
+import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.component.BottomNavigationBar
 import com.z_company.route.navigation.FormRoute
 import com.z_company.route.navigation.HomeFeature
@@ -91,88 +92,36 @@ fun LocoDriverApp(
         var showAlertSubscribeDialog by remember { mutableStateOf(false) }
 
         if (showNeedSubscribeDialog) {
-            AlertDialog(
+            AppAlertDialog(
                 onDismissRequest = { showNeedSubscribeDialog = false },
-                containerColor = MaterialTheme.colorScheme.secondary,
-                shape = Shapes.medium,
-                title = {
-                    Text(
-                        text = "Подписка завершена",
-                        style = AppTypography.getType().titleLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                title = "Подписка завершена",
+                text = "Для добавления новых маршрутов оформите подписку.",
+                confirmText = "Оформить подписку",
+                onConfirm = {
+                    showNeedSubscribeDialog = false
+                    appState.router.showPurchasesScreen()
                 },
-                text = {
-                    Text(
-                        text = "Для добавления новых маршрутов оформите подписку.",
-                        style = AppTypography.getType().bodyLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        shape = Shapes.medium,
-                        onClick = {
-                            showNeedSubscribeDialog = false
-                            appState.router.showPurchasesScreen()
-                        }
-                    ) {
-                        Text(text = "Оформить подписку")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showNeedSubscribeDialog = false }) {
-                        Text(
-                            text = "Отмена",
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
+                dismissText = "Отмена",
+                onDismiss = { showNeedSubscribeDialog = false }
             )
         }
 
         if (showAlertSubscribeDialog) {
-            AlertDialog(
+            AppAlertDialog(
                 onDismissRequest = { showAlertSubscribeDialog = false },
-                containerColor = MaterialTheme.colorScheme.secondary,
-                shape = Shapes.medium,
-                title = {
-                    Text(
-                        text = "Пробный период",
-                        style = AppTypography.getType().titleLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                },
-                text = {
-                    Text(
-                        text = "Вам доступно 20 бесплатных маршрутов. Оформите подписку для неограниченного использования.",
-                        style = AppTypography.getType().bodyLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        shape = Shapes.medium,
-                        onClick = {
-                            showAlertSubscribeDialog = false
-                            navController.navigate(FormRoute.buildDetailsRoute(null, false)) {
-                                launchSingleTop = true
-                            }
-                        }
-                    ) {
-                        Text(text = "Продолжить")
+                title = "Пробный период",
+                text = "Вам доступно 20 бесплатных маршрутов. Оформите подписку для неограниченного использования.",
+                confirmText = "Продолжить",
+                onConfirm = {
+                    showAlertSubscribeDialog = false
+                    navController.navigate(FormRoute.buildDetailsRoute(null, false)) {
+                        launchSingleTop = true
                     }
                 },
-                dismissButton = {
-                    TextButton(onClick = {
-                        showAlertSubscribeDialog = false
-                        appState.router.showPurchasesScreen()
-                    }) {
-                        Text(
-                            text = "Оформить подписку",
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                dismissText = "Оформить подписку",
+                onDismiss = {
+                    showAlertSubscribeDialog = false
+                    appState.router.showPurchasesScreen()
                 }
             )
         }
@@ -354,34 +303,16 @@ fun LocoDriverApp(
 
             // Диалог импорта маршрута из .zroute файла
             if (pendingImportRoute != null) {
-                AlertDialog(
+                AppAlertDialog(
                     onDismissRequest = onDismissImport,
-                    shape = Shapes.medium,
-                    title = {
-                        Text(text = "Импорт маршрута", style = AppTypography.getType().headlineSmall)
-                    },
-                    text = {
-                        Text(
-                            text = "Импортировать маршрут от ${pendingImportRoute.basicData.timeStartWork?.let {
-                                java.text.SimpleDateFormat("dd.MM.yyyy", java.util.Locale.getDefault()).format(java.util.Date(it))
-                            } ?: "неизвестной даты"}?",
-                            style = AppTypography.getType().bodyLarge
-                        )
-                    },
-                    confirmButton = {
-                        Button(shape = Shapes.medium, onClick = onConfirmImport) {
-                            Text(text = "Импортировать", style = AppTypography.getType().titleMedium)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = onDismissImport) {
-                            Text(
-                                text = "Отмена",
-                                style = AppTypography.getType().titleMedium,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
+                    title = "Импорт маршрута",
+                    text = "Импортировать маршрут от ${pendingImportRoute.basicData.timeStartWork?.let {
+                        java.text.SimpleDateFormat("dd.MM.yyyy", java.util.Locale.getDefault()).format(java.util.Date(it))
+                    } ?: "неизвестной даты"}?",
+                    confirmText = "Импортировать",
+                    onConfirm = onConfirmImport,
+                    dismissText = "Отмена",
+                    onDismiss = onDismissImport
                 )
             }
 

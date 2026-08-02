@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,6 +25,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +40,11 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
+import com.z_company.route.ui.settings.SettingsSeriesEditorContent
+import com.z_company.route.viewmodel.SeriesEditorViewModel
+import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -47,6 +53,8 @@ fun SeriesPickerSheet(
     onClose: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onEditSeries: ((LocomotiveSeries) -> Unit)? = null,
+    // Открыть сразу в редакторе этой серии (например из «Настроить серию»).
+    initialEditSeries: LocomotiveSeries? = null,
 ) {
     val seriesRepo: LocomotiveSeriesRepository = koinInject()
     val allSeries by seriesRepo.getAllFlow().collectAsState(initial = emptyList())
@@ -61,12 +69,53 @@ fun SeriesPickerSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    // Редактирование/создание серии — прямо внутри шторки, «Назад» возвращает к списку.
+    var editingSeries by remember { mutableStateOf<LocomotiveSeries?>(null) }
+    var addingSeries by remember { mutableStateOf(false) }
+    LaunchedEffect(initialEditSeries) {
+        if (initialEditSeries != null) editingSeries = initialEditSeries
+    }
+
     ModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.background,
     ) {
         Column(modifier = Modifier.fillMaxHeight(0.85f)) {
+            val editing = editingSeries
+            if (editing != null || addingSeries) {
+                // null seriesId → создание новой серии.
+                val editSeriesId = editing?.seriesId
+                fun closeEditor() { editingSeries = null; addingSeries = false }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = { closeEditor() }) {
+                        Text("Назад", color = MaterialTheme.colorScheme.tertiary)
+                    }
+                    Text(
+                        text = if (editSeriesId == null) "Новая серия" else "Серия",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.size(72.dp))
+                }
+                val editorVm = koinViewModel<SeriesEditorViewModel>(
+                    key = "picker_series_editor_${editSeriesId ?: "new"}",
+                    parameters = { parametersOf(editSeriesId, null) }
+                )
+                Box(modifier = Modifier.weight(1f)) {
+                    SettingsSeriesEditorContent(
+                        viewModel = editorVm,
+                        onDone = { closeEditor() }
+                    )
+                }
+                return@Column
+            }
             // Header
             Row(
                 modifier = Modifier
@@ -113,7 +162,7 @@ fun SeriesPickerSheet(
             ) {
                 item {
                     TextButton(
-                        onClick = onNavigateToSettings,
+                        onClick = { addingSeries = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
@@ -157,7 +206,8 @@ fun SeriesPickerSheet(
                                     series = s,
                                     onClick = { onSelect(s) },
                                     onLongClick = onEditSeries?.let { cb -> { cb(s) } },
-                                    showChevron = false
+                                    showChevron = false,
+                                    onEdit = { editingSeries = s }
                                 )
                                 if (idx < electric.lastIndex) {
                                     HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
@@ -188,7 +238,8 @@ fun SeriesPickerSheet(
                                     series = s,
                                     onClick = { onSelect(s) },
                                     onLongClick = onEditSeries?.let { cb -> { cb(s) } },
-                                    showChevron = false
+                                    showChevron = false,
+                                    onEdit = { editingSeries = s }
                                 )
                                 if (idx < diesel.lastIndex) {
                                     HorizontalDivider(modifier = Modifier.padding(start = 16.dp))

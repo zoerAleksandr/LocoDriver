@@ -15,15 +15,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,6 +41,7 @@ import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.route.R
+import com.z_company.route.component.AppInputBottomSheet
 import com.z_company.route.viewmodel.SeriesEditorViewModel
 import com.z_company.route.viewmodel.SeriesNormField
 import kotlinx.coroutines.delay
@@ -86,33 +83,19 @@ fun SettingsSeriesEditorContent(
             SeriesNormField.DELIVERY_PARKING -> "Сдача · в депо"
             SeriesNormField.DELIVERY_HAND -> "Сдача · из рук в руки"
         }
-        AlertDialog(
+        AppInputBottomSheet(
             onDismissRequest = { dialogField = null },
-            containerColor = MaterialTheme.colorScheme.secondary,
-            titleContentColor = MaterialTheme.colorScheme.primary,
-            title = { Text(title) },
-            text = {
-                OutlinedTextField(
-                    value = dialogText,
-                    onValueChange = { dialogText = it.filter { c -> c.isDigit() }.take(3) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    suffix = { Text("мин") },
-                    label = { Text("Значение") },
-                )
+            title = title,
+            initialValue = dialogText,
+            onConfirm = { v ->
+                v.toIntOrNull()?.let { viewModel.setField(field, it) }
+                dialogField = null
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    val v = dialogText.toIntOrNull()
-                    if (v != null) viewModel.setField(field, v)
-                    dialogField = null
-                }) { Text("OK", color = MaterialTheme.colorScheme.tertiary) }
-            },
-            dismissButton = {
-                TextButton(onClick = { dialogField = null }) {
-                    Text("Отмена", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
-                }
-            }
+            label = "Значение",
+            suffix = "мин",
+            keyboardType = KeyboardType.Number,
+            transform = { it.filter { c -> c.isDigit() }.take(3) },
+            isValid = { it.toIntOrNull() != null },
         )
     }
 

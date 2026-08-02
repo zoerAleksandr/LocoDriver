@@ -83,6 +83,8 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.TimeManager
 import com.z_company.domain.entities.route.OtherWork
+import com.z_company.route.component.AppAlertDialog
+import com.z_company.route.component.AppInputBottomSheet
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.AppDateTimePicker
 import com.z_company.route.component.BottomSheetAction
@@ -668,20 +670,18 @@ private fun WorkTypeCard(
     }
 
     pendingDeleteType?.let { type ->
-        AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surface,
+        AppAlertDialog(
             onDismissRequest = { pendingDeleteType = null },
-            title = { Text("Удалить тип «$type»?") },
-            text = { Text("Тип работы будет удалён из списка. Уже сохранённые записи не изменятся.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDeleteCustomType(type)
-                    pendingDeleteType = null
-                }) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
+            title = "Удалить тип «$type»?",
+            text = "Тип работы будет удалён из списка. Уже сохранённые записи не изменятся.",
+            confirmText = "Удалить",
+            onConfirm = {
+                onDeleteCustomType(type)
+                pendingDeleteType = null
             },
-            dismissButton = {
-                TextButton(onClick = { pendingDeleteType = null }) { Text("Отмена") }
-            }
+            isDestructive = true,
+            dismissText = "Отмена",
+            onDismiss = { pendingDeleteType = null }
         )
     }
 }
@@ -789,69 +789,21 @@ private fun WorkTypeSheetContent(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddTypeDialog(
     dataTextStyle: androidx.compose.ui.text.TextStyle,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var text by remember { mutableStateOf("") }
-    val focusRequester = remember { FocusRequester() }
-    val accent = MaterialTheme.colorScheme.tertiary
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
-
-    AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surface,
+    AppInputBottomSheet(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Новый тип работы",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
-            )
-        },
-        text = {
-            Column {
-                Text(
-                    text = "Как называется этот вид работы?",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(16.dp))
-                OutlinedTextField(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester),
-                    value = text,
-                    onValueChange = { text = it },
-                    label = { Text("Название") },
-                    textStyle = dataTextStyle,
-                    singleLine = true,
-                    shape = Shapes.medium,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { if (text.isNotBlank()) onConfirm(text.trim()) }
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = accent,
-                        focusedLabelColor = accent,
-                        cursorColor = accent
-                    )
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = text.isNotBlank(),
-                onClick = { onConfirm(text.trim()) }
-            ) { Text("Добавить", color = if (text.isNotBlank()) accent else MaterialTheme.colorScheme.onSurfaceVariant) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена", color = accent) }
-        }
+        title = "Новый тип работы",
+        hint = "Как называется этот вид работы?",
+        initialValue = "",
+        onConfirm = { onConfirm(it.trim()) },
+        confirmText = "Добавить",
+        label = "Название",
+        keyboardType = KeyboardType.Text,
     )
 }
 

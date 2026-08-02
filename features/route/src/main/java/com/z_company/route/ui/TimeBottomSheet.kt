@@ -5,6 +5,7 @@ package com.z_company.route.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,12 +55,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.StationNorm
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.repositories.StationNormRepository
 import com.z_company.domain.util.generateId
+import com.z_company.route.component.AppAlertDialog
+import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.AppDateTimePicker
+import com.z_company.route.component.BottomSheetAction
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -67,7 +72,13 @@ import java.util.Calendar
 import kotlin.time.Clock
 
 // ── Private models ─────────────────────────────────────────────────────────
-private data class WarnItem(val text: String, val hint: String?, val cta: String?, val isSeries: Boolean)
+private data class WarnItem(
+    val text: String,
+    val hint: String?,
+    val cta: String?,
+    val isSeries: Boolean,
+    val dismissible: Boolean = false,
+)
 
 /** Structured delta info for smart formatting. */
 private data class DeltaInfo(val actualMinutes: Int, val normMinutes: Int?)
@@ -77,6 +88,12 @@ private enum class DeliveryNormAnchor { NONE, ASKING, FROM_SELECTED }
 
 /** Which delivery field was tapped as anchor. */
 private enum class DeliveryAnchorField { BARRIER_IN, START_TIME, END_TIME, WORK_END }
+
+/** Which acceptance field was tapped as anchor. START_WORK (явка) — из маршрута. */
+private enum class AcceptanceAnchorField { START_WORK, START_TIME, END_TIME, BARRIER_OUT }
+
+/** Подтверждение удаления значения времени из строки шторки. */
+private class PendingTimeDelete(val label: String, val onDelete: () -> Unit)
 
 // ── Public models ──────────────────────────────────────────────────────────
 data class TimeSheetResult(
@@ -150,14 +167,26 @@ fun TimeBottomSheet(
     // Выбор запоминается локально между открытиями шторки.
     val prefs: SharedPreferencesRepositories = koinInject()
     var normHandToHand by remember { mutableStateOf(prefs.isLocoNormHandToHand()) }
-    // Эффективная норма серии по выбранному варианту.
+    // Вариант, которому соответствует текущее время (по нему считаем отклонения в
+    // строках). Отличается от normHandToHand, когда пользователь переключил вариант,
+    // но ещё не согласился пересчитать — тогда «на сколько отличается» не мигает.
+    var appliedHandToHand by remember { mutableStateOf(normHandToHand) }
+    // Эффективная норма серии по ВЫБРАННОМУ варианту (для расчёта времени).
     val seriesAcceptanceMin: Int? =
         if (normHandToHand) selectedSeries?.acceptanceHandToHandMin else selectedSeries?.acceptanceDurationMin
     val seriesDeliveryMin: Int? =
         if (normHandToHand) selectedSeries?.deliveryHandToHandMin else selectedSeries?.deliveryDurationMin
+    // Норма по ПРИМЕНЁННОМУ варианту (для показа отклонений в строке длительности).
+    val deltaAcceptanceMin: Int? =
+        if (appliedHandToHand) selectedSeries?.acceptanceHandToHandMin else selectedSeries?.acceptanceDurationMin
+    val deltaDeliveryMin: Int? =
+        if (appliedHandToHand) selectedSeries?.deliveryHandToHandMin else selectedSeries?.deliveryDurationMin
 
     var showStationPicker by remember { mutableStateOf(false) }
     var showSeriesPicker by remember { mutableStateOf(false) }
+    // Открыть пикер сразу в редакторе выбранной серии/станции (из «Настроить …»).
+    var stationPickerAutoEdit by remember { mutableStateOf<StationNorm?>(null) }
+    var seriesPickerAutoEdit by remember { mutableStateOf<LocomotiveSeries?>(null) }
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
     var showBarrierOutPicker by remember { mutableStateOf(false) }
@@ -166,6 +195,9 @@ fun TimeBottomSheet(
 
     // Delivery «По нормам» anchor selection state
     var anchorState by remember { mutableStateOf(DeliveryNormAnchor.NONE) }
+    // Выбранный якорь приёмки/сдачи — чтобы пересчитать при смене варианта нормы.
+    var accAnchor by remember { mutableStateOf<AcceptanceAnchorField?>(null) }
+    var delAnchor by remember { mutableStateOf<DeliveryAnchorField?>(null) }
     // True when tapping an empty row during ASKING to show hint
     var askingEmptyHint by remember { mutableStateOf(false) }
 
@@ -175,6 +207,16 @@ fun TimeBottomSheet(
     var workEndAccepted by remember { mutableStateOf(false) }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Подтверждение удаления значения времени (долгое нажатие на строку).
+    var pendingTimeDelete by remember { mutableStateOf<PendingTimeDelete?>(null) }
+    val deleteSheetState = rememberModalBottomSheetState()
+
+    // Диалог предложения пересчитать время при смене варианта нормы.
+    var showRecalcDialog by remember { mutableStateOf(false) }
+
+    // Закрытые пользователем (крестиком) предупреждения о нормах — на сессию шторки.
+    var dismissedWarnings by remember { mutableStateOf(setOf<String>()) }
 
     // InfiniteTransition for ASKING blink — runs continuously, alpha applied only when ASKING
     val infiniteTransition = rememberInfiniteTransition(label = "asking_blink")
@@ -222,10 +264,20 @@ fun TimeBottomSheet(
         else seriesDeliveryMin == null
     }
     val stationEmpty = selectedStation == null
-    val noStationNorm = !stationEmpty && selectedStation!!.let { s ->
-        s.appearanceToStartMin == null || s.endToBarrierMin == null ||
-            s.barrierToStartMin == null || s.endToWorkEndMin == null
+    // Нормы станции, относящиеся к текущей операции (приёмка/сдача) — их всегда две.
+    // Собираем названия тех интервалов, для которых норма не задана.
+    val stationMissingNorms: List<String> = if (stationEmpty) emptyList()
+    else selectedStation!!.let { s ->
+        if (kind == "acceptance") buildList {
+            if (s.appearanceToStartMin == null) add("от явки до начала приёмки")
+            if (s.endToBarrierMin == null) add("от окончания приёмки до выхода на КП")
+        } else buildList {
+            if (s.barrierToStartMin == null) add("от захода на КП до начала сдачи")
+            if (s.endToWorkEndMin == null) add("от окончания сдачи до окончания работы")
+        }
     }
+    // Для операции нет ни одной нормы станции (обе отсутствуют).
+    val noStationNorm = !stationEmpty && stationMissingNorms.size == 2
     // Any filled delivery time field can serve as anchor
     val hasAnchorForDelivery = barrierIn != null || startTime != null || endTime != null || workEnd != null
     val canApplyNorms = (selectedSeries != null || selectedStation != null) &&
@@ -247,6 +299,8 @@ fun TimeBottomSheet(
         pendingEndWorkUpdate = null
         workEndAccepted = false
         askingEmptyHint = false
+        delAnchor = field
+        appliedHandToHand = normHandToHand
         val barrierMin = selectedStation?.barrierToStartMin ?: 0
         val durMin = deliveryMin ?: 0
         val workEndMin = selectedStation?.endToWorkEndMin ?: 0
@@ -291,18 +345,75 @@ fun TimeBottomSheet(
         }
     }
 
+    /**
+     * Расчёт приёмки от выбранного якоря, вперёд и назад.
+     * Явка (routeStartWork) — из маршрута и НЕ меняется: при расчёте от начала
+     * приёмки и позже время явки остаётся прежним, даже если интервал вне нормы.
+     */
+    fun applyFromAcceptanceField(field: AcceptanceAnchorField, acceptanceMin: Int? = seriesAcceptanceMin) {
+        askingEmptyHint = false
+        accAnchor = field
+        appliedHandToHand = normHandToHand
+        val appearMin = selectedStation?.appearanceToStartMin ?: 0
+        val durMin = acceptanceMin ?: 0
+        val barrierMin = selectedStation?.endToBarrierMin ?: 0
+        when (field) {
+            AcceptanceAnchorField.START_WORK -> {
+                val base = routeStartWork ?: return
+                val newStart = base + appearMin * 60_000L
+                val newEnd = newStart + durMin * 60_000L
+                startTime = newStart
+                endTime = newEnd
+                barrierOut = newEnd + barrierMin * 60_000L
+            }
+            AcceptanceAnchorField.START_TIME -> {
+                val anchor = startTime ?: return
+                val newEnd = anchor + durMin * 60_000L
+                endTime = newEnd
+                barrierOut = newEnd + barrierMin * 60_000L
+                // Явку не трогаем.
+            }
+            AcceptanceAnchorField.END_TIME -> {
+                val anchor = endTime ?: return
+                barrierOut = anchor + barrierMin * 60_000L
+                startTime = anchor - durMin * 60_000L
+                // Явку не трогаем.
+            }
+            AcceptanceAnchorField.BARRIER_OUT -> {
+                val anchor = barrierOut ?: return
+                val newEnd = anchor - barrierMin * 60_000L
+                endTime = newEnd
+                startTime = newEnd - durMin * 60_000L
+                // Явку не трогаем.
+            }
+        }
+    }
+
     fun applyNorms(
         acceptanceMin: Int? = seriesAcceptanceMin,
         deliveryMin: Int? = seriesDeliveryMin,
     ) {
         if (kind == "acceptance") {
-            val base = routeStartWork ?: return
-            val appearMin = selectedStation?.appearanceToStartMin ?: 0
-            val newStart = base + appearMin * 60_000L
-            val durMin = acceptanceMin ?: 0
-            val newEnd = newStart + durMin * 60_000L
-            val barrierMin = selectedStation?.endToBarrierMin ?: 0
-            startTime = newStart; endTime = newEnd; barrierOut = newEnd + barrierMin * 60_000L
+            // Явка всегда присутствует (из маршрута) и служит якорем по умолчанию.
+            // Если пользователь заполнил ещё поля — спрашиваем, от какого считать.
+            val anchors = buildList {
+                if (routeStartWork != null) add(AcceptanceAnchorField.START_WORK)
+                if (startTime != null) add(AcceptanceAnchorField.START_TIME)
+                if (endTime != null) add(AcceptanceAnchorField.END_TIME)
+                if (barrierOut != null) add(AcceptanceAnchorField.BARRIER_OUT)
+            }
+            when (anchors.size) {
+                0 -> Unit
+                1 -> {
+                    accAnchor = anchors[0]
+                    applyFromAcceptanceField(anchors[0], acceptanceMin)
+                    anchorState = DeliveryNormAnchor.FROM_SELECTED
+                }
+                else -> {
+                    askingEmptyHint = false
+                    anchorState = DeliveryNormAnchor.ASKING
+                }
+            }
         } else {
             val filled = listOfNotNull(barrierIn, startTime, endTime, workEnd)
             when (filled.size) {
@@ -328,20 +439,15 @@ fun TimeBottomSheet(
         }
     }
 
-    // Пере-применение при переключении варианта нормы выполняется синхронно в
-    // обработчике переключателя (applyNormFor) — одним кадром, без промежуточного
-    // состояния со старыми временами (иначе мигали бы красные предупреждения).
-    fun applyNormFor(handToHand: Boolean) {
-        val accMin = if (handToHand) selectedSeries?.acceptanceHandToHandMin
-        else selectedSeries?.acceptanceDurationMin
-        val delMin = if (handToHand) selectedSeries?.deliveryHandToHandMin
-        else selectedSeries?.deliveryDurationMin
-        val variantHasNorm = if (kind == "acceptance") accMin != null else delMin != null
-        if (!variantHasNorm) return
+    // Пересчёт по текущему (выбранному) варианту нормы — вызывается только по
+    // согласию пользователя (кнопка «Пересчитать время» в баннере смены варианта).
+    // Считаем от ранее выбранного якоря; если его нет (время введено вручную) —
+    // от начала приёмки/сдачи, сохраняя его и пересчитывая длительность.
+    fun recalcForCurrentVariant() {
         if (kind == "acceptance") {
-            if (startTime != null && endTime != null) applyNorms(accMin, delMin)
+            applyFromAcceptanceField(accAnchor ?: AcceptanceAnchorField.START_TIME)
         } else {
-            if (anchorState == DeliveryNormAnchor.FROM_SELECTED) applyNorms(accMin, delMin)
+            applyFromField(delAnchor ?: DeliveryAnchorField.START_TIME)
         }
     }
 
@@ -354,10 +460,13 @@ fun TimeBottomSheet(
     if (kind == "acceptance") {
         startTimeError = startTime != null && routeStartWork != null && startTime!! <= routeStartWork
         endTimeError = endTime != null && startTime != null && endTime!! <= startTime!!
-        barrierOutError = barrierOut != null && endTime != null && barrierOut!! <= endTime!!
+        // Интервал «окончание приёмки → выход на КП» может быть нулевым (норма не
+        // задана) — равенство временем это не ошибка, ругаемся только на «раньше».
+        barrierOutError = barrierOut != null && endTime != null && barrierOut!! < endTime!!
         workEndError = false
     } else {
-        startTimeError = startTime != null && barrierIn != null && startTime!! <= barrierIn!!
+        // Интервал «заход на КП → начало сдачи» также может быть нулевым — только «<».
+        startTimeError = startTime != null && barrierIn != null && startTime!! < barrierIn!!
         endTimeError = endTime != null && startTime != null && endTime!! <= startTime!!
         barrierOutError = false
         workEndError = workEnd != null && endTime != null && workEnd!! <= endTime!!
@@ -390,14 +499,22 @@ fun TimeBottomSheet(
 
     val canSaveStationNorm = selectedStation != null && run {
         val st = selectedStation!!
+        // Норма станции хранит null для «не задано»; редактор трактует 0 как null.
+        // Поэтому вычисленный интервал 0 == сохранённая норма null — не считаем это
+        // отличием (иначе предлагали бы «сохранить» норму, идентичную справочнику).
+        fun norm(fromMs: Long?, toMs: Long?): Int? =
+            if (fromMs == null || toMs == null) null
+            else ((toMs - fromMs) / 60_000).toInt().takeIf { it > 0 }
+        // Легаси-данные могут хранить 0 вместо null — тоже трактуем как «не задано».
+        fun stored(v: Int?): Int? = v?.takeIf { it > 0 }
         if (kind == "acceptance") {
             routeStartWork != null && startTime != null && endTime != null &&
-                (((startTime!! - routeStartWork) / 60_000).toInt() != st.appearanceToStartMin ||
-                    (barrierOut != null && ((barrierOut!! - endTime!!) / 60_000).toInt() != st.endToBarrierMin))
+                (norm(routeStartWork, startTime) != stored(st.appearanceToStartMin) ||
+                    (barrierOut != null && norm(endTime, barrierOut) != stored(st.endToBarrierMin)))
         } else {
             barrierIn != null && startTime != null && endTime != null && workEnd != null &&
-                (((startTime!! - barrierIn!!) / 60_000).toInt() != st.barrierToStartMin ||
-                    ((workEnd!! - endTime!!) / 60_000).toInt() != st.endToWorkEndMin)
+                (norm(barrierIn, startTime) != stored(st.barrierToStartMin) ||
+                    norm(endTime, workEnd) != stored(st.endToWorkEndMin))
         }
     }
 
@@ -437,25 +554,62 @@ fun TimeBottomSheet(
         startDateTime = workEnd ?: Calendar.getInstance().timeInMillis,
         timeZoneStr = timeZoneText, recentTimes = emptyList(), onRecentTimeSaved = {}
     )
+
+    // Подтверждение удаления значения времени (как в FormScreen).
+    pendingTimeDelete?.let { pd ->
+        AppBottomSheet(
+            onDismissRequest = { pendingTimeDelete = null },
+            sheetState = deleteSheetState,
+            headerContent = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = pd.label,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            actions = listOf(
+                BottomSheetAction(text = "Удалить значение") { pd.onDelete() }
+            )
+        )
+    }
+
+    // Диалог: для нового варианта нормы другая длительность — пересчитать?
+    if (showRecalcDialog) {
+        AppAlertDialog(
+            onDismissRequest = { showRecalcDialog = false },
+            title = "Другая норма",
+            text = "Для условия «${if (normHandToHand) "Из рук в руки" else "После отстоя"}» " +
+                "действует другая норма длительности. Пересчитать время по ней?",
+            confirmText = "Пересчитать",
+            onConfirm = {
+                recalcForCurrentVariant()
+                showRecalcDialog = false
+            },
+            dismissText = "Оставить",
+            onDismiss = { showRecalcDialog = false }
+        )
+    }
     if (showStationPicker) StationPickerSheet(
-        onSelect = { st -> selectedStation = st; showStationPicker = false },
-        onClose = { showStationPicker = false },
+        onSelect = { st -> selectedStation = st; showStationPicker = false; stationPickerAutoEdit = null },
+        onClose = { showStationPicker = false; stationPickerAutoEdit = null },
         onNavigateToSettings = { showStationPicker = false; onClose(); onNavigateToStationSettings() },
-        onEditStation = if (onEditStation != null) { st ->
-            showStationPicker = false; onClose(); onEditStation(st.stationId)
-        } else null
+        initialEditStation = stationPickerAutoEdit
     )
     if (showSeriesPicker) SeriesPickerSheet(
         onSelect = { s ->
             selectedSeriesName = s.name
             onSeriesChanged?.invoke(s.name)
             showSeriesPicker = false
+            seriesPickerAutoEdit = null
         },
-        onClose = { showSeriesPicker = false },
+        onClose = { showSeriesPicker = false; seriesPickerAutoEdit = null },
         onNavigateToSettings = { showSeriesPicker = false; onClose(); onNavigateToSeriesSettings() },
-        onEditSeries = if (onEditSeries != null) { s ->
-            showSeriesPicker = false; onClose(); onEditSeries(s.seriesId)
-        } else null
+        initialEditSeries = seriesPickerAutoEdit
     )
 
     // ── Sheet ──
@@ -495,23 +649,27 @@ fun TimeBottomSheet(
                     text = if (kind == "acceptance") "Приёмка" else "Сдача",
                     fontSize = 22.sp, fontWeight = FontWeight.W500, color = textColor()
                 )
-                val normsActive = canApplyNorms && !noSeriesNorm && !stationEmpty && !noStationNorm
+                // «Готово» — просто синий текст в шапке.
                 Box(
                     modifier = Modifier
                         .clip(Shapes.medium)
-                        .background(if (normsActive) accent() else bgSubtle())
                         .then(
-                            if (!normsActive) Modifier.border(1.dp, borderColor(), Shapes.medium)
-                            else Modifier
+                            if (!hasSequenceError) Modifier.clickable {
+                                if (kind == "delivery" && workEnd != null) {
+                                    onTimeEndWorkChanged?.invoke(workEnd)
+                                }
+                                scope.launch {
+                                    sheetState.hide()
+                                    onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
+                                }
+                            } else Modifier
                         )
-                        .clickable(enabled = canApplyNorms) { applyNorms() }
-                        // Вертикальный отступ как у переключателя (segment 9 + outer 3 = 12).
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Установить по ПЗВ", fontSize = 13.sp, fontWeight = FontWeight.W500,
-                        color = if (normsActive) accentInk() else textFaint()
+                        text = "Готово", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                        color = if (hasSequenceError) textFaint() else accent()
                     )
                 }
             }
@@ -546,7 +704,18 @@ fun TimeBottomSheet(
                     onChange = { v ->
                         normHandToHand = v
                         prefs.setLocoNormHandToHand(v)
-                        applyNormFor(v)
+                        // Не пересчитываем сразу и не мигаем отклонениями. Если время
+                        // задано и норма нового варианта реально другая — предлагаем
+                        // пересчитать в диалоге (интерфейс при этом не «прыгает»).
+                        val newDur = if (kind == "acceptance") {
+                            if (v) selectedSeries?.acceptanceHandToHandMin else selectedSeries?.acceptanceDurationMin
+                        } else {
+                            if (v) selectedSeries?.deliveryHandToHandMin else selectedSeries?.deliveryDurationMin
+                        }
+                        val appliedDur = if (kind == "acceptance") deltaAcceptanceMin else deltaDeliveryMin
+                        if (startTime != null && endTime != null && newDur != null && newDur != appliedDur) {
+                            showRecalcDialog = true
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -572,7 +741,15 @@ fun TimeBottomSheet(
                         null, false
                     ))
                 else if (noStationNorm)
-                    add(WarnItem("Нет нормы для станции ${selectedStation!!.name}", null, "Настроить станцию", false))
+                    add(WarnItem("Нет нормы для станции ${selectedStation!!.name}", null, "Настроить станцию", false, dismissible = true))
+                else if (stationMissingNorms.isNotEmpty())
+                    // Часть норм есть — просто сообщаем, какого интервала не хватает.
+                    // Расчёт остаётся доступным, интервал считается нулевым.
+                    add(WarnItem(
+                        "Нет нормы интервала: ${stationMissingNorms.joinToString(", ")}",
+                        "Расчёт выполнится без этого интервала",
+                        "Настроить станцию", false, dismissible = true
+                    ))
                 // Task 3: delivery with norms set but no anchor at all
                 if (kind == "delivery" && !hasAnchorForDelivery)
                     add(WarnItem(
@@ -581,7 +758,8 @@ fun TimeBottomSheet(
                         null, false
                     ))
             }
-            if (warnings.isNotEmpty()) {
+            val visibleWarnings = warnings.filter { it.text !in dismissedWarnings }
+            if (visibleWarnings.isNotEmpty()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -589,21 +767,32 @@ fun TimeBottomSheet(
                         .padding(bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    warnings.forEach { warn ->
+                    visibleWarnings.forEach { warn ->
                         NormWarnItem(
                             text = warn.text, hint = warn.hint, cta = warn.cta,
                             onCta = {
-                                onClose()
-                                if (warn.isSeries) onNavigateToSeriesSettings()
-                                else onNavigateToStationSettings()
-                            }
+                                // Открываем редактирование прямо в шторке-пикере
+                                // (как по карандашу), а не на отдельном экране.
+                                if (warn.isSeries) {
+                                    val s = selectedSeries
+                                    if (s != null) { seriesPickerAutoEdit = s; showSeriesPicker = true }
+                                    else { onClose(); onNavigateToSeriesSettings() }
+                                } else {
+                                    val st = selectedStation
+                                    if (st != null) { stationPickerAutoEdit = st; showStationPicker = true }
+                                    else { onClose(); onNavigateToStationSettings() }
+                                }
+                            },
+                            onDismiss = if (warn.dismissible) {
+                                { dismissedWarnings = dismissedWarnings + warn.text }
+                            } else null
                         )
                     }
                 }
             }
 
-            // ── Anchor selection banner (delivery / ASKING) ──
-            if (kind == "delivery" && anchorState == DeliveryNormAnchor.ASKING) {
+            // ── Anchor selection banner (ASKING) ──
+            if (anchorState == DeliveryNormAnchor.ASKING) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -643,10 +832,25 @@ fun TimeBottomSheet(
             val accentSoftColor = accentSoft()
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 if (kind == "acceptance") {
+                    // При ASKING строки мигают и по тапу выбирают якорь расчёта.
+                    fun onAccTap(field: AcceptanceAnchorField, hasTime: Boolean) {
+                        if (asking) {
+                            if (hasTime) {
+                                accAnchor = field
+                                applyFromAcceptanceField(field)
+                                anchorState = DeliveryNormAnchor.FROM_SELECTED
+                            } else askingEmptyHint = true
+                        }
+                    }
                     SheetTimeRowItem(
                         label = "Явка", time = fmtTime(routeStartWork), delta = null,
                         isFirst = true, isLocked = true, sequenceError = false,
-                        iconRes = com.z_company.route.R.drawable.check_circle_24px, onClick = null
+                        iconRes = com.z_company.route.R.drawable.check_circle_24px,
+                        highlightAlpha = highlightAlpha,
+                        allowClickWhenLocked = asking,
+                        onClick = if (asking) {
+                            { onAccTap(AcceptanceAnchorField.START_WORK, routeStartWork != null) }
+                        } else null
                     )
                     RowConnector()
                     SheetTimeRowItem(
@@ -655,16 +859,20 @@ fun TimeBottomSheet(
                         isFirst = false, isLocked = false,
                         sequenceError = startTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        onClick = { showStartPicker = true }
+                        highlightAlpha = highlightAlpha,
+                        onClick = { if (asking) onAccTap(AcceptanceAnchorField.START_TIME, startTime != null) else showStartPicker = true },
+                        onLongClick = { if (startTime != null) pendingTimeDelete = PendingTimeDelete("Начало приёмки") { startTime = null } }
                     )
                     RowConnector()
                     SheetTimeRowItem(
                         label = "Окончание приёмки", time = fmtTime(endTime),
-                        delta = buildDelta(startTime, endTime, seriesAcceptanceMin),
+                        delta = buildDelta(startTime, endTime, deltaAcceptanceMin),
                         isFirst = false, isLocked = false,
                         sequenceError = endTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        onClick = { showEndPicker = true }
+                        highlightAlpha = highlightAlpha,
+                        onClick = { if (asking) onAccTap(AcceptanceAnchorField.END_TIME, endTime != null) else showEndPicker = true },
+                        onLongClick = { if (endTime != null) pendingTimeDelete = PendingTimeDelete("Окончание приёмки") { endTime = null } }
                     )
                     RowConnector()
                     SheetTimeRowItem(
@@ -673,7 +881,9 @@ fun TimeBottomSheet(
                         isFirst = false, isLocked = false,
                         sequenceError = barrierOutError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        onClick = { showBarrierOutPicker = true }
+                        highlightAlpha = highlightAlpha,
+                        onClick = { if (asking) onAccTap(AcceptanceAnchorField.BARRIER_OUT, barrierOut != null) else showBarrierOutPicker = true },
+                        onLongClick = { if (barrierOut != null) pendingTimeDelete = PendingTimeDelete("Выход на КП") { barrierOut = null } }
                     )
                 } else {
                     // Delivery — all 4 rows blink via highlightAlpha when ASKING
@@ -696,7 +906,8 @@ fun TimeBottomSheet(
                         onClick = {
                             if (asking) onRowTap(DeliveryAnchorField.BARRIER_IN, barrierIn != null)
                             else showBarrierInPicker = true
-                        }
+                        },
+                        onLongClick = { if (barrierIn != null) pendingTimeDelete = PendingTimeDelete("Заход на КП") { barrierIn = null } }
                     )
                     RowConnector()
                     SheetTimeRowItem(
@@ -709,12 +920,13 @@ fun TimeBottomSheet(
                         onClick = {
                             if (asking) onRowTap(DeliveryAnchorField.START_TIME, startTime != null)
                             else showStartPicker = true
-                        }
+                        },
+                        onLongClick = { if (startTime != null) pendingTimeDelete = PendingTimeDelete("Начало сдачи") { startTime = null } }
                     )
                     RowConnector()
                     SheetTimeRowItem(
                         label = "Окончание сдачи", time = fmtTime(endTime),
-                        delta = buildDelta(startTime, endTime, seriesDeliveryMin),
+                        delta = buildDelta(startTime, endTime, deltaDeliveryMin),
                         isFirst = false, isLocked = false,
                         sequenceError = endTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
@@ -722,7 +934,8 @@ fun TimeBottomSheet(
                         onClick = {
                             if (asking) onRowTap(DeliveryAnchorField.END_TIME, endTime != null)
                             else showEndPicker = true
-                        }
+                        },
+                        onLongClick = { if (endTime != null) pendingTimeDelete = PendingTimeDelete("Окончание сдачи") { endTime = null } }
                     )
                     RowConnector()
                     SheetTimeRowItem(
@@ -744,6 +957,13 @@ fun TimeBottomSheet(
                         onClick = {
                             if (asking) onRowTap(DeliveryAnchorField.WORK_END, workEnd != null)
                             else if (pendingEndWorkUpdate == null) showWorkEndPicker = true
+                        },
+                        onLongClick = {
+                            if (workEnd != null) pendingTimeDelete = PendingTimeDelete("Окончание работы") {
+                                workEnd = null
+                                pendingEndWorkUpdate = null
+                                onTimeEndWorkChanged?.invoke(null)
+                            }
                         }
                     )
                 }
@@ -841,34 +1061,27 @@ fun TimeBottomSheet(
                 )
             }
 
-            // ── Done button — disabled if sequence error ──
+            // ── «Рассчитать время» — применение норм ПЗВ ──
+            // Кнопка активна, даже если часть норм станции не задана — недостающий
+            // интервал просто считается нулевым, пользователю он может быть не нужен.
+            val normsActive = canApplyNorms && !noSeriesNorm && !stationEmpty
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 4.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (hasSequenceError) bgSubtle() else accent())
+                    .background(if (normsActive) accent() else bgSubtle())
                     .then(
-                        if (!hasSequenceError) Modifier.border(0.dp, Color.Transparent, RoundedCornerShape(12.dp))
+                        if (normsActive) Modifier.border(0.dp, Color.Transparent, RoundedCornerShape(12.dp))
                         else Modifier.border(1.dp, borderColor(), RoundedCornerShape(12.dp))
                     )
-                    .then(
-                        if (!hasSequenceError) Modifier.clickable {
-                            if (kind == "delivery" && workEnd != null) {
-                                onTimeEndWorkChanged?.invoke(workEnd)
-                            }
-                            scope.launch {
-                                sheetState.hide()
-                                onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
-                            }
-                        } else Modifier
-                    )
+                    .clickable(enabled = canApplyNorms) { applyNorms() }
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "Готово", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-                    color = if (hasSequenceError) textFaint() else accentInk()
+                    "Рассчитать время", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                    color = if (normsActive) accentInk() else textFaint()
                 )
             }
         }
@@ -961,6 +1174,7 @@ private fun NormWarnItem(
     hint: String? = null,
     cta: String? = null,
     onCta: () -> Unit = {},
+    onDismiss: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -1006,6 +1220,23 @@ private fun NormWarnItem(
                 }
             }
         }
+        // Крестик закрытия информационного предупреждения.
+        if (onDismiss != null) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onDismiss),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                    contentDescription = "Закрыть",
+                    modifier = Modifier.size(14.dp),
+                    tint = warnColor()
+                )
+            }
+        }
     }
 }
 
@@ -1018,6 +1249,7 @@ private fun RowConnector() {
 }
 
 // ── SheetTimeRowItem ─────────────────────────────────────────────────────
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun SheetTimeRowItem(
     iconRes: Int,
@@ -1032,7 +1264,10 @@ private fun SheetTimeRowItem(
     highlightAlpha: Float = 0f,
     pendingTimeText: String? = null,
     onPendingAccept: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+    allowClickWhenLocked: Boolean = false,
 ) {
+    val clickable = onClick != null && (!isLocked || allowClickWhenLocked)
     val accentSoftCol = accentSoft()
     val rowBg = when {
         isHighlighted -> accentSoftCol
@@ -1044,43 +1279,57 @@ private fun SheetTimeRowItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(rowBg)
-                .then(if (onClick != null && !isLocked) Modifier.clickable(onClick = onClick) else Modifier)
+                .then(
+                    if (clickable) Modifier.combinedClickable(
+                        onClick = onClick!!,
+                        onLongClick = onLongClick
+                    ) else if (onLongClick != null) Modifier.combinedClickable(
+                        onClick = {}, onLongClick = onLongClick
+                    ) else Modifier
+                )
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // Иконка статуса: время задано → зелёная галочка, иначе → серые часы.
+            val hasTime = time != null
             Box(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(if (isHighlighted) accent() else bgSubtle())
-                    .alpha(if (isLocked) 0.7f else 1f),
+                    .background(
+                        when {
+                            isHighlighted -> accent()
+                            hasTime -> greenOk.copy(alpha = 0.14f)
+                            else -> bgSubtle()
+                        }
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter = painterResource(iconRes), contentDescription = null,
+                    painter = painterResource(
+                        if (hasTime) iconRes
+                        else com.z_company.core.R.drawable.outline_access_time_24
+                    ),
+                    contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = when {
                         isHighlighted -> accentInk()
-                        isLocked -> textMuted()
-                        else -> textColor()
+                        hasTime -> greenOk
+                        else -> textMuted()
                     }
                 )
             }
 
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(label, fontSize = 14.sp, fontWeight = FontWeight.W500, color = textColor())
-                    if (isLocked) {
-                        Text(
-                            text = "из маршрута", fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace, color = textMuted(),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(bgSubtle())
-                                .padding(horizontal = 6.dp, vertical = 1.dp)
-                        )
-                    }
+                Text(label, fontSize = 14.sp, fontWeight = FontWeight.W500, color = textColor())
+                // «из маршрута» — отдельной строкой под «Явка».
+                if (isLocked) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "из маршрута", fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace, color = textMuted()
+                    )
                 }
                 // Smart delta
                 if (delta != null) {
@@ -1117,7 +1366,14 @@ private fun SheetTimeRowItem(
                             if (time != null) Modifier.border(1.dp, borderColor(), RoundedCornerShape(12.dp))
                             else Modifier
                         )
-                        .then(if (onClick != null && !isLocked) Modifier.clickable(onClick = onClick) else Modifier)
+                        .then(
+                            if (clickable) Modifier.combinedClickable(
+                                onClick = onClick!!,
+                                onLongClick = onLongClick
+                            ) else if (onLongClick != null) Modifier.combinedClickable(
+                                onClick = {}, onLongClick = onLongClick
+                            ) else Modifier
+                        )
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
