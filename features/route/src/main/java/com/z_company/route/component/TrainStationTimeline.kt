@@ -388,6 +388,10 @@ private fun StationRow(
         Row(
             modifier = Modifier
                 .weight(1f)
+                // IntrinsicSize.Min — чтобы линия таймлайна (fillMaxHeight у точки)
+                // растягивалась на всю высоту строки, когда название переносится
+                // на 2 строки и строка становится выше DotHeight.
+                .height(IntrinsicSize.Min)
                 .then(
                     if (onStationClick != null || onStationLongPress != null) {
                         Modifier.combinedClickable(
@@ -428,9 +432,13 @@ private fun StationRow(
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = if (isFirst || isLast) FontWeight.SemiBold else FontWeight.Normal,
                 color = colors.stationNameColor,
-                maxLines = 1,
+                // Длинное название с номером пути не помещается в одну строку —
+                // переносим (до 3 строк), чтобы было видно целиком.
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 4.dp),
             )
 
             Spacer(modifier = Modifier.width(4.dp))
@@ -655,7 +663,11 @@ private fun TimelineDot(
     Box(
         modifier = Modifier
             .width(columnWidth)
-            .height(DotHeight),
+            // Заполняем высоту строки (задаётся IntrinsicSize.Min у родителя),
+            // но не меньше DotHeight — линия остаётся неразрывной и при переносе
+            // названия станции на 2 строки.
+            .fillMaxHeight()
+            .defaultMinSize(minHeight = DotHeight),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
