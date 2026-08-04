@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -40,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.shape.CircleShape
@@ -168,43 +170,42 @@ fun StationEditBottomSheet(
                 }
             }
 
-            // ── Путь + Название станции (горизонтальный ряд) ──
+            // ── Название станции + Путь (горизонтальный ряд) ──
+            // Лейбл — ВНУТРИ серого поля (сверху), значение — под ним. По референсу.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.Top
             ) {
                 // ── Название станции ──
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Название",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = primaryColor.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(bottom = 5.dp)
-                    )
-                    ExposedDropdownMenuBox(
-                        expanded = isDropdownExpanded,
-                        onExpandedChange = { isDropdownExpanded = it }
+                ExposedDropdownMenuBox(
+                    expanded = isDropdownExpanded,
+                    onExpandedChange = { isDropdownExpanded = it },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true)
+                            .clip(fieldShape)
+                            .background(fieldColor)
+                            .padding(horizontal = 14.dp, vertical = 9.dp)
                     ) {
-                        OutlinedTextFieldApp(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
+                        FieldLabel("Название", primaryColor)
+                        BasicTextField(
+                            modifier = Modifier.fillMaxWidth(),
                             value = localName,
                             onValueChange = { newValue ->
                                 localName = newValue
                                 onFilterMenu(newValue.text)
                                 isDropdownExpanded = newValue.text.isNotEmpty()
                             },
-                            placeholder = {
-                                Text(
-                                    text = "Станция",
-                                    style = hintStyle,
-                                    color = hintColor
-                                )
-                            },
-                            textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium),
+                            textStyle = dataTextStyle.copy(
+                                fontWeight = FontWeight.Medium,
+                                color = primaryColor
+                            ),
+                            cursorBrush = SolidColor(primaryColor),
+                            singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(
                                 onDone = {
@@ -212,40 +213,43 @@ fun StationEditBottomSheet(
                                     isDropdownExpanded = false
                                 }
                             ),
-                            singleLine = true,
-                            shape = fieldShape,
-                            fieldElevation = 0.dp,
-                            colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                            colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright
-                        )
-
-                        StationDropdownMenu(
-                            expanded = isDropdownExpanded,
-                            stations = menuList,
-                            onSelect = { stationName ->
-                                localName = localName.copy(
-                                    text = stationName,
-                                    selection = TextRange(stationName.length)
-                                )
-                                isDropdownExpanded = false
-                            },
-                            onDelete = onDeleteStationName,
-                            onDismiss = { isDropdownExpanded = false },
-                            textStyle = dataTextStyle
+                            decorationBox = { inner ->
+                                Box(contentAlignment = Alignment.CenterStart) {
+                                    if (localName.text.isEmpty()) {
+                                        Text(text = "Станция", style = hintStyle, color = hintColor)
+                                    }
+                                    inner()
+                                }
+                            }
                         )
                     }
+
+                    StationDropdownMenu(
+                        expanded = isDropdownExpanded,
+                        stations = menuList,
+                        onSelect = { stationName ->
+                            localName = localName.copy(
+                                text = stationName,
+                                selection = TextRange(stationName.length)
+                            )
+                            isDropdownExpanded = false
+                        },
+                        onDelete = onDeleteStationName,
+                        onDismiss = { isDropdownExpanded = false },
+                        textStyle = dataTextStyle
+                    )
                 }
 
                 // ── Поле «Путь» (4 символа) ──
-                Column(modifier = Modifier.width(80.dp)) {
-                    Text(
-                        text = "Путь",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = primaryColor.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(bottom = 5.dp)
-                    )
-                    OutlinedTextFieldApp(
+                Column(
+                    modifier = Modifier
+                        .width(80.dp)
+                        .clip(fieldShape)
+                        .background(fieldColor)
+                        .padding(horizontal = 14.dp, vertical = 9.dp)
+                ) {
+                    FieldLabel("Путь", primaryColor)
+                    BasicTextField(
                         modifier = Modifier.fillMaxWidth(),
                         value = localTrackNumber,
                         onValueChange = { newValue ->
@@ -253,27 +257,26 @@ fun StationEditBottomSheet(
                                 localTrackNumber = newValue
                             }
                         },
-                        placeholder = {
-                            Text(
-                                text = "№",
-                                style = hintStyle,
-                                color = hintColor
-                            )
-                        },
                         // Номер пути — идентификатор → Mono.
                         textStyle = dataTextStyle.copy(
                             fontWeight = FontWeight.Medium,
-                            fontFamily = com.z_company.core.ui.theme.MonoFont
+                            fontFamily = com.z_company.core.ui.theme.MonoFont,
+                            color = primaryColor
                         ),
+                        cursorBrush = SolidColor(primaryColor),
+                        singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(
                             onDone = { focusManager.clearFocus() }
                         ),
-                        singleLine = true,
-                        shape = fieldShape,
-                        fieldElevation = 0.dp,
-                        colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright
+                        decorationBox = { inner ->
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                if (localTrackNumber.text.isEmpty()) {
+                                    Text(text = "№", style = hintStyle, color = hintColor)
+                                }
+                                inner()
+                            }
+                        }
                     )
                 }
             }
@@ -591,6 +594,21 @@ private fun StepButton(
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
         )
     }
+}
+
+// ─── Лейбл внутри поля (Название / Путь) ─────────────────────────────────────
+
+@Composable
+private fun FieldLabel(text: String, primaryColor: Color) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall.copy(
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
+        ),
+        color = primaryColor.copy(alpha = 0.5f),
+        modifier = Modifier.padding(bottom = 2.dp)
+    )
 }
 
 // ─── Бейдж стоянки между прибытием и отправлением ────────────────────────────
