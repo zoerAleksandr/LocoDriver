@@ -1,0 +1,31 @@
+CREATE TABLE IF NOT EXISTS RoutePartner (
+    routePartnerId TEXT NOT NULL PRIMARY KEY,
+    basicId TEXT NOT NULL,
+    remoteObjectId TEXT,
+    sourcePartnerId TEXT,
+    fullName TEXT,
+    tabNumber TEXT,
+    notes TEXT,
+    FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS index_RoutePartner_basicId ON RoutePartner(basicId);
+
+insertOrReplace:
+INSERT OR REPLACE INTO RoutePartner (routePartnerId, basicId, remoteObjectId, sourcePartnerId, fullName, tabNumber, notes)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+getById:
+SELECT * FROM RoutePartner WHERE routePartnerId = :routePartnerId;
+
+getByBasicId:
+SELECT * FROM RoutePartner WHERE basicId = :basicId;
+
+delete:
+DELETE FROM RoutePartner WHERE routePartnerId = :routePartnerId;
+
+setRemoteObjectId:
+UPDATE RoutePartner SET remoteObjectId = :remoteObjectId WHERE routePartnerId = :routePartnerId;
+
+countAll:
+SELECT COUNT(*) FROM RoutePartner;

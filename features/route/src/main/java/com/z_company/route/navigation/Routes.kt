@@ -139,6 +139,34 @@ object FormOtherWork: AppRoutes("FormOtherWork") {
         "$basicRoute/$basicId?$otherWorkId"
 }
 
+object PartnersManageRoute: AppRoutes("PartnersManageRoute")
+
+object PartnerPickerRoute: AppRoutes("PartnerPickerRoute") {
+    private const val paramBasicId = "basicId"
+    override val route: String = "$basicRoute/{$paramBasicId}"
+    val navArguments = listOf(
+        navArgument(paramBasicId) { type = NavType.StringType }
+    )
+    fun getBasicId(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramBasicId)
+    fun buildRoute(basicId: String) = "$basicRoute/$basicId"
+}
+
+object PartnerEditRoute: AppRoutes("PartnerEditRoute") {
+    private const val paramPartnerId = "partnerId"
+    override val route: String = "$basicRoute?$paramPartnerId={$paramPartnerId}"
+    val navArguments = listOf(
+        navArgument(paramPartnerId) {
+            type = NavType.StringType
+            nullable = true
+        }
+    )
+    fun getPartnerId(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramPartnerId)
+    fun buildRoute(partnerId: String?) =
+        partnerId?.let { "$basicRoute?$paramPartnerId=$it" } ?: basicRoute
+}
+
 object SearchRoute: AppRoutes("SearchRoute")
 object PurchasesRoute: AppRoutes("PurchasesRoute")
 

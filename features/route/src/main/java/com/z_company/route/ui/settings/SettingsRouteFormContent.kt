@@ -23,6 +23,7 @@ fun SettingsRouteFormContent(
     changeShowTrain: (Boolean) -> Unit,
     changeShowPassenger: (Boolean) -> Unit,
     changeShowOtherWork: (Boolean) -> Unit,
+    changeShowPartner: (Boolean) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -45,6 +46,13 @@ fun SettingsRouteFormContent(
                 sub = "Отметка работы в одно лицо в маршруте",
                 checked = currentSettings.isShowOnePersonSwitch,
                 onCheckedChange = changeShowOnePersonSwitch,
+            )
+            SettingsCardSep()
+            SettingsSwitchRow(
+                label = "Добавить напарника",
+                sub = "Раздел «Напарники» в форме маршрута",
+                checked = currentSettings.isShowPartner,
+                onCheckedChange = changeShowPartner,
             )
         }
 

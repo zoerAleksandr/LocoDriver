@@ -32,12 +32,13 @@ CREATE TABLE IF NOT EXISTS UserSettings (
     isShowOtherWork INTEGER NOT NULL DEFAULT 1,
     otherWorkTypeList TEXT NOT NULL DEFAULT '[]',
     isShowLocomotive INTEGER NOT NULL DEFAULT 1,
-    isShowPassenger INTEGER NOT NULL DEFAULT 1
+    isShowPassenger INTEGER NOT NULL DEFAULT 1,
+    isShowPartner INTEGER NOT NULL DEFAULT 1
 );
 
 insertOrReplace:
-INSERT OR REPLACE INTO UserSettings (settingsKey, minTimeRest, minTimeHomeRest, lastEnteredDieselCoefficient, nightTime, updateAt, defaultLocoType, defaultWorkTime, usingDefaultWorkTime, isConsiderFutureRoute, monthOfYear, stationList, timeZone, locomotiveSeriesList, servicePhases, standardTimesStartWork, subscriptionPeriod, isDecimalTime, isShowBreak, isShowOnePersonSwitch, isShowLocoHeating, isShowLocoAuxiliary, isShowLocoStatistics, isShowLocoNorma, isShowOtherCurrent, country, crossMonthTimezone, useStandardTimePicker, region, isShowTrain, isShowOtherWork, otherWorkTypeList, isShowLocomotive, isShowPassenger)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO UserSettings (settingsKey, minTimeRest, minTimeHomeRest, lastEnteredDieselCoefficient, nightTime, updateAt, defaultLocoType, defaultWorkTime, usingDefaultWorkTime, isConsiderFutureRoute, monthOfYear, stationList, timeZone, locomotiveSeriesList, servicePhases, standardTimesStartWork, subscriptionPeriod, isDecimalTime, isShowBreak, isShowOnePersonSwitch, isShowLocoHeating, isShowLocoAuxiliary, isShowLocoStatistics, isShowLocoNorma, isShowOtherCurrent, country, crossMonthTimezone, useStandardTimePicker, region, isShowTrain, isShowOtherWork, otherWorkTypeList, isShowLocomotive, isShowPassenger, isShowPartner)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getByKey:
 SELECT * FROM UserSettings WHERE settingsKey = :settingsKey;

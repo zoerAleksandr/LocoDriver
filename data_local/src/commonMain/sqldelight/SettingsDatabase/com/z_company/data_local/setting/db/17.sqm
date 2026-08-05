@@ -1,0 +1,3 @@
+-- Миграция 17: тумблер видимости раздела «Напарники» в форме маршрута.
+-- По умолчанию включён.
+ALTER TABLE UserSettings ADD COLUMN isShowPartner INTEGER NOT NULL DEFAULT 1;

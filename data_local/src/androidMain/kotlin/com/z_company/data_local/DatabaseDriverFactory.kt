@@ -28,9 +28,11 @@ actual class DatabaseDriverFactory(private val context: Context) {
         ensureSettingsTablesV6("Settings.db")
         ensureSettingsTablesV12("Settings.db")
         ensureRegionalHolidayTable("Settings.db")
+        ensurePartnerTable("Settings.db")
         fixVersionIfColumnsExist(
             "Settings.db",
             SettingsDatabase.Schema.version.toInt(),
+            "UserSettings" to "isShowPartner",
             "UserSettings" to "isShowBreak",
             "UserSettings" to "isShowOnePersonSwitch",
             "UserSettings" to "isShowLocoHeating",
@@ -133,6 +135,33 @@ actual class DatabaseDriverFactory(private val context: Context) {
                     updatedAt INTEGER NOT NULL
                 )
             """.trimIndent())
+        } finally {
+            db.close()
+        }
+    }
+
+    /**
+     * Создаёт таблицу Partner (справочник напарников, миграция 16), если её нет.
+     * Необходимо для пользователей, обновившихся через fixVersionIfColumnsExist —
+     * он выставляет версию сразу в targetVersion, обходя SQLDelight-миграцию 16.sqm.
+     */
+    private fun ensurePartnerTable(dbName: String) {
+        val dbFile = context.getDatabasePath(dbName)
+        if (!dbFile.exists()) return
+        val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
+        try {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS Partner (
+                    partnerId TEXT NOT NULL PRIMARY KEY,
+                    fullName TEXT NOT NULL,
+                    tabNumber TEXT,
+                    notes TEXT,
+                    updatedAt INTEGER NOT NULL
+                )
+            """.trimIndent())
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_Partner_fullName ON Partner(fullName)"
+            )
         } finally {
             db.close()
         }
@@ -273,6 +302,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.otherWorkTypeList" to ColumnSpec("TEXT", false, "'[]'"),
             "UserSettings.isShowLocomotive" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.isShowPassenger" to ColumnSpec("INTEGER", false, "1"),
+            "UserSettings.isShowPartner" to ColumnSpec("INTEGER", false, "1"),
 
             "LocomotiveSeries.acceptanceHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
             "LocomotiveSeries.deliveryHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
@@ -523,6 +553,24 @@ actual class DatabaseDriverFactory(private val context: Context) {
                     )
                 """.trimIndent())
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_OtherWork_basicId ON OtherWork(basicId)")
+            }
+
+            // Создаём RoutePartner («напарники» в маршруте, миграция 12), если её ещё нет —
+            // на случай форс-бампа версии в обход .sqm.
+            if (!hasTable(db, "RoutePartner")) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS RoutePartner (
+                        routePartnerId TEXT NOT NULL PRIMARY KEY,
+                        basicId TEXT NOT NULL,
+                        remoteObjectId TEXT,
+                        sourcePartnerId TEXT,
+                        fullName TEXT,
+                        tabNumber TEXT,
+                        notes TEXT,
+                        FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_RoutePartner_basicId ON RoutePartner(basicId)")
             }
 
             // Добавляем недостающие столбцы (для случаев когда таблицы не пересоздавались).

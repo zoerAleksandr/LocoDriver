@@ -1,0 +1,25 @@
+CREATE TABLE IF NOT EXISTS Partner (
+    partnerId TEXT NOT NULL PRIMARY KEY,
+    fullName TEXT NOT NULL,
+    tabNumber TEXT,
+    notes TEXT,
+    updatedAt INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS index_Partner_fullName ON Partner(fullName);
+
+insertOrReplace:
+INSERT OR REPLACE INTO Partner (partnerId, fullName, tabNumber, notes, updatedAt)
+VALUES (?, ?, ?, ?, ?);
+
+getAll:
+SELECT * FROM Partner ORDER BY fullName;
+
+getById:
+SELECT * FROM Partner WHERE partnerId = :partnerId;
+
+delete:
+DELETE FROM Partner WHERE partnerId = :partnerId;
+
+deleteAll:
+DELETE FROM Partner;

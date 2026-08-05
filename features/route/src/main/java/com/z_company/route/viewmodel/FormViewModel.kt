@@ -15,6 +15,7 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.OtherWork
+import com.z_company.domain.entities.route.RoutePartner
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
@@ -27,6 +28,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumber
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.OtherWorkUseCase
+import com.z_company.domain.use_cases.RoutePartnerUseCase
 import com.z_company.domain.use_cases.PassengerUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
@@ -82,6 +84,7 @@ class FormViewModel(
     private val trainUseCase: TrainUseCase by inject()
     private val passengerUseCase: PassengerUseCase by inject()
     private val otherWorkUseCase: OtherWorkUseCase by inject()
+    private val routePartnerUseCase: RoutePartnerUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val routeHelper: RouteActionsHelper by inject()
@@ -261,6 +264,7 @@ class FormViewModel(
                         launch { calculationHomeRest(route) }
                         launch { getMinTimeRest(route) }
                         launch { getFullRest(route) }
+                        launch { calculationActualRest(route) }
                         launch { isValidTime(route) }
                         launch { getPassengerTime(route) }
                         launch { computeNightWarn(route, settings) }
@@ -316,6 +320,7 @@ class FormViewModel(
                                             trains = dbRoute.trains,
                                             passengers = dbRoute.passengers,
                                             otherWorks = dbRoute.otherWorks,
+                                            partners = dbRoute.partners,
                                             photos = dbRoute.photos,
                                             // timeEndWork set from LocoFormScreen delivery sheet — take from DB.
                                             // timeStartWork может меняться на экране «Пассажиром»
@@ -767,6 +772,19 @@ class FormViewModel(
         }
     }
 
+    private suspend fun calculationActualRest(route: Route) {
+        routeHelper.calculationActualRest(route).collectLatest { result ->
+            if (result is ResultState.Success) {
+                _dialogRestUiState.update {
+                    it.copy(
+                        actualRestDuration = result.data?.first,
+                        timeEndActualRest = result.data?.second,
+                    )
+                }
+            }
+        }
+    }
+
     private suspend fun getMinTimeRest(route: Route) {
         routeHelper.calculateShortRest(route).collectLatest { result ->
             _dialogRestUiState.update {
@@ -996,6 +1014,29 @@ class FormViewModel(
             otherWorkUseCase.removeOtherWork(otherWork).collect {}
         }
         changesHave()
+    }
+
+    /** Удаление напарника из маршрута (свайп в блоке «Напарники» + подтверждение). */
+    fun onDeletePartner(partner: RoutePartner) {
+        _currentRoute.update { route ->
+            route?.copy(partners = route.partners.filter { it != partner } as MutableList<RoutePartner>)
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            routePartnerUseCase.removePartner(partner).collect {}
+        }
+        changesHave()
+    }
+
+    /**
+     * «Добавить напарника» из формы маршрута → экран мультивыбора из справочника.
+     * Сохраняем маршрут (гарантируем basicId в БД), затем навигация.
+     */
+    fun onAddPartnersClick() {
+        val basicId = currentRoute.value?.basicData?.id ?: return
+        preSaveRoute()
+        viewModelScope.launch {
+            _events.emit(FormScreenEvent.NavigateToPartnerPicker(basicId))
+        }
     }
 
     /**
@@ -1362,6 +1403,7 @@ class FormViewModel(
                         trains = dbRoute.trains,
                         passengers = dbRoute.passengers,
                         otherWorks = dbRoute.otherWorks,
+                        partners = dbRoute.partners,
                         photos = dbRoute.photos
                     ) ?: dbRoute
                 }

@@ -44,6 +44,7 @@ data class UserSettings(
     val isShowPassenger: Boolean = true,
     val isShowOtherWork: Boolean = true,
     val otherWorkTypeList: List<String> = listOf(),
+    val isShowPartner: Boolean = true,
     val isShowLocoHeating: Boolean = true,
     val isShowLocoAuxiliary: Boolean = true,
     val isShowLocoStatistics: Boolean = true,

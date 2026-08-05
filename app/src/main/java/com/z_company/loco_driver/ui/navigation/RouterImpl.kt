@@ -11,6 +11,9 @@ import com.z_company.route.navigation.AllRouteScreenRoute
 import com.z_company.route.navigation.DetailsRoute
 import com.z_company.route.navigation.FormLoco
 import com.z_company.route.navigation.FormOtherWork
+import com.z_company.route.navigation.PartnersManageRoute
+import com.z_company.route.navigation.PartnerPickerRoute
+import com.z_company.route.navigation.PartnerEditRoute
 import com.z_company.route.navigation.FormPassenger
 import com.z_company.route.navigation.FormRoute
 import com.z_company.route.navigation.FormTrain
@@ -127,6 +130,22 @@ class RouterImpl(
         requireNavController().navigate(
             FormOtherWork.buildDetailsRoute(otherWorkId = null, basicId = basicId)
         )
+    }
+
+    override fun showPartnersManage() {
+        requireNavController().navigate(PartnersManageRoute.route)
+    }
+
+    override fun showPartnerPicker(basicId: String) {
+        requireNavController().navigate(PartnerPickerRoute.buildRoute(basicId))
+    }
+
+    override fun showNewPartnerEditor() {
+        requireNavController().navigate(PartnerEditRoute.buildRoute(null))
+    }
+
+    override fun showEditPartnerEditor(partnerId: String) {
+        requireNavController().navigate(PartnerEditRoute.buildRoute(partnerId))
     }
 
     override fun showSelectReleaseDayScreen() {

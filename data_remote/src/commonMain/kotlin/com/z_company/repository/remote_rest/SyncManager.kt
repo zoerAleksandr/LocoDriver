@@ -6,6 +6,7 @@ import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.sendToSentry
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
+import com.z_company.domain.repositories.PartnerRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.repositories.StationNormRepository
 import com.z_company.domain.use_cases.CalendarUseCase
@@ -60,7 +61,8 @@ class SyncManager(
     private val settingManager: SettingManager,
     private val sharedPrefs: SharedPreferencesRepositories,
     private val locomotiveSeriesRepository: LocomotiveSeriesRepository,
-    private val stationNormRepository: StationNormRepository
+    private val stationNormRepository: StationNormRepository,
+    private val partnerRepository: PartnerRepository
 ) {
 
     fun syncToRemote(bearerToken: String): Flow<ResultState<SyncUploadResult>> = flow {
@@ -167,6 +169,14 @@ class SyncManager(
         val localStationNorms = stationNormRepository.getAll()
         if (localStationNorms.isNotEmpty()) {
             settingManager.saveNormaTimeStationsInRemote(localStationNorms, bearerToken)
+                .catch { /* Не прерываем основную синхронизацию */ }
+                .collect {}
+        }
+
+        // 3.6. Синхронизация справочника напарников (full replace).
+        val localPartners = partnerRepository.getAll()
+        if (localPartners.isNotEmpty()) {
+            settingManager.savePartnersInRemote(localPartners, bearerToken)
                 .catch { /* Не прерываем основную синхронизацию */ }
                 .collect {}
         }
@@ -339,6 +349,17 @@ class SyncManager(
                 .collect { loadState ->
                     if (loadState is ResultState.Success && loadState.data.isNotEmpty()) {
                         stationNormRepository.replaceAll(loadState.data).collect {}
+                    }
+                }
+        }
+        // Справочник напарников: если локально пусто — GET с сервера и сохранить.
+        val localPartnersForDownload = partnerRepository.getAll()
+        if (localPartnersForDownload.isEmpty()) {
+            settingManager.getPartnersFromRemote(bearerToken)
+                .catch { /* Не прерываем основную синхронизацию */ }
+                .collect { loadState ->
+                    if (loadState is ResultState.Success && loadState.data.isNotEmpty()) {
+                        partnerRepository.replaceAll(loadState.data).collect {}
                     }
                 }
         }
@@ -634,6 +655,12 @@ class SyncManager(
         val localStationNormsFirst = stationNormRepository.getAll()
         if (localStationNormsFirst.isNotEmpty()) {
             settingManager.saveNormaTimeStationsInRemote(localStationNormsFirst, bearerToken)
+                .catch { /* Не прерываем основную синхронизацию */ }
+                .collect {}
+        }
+        val localPartnersFirst = partnerRepository.getAll()
+        if (localPartnersFirst.isNotEmpty()) {
+            settingManager.savePartnersInRemote(localPartnersFirst, bearerToken)
                 .catch { /* Не прерываем основную синхронизацию */ }
                 .collect {}
         }

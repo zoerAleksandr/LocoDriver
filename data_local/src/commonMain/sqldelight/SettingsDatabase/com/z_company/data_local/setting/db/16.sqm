@@ -1,0 +1,15 @@
+-- Миграция 16: справочник напарников (Partner).
+-- Настройки → Справочники → Напарники: у пользователя свой список людей,
+-- с которыми он работает (ФИО, табельный номер, примечания). Синхронизируется
+-- отдельно (full-replace /v1/partners/), по образцу StationNorm/LocomotiveSeries.
+-- Свежая установка получает таблицу через Schema.create.
+
+CREATE TABLE IF NOT EXISTS Partner (
+    partnerId TEXT NOT NULL PRIMARY KEY,
+    fullName TEXT NOT NULL,
+    tabNumber TEXT,
+    notes TEXT,
+    updatedAt INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS index_Partner_fullName ON Partner(fullName);

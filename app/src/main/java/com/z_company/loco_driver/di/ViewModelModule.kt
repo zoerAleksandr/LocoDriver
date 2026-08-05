@@ -18,6 +18,9 @@ import com.z_company.route.viewmodel.SeriesListViewModel
 import com.z_company.route.viewmodel.SeriesEditorViewModel
 import com.z_company.route.viewmodel.StationNormListViewModel
 import com.z_company.route.viewmodel.StationNormEditorViewModel
+import com.z_company.route.viewmodel.PartnerListViewModel
+import com.z_company.route.viewmodel.PartnerEditorViewModel
+import com.z_company.route.viewmodel.PartnerPickerViewModel
 import com.z_company.route.viewmodel.TrainFormViewModel
 import org.koin.android.ext.koin.androidApplication
 import org.koin.androidx.viewmodel.dsl.viewModel
@@ -53,4 +56,7 @@ val viewModelModule = module {
     viewModel { StationNormListViewModel() }
     viewModel { (id: String?, name: String?) -> SeriesEditorViewModel(id, name) }
     viewModel { (id: String?, name: String?) -> StationNormEditorViewModel(id, name) }
+    viewModel { PartnerListViewModel() }
+    viewModel { (partnerId: String?) -> PartnerEditorViewModel(partnerId) }
+    viewModel { (basicId: String) -> PartnerPickerViewModel(basicId) }
 }

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.SettingsScreen
+import com.z_company.route.viewmodel.PartnerListViewModel
 import com.z_company.route.viewmodel.SeriesListViewModel
 import com.z_company.route.viewmodel.SettingsViewModel
 import com.z_company.route.viewmodel.StationNormListViewModel
@@ -22,6 +23,7 @@ fun SettingDestination(
 
     val seriesListViewModel: SeriesListViewModel = viewModel()
     val stationListViewModel: StationNormListViewModel = viewModel()
+    val partnerListViewModel: PartnerListViewModel = viewModel()
 
     SettingsScreen(
         viewModel = settingsViewModel,
@@ -45,6 +47,7 @@ fun SettingDestination(
         changeShowTrain = settingsViewModel::changeShowTrain,
         changeShowPassenger = settingsViewModel::changeShowPassenger,
         changeShowOtherWork = settingsViewModel::changeShowOtherWork,
+        changeShowPartner = settingsViewModel::changeShowPartner,
         changeShowLocoHeating = settingsViewModel::changeShowLocoHeating,
         changeShowLocoAuxiliary = settingsViewModel::changeShowLocoAuxiliary,
         changeShowOtherCurrent = settingsViewModel::changeShowOtherCurrent,
@@ -60,5 +63,7 @@ fun SettingDestination(
         onBack = router::back,
         seriesListViewModel = seriesListViewModel,
         stationListViewModel = stationListViewModel,
+        partnerListViewModel = partnerListViewModel,
+        onOpenPartners = router::showPartnersManage,
     )
 }

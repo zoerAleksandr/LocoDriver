@@ -5,6 +5,7 @@ import com.z_company.data_local.calendar.CalendarStorageLocalImpl
 import com.z_company.data_local.calendar.SqlDelightProductionCalendarRepository
 import com.z_company.data_local.calendar.SqlDelightReleaseDayRepository
 import com.z_company.data_local.norma_time.SqlDelightLocomotiveSeriesRepository
+import com.z_company.data_local.norma_time.SqlDelightPartnerRepository
 import com.z_company.data_local.norma_time.SqlDelightStationNormRepository
 import com.z_company.data_local.setting.DataStoreRepository
 import com.z_company.data_local.calendar.SqlDelightCalendarRepository
@@ -22,6 +23,7 @@ import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.domain.repositories.SalarySettingRepository
 import com.z_company.domain.repositories.SettingsRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.repositories.PartnerRepository
 import com.z_company.domain.repositories.StationNormRepository
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.snackbar.SnackbarManagerImpl
@@ -55,6 +57,8 @@ val repositoryModule = module {
     single<LocomotiveSeriesRepository> { SqlDelightLocomotiveSeriesRepository() }
 
     single<StationNormRepository> { SqlDelightStationNormRepository() }
+
+    single<PartnerRepository> { SqlDelightPartnerRepository() }
 
     single<ProductionCalendarRepository> { SqlDelightProductionCalendarRepository() }
 
@@ -103,7 +107,8 @@ val repositoryModule = module {
             settingManager = get(),
             sharedPrefs = get(),
             locomotiveSeriesRepository = get(),
-            stationNormRepository = get()
+            stationNormRepository = get(),
+            partnerRepository = get()
         )
     }
 }

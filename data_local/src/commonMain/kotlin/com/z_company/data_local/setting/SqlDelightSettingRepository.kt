@@ -59,7 +59,8 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
             isShowOtherWork = if (us.isShowOtherWork) 1L else 0L,
             otherWorkTypeList = SettingsMapper.encodeStringList(us.otherWorkTypeList),
             isShowLocomotive = if (us.isShowLocomotive) 1L else 0L,
-            isShowPassenger = if (us.isShowPassenger) 1L else 0L
+            isShowPassenger = if (us.isShowPassenger) 1L else 0L,
+            isShowPartner = if (us.isShowPartner) 1L else 0L
         )
     }
 

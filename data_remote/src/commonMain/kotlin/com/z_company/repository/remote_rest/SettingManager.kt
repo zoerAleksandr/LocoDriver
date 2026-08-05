@@ -7,6 +7,7 @@ import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.norma_time.StationNorm
+import com.z_company.domain.entities.partner.Partner
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import kotlinx.coroutines.flow.Flow
@@ -147,6 +148,29 @@ class SettingManager(
         emit(ResultState.Loading())
         val stations = remoteRestApi.getNormaTimeStations(token = bearerToken)
         emit(ResultState.Success(stations))
+    }.catch { e ->
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
+    }
+
+    // --- Partners (справочник напарников) ---
+
+    fun savePartnersInRemote(
+        partners: List<Partner>,
+        bearerToken: String
+    ): Flow<ResultState<Unit>> = flow {
+        emit(ResultState.Loading())
+        remoteRestApi.savePartners(token = bearerToken, body = partners)
+        emit(ResultState.Success(Unit))
+    }.catch { e ->
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
+    }
+
+    fun getPartnersFromRemote(
+        bearerToken: String
+    ): Flow<ResultState<List<Partner>>> = flow {
+        emit(ResultState.Loading())
+        val partners = remoteRestApi.getPartners(token = bearerToken)
+        emit(ResultState.Success(partners))
     }.catch { e ->
         emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }

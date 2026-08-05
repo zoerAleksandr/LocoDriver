@@ -132,6 +132,7 @@ import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.OtherWork
+import com.z_company.domain.entities.route.RoutePartner
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
@@ -211,6 +212,10 @@ fun FormScreen(
     onChangeOtherWorkClick: (otherWork: OtherWork) -> Unit,
     onNewOtherWorkClick: (basicId: String) -> Unit,
     onDeleteOtherWork: (otherWork: OtherWork) -> Unit,
+    isShowPartner: Boolean,
+    onAddPartners: () -> Unit,
+    onOpenPartnerCard: (partner: RoutePartner) -> Unit,
+    onDeletePartner: (partner: RoutePartner) -> Unit,
     nightTime: Long?,
     onSalarySettingClick: () -> Unit,
     setFavoriteState: () -> Unit,
@@ -1060,6 +1065,20 @@ fun FormScreen(
                         }
                     }
 
+                    // ─── Напарники (лёгкий блок, выше «Время работы») ───
+                    if (isShowPartner) {
+                        item {
+                            Column(modifier = Modifier.animateItem()) {
+                                RoutePartnersBlock(
+                                    partners = route.partners,
+                                    onAdd = onAddPartners,
+                                    onOpenCard = onOpenPartnerCard,
+                                    onDelete = onDeletePartner,
+                                )
+                            }
+                        }
+                    }
+
                     // ─── Время работы ───
                     item {
                         Column(
@@ -1376,7 +1395,6 @@ fun FormScreen(
                                     PassengerSubItem(index, passenger)
                                 }
                             }
-
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1636,6 +1654,131 @@ private fun OtherWorkSubItem(index: Int, otherWork: OtherWork) {
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.primary
         )
+    }
+}
+
+/**
+ * Лёгкий блок «Напарники» в форме маршрута (вариант D): карточка со строками
+ * (аватар · короткое ФИО · таб. справа) + accent-строка «Добавить напарника».
+ * Тап по строке → карточка напарника ([onOpenCard]). Свайп влево → «Удалить» с
+ * подтверждением-шторкой ([onDelete]). Добавление — мультивыбор из справочника ([onAdd]).
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun RoutePartnersBlock(
+    partners: List<RoutePartner>,
+    onAdd: () -> Unit,
+    onOpenCard: (RoutePartner) -> Unit,
+    onDelete: (RoutePartner) -> Unit,
+) {
+    var partnerForRemove by remember { mutableStateOf<RoutePartner?>(null) }
+    var swipeCloseSignal by remember { mutableStateOf(0) }
+    val confirmSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    partnerForRemove?.let { partner ->
+        AppBottomSheet(
+            onDismissRequest = {
+                partnerForRemove = null
+                swipeCloseSignal++
+            },
+            sheetState = confirmSheetState,
+            headerContent = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "Удалить напарника?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    val name = com.z_company.route.ui.partner.partnerShortName(partner.fullName)
+                        .ifBlank { "Напарник" }
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            },
+            actions = listOf(
+                BottomSheetAction(text = "Да, удалить") {
+                    onDelete(partner)
+                    partnerForRemove = null
+                }
+            )
+        )
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        FormGroupHeader(text = "Напарники")
+        FormMCard {
+            partners.forEach { partner ->
+                com.z_company.route.component.SwipeToRevealDelete(
+                    itemKey = partner.routePartnerId,
+                    closeSignal = swipeCloseSignal,
+                    compact = true,
+                    onDeleteClick = { partnerForRemove = partner },
+                    onContentClick = { onOpenCard(partner) },
+                ) { _ ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.secondary)
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        com.z_company.route.ui.partner.PartnerAvatar(name = partner.fullName, size = 32.dp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            modifier = Modifier.weight(1f),
+                            text = com.z_company.route.ui.partner.partnerShortName(partner.fullName)
+                                .ifBlank { "Напарник" },
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        partner.tabNumber?.takeIf { it.isNotBlank() }?.let { tab ->
+                            Text(
+                                text = "таб. $tab",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onAdd() }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(com.z_company.core.R.drawable.ic_add),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Добавить напарника",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.tertiary,
+                )
+            }
+        }
     }
 }
 
@@ -2495,6 +2638,7 @@ private fun RestBottomSheet(
                         duration = ConverterLongToTime.formatDurationFromMillis(full),
                         until = dateAndTimeConverter?.getDateMiniAndTime(endFull) ?: ""
                     )
+                    ActualRestFormItem(dialogRestUiState, dateAndTimeConverter)
                 }
             }
         } else {
@@ -2511,6 +2655,7 @@ private fun RestBottomSheet(
                         duration = ConverterLongToTime.formatDurationFromMillis(dur),
                         until = dateAndTimeConverter?.getDateMiniAndTime(end) ?: ""
                     )
+                    ActualRestFormItem(dialogRestUiState, dateAndTimeConverter)
                 }
                 Row(
                     modifier = Modifier
@@ -2572,6 +2717,30 @@ private fun RestItem(
             color = MaterialTheme.colorScheme.primary
         )
     }
+}
+
+/**
+ * Строка «Фактический отдых» — реальный отдых до следующей явки по расписанию.
+ * Показывается только если следующая явка есть (`actualRestDuration != null`).
+ */
+@Composable
+private fun ActualRestFormItem(
+    dialogRestUiState: DialogRestUiState,
+    dateAndTimeConverter: DateAndTimeConverter?,
+) {
+    val dur = dialogRestUiState.actualRestDuration
+    val end = dialogRestUiState.timeEndActualRest
+    if (dur == null || dur <= 0 || end == null) return
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 20.dp),
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.outlineVariant
+    )
+    RestItem(
+        title = "Фактический отдых",
+        duration = ConverterLongToTime.formatDurationFromMillis(dur),
+        until = dateAndTimeConverter?.getDateMiniAndTime(end) ?: ""
+    )
 }
 
 /** Карточка «отдых рассчитать невозможно». */

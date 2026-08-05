@@ -7,4 +7,6 @@ sealed class FormScreenEvent {
     object DeactivatedFavoriteRoute: FormScreenEvent()
     object RouteSaved: FormScreenEvent()
     data class NavigateToChildForm(val basicId: String, val entityType: ChildEntityType) : FormScreenEvent()
+    /** Открыть экран выбора напарников (мультивыбор из справочника). */
+    data class NavigateToPartnerPicker(val basicId: String) : FormScreenEvent()
 }

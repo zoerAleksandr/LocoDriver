@@ -5,6 +5,7 @@ import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.norma_time.StationNorm
+import com.z_company.domain.entities.partner.Partner
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
@@ -83,6 +84,14 @@ interface RemoteRestApi {
 
     /** Получить станции с нормами с сервера */
     suspend fun getNormaTimeStations(token: String): List<StationNorm>
+
+    // --- Partners (справочник напарников) ---
+
+    /** Сохранить справочник напарников на сервере (полная замена) */
+    suspend fun savePartners(token: String, body: List<Partner>)
+
+    /** Получить справочник напарников с сервера */
+    suspend fun getPartners(token: String): List<Partner>
 
     // --- ProductionCalendar (производственный календарь) ---
 

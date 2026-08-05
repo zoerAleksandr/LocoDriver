@@ -22,6 +22,10 @@ interface Router {
     fun showSettingsSeriesEditor(seriesId: String) { showSettingsSeriesList() }
     fun showSettingsStationList() { showSettings() }
     fun showSettingsStationEditor(stationId: String) { showSettingsStationList() }
+    fun showPartnersManage() { showSettings() }
+    fun showPartnerPicker(basicId: String) {}
+    fun showNewPartnerEditor() {}
+    fun showEditPartnerEditor(partnerId: String) {}
     fun showSearch()
     fun back()
     fun navigationUp(): Boolean

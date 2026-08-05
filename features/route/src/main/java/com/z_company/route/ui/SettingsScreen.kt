@@ -77,6 +77,7 @@ import com.z_company.route.viewmodel.SeriesListViewModel
 import com.z_company.route.viewmodel.SeriesEditorViewModel
 import com.z_company.route.viewmodel.StationNormListViewModel
 import com.z_company.route.viewmodel.StationNormEditorViewModel
+import com.z_company.route.viewmodel.PartnerListViewModel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlinx.coroutines.launch
@@ -121,6 +122,7 @@ fun SettingsScreen(
     changeShowTrain: (Boolean) -> Unit,
     changeShowPassenger: (Boolean) -> Unit,
     changeShowOtherWork: (Boolean) -> Unit,
+    changeShowPartner: (Boolean) -> Unit,
     changeShowLocoHeating: (Boolean) -> Unit,
     changeShowLocoAuxiliary: (Boolean) -> Unit,
     changeShowOtherCurrent: (Boolean) -> Unit,
@@ -136,6 +138,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     seriesListViewModel: SeriesListViewModel? = null,
     stationListViewModel: StationNormListViewModel? = null,
+    partnerListViewModel: PartnerListViewModel? = null,
+    onOpenPartners: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -311,11 +315,15 @@ fun SettingsScreen(
                                 seriesListViewModel?.seriesFlow?.collectAsState()?.value ?: emptyList()
                             val stationRecords =
                                 stationListViewModel?.stationsFlow?.collectAsState()?.value ?: emptyList()
+                            val partnerRecords =
+                                partnerListViewModel?.partnersFlow?.collectAsState()?.value ?: emptyList()
                             SettingsHubContent(
                                 currentSettings = settings,
                                 seriesTotalCount = seriesUnionCount(settings.locomotiveSeriesList, seriesRecords.map { it.name }),
                                 stationTotalCount = seriesUnionCount(settings.stationList, stationRecords.map { it.name }),
+                                partnerTotalCount = partnerRecords.size,
                                 onNavigate = { currentSubScreen = it },
+                                onOpenPartners = onOpenPartners,
                                 showSettingSalary = showSettingSalary,
                             )
                         }
@@ -375,6 +383,7 @@ fun SettingsScreen(
                                 changeShowTrain = changeShowTrain,
                                 changeShowPassenger = changeShowPassenger,
                                 changeShowOtherWork = changeShowOtherWork,
+                                changeShowPartner = changeShowPartner,
                             )
                         }
 
@@ -471,6 +480,7 @@ fun SettingsScreen(
                                 }
                             )
                         }
+
                     }
                 }
             }
@@ -483,11 +493,14 @@ private fun SettingsHubContent(
     currentSettings: UserSettings,
     seriesTotalCount: Int,
     stationTotalCount: Int,
+    partnerTotalCount: Int,
     onNavigate: (SettingsSubScreen) -> Unit,
+    onOpenPartners: () -> Unit,
     showSettingSalary: () -> Unit,
 ) {
     val seriesCount = seriesTotalCount
     val stationCount = stationTotalCount
+    val partnerCount = partnerTotalCount
     val shouldersCount = currentSettings.servicePhases.size
 
     Column(
@@ -523,6 +536,14 @@ private fun SettingsHubContent(
                 title = "Плечи",
                 value = "$shouldersCount ${pluralRu(shouldersCount, "плечо", "плечи", "плеч")}",
                 onClick = { onNavigate(SettingsSubScreen.SHOULDERS) },
+            )
+            SettingsRowDivider()
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.ic_card_passenger_ref,
+                accent = true,
+                title = "Напарники",
+                value = "$partnerCount ${pluralRu(partnerCount, "напарник", "напарника", "напарников")}",
+                onClick = onOpenPartners,
             )
         }
 

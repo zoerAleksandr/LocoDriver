@@ -1,0 +1,19 @@
+-- Миграция 12: раздел «Напарники» в маршруте (RoutePartner).
+-- Вложенный подраздел маршрута наряду с локомотивом/поездом/пассажиром/прочей работой.
+-- Хранит КОПИЮ данных напарника (ФИО/табельный/примечания) + опциональную ссылку
+-- sourcePartnerId на запись справочника Partner. Информационный: в расчётах не участвует.
+-- Все прикладные поля nullable — обратная совместимость (full-replace, ignoreUnknownKeys).
+-- Свежая установка получает таблицу через Schema.create.
+
+CREATE TABLE IF NOT EXISTS RoutePartner (
+    routePartnerId TEXT NOT NULL PRIMARY KEY,
+    basicId TEXT NOT NULL,
+    remoteObjectId TEXT,
+    sourcePartnerId TEXT,
+    fullName TEXT,
+    tabNumber TEXT,
+    notes TEXT,
+    FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS index_RoutePartner_basicId ON RoutePartner(basicId);

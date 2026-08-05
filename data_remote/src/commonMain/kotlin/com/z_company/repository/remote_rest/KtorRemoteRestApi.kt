@@ -5,11 +5,13 @@ import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.norma_time.StationNorm
+import com.z_company.domain.entities.partner.Partner
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.repository.remote_rest.response.NormaTimeLocomotiveResponse
 import com.z_company.repository.remote_rest.response.NormaTimeStationResponse
+import com.z_company.repository.remote_rest.response.PartnerResponse
 import com.z_company.repository.remote_rest.request.AddEmailRequest
 import com.z_company.repository.remote_rest.request.AddVKIDRequest
 import com.z_company.repository.remote_rest.request.AuthRequest
@@ -192,6 +194,19 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
         client.get("v1/norma_time/stations/") {
             header("Authorization", token)
         }.body<List<NormaTimeStationResponse>>().map { it.toDomain() }
+
+    override suspend fun savePartners(token: String, body: List<Partner>) {
+        client.post("v1/partners/") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(body.map { PartnerResponse.fromDomain(it) })
+        }.bodyAsText()
+    }
+
+    override suspend fun getPartners(token: String): List<Partner> =
+        client.get("v1/partners/") {
+            header("Authorization", token)
+        }.body<List<PartnerResponse>>().map { it.toDomain() }
 
     override suspend fun getProductionCalendar(country: String, year: Int): List<ProductionCalendarDay> =
         client.get("v1/production_calendar/") {

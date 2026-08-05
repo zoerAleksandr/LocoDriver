@@ -85,6 +85,10 @@ fun FormDestination(
                             ChildEntityType.OTHER_WORK -> router.showEmptyOtherWorkForm(event.basicId)
                         }
                     }
+
+                    is FormScreenEvent.NavigateToPartnerPicker -> {
+                        router.showPartnerPicker(event.basicId)
+                    }
                 }
             }
         }
@@ -137,6 +141,12 @@ fun FormDestination(
         onChangeOtherWorkClick = router::showChangeOtherWorkForm,
         onNewOtherWorkClick = { viewModel.onAddChildEntity(it, ChildEntityType.OTHER_WORK) },
         onDeleteOtherWork = viewModel::onDeleteOtherWork,
+        isShowPartner = userSetting?.isShowPartner ?: true,
+        onAddPartners = viewModel::onAddPartnersClick,
+        onOpenPartnerCard = { partner ->
+            partner.sourcePartnerId?.let { router.showEditPartnerEditor(it) }
+        },
+        onDeletePartner = viewModel::onDeletePartner,
         nightTime = formUiState.nightTime,
         salaryForRouteState = salaryState,
         onSalarySettingClick = router::showSettingSalary,

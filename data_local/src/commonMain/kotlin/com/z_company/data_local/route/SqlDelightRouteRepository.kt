@@ -14,6 +14,7 @@ import com.z_company.data_local.route.mapping.LocomotiveMapper
 import com.z_company.data_local.route.mapping.OtherWorkMapper
 import com.z_company.data_local.route.mapping.PassengerMapper
 import com.z_company.data_local.route.mapping.PhotoMapper
+import com.z_company.data_local.route.mapping.RoutePartnerMapper
 import com.z_company.data_local.route.mapping.TrainMapper
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
@@ -21,6 +22,7 @@ import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Photo
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.RoutePartner
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.util.generateId
@@ -43,6 +45,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         val trains = db.trainQueries.getByBasicId(basicData.id).executeAsList()
         val passengers = db.passengerQueries.getByBasicId(basicData.id).executeAsList()
         val otherWorks = db.otherWorkQueries.getByBasicId(basicData.id).executeAsList()
+        val partners = db.routePartnerQueries.getByBasicId(basicData.id).executeAsList()
         val photos = db.photoQueries.getByBasicId(basicData.id).executeAsList()
         return Route(
             basicData = BasicDataMapper.toData(basicData),
@@ -50,6 +53,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             trains = trains.map { TrainMapper.toData(it) }.toMutableList(),
             passengers = passengers.map { PassengerMapper.toData(it) }.toMutableList(),
             otherWorks = otherWorks.map { OtherWorkMapper.toData(it) }.toMutableList(),
+            partners = partners.map { RoutePartnerMapper.toData(it) }.toMutableList(),
             photos = photos.map { PhotoMapper.toData(it) }.toMutableList()
         )
     }
@@ -149,6 +153,18 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 notes = otherWork.notes
             )
         }
+        route.partners.forEach { partner ->
+            val partnerBasicId = partner.basicId.ifBlank { basicId }
+            db.routePartnerQueries.insertOrReplace(
+                routePartnerId = partner.routePartnerId,
+                basicId = partnerBasicId,
+                remoteObjectId = partner.remoteObjectId,
+                sourcePartnerId = partner.sourcePartnerId,
+                fullName = partner.fullName,
+                tabNumber = partner.tabNumber,
+                notes = partner.notes
+            )
+        }
         route.photos.forEach { photo ->
             val photoBasicId = photo.basicId.ifBlank { basicId }
             db.photoQueries.insertOrReplace(
@@ -177,8 +193,12 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         val otherWorkTrigger = db.otherWorkQueries.countAll()
             .asFlow()
             .mapToOne(Dispatchers.Default)
+        // Триггер: любое изменение в таблице RoutePartner (напарники) вызывает переэмиссию
+        val partnerTrigger = db.routePartnerQueries.countAll()
+            .asFlow()
+            .mapToOne(Dispatchers.Default)
 
-        return combine(basicDataFlow, trainTrigger, passengerTrigger, otherWorkTrigger) { basicDataList, _, _, _ ->
+        return combine(basicDataFlow, trainTrigger, passengerTrigger, otherWorkTrigger, partnerTrigger) { basicDataList, _, _, _, _ ->
             basicDataList.map { assembleRoute(it) }
         }
     }
@@ -202,8 +222,11 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             val otherWorkTrigger = db.otherWorkQueries.countAll()
                 .asFlow()
                 .mapToOne(Dispatchers.Default)
+            val partnerTrigger = db.routePartnerQueries.countAll()
+                .asFlow()
+                .mapToOne(Dispatchers.Default)
 
-            combine(basicDataFlow, trainTrigger, passengerTrigger, otherWorkTrigger) { list, _, _, _ ->
+            combine(basicDataFlow, trainTrigger, passengerTrigger, otherWorkTrigger, partnerTrigger) { list, _, _, _, _ ->
                 ResultState.Success(list.map { assembleRoute(it) })
             }
         }
@@ -222,8 +245,11 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         val otherWorkTrigger = db.otherWorkQueries.countAll()
             .asFlow()
             .mapToOne(Dispatchers.Default)
+        val partnerTrigger = db.routePartnerQueries.countAll()
+            .asFlow()
+            .mapToOne(Dispatchers.Default)
 
-        return combine(basicDataFlow, trainTrigger, passengerTrigger, otherWorkTrigger) { list, _, _, _ ->
+        return combine(basicDataFlow, trainTrigger, passengerTrigger, otherWorkTrigger, partnerTrigger) { list, _, _, _, _ ->
             list.map { assembleRoute(it) }
         }
     }
@@ -264,14 +290,17 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                         }
                     },
                     db.otherWorkQueries.getByBasicId(routeId)
+                        .asFlow().mapToList(Dispatchers.Default),
+                    db.routePartnerQueries.getByBasicId(routeId)
                         .asFlow().mapToList(Dispatchers.Default)
-                ) { route, otherWorks ->
+                ) { route, otherWorks, partners ->
                     if (route == null) {
                         ResultState.Success(null) as ResultState<Route?>
                     } else {
                         ResultState.Success(
                             route.copy(
-                                otherWorks = otherWorks.map { OtherWorkMapper.toData(it) }.toMutableList()
+                                otherWorks = otherWorks.map { OtherWorkMapper.toData(it) }.toMutableList(),
+                                partners = partners.map { RoutePartnerMapper.toData(it) }.toMutableList()
                             )
                         ) as ResultState<Route?>
                     }
@@ -332,6 +361,19 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
 
     override fun loadOtherWorkListByBasicId(basicId: String): List<OtherWork> {
         return db.otherWorkQueries.getByBasicId(basicId).executeAsList().map { OtherWorkMapper.toData(it) }
+    }
+
+    override fun loadPartner(routePartnerId: String): Flow<ResultState<RoutePartner?>> {
+        return flowMap {
+            db.routePartnerQueries.getById(routePartnerId)
+                .asFlow()
+                .mapToOneOrNull(Dispatchers.Default)
+                .map { p -> ResultState.Success(p?.let { RoutePartnerMapper.toData(it) }) }
+        }
+    }
+
+    override fun loadPartnerListByBasicId(basicId: String): List<RoutePartner> {
+        return db.routePartnerQueries.getByBasicId(basicId).executeAsList().map { RoutePartnerMapper.toData(it) }
     }
 
     override fun loadPhoto(photoId: String): Flow<ResultState<Photo?>> {
@@ -445,6 +487,21 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         }
     }
 
+    override fun savePartner(partner: RoutePartner): Flow<ResultState<Unit>> {
+        return flowRequest {
+            db.routePartnerQueries.insertOrReplace(
+                routePartnerId = partner.routePartnerId.ifBlank { generateId() },
+                basicId = partner.basicId,
+                remoteObjectId = partner.remoteObjectId,
+                sourcePartnerId = partner.sourcePartnerId,
+                fullName = partner.fullName,
+                tabNumber = partner.tabNumber,
+                notes = partner.notes
+            )
+            db.basicDataQueries.markUnsynchronized(partner.basicId)
+        }
+    }
+
     override fun savePhoto(photo: Photo): Flow<ResultState<Unit>> {
         return flowRequest {
             db.photoQueries.insertOrReplace(
@@ -478,6 +535,10 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
         return flowRequest { db.otherWorkQueries.setRemoteObjectId(objectId, otherWorkId) }
     }
 
+    override fun setRemoteObjectIdPartner(routePartnerId: String, objectId: String): Flow<ResultState<Unit>> {
+        return flowRequest { db.routePartnerQueries.setRemoteObjectId(objectId, routePartnerId) }
+    }
+
     override fun setRemoteObjectIdPhoto(photoId: String, objectId: String): Flow<ResultState<Unit>> {
         return flowRequest { db.photoQueries.setRemoteObjectId(objectId, photoId) }
     }
@@ -506,6 +567,10 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
 
     override fun removeOtherWork(otherWork: OtherWork): Flow<ResultState<Unit>> {
         return flowRequest { db.otherWorkQueries.delete(otherWork.otherWorkId) }
+    }
+
+    override fun removePartner(partner: RoutePartner): Flow<ResultState<Unit>> {
+        return flowRequest { db.routePartnerQueries.delete(partner.routePartnerId) }
     }
 
     override fun removePhoto(photo: Photo): Flow<ResultState<Unit>> {
