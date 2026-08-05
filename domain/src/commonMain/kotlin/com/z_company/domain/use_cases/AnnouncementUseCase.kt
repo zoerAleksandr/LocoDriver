@@ -5,13 +5,16 @@ import com.z_company.domain.repositories.AnnouncementRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 
 /**
- * Логика показа сообщений при запуске.
+ * Логика показа сообщений при запуске — простая и предсказуемая:
+ * показать активное сообщение, если его `number` больше локально сохранённого
+ * «просмотренного» номера (`lastSeenAnnouncementNumber`, по умолчанию `-1` —
+ * пользователь ещё ничего не видел). После закрытия экрана номер сохраняется
+ * ([markSeen]), поэтому одно и то же сообщение повторно не показывается.
  *
- * Отметка «видел/не видел» хранится на устройстве по номеру сообщения:
- * - при первом запуске/после переустановки (lastSeen == [NOT_SEEN]) записываем
- *   пришедший `number` как базовый и НЕ показываем — старые сообщения не всплывают;
- * - иначе показываем, только если `number` больше сохранённого lastSeen;
- * - после закрытия экрана вызывается [markSeen].
+ * Управление с сервера — через `number`:
+ * - чтобы разослать новое сообщение всем, задайте `number` **больше** предыдущего;
+ * - новые установки (lastSeen = -1) увидят текущее активное сообщение один раз;
+ * - повторный POST с тем же/меньшим `number` никому не покажется (уже видели).
  */
 class AnnouncementUseCase(
     private val repository: AnnouncementRepository,
@@ -21,21 +24,11 @@ class AnnouncementUseCase(
     suspend fun getAnnouncementToShow(platform: String, build: Long): Announcement? {
         val announcement = repository.getLatest(platform, build) ?: return null
         val lastSeen = sharedPreferences.getLastSeenAnnouncementNumber()
-        if (lastSeen == NOT_SEEN) {
-            // Первый запуск/переустановка — базовая отметка, ничего не показываем.
-            sharedPreferences.setLastSeenAnnouncementNumber(announcement.number)
-            return null
-        }
         return if (announcement.number > lastSeen) announcement else null
     }
 
     /** Пометить сообщение показанным (после закрытия полноэкранного экрана). */
     fun markSeen(number: Int) {
         sharedPreferences.setLastSeenAnnouncementNumber(number)
-    }
-
-    companion object {
-        /** Значение lastSeen, означающее «ещё ничего не видел» (первый запуск). */
-        const val NOT_SEEN = -1
     }
 }
