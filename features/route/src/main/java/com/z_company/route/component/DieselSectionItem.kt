@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -514,9 +515,10 @@ fun DieselSectionItem(
                     },
                     textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
+                    borderColor = Color.Transparent,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
                     ),
@@ -615,9 +617,10 @@ fun DieselSectionItem(
                     },
                     textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
+                    borderColor = Color.Transparent,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
                     ),
@@ -692,9 +695,10 @@ fun DieselSectionItem(
                             onValueChange = { onRefuelValueChanged(index, it.take(7)) },
                             textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
+                    borderColor = Color.Transparent,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                             placeholder = {
                                 Text(
                                     text = "Объём",
@@ -721,9 +725,10 @@ fun DieselSectionItem(
                             onValueChange = { onRefuelInKiloValueChanged(index, it.take(7)) },
                             textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
+                    borderColor = Color.Transparent,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                             placeholder = {
                                 Text(
                                     text = "Масса",

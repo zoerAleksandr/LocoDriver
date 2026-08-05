@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -191,9 +192,10 @@ fun ElectricSectionItem(
                     },
                     textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
+                    borderColor = Color.Transparent,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                     placeholder = {
                         Text(
                             text = if (showOtherCurrent) "Ток 1 принял" else "Принял",
@@ -228,9 +230,10 @@ fun ElectricSectionItem(
                     value = deliveryText,
                     textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
+                    borderColor = Color.Transparent,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                     onValueChange = {
                         onEnergyDeliveryChanged(index, it.take(10))
                         focusChangedElectricSection(index, ElectricSectionType.DELIVERY)
@@ -278,9 +281,10 @@ fun ElectricSectionItem(
                             },
                             textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
+                    borderColor = Color.Transparent,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                             placeholder = {
                                 Text(
                                     text = "Ток 2 принял", style = LocalTextStyle.current.copy(
@@ -314,9 +318,10 @@ fun ElectricSectionItem(
                             value = deliveryText2,
                             textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
+                    borderColor = Color.Transparent,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                             onValueChange = {
                                 onEnergyDeliveryChanged2(index, it.take(10))
                                 focusChangedElectricSection(index, ElectricSectionType.DELIVERY2)
@@ -392,9 +397,10 @@ fun ElectricSectionItem(
                                 },
                                 textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
+                    borderColor = Color.Transparent,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                                 placeholder = {
                                     Text(
                                         text = if (showOtherCurrent) "Ток 1 принял" else "Принял",
@@ -438,9 +444,10 @@ fun ElectricSectionItem(
                                 },
                                 textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
+                    borderColor = Color.Transparent,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                                 placeholder = {
                                     Text(
                                         text = if (showOtherCurrent) "Ток 1 сдал" else "Сдал",
@@ -486,9 +493,10 @@ fun ElectricSectionItem(
                                     },
                                     textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
+                    borderColor = Color.Transparent,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                                     placeholder = {
                                         Text(
                                             text = "Ток 2 принял",
@@ -532,9 +540,10 @@ fun ElectricSectionItem(
                                     },
                                     textStyle = dataTextStyle,
                     fieldElevation = 0.dp,
-                    borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    colorBackgroundEmptyField = Color.Transparent,
-                    colorBackgroundNotEmptyField = Color.Transparent,
+                    borderColor = Color.Transparent,
+                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                                     placeholder = {
                                         Text(
                                             text = "Ток 2 сдал",

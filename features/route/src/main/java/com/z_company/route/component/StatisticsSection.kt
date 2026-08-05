@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -396,9 +397,10 @@ private fun NormaPill(value: String, unit: String, onValueChange: (String) -> Un
                 fontFamily = MonoFont, fontWeight = FontWeight.Bold
             ),
             fieldElevation = 0.dp,
-            borderColor = MaterialTheme.colorScheme.outlineVariant,
-            colorBackgroundEmptyField = Color.Transparent,
-            colorBackgroundNotEmptyField = Color.Transparent,
+            borderColor = Color.Transparent,
+            colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+            colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
             suffix = {
                 Text(
                     text = unit,

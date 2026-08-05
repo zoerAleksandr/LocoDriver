@@ -561,8 +561,8 @@ fun FormLocoScreen(
                                             },
                                             textStyle = monoDataTextStyle,
                                             fieldElevation = 0.dp,
-                                            colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                                            colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                            colorBackgroundEmptyField = Color.Transparent,
+                                            colorBackgroundNotEmptyField = Color.Transparent,
                                             keyboardOptions = KeyboardOptions(
                                                 keyboardType = KeyboardType.Text,
                                                 imeAction = ImeAction.Done
@@ -615,8 +615,8 @@ fun FormLocoScreen(
                                         value = locomotive.number ?: "",
                                         textStyle = monoDataTextStyle,
                                         fieldElevation = 0.dp,
-                                        colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                        colorBackgroundEmptyField = Color.Transparent,
+                                        colorBackgroundNotEmptyField = Color.Transparent,
                                         onValueChange = { onNumberChanged(it) },
                                         keyboardOptions = KeyboardOptions(
                                             keyboardType = KeyboardType.Text,
@@ -1109,7 +1109,7 @@ private fun ReadingRow(
     dataTextStyle: androidx.compose.ui.text.TextStyle,
     noValueColor: Color,
 ) {
-    val fieldColor = MaterialTheme.colorScheme.surfaceBright
+    val borderColor = MaterialTheme.colorScheme.outlineVariant
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1157,8 +1157,9 @@ private fun ReadingRow(
                 value = accepted,
                 textStyle = dataTextStyle,
                 fieldElevation = 0.dp,
-                colorBackgroundEmptyField = fieldColor,
-                colorBackgroundNotEmptyField = fieldColor,
+                borderColor = borderColor,
+                colorBackgroundEmptyField = Color.Transparent,
+                colorBackgroundNotEmptyField = Color.Transparent,
                 placeholder = {
                     Text(
                         text = "Принял",
@@ -1182,8 +1183,9 @@ private fun ReadingRow(
                 value = delivered,
                 textStyle = dataTextStyle,
                 fieldElevation = 0.dp,
-                colorBackgroundEmptyField = fieldColor,
-                colorBackgroundNotEmptyField = fieldColor,
+                borderColor = borderColor,
+                colorBackgroundEmptyField = Color.Transparent,
+                colorBackgroundNotEmptyField = Color.Transparent,
                 placeholder = {
                     Text(
                         text = "Сдал",

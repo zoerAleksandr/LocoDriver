@@ -58,7 +58,8 @@ fun OutlinedTextFieldApp(
     borderColor: Color = Color.Transparent,
     fieldElevation: androidx.compose.ui.unit.Dp = 1.dp,
     colorBackgroundEmptyField: Color = MaterialTheme.colorScheme.surface,
-    colorBackgroundNotEmptyField: Color = MaterialTheme.colorScheme.secondary
+    colorBackgroundNotEmptyField: Color = MaterialTheme.colorScheme.secondary,
+    contentPadding: PaddingValues = PaddingValues(start = 16.dp, top = 10.dp, end = 16.dp, bottom = 10.dp)
 ) {
     val animatedBackgroundColorsNumber by animateColorAsState(
         targetValue = if (value.isEmpty()) colorBackgroundEmptyField
@@ -109,12 +110,7 @@ fun OutlinedTextFieldApp(
             prefix = prefix,
             suffix = suffix,
             placeholder = placeholder,
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                top = 10.dp,
-                end = 16.dp,
-                bottom = 10.dp
-            ),
+            contentPadding = contentPadding,
             container = {
                 Box(
                     modifier = Modifier
