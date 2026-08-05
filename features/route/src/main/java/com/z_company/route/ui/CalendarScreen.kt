@@ -67,11 +67,13 @@ import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ItemHomeScreen
+import com.z_company.route.component.RouteQuickViewSheet
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.domain.entities.ReleaseType
 import com.z_company.route.R
 import com.z_company.route.viewmodel.AbsenceInfo
 import com.z_company.route.viewmodel.CalendarUiState
+import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RoutePlanState
 import com.z_company.route.viewmodel.TripInfo
 import java.time.LocalDate
@@ -193,9 +195,21 @@ fun CalendarScreen(
     timeContext: TimeCalculationContext?,
     convertTimeToString: (Long?) -> String,
     onDeleteRoute: (Route) -> Unit,
+    // Быстрый просмотр маршрута (LongClick) — как на Главном и «Все маршруты».
+    previewRouteState: PreviewRouteUiState = PreviewRouteUiState(),
+    onCalculationHomeRest: (Route?) -> Unit = {},
+    onCalculationActualRest: (Route?) -> Unit = {},
+    onToggleFavorite: (Route) -> Unit = {},
+    onShareRoute: (Route) -> Unit = {},
+    onSyncRoute: (Route) -> Unit = {},
+    onMakeCopy: (String) -> Unit = {},
 ) {
     val cs = MaterialTheme.colorScheme
     var selectedDay by remember { mutableIntStateOf(state.today ?: 1) }
+    // Маршрут, открытый в быстром просмотре, и id для подтверждения копии.
+    var routeForQuickView by remember { mutableStateOf<Route?>(null) }
+    var copyRouteId by remember { mutableStateOf<String?>(null) }
+    var routeForRemove by remember { mutableStateOf<Route?>(null) }
     var filter by remember { mutableStateOf(CalendarFilter.ALL) }
     var expanded by remember { mutableStateOf(true) }
     var showAddSheet by remember { mutableStateOf(false) }
@@ -424,6 +438,7 @@ fun CalendarScreen(
                     state = state,
                     selectedDay = selectedDay,
                     onTripClick = onTripClick,
+                    onLongClickRoute = { routeForQuickView = it },
                     onDeleteAbsenceDay = onDeleteAbsenceDay,
                     onDeleteAbsencePeriod = onDeleteAbsencePeriod,
                     dateAndTimeConverter = dateAndTimeConverter,
@@ -464,6 +479,106 @@ fun CalendarScreen(
             initialMinute = 0,
             onConfirm = { h, m -> showCustomTime = false; onAddCustomTime(h, m) },
             onDismiss = { showCustomTime = false },
+        )
+    }
+
+    // ── Быстрый просмотр маршрута при LongClick (как на Главном/Все маршруты) ──
+    // Спецификация: route-quick-view-android.md + SCREEN_SPECS.md.
+    routeForQuickView?.let { route ->
+        val flags = state.routeFlags[route.basicData.id]
+        LaunchedEffect(route.basicData.id) {
+            onCalculationHomeRest(route)
+            onCalculationActualRest(route)
+        }
+        RouteQuickViewSheet(
+            route = route,
+            shiftPaymentText = state.routePayments[route.basicData.id],
+            isHeavyTrains = flags?.isHeavyTrains ?: false,
+            isLongCompositionTrain = flags?.isLongCompositionTrain ?: false,
+            isExtendedServicePhaseTrains = flags?.isExtendedServicePhaseTrains ?: false,
+            dateAndTimeConverter = dateAndTimeConverter,
+            minTimeRest = state.minTimeRest,
+            homeRest = previewRouteState.homeRest,
+            actualRestDuration = previewRouteState.actualRestDuration,
+            actualRestUntil = previewRouteState.actualRestUntil,
+            onDismiss = { routeForQuickView = null },
+            onOpen = { id ->
+                routeForQuickView = null
+                onTripClick(id)
+            },
+            onToggleFavorite = { onToggleFavorite(it) },
+            onShare = {
+                // Закрываем шторку, чтобы snackbar с результатом/ошибкой не оказался под ней.
+                routeForQuickView = null
+                onShareRoute(it)
+            },
+            onCopy = { id ->
+                routeForQuickView = null
+                copyRouteId = id
+            },
+            onSync = { onSyncRoute(it) },
+            onRequestDelete = { r ->
+                routeForQuickView = null
+                routeForRemove = r
+            },
+        )
+    }
+
+    // Подтверждение создания копии маршрута.
+    copyRouteId?.let { id ->
+        AppBottomSheet(
+            onDismissRequest = { copyRouteId = null },
+            sheetState = rememberModalBottomSheetState(),
+            headerContent = {
+                Text(
+                    "Создать копию маршрута?",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = cs.primary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                )
+            },
+            actions = listOf(
+                BottomSheetAction(text = "Создать копию") {
+                    copyRouteId = null
+                    onMakeCopy(id)
+                }
+            ),
+        )
+    }
+
+    // Подтверждение удаления маршрута из быстрого просмотра.
+    routeForRemove?.let { route ->
+        AppBottomSheet(
+            onDismissRequest = { routeForRemove = null },
+            sheetState = rememberModalBottomSheetState(),
+            headerContent = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        "Удалить маршрут?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = cs.primary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        dateAndTimeConverter?.getDateMiniAndTime(route.basicData.timeStartWork) ?: "",
+                        fontFamily = MonoFont,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = cs.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            },
+            actions = listOf(
+                BottomSheetAction(text = "Да, удалить") {
+                    routeForRemove = null
+                    onDeleteRoute(route)
+                }
+            ),
         )
     }
 }
@@ -890,6 +1005,7 @@ private fun DayDetails(
     state: CalendarUiState,
     selectedDay: Int,
     onTripClick: (String) -> Unit,
+    onLongClickRoute: (Route) -> Unit,
     onDeleteAbsenceDay: (Int) -> Unit,
     onDeleteAbsencePeriod: (Int, Int) -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?,
@@ -968,13 +1084,18 @@ private fun DayDetails(
             // Маршруты — тот же item, что на главном экране (со свайпом на удаление).
             if (dateAndTimeConverter != null) {
                 routes.forEach { route ->
+                    val flags = state.routeFlags[route.basicData.id]
                     ItemHomeScreen(
                         route = route,
                         convertTimeToString = convertTimeToString,
                         onRequestDelete = { routeToDelete = route },
+                        onLongClick = { onLongClickRoute(route) },
                         containerColor = cs.secondary,
                         onClick = { onTripClick(route.basicData.id) },
                         dateAndTimeConverter = dateAndTimeConverter,
+                        isHeavyTrains = flags?.isHeavyTrains ?: false,
+                        isLongCompositionTrain = flags?.isLongCompositionTrain ?: false,
+                        isExtendedServicePhaseTrains = flags?.isExtendedServicePhaseTrains ?: false,
                         isHolidayTimeInRoute = state.holidayDays.contains(selectedDay),
                         monthOfYear = state.monthData,
                         offsetInMoscow = state.offsetInMoscow,

@@ -5,12 +5,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.CalendarScreen
+import com.z_company.route.util.toShareIntent
 import com.z_company.route.viewmodel.CalendarViewModel
 
 @Composable
@@ -20,9 +22,25 @@ fun CalendarDestination(
     val viewModel: CalendarViewModel = viewModel()
     val state by viewModel.uiState.collectAsState()
     val plan by viewModel.routePlan.collectAsState()
+    val previewRouteState by viewModel.previewRouteUiState.collectAsState()
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         viewModel.prepareScreen()
+    }
+
+    // Быстрый просмотр: шаринг маршрута → строим Intent и запускаем из Activity.
+    LaunchedEffect(Unit) {
+        viewModel.shareRouteEvent.collect { data ->
+            context.startActivity(data.toShareIntent(fromActivity = true))
+        }
+    }
+
+    // Быстрый просмотр: создание копии → открыть форму маршрута.
+    LaunchedEffect(Unit) {
+        viewModel.openRouteFormEvent.collect { event ->
+            router.showRouteForm(basicId = event.basicId, isMakeCopy = event.isMakeCopy)
+        }
     }
 
     // Обновляем месяц при возврате на экран (после добавления отвлечения/выходного/
@@ -57,5 +75,12 @@ fun CalendarDestination(
         timeContext = state.timeContext,
         convertTimeToString = viewModel::formatWorkTime,
         onDeleteRoute = viewModel::deleteRoute,
+        previewRouteState = previewRouteState,
+        onCalculationHomeRest = viewModel::calculationHomeRest,
+        onCalculationActualRest = viewModel::calculationActualRest,
+        onToggleFavorite = viewModel::setFavoriteRoute,
+        onShareRoute = viewModel::shareRoute,
+        onSyncRoute = viewModel::syncRoute,
+        onMakeCopy = viewModel::makeCopyRoute,
     )
 }

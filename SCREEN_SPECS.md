@@ -773,13 +773,18 @@ Full-replace `GET/POST /v1/partners/`: POST если локально есть �
 ### 9.1. Быстрый просмотр маршрута (RouteQuickViewSheet)
 
 Быстрый взгляд на маршрут без открытия полноэкранной формы. Единый компонент
-для списков «Все маршруты» и «Главная» (`RouteQuickViewSheet.kt`). Полная
-дизайн-спецификация — `route-quick-view-android.md` в корне проекта.
+для списков «Все маршруты», «Главная» и «Календарь» (`RouteQuickViewSheet.kt`).
+Полная дизайн-спецификация — `route-quick-view-android.md` в корне проекта.
 
 - **Триггер**: **долгое нажатие** (`onLongClick`) на строке маршрута. Обычный tap
   по-прежнему открывает полноэкранный `RouteScreen` — long-press его не заменяет,
   это ускоритель. На вход передаётся `ItemState` (а не только `Route`), чтобы
-  показать доплатные признаки, вычисленные на уровне списка.
+  показать доплатные признаки, вычисленные на уровне списка. На «Календаре» строки —
+  плоские `Route`, поэтому доплатные признаки (`isHeavyTrains` /
+  `isLongCompositionTrain` / `isExtendedServicePhaseTrains`) считаются в
+  `CalendarViewModel.loadMonth` в карту `routeFlags` (по id), а заработок — в
+  `routePayments` (тем же `computeRouteTotalPayment`, что и на «Все маршруты»).
+  Оба показываются и на самой карточке дня, и в шторке.
 - **Контейнер**: `ModalBottomSheet` (Android-паттерн), `skipPartiallyExpanded`,
   `RoundedCornerShape(28dp)` сверху, `containerColor = background`, штатное
   затемнение **без блюра** (iOS-peek на Android не переносить). Своя ручка (drag
@@ -966,6 +971,14 @@ Full-replace `GET/POST /v1/partners/`: POST если локально есть �
 - **Отвлечения**: добавить «Выходной» на день (`addDayOff`, личный день ×2 тариф);
   удалить день (`deleteAbsenceDay`) или весь период (`deleteAbsencePeriod`).
 - Удаление маршрута (`deleteRoute` — soft-delete + sync). `reload` при возврате.
+- **Быстрый просмотр (LongClick)**: долгое нажатие на маршрут в деталях дня
+  открывает `RouteQuickViewSheet` — как на Главном и «Все маршруты» (см. §9.1).
+  `CalendarViewModel` реализует те же действия: избранное (`setFavoriteRoute`),
+  шаринг (`shareRoute` → `shareRouteEvent`, Intent строит `CalendarDestination`),
+  синхронизация (`syncRoute`), копия (`makeCopyRoute` → проверка подписки →
+  `openRouteFormEvent`), удаление, расчёт отдыха (`calculationHomeRest` /
+  `calculationActualRest` → `previewRouteUiState`). Обычный tap по-прежнему
+  открывает форму маршрута.
 
 ---
 
@@ -1194,7 +1207,7 @@ STATION_LIST/SERIES_EDITOR_{id}/STATION_EDITOR_{id}).
 | 7 Пассажиром | `FormPassengerScreen.kt` | `PassengerFormViewModel.kt` |
 | 8 Прочая работа | `FormOtherWorkScreen.kt` | `OtherWorkFormViewModel.kt` |
 | 9 Все маршруты | `AllRouteScreen.kt` | `all_route_view_model/AllRouteViewModel.kt` |
-| 9.1 Быстрый просмотр | `component/RouteQuickViewSheet.kt` | — (использует `AllRouteViewModel`/`HomeViewModel`) |
+| 9.1 Быстрый просмотр | `component/RouteQuickViewSheet.kt` | — (использует `AllRouteViewModel`/`HomeViewModel`/`CalendarViewModel`) |
 | 10 Поиск | `SearchScreen.kt` | `SearchViewModel.kt` |
 | 11 Расчёт зарплаты | `SalaryCalculationScreen.kt` | `SalaryCalculationViewModel.kt` + `SalaryCalculationHelper.kt` |
 | 12 Настройки зарплаты | `SettingSalaryScreen.kt` | `SettingSalaryViewModel.kt` |

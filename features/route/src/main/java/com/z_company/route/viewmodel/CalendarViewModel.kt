@@ -7,6 +7,7 @@ import com.z_company.core.sendToSentry
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.friendlyNetworkErrorMessage
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.entities.ReleaseType
@@ -15,16 +16,33 @@ import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.calculateWorkTimeWithSettings
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.isExtendedServicePhaseTrains
+import com.z_company.domain.entities.route.UtilsForEntities.isHeavyTrains
+import com.z_company.domain.entities.route.UtilsForEntities.isLongCompositionTrain
+import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.RouteUseCase
+import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.util.currencySymbol
+import com.z_company.domain.util.toMoneyString
+import com.z_company.repository.SecureTokenStorage
+import com.z_company.repository.remote_rest.RoutesManager
+import com.z_company.repository.remote_rest.ShareRouteManager
+import com.z_company.repository.remote_rest.SyncManager
+import com.z_company.route.util.ShareLinkData
+import com.z_company.route.viewmodel.home_view_model.OpenRouteFormEvent
 import kotlinx.datetime.LocalDate
 import com.z_company.domain.util.TimeCalculationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -45,11 +63,15 @@ import kotlin.coroutines.cancellation.CancellationException
  */
 class CalendarViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
+    private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val releaseDayUseCase: ReleaseDayUseCase by inject()
     private val routeHelper: RouteActionsHelper by inject()
     private val snackbarManager: ISnackbarManager by inject()
+    private val secureTokenStorage: SecureTokenStorage by inject()
+    private val routesManager: RoutesManager by inject()
+    private val shareRouteManager: ShareRouteManager by inject()
 
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
@@ -58,7 +80,26 @@ class CalendarViewModel : ViewModel(), KoinComponent {
     private val _routePlan = MutableStateFlow(RoutePlanState())
     val routePlan: StateFlow<RoutePlanState> = _routePlan.asStateFlow()
 
+    // Быстрый просмотр маршрута (LongClick) — расчётный отдых, как на Главном/Все маршруты.
+    private val _previewRouteUiState = MutableStateFlow(PreviewRouteUiState())
+    val previewRouteUiState: StateFlow<PreviewRouteUiState> = _previewRouteUiState.asStateFlow()
+
+    // Эмитит ShareLinkData — UI строит Intent и запускает share-sheet (как в AllRouteScreen).
+    private val _shareRouteEvent = MutableSharedFlow<ShareLinkData>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val shareRouteEvent: SharedFlow<ShareLinkData> = _shareRouteEvent.asSharedFlow()
+
+    // Открыть форму маршрута (копия) после проверки подписки.
+    private val _openRouteFormEvent = MutableSharedFlow<OpenRouteFormEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val openRouteFormEvent: SharedFlow<OpenRouteFormEvent> = _openRouteFormEvent.asSharedFlow()
+
     private var userSettings: UserSettings? = null
+    private var salarySetting: SalarySetting? = null
     private var converter: DateAndTimeConverter? = null
     private var currentMonth: MonthOfYear? = null
 
@@ -94,6 +135,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
             try {
                 val setting = settingsUseCase.getUserSettingFlow().first()
                 userSettings = setting
+                salarySetting = runCatching { salarySettingUseCase.salarySettingFlow().first() }.getOrNull()
                 converter = DateAndTimeConverter(setting)
                 currentMonth = setting.selectMonthOfYear
                 loadMonth()
@@ -294,6 +336,144 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    // ── Быстрый просмотр маршрута (LongClick) ────────────────────
+    /** Домашний отдых (расчётный) для быстрого просмотра. */
+    fun calculationHomeRest(route: Route?) {
+        viewModelScope.launch {
+            routeHelper.calculationHomeRest(route).collect { result ->
+                if (result is ResultState.Success) {
+                    _previewRouteUiState.update { it.copy(homeRest = result.data?.second) }
+                }
+            }
+        }
+    }
+
+    /** Фактический отдых до следующей явки — для быстрого просмотра. */
+    fun calculationActualRest(route: Route?) {
+        _previewRouteUiState.update { it.copy(actualRestDuration = null, actualRestUntil = null) }
+        viewModelScope.launch {
+            routeHelper.calculationActualRest(route).collect { result ->
+                if (result is ResultState.Success) {
+                    _previewRouteUiState.update {
+                        it.copy(
+                            actualRestDuration = result.data?.first,
+                            actualRestUntil = result.data?.second,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun setFavoriteRoute(route: Route) {
+        viewModelScope.launch {
+            routeHelper.setFavoriteRoute(route).collect { result ->
+                when (result) {
+                    is ResultState.Success -> {
+                        val text = if (result.data) "Маршрут добавлен в избранное"
+                        else "Маршрут удален из избранного"
+                        snackbarManager.show(text)
+                        loadMonth()
+                    }
+                    is ResultState.Error -> {
+                        snackbarManager.show(
+                            result.entity.message ?: result.entity.throwable?.message ?: "Ошибка"
+                        )
+                    }
+                    is ResultState.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    /** Публичная ссылка на маршрут → эмит [shareRouteEvent] (UI строит Intent). */
+    fun shareRoute(route: Route) {
+        viewModelScope.launch {
+            try {
+                val rawToken = secureTokenStorage.getAuthBearerTokenFlow().first()
+                if (rawToken.isNullOrBlank()) {
+                    snackbarManager.show("Неавторизованный пользователь")
+                    return@launch
+                }
+                shareRouteManager.createShareLink(route, "Bearer $rawToken").collect { result ->
+                    when (result) {
+                        is ResultState.Success -> {
+                            _shareRouteEvent.emit(ShareLinkData.fromRoute(route, result.data))
+                        }
+                        is ResultState.Error -> {
+                            val raw = result.entity.message ?: result.entity.throwable?.message
+                            snackbarManager.show(
+                                friendlyNetworkErrorMessage(raw, "Не удалось создать ссылку")
+                            )
+                        }
+                        is ResultState.Loading -> Unit
+                    }
+                }
+            } catch (t: Throwable) {
+                if (t is CancellationException) throw t
+                t.sendToSentry("CalendarViewModel", "shareRoute")
+                snackbarManager.show(
+                    friendlyNetworkErrorMessage(t.message, "Не удалось создать ссылку")
+                )
+            }
+        }
+    }
+
+    fun syncRoute(route: Route) {
+        viewModelScope.launch {
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+            if (token == null) {
+                snackbarManager.show("Неавторизованный пользователь")
+                return@launch
+            }
+            val label = SyncManager.routeLabel(route)
+            routesManager.saveRouteInRemote(route, "Bearer $token").collect { resultState ->
+                when (resultState) {
+                    is ResultState.Success -> {
+                        routeUseCase.setSynchronizedRoute(route.basicData.id).first()
+                        val warnings = resultState.data.warnings
+                        if (warnings.isNotEmpty()) {
+                            snackbarManager.show(
+                                message = "$label сохранен с предупреждениями:\n${warnings.joinToString("\n")}",
+                                duration = androidx.compose.material3.SnackbarDuration.Long,
+                            )
+                        } else {
+                            snackbarManager.show("Маршрут сохранен в облаке")
+                        }
+                        loadMonth()
+                    }
+                    is ResultState.Error -> {
+                        val errorMsg = resultState.entity.message
+                            ?: resultState.entity.throwable?.message ?: "Ошибка синхронизации"
+                        snackbarManager.show(
+                            message = "$label: $errorMsg",
+                            duration = androidx.compose.material3.SnackbarDuration.Long,
+                        )
+                    }
+                    is ResultState.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    /** Создать копию маршрута (с проверкой подписки) → эмит [openRouteFormEvent]. */
+    fun makeCopyRoute(basicId: String) {
+        viewModelScope.launch {
+            when (val decision = routeHelper.newRouteClick(basicId = basicId, isMakeCopy = true)) {
+                is RouteActionsHelper.NewRouteResult.ShowNewRouteScreen -> {
+                    _openRouteFormEvent.emit(OpenRouteFormEvent(decision.basicId, decision.isMakeCopy))
+                }
+                is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog,
+                is RouteActionsHelper.NewRouteResult.AlertSubscribeDialog -> {
+                    snackbarManager.show("Создание маршрутов доступно по подписке")
+                }
+                is RouteActionsHelper.NewRouteResult.Error -> {
+                    snackbarManager.show("Не удалось проверить подписку")
+                }
+            }
+        }
+    }
+
     private suspend fun loadMonth() {
         val baseMonth = currentMonth ?: return
         val setting = userSettings ?: return
@@ -416,6 +596,35 @@ class CalendarViewModel : ViewModel(), KoinComponent {
             val today = todayIfCurrentMonth(month, conv)
             val tripCount = tripsByDay.values.sumOf { it.size }
 
+            // Данные для быстрого просмотра (LongClick по маршруту): признаки
+            // тяжеловесности/удлинения/расширенного плеча + оплата за смену.
+            // Считаем только если есть salarySetting (иначе шторка покажет базовые данные).
+            val salary = salarySetting
+            val routeFlags: Map<String, RouteQuickFlags> = if (salary != null) {
+                routes.associate { route ->
+                    route.basicData.id to RouteQuickFlags(
+                        isHeavyTrains = isHeavyTrains(salary, route),
+                        isLongCompositionTrain = isLongCompositionTrain(salary, route),
+                        isExtendedServicePhaseTrains = isExtendedServicePhaseTrains(salary, route),
+                    )
+                }
+            } else emptyMap()
+
+            val routePayments: Map<String, String> = if (salary != null) {
+                // Сортировка по началу работы нужна для доплаты за переотдых.
+                val sortedRoutes = routes.sortedBy { it.basicData.timeStartWork ?: Long.MAX_VALUE }
+                val currency = currencySymbol(setting.country)
+                buildMap {
+                    sortedRoutes.forEach { route ->
+                        val total = runCatching {
+                            computeRouteTotalPayment(route, setting, salary, sortedRoutes)
+                        }.onFailure { it.sendToSentry("CalendarViewModel", "routePayments") }
+                            .getOrNull()
+                        if (total != null) put(route.basicData.id, total.toMoneyString(currency))
+                    }
+                }
+            } else emptyMap()
+
             _uiState.update {
                 it.copy(
                     isLoading = false,
@@ -432,6 +641,9 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                     holidayNames = holidayNames,
                     monthData = month,
                     offsetInMoscow = setting.timeZone,
+                    minTimeRest = setting.minTimeRestPointOfTurnover,
+                    routeFlags = routeFlags,
+                    routePayments = routePayments,
                     dateAndTimeConverter = conv,
                     timeContext = context,
                     today = today,
@@ -517,9 +729,19 @@ data class CalendarUiState(
     val holidayNames: Map<Int, String> = emptyMap(), // день → название праздника (если есть)
     val monthData: MonthOfYear? = null,
     val offsetInMoscow: Long = 0L,
+    val minTimeRest: Long = 0L,                       // норма отдыха в ПО (для быстрого просмотра)
+    val routeFlags: Map<String, RouteQuickFlags> = emptyMap(), // id → признаки (для быстрого просмотра)
+    val routePayments: Map<String, String> = emptyMap(),       // id → оплата за смену (форматированная)
     val dateAndTimeConverter: DateAndTimeConverter? = null,
     val timeContext: TimeCalculationContext? = null,
     val today: Int? = null,
+)
+
+/** Признаки маршрута для быстрого просмотра (LongClick): чипы в шапке шторки. */
+data class RouteQuickFlags(
+    val isHeavyTrains: Boolean = false,
+    val isLongCompositionTrain: Boolean = false,
+    val isExtendedServicePhaseTrains: Boolean = false,
 )
 
 /** Поездка (маршрут) для ячейки/детализации дня. */
