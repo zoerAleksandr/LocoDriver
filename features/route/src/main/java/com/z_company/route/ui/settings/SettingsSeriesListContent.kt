@@ -146,7 +146,7 @@ fun SettingsSeriesListContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .shadow(elevation = 2.dp, shape = Shapes.medium)
-                .background(color = MaterialTheme.colorScheme.secondary, shape = Shapes.medium)
+                .background(color = MaterialTheme.colorScheme.tertiary, shape = Shapes.medium)
                 .clickable { onOpenEditor(null) }
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.Center,
@@ -155,13 +155,13 @@ fun SettingsSeriesListContent(
             Icon(
                 painter = painterResource(com.z_company.core.R.drawable.ic_add),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.tertiary,
+                tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(18.dp)
             )
             Text(
                 text = "  Добавить серию",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.tertiary
+                color = MaterialTheme.colorScheme.onPrimary
             )
         }
     }
