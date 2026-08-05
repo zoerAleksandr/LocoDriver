@@ -6,6 +6,7 @@ import com.z_company.domain.entities.MonthOfYear
 import java.util.Calendar
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.filterByConsiderFutureRoute
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTravelTime
@@ -108,8 +109,17 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
                 // пересчёт (иначе тяжёлый расчёт запускался 3+ раза при открытии).
                 .debounce(150)
                 .collect { (routes, userSettings, months) ->
-                    allRoutes = routes.filter { it.basicData.timeStartWork != null }
                     settings = userSettings
+                    // Уважаем настройку «Учитывать будущие маршруты» на уровне
+                    // источника: тогда и расчёты, и диапазоны/пикеры периодов
+                    // согласованы — при выключенной настройке будущие (ещё не
+                    // начавшиеся) маршруты не участвуют нигде.
+                    allRoutes = routes
+                        .filter { it.basicData.timeStartWork != null }
+                        .filterByConsiderFutureRoute(
+                            userSettings.isConsiderFutureRoute,
+                            System.currentTimeMillis(),
+                        )
                     salarySetting = salarySettingUseCase.getSalarySetting()
                     calendarMonths = months
                     historyYearRaws = null // данные изменились — пересчитаем историю заново
@@ -279,7 +289,8 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
 
     // Разбивка метрики за месяц по направлениям (плечам) — для метрик на основе поездов.
     private fun detailBreakdown(year: Int, month0: Int, key: String): List<StatDonutSeg> {
-        val trains = routesOfMonth(year, month0).flatMap { it.trains }
+        // Разбивка по направлениям — метрика по поездам, значит по месяцу явки.
+        val trains = trainRoutesOfMonth(year, month0).flatMap { it.trains }
         val valueOf: (com.z_company.domain.entities.route.Train) -> Double = when (key) {
             "distance" -> { t -> t.distance?.toDoubleOrNull() ?: 0.0 }
             "tkm" -> { t -> (t.distance?.toDoubleOrNull() ?: 0.0) * (t.weight?.toDoubleOrNull() ?: 0.0) }
@@ -318,7 +329,9 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
         val month = monthOfYearFor(year, month0)
         val ctx = TimeCalculationContext.from(s)
         val routes = routesOfMonth(year, month0)
-        val trains = routes.flatMap { it.trains }
+        // Метрики по поездам — по месяцу явки (переходные не задваиваем); время/зарплата
+        // и счётчик маршрутов — по членству (routes).
+        val trains = trainRoutesOfMonth(year, month0).flatMap { it.trains }
         return when (key) {
             "worked" -> routes.getWorkTime(month, ctx).let { Triple(it / 3_600_000f, StatFormat.hm(it), "") }
             "overtime" -> (routes.getWorkTime(month, ctx) - month.getPersonalNormaHours() * 3_600_000L)
@@ -392,12 +405,40 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
         return start to end
     }
 
+    // Маршруты месяца. Будущие маршруты уже отфильтрованы в источнике (allRoutes)
+    // согласно настройке «Учитывать будущие маршруты».
     private fun routesOfMonth(year: Int, month0: Int): List<Route> {
         val (start, end) = monthBounds(year, month0)
         return allRoutes.filter { r ->
             val st = r.basicData.timeStartWork ?: return@filter false
             val en = r.basicData.timeEndWork
-            st < end && (en == null || en >= start)
+            if (en == null) {
+                // Открытый маршрут (сдача не проставлена) принадлежит ТОЛЬКО месяцу
+                // своей явки. Иначе «висящий» маршрут из прошлого месяца утекал бы во
+                // все последующие месяцы и завышал бы расстояние/скорость/грузооборот.
+                // На Главном/ЗП такого не бывает: там месяц грузится SQL-запросом
+                // getByPeriod, который открытые маршруты берёт только по timeStartWork
+                // внутри окна месяца; здесь фильтруем весь список в памяти сами.
+                st in start..end
+            } else {
+                // Завершённый маршрут — по пересечению с месяцем (переходные попадают
+                // и в месяц явки, и в месяц сдачи, как в routeListByMonthFlow).
+                st < end && en >= start
+            }
+        }
+    }
+
+    // Маршруты, чей ПРОБЕГ относится к этому месяцу — по месяцу явки (timeStartWork).
+    // Переходный маршрут (явка и сдача в разных месяцах) для метрик по поездам
+    // (расстояние/грузооборот/время в пути/скорость/топ направлений) учитывается
+    // ТОЛЬКО в месяце явки: неделимый пробег поезда нельзя резать по полуночи, а
+    // учтённый целиком в оба месяца он задваивал бы годовой/исторический итог.
+    // Метрики по времени (отработанное/ночные/пассажиром) и счётчик «смен», наоборот,
+    // остаются по членству (routesOfMonth) — время клипается, смена как на Главном.
+    private fun trainRoutesOfMonth(year: Int, month0: Int): List<Route> {
+        val (start, end) = monthBounds(year, month0)
+        return routesOfMonth(year, month0).filter {
+            (it.basicData.timeStartWork ?: return@filter false) in start..end
         }
     }
 
@@ -439,7 +480,8 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
         val worked = routes.getWorkTime(month, ctx)
         val night = try { routes.getNightTime(s) } catch (_: Exception) { 0L }
         val passenger = routes.getPassengerTime(month, ctx)
-        val trains = routes.flatMap { it.trains }
+        // Пробег/грузооборот/время в пути — по месяцу явки (переходные не задваиваем).
+        val trains = trainRoutesOfMonth(year, month0).flatMap { it.trains }
         val distance = trains.sumOf { it.distance?.toDoubleOrNull() ?: 0.0 }
         val tkm = trains.sumOf { (it.distance?.toDoubleOrNull() ?: 0.0) * (it.weight?.toDoubleOrNull() ?: 0.0) }
         val transit = trains.sumOf { it.getTravelTime() ?: 0L }
@@ -523,13 +565,15 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
             compareOptions = monthCompareOptions(),
             compareSelectedId = compareId,
             compareNoData = compareNoData,
-            // Доступны для сравнения любые месяцы С МАРШРУТАМИ (в т.ч. будущие), кроме текущего.
+            // Доступны для сравнения любые месяцы С МАРШРУТАМИ (будущие — только
+            // если включена настройка «Учитывать будущие маршруты»), кроме текущего.
             pickYears = avail.map { it / 12 }.distinct().sortedDescending(),
             pickCurYm = curYM,
             availableMonthsYm = avail,
             metrics = metrics,
             wideFirst = true,
-            topDirections = topDirections(routesOfMonth(selYear, selMonth)),
+            // Топ направлений — по поездам, значит по месяцу явки (переходные не задваиваем).
+            topDirections = topDirections(trainRoutesOfMonth(selYear, selMonth)),
         )
     }
 
@@ -572,7 +616,8 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
             compareOptions = yearCompareOptions(),
             compareSelectedId = compareId,
             compareNoData = compareNoData,
-            // Годы с маршрутами (в т.ч. будущие), кроме текущего.
+            // Годы с маршрутами (будущие — только если включена настройка
+            // «Учитывать будущие маршруты»), кроме текущего.
             pickYearOptions = availableMonthsYm().map { it / 12 }.distinct().filter { it != selYear }.sortedDescending(),
             metrics = metrics,
             wideFirst = false,
