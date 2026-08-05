@@ -5,7 +5,6 @@ import Versions.accompanist_ui_controller_version
 import Versions.activity_compose_version
 import Versions.app_compat_version
 import Versions.appwrite_ver
-import Versions.camera_ver
 import Versions.coil_version
 import Versions.compose_ui_version
 import Versions.constraint_layout_ver
@@ -31,7 +30,6 @@ import Versions.mockito_inline_ver
 import Versions.mockito_kotlin_ver
 import Versions.mytracker_sdk_ver
 import Versions.parse_sdk_android_ver
-import Versions.permission_accompanist_ver
 import Versions.rebugger_ver
 import Versions.retrofit_ver
 import Versions.room_version
@@ -101,8 +99,6 @@ object Versions {
     const val constraint_layout_ver = "1.0.1"
     const val datastore_pref_ver = "1.0.0"
     const val maxkeppeler_sheets_ver = "1.1.1"
-    const val camera_ver = "1.3.1"
-    const val permission_accompanist_ver = "0.32.0"
     const val google_relay_ver = "0.3.11"
     const val appwrite_ver = "4.0.0"
 
@@ -217,11 +213,6 @@ object Libs {
         "com.google.code.gson:gson:$gson_version"
     const val maxkeppeler_sheets =
         "com.maxkeppeler.sheets-compose-dialogs:core:$maxkeppeler_sheets_ver"
-    const val camera_camera2 = "androidx.camera:camera-camera2:$camera_ver"
-    const val camera_lifecycle = "androidx.camera:camera-lifecycle:$camera_ver"
-    const val camera_view = "androidx.camera:camera-view:$camera_ver"
-    const val permission_accompanist =
-        "com.google.accompanist:accompanist-permissions:$permission_accompanist_ver"
 
     const val appwrite = "io.appwrite:sdk-for-android:$appwrite_ver"
     const val splash_screen = "androidx.core:core-splashscreen:$splash_screen_ver"
