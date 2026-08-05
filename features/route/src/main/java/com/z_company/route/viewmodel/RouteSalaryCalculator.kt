@@ -47,6 +47,10 @@ suspend fun computeRouteTotalPayment(
         val zonal = async { helper.getMoneyZonalSurchargeFlow().first() }
         val passenger = async { helper.getMoneyAtPassengerFlow().first() }
         val passengerOutside = async { helper.getMoneyAtPassengerOutsideWorkFlow().first() }
+        // Следование резервом (одиночный локомотив) — как и «Пассажиром»,
+        // отдельное начисление сверх тарифа. Входит в каноническую формулу
+        // SalaryCalculationHelper.getBasicMoneyForOvertimeCalculation.
+        val singleLocomotive = async { helper.getMoneyAtSingleLocomotiveFlow().first() }
         val holiday = async { helper.getMoneyAtHolidayFlow().first() }
         val servicePhase = async {
             helper.getMoneyListSurchargeExtendedServicePhaseFlow().first().sum()
@@ -96,7 +100,7 @@ suspend fun computeRouteTotalPayment(
         }
 
         tariff.await() + night.await() + zonal.await() + passenger.await() +
-            passengerOutside.await() + holiday.await() + servicePhase.await() +
+            passengerOutside.await() + singleLocomotive.await() + holiday.await() + servicePhase.await() +
             heavy.await() + longTrain.await() + doubledFirst.await() + doubledSecond.await() +
             onePerson.await() + qualification.await() + nordic.await() + district.await() +
             harmfulness.await() + other.await() + overRestMoney + businessTrip.await()
