@@ -14,6 +14,10 @@ import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.ConverterLongToTime
+import com.z_company.core.util.friendlyNetworkErrorMessage
+import com.z_company.domain.util.currencySymbol
+import com.z_company.domain.util.toMoneyString
+import com.z_company.route.viewmodel.computeRouteTotalPayment
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.TimeManager
 import com.z_company.core.widget.WidgetUpdater
@@ -1077,17 +1081,19 @@ class HomeViewModel : ViewModel(), KoinComponent {
                             )
                         }
                         is ResultState.Error -> {
-                            val message = result.entity.message
-                                ?: result.entity.throwable?.message
-                                ?: "Не удалось создать ссылку"
-                            snackbarManager.show(message)
+                            val raw = result.entity.message ?: result.entity.throwable?.message
+                            snackbarManager.show(
+                                friendlyNetworkErrorMessage(raw, "Не удалось создать ссылку")
+                            )
                         }
                         is ResultState.Loading -> Unit
                     }
                 }
             } catch (e: Exception) {
                 e.sendToSentry("HomeViewModel", "shareRoute")
-                snackbarManager.show("Ошибка создания ссылки")
+                snackbarManager.show(
+                    friendlyNetworkErrorMessage(e.message, "Не удалось создать ссылку")
+                )
             } finally {
                 _isCreatingShareLink.value = false
             }
@@ -1530,6 +1536,47 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     else -> {}
                 }
             }
+        }
+    }
+
+    /** Фактический отдых до следующей явки — для быстрого просмотра. */
+    fun calculationActualRest(route: Route?) {
+        _previewRouteUiState.update { it.copy(actualRestDuration = null, actualRestUntil = null) }
+        viewModelScope.launch {
+            routeHelper.calculationActualRest(route).collect { result ->
+                if (result is ResultState.Success) {
+                    _previewRouteUiState.update {
+                        it.copy(
+                            actualRestDuration = result.data?.first,
+                            actualRestUntil = result.data?.second,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Оплата за смену для быстрого просмотра на Главном (в AllRoute она уже есть
+     * в `routePayments`, а здесь считаем по требованию). Считает даже для будущих
+     * маршрутов, как и список «Все маршруты».
+     */
+    fun computeRoutePayment(route: Route?) {
+        _previewRouteUiState.update { it.copy(paymentText = null) }
+        val user = currentUserSetting ?: return
+        val salary = currentSalarySetting ?: return
+        if (route == null) return
+        viewModelScope.launch(Dispatchers.Default) {
+            val monthRoutesSorted = routeUseCase.getListRoutes()
+                .sortedBy { it.basicData.timeStartWork ?: Long.MAX_VALUE }
+            val total = try {
+                computeRouteTotalPayment(route, user, salary, monthRoutesSorted)
+            } catch (e: Exception) {
+                e.sendToSentry("HomeViewModel", "computeRoutePayment")
+                null
+            }
+            val text = total?.toMoneyString(currencySymbol(user.country))
+            _previewRouteUiState.update { it.copy(paymentText = text) }
         }
     }
 

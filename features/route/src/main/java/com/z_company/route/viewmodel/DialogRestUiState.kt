@@ -8,4 +8,8 @@ data class DialogRestUiState(
 
     val homeRestDuration: Long? = null,
     val timeEndHomeRest: Long? = null,
+
+    // Фактический отдых до следующей явки (по расписанию), если он есть.
+    val actualRestDuration: Long? = null,
+    val timeEndActualRest: Long? = null,
 )

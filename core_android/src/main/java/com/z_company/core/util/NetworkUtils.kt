@@ -72,3 +72,15 @@ fun vpnAwareErrorMessage(context: Context, original: String?): String {
         fallback
     }
 }
+
+/**
+ * Понятный текст сетевой ошибки без Context: сырые технические сообщения о сбое
+ * соединения («Failed to connect…», «timeout» и т.п.) заменяет на человекочитаемое,
+ * пустое — на [fallback], остальные (осмысленные серверные) — оставляет как есть.
+ */
+fun friendlyNetworkErrorMessage(rawMessage: String?, fallback: String): String = when {
+    rawMessage.isNullOrBlank() -> fallback
+    isConnectivityErrorMessage(rawMessage) ->
+        "Нет связи с сервером. Проверьте подключение к интернету и попробуйте снова."
+    else -> rawMessage
+}

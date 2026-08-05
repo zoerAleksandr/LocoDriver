@@ -17,6 +17,10 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.VPN_ERROR_HINT
+import com.z_company.core.util.friendlyNetworkErrorMessage
+import com.z_company.core.util.isConnectivityErrorMessage
+import com.z_company.core.util.isVpnActive
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.calculateWorkTimeWithSettings
 import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
@@ -324,9 +328,14 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                             )
                         }
                         is ResultState.Error -> {
-                            val message = result.entity.message
-                                ?: result.entity.throwable?.message
-                                ?: "Не удалось создать ссылку"
+                            val raw = result.entity.message ?: result.entity.throwable?.message
+                            val message = if (isConnectivityErrorMessage(raw) &&
+                                isVpnActive(getApplication())
+                            ) {
+                                VPN_ERROR_HINT
+                            } else {
+                                friendlyNetworkErrorMessage(raw, "Не удалось создать ссылку")
+                            }
                             snackbarManager.show(message)
                         }
                         is ResultState.Loading -> Unit
@@ -335,7 +344,9 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
             } catch (e: Exception) {
                 e.sendToSentry("AllRouteViewModel", "shareRoute")
                 Log.e("ShareRoute", "Ошибка шаринга: ${e.message}")
-                snackbarManager.show("Ошибка создания ссылки")
+                val message = if (isVpnActive(getApplication())) VPN_ERROR_HINT
+                else friendlyNetworkErrorMessage(e.message, "Не удалось создать ссылку")
+                snackbarManager.show(message)
             }
         }
     }
@@ -486,19 +497,40 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
 
     fun calculationHomeRest(route: Route?) {
         viewModelScope.launch {
-            val result = routeHelper.calculationHomeRest(
+            // .collect (а не .first) — иначе берётся первый эмит Loading и homeRest
+            // никогда не обновляется терминальным Success (как в HomeViewModel).
+            routeHelper.calculationHomeRest(
                 route = route,
-            ).first()
-            when (result) {
-                is ResultState.Success -> {
+            ).collect { result ->
+                when (result) {
+                    is ResultState.Success -> {
+                        _previewRouteUiState.update {
+                            it.copy(
+                                homeRest = result.data?.second
+                            )
+                        }
+                    }
+
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    /** Фактический отдых до следующей явки — для быстрого просмотра. */
+    fun calculationActualRest(route: Route?) {
+        // Сбрасываем прежнее значение, чтобы не показать чужой отдых до пересчёта.
+        _previewRouteUiState.update { it.copy(actualRestDuration = null, actualRestUntil = null) }
+        viewModelScope.launch {
+            routeHelper.calculationActualRest(route).collect { result ->
+                if (result is ResultState.Success) {
                     _previewRouteUiState.update {
                         it.copy(
-                            homeRest = result.data?.second
+                            actualRestDuration = result.data?.first,
+                            actualRestUntil = result.data?.second,
                         )
                     }
                 }
-
-                else -> {}
             }
         }
     }

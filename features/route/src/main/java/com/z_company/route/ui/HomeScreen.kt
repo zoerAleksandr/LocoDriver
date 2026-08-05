@@ -118,7 +118,6 @@ import android.net.Uri
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import com.z_company.route.component.AnimatedCounter
-import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ChipApp
@@ -126,7 +125,7 @@ import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.LinearPagerIndicator
 import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
-import com.z_company.route.component.PreviewRouteDialog
+import com.z_company.route.component.RouteQuickViewSheet
 import com.z_company.route.component.HomeScreenSkeleton
 import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
@@ -174,6 +173,11 @@ fun HomeScreen(
     onSalaryClick: () -> Unit = {},
     calculationHomeRest: (Route?) -> Unit,
     homeRestValue: Long?,
+    calculationActualRest: (Route?) -> Unit = {},
+    actualRestDuration: Long? = null,
+    actualRestUntil: Long? = null,
+    computeRoutePayment: (Route?) -> Unit = {},
+    previewPaymentText: String? = null,
     offsetInMoscow: Long,
     timeCalculationContext: TimeCalculationContext? = null,
     syncRoute: (Route) -> Unit,
@@ -302,8 +306,10 @@ fun HomeScreen(
     var unitsSheetType by remember { mutableStateOf<String?>(null) }
     val unitsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    var routeForPreview by remember {
-        mutableStateOf<Route?>(null)
+    // ItemState (а не только Route) — чтобы в быстром просмотре показать доплатные
+    // признаки, вычисленные на уровне списка.
+    var itemForPreview by remember {
+        mutableStateOf<ItemState?>(null)
     }
 
     var routeForRemove by remember {
@@ -374,29 +380,49 @@ fun HomeScreen(
         onDismiss = onResetSyncState
     )
 
-    AnimationDialog(
-        showDialog = showContextDialog,
-        onDismissRequest = { showContextDialog = false }
-    ) {
-        routeForPreview?.let { route ->
-            calculationHomeRest(route)
-            PreviewRouteDialog(
-                showContextDialog = {
-                    showContextDialog = it
-                },
-                routeForPreview = route,
+    // Быстрый просмотр маршрута при LongClick (Android ModalBottomSheet).
+    // Спецификация: route-quick-view-android.md + SCREEN_SPECS.md.
+    if (showContextDialog) {
+        itemForPreview?.let { item ->
+            val route = item.route
+            LaunchedEffect(route.basicData.id) {
+                calculationHomeRest(route)
+                calculationActualRest(route)
+                computeRoutePayment(route)
+            }
+            RouteQuickViewSheet(
+                route = route,
+                shiftPaymentText = previewPaymentText,
+                isHeavyTrains = item.isHeavyTrains,
+                isLongCompositionTrain = item.isLongCompositionTrain,
+                isExtendedServicePhaseTrains = item.isExtendedServicePhaseTrains,
+                dateAndTimeConverter = dateAndTimeConverter,
                 minTimeRest = minTimeRest,
                 homeRest = homeRestValue,
-                dateAndTimeConverter = dateAndTimeConverter,
-                syncRoute = syncRoute,
-                setFavoriteState = setFavoriteState,
-                onRouteClick = onRouteClick,
-                makeCopyRoute = { id -> copyRouteId = id },
-                showDialogConfirmRemove = { showDialog, route ->
-                    routeForRemove = route
+                actualRestDuration = actualRestDuration,
+                actualRestUntil = actualRestUntil,
+                onDismiss = { showContextDialog = false },
+                onOpen = { id ->
+                    showContextDialog = false
+                    onRouteClick(id)
+                },
+                onToggleFavorite = { setFavoriteState(it) },
+                onShare = {
+                    // Закрываем шторку, чтобы snackbar с результатом/ошибкой
+                    // не оказался под ней.
+                    showContextDialog = false
+                    shareRoute(it)
+                },
+                onCopy = { id ->
+                    showContextDialog = false
+                    copyRouteId = id
+                },
+                onSync = { syncRoute(it) },
+                onRequestDelete = { r ->
+                    showContextDialog = false
+                    routeForRemove = r
                     isShowDialogConfirmRemoveRoute = true
                 },
-                shareRoute = shareRoute,
             )
         }
     }
@@ -1267,7 +1293,7 @@ fun HomeScreen(
                                         },
                                         onLongClick = {
                                             showContextDialog = true
-                                            routeForPreview = route
+                                            itemForPreview = firstItem
                                         },
                                         containerColor = background,
                                         onClick = {
@@ -1312,7 +1338,7 @@ fun HomeScreen(
                                         },
                                         onLongClick = {
                                             showContextDialog = true
-                                            routeForPreview = route
+                                            itemForPreview = secondItem
                                         },
                                         containerColor = background,
                                         onClick = { onRouteClick(route.basicData.id) },

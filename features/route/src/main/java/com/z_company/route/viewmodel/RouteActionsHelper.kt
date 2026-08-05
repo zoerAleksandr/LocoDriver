@@ -299,6 +299,71 @@ class RouteActionsHelper() : KoinComponent {
         }
     }
 
+    /**
+     * Фактический отдых по расписанию: время до **следующей явки** после сдачи
+     * текущего маршрута. Возвращает `Pair(first = продолжительность, second =
+     * момент следующей явки)`, либо `null`, если следующего маршрута нет.
+     * Следующий маршрут ищется среди текущего и следующего месяца (граница месяца).
+     */
+    fun calculationActualRest(route: Route?): Flow<ResultState<Pair<Long, Long>?>> = flow {
+        emit(ResultState.Loading())
+        try {
+            val endWork = route?.basicData?.timeEndWork
+            val startWork = route?.basicData?.timeStartWork
+            if (route == null || endWork == null || startWork == null) {
+                emit(ResultState.Success(null))
+                return@flow
+            }
+
+            val userSettings = settingsUseCase.getUserSettingFlow().first()
+            val currentMonthOfYear = userSettings.selectMonthOfYear
+            val tz = userSettings.timeZone
+            val nextMonth = if (currentMonthOfYear.month < 11) {
+                currentMonthOfYear.copy(month = currentMonthOfYear.month + 1)
+            } else {
+                currentMonthOfYear.copy(year = currentMonthOfYear.year + 1, month = 0)
+            }
+
+            val currentResult: ResultState<List<Route>>
+            val nextResult: ResultState<List<Route>>
+            coroutineScope {
+                val deferredCurrent = async(Dispatchers.IO) {
+                    routeUseCase.listRoutesByMonth(currentMonthOfYear, tz)
+                        .first { it is ResultState.Success || it is ResultState.Error }
+                }
+                val deferredNext = async(Dispatchers.IO) {
+                    routeUseCase.listRoutesByMonth(nextMonth, tz)
+                        .first { it is ResultState.Success || it is ResultState.Error }
+                }
+                currentResult = deferredCurrent.await()
+                nextResult = deferredNext.await()
+            }
+
+            val currentList = (currentResult as? ResultState.Success)?.data ?: emptyList()
+            val nextList = (nextResult as? ResultState.Success)?.data ?: emptyList()
+            val combined = currentList + nextList
+
+            // Следующая явка — минимальный timeStartWork строго позже начала текущего
+            // маршрута (сам маршрут исключаем по id).
+            val nextStartWork = combined
+                .asSequence()
+                .filter { it.basicData.id != route.basicData.id }
+                .mapNotNull { it.basicData.timeStartWork }
+                .filter { it > startWork }
+                .minOrNull()
+
+            if (nextStartWork != null && nextStartWork > endWork) {
+                emit(ResultState.Success(Pair(nextStartWork - endWork, nextStartWork)))
+            } else {
+                emit(ResultState.Success(null))
+            }
+        } catch (c: kotlin.coroutines.cancellation.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            emit(ResultState.Error(ErrorEntity(t)))
+        }
+    }
+
     /** Возвращает Flow<Pair<Long, Long>?>, где first - продолжительность отдыха, а second - время окончания отдыха
      */
     fun calculateShortRest(route: Route?): Flow<Pair<Long, Long>?> = flow {

@@ -48,15 +48,14 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.route.R
 import com.z_company.route.util.TurnaroundRest
 import com.z_company.route.viewmodel.home_view_model.ItemState
-import com.z_company.route.component.AnimationDialog
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ChipApp
 import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
-import com.z_company.route.component.PreviewRouteDialog
 import com.z_company.route.component.RadioButtonWithLabel
+import com.z_company.route.component.RouteQuickViewSheet
 import com.z_company.route.util.toShareIntent
 import com.z_company.route.util.turnaroundRestBetween
 import com.z_company.route.viewmodel.PdfViewModel
@@ -148,7 +147,10 @@ fun AllRouteScreen(
     }
 
     // states for context actions (long click)
-    var routeForPreview by remember { mutableStateOf<Route?>(null) }
+    // Храним ItemState (а не только Route), чтобы в быстром просмотре показать
+    // доплатные признаки (тяжеловесный / длинносоставный / удлинённое плечо),
+    // которые вычисляются на уровне списка.
+    var itemForPreview by remember { mutableStateOf<ItemState?>(null) }
     var routeForRemove by remember { mutableStateOf<Route?>(null) }
     var showContextDialog by remember { mutableStateOf(false) }
 
@@ -565,30 +567,48 @@ fun AllRouteScreen(
             )
         }
 
-        // Контекстное меню при LongClick
-        AnimationDialog(
-            showDialog = showContextDialog,
-            onDismissRequest = { showContextDialog = false }
-        ) {
-            routeForPreview?.let { route ->
-                viewModel.calculationHomeRest(route)
-                PreviewRouteDialog(
-                    showContextDialog = {
-                        showContextDialog = it
-                    },
-                    routeForPreview = route,
+        // Быстрый просмотр маршрута при LongClick (Android ModalBottomSheet).
+        // Спецификация: route-quick-view-android.md + SCREEN_SPECS.md.
+        if (showContextDialog) {
+            itemForPreview?.let { item ->
+                val route = item.route
+                LaunchedEffect(route.basicData.id) {
+                    viewModel.calculationHomeRest(route)
+                    viewModel.calculationActualRest(route)
+                }
+                RouteQuickViewSheet(
+                    route = route,
+                    shiftPaymentText = state.routePayments[route.basicData.id],
+                    isHeavyTrains = item.isHeavyTrains,
+                    isLongCompositionTrain = item.isLongCompositionTrain,
+                    isExtendedServicePhaseTrains = item.isExtendedServicePhaseTrains,
+                    dateAndTimeConverter = viewModel.dateAndTimeConverter,
                     minTimeRest = viewModel.minTimeRest,
                     homeRest = previewRouteState.homeRest,
-                    dateAndTimeConverter = viewModel.dateAndTimeConverter,
-                    syncRoute = viewModel::syncRoute,
-                    setFavoriteState = viewModel::setFavoriteRoute,
-                    onRouteClick = onRouteClick,
-                    makeCopyRoute = { copyRouteId = route.basicData.id },
-                    showDialogConfirmRemove = { showDialog, route ->
-                        isShowDialogConfirmRemoveRoute = showDialog
-                        routeForRemove = route
+                    actualRestDuration = previewRouteState.actualRestDuration,
+                    actualRestUntil = previewRouteState.actualRestUntil,
+                    onDismiss = { showContextDialog = false },
+                    onOpen = { id ->
+                        showContextDialog = false
+                        onRouteClick(id)
                     },
-                    shareRoute = { viewModel.shareRoute(it) },
+                    onToggleFavorite = { viewModel.setFavoriteRoute(it) },
+                    onShare = {
+                        // Закрываем шторку, чтобы snackbar с результатом/ошибкой
+                        // не оказался под ней.
+                        showContextDialog = false
+                        viewModel.shareRoute(it)
+                    },
+                    onCopy = { id ->
+                        showContextDialog = false
+                        copyRouteId = id
+                    },
+                    onSync = { viewModel.syncRoute(it) },
+                    onRequestDelete = { r ->
+                        showContextDialog = false
+                        routeForRemove = r
+                        isShowDialogConfirmRemoveRoute = true
+                    },
                 )
             }
         }
@@ -814,7 +834,7 @@ fun AllRouteScreen(
                                                 routeForRemove = r
                                             },
                                             onLongClick = {
-                                                routeForPreview = route
+                                                itemForPreview = row.item
                                                 showContextDialog = true
                                             },
                                         )
@@ -845,7 +865,7 @@ fun AllRouteScreen(
                                                     routeForRemove = r
                                                 },
                                                 onLongClick = {
-                                                    routeForPreview = upperRoute
+                                                    itemForPreview = row.upper
                                                     showContextDialog = true
                                                 },
                                             )
@@ -870,7 +890,7 @@ fun AllRouteScreen(
                                                     routeForRemove = r
                                                 },
                                                 onLongClick = {
-                                                    routeForPreview = lowerRoute
+                                                    itemForPreview = row.lower
                                                     showContextDialog = true
                                                 },
                                             )
