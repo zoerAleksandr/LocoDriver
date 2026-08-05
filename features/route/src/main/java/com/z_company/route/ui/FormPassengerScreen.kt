@@ -40,6 +40,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -146,7 +148,7 @@ fun FormPassengerScreen(
             }
         },
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
@@ -160,7 +162,7 @@ fun FormPassengerScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(
+                    TextButton(
                         onClick = {
                             keyboardController?.hide()
                             focusManager.clearFocus()
@@ -168,9 +170,9 @@ fun FormPassengerScreen(
                         },
                     ) {
                         Text(
-                            text = "‹",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = MaterialTheme.colorScheme.primary,
+                            text = "Готово",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.tertiary,
                         )
                     }
                 },

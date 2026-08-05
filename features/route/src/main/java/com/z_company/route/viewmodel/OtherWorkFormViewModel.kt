@@ -326,8 +326,10 @@ class OtherWorkFormViewModel(
             val state = _uiState.value.otherWorkDetailState
             if (state is ResultState.Success) {
                 state.data?.let { ow ->
-                    // Не сохраняем абсолютно пустой новый объект.
-                    if (isNewOtherWork && isOtherWorkEmpty(ow)) return@launch
+                    // Новую запись сохраняем, только если пользователь реально вносил данные.
+                    // Тип работы может быть предзаполнен последним выбранным — сам по себе он
+                    // не считается вводом, поэтому дополнительно проверяем changesHaveState.
+                    if (isNewOtherWork && (!_uiState.value.changesHaveState || isOtherWorkEmpty(ow))) return@launch
                     if (_uiState.value.errorMessage != null) return@launch
                     otherWorkUseCase.saveOtherWork(ow).collect {}
                     // Станцию в общий список сохраняем только ЗДЕСЬ — финальным (закоммиченным)

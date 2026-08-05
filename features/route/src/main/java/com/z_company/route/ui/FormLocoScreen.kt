@@ -37,6 +37,7 @@ import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import com.z_company.route.component.StationDropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -251,7 +252,7 @@ fun FormLocoScreen(
         modifier = Modifier
             .fillMaxWidth(),
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = {
                     Text(
                         text = "Локомотив",
@@ -260,17 +261,17 @@ fun FormLocoScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(
+                    TextButton(
                         onClick = {
                             keyboardController?.hide()
                             topLevelFocusManager.clearFocus()
                             onLocoSaved()
                         }
                     ) {
-                        Icon(
-                            painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_left_24px),
-                            tint = MaterialTheme.colorScheme.primary,
-                            contentDescription = "Назад"
+                        Text(
+                            text = "Готово",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.tertiary,
                         )
                     }
                 },
@@ -560,8 +561,8 @@ fun FormLocoScreen(
                                             },
                                             textStyle = monoDataTextStyle,
                                             fieldElevation = 0.dp,
-                                            colorBackgroundEmptyField = Color.Transparent,
-                                            colorBackgroundNotEmptyField = Color.Transparent,
+                                            colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                            colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
                                             keyboardOptions = KeyboardOptions(
                                                 keyboardType = KeyboardType.Text,
                                                 imeAction = ImeAction.Done
@@ -614,8 +615,8 @@ fun FormLocoScreen(
                                         value = locomotive.number ?: "",
                                         textStyle = monoDataTextStyle,
                                         fieldElevation = 0.dp,
-                                        colorBackgroundEmptyField = Color.Transparent,
-                                        colorBackgroundNotEmptyField = Color.Transparent,
+                                        colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
                                         onValueChange = { onNumberChanged(it) },
                                         keyboardOptions = KeyboardOptions(
                                             keyboardType = KeyboardType.Text,
@@ -1108,7 +1109,7 @@ private fun ReadingRow(
     dataTextStyle: androidx.compose.ui.text.TextStyle,
     noValueColor: Color,
 ) {
-    val borderColor = MaterialTheme.colorScheme.outlineVariant
+    val fieldColor = MaterialTheme.colorScheme.surfaceBright
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1156,9 +1157,8 @@ private fun ReadingRow(
                 value = accepted,
                 textStyle = dataTextStyle,
                 fieldElevation = 0.dp,
-                borderColor = borderColor,
-                colorBackgroundEmptyField = Color.Transparent,
-                colorBackgroundNotEmptyField = Color.Transparent,
+                colorBackgroundEmptyField = fieldColor,
+                colorBackgroundNotEmptyField = fieldColor,
                 placeholder = {
                     Text(
                         text = "Принял",
@@ -1182,9 +1182,8 @@ private fun ReadingRow(
                 value = delivered,
                 textStyle = dataTextStyle,
                 fieldElevation = 0.dp,
-                borderColor = borderColor,
-                colorBackgroundEmptyField = Color.Transparent,
-                colorBackgroundNotEmptyField = Color.Transparent,
+                colorBackgroundEmptyField = fieldColor,
+                colorBackgroundNotEmptyField = fieldColor,
                 placeholder = {
                     Text(
                         text = "Сдал",

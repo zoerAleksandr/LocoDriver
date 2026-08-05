@@ -51,6 +51,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -293,15 +294,33 @@ fun FormScreen(
     var pendingDeleteMessage by remember { mutableStateOf("") }
     var pendingDeleteAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
+    // Подтверждение удаления единицы маршрута — шторка (как удаление маршрута).
     pendingDeleteAction?.let { action ->
-        RouteUnitDeleteDialog(
-            title = pendingDeleteTitle,
-            message = pendingDeleteMessage,
-            onDismiss = { pendingDeleteAction = null },
-            onConfirm = {
-                action()
-                pendingDeleteAction = null
-            }
+        AppBottomSheet(
+            onDismissRequest = { pendingDeleteAction = null },
+            sheetState = sheetState,
+            headerContent = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = pendingDeleteTitle,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "\n$pendingDeleteMessage",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            actions = listOf(
+                BottomSheetAction(text = "Да, удалить") { action() }
+            )
         )
     }
 
@@ -520,7 +539,7 @@ fun FormScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),
@@ -543,11 +562,11 @@ fun FormScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = viewModel::onSaveClick) {
+                    TextButton(onClick = viewModel::onSaveClick) {
                         Text(
-                            text = "‹",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = MaterialTheme.colorScheme.primary,
+                            text = "Готово",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.tertiary,
                         )
                     }
                 },
@@ -1956,26 +1975,6 @@ fun InfoRestPointOfTurnoverTime(
 // ─────────────────────────────────────────────────────────────
 // Компоненты редизайна FormScreen
 // ─────────────────────────────────────────────────────────────
-
-/** Material-диалог подтверждения удаления единицы маршрута. */
-@Composable
-private fun RouteUnitDeleteDialog(
-    title: String,
-    message: String,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    AppAlertDialog(
-        onDismissRequest = onDismiss,
-        title = title,
-        text = message,
-        confirmText = "Удалить",
-        onConfirm = onConfirm,
-        isDestructive = true,
-        dismissText = "Отмена",
-        onDismiss = onDismiss,
-    )
-}
 
 /** Нейтральный диалог подтверждения (не удаление) — с настраиваемой кнопкой подтверждения. */
 @Composable

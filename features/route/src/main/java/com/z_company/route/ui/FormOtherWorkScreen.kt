@@ -45,6 +45,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -155,7 +156,7 @@ fun FormOtherWorkScreen(
             }
         },
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
@@ -169,7 +170,7 @@ fun FormOtherWorkScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(
+                    TextButton(
                         onClick = {
                             keyboardController?.hide()
                             focusManager.clearFocus()
@@ -177,9 +178,9 @@ fun FormOtherWorkScreen(
                         },
                     ) {
                         Text(
-                            text = "‹",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = MaterialTheme.colorScheme.primary,
+                            text = "Готово",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.tertiary,
                         )
                     }
                 },
