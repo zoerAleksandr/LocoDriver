@@ -391,8 +391,16 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         editor.putString(SCHEDULE_PATTERNS_KEY, schedulePatternsJson.encodeToString(patterns)).apply()
     }
 
+    override fun getLastSeenAnnouncementNumber(): Int =
+        sharedpref.getInt(LAST_SEEN_ANNOUNCEMENT_NUMBER, -1)
+
+    override fun setLastSeenAnnouncementNumber(value: Int) {
+        editor.putInt(LAST_SEEN_ANNOUNCEMENT_NUMBER, value).apply()
+    }
+
     private companion object {
         const val SCHEDULE_PATTERNS_KEY = "SCHEDULE_PATTERNS"
+        const val LAST_SEEN_ANNOUNCEMENT_NUMBER = "LAST_SEEN_ANNOUNCEMENT_NUMBER"
         val schedulePatternsJson = Json { ignoreUnknownKeys = true }
     }
 }

@@ -97,6 +97,17 @@ class MainActivity : ComponentActivity(), KoinComponent {
             ) {
                 com.z_company.loco_driver.ui.BrandedSplash()
             }
+
+            // Полноэкранное сообщение-«новость при запуске» поверх приложения.
+            // announcement != null только после инициализации (см. MainViewModel),
+            // поэтому появляется уже после того, как сплэш ушёл.
+            val announcement by mainViewModel.announcement.collectAsState()
+            announcement?.let { ann ->
+                com.z_company.loco_driver.ui.AnnouncementScreen(
+                    announcement = ann,
+                    onDismiss = mainViewModel::dismissAnnouncement,
+                )
+            }
             } // Box
         }
         VKID.logsEnabled = true

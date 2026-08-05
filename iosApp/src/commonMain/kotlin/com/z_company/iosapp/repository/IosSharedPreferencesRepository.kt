@@ -48,6 +48,7 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var passenger12hAutoAccepted: Boolean = false
     private var timePickerKeyboardInput: Boolean = false
     private val recentTimesMap = mutableMapOf<String, MutableList<Long>>()
+    private var lastSeenAnnouncementNumber: Int = -1
 
     override fun setLastSyncTimestamp(time: Long) { lastSyncTimestamp = time }
     override fun getLastSyncTimestamp(): Long = lastSyncTimestamp
@@ -82,6 +83,8 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var lastOtherWorkType: String? = null
     override fun getLastOtherWorkType(): String? = lastOtherWorkType
     override fun setLastOtherWorkType(value: String?) { lastOtherWorkType = value }
+    override fun getLastSeenAnnouncementNumber(): Int = lastSeenAnnouncementNumber
+    override fun setLastSeenAnnouncementNumber(value: Int) { lastSeenAnnouncementNumber = value }
     override fun getSelectedFilters(): Set<String>? = selectedFilters
     override fun setSelectedFilters(values: Set<String>) { selectedFilters = values }
     override fun isExpandedView(): Boolean = expandedView

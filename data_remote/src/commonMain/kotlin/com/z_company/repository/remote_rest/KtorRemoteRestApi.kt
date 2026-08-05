@@ -9,6 +9,7 @@ import com.z_company.domain.entities.partner.Partner
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.repository.remote_rest.response.AnnouncementResponse
 import com.z_company.repository.remote_rest.response.NormaTimeLocomotiveResponse
 import com.z_company.repository.remote_rest.response.NormaTimeStationResponse
 import com.z_company.repository.remote_rest.response.PartnerResponse
@@ -34,6 +35,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.request.parameter
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 
 /**
@@ -237,4 +239,13 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
 
     override suspend fun getSharedRoute(shareId: String): Route =
         client.get("v1/share/route/$shareId").body()
+
+    override suspend fun getLatestAnnouncement(platform: String, build: Long): AnnouncementResponse? {
+        val response = client.get("v1/announcements/latest") {
+            parameter("platform", platform)
+            parameter("build", build)
+        }
+        // Сервер отвечает 204, когда показывать нечего — тела нет.
+        return if (response.status == HttpStatusCode.NoContent) null else response.body()
+    }
 }

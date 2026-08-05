@@ -109,4 +109,13 @@ interface SharedPreferencesRepositories {
     /** Последний выбранный тип «прочей работы» — подставляется по умолчанию в новую запись. */
     fun getLastOtherWorkType(): String?
     fun setLastOtherWorkType(value: String?)
+
+    /**
+     * Номер последнего показанного пользователю сообщения-«новости при запуске»
+     * (см. [com.z_company.domain.use_cases.AnnouncementUseCase]).
+     * Возвращает [com.z_company.domain.use_cases.AnnouncementUseCase.NOT_SEEN] (-1),
+     * если ещё ничего не показывалось (первый запуск/переустановка).
+     */
+    fun getLastSeenAnnouncementNumber(): Int
+    fun setLastSeenAnnouncementNumber(value: Int)
 }

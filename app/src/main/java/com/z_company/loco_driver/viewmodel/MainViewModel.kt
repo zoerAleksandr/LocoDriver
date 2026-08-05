@@ -23,6 +23,9 @@ import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.use_cases.AnnouncementUseCase
+import com.z_company.domain.entities.announcement.Announcement
+import com.z_company.loco_driver.BuildConfig
 import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.repository.remote_rest.SettingManager
 import kotlinx.datetime.TimeZone
@@ -60,6 +63,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val routeUseCase: RouteUseCase by inject()
     private val snackbarManager: ISnackbarManager by inject()
     private val shareRouteManager: ShareRouteManager by inject()
+    private val announcementUseCase: AnnouncementUseCase by inject()
 
     private var saveCalendarInLocalJob: Job? = null
     private var setDefaultSetting: Job? = null
@@ -72,6 +76,30 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
 
     private val _appInitialized = MutableStateFlow(false)
     val appInitialized: StateFlow<Boolean> = _appInitialized.asStateFlow()
+
+    // Сообщение-«новость при запуске» для показа полноэкранным экраном.
+    // null = показывать нечего (нет нового / офлайн / первый запуск).
+    private val _announcement = MutableStateFlow<Announcement?>(null)
+    val announcement: StateFlow<Announcement?> = _announcement.asStateFlow()
+
+    fun dismissAnnouncement() {
+        _announcement.value?.let { announcementUseCase.markSeen(it.number) }
+        _announcement.value = null
+    }
+
+    private fun loadAnnouncement() {
+        viewModelScope.launch {
+            try {
+                val toShow = announcementUseCase.getAnnouncementToShow(
+                    platform = "android",
+                    build = BuildConfig.VERSION_CODE.toLong(),
+                )
+                _announcement.value = toShow
+            } catch (e: Exception) {
+                e.sendToSentry("MainViewModel", "loadAnnouncement")
+            }
+        }
+    }
 
     // Импорт маршрута из файла (.zroute) — ожидает подтверждения пользователя
     private val _pendingImportRoute = MutableStateFlow<Route?>(null)
@@ -199,6 +227,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
             loadCalendar()
             delay(400L)
             _appInitialized.value = true
+            loadAnnouncement()
         }
     }
 

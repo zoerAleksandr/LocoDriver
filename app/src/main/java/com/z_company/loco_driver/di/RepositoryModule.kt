@@ -31,8 +31,10 @@ import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.ShareManager
 import com.z_company.repository.remote_rest.ApiForSendEmail
 import com.z_company.repository.remote_rest.AuthManager
+import com.z_company.repository.remote_rest.RemoteAnnouncementRepository
 import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.RemoteRestClient
+import com.z_company.domain.repositories.AnnouncementRepository
 import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.repository.remote_rest.ShareRouteManager
@@ -84,6 +86,8 @@ val repositoryModule = module {
     single<ApiForSendEmail> { RemoteRestClient.apiForSendEmail }
 
     // Managers теперь классы с DI (Шаг 2: object → class)
+    single<AnnouncementRepository> { RemoteAnnouncementRepository(api = get()) }
+
     single { AuthManager(remoteRestApi = get(), apiForSendEmail = get()) }
     single { RoutesManager(remoteRestApi = get()) }
     single { SettingManager(remoteRestApi = get()) }

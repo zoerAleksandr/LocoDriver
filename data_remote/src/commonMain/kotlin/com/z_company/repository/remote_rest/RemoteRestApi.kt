@@ -15,6 +15,7 @@ import com.z_company.repository.remote_rest.request.AuthRequest
 import com.z_company.repository.remote_rest.request.RegisteredRequestByEmail
 import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
+import com.z_company.repository.remote_rest.response.AnnouncementResponse
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
 import com.z_company.repository.remote_rest.response.SaveRouteResponse
@@ -92,6 +93,14 @@ interface RemoteRestApi {
 
     /** Получить справочник напарников с сервера */
     suspend fun getPartners(token: String): List<Partner>
+
+    // --- Announcements (сообщения при запуске) ---
+
+    /**
+     * Актуальное сообщение-«новость при запуске» для платформы/версии (без авторизации).
+     * Возвращает null, если показывать нечего (сервер ответил 204).
+     */
+    suspend fun getLatestAnnouncement(platform: String, build: Long): AnnouncementResponse?
 
     // --- ProductionCalendar (производственный календарь) ---
 
