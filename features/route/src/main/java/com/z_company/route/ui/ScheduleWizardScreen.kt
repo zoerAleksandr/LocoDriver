@@ -46,6 +46,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -66,13 +67,29 @@ private data class ShiftPalette(val plate: Color, val ink: Color, val border: Co
 @Composable
 private fun shiftPalette(kind: ShiftKind): ShiftPalette {
     val cs = MaterialTheme.colorScheme
-    return when (kind) {
-        // Дневная — светлая плашка (surface) с тёмным глифом, тонкая обводка.
-        ShiftKind.DAY -> ShiftPalette(plate = cs.surface, ink = cs.primary, border = cs.outline)
-        // Ночная — тёмная плашка (цвет текста) со светлым глифом.
-        ShiftKind.NIGHT -> ShiftPalette(plate = cs.primary, ink = cs.surface, border = Color.Transparent)
-        // Выходной — приглушённая плашка.
-        ShiftKind.OFF -> ShiftPalette(plate = cs.surfaceBright, ink = cs.onSurfaceVariant, border = Color.Transparent)
+    // День — светлая плашка, ночь — тёмная, выходной — нейтральная. В тёмной теме
+    // слоты surface/primary меняются местами по яркости, а простой светлый/тёмный
+    // (pure white / surface) сливается с фоном сетки и слепит, поэтому для тёмной
+    // темы задаём три отдельных тона, разнесённых по яркости и отделённых от фона.
+    val isDark = cs.surface.luminance() < 0.5f
+    return if (isDark) {
+        when (kind) {
+            // День — приглушённо-светлая плашка (не чистый белый) с тёмным глифом.
+            ShiftKind.DAY -> ShiftPalette(plate = Color(0xFFCED1D6), ink = Color(0xFF16171A), border = Color.Transparent)
+            // Ночь — глубокая тёмная плашка (темнее фона сетки) со светлым глифом и обводкой.
+            ShiftKind.NIGHT -> ShiftPalette(plate = Color(0xFF141517), ink = Color(0xFFCED1D6), border = cs.outline)
+            // Выходной — нейтральная плашка чуть светлее фона.
+            ShiftKind.OFF -> ShiftPalette(plate = cs.surfaceVariant, ink = cs.onSurfaceVariant, border = Color.Transparent)
+        }
+    } else {
+        when (kind) {
+            // Дневная — светлая плашка (surface) с тёмным глифом, тонкая обводка.
+            ShiftKind.DAY -> ShiftPalette(plate = cs.surface, ink = cs.primary, border = cs.outline)
+            // Ночная — тёмная плашка (цвет текста) со светлым глифом.
+            ShiftKind.NIGHT -> ShiftPalette(plate = cs.primary, ink = cs.surface, border = Color.Transparent)
+            // Выходной — приглушённая плашка.
+            ShiftKind.OFF -> ShiftPalette(plate = cs.surfaceBright, ink = cs.onSurfaceVariant, border = Color.Transparent)
+        }
     }
 }
 
