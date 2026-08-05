@@ -70,6 +70,8 @@ import com.z_company.route.ui.settings.SettingsSeriesListContent
 import com.z_company.route.ui.settings.SettingsSeriesEditorContent
 import com.z_company.route.ui.settings.SettingsStationListContent
 import com.z_company.route.ui.settings.SettingsStationEditorContent
+import com.z_company.route.ui.settings.SettingsPartnerListContent
+import com.z_company.route.ui.settings.SettingsPartnerEditorContent
 import com.z_company.route.viewmodel.SettingsViewModel
 import com.z_company.route.viewmodel.SettingsUiState
 import com.z_company.route.viewmodel.TimeZoneRussia
@@ -78,24 +80,27 @@ import com.z_company.route.viewmodel.SeriesEditorViewModel
 import com.z_company.route.viewmodel.StationNormListViewModel
 import com.z_company.route.viewmodel.StationNormEditorViewModel
 import com.z_company.route.viewmodel.PartnerListViewModel
+import com.z_company.route.viewmodel.PartnerEditorViewModel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
 
-enum class SettingsSubScreen(val title: String) {
-    HUB("Настройки"),
-    ROUTE("Основные"),
-    ROUTE_FORM("Маршрут"),
-    NORMA("Норма/Регион"),
-    ACCOUNTING("Учёт"),
-    REST("Отдых"),
-    SHOULDERS("Плечи"),
-    LOCOMOTIVE("Локомотив"),
-    SERIES_LIST("Серии"),
-    SERIES_EDITOR("Серия"),
-    STATION_LIST("Станции"),
-    STATION_EDITOR("Станция"),
+enum class SettingsSubScreen(val title: String, val depth: Int) {
+    HUB("Настройки", 0),
+    ROUTE("Основные", 1),
+    ROUTE_FORM("Маршрут", 1),
+    NORMA("Норма/Регион", 1),
+    ACCOUNTING("Учёт", 1),
+    REST("Отдых", 1),
+    SHOULDERS("Плечи", 1),
+    LOCOMOTIVE("Локомотив", 1),
+    SERIES_LIST("Серии", 1),
+    SERIES_EDITOR("Серия", 2),
+    STATION_LIST("Станции", 1),
+    STATION_EDITOR("Станция", 2),
+    PARTNER_LIST("Напарники", 1),
+    PARTNER_EDITOR("Напарник", 2),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -139,7 +144,6 @@ fun SettingsScreen(
     seriesListViewModel: SeriesListViewModel? = null,
     stationListViewModel: StationNormListViewModel? = null,
     partnerListViewModel: PartnerListViewModel? = null,
-    onOpenPartners: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -173,6 +177,7 @@ fun SettingsScreen(
     var currentSubScreen by remember { mutableStateOf(initState.screen) }
     var selectedSeriesId by remember { mutableStateOf(initState.seriesId) }
     var selectedStationId by remember { mutableStateOf(initState.stationId) }
+    var selectedPartnerId by remember { mutableStateOf<String?>(null) }
     // Название «старой» серии (из locomotiveSeriesList, без норм), открываемой
     // в редакторе для добавления норм приёмки/сдачи. null — обычная новая серия.
     var prefillSeriesName by remember { mutableStateOf<String?>(null) }
@@ -199,6 +204,8 @@ fun SettingsScreen(
                 if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.SERIES_LIST
             SettingsSubScreen.STATION_EDITOR ->
                 if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.STATION_LIST
+            SettingsSubScreen.PARTNER_EDITOR ->
+                currentSubScreen = SettingsSubScreen.PARTNER_LIST
             else -> {
                 if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
             }
@@ -221,6 +228,8 @@ fun SettingsScreen(
                                     if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.SERIES_LIST
                                 SettingsSubScreen.STATION_EDITOR ->
                                     if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.STATION_LIST
+                                SettingsSubScreen.PARTNER_EDITOR ->
+                                    currentSubScreen = SettingsSubScreen.PARTNER_LIST
                                 else -> if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
                             }
                         }) {
@@ -301,7 +310,10 @@ fun SettingsScreen(
                 AnimatedContent(
                     targetState = currentSubScreen,
                     transitionSpec = {
-                        if (targetState == SettingsSubScreen.HUB) {
+                        // Направление зависит от «глубины» экранов: уходим глубже
+                        // (HUB → список → редактор) — въезд справа; возвращаемся
+                        // назад (редактор → список → HUB) — въезд слева.
+                        if (targetState.depth < initialState.depth) {
                             slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
                         } else {
                             slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
@@ -323,7 +335,6 @@ fun SettingsScreen(
                                 stationTotalCount = seriesUnionCount(settings.stationList, stationRecords.map { it.name }),
                                 partnerTotalCount = partnerRecords.size,
                                 onNavigate = { currentSubScreen = it },
-                                onOpenPartners = onOpenPartners,
                                 showSettingSalary = showSettingSalary,
                             )
                         }
@@ -481,6 +492,29 @@ fun SettingsScreen(
                             )
                         }
 
+                        SettingsSubScreen.PARTNER_LIST -> {
+                            partnerListViewModel?.let { vm ->
+                                SettingsPartnerListContent(
+                                    viewModel = vm,
+                                    onOpenEditor = { id ->
+                                        selectedPartnerId = id
+                                        currentSubScreen = SettingsSubScreen.PARTNER_EDITOR
+                                    }
+                                )
+                            }
+                        }
+
+                        SettingsSubScreen.PARTNER_EDITOR -> {
+                            val editorVm = koinViewModel<PartnerEditorViewModel>(
+                                key = "partner_editor_${selectedPartnerId ?: "new"}",
+                                parameters = { parametersOf(selectedPartnerId) }
+                            )
+                            SettingsPartnerEditorContent(
+                                viewModel = editorVm,
+                                onDone = { currentSubScreen = SettingsSubScreen.PARTNER_LIST }
+                            )
+                        }
+
                     }
                 }
             }
@@ -495,7 +529,6 @@ private fun SettingsHubContent(
     stationTotalCount: Int,
     partnerTotalCount: Int,
     onNavigate: (SettingsSubScreen) -> Unit,
-    onOpenPartners: () -> Unit,
     showSettingSalary: () -> Unit,
 ) {
     val seriesCount = seriesTotalCount
@@ -543,7 +576,7 @@ private fun SettingsHubContent(
                 accent = true,
                 title = "Напарники",
                 value = "$partnerCount ${pluralRu(partnerCount, "напарник", "напарника", "напарников")}",
-                onClick = onOpenPartners,
+                onClick = { onNavigate(SettingsSubScreen.PARTNER_LIST) },
             )
         }
 

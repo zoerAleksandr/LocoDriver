@@ -64,6 +64,5 @@ fun SettingDestination(
         seriesListViewModel = seriesListViewModel,
         stationListViewModel = stationListViewModel,
         partnerListViewModel = partnerListViewModel,
-        onOpenPartners = router::showPartnersManage,
     )
 }
