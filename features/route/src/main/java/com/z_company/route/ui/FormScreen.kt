@@ -73,6 +73,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -101,6 +102,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -1030,19 +1033,19 @@ fun FormScreen(
                                 }
                             }
 
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(IntrinsicSize.Min),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                val calcText = if (salaryForRouteState.isCalculated) {
-                                    salaryForRouteState.totalPayment.toMoneyString(currency)
-                                } else {
-                                    null.toMoneyString(currency)
-                                }
+                            val calcText = if (salaryForRouteState.isCalculated) {
+                                salaryForRouteState.totalPayment.toMoneyString(currency)
+                            } else {
+                                null.toMoneyString(currency)
+                            }
+                            val restText = if (route.basicData.restPointOfTurnover) {
+                                "В пункте оборота"
+                            } else {
+                                "Домашний"
+                            }
+                            val calcTile: @Composable (Modifier) -> Unit = { m ->
                                 FormTile(
-                                    modifier = Modifier.weight(1f),
+                                    modifier = m,
                                     label = "Расчёт",
                                     value = calcText,
                                     valueMono = true,
@@ -1056,13 +1059,10 @@ fun FormScreen(
                                     },
                                     onClick = { showCalcSheet = true }
                                 )
-                                val restText = if (route.basicData.restPointOfTurnover) {
-                                    "В пункте оборота"
-                                } else {
-                                    "Домашний"
-                                }
+                            }
+                            val restTile: @Composable (Modifier) -> Unit = { m ->
                                 FormTile(
-                                    modifier = Modifier.weight(1f),
+                                    modifier = m,
                                     label = "Отдых",
                                     value = restText,
                                     valueMono = false,
@@ -1080,6 +1080,27 @@ fun FormScreen(
                                     },
                                     onClick = { showRestSheet = true }
                                 )
+                            }
+                            // При крупном шрифте суммы «Расчёт»/«Отдых» не помещаются в
+                            // половину ширины и обрезаются — раскладываем плитки в столбец.
+                            if (LocalDensity.current.fontScale > 1.15f) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    calcTile(Modifier.fillMaxWidth())
+                                    restTile(Modifier.fillMaxWidth())
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(IntrinsicSize.Min),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    calcTile(Modifier.weight(1f))
+                                    restTile(Modifier.weight(1f))
+                                }
                             }
                         }
                     }
@@ -2689,32 +2710,53 @@ private fun RestItem(
     duration: String,
     until: String,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = " · $duration",
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+    val titleText: @Composable () -> Unit = {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    val untilText: @Composable () -> Unit = {
         Text(
             text = "до $until",
             style = MaterialTheme.typography.titleLarge.copy(
                 fontFamily = MonoFont,
                 fontWeight = FontWeight.Bold
             ),
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            softWrap = false,
         )
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        // При крупном шрифте «название · длительность» в одну строку не помещается —
+        // название и длительность каждое на своей строке. Стандартный шрифт — прежний ряд.
+        if (LocalDensity.current.fontScale > 1.15f) {
+            titleText()
+            Text(
+                text = duration,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false,
+            )
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                titleText()
+                Text(
+                    text = " · $duration",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        untilText()
     }
 }
 
@@ -2772,14 +2814,20 @@ private fun RestSegButton(
             .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = label,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = if (active) MaterialTheme.colorScheme.tertiary
-            else MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        // Сегмент фиксированной ширины — «В пункте оборота» при крупном шрифте
+        // обрезается; ограничиваем масштаб подписи, чтобы помещалась.
+        val d = LocalDensity.current
+        val labelDensity = if (d.fontScale > 1.15f) Density(d.density, 1.15f) else d
+        CompositionLocalProvider(LocalDensity provides labelDensity) {
+            Text(
+                text = label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = if (active) MaterialTheme.colorScheme.tertiary
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

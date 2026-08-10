@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +17,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -108,24 +110,21 @@ private fun RestRow(
     now: Long,
     dateAndTimeConverter: DateAndTimeConverter?,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.W700),
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = "до ${dateAndTimeConverter?.getDateMiniAndTime(until) ?: ""}",
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+    val titleText: @Composable () -> Unit = {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.W700),
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+    val untilText: @Composable () -> Unit = {
+        Text(
+            text = "до ${dateAndTimeConverter?.getDateMiniAndTime(until) ?: ""}",
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    val remainingRow: @Composable () -> Unit = {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "осталось ",
@@ -140,6 +139,33 @@ private fun RestRow(
                 ),
                 color = MaterialTheme.colorScheme.primary,
             )
+        }
+    }
+    // При крупном шрифте название, остаток и срок окончания не помещаются в ряд —
+    // раскладываем всё в столбец на всю ширину. Стандартный шрифт — прежний ряд.
+    if (LocalDensity.current.fontScale > 1.15f) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            titleText()
+            remainingRow()
+            untilText()
+        }
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                titleText()
+                untilText()
+            }
+            remainingRow()
         }
     }
 }

@@ -69,6 +69,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -950,48 +951,86 @@ private fun TimeSummaryRow(
             )
         }
 
-        // Lower: 3 time cells in 1fr → 1fr → 1fr grid
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top
-        ) {
-            stops.forEachIndexed { idx, stop ->
-                if (idx > 0) {
-                    Text(
-                        text = "→",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                        ),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
-                        modifier = Modifier
-                            .padding(horizontal = 8.dp)
-                            .padding(top = 4.dp)
-                    )
+        val timeStyle = MaterialTheme.typography.bodyLarge.copy(
+            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            fontSize = 18.sp,
+            lineHeight = 18.sp
+        )
+        val captionStyle = MaterialTheme.typography.labelSmall.copy(
+            letterSpacing = androidx.compose.ui.unit.TextUnit(0.8f, androidx.compose.ui.unit.TextUnitType.Sp),
+            fontSize = 9.sp
+        )
+        val timeColorOn = MaterialTheme.colorScheme.primary
+        val timeColorOff = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+
+        // При крупном системном шрифте три времени в ряд не помещаются и значения
+        // рвутся посреди («23:1 / 3»). Раскладываем вертикально — каждое время на
+        // всю ширину и одной строкой. При стандартном шрифте — прежний ряд из 3 колонок.
+        val stacked = LocalDensity.current.fontScale > 1.15f
+        if (stacked) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                stops.forEach { stop ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stop.caption.uppercase(),
+                            style = captionStyle,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = stop.time ?: "—:—",
+                            style = timeStyle,
+                            color = if (stop.time != null) timeColorOn else timeColorOff,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    Text(
-                        text = stop.time ?: "—:—",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                            fontSize = 18.sp,
-                            lineHeight = 18.sp
-                        ),
-                        color = if (stop.time != null) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                    )
-                    Text(
-                        text = stop.caption.uppercase(),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            letterSpacing = androidx.compose.ui.unit.TextUnit(0.8f, androidx.compose.ui.unit.TextUnitType.Sp),
-                            fontSize = 9.sp
-                        ),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                    )
+            }
+        } else {
+            // Lower: 3 time cells in 1fr → 1fr → 1fr grid
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                stops.forEachIndexed { idx, stop ->
+                    if (idx > 0) {
+                        Text(
+                            text = "→",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            ),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .padding(top = 4.dp)
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            text = stop.time ?: "—:—",
+                            style = timeStyle,
+                            color = if (stop.time != null) timeColorOn else timeColorOff,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Text(
+                            text = stop.caption.uppercase(),
+                            style = captionStyle,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                        )
+                    }
                 }
             }
         }
@@ -1147,13 +1186,9 @@ private fun ReadingRow(
                 )
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        val acceptedField: @Composable (Modifier) -> Unit = { mod ->
             OutlinedTextFieldApp(
-                modifier = Modifier.weight(1f),
+                modifier = mod,
                 value = accepted,
                 textStyle = dataTextStyle,
                 fieldElevation = 0.dp,
@@ -1173,13 +1208,10 @@ private fun ReadingRow(
                 singleLine = true,
                 shape = Shapes.medium,
             )
-            Text(
-                text = "→",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-            )
+        }
+        val deliveredField: @Composable (Modifier) -> Unit = { mod ->
             OutlinedTextFieldApp(
-                modifier = Modifier.weight(1f),
+                modifier = mod,
                 value = delivered,
                 textStyle = dataTextStyle,
                 fieldElevation = 0.dp,
@@ -1199,6 +1231,33 @@ private fun ReadingRow(
                 singleLine = true,
                 shape = Shapes.medium,
             )
+        }
+
+        // При крупном шрифте два поля в ряд узкие и длинное значение обрезается —
+        // раскладываем их друг под другом на всю ширину. Стандартный шрифт — прежний ряд.
+        val stacked = LocalDensity.current.fontScale > 1.15f
+        if (stacked) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                acceptedField(Modifier.fillMaxWidth())
+                deliveredField(Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                acceptedField(Modifier.weight(1f))
+                Text(
+                    text = "→",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                )
+                deliveredField(Modifier.weight(1f))
+            }
         }
         // Результат расхода = Сдал − Принял
         val accD = accepted.toDoubleOrNull()

@@ -52,8 +52,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -371,19 +374,25 @@ fun PurchasesScreen(
                             tone = MaterialTheme.colorScheme.surfaceTint, // success
                             title = "Подписка активна",
                             subtitle = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "Действует до ",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Text(
-                                        text = converter?.getDate(purchaseState.endTime) ?: "",
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = FontWeight.SemiBold
-                                        ),
-                                    )
-                                }
+                                // Один Text: при крупном шрифте перенос идёт по пробелу,
+                                // а дата «17.02.27» — один токен и остаётся целой (не «17.02.2/7»).
+                                val dateStr = converter?.getDate(purchaseState.endTime) ?: ""
+                                Text(
+                                    text = buildAnnotatedString {
+                                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
+                                            append("Действует до ")
+                                        }
+                                        withStyle(
+                                            SpanStyle(
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        ) {
+                                            append(dateStr)
+                                        }
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
                             },
                         )
 
@@ -837,25 +846,26 @@ private fun PlanCard(
         }
 
         Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = product.name,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            // Цена за месяц + бейдж скидки рядом с ней.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 3.dp),
             ) {
                 Text(
-                    text = product.name,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary,
+                    text = "$perMonth ₽/мес",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (discount != null) {
-                    DiscountPill(text = "−$discount %")
+                    DiscountPill(text = "−$discount%")
                 }
             }
-            Text(
-                text = "$perMonth ₽/мес",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 3.dp),
-            )
         }
 
         Text(
@@ -879,6 +889,8 @@ private fun DiscountPill(text: String) {
             text = text,
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
             color = success,
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }

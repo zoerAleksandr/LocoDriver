@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -38,6 +40,7 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -54,9 +57,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.MonoFont
@@ -391,10 +396,11 @@ fun CalendarScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .heightIn(min = 48.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .background(cs.tertiary)
-                            .clickable { showAddSheet = true },
+                            .clickable { showAddSheet = true }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -402,15 +408,17 @@ fun CalendarScreen(
                             color = cs.surface,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
                         )
                     }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp)
+                            .heightIn(min = 46.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .border(1.5.dp, cs.outline, RoundedCornerShape(14.dp))
-                            .clickable { onFillMonth() },
+                            .clickable { onFillMonth() }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Row(
@@ -428,6 +436,7 @@ fun CalendarScreen(
                                 color = cs.primary,
                                 fontSize = 14.5.sp,
                                 fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center,
                             )
                         }
                     }
@@ -774,6 +783,12 @@ private fun SegmentedFilter(
         CalendarFilter.TRIPS to "Поездки",
         CalendarFilter.ABSENCES to "Отвлечения",
     )
+    // Три равных сегмента фиксированной ширины — при крупном шрифте «Отвлечения»
+    // не влезает и рвётся посреди слова. Ограничиваем масштаб подписей до 1.2×,
+    // чтобы каждая помещалась одной строкой.
+    val segDensity = LocalDensity.current.let { d ->
+        if (d.fontScale > 1.2f) Density(d.density, 1.2f) else d
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -793,12 +808,16 @@ private fun SegmentedFilter(
                     .padding(vertical = 7.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    label,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (active) cs.primary else cs.onSurfaceVariant,
-                )
+                CompositionLocalProvider(LocalDensity provides segDensity) {
+                    Text(
+                        label,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (active) cs.primary else cs.onSurfaceVariant,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
             }
         }
     }
@@ -874,8 +893,19 @@ private fun DayCell(
     onClick: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
+    // Высота ячейки растёт вместе с системным шрифтом, чтобы при крупном шрифте
+    // два времени поездок помещались, а не подрезались снизу. Одинаково для всех
+    // ячеек — недели остаются ровными.
+    val cellHeight = CalendarCellHeight +
+        30.dp * (LocalDensity.current.fontScale - 1f).coerceAtLeast(0f)
+    // Ширину ячейки (сетка 7 колонок) увеличить нельзя, поэтому подписи времени
+    // рендерим в дизайн-размере (fontScale = 1) и запрещаем перенос — иначе «12:35»
+    // рвётся на «12:/35». Полный текст доступен в деталях дня ниже.
+    val timeDensity = LocalDensity.current.let { d ->
+        if (d.fontScale > 1f) Density(d.density, 1f) else d
+    }
     if (day == null) {
-        Spacer(Modifier.height(CalendarCellHeight))
+        Spacer(Modifier.height(cellHeight))
         return
     }
     val trips = if (filter == CalendarFilter.ABSENCES) null else state.tripsByDay[day]
@@ -906,7 +936,7 @@ private fun DayCell(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(CalendarCellHeight)
+            .height(cellHeight)
             .clip(RoundedCornerShape(CalendarCellRadius))
             .background(bg)
             .border(
@@ -918,16 +948,18 @@ private fun DayCell(
             .clickable { onClick() }
             .padding(horizontal = 5.dp, vertical = 4.dp),
     ) {
-        // Номер дня
+        // Номер дня. Размер не фиксируем жёстко (только минимум) — иначе при крупном
+        // шрифте 2-значные числа («31») не влезают в 20dp и обрезаются до первой цифры.
         Box(
             modifier = Modifier
-                .size(20.dp)
+                .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
                 .then(
                     if (isToday && !isPlanned) Modifier
-                        .clip(CircleShape)
+                        .clip(RoundedCornerShape(10.dp))
                         .background(cs.tertiary)
                     else Modifier
-                ),
+                )
+                .padding(horizontal = 3.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -947,32 +979,43 @@ private fun DayCell(
         // Запланированное время явки (режим планирования)
         if (isPlanned) {
             Spacer(Modifier.weight(1f))
-            Text(
-                text = fmtFromMidnight(plannedTime!!),
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.End,
-                fontFamily = MonoFont,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = cs.surface,
-                lineHeight = 12.sp,
-            )
+            CompositionLocalProvider(LocalDensity provides timeDensity) {
+                Text(
+                    text = fmtFromMidnight(plannedTime!!),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.End,
+                    fontFamily = MonoFont,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = cs.surface,
+                    lineHeight = 12.sp,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
         } else {
             // Явки (существующие поездки)
             if (trips != null) {
                 Spacer(Modifier.height(2.dp))
-                trips.take(2).forEach { tr ->
-                    Text(
-                        text = tr.timeText,
-                        fontFamily = MonoFont,
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = cs.tertiary,
-                        lineHeight = 12.sp,
-                    )
+                CompositionLocalProvider(LocalDensity provides timeDensity) {
+                    trips.take(2).forEach { tr ->
+                        Text(
+                            text = tr.timeText,
+                            fontFamily = MonoFont,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = cs.tertiary,
+                            lineHeight = 12.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
                 }
                 if (trips.size > 2) {
-                    Text("+${trips.size - 2}", fontSize = 9.sp, color = cs.onSurfaceVariant)
+                    CompositionLocalProvider(LocalDensity provides timeDensity) {
+                        Text("+${trips.size - 2}", fontSize = 9.sp, color = cs.onSurfaceVariant,
+                            maxLines = 1, softWrap = false)
+                    }
                 }
             }
             // Бейдж отвлечения

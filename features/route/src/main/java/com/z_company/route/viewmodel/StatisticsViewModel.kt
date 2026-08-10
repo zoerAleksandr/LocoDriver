@@ -268,8 +268,11 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
         val series = detailSeries
         if (index !in series.indices) return
         val p = series[index]
-        val delta = if (index > 0) infoDelta(p.bar.toDouble(), series[index - 1].bar.toDouble()) else null
-        val prevCaption = if (index > 0) "${series[index - 1].short} ${series[index - 1].valueStr}" else ""
+        val prevPoint = if (index > 0) series[index - 1] else null
+        // Сравнение показываем только когда у обоих месяцев есть данные («—» = нет данных).
+        val bothHaveData = prevPoint != null && p.valueStr != "—" && prevPoint.valueStr != "—"
+        val delta = if (bothHaveData) infoDelta(p.bar.toDouble(), prevPoint!!.bar.toDouble()) else null
+        val prevCaption = if (bothHaveData) "${prevPoint!!.short} ${prevPoint.valueStr}" else ""
         detailState = StatDetailState(
             key = key,
             title = METRIC_SHORT[key] ?: "Метрика",
@@ -334,8 +337,16 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
         val trains = trainRoutesOfMonth(year, month0).flatMap { it.trains }
         return when (key) {
             "worked" -> routes.getWorkTime(month, ctx).let { Triple(it / 3_600_000f, StatFormat.hm(it), "") }
-            "overtime" -> (routes.getWorkTime(month, ctx) - month.getPersonalNormaHours() * 3_600_000L)
-                .let { Triple(kotlin.math.abs(it / 3_600_000f), StatFormat.hm(it, signed = true), "") }
+            "overtime" ->
+                // Переработка = отработано − норма. Считаем только за месяцы, где есть
+                // маршруты; без работы переработки нет (иначе пустой месяц показывал бы
+                // −норму — «столбец в норму»).
+                if (routes.isEmpty()) {
+                    Triple(0f, "—", "")
+                } else {
+                    (routes.getWorkTime(month, ctx) - month.getPersonalNormaHours() * 3_600_000L)
+                        .let { Triple(kotlin.math.abs(it / 3_600_000f), StatFormat.hm(it, signed = true), "") }
+                }
             "night" -> (try { routes.getNightTime(s) } catch (_: Exception) { 0L })
                 .let { Triple(it / 3_600_000f, StatFormat.hm(it), "") }
             "transit" -> trains.sumOf { it.getTravelTime() ?: 0L }
@@ -722,13 +733,11 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
                 "overtime" -> {
                     val curOt = cur.workedMs - cur.normaHours * 3_600_000L
                     val prevOt = prev?.let { it.workedMs - it.normaHours * 3_600_000L }
-                    val delta = if (compare && cur.normaHours > 0) {
-                        val over = cur.workedMs >= cur.normaHours * 3_600_000L
-                        val pctV = (curOt.toDouble() / (cur.normaHours * 3_600_000.0)) * 100
-                        StatDelta("norm", state = if (over) "over" else "ok", pct = pctStr(pctV))
-                    } else null
+                    // Сравниваем переработку с предыдущим периодом (как остальные метрики),
+                    // а не с нормой: если за период-базу нет данных — сравнения нет.
                     StatMetric("overtime", "Переработка", StatFormat.hm(curOt, signed = true), "",
-                        delta, prevOt?.let { StatFormat.hm(it, signed = true) } ?: "",
+                        d(curOt.toDouble(), prevOt?.toDouble()),
+                        prevOt?.let { StatFormat.hm(it, signed = true) } ?: "",
                         abs((prevOt ?: 0L) / 3_600_000f), abs(curOt / 3_600_000f))
                 }
                 "earnings" -> {

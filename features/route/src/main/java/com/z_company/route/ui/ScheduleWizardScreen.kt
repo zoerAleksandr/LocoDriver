@@ -35,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +51,8 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.MonoFont
@@ -85,8 +88,8 @@ private fun shiftPalette(kind: ShiftKind): ShiftPalette {
         when (kind) {
             // Дневная — светлая плашка (surface) с тёмным глифом, тонкая обводка.
             ShiftKind.DAY -> ShiftPalette(plate = cs.surface, ink = cs.primary, border = cs.outline)
-            // Ночная — тёмная плашка (цвет текста) со светлым глифом.
-            ShiftKind.NIGHT -> ShiftPalette(plate = cs.primary, ink = cs.surface, border = Color.Transparent)
+            // Ночная — мягкая тёмная плашка (не почти-чёрный cs.primary) со светлым глифом.
+            ShiftKind.NIGHT -> ShiftPalette(plate = Color(0xFF363B44), ink = cs.surface, border = Color.Transparent)
             // Выходной — приглушённая плашка.
             ShiftKind.OFF -> ShiftPalette(plate = cs.surfaceBright, ink = cs.onSurfaceVariant, border = Color.Transparent)
         }
@@ -100,9 +103,17 @@ private fun shiftShort(k: ShiftKind): String = when (k) {
 }
 
 private fun shiftLabel(k: ShiftKind): String = when (k) {
-    ShiftKind.DAY -> "Дневная"
-    ShiftKind.NIGHT -> "Ночная"
+    ShiftKind.DAY -> "День"
+    ShiftKind.NIGHT -> "Ночь"
     ShiftKind.OFF -> "Выходной"
+}
+
+/** Ограниченная плотность для подписей типов смен: узкие сегменты фиксированной
+ *  ширины — при крупном шрифте «Выходной» иначе рвётся посреди слова. */
+@Composable
+private fun shiftLabelDensity(max: Float = 1.15f): Density {
+    val d = LocalDensity.current
+    return if (d.fontScale > max) Density(d.density, max) else d
 }
 
 /** Глиф типа смены: солнце (день), месяц (ночь), тире (выходной). Система 24×24. */
@@ -798,12 +809,16 @@ private fun TypePicker(
                         modifier = Modifier.size(15.dp),
                     )
                     Spacer(Modifier.width(6.dp))
-                    Text(
-                        shiftLabel(kind),
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (active) pal.ink else cs.primary,
-                    )
+                    CompositionLocalProvider(LocalDensity provides shiftLabelDensity()) {
+                        Text(
+                            shiftLabel(kind),
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (active) pal.ink else cs.primary,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
                 }
             }
         }
@@ -837,7 +852,10 @@ private fun LegendItem(kind: ShiftKind) {
                 .background(pal.plate)
                 .border(1.dp, pal.border, RoundedCornerShape(4.dp)),
         )
-        Text(shiftLabel(kind), fontSize = 12.sp, color = cs.onSurfaceVariant)
+        CompositionLocalProvider(LocalDensity provides shiftLabelDensity()) {
+            Text(shiftLabel(kind), fontSize = 12.sp, color = cs.onSurfaceVariant,
+                maxLines = 1, softWrap = false)
+        }
     }
 }
 

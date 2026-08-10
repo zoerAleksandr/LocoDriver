@@ -64,6 +64,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -967,32 +968,57 @@ private fun TimeRow(
     onRemoveTime: () -> Unit
 ) {
     val hasValue = time != null
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            modifier = Modifier.width(96.dp),
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    // При крупном системном шрифте метка («Окончание») не помещается рядом с чипами,
+    // поэтому переносим её на отдельную строку над чипами — тогда чипы получают полную
+    // ширину и дата/время не обрезаются. При обычном шрифте — прежний инлайн-вид.
+    val stacked = LocalDensity.current.fontScale > 1.15f
+
+    val dateChip: @Composable (Modifier) -> Unit = { mod ->
         OwPickerChip(
-            modifier = Modifier.weight(1f),
+            modifier = mod,
             iconRes = com.z_company.route.R.drawable.calendar_today_24px,
             value = if (hasValue) dateAndTimeConverter?.getDate(time) ?: "" else "Дата",
             isPlaceholder = !hasValue,
             onClick = onOpenPicker,
             onLongClick = { if (hasValue) onRemoveTime() }
         )
+    }
+    val timeChip: @Composable (Modifier) -> Unit = { mod ->
         OwPickerChip(
-            modifier = Modifier.weight(1f),
+            modifier = mod,
             iconRes = com.z_company.route.R.drawable.schedule_24px,
             value = if (hasValue) dateAndTimeConverter?.getTime(time) ?: "" else "Время",
             isPlaceholder = !hasValue,
             onClick = onOpenPicker,
             onLongClick = { if (hasValue) onRemoveTime() }
         )
+    }
+    val labelText: @Composable (Modifier) -> Unit = { mod ->
+        Text(
+            modifier = mod,
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    if (stacked) {
+        // Метка сверху, а дата и время — каждый на всю ширину отдельной строкой:
+        // рядом два чипа при крупном шрифте узкие и дата («06.08.26») обрезается.
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            labelText(Modifier)
+            dateChip(Modifier.fillMaxWidth())
+            timeChip(Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            labelText(Modifier.width(96.dp))
+            dateChip(Modifier.weight(1f))
+            timeChip(Modifier.weight(1f))
+        }
     }
 }
 

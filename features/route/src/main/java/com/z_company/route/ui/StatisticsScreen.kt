@@ -33,6 +33,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,10 +47,15 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.MonoFont
@@ -502,24 +508,18 @@ private fun MetricGrid(
     onOpenDetail: (String) -> Unit,
     onInfo: (String) -> Unit,
 ) {
+    // По одной метрике в ряд (на всю ширину) — так значение, единица и мини-столбцы
+    // сравнения помещаются без обрезки, столбцы уходят к правому краю.
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        var i = 0
-        if (wideFirst && metrics.isNotEmpty()) {
-            MetricPlate(metrics[0], wide = true, compare = compare, currency = currency, onClick = { onOpenDetail(metrics[0].key) }, onInfo = onInfo)
-            i = 1
-        }
-        while (i < metrics.size) {
-            val left = metrics[i]
-            val right = metrics.getOrNull(i + 1)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.weight(1f)) {
-                    MetricPlate(left, wide = false, compare = compare, currency = currency, onClick = { onOpenDetail(left.key) }, onInfo = onInfo)
-                }
-                Box(Modifier.weight(1f)) {
-                    if (right != null) MetricPlate(right, wide = false, compare = compare, currency = currency, onClick = { onOpenDetail(right.key) }, onInfo = onInfo)
-                }
-            }
-            i += 2
+        metrics.forEachIndexed { idx, m ->
+            MetricPlate(
+                m,
+                wide = wideFirst && idx == 0,
+                compare = compare,
+                currency = currency,
+                onClick = { onOpenDetail(m.key) },
+                onInfo = onInfo,
+            )
         }
     }
 }
@@ -571,8 +571,9 @@ private fun MetricPlate(
                 modifier = Modifier.fillMaxWidth().padding(bottom = if (wide) 10.dp else 12.dp),
             ) {
                 MetricKeyIcon(m.key, currency, 17.dp, MaterialTheme.colorScheme.tertiary)
+                // Плашка на всю ширину — заголовок помещается в 1–2 строки без обрезки.
                 Text(m.label, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false))
                 if (m.key in INFO_KEYS) InfoDot { onInfo(m.key) }
             }
@@ -581,34 +582,44 @@ private fun MetricPlate(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Column {
-                    Text(m.value, fontFamily = MonoFont, fontSize = if (wide) 40.sp else 26.sp,
-                        fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp,
-                        lineHeight = if (wide) 40.sp else 26.sp, color = MaterialTheme.colorScheme.primary, maxLines = 1)
-                    // Строку единицы резервируем всегда (в сетке) — чтобы плашки с
-                    // единицей и без были одной высоты и ровнялись по сетке.
-                    if (m.unit.isNotEmpty()) {
-                        Text(m.unit, fontFamily = MonoFont, fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp), maxLines = 1)
-                    } else if (!wide) {
-                        Text(" ", fontFamily = MonoFont, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
-                    }
-                }
+                // Значение + единица одним текстом: единица стоит рядом со значением,
+                // если помещается, и переносится на вторую строку, только если нет.
+                // Пробелы внутри числа — неразрывные, поэтому само число не рвётся.
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(fontFamily = MonoFont, fontSize = if (wide) 40.sp else 26.sp,
+                            fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp,
+                            color = MaterialTheme.colorScheme.primary)) {
+                            append(m.value.replace(' ', '\u00A0'))
+                        }
+                        if (m.unit.isNotEmpty()) {
+                            withStyle(SpanStyle(fontFamily = MonoFont, fontSize = if (wide) 15.sp else 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)) {
+                                append(" ${m.unit}")
+                            }
+                        }
+                    },
+                    maxLines = 2,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
                 if (compare && m.hasPrev) MiniPair(m.prevBar, m.curBar, curColor, if (wide) 44.dp else 34.dp)
             }
             if (compare && m.delta != null) {
+                val prevCaption: @Composable () -> Unit = {
+                    if (m.prevValue.isNotEmpty()) {
+                        Text("было ${m.prevValue}", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                // Плашка на всю ширину — «−131% было 610:35» помещается в одну строку.
                 Row(
                     modifier = Modifier.padding(top = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     DeltaTag(m.delta, plain = true, small = true)
-                    if (m.prevValue.isNotEmpty()) {
-                        Text("было ${m.prevValue}", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+                    prevCaption()
                 }
             }
         }
@@ -670,14 +681,26 @@ private fun YearHero(value: String, delta: StatDelta?, bars: List<StatMonthBar>,
             Text("ОТРАБОТАНО ЗА ГОД · Ч", fontFamily = MonoFont, fontSize = 11.sp, letterSpacing = 1.4.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
+            val heroValue: @Composable () -> Unit = {
                 Text(value, fontFamily = MonoFont, fontSize = 46.sp, fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-1.5).sp, lineHeight = 46.sp, color = MaterialTheme.colorScheme.primary)
-                if (delta != null) DeltaTag(delta)
+                    letterSpacing = (-1.5).sp, lineHeight = 46.sp, color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1)
+            }
+            // При крупном шрифте крупное число и тег сравнения не помещаются в строку.
+            if (LocalDensity.current.fontScale > 1.15f) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    heroValue()
+                    if (delta != null) DeltaTag(delta)
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    heroValue()
+                    if (delta != null) DeltaTag(delta)
+                }
             }
             if (bars.isNotEmpty()) {
                 Spacer(Modifier.height(20.dp))
@@ -693,6 +716,9 @@ private fun YearBarsChart(bars: List<StatMonthBar>, compare: Boolean) {
     val max = (bars.maxOfOrNull { maxOf(it.cur, it.prev) } ?: 1f).coerceAtLeast(1f) * 1.05f
     val accent = MaterialTheme.colorScheme.tertiary
     val prevFill = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+    val labelDensity = LocalDensity.current.let { d ->
+        if (d.fontScale > 1f) Density(d.density, 1f) else d
+    }
     Column {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             LegendDot(accent, "текущий", false)
@@ -718,8 +744,11 @@ private fun YearBarsChart(bars: List<StatMonthBar>, compare: Boolean) {
                         Box(Modifier.width(6.dp).height(130.dp * (m.cur / max))
                             .clip(RoundedCornerShape(2.dp)).background(accent))
                     }
-                    Text(if (i % 2 == 0) m.label else "", fontFamily = MonoFont, fontSize = 8.5.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                    CompositionLocalProvider(LocalDensity provides labelDensity) {
+                        Text(if (i % 2 == 0) m.label else "", fontFamily = MonoFont, fontSize = 8.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false,
+                            modifier = Modifier.padding(top = 6.dp))
+                    }
                 }
             }
         }
@@ -833,16 +862,10 @@ private fun HistoryTab(state: StatisticsUiState, onSelectMetric: (String) -> Uni
     }
     // Сетка метрик — тап выбирает метрику для итога и разбивки
     Spacer(Modifier.height(12.dp))
+    // По одной метрике в ряд (на всю ширину).
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        state.historyMetrics.chunked(2).forEach { rowItems ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                rowItems.forEach { m ->
-                    Box(Modifier.weight(1f)) {
-                        HistoryMetricPlate(m, selected = m.key == state.historySelected, currency = state.currency) { onSelectMetric(m.key) }
-                    }
-                }
-                if (rowItems.size == 1) Spacer(Modifier.weight(1f))
-            }
+        state.historyMetrics.forEach { m ->
+            HistoryMetricPlate(m, selected = m.key == state.historySelected, currency = state.currency) { onSelectMetric(m.key) }
         }
     }
     SectionHeader("Год за годом")
@@ -867,16 +890,28 @@ private fun HistoryMetricPlate(m: com.z_company.route.viewmodel.StatHistoryMetri
                     if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary)
                 Text(m.label, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                     color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             }
             Spacer(Modifier.height(12.dp))
-            Text(m.total, fontFamily = MonoFont, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.8).sp, maxLines = 1,
-                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary)
-            if (m.unit.isNotEmpty()) {
-                Text(m.unit, fontFamily = MonoFont, fontSize = 11.5.sp, modifier = Modifier.padding(top = 3.dp),
-                    color = if (selected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            // Число + единица одним текстом: единица остаётся рядом с числом, если
+            // помещается, и переносится на вторую строку, только если не влезает.
+            // Пробелы внутри числа — неразрывные, поэтому само число не рвётся.
+            val numColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+            val unitColor = if (selected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(SpanStyle(fontFamily = MonoFont, fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp, color = numColor)) {
+                        append(m.total.replace(' ', '\u00A0'))
+                    }
+                    if (m.unit.isNotEmpty()) {
+                        withStyle(SpanStyle(fontFamily = MonoFont, fontSize = 11.5.sp, color = unitColor)) {
+                            append(" ${m.unit}")
+                        }
+                    }
+                },
+                maxLines = 2,
+            )
         }
     }
 }
@@ -936,25 +971,48 @@ private fun DetailContent(detail: StatDetailState, padding: PaddingValues, onSel
                 Text(detail.caption, fontFamily = MonoFont, fontSize = 11.sp, letterSpacing = 1.4.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
+                val heroValueRow: @Composable () -> Unit = {
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(detail.heroValue, fontFamily = MonoFont, fontSize = 46.sp, fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = (-1.5).sp, lineHeight = 46.sp, color = MaterialTheme.colorScheme.primary)
+                            letterSpacing = (-1.5).sp, lineHeight = 46.sp, color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1)
                         if (detail.heroUnit.isNotEmpty()) {
                             Text(" ${detail.heroUnit}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp),
+                                maxLines = 1)
                         }
                     }
-                    if (detail.heroDelta != null) {
-                        Column(horizontalAlignment = Alignment.End) {
-                            DeltaTag(detail.heroDelta)
-                            if (detail.heroPrevCaption.isNotEmpty()) {
-                                Text(detail.heroPrevCaption, fontFamily = MonoFont, fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                }
+                // При крупном шрифте крупное число и блок сравнения не помещаются в
+                // одну строку и наезжают друг на друга — раскладываем вертикально.
+                if (LocalDensity.current.fontScale > 1.15f) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        heroValueRow()
+                        if (detail.heroDelta != null) {
+                            Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                DeltaTag(detail.heroDelta)
+                                if (detail.heroPrevCaption.isNotEmpty()) {
+                                    Text(detail.heroPrevCaption, fontFamily = MonoFont, fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        heroValueRow()
+                        if (detail.heroDelta != null) {
+                            Column(horizontalAlignment = Alignment.End) {
+                                DeltaTag(detail.heroDelta)
+                                if (detail.heroPrevCaption.isNotEmpty()) {
+                                    Text(detail.heroPrevCaption, fontFamily = MonoFont, fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                                }
                             }
                         }
                     }
@@ -1021,6 +1079,11 @@ private fun BreakdownDonut(segments: List<StatDonutSeg>, centerMain: String, cen
 private fun DetailBars(bars: List<StatDetailBar>, selected: Int, onSelect: (Int) -> Unit) {
     val max = (bars.maxOfOrNull { it.value } ?: 1f).coerceAtLeast(1f) * 1.12f
     val accent = MaterialTheme.colorScheme.tertiary
+    // 12 столбцов фиксированной ширины — подписи месяцев рендерим в дизайн-размере
+    // (иначе «Сен» рвётся на «Се/н»).
+    val labelDensity = LocalDensity.current.let { d ->
+        if (d.fontScale > 1f) Density(d.density, 1f) else d
+    }
     Row(modifier = Modifier.fillMaxWidth().height(180.dp), verticalAlignment = Alignment.Bottom) {
         bars.forEachIndexed { i, b ->
             val active = i == selected
@@ -1031,11 +1094,14 @@ private fun DetailBars(bars: List<StatDetailBar>, selected: Int, onSelect: (Int)
             ) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                        Text(
-                            text = if (active) StatFormatBarLabel(b) else "",
-                            fontFamily = MonoFont, fontSize = 9.5.sp, fontWeight = FontWeight.Bold,
-                            color = accent, maxLines = 1, modifier = Modifier.padding(bottom = 4.dp),
-                        )
+                        CompositionLocalProvider(LocalDensity provides labelDensity) {
+                            Text(
+                                text = if (active) StatFormatBarLabel(b) else "",
+                                fontFamily = MonoFont, fontSize = 9.5.sp, fontWeight = FontWeight.Bold,
+                                color = accent, maxLines = 1, softWrap = false,
+                                modifier = Modifier.padding(bottom = 4.dp),
+                            )
+                        }
                         Box(
                             Modifier.width(if (active) 14.dp else 10.dp)
                                 .height((150.dp * (b.value / max)).coerceAtLeast(3.dp))
@@ -1044,10 +1110,13 @@ private fun DetailBars(bars: List<StatDetailBar>, selected: Int, onSelect: (Int)
                         )
                     }
                 }
-                Text(b.short, fontFamily = MonoFont, fontSize = 9.5.sp,
-                    fontWeight = if (active) FontWeight.ExtraBold else FontWeight.Normal,
-                    color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                    modifier = Modifier.padding(top = 7.dp))
+                CompositionLocalProvider(LocalDensity provides labelDensity) {
+                    Text(b.short, fontFamily = MonoFont, fontSize = 9.5.sp,
+                        fontWeight = if (active) FontWeight.ExtraBold else FontWeight.Normal,
+                        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                        maxLines = 1, softWrap = false,
+                        modifier = Modifier.padding(top = 7.dp))
+                }
             }
         }
     }

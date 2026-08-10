@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -152,6 +153,17 @@ fun ItemHomeScreen(
         timeText to workTimeString
     }
 
+    // Явка и сдача с датой ОБЕ — для крупного шрифта (столбец), даже если даты
+    // совпадают: так столбец «явка над сдачей» ровный (в обычном формате дата сдачи
+    // при совпадении опускается).
+    val stackedStartEnd = remember(route, dateAndTimeConverter) {
+        val s = dateAndTimeConverter.getDateMiniAndTime(value = route.basicData.timeStartWork)
+        val e = route.basicData.timeEndWork?.let {
+            dateAndTimeConverter.getDateMiniAndTime(value = it)
+        } ?: ""
+        s to e
+    }
+
     val interactionSource = remember { MutableInteractionSource() }
 
     // Bottom-sheet «Обозначения» — открывается по нажатию на значки маршрута.
@@ -200,6 +212,64 @@ fun ItemHomeScreen(
                     horizontalAlignment = Alignment.Start,
                     verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
                 ) {
+                    val bigFontHeader = LocalDensity.current.fontScale > 1.15f
+                    if (bigFontHeader) {
+                        // Крупный шрифт: явка и сдача друг над другом, а продолжительность
+                        // работы — справа в чипе (как блок «Расчёт за смену»). Так дата и
+                        // «10:30» одного размера и ничего не ужимается.
+                        val timeStyle = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = com.z_company.core.ui.theme.MonoFont,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = stackedStartEnd.first,
+                                    style = timeStyle,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                if (stackedStartEnd.second.isNotBlank()) {
+                                    Text(
+                                        text = stackedStartEnd.second,
+                                        style = timeStyle,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                            // Чип с продолжительностью — только если она есть (у маршрута
+                            // без времени сдачи её нет, пустой чип не показываем).
+                            if (workTimeStringMemo.isNotBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceBright)
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                ) {
+                                    Text(
+                                        text = workTimeStringMemo,
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                            fontWeight = FontWeight.Bold,
+                                        ),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                    )
+                                }
+                            }
+                        }
+                    } else {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth(),
@@ -247,6 +317,7 @@ fun ItemHomeScreen(
                                 changingTextSize(size)
                             }
                         )
+                    }
                     }
 
                     // Свёрнутый вид (как на Главном): основной поезд одной строкой,
@@ -628,21 +699,14 @@ private fun RouteUnitRow(
 // Итог оплаты за смену — нейтральный блок в подложке.
 @Composable
 private fun ShiftPaymentBlock(payment: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceBright)
-            .padding(horizontal = 14.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
+    val label: @Composable () -> Unit = {
         Text(
             text = "Расчёт за смену",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+    val value: @Composable () -> Unit = {
         Text(
             text = payment,
             style = MaterialTheme.typography.bodyLarge.copy(
@@ -650,6 +714,33 @@ private fun ShiftPaymentBlock(payment: String) {
                 fontWeight = FontWeight.Bold,
             ),
             color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            softWrap = false,
         )
+    }
+    val boxModifier = Modifier
+        .fillMaxWidth()
+        .padding(top = 8.dp)
+        .clip(RoundedCornerShape(12.dp))
+        .background(MaterialTheme.colorScheme.surfaceBright)
+        .padding(horizontal = 14.dp, vertical = 11.dp)
+    // Крупный шрифт: подпись и сумма друг под другом (в ряд сумма не помещается).
+    if (LocalDensity.current.fontScale > 1.15f) {
+        Column(
+            modifier = boxModifier,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            label()
+            value()
+        }
+    } else {
+        Row(
+            modifier = boxModifier,
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            label()
+            value()
+        }
     }
 }

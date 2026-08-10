@@ -175,176 +175,174 @@ fun ElectricSectionItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 16.dp, bottom = 6.dp),
             )
-            Row(
+            AdaptivePair(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextFieldApp(
-                    modifier = Modifier
-                        .weight(1f),
-                    value = acceptedText,
-                    onValueChange = {
-                        onEnergyAcceptedChanged(index, it.take(10))
-                        focusChangedElectricSection(index, ElectricSectionType.ACCEPTED)
-                    },
-                    textStyle = dataTextStyle,
-                    fieldElevation = 0.dp,
-                    borderColor = Color.Transparent,
-                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                    placeholder = {
-                        Text(
-                            text = if (showOtherCurrent) "Ток 1 принял" else "Принял",
-                            style = LocalTextStyle.current.copy(
-                                fontWeight = FontWeight.Light
-                            ), color = noValueColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
-                    ),
-                    keyboardActions = KeyboardActions(onNext = {
-                        scope.launch {
-                            focusManager.moveFocus(FocusDirection.Right)
-                        }
-                    }),
-                    singleLine = true,
-                    shape = Shapes.medium,
-                )
-
-                Text(
-                    text = "→",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-
-                OutlinedTextFieldApp(
-                    modifier = Modifier
-                        .weight(1f),
-                    value = deliveryText,
-                    textStyle = dataTextStyle,
-                    fieldElevation = 0.dp,
-                    borderColor = Color.Transparent,
-                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                    onValueChange = {
-                        onEnergyDeliveryChanged(index, it.take(10))
-                        focusChangedElectricSection(index, ElectricSectionType.DELIVERY)
-                    },
-                    placeholder = {
-                        Text(
-                            text = if (showOtherCurrent) "Ток 1 сдал" else "Сдал",
-                            style = LocalTextStyle.current.copy(
-                                fontWeight = FontWeight.Light
-                            ), color = noValueColor
-                        )
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(onDone = {
-                        scope.launch {
-                            focusManager.clearFocus()
-                        }
-                    }),
-                    singleLine = true,
-                    shape = Shapes.medium,
-                )
-            }
+                separator = {
+                    Text(
+                        text = "→",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                },
+                first = { mod ->
+                    OutlinedTextFieldApp(
+                        modifier = mod,
+                        value = acceptedText,
+                        onValueChange = {
+                            onEnergyAcceptedChanged(index, it.take(10))
+                            focusChangedElectricSection(index, ElectricSectionType.ACCEPTED)
+                        },
+                        textStyle = dataTextStyle,
+                        fieldElevation = 0.dp,
+                        borderColor = Color.Transparent,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                        placeholder = {
+                            Text(
+                                text = if (showOtherCurrent) "Ток 1 принял" else "Принял",
+                                style = LocalTextStyle.current.copy(
+                                    fontWeight = FontWeight.Light
+                                ), color = noValueColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(onNext = {
+                            scope.launch {
+                                focusManager.moveFocus(FocusDirection.Right)
+                            }
+                        }),
+                        singleLine = true,
+                        shape = Shapes.medium,
+                    )
+                },
+                second = { mod ->
+                    OutlinedTextFieldApp(
+                        modifier = mod,
+                        value = deliveryText,
+                        textStyle = dataTextStyle,
+                        fieldElevation = 0.dp,
+                        borderColor = Color.Transparent,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                        onValueChange = {
+                            onEnergyDeliveryChanged(index, it.take(10))
+                            focusChangedElectricSection(index, ElectricSectionType.DELIVERY)
+                        },
+                        placeholder = {
+                            Text(
+                                text = if (showOtherCurrent) "Ток 1 сдал" else "Сдал",
+                                style = LocalTextStyle.current.copy(
+                                    fontWeight = FontWeight.Light
+                                ), color = noValueColor
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(onDone = {
+                            scope.launch {
+                                focusManager.clearFocus()
+                            }
+                        }),
+                        singleLine = true,
+                        shape = Shapes.medium,
+                    )
+                }
+            )
 
             // счетчики расхода ток 2
             AnimatedContent(
                 targetState = showOtherCurrent, label = ""
             ) { targetState ->
                 if (targetState) {
-                    Row(
+                    AdaptivePair(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextFieldApp(
-                            modifier = Modifier
-                                .weight(1f),
-                            value = acceptedText2,
-                            onValueChange = {
-                                onEnergyAcceptedChanged2(index, it.take(10))
-                                focusChangedElectricSection(index, ElectricSectionType.ACCEPTED2)
-                            },
-                            textStyle = dataTextStyle,
-                    fieldElevation = 0.dp,
-                    borderColor = Color.Transparent,
-                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                            placeholder = {
-                                Text(
-                                    text = "Ток 2 принял", style = LocalTextStyle.current.copy(
-                                        fontWeight = FontWeight.Light
-                                    ), color = noValueColor,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
-                            ),
-                            keyboardActions = KeyboardActions(onNext = {
-                                scope.launch {
-                                    focusManager.moveFocus(FocusDirection.Right)
-                                }
-                            }),
-                            singleLine = true,
-                            shape = Shapes.medium,
-                        )
-
-                        Text(
-                            text = "→",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-
-                        OutlinedTextFieldApp(
-                            modifier = Modifier
-                                .weight(1f),
-                            value = deliveryText2,
-                            textStyle = dataTextStyle,
-                    fieldElevation = 0.dp,
-                    borderColor = Color.Transparent,
-                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                            onValueChange = {
-                                onEnergyDeliveryChanged2(index, it.take(10))
-                                focusChangedElectricSection(index, ElectricSectionType.DELIVERY2)
-                            },
-                            placeholder = {
-                                Text(
-                                    text = "Ток 2 сдал", style = LocalTextStyle.current.copy(
-                                        fontWeight = FontWeight.Light
-                                    ), color = noValueColor
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
-                            ),
-                            keyboardActions = KeyboardActions(onDone = {
-                                scope.launch {
-                                    focusManager.clearFocus()
-                                }
-                            }),
-                            singleLine = true,
-                            shape = Shapes.medium,
-                        )
-                    }
+                        separator = {
+                            Text(
+                                text = "→",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        },
+                        first = { mod ->
+                            OutlinedTextFieldApp(
+                                modifier = mod,
+                                value = acceptedText2,
+                                onValueChange = {
+                                    onEnergyAcceptedChanged2(index, it.take(10))
+                                    focusChangedElectricSection(index, ElectricSectionType.ACCEPTED2)
+                                },
+                                textStyle = dataTextStyle,
+                                fieldElevation = 0.dp,
+                                borderColor = Color.Transparent,
+                                colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                placeholder = {
+                                    Text(
+                                        text = "Ток 2 принял", style = LocalTextStyle.current.copy(
+                                            fontWeight = FontWeight.Light
+                                        ), color = noValueColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(onNext = {
+                                    scope.launch {
+                                        focusManager.moveFocus(FocusDirection.Right)
+                                    }
+                                }),
+                                singleLine = true,
+                                shape = Shapes.medium,
+                            )
+                        },
+                        second = { mod ->
+                            OutlinedTextFieldApp(
+                                modifier = mod,
+                                value = deliveryText2,
+                                textStyle = dataTextStyle,
+                                fieldElevation = 0.dp,
+                                borderColor = Color.Transparent,
+                                colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                onValueChange = {
+                                    onEnergyDeliveryChanged2(index, it.take(10))
+                                    focusChangedElectricSection(index, ElectricSectionType.DELIVERY2)
+                                },
+                                placeholder = {
+                                    Text(
+                                        text = "Ток 2 сдал", style = LocalTextStyle.current.copy(
+                                            fontWeight = FontWeight.Light
+                                        ), color = noValueColor
+                                    )
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    scope.launch {
+                                        focusManager.clearFocus()
+                                    }
+                                }),
+                                singleLine = true,
+                                shape = Shapes.medium,
+                            )
+                        }
+                    )
                 }
             }
 
@@ -378,128 +376,36 @@ fun ElectricSectionItem(
                 }
                 AnimatedVisibility(expandRecovery) {
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                        Row(
+                        AdaptivePair(
                             modifier = Modifier
                                 .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .weight(1f),
-                                value = recoveryAcceptedText,
-                                onValueChange = {
-                                    onRecoveryAcceptedChanged(index, it.take(10))
-                                    focusChangedElectricSection(
-                                        index,
-                                        ElectricSectionType.RECOVERY_ACCEPTED
-                                    )
-                                },
-                                textStyle = dataTextStyle,
-                    fieldElevation = 0.dp,
-                    borderColor = Color.Transparent,
-                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                                placeholder = {
-                                    Text(
-                                        text = if (showOtherCurrent) "Ток 1 принял" else "Принял",
-                                        style = LocalTextStyle.current.copy(
-                                            fontWeight = FontWeight.Light
-                                        ),
-                                        color = noValueColor,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Next
-                                ),
-                                keyboardActions = KeyboardActions(onNext = {
-                                    scope.launch {
-                                        focusManager.moveFocus(FocusDirection.Right)
-                                    }
-                                }),
-                                singleLine = true,
-                                shape = Shapes.medium,
-                            )
-
-                            Text(
-                                text = "→",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-
-                            OutlinedTextFieldApp(
-                                modifier = Modifier
-                                    .weight(1f),
-                                value = recoveryDeliveryText,
-                                onValueChange = {
-                                    onRecoveryDeliveryChanged(index, it.take(10))
-                                    focusChangedElectricSection(
-                                        index,
-                                        ElectricSectionType.RECOVERY_DELIVERY
-                                    )
-                                },
-                                textStyle = dataTextStyle,
-                    fieldElevation = 0.dp,
-                    borderColor = Color.Transparent,
-                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                                placeholder = {
-                                    Text(
-                                        text = if (showOtherCurrent) "Ток 1 сдал" else "Сдал",
-                                        style = LocalTextStyle.current.copy(
-                                            fontWeight = FontWeight.Light
-                                        ),
-                                        color = noValueColor
-                                    )
-                                },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done
-                                ),
-                                keyboardActions = KeyboardActions(onDone = {
-                                    scope.launch {
-                                        focusManager.clearFocus()
-                                    }
-                                }),
-
-                                singleLine = true,
-                            )
-                        }
-
-                        // рекуперация 2
-                        AnimatedVisibility(visible = showOtherCurrent) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                            separator = {
+                                Text(
+                                    text = "→",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            },
+                            first = { mod ->
                                 OutlinedTextFieldApp(
-                                    modifier = Modifier
-                                        .weight(1f),
-                                    value = recoveryAcceptedText2,
+                                    modifier = mod,
+                                    value = recoveryAcceptedText,
                                     onValueChange = {
-                                        onRecoveryAcceptedChanged2(index, it.take(10))
+                                        onRecoveryAcceptedChanged(index, it.take(10))
                                         focusChangedElectricSection(
                                             index,
-                                            ElectricSectionType.RECOVERY_ACCEPTED2
+                                            ElectricSectionType.RECOVERY_ACCEPTED
                                         )
                                     },
                                     textStyle = dataTextStyle,
-                    fieldElevation = 0.dp,
-                    borderColor = Color.Transparent,
-                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                    fieldElevation = 0.dp,
+                                    borderColor = Color.Transparent,
+                                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                                     placeholder = {
                                         Text(
-                                            text = "Ток 2 принял",
+                                            text = if (showOtherCurrent) "Ток 1 принял" else "Принял",
                                             style = LocalTextStyle.current.copy(
                                                 fontWeight = FontWeight.Light
                                             ),
@@ -520,33 +426,27 @@ fun ElectricSectionItem(
                                     singleLine = true,
                                     shape = Shapes.medium,
                                 )
-
-                                Text(
-                                    text = "→",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-
+                            },
+                            second = { mod ->
                                 OutlinedTextFieldApp(
-                                    modifier = Modifier
-                                        .weight(1f),
-                                    value = recoveryDeliveryText2,
+                                    modifier = mod,
+                                    value = recoveryDeliveryText,
                                     onValueChange = {
-                                        onRecoveryDeliveryChanged2(index, it.take(10))
+                                        onRecoveryDeliveryChanged(index, it.take(10))
                                         focusChangedElectricSection(
                                             index,
-                                            ElectricSectionType.RECOVERY_DELIVERY2
+                                            ElectricSectionType.RECOVERY_DELIVERY
                                         )
                                     },
                                     textStyle = dataTextStyle,
-                    fieldElevation = 0.dp,
-                    borderColor = Color.Transparent,
-                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                    fieldElevation = 0.dp,
+                                    borderColor = Color.Transparent,
+                                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                                     placeholder = {
                                         Text(
-                                            text = "Ток 2 сдал",
+                                            text = if (showOtherCurrent) "Ток 1 сдал" else "Сдал",
                                             style = LocalTextStyle.current.copy(
                                                 fontWeight = FontWeight.Light
                                             ),
@@ -562,11 +462,105 @@ fun ElectricSectionItem(
                                             focusManager.clearFocus()
                                         }
                                     }),
-
                                     singleLine = true,
-                                    shape = Shapes.medium,
                                 )
                             }
+                        )
+
+                        // рекуперация 2
+                        AnimatedVisibility(visible = showOtherCurrent) {
+                            AdaptivePair(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                                separator = {
+                                    Text(
+                                        text = "→",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                },
+                                first = { mod ->
+                                    OutlinedTextFieldApp(
+                                        modifier = mod,
+                                        value = recoveryAcceptedText2,
+                                        onValueChange = {
+                                            onRecoveryAcceptedChanged2(index, it.take(10))
+                                            focusChangedElectricSection(
+                                                index,
+                                                ElectricSectionType.RECOVERY_ACCEPTED2
+                                            )
+                                        },
+                                        textStyle = dataTextStyle,
+                                        fieldElevation = 0.dp,
+                                        borderColor = Color.Transparent,
+                                        colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                        placeholder = {
+                                            Text(
+                                                text = "Ток 2 принял",
+                                                style = LocalTextStyle.current.copy(
+                                                    fontWeight = FontWeight.Light
+                                                ),
+                                                color = noValueColor,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        },
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Number,
+                                            imeAction = ImeAction.Next
+                                        ),
+                                        keyboardActions = KeyboardActions(onNext = {
+                                            scope.launch {
+                                                focusManager.moveFocus(FocusDirection.Right)
+                                            }
+                                        }),
+                                        singleLine = true,
+                                        shape = Shapes.medium,
+                                    )
+                                },
+                                second = { mod ->
+                                    OutlinedTextFieldApp(
+                                        modifier = mod,
+                                        value = recoveryDeliveryText2,
+                                        onValueChange = {
+                                            onRecoveryDeliveryChanged2(index, it.take(10))
+                                            focusChangedElectricSection(
+                                                index,
+                                                ElectricSectionType.RECOVERY_DELIVERY2
+                                            )
+                                        },
+                                        textStyle = dataTextStyle,
+                                        fieldElevation = 0.dp,
+                                        borderColor = Color.Transparent,
+                                        colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                        placeholder = {
+                                            Text(
+                                                text = "Ток 2 сдал",
+                                                style = LocalTextStyle.current.copy(
+                                                    fontWeight = FontWeight.Light
+                                                ),
+                                                color = noValueColor
+                                            )
+                                        },
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Number,
+                                            imeAction = ImeAction.Done
+                                        ),
+                                        keyboardActions = KeyboardActions(onDone = {
+                                            scope.launch {
+                                                focusManager.clearFocus()
+                                            }
+                                        }),
+                                        singleLine = true,
+                                        shape = Shapes.medium,
+                                    )
+                                }
+                            )
                         }
                     }
                 }

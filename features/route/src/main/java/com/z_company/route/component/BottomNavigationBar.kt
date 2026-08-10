@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +29,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -155,14 +158,22 @@ private fun NavBarItem(
             )
         }
         Spacer(modifier = Modifier.height(3.dp))
-        Text(
-            text = item.title,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        // Ярлыки — узкие фиксированные сегменты; ограничиваем масштаб шрифта, чтобы
+        // «Настройки»/«Зарплата» помещались одной строкой и не обрезались.
+        val labelDensity = LocalDensity.current.let { d ->
+            if (d.fontScale > 1.15f) Density(d.density, 1.15f) else d
+        }
+        CompositionLocalProvider(LocalDensity provides labelDensity) {
+            Text(
+                text = item.title,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = contentColor,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 

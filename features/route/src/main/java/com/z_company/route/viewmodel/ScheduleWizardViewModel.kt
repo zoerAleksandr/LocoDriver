@@ -126,7 +126,12 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
 
     fun addCycleDay() = _uiState.update { s ->
         val cycle = s.customCycle + ShiftKind.DAY
-        s.copy(customCycle = cycle, preview = buildPreview(s.selectedId, s.patterns, s.firstDay, s.daysInMonth, cycle))
+        // Сразу открываем пикер типа для нового дня — следующим тапом задаётся тип.
+        s.copy(
+            customCycle = cycle,
+            pickerIndex = cycle.lastIndex,
+            preview = buildPreview(s.selectedId, s.patterns, s.firstDay, s.daysInMonth, cycle),
+        )
     }
 
     fun removeCycleDay(index: Int) = _uiState.update { s ->

@@ -562,6 +562,10 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
     val natural = remember(columns, rows) {
         List(columns.size) { mutableStateOf(0.dp) }
     }
+    // Ширина самого длинного отдельного слова в столбце имени — используется как
+    // нижняя граница ширины столбца, чтобы ни одно слово не обрезалось при крупном
+    // шрифте (если слово шире доступного места — таблица прокрутится по горизонтали).
+    val nameWordFloor = remember(columns, rows) { mutableStateOf(0.dp) }
     val measureScroll = rememberScrollState()
 
     // Итоговые ширины столбцов на основе измеренных.
@@ -576,7 +580,7 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
     if (nameIdx >= 0) {
         val numericTotal = display.filterIndexed { i, _ -> i != nameIdx }.fold(0.dp) { a, d -> a + d }
         val availForName = target - numericTotal
-        display[nameIdx] = if (availForName >= 120.dp) {
+        val base = if (availForName >= 120.dp) {
             // Числа помещаются — имя занимает остаток и переносится (нормальный шрифт).
             minOf(natural[nameIdx].value, availForName)
         } else {
@@ -584,6 +588,10 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
             // таблица прокручивается по горизонтали, суммы не обрезаются.
             maxOf(minOf(natural[nameIdx].value, cardWidth / 2), 88.dp)
         }
+        // Ширина столбца имени не меньше самого длинного слова — иначе слово
+        // обрежется многоточием при крупном шрифте. Если получилось шире доступного
+        // места, таблица прокрутится по горизонтали (перенос по словам сохраняется).
+        display[nameIdx] = maxOf(base, nameWordFloor.value)
     }
     // Если суммарно уже ширины карточки — дотягиваем «сумму» до правого края.
     val colsTotal = display.fold(0.dp) { a, d -> a + d }
@@ -611,6 +619,21 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
                                     if (w > natural[c].value) natural[c].value = w
                                 },
                             )
+                            if (col.type == ColType.NAME) {
+                                // Отдельно меряем каждое слово: столбец имени не должен
+                                // быть уже самого длинного слова, иначе оно обрежется.
+                                text.split(' ').forEach { word ->
+                                    Text(
+                                        text = word,
+                                        style = measureStyle,
+                                        maxLines = 1,
+                                        modifier = Modifier.onGloballyPositioned { coords ->
+                                            val w = with(density) { coords.size.width.toDp() } + 12.dp
+                                            if (w > nameWordFloor.value) nameWordFloor.value = w
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -692,7 +715,9 @@ private fun DataCell(cell: CellVal, width: Dp, type: ColType) {
             text = cell.text,
             style = style,
             color = color,
-            maxLines = if (type == ColType.NAME) 2 else 1,
+            // Имя выплаты может занять до 3 строк — при крупном шрифте длинные
+            // названия («Надбавка за класс квалификации») не обрезаются многоточием.
+            maxLines = if (type == ColType.NAME) 3 else 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = if (type == ColType.NAME) TextAlign.Start else TextAlign.End,
         )

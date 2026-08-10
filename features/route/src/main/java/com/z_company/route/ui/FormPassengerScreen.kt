@@ -59,6 +59,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -742,24 +743,39 @@ private fun StationLegCard(
                 )
 
                 // Дата + Время
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val hasValue = time != null
+                val hasValue = time != null
+                val dateChip: @Composable (Modifier) -> Unit = { mod ->
                     PickerChip(
-                        modifier = Modifier.weight(1.4f),
+                        modifier = mod,
                         iconRes = com.z_company.route.R.drawable.calendar_today_24px,
                         value = if (hasValue) dateAndTimeConverter?.getDate(time) ?: "" else "Дата",
                         isPlaceholder = !hasValue,
                         onClick = onOpenPicker,
                         onLongClick = { if (hasValue) onRemoveTime() }
                     )
+                }
+                val timeChip: @Composable (Modifier) -> Unit = { mod ->
                     PickerChip(
-                        modifier = Modifier.weight(1f),
+                        modifier = mod,
                         iconRes = com.z_company.route.R.drawable.schedule_24px,
                         value = if (hasValue) dateAndTimeConverter?.getTime(time) ?: "" else "Время",
                         isPlaceholder = !hasValue,
                         onClick = onOpenPicker,
                         onLongClick = { if (hasValue) onRemoveTime() }
                     )
+                }
+                // При крупном шрифте два чипа в ряд узкие и дата обрезается —
+                // раскладываем их по одному на всю ширину.
+                if (LocalDensity.current.fontScale > 1.15f) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        dateChip(Modifier.fillMaxWidth())
+                        timeChip(Modifier.fillMaxWidth())
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        dateChip(Modifier.weight(1.4f))
+                        timeChip(Modifier.weight(1f))
+                    }
                 }
             }
         }

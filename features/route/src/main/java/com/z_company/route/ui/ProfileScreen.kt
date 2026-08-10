@@ -972,14 +972,17 @@ fun ProfileScreen(
                                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                                 color = onCard,
                                             )
-                                            if (hasSubscription) {
+                                            // Бейдж «АКТИВНА» — только при обычном шрифте: при крупном он
+                                            // сжимал и обрезал название; статус активности и так виден по
+                                            // сроку действия ниже.
+                                            if (hasSubscription && LocalDensity.current.fontScale <= 1.15f) {
                                                 Box(
                                                     modifier = Modifier
                                                         .clip(RoundedCornerShape(999.dp))
                                                         .background(MaterialTheme.colorScheme.surfaceTint.copy(alpha = 0.16f))
                                                         .padding(horizontal = 7.dp, vertical = 2.dp),
                                                 ) {
-                                                    Text("АКТИВНА", fontFamily = MonoFont, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, color = MaterialTheme.colorScheme.surfaceTint)
+                                                    Text("АКТИВНА", fontFamily = MonoFont, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, color = MaterialTheme.colorScheme.surfaceTint, maxLines = 1, softWrap = false)
                                                 }
                                             }
                                         }

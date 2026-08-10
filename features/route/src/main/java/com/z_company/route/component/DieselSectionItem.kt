@@ -59,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
@@ -430,13 +431,25 @@ fun DieselSectionItem(
                 )
                 UnitSegToggle(isKiloMode = isKiloMode, onToggle = changeIsKiloMode)
             }
-            Row(
+            AdaptivePair(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, bottom = 3.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Top
-            ) {
+                rowVerticalAlignment = Alignment.Top,
+                separator = {
+                    // Стрелка выровнена по центру поля ввода (без учёта подсказки снизу)
+                    Box(
+                        modifier = Modifier.height(44.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "→",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                },
+                first = { mod ->
                 val calculatedAccepted = if (item.accepted.data.isNullOrBlank()) {
                     ""
                 } else if (isKiloMode) {
@@ -457,8 +470,7 @@ fun DieselSectionItem(
                 }
 
                 OutlinedTextFieldApp(
-                    modifier = Modifier
-                        .weight(1f),
+                    modifier = mod,
                     value = localAccepted,
                     onValueChange = { newVal ->
                         val filtered = newVal.filter { it.isDigit() || it == '.' }.take(6)
@@ -530,7 +542,8 @@ fun DieselSectionItem(
                     singleLine = true,
                     shape = Shapes.medium,
                 )
-
+                },
+                second = { mod ->
                 val calculatedDelivery = if (item.delivery.data.isNullOrBlank()) {
                     ""
                 } else if (isKiloMode) {
@@ -550,21 +563,8 @@ fun DieselSectionItem(
                     localDelivery = calculatedDelivery
                 }
 
-                // Стрелка выровнена по центру поля ввода (без учёта подсказки снизу)
-                Box(
-                    modifier = Modifier.height(44.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "→",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-
                 OutlinedTextFieldApp(
-                    modifier = Modifier
-                        .weight(1f),
+                    modifier = mod,
                     value = localDelivery,
                     onValueChange = { newVal ->
                         val filtered = newVal.filter { it.isDigit() || it == '.' }.take(6)
@@ -632,124 +632,161 @@ fun DieselSectionItem(
                     singleLine = true,
                     shape = Shapes.medium,
                 )
-            }
+                }
+            )
 
             // Экипировка — раскрываемый блок с заголовком и шевроном
             Column(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 28.dp) // высота под пилюлю — заголовок не съезжает при разворачивании
-                        .noRippleEffect { expandSupply = !expandSupply },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "ЭКИПИРОВКА",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                val openSupplyCoeffSheet: () -> Unit = {
+                    if (isKiloMode) {
+                        kgSnapshotAccepted = item.accepted.data?.toDoubleOrNull()?.times(coeff)
+                        kgSnapshotDelivery = item.delivery.data?.toDoubleOrNull()?.times(coeff)
+                    } else {
+                        kgSnapshotAccepted = null
+                        kgSnapshotDelivery = null
+                    }
+                    showSupplyCoefficient = true
+                }
+                val supplyChevron: @Composable () -> Unit = {
+                    Icon(
+                        painter = painterResource(
+                            if (expandSupply) R.drawable.keyboard_arrow_up_24px
+                            else R.drawable.keyboard_arrow_down_24px
+                        ),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
                     )
+                }
+                // При крупном шрифте пилюля «k экипировки» не помещается рядом с
+                // заголовком и её значение переносится — выносим пилюлю на отдельную
+                // строку под заголовком. Стандартный шрифт — прежний ряд.
+                val stackSupplyHeader = LocalDensity.current.fontScale > 1.15f && expandSupply
+                if (stackSupplyHeader) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .noRippleEffect { expandSupply = !expandSupply },
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "ЭКИПИРОВКА",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            supplyChevron()
+                        }
+                        CoeffPill(
+                            label = "k экипировки",
+                            value = item.refuelCoefficient.data,
+                            onClick = openSupplyCoeffSheet
+                        )
+                    }
+                } else {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 28.dp) // высота под пилюлю — заголовок не съезжает при разворачивании
+                            .noRippleEffect { expandSupply = !expandSupply },
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // k экипировки — пилюля, открывает шторку (только в развёрнутом виде)
-                        if (expandSupply) {
-                            CoeffPill(
-                                label = "k экипировки",
-                                value = item.refuelCoefficient.data,
-                                onClick = {
-                                    if (isKiloMode) {
-                                        kgSnapshotAccepted = item.accepted.data?.toDoubleOrNull()?.times(coeff)
-                                        kgSnapshotDelivery = item.delivery.data?.toDoubleOrNull()?.times(coeff)
-                                    } else {
-                                        kgSnapshotAccepted = null
-                                        kgSnapshotDelivery = null
-                                    }
-                                    showSupplyCoefficient = true
-                                }
-                            )
-                        }
-                        Icon(
-                            painter = painterResource(
-                                if (expandSupply) R.drawable.keyboard_arrow_up_24px
-                                else R.drawable.keyboard_arrow_down_24px
-                            ),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
+                        Text(
+                            text = "ЭКИПИРОВКА",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // k экипировки — пилюля, открывает шторку (только в развёрнутом виде)
+                            if (expandSupply) {
+                                CoeffPill(
+                                    label = "k экипировки",
+                                    value = item.refuelCoefficient.data,
+                                    onClick = openSupplyCoeffSheet
+                                )
+                            }
+                            supplyChevron()
+                        }
                     }
                 }
                 AnimatedVisibility(expandSupply) {
-                    Row(
+                    AdaptivePair(
                         modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextFieldApp(
-                            modifier = Modifier.weight(1f),
-                            value = item.refuel.data ?: "",
-                            onValueChange = { onRefuelValueChanged(index, it.take(7)) },
-                            textStyle = dataTextStyle,
-                    fieldElevation = 0.dp,
-                    borderColor = Color.Transparent,
-                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                            placeholder = {
-                                Text(
-                                    text = "Объём",
-                                    style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
-                                    color = noValueColor
-                                )
-                            },
-                            suffix = {
-                                Text(
-                                    text = "л.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = noValueColor
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
-                            ),
-                            singleLine = true,
-                            shape = Shapes.medium,
-                        )
-                        OutlinedTextFieldApp(
-                            modifier = Modifier.weight(1f),
-                            value = item.refuelInKilo.data ?: "",
-                            onValueChange = { onRefuelInKiloValueChanged(index, it.take(7)) },
-                            textStyle = dataTextStyle,
-                    fieldElevation = 0.dp,
-                    borderColor = Color.Transparent,
-                    colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                            placeholder = {
-                                Text(
-                                    text = "Масса",
-                                    style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
-                                    color = noValueColor
-                                )
-                            },
-                            suffix = {
-                                Text(
-                                    text = "кг.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = noValueColor
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
-                            ),
-                            singleLine = true,
-                            shape = Shapes.medium,
-                        )
-                    }
+                        first = { mod ->
+                            OutlinedTextFieldApp(
+                                modifier = mod,
+                                value = item.refuel.data ?: "",
+                                onValueChange = { onRefuelValueChanged(index, it.take(7)) },
+                                textStyle = dataTextStyle,
+                                fieldElevation = 0.dp,
+                                borderColor = Color.Transparent,
+                                colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                placeholder = {
+                                    Text(
+                                        text = "Объём",
+                                        style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                        color = noValueColor
+                                    )
+                                },
+                                suffix = {
+                                    Text(
+                                        text = "л.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = noValueColor
+                                    )
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next
+                                ),
+                                singleLine = true,
+                                shape = Shapes.medium,
+                            )
+                        },
+                        second = { mod ->
+                            OutlinedTextFieldApp(
+                                modifier = mod,
+                                value = item.refuelInKilo.data ?: "",
+                                onValueChange = { onRefuelInKiloValueChanged(index, it.take(7)) },
+                                textStyle = dataTextStyle,
+                                fieldElevation = 0.dp,
+                                borderColor = Color.Transparent,
+                                colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                placeholder = {
+                                    Text(
+                                        text = "Масса",
+                                        style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                        color = noValueColor
+                                    )
+                                },
+                                suffix = {
+                                    Text(
+                                        text = "кг.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = noValueColor
+                                    )
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
+                                ),
+                                singleLine = true,
+                                shape = Shapes.medium,
+                            )
+                        }
+                    )
                 }
             }
 
@@ -854,14 +891,18 @@ private fun CoeffPill(label: String, value: String?, onClick: () -> Unit) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            softWrap = false
         )
         Text(
             text = value ?: "1.0",
             style = MaterialTheme.typography.labelMedium.copy(
                 fontFamily = com.z_company.core.ui.theme.MonoFont
             ),
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
@@ -920,12 +961,15 @@ private fun CoeffSheet(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f).padding(end = 12.dp)
                 )
                 Text(
                     text = "Готово",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W500),
                     color = MaterialTheme.colorScheme.tertiary,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier.noRippleEffect { onDismiss() }
                 )
             }
