@@ -152,7 +152,12 @@ fun SwipeToRevealDelete(
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                .pointerInput(Unit) {
+                // Ключ pointerInput = itemKey: при смене элемента в этом слоте
+                // (после удаления соседа в списке) remember(itemKey) создаёт НОВЫЙ
+                // offsetX, и детектор жеста обязан перезапуститься, иначе его
+                // замыкание продолжит двигать старый Animatable, а .offset{} читает
+                // новый — карточка визуально не сдвигается («свайп перестаёт работать»).
+                .pointerInput(itemKey) {
                     detectHorizontalDragGestures(
                         onHorizontalDrag = { change, dragAmount ->
                             change.consume()
@@ -164,7 +169,7 @@ fun SwipeToRevealDelete(
                         }
                     )
                 }
-                .pointerInput(revealed, onContentClick, onContentLongClick) {
+                .pointerInput(itemKey, revealed, onContentClick, onContentLongClick) {
                     detectTapGestures(
                         onTap = {
                             // В раскрытом состоянии тап по контенту — закрыть; иначе — клик
