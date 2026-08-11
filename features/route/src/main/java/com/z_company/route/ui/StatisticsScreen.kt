@@ -508,18 +508,41 @@ private fun MetricGrid(
     onOpenDetail: (String) -> Unit,
     onInfo: (String) -> Unit,
 ) {
-    // По одной метрике в ряд (на всю ширину) — так значение, единица и мини-столбцы
-    // сравнения помещаются без обрезки, столбцы уходят к правому краю.
+    // При крупном шрифте — по одной метрике в ряд (на всю ширину), чтобы значение,
+    // единица и мини-столбцы помещались без обрезки. При стандартном — по две в ряд
+    // (компактно, как в референсе). Порог по шрифту, как в Настройках.
+    val oneColumn = LocalDensity.current.fontScale > 1.15f
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        metrics.forEachIndexed { idx, m ->
-            MetricPlate(
-                m,
-                wide = wideFirst && idx == 0,
-                compare = compare,
-                currency = currency,
-                onClick = { onOpenDetail(m.key) },
-                onInfo = onInfo,
-            )
+        if (oneColumn) {
+            metrics.forEachIndexed { idx, m ->
+                MetricPlate(
+                    m,
+                    wide = wideFirst && idx == 0,
+                    compare = compare,
+                    currency = currency,
+                    onClick = { onOpenDetail(m.key) },
+                    onInfo = onInfo,
+                )
+            }
+        } else {
+            var i = 0
+            if (wideFirst && metrics.isNotEmpty()) {
+                MetricPlate(metrics[0], wide = true, compare = compare, currency = currency, onClick = { onOpenDetail(metrics[0].key) }, onInfo = onInfo)
+                i = 1
+            }
+            while (i < metrics.size) {
+                val left = metrics[i]
+                val right = metrics.getOrNull(i + 1)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        MetricPlate(left, wide = false, compare = compare, currency = currency, onClick = { onOpenDetail(left.key) }, onInfo = onInfo)
+                    }
+                    Box(Modifier.weight(1f)) {
+                        if (right != null) MetricPlate(right, wide = false, compare = compare, currency = currency, onClick = { onOpenDetail(right.key) }, onInfo = onInfo)
+                    }
+                }
+                i += 2
+            }
         }
     }
 }
@@ -862,10 +885,23 @@ private fun HistoryTab(state: StatisticsUiState, onSelectMetric: (String) -> Uni
     }
     // Сетка метрик — тап выбирает метрику для итога и разбивки
     Spacer(Modifier.height(12.dp))
-    // По одной метрике в ряд (на всю ширину).
+    // Крупный шрифт — по одной в ряд, стандартный — по две (порог как в Настройках).
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        state.historyMetrics.forEach { m ->
-            HistoryMetricPlate(m, selected = m.key == state.historySelected, currency = state.currency) { onSelectMetric(m.key) }
+        if (LocalDensity.current.fontScale > 1.15f) {
+            state.historyMetrics.forEach { m ->
+                HistoryMetricPlate(m, selected = m.key == state.historySelected, currency = state.currency) { onSelectMetric(m.key) }
+            }
+        } else {
+            state.historyMetrics.chunked(2).forEach { rowItems ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    rowItems.forEach { m ->
+                        Box(Modifier.weight(1f)) {
+                            HistoryMetricPlate(m, selected = m.key == state.historySelected, currency = state.currency) { onSelectMetric(m.key) }
+                        }
+                    }
+                    if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
         }
     }
     SectionHeader("Год за годом")

@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -212,9 +213,23 @@ fun ItemHomeScreen(
                     horizontalAlignment = Alignment.Start,
                     verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
                 ) {
-                    val bigFontHeader = LocalDensity.current.fontScale > 1.15f
-                    if (bigFontHeader) {
-                        // Крупный шрифт: явка и сдача друг над другом, а продолжительность
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    // Одной строкой «явка − сдача  время» — только если реально помещается
+                    // при обычном размере (не ужимаясь). Иначе явка/сдача столбцом + чип.
+                    // Решение по фактической ширине, а не по фиксированному порогу шрифта.
+                    val measureStyle = MaterialTheme.typography.bodyLarge.copy(
+                        fontFamily = com.z_company.core.ui.theme.MonoFont,
+                        fontSize = requiredSizeText,
+                    )
+                    val headerGapPx = with(LocalDensity.current) { 8.dp.roundToPx() }
+                    val oneLineFits = textsFitInWidth(
+                        availableWidthPx = constraints.maxWidth,
+                        extraPx = headerGapPx,
+                        timeTextMemo to measureStyle,
+                        workTimeStringMemo to measureStyle.copy(fontWeight = FontWeight.Bold),
+                    )
+                    if (!oneLineFits) {
+                        // Не помещается: явка и сдача друг над другом, а продолжительность
                         // работы — справа в чипе (как блок «Расчёт за смену»). Так дата и
                         // «10:30» одного размера и ничего не ужимается.
                         val timeStyle = MaterialTheme.typography.bodyLarge.copy(
@@ -317,6 +332,7 @@ fun ItemHomeScreen(
                                 changingTextSize(size)
                             }
                         )
+                    }
                     }
                     }
 

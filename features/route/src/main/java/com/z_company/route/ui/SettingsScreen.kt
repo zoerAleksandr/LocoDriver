@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ResultState
@@ -723,6 +724,21 @@ private fun SettingsRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // При крупном шрифте значение/счётчик не помещается справа от заголовка и
+        // «съедает» ширину — заголовок рвётся посреди слова. Тогда переносим значение
+        // под заголовок (заголовок получает всю ширину). Фиксированный порог — чтобы
+        // все пункты меню выглядели одинаково. Стандартный шрифт — значение справа.
+        val valueBelow = value != null && LocalDensity.current.fontScale > 1.15f
+        val valueContent: @Composable (Modifier) -> Unit = { mod ->
+            Text(
+                text = value ?: "",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (valueBelow) 2 else 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = mod,
+            )
+        }
         SettingsIconAvatar(iconRes = iconRes, accent = accent)
         Spacer(modifier = Modifier.size(14.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -741,16 +757,12 @@ private fun SettingsRow(
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
+            if (valueBelow) {
+                valueContent(Modifier.padding(top = 2.dp))
+            }
         }
-        if (value != null) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 10.dp),
-            )
+        if (value != null && !valueBelow) {
+            valueContent(Modifier.padding(start = 10.dp))
         }
         Icon(
             painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
