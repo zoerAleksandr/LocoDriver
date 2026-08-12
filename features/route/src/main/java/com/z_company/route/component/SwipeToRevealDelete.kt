@@ -6,9 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -18,7 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.Shapes
@@ -39,9 +35,9 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * Свайп секции влево раскрывает красную кнопку «Удалить» и фиксирует карточку
- * в сдвинутом положении. Карточка не удаляется автоматически: ждём нажатия на
- * кнопку (тогда вызывается [onDeleteClick] — показывается подтверждение).
+ * Свайп секции влево раскрывает красный фон с иконкой корзины (по центру) и
+ * фиксирует карточку в сдвинутом положении. Карточка не удаляется автоматически:
+ * ждём нажатия на фон (тогда вызывается [onDeleteClick] — показывается подтверждение).
  * Тап по самой карточке в раскрытом состоянии возвращает её на место.
  */
 @Composable
@@ -49,7 +45,7 @@ fun SwipeToRevealDelete(
     modifier: Modifier = Modifier,
     onDeleteClick: () -> Unit,
     closeSignal: Int = 0,
-    // compact — для невысоких строк (таймлайн станций): только иконка без подписи,
+    // compact — для невысоких строк (таймлайн станций): уже кнопка и меньше иконка,
     // чтобы контент не обрезался по высоте.
     compact: Boolean = false,
     // Клик / долгое нажатие по контенту. Если заданы — обрабатываются здесь же,
@@ -121,29 +117,12 @@ fun SwipeToRevealDelete(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                if (compact) {
-                    Icon(
-                        painter = painterResource(R.drawable.delete_24px),
-                        contentDescription = "Удалить",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            painter = painterResource(R.drawable.delete_24px),
-                            contentDescription = "Удалить",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Text(
-                            text = "УДАЛИТЬ",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.W700),
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                }
+                Icon(
+                    painter = painterResource(R.drawable.delete_24px),
+                    contentDescription = "Удалить",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(if (compact) 20.dp else 24.dp)
+                )
             }
         }
 
