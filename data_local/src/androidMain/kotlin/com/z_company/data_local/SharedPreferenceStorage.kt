@@ -388,7 +388,14 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
     }
 
     override fun setSchedulePatterns(patterns: List<SchedulePattern>) {
-        editor.putString(SCHEDULE_PATTERNS_KEY, schedulePatternsJson.encodeToString(patterns)).apply()
+        // Свой editor + commit(): удаление/правка графика должны переживать
+        // немедленное закрытие приложения. С общим editor.apply() асинхронная
+        // запись могла не долететь до диска при быстром выходе — тогда ключ
+        // терялся, и prepareScreen пересеивал дефолты (удалённый график
+        // «возвращался» при следующем запуске).
+        sharedpref.edit()
+            .putString(SCHEDULE_PATTERNS_KEY, schedulePatternsJson.encodeToString(patterns))
+            .commit()
     }
 
     override fun getLastSeenAnnouncementNumber(): Int =

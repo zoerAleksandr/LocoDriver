@@ -33,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -57,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.domain.entities.SchedulePattern
+import com.z_company.route.component.AppBottomSheet
+import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.viewmodel.CUSTOM_PATTERN_ID
 import com.z_company.route.viewmodel.ShiftKind
 import com.z_company.route.viewmodel.WizardUiState
@@ -319,112 +322,29 @@ fun ScheduleWizardScreen(
     }
 
     patternToDelete?.let { p ->
-        ConfirmDeleteDialog(
-            title = "Удалить паттерн «${p.title}»?",
-            body = "Паттерн ${p.subtitle} будет удалён из списка. Это действие нельзя отменить.",
-            confirmLabel = "Удалить паттерн",
-            onConfirm = { onDeletePattern(p.id); patternToDelete = null },
-            onDismiss = { patternToDelete = null },
+        AppBottomSheet(
+            onDismissRequest = { patternToDelete = null },
+            sheetState = rememberModalBottomSheetState(),
+            headerContent = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        "Удалить график «${p.title}»?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                }
+            },
+            actions = listOf(
+                BottomSheetAction(text = "Да, удалить") {
+                    onDeletePattern(p.id)
+                    patternToDelete = null
+                }
+            ),
         )
-    }
-}
-
-/** Глиф корзины (24×24) — для диалога удаления. */
-@Composable
-private fun TrashGlyph(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val s = size.minDimension / 24f
-        val sw = 2f * s
-        fun p(x: Float, y: Float) = Offset(x * s, y * s)
-        fun line(x1: Float, y1: Float, x2: Float, y2: Float) =
-            drawLine(color, p(x1, y1), p(x2, y2), strokeWidth = sw, cap = StrokeCap.Round)
-        // Крышка + ручка
-        line(3f, 6f, 21f, 6f)
-        line(9f, 6f, 9f, 4f); line(9f, 4f, 15f, 4f); line(15f, 4f, 15f, 6f)
-        // Корпус
-        line(5.5f, 6.5f, 6.5f, 21f); line(6.5f, 21f, 17.5f, 21f); line(17.5f, 21f, 18.5f, 6.5f)
-        // Полоски
-        line(10f, 10f, 10f, 17.5f); line(14f, 10f, 14f, 17.5f)
-    }
-}
-
-/**
- * Диалог подтверждения удаления в стиле референса (schedule-wizard.jsx
- * ConfirmDeleteDialog): карточка по центру, красный значок корзины,
- * заголовок, пояснение, красная кнопка удаления и «Отмена».
- */
-@Composable
-private fun ConfirmDeleteDialog(
-    title: String,
-    body: String,
-    confirmLabel: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val cs = MaterialTheme.colorScheme
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(22.dp))
-                .background(cs.surface)
-                .border(1.dp, cs.outlineVariant, RoundedCornerShape(22.dp))
-                .padding(22.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(cs.error.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                TrashGlyph(cs.error, modifier = Modifier.size(26.dp))
-            }
-            Spacer(Modifier.height(14.dp))
-            Text(
-                title,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = cs.primary,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                body,
-                fontSize = 13.5.sp,
-                lineHeight = 19.sp,
-                color = cs.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
-            Spacer(Modifier.height(20.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(cs.error)
-                    .clickable { onConfirm() },
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TrashGlyph(cs.surface, modifier = Modifier.size(17.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(confirmLabel, color = cs.surface, fontSize = 15.5.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(10.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(1.dp, cs.outline, RoundedCornerShape(14.dp))
-                    .clickable { onDismiss() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Отмена", color = cs.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
     }
 }
 
@@ -442,7 +362,7 @@ private fun Step1(
     onRemoveCycleDay: (Int) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
-    SectionLabel("Паттерн графика")
+    SectionLabel("Варианты графика")
     // Плитки паттернов из хранилища + плитка-конструктор «Свой».
     val tiles = state.patterns.map { it to false } + (customPattern() to true)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -464,7 +384,7 @@ private fun Step1(
     }
     Spacer(Modifier.height(8.dp))
     Text(
-        "Удерживайте паттерн, чтобы удалить его.",
+        "Удерживайте график, чтобы удалить его.",
         fontSize = 12.sp,
         color = cs.onSurfaceVariant,
         modifier = Modifier.padding(start = 2.dp),
@@ -1008,7 +928,7 @@ private fun StepRail(step: Int) {
     ) {
         StepDot(number = 1, done = step > 1, active = step == 1)
         Spacer(Modifier.size(10.dp))
-        Text("Паттерн", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (step == 1) cs.primary else cs.onSurfaceVariant)
+        Text("График", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (step == 1) cs.primary else cs.onSurfaceVariant)
         Box(modifier = Modifier.padding(horizontal = 10.dp).height(2.dp).width(28.dp).clip(RoundedCornerShape(1.dp)).background(if (step > 1) cs.tertiary else cs.surfaceBright))
         StepDot(number = 2, done = false, active = step == 2)
         Spacer(Modifier.size(10.dp))
