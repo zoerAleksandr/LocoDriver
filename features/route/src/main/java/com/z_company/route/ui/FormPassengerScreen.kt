@@ -58,6 +58,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -355,6 +356,7 @@ fun FormPassengerScreen(
                     item {
                         StationLegCard(
                             label = "ОТКУДА",
+                            timeLabel = "Отправился",
                             stationPlaceholder = "От станции",
                             initialStation = passenger.stationDeparture ?: "",
                             time = passenger.timeDeparture,
@@ -388,6 +390,7 @@ fun FormPassengerScreen(
                     item {
                         StationLegCard(
                             label = "КУДА",
+                            timeLabel = "Прибыл",
                             stationPlaceholder = "До станции",
                             initialStation = passenger.stationArrival ?: "",
                             time = passenger.timeArrival,
@@ -569,51 +572,66 @@ private fun PassInfoBanner(text: String) {
     }
 }
 
-/** Тапабельная пилюля «иконка + значение + ›» — для даты и времени. */
+/**
+ * Строка даты/времени «отправился»/«прибыл» — в стиле «Явка»/«Сдача» из FormScreen:
+ * слева пояснение, справа объединённые дата и время (моно). Тап открывает пикер,
+ * долгий тап удаляет значение. При крупном системном шрифте пояснение и значение
+ * раскладываются в столбец, чтобы дата/время не обрезались.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun PickerChip(
-    modifier: Modifier = Modifier,
-    iconRes: Int,
-    value: String,
-    isPlaceholder: Boolean,
+private fun PassFormTimeRow(
+    label: String,
+    valueText: String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-    Row(
-        modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceBright, RoundedCornerShape(12.dp))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Icon(
-            modifier = Modifier.size(16.dp),
-            painter = painterResource(iconRes),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    val isPlaceholder = valueText.isNullOrBlank()
+    val display = if (isPlaceholder) "Выбрать" else valueText!!
+    val valueStyle = if (isPlaceholder) MaterialTheme.typography.bodyLarge
+    else MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont)
+    val valueColor = if (isPlaceholder) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+    else MaterialTheme.colorScheme.primary
+
+    val labelText: @Composable () -> Unit = {
         Text(
-            modifier = Modifier.weight(1f),
-            text = value,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontFamily = MonoFont,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold
-            ),
-            color = if (isPlaceholder)
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
-            else MaterialTheme.colorScheme.primary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Icon(
-            modifier = Modifier.size(14.dp),
-            painter = painterResource(R.drawable.keyboard_arrow_right_24px),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+    }
+    val valueTextC: @Composable (Modifier) -> Unit = { mod ->
+        Text(
+            modifier = mod,
+            text = display,
+            style = valueStyle,
+            color = valueColor
         )
+    }
+
+    if (LocalDensity.current.fontScale > 1.15f) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                .padding(vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            labelText()
+            valueTextC(Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.weight(1f)) { labelText() }
+            valueTextC(Modifier)
+        }
     }
 }
 
@@ -622,6 +640,7 @@ private fun PickerChip(
 @Composable
 private fun StationLegCard(
     label: String,
+    timeLabel: String,
     stationPlaceholder: String,
     initialStation: String,
     time: Long?,
@@ -679,13 +698,22 @@ private fun StationLegCard(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true)
-                                .focusRequester(focusRequester),
+                                .focusRequester(focusRequester)
+                                .onFocusChanged { focusState ->
+                                    // При фокусе показываем список станций (как в разделе
+                                    // «Поезд»/«Прочая работа»): пустое поле открывает полный
+                                    // список из настроек, непустое — отфильтрованный.
+                                    if (focusState.isFocused) {
+                                        onChangedDropDownContent(stationName.text)
+                                        isDropdownExpanded = true
+                                    }
+                                },
                             value = stationName,
                             onValueChange = {
                                 stationName = it
                                 onChangedDropDownContent(it.text)
                                 onStationChanged(it.text)
-                                isDropdownExpanded = it.text.isNotEmpty()
+                                isDropdownExpanded = true
                             },
                             textStyle = dataTextStyle.copy(
                                 fontSize = 18.sp,
@@ -742,41 +770,15 @@ private fun StationLegCard(
                         .background(MaterialTheme.colorScheme.outlineVariant)
                 )
 
-                // Дата + Время
-                val hasValue = time != null
-                val dateChip: @Composable (Modifier) -> Unit = { mod ->
-                    PickerChip(
-                        modifier = mod,
-                        iconRes = com.z_company.route.R.drawable.calendar_today_24px,
-                        value = if (hasValue) dateAndTimeConverter?.getDate(time) ?: "" else "Дата",
-                        isPlaceholder = !hasValue,
-                        onClick = onOpenPicker,
-                        onLongClick = { if (hasValue) onRemoveTime() }
-                    )
-                }
-                val timeChip: @Composable (Modifier) -> Unit = { mod ->
-                    PickerChip(
-                        modifier = mod,
-                        iconRes = com.z_company.route.R.drawable.schedule_24px,
-                        value = if (hasValue) dateAndTimeConverter?.getTime(time) ?: "" else "Время",
-                        isPlaceholder = !hasValue,
-                        onClick = onOpenPicker,
-                        onLongClick = { if (hasValue) onRemoveTime() }
-                    )
-                }
-                // При крупном шрифте два чипа в ряд узкие и дата обрезается —
-                // раскладываем их по одному на всю ширину.
-                if (LocalDensity.current.fontScale > 1.15f) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        dateChip(Modifier.fillMaxWidth())
-                        timeChip(Modifier.fillMaxWidth())
-                    }
-                } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        dateChip(Modifier.weight(1.4f))
-                        timeChip(Modifier.weight(1f))
-                    }
-                }
+                // Дата/время — в стиле «Явка»/«Сдача» из FormScreen: слева пояснение
+                // («отправился»/«прибыл»), справа объединённые дата и время. При крупном
+                // шрифте пояснение и значение раскладываются в столбец.
+                PassFormTimeRow(
+                    label = timeLabel,
+                    valueText = time?.let { dateAndTimeConverter?.getDateAndTime(it) },
+                    onClick = onOpenPicker,
+                    onLongClick = { if (time != null) onRemoveTime() }
+                )
             }
         }
     }

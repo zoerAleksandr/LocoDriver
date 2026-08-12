@@ -272,29 +272,34 @@ fun FormOtherWorkScreen(
                     item {
                         OwGroup(label = "ВРЕМЯ") {
                             OwFlatCard {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    TimeRow(
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    // Строки «Начало» / «Окончание» — в стиле «Явка»/«Сдача»
+                                    // из FormScreen: одна тапабельная строка, справа
+                                    // объединённые дата и время (getDateAndTime).
+                                    OwFormTimeRow(
                                         label = "Начало",
-                                        time = otherWork.timeStart,
-                                        dateAndTimeConverter = dateAndTimeConverter,
-                                        onOpenPicker = { pickerTarget = OwPickerTarget.START },
-                                        onRemoveTime = { showRemoveTimeStart = true }
+                                        valueText = otherWork.timeStart?.let {
+                                            dateAndTimeConverter?.getDateAndTime(it)
+                                        },
+                                        onClick = { pickerTarget = OwPickerTarget.START },
+                                        onLongClick = {
+                                            if (otherWork.timeStart != null) showRemoveTimeStart = true
+                                        }
                                     )
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(1.dp)
-                                            .background(MaterialTheme.colorScheme.outlineVariant)
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 20.dp),
+                                        thickness = 1.dp,
+                                        color = MaterialTheme.colorScheme.outlineVariant
                                     )
-                                    TimeRow(
+                                    OwFormTimeRow(
                                         label = "Окончание",
-                                        time = otherWork.timeEnd,
-                                        dateAndTimeConverter = dateAndTimeConverter,
-                                        onOpenPicker = { pickerTarget = OwPickerTarget.END },
-                                        onRemoveTime = { showRemoveTimeEnd = true }
+                                        valueText = otherWork.timeEnd?.let {
+                                            dateAndTimeConverter?.getDateAndTime(it)
+                                        },
+                                        onClick = { pickerTarget = OwPickerTarget.END },
+                                        onLongClick = {
+                                            if (otherWork.timeEnd != null) showRemoveTimeEnd = true
+                                        }
                                     )
                                 }
                             }
@@ -958,114 +963,66 @@ private fun AutoTimeButton(
     }
 }
 
+/**
+ * Строка «Начало» / «Окончание» — в стиле «Явка»/«Сдача» из FormScreen: слева
+ * метка, справа объединённые дата и время (моно). Тап открывает пикер, долгий
+ * тап удаляет значение. При крупном системном шрифте метка и значение
+ * раскладываются в столбец, чтобы дата/время не обрезались.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TimeRow(
+private fun OwFormTimeRow(
     label: String,
-    time: Long?,
-    dateAndTimeConverter: DateAndTimeConverter?,
-    onOpenPicker: () -> Unit,
-    onRemoveTime: () -> Unit
-) {
-    val hasValue = time != null
-    // При крупном системном шрифте метка («Окончание») не помещается рядом с чипами,
-    // поэтому переносим её на отдельную строку над чипами — тогда чипы получают полную
-    // ширину и дата/время не обрезаются. При обычном шрифте — прежний инлайн-вид.
-    val stacked = LocalDensity.current.fontScale > 1.15f
-
-    val dateChip: @Composable (Modifier) -> Unit = { mod ->
-        OwPickerChip(
-            modifier = mod,
-            iconRes = com.z_company.route.R.drawable.calendar_today_24px,
-            value = if (hasValue) dateAndTimeConverter?.getDate(time) ?: "" else "Дата",
-            isPlaceholder = !hasValue,
-            onClick = onOpenPicker,
-            onLongClick = { if (hasValue) onRemoveTime() }
-        )
-    }
-    val timeChip: @Composable (Modifier) -> Unit = { mod ->
-        OwPickerChip(
-            modifier = mod,
-            iconRes = com.z_company.route.R.drawable.schedule_24px,
-            value = if (hasValue) dateAndTimeConverter?.getTime(time) ?: "" else "Время",
-            isPlaceholder = !hasValue,
-            onClick = onOpenPicker,
-            onLongClick = { if (hasValue) onRemoveTime() }
-        )
-    }
-    val labelText: @Composable (Modifier) -> Unit = { mod ->
-        Text(
-            modifier = mod,
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-
-    if (stacked) {
-        // Метка сверху, а дата и время — каждый на всю ширину отдельной строкой:
-        // рядом два чипа при крупном шрифте узкие и дата («06.08.26») обрезается.
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            labelText(Modifier)
-            dateChip(Modifier.fillMaxWidth())
-            timeChip(Modifier.fillMaxWidth())
-        }
-    } else {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            labelText(Modifier.width(96.dp))
-            dateChip(Modifier.weight(1f))
-            timeChip(Modifier.weight(1f))
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun OwPickerChip(
-    modifier: Modifier = Modifier,
-    iconRes: Int,
-    value: String,
-    isPlaceholder: Boolean,
+    valueText: String?,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-    Row(
-        modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceBright, RoundedCornerShape(12.dp))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Icon(
-            modifier = Modifier.size(16.dp),
-            painter = painterResource(iconRes),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    val isPlaceholder = valueText.isNullOrBlank()
+    val display = if (isPlaceholder) "Выбрать" else valueText!!
+    val valueStyle = if (isPlaceholder) MaterialTheme.typography.bodyLarge
+    else MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont)
+    val valueColor = if (isPlaceholder) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+    else MaterialTheme.colorScheme.primary
+
+    val labelText: @Composable () -> Unit = {
         Text(
-            modifier = Modifier.weight(1f),
-            text = value,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontFamily = MonoFont,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold
-            ),
-            color = if (isPlaceholder)
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
-            else MaterialTheme.colorScheme.primary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Icon(
-            modifier = Modifier.size(14.dp),
-            painter = painterResource(R.drawable.keyboard_arrow_right_24px),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+    }
+    val valueTextC: @Composable (Modifier) -> Unit = { mod ->
+        Text(
+            modifier = mod,
+            text = display,
+            style = valueStyle,
+            color = valueColor
         )
+    }
+
+    if (LocalDensity.current.fontScale > 1.15f) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            labelText()
+            valueTextC(Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.weight(1f)) { labelText() }
+            valueTextC(Modifier)
+        }
     }
 }
 
