@@ -148,6 +148,9 @@ dependencies {
 
     implementation(Libs.accompanist_navigation_animation)
 
+    // Загрузка картинок фич обновления по URL (экран «Обновление»).
+    implementation(Libs.coil_compose)
+
     implementation(Libs.koin_core)
     implementation(Libs.koin_android)
     implementation(Libs.koin_androidx_compose)

@@ -19,7 +19,9 @@ import com.z_company.domain.entities.serializers.DoubleAsStringSerializer
  * Движок HTTP задаётся через expect/actual (createHttpEngine()).
  */
 object RemoteRestClient {
-    private const val BASE_URL = "http://87.228.110.32:8766/"
+    // Публичный: используется и как база Ktor-клиента, и для склейки абсолютных
+    // URL картинок фич обновления (см. RemoteAnnouncementRepository).
+    const val BASE_URL = "http://87.228.110.32:8766/"
     private const val BASE_URL_FOR_SEND_EMAIL = "http://locodrivers.freemyip.com/"
 
     val appJson = Json {
