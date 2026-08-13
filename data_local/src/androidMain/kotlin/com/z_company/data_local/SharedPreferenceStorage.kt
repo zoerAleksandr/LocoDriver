@@ -10,6 +10,8 @@ import kotlinx.serialization.json.Json
 import org.koin.core.component.KoinComponent
 
 private val DEFAULT_COEFFICIENTS = listOf("0.84", "0.85", "0.86", "0.87", "0.88")
+private const val DEFAULT_REFUEL_COEFFICIENT = "0.83"
+private const val TOKEN_LAST_REFUEL_COEFFICIENT = "TOKEN_LAST_REFUEL_COEFFICIENT"
 private const val TOKEN_IS_LOAD_STATION_NAME_AND_LOCOMOTIVE_SERIES =
     "TOKEN_IS_LOAD_STATION_NAME_AND_LOCOMOTIVE_SERIES"
 private const val TOKEN_IS_FIRST_APP_ENTRY_TAG = "TOKEN_IS_FIRST_APP_ENTRY_TAG"
@@ -360,6 +362,14 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         current.add(0, value)
         val trimmed = current.take(5)
         editor.putString("recent_coefficients", trimmed.joinToString(",", "[", "]")).apply()
+    }
+
+    override fun getLastRefuelCoefficient(): String =
+        sharedpref.getString(TOKEN_LAST_REFUEL_COEFFICIENT, null) ?: DEFAULT_REFUEL_COEFFICIENT
+
+    override fun setLastRefuelCoefficient(value: String) {
+        if (value.toDoubleOrNull() == null) return
+        editor.putString(TOKEN_LAST_REFUEL_COEFFICIENT, value).apply()
     }
 
     override fun addRecentTime(key: String, timeMillis: Long) {

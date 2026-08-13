@@ -163,6 +163,7 @@ class LocoFormViewModel(
                     list
                 }
                 val coefficient = _settings.value?.lastEnteredDieselCoefficient
+                val refuelCoefficient = sharedPreferenceStorage.getLastRefuelCoefficient()
 
                 _dieselSectionListState.update { list ->
                     list.add(
@@ -171,6 +172,10 @@ class LocoFormViewModel(
                             coefficient = DieselSectionFieldState(
                                 coefficient?.str() ?: "",
                                 DieselSectionType.COEFFICIENT
+                            ),
+                            refuelCoefficient = DieselSectionFieldState(
+                                refuelCoefficient,
+                                DieselSectionType.REFUEL_COEFFICIENT
                             )
                         )
                     )
@@ -631,6 +636,13 @@ class LocoFormViewModel(
         sharedPreferenceStorage.addRecentCoefficient(value)
     }
 
+    /** Запоминает последний коэффициент экипировки — подставится по умолчанию
+     *  в новую секцию тепловоза. */
+    fun saveLastRefuelCoefficient(value: String?) {
+        value?.toDoubleOrNull() ?: return
+        sharedPreferenceStorage.setLastRefuelCoefficient(value)
+    }
+
     fun setRefuelDiesel(index: Int, inputValue: String?) {
         updateDieselSection(index) {
             val coeff = refuelCoefficient.data?.toDoubleOrNull()
@@ -852,6 +864,7 @@ class LocoFormViewModel(
 
     fun addingSectionDiesel() {
         val coefficient = settings.value?.lastEnteredDieselCoefficient
+        val refuelCoefficient = sharedPreferenceStorage.getLastRefuelCoefficient()
         _dieselSectionListState.update { list ->
             list.add(
                 DieselSectionFormState(
@@ -859,6 +872,10 @@ class LocoFormViewModel(
                     coefficient = DieselSectionFieldState(
                         coefficient?.str() ?: "",
                         DieselSectionType.COEFFICIENT
+                    ),
+                    refuelCoefficient = DieselSectionFieldState(
+                        refuelCoefficient,
+                        DieselSectionType.REFUEL_COEFFICIENT
                     )
                 )
             )

@@ -791,6 +791,7 @@ fun FormLocoScreen(
                                         changeIsKiloMode = viewModel::toggleIsKiloMode,
                                         recentCoefficients = { viewModel.recentCoefficients() },
                                         onSaveCoefficient = viewModel::saveRecentCoefficient,
+                                        onSaveRefuelCoefficient = viewModel::saveLastRefuelCoefficient,
                                         closeSwipeSignal = closeSwipeSignal
                                     )
                                 }

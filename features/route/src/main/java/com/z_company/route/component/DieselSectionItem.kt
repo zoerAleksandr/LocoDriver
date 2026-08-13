@@ -101,6 +101,7 @@ fun DieselSectionItem(
     changeIsKiloMode: () -> Unit,
     recentCoefficients: () -> List<String> = { emptyList() },
     onSaveCoefficient: (String) -> Unit = {},
+    onSaveRefuelCoefficient: (String) -> Unit = {},
     closeSwipeSignal: Int = 0
 ) {
     val scope = rememberCoroutineScope()
@@ -367,6 +368,7 @@ fun DieselSectionItem(
             },
             onDismiss = {
                 onSaveCoefficient(item.refuelCoefficient.data ?: "")
+                onSaveRefuelCoefficient(item.refuelCoefficient.data ?: "")
                 showSupplyCoefficient = false
             }
         )

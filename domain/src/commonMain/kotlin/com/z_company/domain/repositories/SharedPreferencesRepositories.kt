@@ -91,6 +91,13 @@ interface SharedPreferencesRepositories {
     fun getRecentCoefficients(): List<String>
     fun addRecentCoefficient(value: String)
 
+    /**
+     * Последний введённый коэффициент экипировки — подставляется по умолчанию
+     * в новую секцию тепловоза. По умолчанию "0.83".
+     */
+    fun getLastRefuelCoefficient(): String
+    fun setLastRefuelCoefficient(value: String)
+
     /** true = пользователь предпочитает ввод с клавиатуры в системном пикере времени */
     fun isTimePickerKeyboardInput(): Boolean
     fun setTimePickerKeyboardInput(value: Boolean)

@@ -143,6 +143,13 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
         while (recentCoefficients.size > 5) recentCoefficients.removeAt(recentCoefficients.lastIndex)
     }
 
+    private var lastRefuelCoefficient: String = "0.83"
+    override fun getLastRefuelCoefficient(): String = lastRefuelCoefficient
+    override fun setLastRefuelCoefficient(value: String) {
+        if (value.toDoubleOrNull() == null) return
+        lastRefuelCoefficient = value
+    }
+
     private var schedulePatterns: List<com.z_company.domain.entities.SchedulePattern>? = null
     override fun getSchedulePatterns(): List<com.z_company.domain.entities.SchedulePattern>? = schedulePatterns
     override fun setSchedulePatterns(patterns: List<com.z_company.domain.entities.SchedulePattern>) {
