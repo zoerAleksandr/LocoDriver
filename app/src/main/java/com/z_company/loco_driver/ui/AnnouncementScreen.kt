@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,9 +34,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -48,10 +51,13 @@ import com.z_company.loco_driver.ui.theme.LocoDriverTheme
  * сообщение. Закрывается кнопкой или крестиком ([onDismiss]).
  *
  * Два типа экрана (диспетчеризуются по [Announcement.type]):
- * - [Announcement.TYPE_NEWS] — новость: hero-иконка, заголовок, текст;
+ * - [Announcement.TYPE_NEWS] — новость: заголовок и текст, при наличии
+ *   [Announcement.imageUrl] — картинка сверху, иначе текст центрируется;
  * - [Announcement.TYPE_UPDATE] — обновление: карусель фич
  *   (картинка → название → описание, «Далее»/«Понятно»), строго на одном
  *   экране без скролла.
+ *
+ * Общее правило: если у экрана/фичи нет картинки — текст центрируется.
  */
 @Composable
 fun AnnouncementScreen(
@@ -74,9 +80,130 @@ fun AnnouncementScreen(
     }
 }
 
+/** Крестик закрытия — верхний правый угол (для использования внутри Box). */
+@Composable
+private fun BoxCloseButton(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(onClick = onDismiss, modifier = modifier) {
+        Icon(
+            painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+            contentDescription = "Закрыть",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Pill-кнопка во всю ширину, прижатая к низу (жёсткий текст). */
+@Composable
+private fun BottomPillButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier
+            .navigationBarsPadding()
+            .fillMaxWidth()
+            .heightIn(min = 54.dp),
+        contentPadding = PaddingValues(vertical = 14.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
 /**
- * Вариант «Новость»: hero-иконка в тональном скруглённом квадрате, заголовок,
- * текст и pill-кнопка снизу.
+ * Блок «картинка сверху → заголовок → текст» (когда картинка есть). Занимает
+ * гибкую высоту: картинка и текст делят место через weight, текст обрезается.
+ */
+@Composable
+private fun ColumnScope.ImageTitleTextBlock(
+    imageUrl: String?,
+    title: String,
+    text: String,
+) {
+    val cs = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1.25f)
+            .heightIn(min = 120.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(cs.surfaceVariant.copy(alpha = 0.5f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (imageUrl != null) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = title,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+    Text(
+        text = title,
+        style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold,
+        color = cs.onBackground,
+        modifier = Modifier.padding(top = 20.dp),
+    )
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyLarge,
+        color = cs.onSurfaceVariant,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(0.75f)
+            .padding(top = 12.dp),
+    )
+}
+
+/**
+ * Центрированный блок «заголовок + текст» (когда картинки нет). Текст выровнен
+ * по центру. Занимает гибкую высоту (weight), при переполнении обрезается.
+ */
+@Composable
+private fun ColumnScope.CenteredTitleTextBlock(
+    title: String,
+    text: String,
+) {
+    val cs = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f)
+            .clipToBounds(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = cs.onBackground,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = cs.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 14.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Вариант «Новость»: заголовок + текст. С картинкой — картинка сверху
+ * (без скролла), без картинки — hero-иконка и центрированный текст (со скроллом
+ * на случай длинного сообщения).
  */
 @Composable
 private fun AnnouncementNewsContent(
@@ -84,91 +211,86 @@ private fun AnnouncementNewsContent(
     onDismiss: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
+    val hasImage = announcement.imageUrl != null
     Box(
         modifier = Modifier
             .fillMaxSize()
             .safeDrawingPadding()
             .padding(horizontal = 24.dp),
     ) {
-        // Крестик закрытия — верхний правый угол.
-        IconButton(
-            onClick = onDismiss,
-            modifier = Modifier.align(Alignment.TopEnd),
-        ) {
-            Icon(
-                painter = painterResource(com.z_company.core.R.drawable.ic_clear),
-                contentDescription = "Закрыть",
-                tint = cs.onSurfaceVariant,
-            )
-        }
-
-        // Контент — по центру, с прокруткой на случай длинного текста.
-        Column(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = 96.dp),
-            horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            // Hero-иконка в тональном скруглённом квадрате.
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(cs.primary.copy(alpha = 0.10f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(com.z_company.route.R.drawable.info_24px),
-                    contentDescription = null,
-                    tint = cs.primary,
-                    modifier = Modifier.size(30.dp),
+        if (hasImage) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Spacer(modifier = Modifier.height(48.dp)) // место под крестик
+                ImageTitleTextBlock(
+                    imageUrl = announcement.imageUrl,
+                    title = announcement.title,
+                    text = announcement.body,
+                )
+                BottomPillButton(
+                    label = "Понятно",
+                    onClick = onDismiss,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 16.dp),
                 )
             }
-
-            Text(
-                text = announcement.title,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = cs.onBackground,
-                modifier = Modifier.padding(top = 24.dp),
-            )
-            Text(
-                text = announcement.body,
-                style = MaterialTheme.typography.bodyLarge,
-                color = cs.onSurfaceVariant,
-                modifier = Modifier.padding(top = 14.dp),
+        } else {
+            // Контент по центру, текст центрирован, со скроллом для длинного текста.
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 96.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(cs.primary.copy(alpha = 0.10f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(com.z_company.route.R.drawable.info_24px),
+                        contentDescription = null,
+                        tint = cs.primary,
+                        modifier = Modifier.size(30.dp),
+                    )
+                }
+                Text(
+                    text = announcement.title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = cs.onBackground,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 24.dp),
+                )
+                Text(
+                    text = announcement.body,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = cs.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 14.dp),
+                )
+            }
+            BottomPillButton(
+                label = "Понятно",
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp),
             )
         }
 
-        // Кнопка закрытия — прижата к низу, pill-формы.
-        Button(
-            onClick = onDismiss,
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .fillMaxWidth()
-                .heightIn(min = 54.dp)
-                .padding(bottom = 16.dp),
-            contentPadding = PaddingValues(vertical = 14.dp),
-        ) {
-            Text(
-                text = "Понятно",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
+        BoxCloseButton(onDismiss, Modifier.align(Alignment.TopEnd))
     }
 }
 
 /**
- * Вариант «Обновление»: карусель фич. Одна фича на экране —
- * картинка сверху → название → описание, снизу pill-кнопка «Далее»
- * (если есть ещё фичи) или «Понятно» (на последней). Строго на одном экране,
- * без скролла: описание при нехватке места обрезается, кнопка видна всегда.
+ * Вариант «Обновление»: карусель фич. Одна фича на экране — картинка сверху
+ * (если есть; иначе текст центрируется) → название → описание, снизу pill-кнопка
+ * «Далее» (если есть ещё фичи) или «Понятно» (на последней). Строго на одном
+ * экране без скролла: описание при нехватке места обрезается, кнопка видна всегда.
  */
 @Composable
 private fun AnnouncementUpdateContent(
@@ -190,45 +312,18 @@ private fun AnnouncementUpdateContent(
         Column(modifier = Modifier.fillMaxSize()) {
             Spacer(modifier = Modifier.height(48.dp)) // место под крестик
 
-            // Картинка фичи — гибкая область сверху.
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1.25f)
-                    .heightIn(min = 120.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(cs.surfaceVariant.copy(alpha = 0.5f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (current.imageUrl != null) {
-                    AsyncImage(
-                        model = current.imageUrl,
-                        contentDescription = current.title,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
+            if (current.imageUrl != null) {
+                ImageTitleTextBlock(
+                    imageUrl = current.imageUrl,
+                    title = current.title,
+                    text = current.description,
+                )
+            } else {
+                CenteredTitleTextBlock(
+                    title = current.title,
+                    text = current.description,
+                )
             }
-
-            Text(
-                text = current.title,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = cs.onBackground,
-                modifier = Modifier.padding(top = 20.dp),
-            )
-
-            // Описание — гибкая область; при нехватке места обрезается (ellipsis).
-            Text(
-                text = current.description,
-                style = MaterialTheme.typography.bodyLarge,
-                color = cs.onSurfaceVariant,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(0.75f)
-                    .padding(top = 12.dp),
-            )
 
             // Индикатор-точки (если фич больше одной).
             if (features.size > 1) {
@@ -254,34 +349,13 @@ private fun AnnouncementUpdateContent(
                 }
             }
 
-            Button(
+            BottomPillButton(
+                label = if (isLast) "Понятно" else "Далее",
                 onClick = { if (isLast) onDismiss() else index++ },
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .fillMaxWidth()
-                    .heightIn(min = 54.dp)
-                    .padding(top = 16.dp, bottom = 16.dp),
-                contentPadding = PaddingValues(vertical = 14.dp),
-            ) {
-                Text(
-                    text = if (isLast) "Понятно" else "Далее",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
-
-        // Крестик закрытия — верхний правый угол, поверх контента.
-        IconButton(
-            onClick = onDismiss,
-            modifier = Modifier.align(Alignment.TopEnd),
-        ) {
-            Icon(
-                painter = painterResource(com.z_company.core.R.drawable.ic_clear),
-                contentDescription = "Закрыть",
-                tint = cs.onSurfaceVariant,
+                modifier = Modifier.padding(top = 16.dp, bottom = 16.dp),
             )
         }
+
+        BoxCloseButton(onDismiss, Modifier.align(Alignment.TopEnd))
     }
 }

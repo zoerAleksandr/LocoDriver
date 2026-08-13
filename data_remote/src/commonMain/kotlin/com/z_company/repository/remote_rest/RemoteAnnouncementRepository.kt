@@ -21,6 +21,7 @@ class RemoteAnnouncementRepository(
                     body = dto.body,
                     displayMode = dto.displayMode,
                     type = dto.type,
+                    imageUrl = absoluteImageUrl(dto.imageUrl),
                     features = dto.features
                         .sortedBy { it.position }
                         .map { f ->

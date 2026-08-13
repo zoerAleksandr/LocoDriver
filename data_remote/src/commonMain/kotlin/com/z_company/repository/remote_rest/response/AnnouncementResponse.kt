@@ -20,6 +20,9 @@ data class AnnouncementResponse(
     val displayMode: String = "once",
     // 'news' | 'update'. Дефолт для совместимости со старым сервером — новость.
     val type: String = "news",
+    // Необязательная картинка сообщения (для type == 'news'): относительный путь
+    // /v1/announcements/announcement-image/{id} либо null.
+    val imageUrl: String? = null,
     // Для type == 'update': список фич карусели (иначе пусто).
     val features: List<AnnouncementFeatureResponse> = emptyList(),
 )

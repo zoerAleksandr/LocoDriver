@@ -15,9 +15,12 @@ package com.z_company.domain.entities.announcement
  *
  * `type` — тип экрана:
  * - [TYPE_NEWS] — новость: показываются [title] + [body] (по умолчанию);
+ *   если задан [imageUrl] — картинка сверху; если нет — текст центрируется;
  * - [TYPE_UPDATE] — обновление: карусель фич из [features] (картинка +
  *   название + описание), [title]/[body] не показываются.
  * Неизвестное значение трактуется как «новость» (безопасный дефолт).
+ *
+ * `imageUrl` — абсолютный URL картинки новости (или null, если картинки нет).
  */
 data class Announcement(
     val number: Int,
@@ -25,6 +28,7 @@ data class Announcement(
     val body: String,
     val displayMode: String = DISPLAY_MODE_ONCE,
     val type: String = TYPE_NEWS,
+    val imageUrl: String? = null,
     val features: List<AnnouncementFeature> = emptyList(),
 ) {
     companion object {
