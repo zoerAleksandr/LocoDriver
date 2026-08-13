@@ -9,6 +9,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -1805,14 +1806,21 @@ private fun StackedTile(
     Box(
         modifier = modifier.size(tileSize + stackOffset),
     ) {
-        // Нижняя (фоновая) карточка — выглядывает справа-СВЕРХУ на stackOffset
+        // Нижняя (фоновая) карточка — выглядывает справа-СВЕРХУ на stackOffset.
+        // Обводка + более тёмный фон, чтобы выглядывающий край читался как
+        // отдельная карточка, а не как продолжение верхней.
         if (hasStack) {
             Card(
                 modifier = Modifier
                     .size(tileSize)
-                    .align(Alignment.TopEnd),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-                colors = CardDefaults.cardColors(containerColor = c.surface),
+                    .align(Alignment.TopEnd)
+                    .border(
+                        width = 1.dp,
+                        color = c.outline,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                    ),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),
+                colors = CardDefaults.cardColors(containerColor = c.surfaceVariant),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
             ) {}
         }
@@ -1840,9 +1848,19 @@ private fun StackedTile(
                 )
             }
         } else {
-            // Заполненная плитка — surface-карточка
+            // Заполненная плитка — surface-карточка. При стопке добавляем обводку,
+            // чтобы верхний-правый край чётко отделял её от карточки под ней.
             Card(
-                modifier = Modifier.size(tileSize).align(Alignment.BottomStart),
+                modifier = Modifier
+                    .size(tileSize)
+                    .align(Alignment.BottomStart)
+                    .then(
+                        if (hasStack) Modifier.border(
+                            width = 1.dp,
+                            color = c.outline,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                        ) else Modifier
+                    ),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
                 colors = CardDefaults.cardColors(containerColor = c.surface),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
