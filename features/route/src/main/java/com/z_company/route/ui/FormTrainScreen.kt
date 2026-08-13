@@ -1351,6 +1351,12 @@ fun FormTrainScreen(
                                     ?.takeIf { it != "0" }
                                     ?.toDoubleOrNull()
                                     ?.let { (it * 14).toInt() }
+                                // При крупном шрифте полная подсказка «· 868 м»
+                                // не помещается — тогда убираем точку-разделитель и
+                                // единицу «м», оставляя только число.
+                                var meterHintCompact by remember(lengthMeters) {
+                                    mutableStateOf(false)
+                                }
                                 Row(
                                     modifier = Modifier.padding(start = 16.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -1363,11 +1369,24 @@ fun FormTrainScreen(
                                     )
                                     if (lengthMeters != null) {
                                         Text(
-                                            text = "· $lengthMeters м",
+                                            modifier = Modifier.weight(1f, fill = false),
+                                            text = if (meterHintCompact) {
+                                                "$lengthMeters"
+                                            } else {
+                                                "· $lengthMeters м"
+                                            },
                                             style = cellLabelStyle.copy(
                                                 fontFamily = com.z_company.core.ui.theme.MonoFont
                                             ),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            softWrap = false,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Clip,
+                                            onTextLayout = { result ->
+                                                if (!meterHintCompact && result.hasVisualOverflow) {
+                                                    meterHintCompact = true
+                                                }
+                                            }
                                         )
                                     }
                                 }
