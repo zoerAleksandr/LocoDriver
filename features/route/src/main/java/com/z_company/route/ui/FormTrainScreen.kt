@@ -1547,9 +1547,10 @@ fun FormTrainScreen(
                     item { Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing))) }
                     item {
                         val stopwatch = rememberStopwatchState(
-                            stationListState?.map {
-                                it.arrival.data to it.departure.data
-                            } ?: emptyList()
+                            stations = stationListState?.map {
+                                Triple(it.station.data, it.arrival.data, it.departure.data)
+                            } ?: emptyList(),
+                            legArrivalStation = selectedServicePhase?.arrivalStation,
                         )
                         val nextIsDeparture = viewModel.isNextDeparture()
                         Column(modifier = Modifier.fillMaxWidth()) {
@@ -2318,8 +2319,10 @@ private fun DoubledTrainSection(
 /**
  * Секундомер маршрута: показывает время с последнего события ≤ текущего момента.
  * Если последнее событие — прибытие (поезд стоит) → «стоянка», если отправление → «в пути».
- * До 5 мин — секунды (M:SS), после — только минуты; фон жёлтый после 5 мин, красный после 30
- * (как чипы стоянки). Под чипом — подпись, что именно показано.
+ * Формат: до 5 мин — секунды (M:SS), до часа — «Nмин», есть часы — «Yч Zмин», есть дни —
+ * «Xд Yч Zмин»; фон жёлтый после 5 мин, красный после 30 (как чипы стоянки). Под чипом —
+ * подпись, что именно показано.
+ * Прибыв на конечную станцию выбранного плеча, стоянку не показываем (возвращаем null).
  */
 private data class StopwatchData(
     val timeText: String,
@@ -2330,7 +2333,10 @@ private data class StopwatchData(
 
 @Composable
 private fun rememberStopwatchState(
-    stationTimes: List<Pair<Long?, Long?>>,
+    // (имя станции, прибытие, отправление)
+    stations: List<Triple<String?, Long?, Long?>>,
+    // Конечная станция выбранного плеча — прибыв на неё, время стоянки не показываем.
+    legArrivalStation: String? = null,
 ): StopwatchData? {
     // Тикаем раз в секунду; берём АБСОЛЮТНОЕ системное время (не накапливаем),
     // поэтому после сна/дозы первое же обновление показывает корректное время.
@@ -2353,12 +2359,12 @@ private fun rememberStopwatchState(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // События: (время, isDeparture). При равном времени приоритет у отправления
+    // События: (время, isDeparture, имя станции). При равном времени приоритет у отправления
     // (compareBy: false < true) → берём его, поэтому это «в пути», а не «стоянка».
     val events = buildList {
-        stationTimes.forEach { (arrival, departure) ->
-            arrival?.let { add(it to false) }
-            departure?.let { add(it to true) }
+        stations.forEach { (name, arrival, departure) ->
+            arrival?.let { add(Triple(it, false, name)) }
+            departure?.let { add(Triple(it, true, name)) }
         }
     }
     val last = events
@@ -2366,8 +2372,19 @@ private fun rememberStopwatchState(
         .maxWithOrNull(compareBy({ it.first }, { it.second })) ?: return null
 
     val isMoving = last.second
+
+    // Прибыли на конечную станцию плеча (последнее событие — прибытие на станцию,
+    // совпадающую с конечной станцией выбранного плеча) → стоянку не показываем.
+    if (!isMoving && !legArrivalStation.isNullOrBlank() &&
+        last.third?.trim().equals(legArrivalStation.trim(), ignoreCase = true)
+    ) {
+        return null
+    }
+
     val totalSec = (now - last.first).coerceAtLeast(0L) / 1000
     val totalMin = totalSec / 60
+    val totalHours = totalMin / 60
+    val days = totalHours / 24
 
     // Цветом подсвечиваем только стоянку (как чипы стоянки). В пути — всегда нейтральный фон.
     val neutral = MaterialTheme.colorScheme.surfaceDim to MaterialTheme.colorScheme.primary
@@ -2377,10 +2394,13 @@ private fun rememberStopwatchState(
         totalMin >= 5 -> Color(0xFFFFC107) to Color(0xFF3E2723)
         else -> neutral
     }
-    val timeText = if (totalMin < 5) {
-        "%d:%02d".format(totalSec / 60, totalSec % 60)
-    } else {
-        "$totalMin мин"
+    // Формат: есть дни → «Xд Yч Zмин», есть часы → «Yч Zмин»,
+    // до 5 минут → секунды «M:SS», иначе — «Nмин».
+    val timeText = when {
+        days > 0 -> "%dд %dч %dмин".format(days, totalHours % 24, totalMin % 60)
+        totalHours > 0 -> "%dч %dмин".format(totalHours, totalMin % 60)
+        totalMin >= 5 -> "${totalMin}мин"
+        else -> "%d:%02d".format(totalSec / 60, totalSec % 60)
     }
     return StopwatchData(
         timeText = timeText,
