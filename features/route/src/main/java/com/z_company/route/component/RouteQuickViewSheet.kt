@@ -405,24 +405,30 @@ private fun QuickViewContent(
                         time = route.basicData.timeStartWork,
                         dateAndTimeConverter = dateAndTimeConverter,
                     )
-                    if (route.basicData.timeStartBreak != null && route.basicData.timeEndBreak != null &&
-                        route.getBreakDuration() > 0
-                    ) {
-                        QvDivider()
-                        WorkTimeRow(
-                            label = "Перерыв",
-                            time = route.basicData.timeStartBreak,
-                            time2 = route.basicData.timeEndBreak,
-                            tag = ConverterLongToTime.getTimeInStringFormat(route.getBreakDuration()),
-                            dateAndTimeConverter = dateAndTimeConverter,
-                        )
-                    }
                     QvDivider()
                     WorkTimeRow(
                         label = "Сдача",
                         time = route.basicData.timeEndWork,
                         dateAndTimeConverter = dateAndTimeConverter,
                     )
+                    if (route.basicData.timeStartBreak != null && route.basicData.timeEndBreak != null &&
+                        route.getBreakDuration() > 0
+                    ) {
+                        QvDivider()
+                        BreakTimeRow(
+                            label = "Начало перерыва",
+                            time = route.basicData.timeStartBreak,
+                            dateAndTimeConverter = dateAndTimeConverter,
+                        )
+                        BreakDurationDivider(
+                            duration = ConverterLongToTime.getTimeInStringFormat(route.getBreakDuration()),
+                        )
+                        BreakTimeRow(
+                            label = "Конец перерыва",
+                            time = route.basicData.timeEndBreak,
+                            dateAndTimeConverter = dateAndTimeConverter,
+                        )
+                    }
                 }
             }
         }
@@ -585,13 +591,9 @@ private fun QvDividerColor(): Color = MaterialTheme.colorScheme.outline.copy(alp
 private fun WorkTimeRow(
     label: String,
     time: Long?,
-    time2: Long? = null,
-    tag: String? = null,
     dateAndTimeConverter: DateAndTimeConverter?,
 ) {
     val text = MaterialTheme.colorScheme.primary
-    val textMuted = text.copy(alpha = 0.6f)
-    val accent = MaterialTheme.colorScheme.tertiary
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -599,26 +601,72 @@ private fun WorkTimeRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium, color = text)
-        if (tag != null) {
-            Spacer(Modifier.width(8.dp))
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(accent.copy(alpha = 0.12f))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    text = tag,
-                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = MonoFont),
-                    color = accent,
-                )
-            }
-        }
         Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             SubtlePill(dateAndTimeConverter?.getDate(time).orEmpty())
-            SubtlePill(dateAndTimeConverter?.getTime(time2 ?: time).orEmpty())
+            SubtlePill(dateAndTimeConverter?.getTime(time).orEmpty())
         }
+    }
+}
+
+/**
+ * Строка перерыва: подпись сверху, дата/время под ней справа — чтобы при
+ * крупном системном шрифте длинная подпись и плашки не конкурировали за ширину.
+ */
+@Composable
+private fun BreakTimeRow(
+    label: String,
+    time: Long?,
+    dateAndTimeConverter: DateAndTimeConverter?,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(Modifier.weight(1f))
+            SubtlePill(dateAndTimeConverter?.getDate(time).orEmpty())
+            SubtlePill(dateAndTimeConverter?.getTime(time).orEmpty())
+        }
+    }
+}
+
+/** Длительность перерыва — чипом по центру, между началом и концом. */
+@Composable
+private fun BreakDurationDivider(duration: String) {
+    val accent = MaterialTheme.colorScheme.tertiary
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f), color = QvDividerColor())
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 10.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(accent.copy(alpha = 0.12f))
+                .padding(horizontal = 8.dp, vertical = 3.dp)
+        ) {
+            Text(
+                text = duration,
+                style = MaterialTheme.typography.labelSmall.copy(fontFamily = MonoFont),
+                color = accent,
+            )
+        }
+        HorizontalDivider(modifier = Modifier.weight(1f), color = QvDividerColor())
     }
 }
 
