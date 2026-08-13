@@ -208,6 +208,7 @@ fun HomeScreen(
     onStatistics: () -> Unit = {},
     normaHours: Int? = null,
     unsyncedRoutesCount: Int = 0,
+    hasActiveSubscription: Boolean = false,
     onSyncClick: () -> Unit = {},
     showSyncDialog: Boolean = false,
     isSyncSuccess: Boolean = false,
@@ -231,6 +232,11 @@ fun HomeScreen(
     val interactionSource = remember { MutableInteractionSource() }
 
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Ручное скрытие карточки «Не синхронизировано маршрутов». Привязано к
+    // текущему числу — если появятся новые несинхронизированные маршруты,
+    // карточка покажется снова.
+    var syncCardDismissed by remember(unsyncedRoutesCount) { mutableStateOf(false) }
 
     val snackbarManager: ISnackbarManager = koinInject()
     val pdfViewModel: PdfViewModel = koinInject()
@@ -937,7 +943,11 @@ fun HomeScreen(
                                 .animateItem(),
                             state = pagerState
                         )
-                        AnimatedVisibility(visible = unsyncedRoutesCount > 2) {
+                        AnimatedVisibility(
+                            visible = hasActiveSubscription &&
+                                unsyncedRoutesCount > 2 &&
+                                !syncCardDismissed
+                        ) {
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -951,11 +961,27 @@ fun HomeScreen(
                                     modifier = Modifier.padding(16.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text(
-                                        text = "Внимание!",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            modifier = Modifier.weight(1f),
+                                            text = "Внимание!",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        IconButton(
+                                            onClick = { syncCardDismissed = true },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.ic_close_24px),
+                                                contentDescription = "Закрыть",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
                                     Text(
                                         text = "Не синхронизировано маршрутов: $unsyncedRoutesCount",
                                         style = MaterialTheme.typography.bodySmall,

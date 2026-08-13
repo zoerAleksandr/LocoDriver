@@ -99,6 +99,7 @@ fun HomeDestination(
         onCalendar = router::showCalendar,
         onStatistics = router::showStatistics,
         unsyncedRoutesCount = uiState.unsyncedRoutesCount,
+        hasActiveSubscription = uiState.hasActiveSubscription,
         onSyncClick = homeViewModel::manualSync,
         showSyncDialog = uiState.showSyncDialog,
         isSyncSuccess = uiState.isSyncSuccess,

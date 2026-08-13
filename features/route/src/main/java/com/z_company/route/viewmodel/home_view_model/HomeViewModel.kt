@@ -336,9 +336,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
             }
         }
         set(value) {
+            val subscriptionActive =
+                (value?.subscriptionPeriod ?: 0L) > System.currentTimeMillis()
             _uiState.update {
                 it.copy(
-                    settingState = ResultState.Success(value)
+                    settingState = ResultState.Success(value),
+                    hasActiveSubscription = subscriptionActive
                 )
             }
         }
@@ -1030,28 +1033,35 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     fun syncRoute(route: Route) {
         viewModelScope.launch {
+            // Сначала авторизация: без токена отправлять маршрут бессмысленно —
+            // сразу подсказываем войти в аккаунт и не идём в сеть.
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
-            val fullToken = "Bearer $token"
-            if (token == null) {
-                snackbarManager.show(message = "Неавторизованный пользователь")
-            } else {
-                routesManager.saveRouteInRemote(route, fullToken).collect { resultState ->
-                    when (resultState) {
-                        is ResultState.Success -> {
-                            // show snackbar centrally
-                            routeUseCase.setSynchronizedRoute(route.basicData.id).first()
-                            snackbarManager.show(message = "Маршрут сохранен в облаке")
-                        }
+            if (token.isNullOrBlank()) {
+                snackbarManager.show(message = "Войдите в аккаунт, чтобы синхронизировать маршрут")
+                return@launch
+            }
+            // Синхронизация — платная функция. Без активной подписки ручной
+            // upload в облако запрещён (см. RouteActionsHelper.hasActiveSubscription).
+            if (!routeHelper.hasActiveSubscription()) {
+                snackbarManager.show(message = "Синхронизация доступна по подписке")
+                return@launch
+            }
+            routesManager.saveRouteInRemote(route, "Bearer $token").collect { resultState ->
+                when (resultState) {
+                    is ResultState.Success -> {
+                        // show snackbar centrally
+                        routeUseCase.setSynchronizedRoute(route.basicData.id).first()
+                        snackbarManager.show(message = "Маршрут сохранен в облаке")
+                    }
 
-                        is ResultState.Error -> {
-                            val message =
-                                resultState.entity.message ?: resultState.entity.throwable?.message
-                                ?: "Ошибка синхронизации"
-                            snackbarManager.show(message = message)
-                        }
+                    is ResultState.Error -> {
+                        val message =
+                            resultState.entity.message ?: resultState.entity.throwable?.message
+                            ?: "Ошибка синхронизации"
+                        snackbarManager.show(message = message)
+                    }
 
-                        is ResultState.Loading -> {
-                        }
+                    is ResultState.Loading -> {
                     }
                 }
             }
@@ -1107,6 +1117,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
     fun manualSync() {
         syncJob?.cancel()
         syncJob = viewModelScope.launch(Dispatchers.IO) {
+            // Синхронизация — платная функция. Без активной подписки полный
+            // upload в облако запрещён (тот же гейт, что в SyncWorker).
+            if (!routeHelper.hasActiveSubscription()) {
+                snackbarManager.show(message = "Синхронизация доступна по подписке")
+                return@launch
+            }
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val userId = secureTokenStorage.getUserIdFlow().first()
             if (token.isNullOrBlank()) {

@@ -19,6 +19,7 @@ import com.vk.id.refreshuser.VKIDGetUserFail
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.sendToSentry
+import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
@@ -129,6 +130,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
     private val subscriptionHelper: SubscriptionHelper by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
+    private val snackbarManager: ISnackbarManager by inject()
 
     // Изменения в ProfileViewModel.kt
     // Добавлено: Новое состояние _hasSubscription для проверки наличия активной подписки (subscriptionPeriod > 0L).
@@ -218,6 +220,14 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     // При получении промежуточных Success - обновляет progress map. При final Success/Error - устанавливает isSyncComplete = true.
     fun startSyncUpload() {
         viewModelScope.launch(Dispatchers.IO) {
+            // Защита на случай, если раздел «Синхронизация» окажется доступен без
+            // активной подписки: upload в облако — платная функция (тот же гейт,
+            // что в SyncWorker и в ручной синхронизации маршрутов).
+            val setting = settingsUseCase.getUserSettingFlow().first()
+            if (setting.subscriptionPeriod <= Calendar.getInstance().timeInMillis) {
+                snackbarManager.show("Синхронизация доступна по подписке")
+                return@launch
+            }
             val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
             val userId = secureTokenStorage.getUserIdFlow().first()
             _uiState.update {

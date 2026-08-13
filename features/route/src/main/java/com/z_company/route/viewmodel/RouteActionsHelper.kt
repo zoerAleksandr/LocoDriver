@@ -62,31 +62,50 @@ class RouteActionsHelper() : KoinComponent {
 
             val endTimeSubscription = time + gracePeriod
 
+            // Подписка активна: оформлена (time != 0) и не истекла (с учётом грейса).
+            // Активная подписка снимает лимит бесплатных маршрутов полностью.
+            val subscriptionActive = time != 0L && endTimeSubscription >= currentTime
+
             // get routes size on IO
             val routesSize = withContext(Dispatchers.IO) {
                 routeUseCase.listRouteWithDeleting().size
             }
 
             return when {
-                endTimeSubscription < currentTime && time != 0L -> {
-                    NewRouteResult.NeedSubscribeDialog
+                subscriptionActive -> {
+                    NewRouteResult.ShowNewRouteScreen(basicId = basicId, isMakeCopy = isMakeCopy)
                 }
 
-                routesSize > countFreeRoutes && time == 0L -> {
+                // Без активной подписки (не куплена ИЛИ истекла) лимит один и тот же:
+                // 20 бесплатных маршрутов. 20-й уже создан → 21-й недоступен.
+                routesSize >= countFreeRoutes -> {
                     NewRouteResult.NeedSubscribeDialog
-                }
-
-                routesSize <= countFreeRoutes && time == 0L -> {
-                    NewRouteResult.AlertSubscribeDialog
                 }
 
                 else -> {
-                    NewRouteResult.ShowNewRouteScreen(basicId = basicId, isMakeCopy = isMakeCopy)
+                    NewRouteResult.AlertSubscribeDialog
                 }
             }
         } catch (t: Throwable) {
             NewRouteResult.Error(t)
         }
+    }
+
+    /**
+     * Активна ли подписка на текущий момент.
+     *
+     * Единый критерий для гейта синхронизации (та же логика, что в
+     * [SyncWorker] и в [ProfileViewModel.hasSubscription]): синхронизация —
+     * платная функция, поэтому любой ручной upload в облако (полный или
+     * по одному маршруту) должен быть заблокирован, если подписка не
+     * оформлена (`subscriptionPeriod == 0`) или истекла (`< now`).
+     *
+     * Без грейс-периода — в отличие от [newRouteClick], где грейс нужен,
+     * чтобы дать домотать локальную работу: здесь речь о записи на сервер.
+     */
+    suspend fun hasActiveSubscription(): Boolean {
+        val setting = settingsUseCase.getUserSettingFlow().first()
+        return setting.subscriptionPeriod > Calendar.getInstance().timeInMillis
     }
 
     /**

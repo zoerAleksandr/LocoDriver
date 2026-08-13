@@ -421,9 +421,17 @@ class CalendarViewModel : ViewModel(), KoinComponent {
 
     fun syncRoute(route: Route) {
         viewModelScope.launch {
+            // Сначала авторизация: без токена сразу подсказываем войти в аккаунт
+            // и не идём в сеть.
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
-            if (token == null) {
-                snackbarManager.show("Неавторизованный пользователь")
+            if (token.isNullOrBlank()) {
+                snackbarManager.show("Войдите в аккаунт, чтобы синхронизировать маршрут")
+                return@launch
+            }
+            // Синхронизация — платная функция. Без активной подписки ручной
+            // upload в облако запрещён (см. RouteActionsHelper.hasActiveSubscription).
+            if (!routeHelper.hasActiveSubscription()) {
+                snackbarManager.show("Синхронизация доступна по подписке")
                 return@launch
             }
             val label = SyncManager.routeLabel(route)

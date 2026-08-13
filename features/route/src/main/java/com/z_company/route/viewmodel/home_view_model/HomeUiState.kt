@@ -42,6 +42,13 @@ data class HomeUiState(
     val dateAndTimeConverter: DateAndTimeConverter? = null,
     val showSnackbar: Boolean = false,
     val unsyncedRoutesCount: Int = 0,
+    /**
+     * Активна ли подписка. Синхронизация — платная функция, поэтому карточка
+     * «Не синхронизировано маршрутов» показывается только при активной подписке
+     * (иначе она сбивает с толку: у неоплаченного пользователя все маршруты
+     * «не синхронизированы», но синхронизировать их всё равно нельзя).
+     */
+    val hasActiveSubscription: Boolean = false,
     val showSyncDialog: Boolean = false,
     val isSyncComplete: Boolean = false,
     val isSyncSuccess: Boolean = false,
