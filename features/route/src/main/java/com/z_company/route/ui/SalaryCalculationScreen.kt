@@ -53,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -603,7 +604,17 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
     // чтобы измерение не занимало собственную высоту.
     Box {
         // Измерение (невидимое, без ограничения ширины — через horizontalScroll).
-        Box(modifier = Modifier.alpha(0f)) {
+        // Раскладываем детей (чтобы сработал onGloballyPositioned), но сообщаем
+        // родителю нулевой размер: иначе высокий столбец измерения растягивает Box
+        // и под таблицей появляется пустое место (особенно заметно при крупном шрифте).
+        Box(
+            modifier = Modifier
+                .alpha(0f)
+                .layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    layout(0, 0) { placeable.place(0, 0) }
+                },
+        ) {
             Row(modifier = Modifier.horizontalScroll(measureScroll)) {
                 columns.forEachIndexed { c, col ->
                     Column {
