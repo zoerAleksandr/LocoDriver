@@ -411,7 +411,6 @@ actual class DatabaseDriverFactory(private val context: Context) {
                         weight TEXT,
                         axle TEXT,
                         conditionalLength TEXT,
-                        isHeavyLongDistance INTEGER NOT NULL DEFAULT 0,
                         stations TEXT NOT NULL,
                         servicePhase TEXT DEFAULT NULL,
                         pusher TEXT DEFAULT NULL,
@@ -421,8 +420,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
                     )
                 """.trimIndent())
                 db.execSQL("""
-                    INSERT INTO Train_new (trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain)
-                    SELECT trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain
+                    INSERT INTO Train_new (trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, stations, servicePhase, pusher, doubleTraction, doubledTrain)
+                    SELECT trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, stations, servicePhase, pusher, doubleTraction, doubledTrain
                     FROM Train
                 """.trimIndent())
                 db.execSQL("DROP TABLE Train")

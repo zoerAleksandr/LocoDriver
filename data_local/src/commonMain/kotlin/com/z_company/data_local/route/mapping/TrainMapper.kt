@@ -98,7 +98,6 @@ internal object TrainMapper {
         weight = row.weight,
         axle = row.axle,
         conditionalLength = row.conditionalLength,
-        isHeavyLongDistance = row.isHeavyLongDistance != 0L,
         stations = decodeStations(row.stations),
         servicePhase = decodeServicePhase(row.servicePhase),
         pusher = decodeTrainAssist(row.pusher),

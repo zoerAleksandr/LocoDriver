@@ -27,7 +27,6 @@ data class Train(
     var weight: String? = null,
     var axle: String? = null,
     var conditionalLength: String? = null,
-    var isHeavyLongDistance: Boolean = false,
     var stations: MutableList<Station> = mutableListOf(),
     var servicePhase: ServicePhase? = null,
     var pusher: TrainAssist? = null,            // Толкач

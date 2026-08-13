@@ -266,7 +266,6 @@ class TrainFormViewModel(
                 train.weight.isNullOrBlank() &&
                 train.axle.isNullOrBlank() &&
                 train.conditionalLength.isNullOrBlank() &&
-                !train.isHeavyLongDistance &&
                 train.pusher == null &&
                 train.doubleTraction == null &&
                 train.doubledTrain == null &&

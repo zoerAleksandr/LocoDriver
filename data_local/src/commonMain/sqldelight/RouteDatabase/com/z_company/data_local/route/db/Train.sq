@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS Train (
     weight TEXT,
     axle TEXT,
     conditionalLength TEXT,
-    isHeavyLongDistance INTEGER NOT NULL DEFAULT 0,
     stations TEXT NOT NULL,
     servicePhase TEXT DEFAULT NULL,
     pusher TEXT DEFAULT NULL,
@@ -19,11 +18,11 @@ CREATE TABLE IF NOT EXISTS Train (
 CREATE INDEX IF NOT EXISTS index_Train_basicId ON Train(basicId);
 
 insertOrReplace:
-INSERT OR REPLACE INTO Train (trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, isHeavyLongDistance, stations, servicePhase, pusher, doubleTraction, doubledTrain)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO Train (trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, stations, servicePhase, pusher, doubleTraction, doubledTrain)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 update:
-UPDATE OR REPLACE Train SET trainId = :trainId, basicId = :basicId, number = :number, additionalNumbers = :additionalNumbers, distance = :distance, weight = :weight, axle = :axle, conditionalLength = :conditionalLength, isHeavyLongDistance = :isHeavyLongDistance, stations = :stations, servicePhase = :servicePhase, pusher = :pusher, doubleTraction = :doubleTraction, doubledTrain = :doubledTrain
+UPDATE OR REPLACE Train SET trainId = :trainId, basicId = :basicId, number = :number, additionalNumbers = :additionalNumbers, distance = :distance, weight = :weight, axle = :axle, conditionalLength = :conditionalLength, stations = :stations, servicePhase = :servicePhase, pusher = :pusher, doubleTraction = :doubleTraction, doubledTrain = :doubledTrain
 WHERE trainId = :trainId;
 
 getById:
