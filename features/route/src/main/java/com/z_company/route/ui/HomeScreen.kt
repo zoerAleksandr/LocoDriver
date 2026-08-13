@@ -1695,35 +1695,60 @@ private fun StackedTile(
 
     // Общее содержимое плитки (иконка+бейдж / label+данные / кнопка +)
     val tileContent: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            val iconTint = if (isEmpty) c.onSurfaceVariant.copy(alpha = 0.45f) else c.tertiary
-            if (useImage) {
-                Image(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp))
-            } else {
-                Icon(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp), tint = iconTint)
+        // Верхний блок: иконка + подзаголовок + данные — прижаты друг к другу
+        // и к верху плитки, чтобы подзаголовок всегда был под иконкой независимо
+        // от наличия данных.
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                val iconTint = if (isEmpty) c.onSurfaceVariant.copy(alpha = 0.45f) else c.tertiary
+                if (useImage) {
+                    Image(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp))
+                } else {
+                    Icon(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(32.dp), tint = iconTint)
+                }
+                if (hasStack) {
+                    Badge(
+                        modifier = Modifier.align(Alignment.TopEnd),
+                        containerColor = c.tertiary,
+                        contentColor = c.surface,
+                    ) { Text("$count") }
+                }
             }
-            if (hasStack) {
-                Badge(
-                    modifier = Modifier.align(Alignment.TopEnd),
-                    containerColor = c.tertiary,
-                    contentColor = c.surface,
-                ) { Text("$count") }
-            }
-        }
-        Column {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = c.onSurfaceVariant)
+            // Подзаголовок (ЛОКОМОТИВ/ПОЕЗД/ПАССАЖИРОМ) — строго 1 строка без переноса,
+            // при крупном системном шрифте обрезается многоточием, а не переносится.
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = c.onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+            )
             if (title != null) {
-                // AutoSizeText: ужимает длинные имена («Электротяга 1») под ширину плитки
+                // AutoSizeText: ужимает длинные имена («Электротяга 1») под ширину плитки.
+                // Технический (моноширинный) шрифт — как в цифрах.
                 com.z_company.core.ui.component.AutoSizeText(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
                     color = c.primary,
+                    fontFamily = com.z_company.core.ui.theme.MonoFont,
                     maxLines = 1,
                     maxTextSize = 17.sp,
                     minTextSize = 11.sp,
+                    softWrap = false,
                     overflow = TextOverflow.Ellipsis,
                 )
-                subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                subtitle?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = c.onSurfaceVariant,
+                        fontFamily = com.z_company.core.ui.theme.MonoFont,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
         // Кнопка «+» — круг с accentSoft фоном
