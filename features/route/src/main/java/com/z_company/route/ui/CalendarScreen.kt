@@ -525,7 +525,12 @@ fun CalendarScreen(
                 routeForQuickView = null
                 copyRouteId = id
             },
-            onSync = { onSyncRoute(it) },
+            onSync = {
+                // Закрываем шторку, чтобы snackbar (успех/ошибка/подписка/
+                // авторизация) не оказался под ней.
+                routeForQuickView = null
+                onSyncRoute(it)
+            },
             onRequestDelete = { r ->
                 routeForQuickView = null
                 routeForRemove = r

@@ -423,7 +423,12 @@ fun HomeScreen(
                     showContextDialog = false
                     copyRouteId = id
                 },
-                onSync = { syncRoute(it) },
+                onSync = {
+                    // Закрываем шторку, чтобы snackbar (успех/ошибка/подписка/
+                    // авторизация) не оказался под ней.
+                    showContextDialog = false
+                    syncRoute(it)
+                },
                 onRequestDelete = { r ->
                     showContextDialog = false
                     routeForRemove = r
