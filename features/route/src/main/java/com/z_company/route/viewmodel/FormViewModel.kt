@@ -1395,17 +1395,30 @@ class FormViewModel(
             if (routeState is ResultState.Success) {
                 val dbRoute = routeState.data ?: return@onEach
                 // Обновляем только подразделы из БД.
-                // BasicData (номер, времена, примечания) хранится в памяти —
+                // BasicData (номер, примечания) хранится в памяти —
                 // перезапись из БД затирает текущий ввод пользователя.
+                // Исключения — времена, которые задаются на дочерних экранах:
+                //   • timeEndWork — из шторки сдачи в LocoFormScreen;
+                //   • timeStartWork / timeStartWorkBeforeArrival — «явка по прибытию»
+                //     на экране «Пассажиром». Их берём из БД, иначе изменение с
+                //     дочернего экрана не отражается до повторного входа в форму.
                 _currentRoute.update { inMemory ->
-                    inMemory?.copy(
+                    (inMemory?.copy(
                         locomotives = dbRoute.locomotives,
                         trains = dbRoute.trains,
                         passengers = dbRoute.passengers,
                         otherWorks = dbRoute.otherWorks,
                         partners = dbRoute.partners,
-                        photos = dbRoute.photos
-                    ) ?: dbRoute
+                        photos = dbRoute.photos,
+                        basicData = inMemory.basicData.copy(
+                            timeEndWork = dbRoute.basicData.timeEndWork,
+                            timeStartWork = dbRoute.basicData.timeStartWork,
+                            timeStartWorkBeforeArrival = dbRoute.basicData.timeStartWorkBeforeArrival
+                        )
+                    ) ?: dbRoute)
+                        // Инвариант: если пассажир помечен «явкой по прибытию», явка
+                        // всегда равна его прибытию — не зависим от тайминга записи в БД.
+                        .withWorkStartFromPassenger()
                 }
             }
         }.launchIn(viewModelScope)
