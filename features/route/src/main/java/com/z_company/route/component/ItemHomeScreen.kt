@@ -222,11 +222,20 @@ fun ItemHomeScreen(
                         fontSize = requiredSizeText,
                     )
                     val headerGapPx = with(LocalDensity.current) { 8.dp.roundToPx() }
+                    // Решение «ряд или столбец» принимаем по ФИКСИРОВАННОМУ худшему
+                    // случаю (кросс-дневной диапазон + время), а не по фактическому
+                    // тексту этого маршрута. Иначе одни карточки (даты в разных сутках,
+                    // длиннее) уходят в столбец, а другие (та же дата, короче) остаются
+                    // в ряд с ужатым AutoSizeText — в одном списке это выглядит как
+                    // случайно «разный шрифт». Шрифт моно → ширина определяется числом
+                    // символов, поэтому один эталон решает одинаково для всех карточек.
+                    val worstCaseRange = "00.00 00:00 - 00.00 00:00"
+                    val worstCaseWorkTime = "000:00"
                     val oneLineFits = textsFitInWidth(
                         availableWidthPx = constraints.maxWidth,
                         extraPx = headerGapPx,
-                        timeTextMemo to measureStyle,
-                        workTimeStringMemo to measureStyle.copy(fontWeight = FontWeight.Bold),
+                        worstCaseRange to measureStyle,
+                        worstCaseWorkTime to measureStyle.copy(fontWeight = FontWeight.Bold),
                     )
                     if (!oneLineFits) {
                         // Не помещается: явка и сдача друг над другом, а продолжительность
