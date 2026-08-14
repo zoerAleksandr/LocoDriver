@@ -646,11 +646,21 @@ class LocoFormViewModel(
     fun setRefuelDiesel(index: Int, inputValue: String?) {
         updateDieselSection(index) {
             val coeff = refuelCoefficient.data?.toDoubleOrNull()
-            val kiloValue = coeff?.let { c ->
-                inputValue?.toDoubleOrNull()?.let { liters ->
-                    CalculationEnergy.rounding(liters * c, 2)?.str() ?: ""
+            val kiloValue = if (coeff != null) {
+                // Коэффициент задан — кг пересчитываются из литров.
+                // Если литры очищены/невалидны — очищаем и кг (иначе в поле кг
+                // оставалось бы значение от предыдущего ввода литров).
+                val liters = inputValue?.toDoubleOrNull()
+                if (liters != null) {
+                    CalculationEnergy.rounding(liters * coeff, 2)?.str() ?: ""
+                } else {
+                    ""
                 }
-            } ?: refuelInKilo.data
+            } else {
+                // Коэффициента нет — связи литры↔кг нет, кг введены вручную,
+                // поэтому не трогаем.
+                refuelInKilo.data
+            }
 
             copy(
                 refuel = DieselSectionFieldState(inputValue, DieselSectionType.REFUEL),

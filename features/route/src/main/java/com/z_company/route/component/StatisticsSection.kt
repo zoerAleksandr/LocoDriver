@@ -35,6 +35,7 @@ import kotlin.math.abs
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.util.CalculationEnergy.rounding
 import com.z_company.domain.util.CalculationEnergy.getTotalFuelConsumption
+import com.z_company.domain.util.CalculationEnergy.getTotalFuelInKiloConsumption
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.plus
 import com.z_company.domain.util.str
@@ -258,7 +259,16 @@ fun DieselStatisticsSection(
         val delivery = it.delivery.data?.toDoubleOrNull()
         val refuel = it.refuel.data?.toDoubleOrNull()
         val result = getTotalFuelConsumption(accepted, delivery, refuel)
-        val resultInKilo = result.times(it.coefficient.data?.toDoubleOrZero())
+        // Расход в кг считаем так же, как в карточке секции (DieselSectionItem):
+        // топливо переводим в кг по коэффициенту секции, а экипировку берём из
+        // отдельного поля refuelInKilo (у неё свой коэффициент). Нельзя умножать
+        // суммарные литры (топливо + экипировка) на коэффициент секции — иначе
+        // экипировка пересчитывается по чужому коэффициенту и итог расходится с секцией.
+        val coeff = it.coefficient.data?.toDoubleOrNull()
+        val acceptedInKilo = accepted.times(coeff)
+        val deliveryInKilo = delivery.times(coeff)
+        val refuelInKilo = it.refuelInKilo.data?.toDoubleOrNull()
+        val resultInKilo = getTotalFuelInKiloConsumption(acceptedInKilo, deliveryInKilo, refuelInKilo)
         overResultInLiter += result
         overResultInKilo += resultInKilo
         totalRefuelLiter += it.refuel.data?.toDoubleOrNull()
