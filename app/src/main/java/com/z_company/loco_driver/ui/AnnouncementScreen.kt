@@ -146,7 +146,7 @@ private fun ColumnScope.ImageTitleTextBlock(
         style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.Bold,
         color = cs.onBackground,
-        modifier = Modifier.padding(top = 20.dp),
+        modifier = Modifier.padding(top = 28.dp),
     )
     Text(
         text = text,
