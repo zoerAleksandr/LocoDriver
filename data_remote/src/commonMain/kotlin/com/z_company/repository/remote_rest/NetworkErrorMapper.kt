@@ -6,6 +6,8 @@ import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.plugins.ServerResponseException
+import kotlinx.io.IOException
+import kotlinx.serialization.SerializationException
 
 /**
  * Единая точка перевода сетевого исключения в понятное пользователю сообщение.
@@ -33,9 +35,10 @@ object NetworkErrorMapper {
         is HttpRequestTimeoutException,
         is ConnectTimeoutException,
         is SocketTimeoutException -> true
+        is IOException -> true
         null -> false
-        // IOException, «unable to resolve host», reset, refused и прочий транспорт.
-        else -> true
+        // Ошибки сериализации, маппинга и локальной БД не означают отсутствие сети.
+        else -> false
     }
 
     /** Понятное пользователю сообщение по исключению. */
@@ -46,8 +49,11 @@ object NetworkErrorMapper {
         is HttpRequestTimeoutException,
         is ConnectTimeoutException,
         is SocketTimeoutException -> TIMEOUT_MESSAGE
+        is SerializationException ->
+            "Ошибка обработки данных сервера: ${safeTechnicalMessage(throwable)}"
+        is IOException -> NO_CONNECTION_MESSAGE
         null -> NO_CONNECTION_MESSAGE
-        else -> NO_CONNECTION_MESSAGE
+        else -> "Ошибка синхронизации: ${safeTechnicalMessage(throwable)}"
     }
 
     /**
@@ -93,6 +99,17 @@ object NetworkErrorMapper {
         "Нет соединения с сервером. Проверьте интернет и попробуйте снова."
     const val TIMEOUT_MESSAGE =
         "Превышено время ожидания ответа сервера. Проверьте соединение и попробуйте снова."
+
+    private fun safeTechnicalMessage(throwable: Throwable): String {
+        val type = throwable::class.simpleName ?: "неизвестная ошибка"
+        val details = throwable.message
+            ?.lineSequence()
+            ?.firstOrNull()
+            ?.take(240)
+            ?.trim()
+            .orEmpty()
+        return if (details.isBlank()) type else "$type: $details"
+    }
 
     private val REJECTED_FIELD_REGEX =
         Regex("""body\\?"\s*,\s*\\?"([A-Za-z_][A-Za-z0-9_]*)""")

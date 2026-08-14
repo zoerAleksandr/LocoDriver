@@ -35,16 +35,17 @@ class RoutesManager(
         bearerToken: String
     ): Flow<ResultState<SaveRouteResult>> = flow {
         emit(ResultState.Loading())
-        try {
+        val result = try {
             val response = remoteRestApi.saveRoute(token = bearerToken, data = route)
-            emit(ResultState.Success(SaveRouteResult(warnings = response.warnings)))
+            ResultState.Success(SaveRouteResult(warnings = response.warnings))
         } catch (e: ClientRequestException) {
             val errorBody = try { e.response.bodyAsText() } catch (_: Exception) { "" }
             val errorMessage = parseServerError(e.response.status.value, errorBody)
-            emit(ResultState.Error(ErrorEntity(message = errorMessage)))
+            ResultState.Error(ErrorEntity(message = errorMessage))
         } catch (e: Exception) {
-            emit(ResultState.Error(ErrorEntity(throwable = e)))
+            ResultState.Error(ErrorEntity(throwable = e))
         }
+        emit(result)
     }.flowOn(Dispatchers.Default)
         .catch { e ->
             emit(ResultState.Error(ErrorEntity(throwable = e)))
@@ -55,16 +56,17 @@ class RoutesManager(
         bearerToken: String
     ): Flow<ResultState<Unit>> = flow {
         emit(ResultState.Loading())
-        try {
+        val result = try {
             remoteRestApi.deleteRoute(token = bearerToken, routeId = routeId)
-            emit(ResultState.Success(Unit))
+            ResultState.Success(Unit)
         } catch (e: ClientRequestException) {
             val errorBody = try { e.response.bodyAsText() } catch (_: Exception) { "" }
             val errorMessage = parseServerError(e.response.status.value, errorBody)
-            emit(ResultState.Error(ErrorEntity(message = errorMessage)))
+            ResultState.Error(ErrorEntity(message = errorMessage))
         } catch (e: Exception) {
-            emit(ResultState.Error(ErrorEntity(throwable = e)))
+            ResultState.Error(ErrorEntity(throwable = e))
         }
+        emit(result)
     }.flowOn(Dispatchers.Default)
         .catch { e ->
             emit(ResultState.Error(ErrorEntity(throwable = e)))
@@ -72,12 +74,16 @@ class RoutesManager(
 
     fun getRoutesFromRemote(bearerToken: String): Flow<ResultState<List<Route>>> = flow {
         emit(ResultState.Loading())
-        try {
+        val result = try {
             val routes = remoteRestApi.getRoutes(token = bearerToken)
-            emit(ResultState.Success(routes))
+            ResultState.Success(routes)
         } catch (e: Exception) {
-            emit(ResultState.Error(ErrorEntity(throwable = e)))
+            ResultState.Error(ErrorEntity(throwable = e))
         }
+        // emit должен быть за пределами try/catch: downstream-операторы вроде
+        // first() отменяют Flow из emit. Перехват этой отмены и повторный emit
+        // нарушает exception transparency и ломает успешную синхронизацию.
+        emit(result)
     }
 
     companion object {
