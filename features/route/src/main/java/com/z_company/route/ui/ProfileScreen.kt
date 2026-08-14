@@ -132,32 +132,31 @@ private fun VkBadge() {
 @Composable
 private fun SyncCloudButton(
     iconRes: Int,
-    line1: String,
-    line2: String,
+    text: String,
     loading: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    Column(
+    Row(
         modifier = modifier
             .clip(Shapes.medium)
             .background(MaterialTheme.colorScheme.primaryContainer)
             .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), Shapes.medium)
             .clickable(onClick = onClick)
-            .padding(vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         if (loading) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
         } else {
             Icon(painterResource(iconRes), contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
         }
+        Spacer(modifier = Modifier.width(10.dp))
         Text(
-            text = "$line1\n$line2",
+            text = text,
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.primary,
-            textAlign = TextAlign.Center,
         )
     }
 }
@@ -1018,9 +1017,8 @@ fun ProfileScreen(
                                 ProfileGroupLabel("СИНХРОНИЗАЦИЯ")
                                 if (hasSubscription) {
                                     SyncCloudButton(
-                                        iconRes = com.z_company.core.R.drawable.rounded_cloud_upload_24,
-                                        line1 = "Синхронизация",
-                                        line2 = "с облаком",
+                                        iconRes = R.drawable.sync_24px,
+                                        text = "Синхронизация",
                                         loading = uiState.showSyncDialog && !uiState.isSyncComplete,
                                         modifier = Modifier.fillMaxWidth(),
                                         onClick = viewModel::startSync,
