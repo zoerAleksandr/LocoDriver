@@ -90,7 +90,9 @@ data class RoutesUiState(
     val routePayments: Map<String, String> = emptyMap(),
     // Отработанное время за месяц (с учётом настройки «Учитывать будущие маршруты»),
     // формат HH:MM — показывается рядом со счётчиком маршрутов.
-    val monthWorkedTimeText: String = ""
+    val monthWorkedTimeText: String = "",
+    /** Фоновая синхронизация при открытии экрана. */
+    val isBackgroundSyncing: Boolean = false
 )
 
 enum class SortOption {
@@ -112,9 +114,11 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     private val secureTokenStorage: SecureTokenStorage by inject()
     private val routesManager: RoutesManager by inject()
     private val shareRouteManager: ShareRouteManager by inject()
+    private val syncManager: SyncManager by inject()
 
     private var removeRouteJob: Job? = null
     private var loadRoutesJob: Job? = null
+    private var backgroundSyncJob: Job? = null
 
     private val _uiState = MutableStateFlow(RoutesUiState())
     val uiState: StateFlow<RoutesUiState> = _uiState.asStateFlow()
@@ -140,6 +144,30 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
 
     private val _previewRouteUiState = MutableStateFlow(PreviewRouteUiState())
     val previewRouteUiState = _previewRouteUiState.asStateFlow()
+
+    /** Тихо подтянуть изменения при каждом открытии списка маршрутов. */
+    fun syncOnScreenOpen() {
+        if (backgroundSyncJob?.isActive == true) return
+        backgroundSyncJob = viewModelScope.launch(Dispatchers.IO) {
+            if (!routeHelper.hasActiveSubscription()) return@launch
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+            if (token.isNullOrBlank()) return@launch
+            _uiState.update { it.copy(isBackgroundSyncing = true) }
+            try {
+                syncManager.syncBidirectional("Bearer $token").collect {}
+            } catch (e: Exception) {
+                e.sendToSentry("AllRouteViewModel", "syncOnScreenOpen")
+            } finally {
+                _uiState.update { it.copy(isBackgroundSyncing = false) }
+            }
+        }
+    }
+
+    fun stopScreenSync() {
+        backgroundSyncJob?.cancel()
+        backgroundSyncJob = null
+        _uiState.update { it.copy(isBackgroundSyncing = false) }
+    }
 
     private val latestRawRoutes = MutableStateFlow<List<ItemState>>(emptyList())
 

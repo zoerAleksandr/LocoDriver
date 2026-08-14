@@ -1113,6 +1113,31 @@ class HomeViewModel : ViewModel(), KoinComponent {
     // buildShareText удалён — логика перенесена в ShareLinkData.fromRoute()
 
     private var syncJob: kotlinx.coroutines.Job? = null
+    private var backgroundSyncJob: kotlinx.coroutines.Job? = null
+
+    /** Тихо подтянуть изменения при каждом открытии главного экрана. */
+    fun syncOnScreenOpen() {
+        if (backgroundSyncJob?.isActive == true || syncJob?.isActive == true) return
+        backgroundSyncJob = viewModelScope.launch(Dispatchers.IO) {
+            if (!routeHelper.hasActiveSubscription()) return@launch
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+            if (token.isNullOrBlank()) return@launch
+            _uiState.update { it.copy(isBackgroundSyncing = true) }
+            try {
+                syncManager.syncBidirectional("Bearer $token").collect {}
+            } catch (e: Exception) {
+                e.sendToSentry("HomeViewModel", "syncOnScreenOpen")
+            } finally {
+                _uiState.update { it.copy(isBackgroundSyncing = false) }
+            }
+        }
+    }
+
+    fun stopScreenSync() {
+        backgroundSyncJob?.cancel()
+        backgroundSyncJob = null
+        _uiState.update { it.copy(isBackgroundSyncing = false) }
+    }
 
     fun manualSync() {
         syncJob?.cancel()

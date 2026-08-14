@@ -254,6 +254,7 @@ class SyncManager(
                                 data.warnings.forEach { w -> allWarnings.add("[$routeId] $label: $w") }
                             }
                             routeUseCase.setSynchronizedRoute(routeId).collect {}
+                            routeUseCase.setRemoteRouteIdRoute(routeId, routeId).collect {}
                             savedCount++
                         } else if (saveResult is ResultState.Error) {
                             allErrors.add("[$routeId] $label: ${saveResult.entity.message ?: saveResult.entity.throwable?.message ?: "Ошибка"}")
@@ -301,6 +302,7 @@ class SyncManager(
                 when (saveResult) {
                     is ResultState.Success -> {
                         routeUseCase.setSynchronizedRoute(routeId).collect {}
+                        routeUseCase.setRemoteRouteIdRoute(routeId, routeId).collect {}
                         emit(ResultState.Success(Unit))
                     }
                     is ResultState.Error -> emit(ResultState.Error(saveResult.entity))
@@ -834,6 +836,12 @@ class SyncManager(
             val id = server.basicData.id
             if (id in locallyDeletedIds) continue // локальное удаление в приоритете
             val local = localById[id]
+            // Миграция старых установок: раньше remoteRouteId не заполнялся.
+            // Сам факт наличия id на сервере надёжно доказывает, что маршрут уже
+            // был облачным; сохраняем локальный маркер до дальнейших правок.
+            if (local != null && local.basicData.remoteRouteId.isNullOrBlank()) {
+                routeUseCase.setRemoteRouteIdRoute(id, id).collect {}
+            }
             when {
                 local == null -> {
                     // Новый маршрут с другого устройства.
@@ -861,8 +869,12 @@ class SyncManager(
             if (local.basicData.isDeleted) continue
             val id = local.basicData.id
             if (id in serverById) continue
-            if (local.basicData.isSynchronized) {
-                // Был синхронизирован и пропал с сервера → удалён на другом устройстве.
+            val wasEverUploaded = local.basicData.isSynchronized ||
+                !local.basicData.remoteRouteId.isNullOrBlank()
+            if (wasEverUploaded) {
+                // Уже существовал в облаке и пропал с сервера → удалён на другом
+                // устройстве. Удаление побеждает даже более позднюю локальную
+                // правку: маршрут не должен самопроизвольно воскресать.
                 routeUseCase.removeRoute(local).collect {}
                 result.routesDeletedLocal++
             } else {
@@ -888,7 +900,15 @@ class SyncManager(
 
     /** Сохранить маршрут, пришедший с сервера (пометив синхронизированным). */
     private suspend fun saveDownloadedRoute(server: Route) {
-        val r = server.copy(basicData = server.basicData.copy(isSynchronized = true))
+        val r = server.copy(
+            basicData = server.basicData.copy(
+                isSynchronized = true,
+                // Локальный маркер того, что маршрут уже существовал в облаке.
+                // Нужен, чтобы отличить его от нового локального маршрута, если
+                // серверный список больше не содержит этот id.
+                remoteRouteId = server.basicData.remoteRouteId ?: server.basicData.id
+            )
+        )
         routeUseCase.saveRouteAfterLoading(r).collect {}
     }
 
@@ -912,6 +932,7 @@ class SyncManager(
                     is ResultState.Success -> {
                         saveResult.data.warnings.forEach { w -> warnings.add("[$routeId] $label: $w") }
                         routeUseCase.setSynchronizedRoute(routeId).collect {}
+                        routeUseCase.setRemoteRouteIdRoute(routeId, routeId).collect {}
                         ok = true
                     }
                     is ResultState.Error -> {
@@ -1116,6 +1137,10 @@ class SyncManager(
                                 data.warnings.forEach { w -> allWarnings2.add("$label: $w") }
                             }
                             routeUseCase.setSynchronizedRoute(route.basicData.id).collect {}
+                            routeUseCase.setRemoteRouteIdRoute(
+                                route.basicData.id,
+                                route.basicData.id
+                            ).collect {}
                             savedCount++
                         } else if (saveResult is ResultState.Error) {
                             allErrors2.add("$label: ${saveResult.entity.message ?: saveResult.entity.throwable?.message ?: "Ошибка"}")

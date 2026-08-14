@@ -2,6 +2,7 @@ package com.z_company.route.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
@@ -25,6 +26,12 @@ fun HomeDestination(
     val years by homeViewModel.yearList.collectAsState()
 
     val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        homeViewModel.syncOnScreenOpen()
+    }
+    DisposableEffect(homeViewModel) {
+        onDispose(homeViewModel::stopScreenSync)
+    }
     LaunchedEffect(homeViewModel) {
         homeViewModel.shareLinkEvent.collect { data ->
             context.startShare(data)
@@ -113,6 +120,7 @@ fun HomeDestination(
         isNetworkError = uiState.isNetworkError,
         onResetSyncState = homeViewModel::resetSyncState,
         normaHours = uiState.normaHours,
+        isBackgroundSyncing = uiState.isBackgroundSyncing,
     )
 }
 

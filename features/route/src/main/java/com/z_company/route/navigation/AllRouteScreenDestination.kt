@@ -2,6 +2,7 @@ package com.z_company.route.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.AllRouteScreen
@@ -13,6 +14,13 @@ fun AllRouteScreenDestination(
     router: Router
 ) {
     val viewModel: AllRouteViewModel = viewModel()
+
+    LaunchedEffect(Unit) {
+        viewModel.syncOnScreenOpen()
+    }
+    DisposableEffect(viewModel) {
+        onDispose(viewModel::stopScreenSync)
+    }
 
     LaunchedEffect(Unit) {
         viewModel.openRouteFormEvent.collect { event ->

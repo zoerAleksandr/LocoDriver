@@ -210,6 +210,7 @@ fun HomeScreen(
     normaHours: Int? = null,
     unsyncedRoutesCount: Int = 0,
     hasActiveSubscription: Boolean = false,
+    isBackgroundSyncing: Boolean = false,
     onSyncClick: () -> Unit = {},
     showSyncDialog: Boolean = false,
     isSyncSuccess: Boolean = false,
@@ -759,6 +760,9 @@ fun HomeScreen(
                         }
                     }
                 )
+                if (isBackgroundSyncing) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
                 // Заголовок месяца (отступ слева 16dp как у остального контента) +
                 // стрелки переключения месяца.
                 val monthYearListState by viewModel.monthYearList.collectAsState()

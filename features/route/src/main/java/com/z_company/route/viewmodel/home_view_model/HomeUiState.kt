@@ -49,6 +49,8 @@ data class HomeUiState(
      * «не синхронизированы», но синхронизировать их всё равно нельзя).
      */
     val hasActiveSubscription: Boolean = false,
+    /** Фоновая синхронизация при открытии экрана; UI показывает тонкую полосу сверху. */
+    val isBackgroundSyncing: Boolean = false,
     val showSyncDialog: Boolean = false,
     val isSyncComplete: Boolean = false,
     val isSyncSuccess: Boolean = false,

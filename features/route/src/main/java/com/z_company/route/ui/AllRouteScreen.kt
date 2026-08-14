@@ -223,7 +223,8 @@ fun AllRouteScreen(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         modifier = modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
+            Column {
+                TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
@@ -299,7 +300,11 @@ fun AllRouteScreen(
                         }
                     }
                 },
-            )
+                )
+                if (state.isBackgroundSyncing) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+            }
         },
     ) { padding ->
         // Month selection bottom sheet
