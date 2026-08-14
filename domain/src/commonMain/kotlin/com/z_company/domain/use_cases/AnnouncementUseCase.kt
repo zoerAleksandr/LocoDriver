@@ -20,14 +20,34 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
  * - чтобы разослать новое сообщение всем, задайте `number` **больше** предыдущего;
  * - новые установки (lastSeen = -1) увидят текущее активное сообщение один раз;
  * - повторный POST с тем же/меньшим `number` никому не покажется (уже видели).
+ *
+ * Тип [Announcement.TYPE_UPDATE] («Обновление» — карусель фич) показываем **только
+ * тем, кто обновил приложение**, а не свежим установкам: у новой установки нечего
+ * «обновлять». Признак свежей установки передаёт платформа ([isFreshInstall]) —
+ * на Android это `PackageInfo.firstInstallTime == lastUpdateTime`. Тип
+ * [Announcement.TYPE_NEWS] (акции, новости) показываем всем, независимо от этого.
  */
 class AnnouncementUseCase(
     private val repository: AnnouncementRepository,
     private val sharedPreferences: SharedPreferencesRepositories,
 ) {
-    /** Сообщение, которое нужно показать сейчас, либо null. */
-    suspend fun getAnnouncementToShow(platform: String, build: Long): Announcement? {
+    /**
+     * Сообщение, которое нужно показать сейчас, либо null.
+     *
+     * @param isFreshInstall true — приложение установлено «с нуля» и ни разу не
+     *   обновлялось; для таких пользователей сообщения типа «Обновление» не
+     *   показываем.
+     */
+    suspend fun getAnnouncementToShow(
+        platform: String,
+        build: Long,
+        isFreshInstall: Boolean = false,
+    ): Announcement? {
         val announcement = repository.getLatest(platform, build) ?: return null
+        // «Обновление» не показываем свежим установкам (им нечего обновлять).
+        if (announcement.type == Announcement.TYPE_UPDATE && isFreshInstall) {
+            return null
+        }
         // «Каждый запуск»: показываем всегда, пока сообщение активно (его вернул сервер).
         if (announcement.displayMode == Announcement.DISPLAY_MODE_ALWAYS) {
             return announcement

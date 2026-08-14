@@ -1333,8 +1333,15 @@ STATION_LIST/SERIES_EDITOR_{id}/STATION_EDITOR_{id}).
 - Алгоритм (`AnnouncementUseCase.getAnnouncementToShow`) простой и предсказуемый:
   1. запросить `getLatest(platform, build)`; при null (нет активного / 204 /
      офлайн) — ничего не показывать;
-  2. показать, только если `number > lastSeen`;
-  3. по «Понятно» — `markSeen(number)` (сохранить `number`).
+  2. **тип `update` не показываем свежим установкам** (`isFreshInstall`) — им
+     нечего «обновлять»; тип `news` показываем всем;
+  3. показать, только если `number > lastSeen`;
+  4. по «Понятно» — `markSeen(number)` (сохранить `number`).
+- **Свежая установка** (`isFreshInstall`) определяется на Android в
+  `MainViewModel`: `PackageInfo.firstInstallTime == lastUpdateTime` (APK ни разу
+  не обновлялся). После первого обновления APK условие ложно → «Обновление»
+  начинает показываться. Флаг передаётся параметром в `getAnnouncementToShow`
+  (KMP-use case платформо-независим). iOS: аналог ещё не реализован.
 - Следствия управления:
   - чтобы разослать новое сообщение всем — задать `number` **больше** предыдущего;
   - новые установки (`lastSeen = -1`) увидят текущее активное сообщение один раз;

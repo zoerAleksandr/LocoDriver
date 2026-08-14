@@ -2,6 +2,7 @@
 
 package com.z_company.loco_driver.viewmodel
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.ViewModel
@@ -64,6 +65,7 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val snackbarManager: ISnackbarManager by inject()
     private val shareRouteManager: ShareRouteManager by inject()
     private val announcementUseCase: AnnouncementUseCase by inject()
+    private val appContext: Context by inject()
 
     private var saveCalendarInLocalJob: Job? = null
     private var setDefaultSetting: Job? = null
@@ -93,11 +95,27 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
                 val toShow = announcementUseCase.getAnnouncementToShow(
                     platform = "android",
                     build = BuildConfig.VERSION_CODE.toLong(),
+                    isFreshInstall = isFreshInstall(),
                 )
                 _announcement.value = toShow
             } catch (e: Exception) {
                 e.sendToSentry("MainViewModel", "loadAnnouncement")
             }
+        }
+    }
+
+    /**
+     * Свежая установка = APK ни разу не обновлялся: `firstInstallTime` совпадает
+     * с `lastUpdateTime`. Такому пользователю не показываем сообщения-«Обновление»
+     * (ему нечего обновлять). После первого же обновления APK условие перестаёт
+     * выполняться. При ошибке считаем НЕ свежей (не прячем сообщение).
+     */
+    private fun isFreshInstall(): Boolean {
+        return try {
+            val info = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
+            info.firstInstallTime == info.lastUpdateTime
+        } catch (e: Exception) {
+            false
         }
     }
 
