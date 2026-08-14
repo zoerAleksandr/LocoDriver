@@ -16,6 +16,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -174,7 +175,52 @@ fun SyncProgressDialog(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            progressMap.forEach { (step, state) ->
+            if (syncType == SyncType.Sync) {
+                val completedSteps = progressMap.values.count { it !is SyncStepState.Loading }
+                val totalSteps = progressMap.size.coerceAtLeast(1)
+                val progress = completedSteps.toFloat() / totalSteps.toFloat()
+                val percent = (progress * 100).toInt()
+                val currentStep = progressMap.entries.firstOrNull { it.value is SyncStepState.Loading }?.key
+                val currentStepLabel = when (currentStep) {
+                    "UserSettings" -> "Настройки пользователя"
+                    "SalarySettings" -> "Настройки зарплаты"
+                    "ReleaseDays" -> "Отвлечения"
+                    "Routes" -> "Маршруты"
+                    else -> if (completedSteps == totalSteps) "Завершено" else "Подготовка"
+                }
+
+                Text(
+                    text = currentStepLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = primaryColor,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "$percent%",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = primaryColor
+                )
+
+                val firstError = progressMap.values.filterIsInstance<SyncStepState.Error>()
+                    .firstOrNull { it.message.isNotEmpty() }
+                if (firstError != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = firstError.message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            } else progressMap.forEach { (step, state) ->
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier
