@@ -128,7 +128,7 @@ private fun VkBadge() {
     }
 }
 
-// Tonal-кнопка синхронизации (Сохранить/Загрузить) с облаком и лоадером.
+// Tonal-кнопка единой двусторонней синхронизации с облаком и лоадером.
 @Composable
 private fun SyncCloudButton(
     iconRes: Int,
@@ -414,7 +414,12 @@ fun ProfileScreen(
         isSyncSuccess = uiState.isSyncSuccess,
         isSyncComplete = uiState.isSyncComplete,
         syncType = uiState.syncType,
-        progressMap = if (uiState.syncType == SyncType.Upload) uiState.syncUploadProgress else uiState.syncDownloadProgress,
+        progressMap = when (uiState.syncType) {
+            SyncType.Upload -> uiState.syncUploadProgress
+            SyncType.Download -> uiState.syncDownloadProgress
+            SyncType.Sync -> uiState.syncProgress
+            null -> emptyMap()
+        },
         syncRouteErrors = uiState.syncRouteErrors,
         syncRoutesTotalAttempted = uiState.syncRoutesTotalAttempted,
         syncRoutesSavedCount = uiState.syncRoutesSavedCount,
@@ -1012,31 +1017,18 @@ fun ProfileScreen(
                             item {
                                 ProfileGroupLabel("СИНХРОНИЗАЦИЯ")
                                 if (hasSubscription) {
-                                    Row(
+                                    SyncCloudButton(
+                                        iconRes = com.z_company.core.R.drawable.rounded_cloud_upload_24,
+                                        line1 = "Синхронизация",
+                                        line2 = "с облаком",
+                                        loading = uiState.showSyncDialog && !uiState.isSyncComplete,
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    ) {
-                                        SyncCloudButton(
-                                            iconRes = com.z_company.core.R.drawable.rounded_cloud_upload_24,
-                                            line1 = "Сохранить",
-                                            line2 = "в облако",
-                                            loading = uiState.uploadState is ResultState.Loading,
-                                            modifier = Modifier.weight(1f),
-                                            onClick = { viewModel.startSyncUpload() },
-                                        )
-                                        SyncCloudButton(
-                                            iconRes = com.z_company.core.R.drawable.rounded_cloud_download_24,
-                                            line1 = "Загрузить",
-                                            line2 = "из облака",
-                                            loading = uiState.downloadState is ResultState.Loading,
-                                            modifier = Modifier.weight(1f),
-                                            onClick = { viewModel.startSyncDownload() },
-                                        )
-                                    }
+                                        onClick = viewModel::startSync,
+                                    )
                                     uiState.updateAt?.let { timeInMillis ->
                                         val textSyncDate = uiState.dateAndTimeConverter?.getDateAndTime(timeInMillis) ?: ""
                                         Text(
-                                            text = "Последнее сохранение: $textSyncDate",
+                                            text = "Последняя синхронизация: $textSyncDate",
                                             style = styleHint,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.padding(start = 4.dp, top = 10.dp),

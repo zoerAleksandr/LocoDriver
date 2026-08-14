@@ -25,6 +25,8 @@ import com.z_company.domain.use_cases.ProductionCalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.remote_rest.NetworkErrorMapper
 import com.z_company.repository.remote_rest.SettingManager
+import com.z_company.repository.SecureTokenStorage
+import com.z_company.repository.remote_rest.SyncManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -54,6 +56,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val productionCalendarUseCase: ProductionCalendarUseCase by inject()
     private val settingManager: SettingManager by inject()
+    private val syncManager: SyncManager by inject()
+    private val secureTokenStorage: SecureTokenStorage by inject()
     private val regionalHolidaysRepository: com.z_company.domain.repositories.RegionalHolidaysRepository by inject()
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -338,9 +342,22 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 settings.servicePhases = servicePhases.toMutableList()
                 saveSettingsJob?.cancel()
                 saveSettingsJob = viewModelScope.launch {
-                    settingsUseCase.saveSetting(settings).collect { }
+                    val localSettings = settings.copy(
+                        updateAt = Clock.System.now().toEpochMilliseconds()
+                    )
+                    settingsUseCase.saveSetting(localSettings).collect { result ->
+                        if (result is ResultState.Success) autoPushSettings()
+                    }
                 }
             }
+        }
+    }
+
+    private fun autoPushSettings() {
+        sharedPreferenceStorage.setSettingsSyncPending(true)
+        viewModelScope.launch(Dispatchers.IO) {
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
+            syncManager.autoPushSettings("Bearer $token").collect {}
         }
     }
 

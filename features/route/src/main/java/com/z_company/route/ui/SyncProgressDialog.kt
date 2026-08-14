@@ -118,7 +118,11 @@ fun SyncProgressDialog(
             title = {
                 Text(
                     modifier = Modifier.padding(top = 24.dp),
-                    text = if (syncType == SyncType.Upload) "Выгрузка завершена!" else "Загрузка завершена!"
+                    text = when (syncType) {
+                        SyncType.Upload -> "Выгрузка завершена!"
+                        SyncType.Download -> "Загрузка завершена!"
+                        else -> "Синхронизация завершена!"
+                    }
                 )
             },
             text = { Text("Данные успешно синхронизированы.") },
@@ -159,7 +163,11 @@ fun SyncProgressDialog(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = if (syncType == SyncType.Upload) "Выгрузка данных" else "Загрузка данных",
+                text = when (syncType) {
+                    SyncType.Upload -> "Выгрузка данных"
+                    SyncType.Download -> "Загрузка данных"
+                    else -> "Синхронизация данных"
+                },
                 style = MaterialTheme.typography.titleMedium,
                 color = primaryColor
             )

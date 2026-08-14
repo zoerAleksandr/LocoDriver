@@ -178,7 +178,12 @@ class RouteUseCase(private val repository: RouteRepository) {
     }
 
     fun markAsRemoved(route: Route): Flow<ResultState<Unit>> {
-        return repository.markAsRemoved(route)
+        // Штампуем updatedAt удаления — время soft-delete участвует в LWW-merge
+        // (удаление на этом устройстве побеждает более старую правку на другом).
+        val now = Clock.System.now().toEpochMilliseconds()
+        return repository.markAsRemoved(
+            route.copy(basicData = route.basicData.copy(updatedAt = now))
+        )
     }
 
     fun saveRoute(route: Route): Flow<ResultState<Unit>> {
@@ -188,19 +193,30 @@ class RouteUseCase(private val repository: RouteRepository) {
         // здесь, чтобы правило соблюдалось на всех путях сохранения (FormViewModel,
         // экран «Пассажиром», WorkSchedule и т.д.), а не только при переключении.
         val normalizedRoute = applyWorkStartByArrival(route)
+        // Штамп updatedAt на КАЖДОМ локальном изменении — это часы для LWW-merge
+        // в двусторонней синхронизации. Локальная правка всегда двигает updatedAt
+        // вперёд, поэтому при конфликте с сервером побеждает более свежая версия.
+        // ВАЖНО: сохранение маршрута, ПРИШЕДШЕГО с сервера, идёт через
+        // saveRouteAfterLoading (updatedAt там сохраняется серверный, не трогаем).
+        val now = Clock.System.now().toEpochMilliseconds()
         return if (normalizedRoute.basicData.timeStartWork == null) {
-            val currentTimeInMillis = Clock.System.now().toEpochMilliseconds()
             repository.saveRoute(
                 normalizedRoute.copy(
                     basicData = normalizedRoute.basicData.copy(
-                        timeStartWork = currentTimeInMillis,
-                        isSynchronized = false
+                        timeStartWork = now,
+                        isSynchronized = false,
+                        updatedAt = now
                     )
                 )
             )
         } else {
             repository.saveRoute(
-                normalizedRoute.copy(basicData = normalizedRoute.basicData.copy(isSynchronized = false))
+                normalizedRoute.copy(
+                    basicData = normalizedRoute.basicData.copy(
+                        isSynchronized = false,
+                        updatedAt = now
+                    )
+                )
             )
         }
     }

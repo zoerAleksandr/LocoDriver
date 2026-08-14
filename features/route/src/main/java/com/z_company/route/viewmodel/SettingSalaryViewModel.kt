@@ -13,6 +13,9 @@ import com.z_company.domain.entities.setting.SurchargeLongTrains
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.repository.SecureTokenStorage
+import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.str
 import com.z_company.domain.util.toDoubleOrZero
@@ -39,6 +42,9 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val userSettingUseCase: SettingsUseCase by inject()
+    private val sharedPrefs: SharedPreferencesRepositories by inject()
+    private val syncManager: SyncManager by inject()
+    private val secureTokenStorage: SecureTokenStorage by inject()
 
     private var initialValueTariffRate: Double? = null
     private var currentMonthOfYear: MonthOfYear? = null
@@ -252,6 +258,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                         }.toMutableList()
 
                     salarySettingUseCase.saveSalarySetting(salarySetting).collect { saveResult ->
+                        if (saveResult is ResultState.Success) autoPushSettings()
                         if (updateMonthOfYear && saveResult is ResultState.Success) {
                             currentMonthOfYear?.let { month ->
                                 salarySettingUseCase.updateMonthOfYear(month).collect {}
@@ -266,6 +273,14 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     }
                 }
             }
+        }
+    }
+
+    private fun autoPushSettings() {
+        sharedPrefs.setSettingsSyncPending(true)
+        viewModelScope.launch(Dispatchers.IO) {
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
+            syncManager.autoPushSettings("Bearer $token").collect {}
         }
     }
 

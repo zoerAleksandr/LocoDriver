@@ -11,12 +11,16 @@ import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.repository.SecureTokenStorage
+import com.z_company.repository.remote_rest.SyncManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
@@ -26,6 +30,9 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     private val releaseDayUseCase: ReleaseDayUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val sharedPrefs: SharedPreferencesRepositories by inject()
+    private val syncManager: SyncManager by inject()
+    private val secureTokenStorage: SecureTokenStorage by inject()
 
     private val _uiState = MutableStateFlow(SelectReleaseDaysUIState())
     val uiState = _uiState.asStateFlow()
@@ -109,7 +116,9 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
             try {
                 // Не обновляем saveReleaseDaysState — список обновится автоматически
                 // через реактивный flow в getFlowMonthOfYearListState (combine).
-                releaseDayUseCase.savePeriod(period).collect {}
+                releaseDayUseCase.savePeriod(period).collect { result ->
+                    if (result is ResultState.Success) autoPushSettings()
+                }
             } catch (e: Exception) {
                 e.sendToSentry("SelectReleaseDaysViewModel", "addReleasePeriod")
             }
@@ -122,10 +131,20 @@ class SelectReleaseDaysViewModel : ViewModel(), KoinComponent {
             try {
                 // Не обновляем saveReleaseDaysState — список обновится автоматически
                 // через реактивный flow в getFlowMonthOfYearListState (combine).
-                releaseDayUseCase.deletePeriod(period).collect {}
+                releaseDayUseCase.deletePeriod(period).collect { result ->
+                    if (result is ResultState.Success) autoPushSettings()
+                }
             } catch (e: Exception) {
                 e.sendToSentry("SelectReleaseDaysViewModel", "deleteReleasePeriod")
             }
+        }
+    }
+
+    private fun autoPushSettings() {
+        sharedPrefs.setSettingsSyncPending(true)
+        viewModelScope.launch {
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
+            syncManager.autoPushSettings("Bearer $token").collect {}
         }
     }
 

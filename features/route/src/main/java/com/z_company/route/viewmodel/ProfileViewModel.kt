@@ -80,6 +80,7 @@ data class ProfileUiState(
     val updateEmailState: ResultState<Unit>? = null,
     val syncUploadProgress: Map<String, SyncStepState> = emptyMap(),  // Прогресс для upload (ключ - этап, значение - состояние)
     val syncDownloadProgress: Map<String, SyncStepState> = emptyMap(),  // Прогресс для download
+    val syncProgress: Map<String, SyncStepState> = emptyMap(),  // Прогресс единой двусторонней синхронизации
     val showSyncDialog: Boolean = false,  // Флаг показа диалога синхронизации
     val isSyncComplete: Boolean = false,  // Флаг завершения синхронизации (для показа кнопки)
     val isSyncSuccess: Boolean = false,  // Флаг полного успеха (показывает AlertDialog вместо диалога прогресса)
@@ -95,7 +96,8 @@ data class ProfileUiState(
 // Описание: Определяет тип синхронизации (загрузка на сервер или с сервера) для выбора правильного progress map в UI.
 enum class SyncType {
     Upload,
-    Download
+    Download,
+    Sync   // Единая двусторонняя синхронизация (одна кнопка «Синхронизация»)
 }
 
 // Описание: Состояние каждого этапа синхронизации (Loading - в процессе, Success с деталями, Error с сообщением).
@@ -214,6 +216,119 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 }
             }.launchIn(viewModelScope)
         }
+    }
+
+    /**
+     * Единая двусторонняя синхронизация («Синхронизация» — одна кнопка вместо
+     * «Сохранить в облако» / «Загрузить из облака»). Push+pull настроек и merge
+     * маршрутов по updatedAt с распространением удалений в обе стороны — всё в
+     * [SyncManager.syncBidirectional].
+     */
+    fun startSync() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val setting = settingsUseCase.getUserSettingFlow().first()
+            if (setting.subscriptionPeriod <= Calendar.getInstance().timeInMillis) {
+                snackbarManager.show("Синхронизация доступна по подписке")
+                return@launch
+            }
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
+            val userId = secureTokenStorage.getUserIdFlow().first()
+            _uiState.update {
+                it.copy(
+                    showSyncDialog = true,
+                    syncType = SyncType.Sync,
+                    syncProgress = mapOf(
+                        "UserSettings" to SyncStepState.Loading,
+                        "SalarySettings" to SyncStepState.Loading,
+                        "ReleaseDays" to SyncStepState.Loading,
+                        "Routes" to SyncStepState.Loading
+                    ),
+                    isSyncComplete = false,
+                    isSyncSuccess = false,
+                    isNetworkError = false,
+                    syncReportUserId = userId,
+                    syncRouteErrors = emptyList(),
+                    syncRoutesTotalAttempted = 0,
+                    syncRoutesSavedCount = 0
+                )
+            }
+
+            var networkErrorStopped = false
+            try {
+                syncManager.syncBidirectional("Bearer $token").collect { state ->
+                    if (networkErrorStopped) return@collect
+                    when (state) {
+                        is ResultState.Loading -> {}
+                        is ResultState.Success -> {
+                            val r = state.data
+                            val p = _uiState.value.syncProgress.toMutableMap()
+                            if (r.userSettingsSynced) p["UserSettings"] = SyncStepState.Success("синхронизированы")
+                            if (r.salarySettingsSynced) p["SalarySettings"] = SyncStepState.Success("синхронизированы")
+                            if (r.releaseDaysSynced) p["ReleaseDays"] = SyncStepState.Success("синхронизированы")
+                            if (r.routesDone) {
+                                if (r.routeErrors.isNotEmpty()) {
+                                    p["Routes"] = SyncStepState.Error("синхронизировано с ошибками")
+                                } else {
+                                    val details = buildString {
+                                        append("↑${r.routesUploaded}  ↓${r.routesDownloaded}")
+                                        val del = r.routesDeletedRemote + r.routesDeletedLocal
+                                        if (del > 0) append("  удалено $del")
+                                        if (r.routeWarnings.isNotEmpty()) append("\n${r.routeWarnings.joinToString("\n")}")
+                                    }
+                                    p["Routes"] = SyncStepState.Success(details)
+                                }
+                            }
+                            val isFullSuccess = r.timestamp != null && r.routeErrors.isEmpty()
+                            _uiState.update {
+                                it.copy(
+                                    syncProgress = p,
+                                    isSyncComplete = !isFullSuccess && r.routesDone,
+                                    isSyncSuccess = isFullSuccess,
+                                    showSyncDialog = !isFullSuccess,
+                                    syncRouteErrors = r.routeErrors,
+                                    syncRoutesTotalAttempted = r.routesUploaded + r.routesDownloaded + r.routeErrors.size,
+                                    syncRoutesSavedCount = r.routesUploaded + r.routesDownloaded
+                                )
+                            }
+                            r.timestamp?.let { sharedPrefs.setLastSyncTimestamp(it) }
+                            if (isFullSuccess) refresh()
+                        }
+
+                        is ResultState.Error -> {
+                            val msg = state.entity.message ?: ""
+                            val cleanMsg = cleanSyncErrorMessage(msg)
+                            if (isNetworkErrorMessage(cleanMsg)) {
+                                networkErrorStopped = true
+                                _uiState.update { it.copy(isNetworkError = true, isSyncComplete = true) }
+                                return@collect
+                            }
+                            val stepKey = parseSyncStep(msg)
+                            val p = _uiState.value.syncProgress.toMutableMap()
+                            if (stepKey != null && p[stepKey] is SyncStepState.Loading) {
+                                p[stepKey] = SyncStepState.Error(cleanMsg)
+                                _uiState.update { it.copy(syncProgress = p) }
+                            } else {
+                                p.replaceAll { _, v -> if (v is SyncStepState.Loading) SyncStepState.Error(cleanMsg) else v }
+                                _uiState.update { it.copy(syncProgress = p, isSyncComplete = true) }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                val p = _uiState.value.syncProgress.mapValues {
+                    if (it.value is SyncStepState.Loading) SyncStepState.Error(e.message ?: "Ошибка синхронизации") else it.value
+                }
+                _uiState.update { it.copy(syncProgress = p, isSyncComplete = true) }
+            }
+        }
+    }
+
+    private fun parseSyncStep(message: String): String? = when {
+        message.contains("UserSettings") -> "UserSettings"
+        message.contains("SalarySetting") -> "SalarySettings"
+        message.contains("отвлечений") -> "ReleaseDays"
+        message.contains("маршрут", ignoreCase = true) -> "Routes"
+        else -> null
     }
 
     // Описание: Запускает синхронизацию на сервер (upload), показывает диалог, обновляет прогресс поэтапно через collect Flow.
@@ -471,6 +586,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 showSyncDialog = false,
                 syncUploadProgress = emptyMap(),
                 syncDownloadProgress = emptyMap(),
+                syncProgress = emptyMap(),
                 isSyncComplete = false,
                 isSyncSuccess = false,
                 isNetworkError = false,

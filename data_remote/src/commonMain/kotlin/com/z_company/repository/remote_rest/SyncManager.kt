@@ -46,6 +46,23 @@ data class SyncDownloadResult(
     var routesLoadedCount: Int = -1
 )
 
+// Data class для результата ДВУСТОРОННЕЙ синхронизации (одна кнопка «Синхронизация»).
+// Настройки/отвлечения синхронизируются в обе стороны; для маршрутов ведём отдельные
+// счётчики выгруженных/загруженных/удалённых, чтобы показать пользователю сводку.
+data class SyncBidirectionalResult(
+    var userSettingsSynced: Boolean = false,
+    var salarySettingsSynced: Boolean = false,
+    var releaseDaysSynced: Boolean = false,
+    var routesUploaded: Int = 0,       // отправлено на сервер (новые/изменённые локально)
+    var routesDownloaded: Int = 0,     // получено с сервера (новые/изменённые на другом устройстве)
+    var routesDeletedRemote: Int = 0,  // удалено на сервере (были удалены локально)
+    var routesDeletedLocal: Int = 0,   // удалено локально (были удалены на другом устройстве)
+    var routesDone: Boolean = false,   // этап маршрутов завершён (для прогресса в UI)
+    var timestamp: Long? = null,
+    var routeWarnings: List<String> = emptyList(),
+    var routeErrors: List<String> = emptyList()
+)
+
 /**
  * Менеджер синхронизации данных.
  * Шаг 10 KMP-миграции: KoinComponent → конструкторная инжекция, Android API → KMP API.
@@ -556,6 +573,420 @@ class SyncManager(
         } else {
             emit(ResultState.Error(ErrorEntity(message = "Не все данные загружены успешно")))
         }
+    }.flowOn(Dispatchers.Default)
+
+    /**
+     * ДВУСТОРОННЯЯ синхронизация — за одной кнопкой «Синхронизация».
+     *
+     * Модель (как в современных приложениях: почта, заметки):
+     *  - **Настройки**: push локальных на сервер только если они менялись локально
+     *    (флаг [SharedPreferencesRepositories.getSettingsSyncPending]) — иначе устройство,
+     *    которое настройки не трогало, не затирает свежие серверные; затем pull с сервера.
+     *    Для UserSettings — LWW по `updateAt` + защита подписки (max). Локальные правки
+     *    настроек выгружаются сразу при сохранении (см. [autoPushSettings]).
+     *  - **Маршруты**: fetch список с сервера → merge по `id` с LWW по `updatedAt` →
+     *    apply. Удаления распространяются в ОБЕ стороны:
+     *      • удалённый локально (isDeleted) → DELETE на сервере + жёсткое удаление локально;
+     *      • удалённый на другом устройстве (был синхронизирован, пропал с сервера) →
+     *        жёсткое удаление локально.
+     *
+     * Никаких изменений контракта: те же эндпоинты и JSON, только правильная
+     * оркестрация на клиенте.
+     */
+    fun syncBidirectional(bearerToken: String): Flow<ResultState<SyncBidirectionalResult>> = flow {
+        emit(ResultState.Loading())
+        val result = SyncBidirectionalResult()
+        val settingsPending = sharedPrefs.getSettingsSyncPending()
+        var settingsUploadSucceeded = true
+
+        // ============ ЧАСТЬ 1. НАСТРОЙКИ ============
+
+        // 1.1 UserSettings — LWW по updateAt + защита подписки (max).
+        val localUserSettingsState = settingsUseCase.getFlowCurrentSettingsState()
+            .first { it is ResultState.Success || it is ResultState.Error }
+        val remoteUserSettings = try {
+            (settingManager.getUserSettingFromRemote(bearerToken)
+                .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)?.data
+        } catch (e: Exception) { null }
+
+        if (localUserSettingsState is ResultState.Success) {
+            val local = localUserSettingsState.data
+            val remoteSub = remoteUserSettings?.subscriptionPeriod ?: 0L
+            val mergedSub = maxOf(local.subscriptionPeriod, remoteSub)
+            // Локальные свежее ИЛИ на сервере ещё нет настроек → выгружаем локальные.
+            val localIsNewer = remoteUserSettings == null || local.updateAt >= remoteUserSettings.updateAt
+            if ((settingsPending || localIsNewer) && mergedSub > Clock.System.now().toEpochMilliseconds()) {
+                val toUpload = local.copy(subscriptionPeriod = mergedSub)
+                var ok = false
+                settingManager.saveUserSettingInRemote(toUpload, bearerToken)
+                    .catch { e ->
+                        settingsUploadSucceeded = false
+                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${NetworkErrorMapper.humanMessage(e)}")))
+                    }
+                    .collect { s ->
+                        if (s is ResultState.Success) ok = true
+                        if (s is ResultState.Error) settingsUploadSucceeded = false
+                    }
+                if (ok) { result.userSettingsSynced = true; emit(ResultState.Success(result.copy())) }
+            }
+        }
+        // Pull UserSettings (сервер мог отдать более свежие — с другого устройства).
+        if (remoteUserSettings != null) {
+            val localNow = (settingsUseCase.getFlowCurrentSettingsState()
+                .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)?.data
+            val localUpdateAt = localNow?.updateAt ?: 0L
+            // Не откатываем локально более свежие настройки (LWW).
+            if (remoteUserSettings.updateAt >= localUpdateAt) {
+                val listMonthOfYear = calendarUseCase.loadFlowMonthOfYearListState().first()
+                val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                val currentMonthOfYear = listMonthOfYear.find { it.month == now.monthNumber - 1 && it.year == now.year }
+                val mergedSub = maxOf(localNow?.subscriptionPeriod ?: 0L, remoteUserSettings.subscriptionPeriod)
+                val userSettings = remoteUserSettings.copy(
+                    selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull() ?: com.z_company.domain.entities.MonthOfYear(),
+                    subscriptionPeriod = mergedSub
+                )
+                settingsUseCase.saveSetting(userSettings).collect {}
+                try {
+                    settingManager.getProductionCalendarFromRemote(userSettings.country, now.year).collect { calState ->
+                        if (calState is ResultState.Success) {
+                            productionCalendarUseCase.saveCalendar(calState.data).collect {}
+                            calendarUseCase.applyProductionCalendar(calState.data).collect {}
+                        }
+                    }
+                    userSettings.region?.let { region -> calendarUseCase.applyRegionalHolidays(region, now.year).collect {} }
+                } catch (e: Exception) { e.sendToSentry("SyncManager", "syncBidirectional_calendar") }
+            }
+            result.userSettingsSynced = true
+            emit(ResultState.Success(result.copy()))
+        } else if (remoteUserSettings == null && localUserSettingsState is ResultState.Success) {
+            // Сервер не отдал настройки (первый вход) — локальные останутся, флаг снимем ниже.
+            result.userSettingsSynced = true
+            emit(ResultState.Success(result.copy()))
+        }
+
+        // 1.2 SalarySetting — push (если менялось локально), затем pull (сервер → локально).
+        if (settingsPending) {
+            val localSalary = salarySettingUseCase.salarySettingFlow().first()
+            settingManager.saveSalarySettingInRemote(localSalary, bearerToken)
+                .catch { settingsUploadSucceeded = false }
+                .collect { if (it is ResultState.Error) settingsUploadSucceeded = false }
+        }
+        settingManager.getSalarySettingFromRemote(bearerToken)
+            .catch { e -> emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки SalarySetting: ${NetworkErrorMapper.humanMessage(e)}"))) }
+            .collect { loadState ->
+                if (loadState is ResultState.Success) {
+                    salarySettingUseCase.saveSalarySetting(loadState.data).collect {}
+                    result.salarySettingsSynced = true
+                    emit(ResultState.Success(result.copy()))
+                }
+            }
+
+        // 1.3 Тарифные ставки (monthOfYear / /year/) — push если менялось, pull-merge.
+        val localMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
+        if (settingsPending && localMonths.isNotEmpty()) {
+            settingManager.saveMonthOfYearListInRemote(localMonths.map { it.copy(days = emptyList()) }, bearerToken)
+                .catch { settingsUploadSucceeded = false }
+                .collect { if (it is ResultState.Error) settingsUploadSucceeded = false }
+        }
+        settingManager.getMonthOfYearListFromRemote(bearerToken)
+            .catch { }
+            .collect { loadState ->
+                if (loadState is ResultState.Success && loadState.data.isNotEmpty()) {
+                    val serverMonths = loadState.data
+                    val local = calendarUseCase.loadFlowMonthOfYearListState().first()
+                    val toSave = if (local.isEmpty()) serverMonths else {
+                        val byKey = serverMonths.associateBy { it.year to it.month }
+                        local.map { l ->
+                            val s = byKey[l.year to l.month]
+                            if (s != null) l.copy(tariffRate = s.tariffRate, dateSetTariffRate = s.dateSetTariffRate) else l
+                        }
+                    }
+                    calendarUseCase.saveCalendar(toSave).collect {}
+                }
+            }
+
+        // 1.4 Дни отвлечений (ReleaseDay) — push если менялось, затем pull (full-replace).
+        if (settingsPending) {
+            val localReleaseDays = releaseDayUseCase.getAll()
+            settingManager.saveReleaseDaysInRemote(localReleaseDays, bearerToken)
+                .catch { settingsUploadSucceeded = false }
+                .collect { if (it is ResultState.Error) settingsUploadSucceeded = false }
+        }
+        settingManager.getReleaseDaysFromRemote(bearerToken)
+            .catch { e -> emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки дней отвлечений: ${NetworkErrorMapper.humanMessage(e)}"))) }
+            .collect { loadState ->
+                if (loadState is ResultState.Success) {
+                    releaseDayUseCase.replaceAllFromRemote(loadState.data).collect {}
+                    result.releaseDaysSynced = true
+                    emit(ResultState.Success(result.copy()))
+                }
+            }
+
+        // 1.5 Нормы времени и напарники (full-replace; merge не поддерживается контрактом).
+        // Push если менялось локально и есть данные; pull если локально пусто.
+        val localLocoSeries = locomotiveSeriesRepository.getAll()
+        if (settingsPending && localLocoSeries.isNotEmpty()) {
+            settingManager.saveNormaTimeLocomotivesInRemote(localLocoSeries, bearerToken)
+                .catch { settingsUploadSucceeded = false }
+                .collect { if (it is ResultState.Error) settingsUploadSucceeded = false }
+        } else if (localLocoSeries.isEmpty()) {
+            settingManager.getNormaTimeLocomotivesFromRemote(bearerToken).catch { }.collect { s ->
+                if (s is ResultState.Success && s.data.isNotEmpty()) locomotiveSeriesRepository.replaceAll(s.data).collect {}
+            }
+        }
+        val localStationNorms = stationNormRepository.getAll()
+        if (settingsPending && localStationNorms.isNotEmpty()) {
+            settingManager.saveNormaTimeStationsInRemote(localStationNorms, bearerToken)
+                .catch { settingsUploadSucceeded = false }
+                .collect { if (it is ResultState.Error) settingsUploadSucceeded = false }
+        } else if (localStationNorms.isEmpty()) {
+            settingManager.getNormaTimeStationsFromRemote(bearerToken).catch { }.collect { s ->
+                if (s is ResultState.Success && s.data.isNotEmpty()) stationNormRepository.replaceAll(s.data).collect {}
+            }
+        }
+        val localPartners = partnerRepository.getAll()
+        if (settingsPending && localPartners.isNotEmpty()) {
+            settingManager.savePartnersInRemote(localPartners, bearerToken)
+                .catch { settingsUploadSucceeded = false }
+                .collect { if (it is ResultState.Error) settingsUploadSucceeded = false }
+        } else if (localPartners.isEmpty()) {
+            settingManager.getPartnersFromRemote(bearerToken).catch { }.collect { s ->
+                if (s is ResultState.Success && s.data.isNotEmpty()) partnerRepository.replaceAll(s.data).collect {}
+            }
+        }
+
+        // Настройки выгружены — снимаем флаг «есть несинхронизированные настройки».
+        if (settingsPending && settingsUploadSucceeded) {
+            sharedPrefs.setSettingsSyncPending(false)
+        }
+
+        // ============ ЧАСТЬ 2. МАРШРУТЫ (fetch → merge → apply) ============
+        val allErrors = mutableListOf<String>()
+        val allWarnings = mutableListOf<String>()
+
+        // 2.1 Тянем актуальный список маршрутов с сервера.
+        val serverRoutes: List<Route> = try {
+            val state = routesManager.getRoutesFromRemote(bearerToken)
+                .first { it is ResultState.Success || it is ResultState.Error }
+            when (state) {
+                is ResultState.Success -> state.data
+                is ResultState.Error -> {
+                    emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки маршрутов: ${state.entity.message ?: NetworkErrorMapper.humanMessage(state.entity.throwable)}")))
+                    return@flow
+                }
+                else -> emptyList()
+            }
+        } catch (e: Exception) {
+            emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки маршрутов: ${NetworkErrorMapper.humanMessage(e)}")))
+            return@flow
+        }
+        val serverById = serverRoutes.associateBy { it.basicData.id }
+
+        val localAll = routeUseCase.listRouteWithDeleting()
+        val localById = localAll.associateBy { it.basicData.id }
+
+        // 2.2 Удаления, сделанные локально → удалить на сервере, затем жёстко локально.
+        // (Раньше блок был мёртв из-за guard'а remoteRouteId, который нигде не заполнялся,
+        //  поэтому удаления не доходили до сервера.)
+        for (route in localAll.filter { it.basicData.isDeleted }) {
+            val routeId = route.basicData.id
+            val label = routeLabel(route)
+            if (routeId !in serverById) {
+                // Сервер уже не знает о маршруте — просто убираем локально.
+                routeUseCase.removeRoute(route).collect {}
+                result.routesDeletedLocal++
+                continue
+            }
+            try {
+                var handled = false
+                routesManager.deleteRouteInRemote(routeId, bearerToken).collect { del ->
+                    when (del) {
+                        is ResultState.Success -> {
+                            routeUseCase.removeRoute(route).collect {}
+                            result.routesDeletedRemote++
+                            handled = true
+                        }
+                        is ResultState.Error -> {
+                            val msg = del.entity.message ?: del.entity.throwable?.message ?: "Ошибка"
+                            // 404 — на сервере уже нет: считаем удаление успешным.
+                            if (msg.contains("404") || msg.contains("not found", ignoreCase = true)) {
+                                routeUseCase.removeRoute(route).collect {}
+                                result.routesDeletedRemote++
+                            } else {
+                                allErrors.add("[$routeId] Удаление $label: $msg")
+                            }
+                            handled = true
+                        }
+                        else -> {}
+                    }
+                }
+                if (!handled) { /* Loading only */ }
+            } catch (e: Exception) {
+                allErrors.add("[$routeId] Удаление $label: ${NetworkErrorMapper.humanMessage(e)}")
+                e.sendToSentry("SyncManager", "syncBidirectional_delete")
+            }
+        }
+
+        val locallyDeletedIds = localAll.filter { it.basicData.isDeleted }.map { it.basicData.id }.toSet()
+
+        // 2.3 Серверные маршруты → merge в локальную БД (LWW по updatedAt).
+        for (server in serverRoutes) {
+            val id = server.basicData.id
+            if (id in locallyDeletedIds) continue // локальное удаление в приоритете
+            val local = localById[id]
+            when {
+                local == null -> {
+                    // Новый маршрут с другого устройства.
+                    saveDownloadedRoute(server); result.routesDownloaded++
+                }
+                local.basicData.isSynchronized -> {
+                    // Локально не менялся: берём серверный, если он свежее.
+                    if (server.basicData.updatedAt > local.basicData.updatedAt) {
+                        saveDownloadedRoute(server); result.routesDownloaded++
+                    }
+                }
+                else -> {
+                    // Локально есть несохранённые правки → LWW.
+                    if (local.basicData.updatedAt >= server.basicData.updatedAt) {
+                        pushRoute(local, bearerToken, allWarnings, allErrors)?.let { if (it) result.routesUploaded++ }
+                    } else {
+                        saveDownloadedRoute(server); result.routesDownloaded++
+                    }
+                }
+            }
+        }
+
+        // 2.4 Локальные маршруты, которых нет на сервере.
+        for (local in localAll) {
+            if (local.basicData.isDeleted) continue
+            val id = local.basicData.id
+            if (id in serverById) continue
+            if (local.basicData.isSynchronized) {
+                // Был синхронизирован и пропал с сервера → удалён на другом устройстве.
+                routeUseCase.removeRoute(local).collect {}
+                result.routesDeletedLocal++
+            } else {
+                // Новый/правленый локально, ещё не выгружен → push.
+                pushRoute(local, bearerToken, allWarnings, allErrors)?.let { if (it) result.routesUploaded++ }
+            }
+        }
+
+        result.routesDone = true
+        result.routeWarnings = allWarnings
+        result.routeErrors = allErrors
+        emit(ResultState.Success(result.copy()))
+
+        // ============ ФИНАЛ ============
+        if (allErrors.isEmpty()) {
+            val timestamp = Clock.System.now().toEpochMilliseconds()
+            sharedPrefs.setLastSyncTimestamp(timestamp)
+            emit(ResultState.Success(result.copy(timestamp = timestamp)))
+        } else {
+            emit(ResultState.Error(ErrorEntity(message = allErrors.joinToString("\n"))))
+        }
+    }.flowOn(Dispatchers.Default)
+
+    /** Сохранить маршрут, пришедший с сервера (пометив синхронизированным). */
+    private suspend fun saveDownloadedRoute(server: Route) {
+        val r = server.copy(basicData = server.basicData.copy(isSynchronized = true))
+        routeUseCase.saveRouteAfterLoading(r).collect {}
+    }
+
+    /**
+     * Выгрузить один локальный маршрут на сервер и пометить синхронизированным.
+     * @return true — успех, false — ошибка (добавлена в [errors]), null — не выполнялось.
+     */
+    private suspend fun pushRoute(
+        route: Route,
+        bearerToken: String,
+        warnings: MutableList<String>,
+        errors: MutableList<String>
+    ): Boolean? {
+        val routeId = route.basicData.id
+        val label = routeLabel(route)
+        var ok: Boolean? = null
+        routesManager.saveRouteInRemote(route, bearerToken)
+            .catch { e -> errors.add("[$routeId] $label: ${NetworkErrorMapper.humanMessage(e)}"); ok = false }
+            .collect { saveResult ->
+                when (saveResult) {
+                    is ResultState.Success -> {
+                        saveResult.data.warnings.forEach { w -> warnings.add("[$routeId] $label: $w") }
+                        routeUseCase.setSynchronizedRoute(routeId).collect {}
+                        ok = true
+                    }
+                    is ResultState.Error -> {
+                        errors.add("[$routeId] $label: ${saveResult.entity.message ?: saveResult.entity.throwable?.message ?: "Ошибка"}")
+                        ok = false
+                    }
+                    else -> {}
+                }
+            }
+        return ok
+    }
+
+    /**
+     * Выгрузить настройки на сервер сразу после локального сохранения
+     * (маршруты уже так делают через syncRoute). Fire-and-forget: тихо взводит флаг
+     * [SharedPreferencesRepositories.setSettingsSyncPending] и снимает его при успехе,
+     * чтобы двусторонняя синхронизация знала, нужно ли пушить настройки.
+     * Гейт по подписке — как у остальной синхронизации.
+     */
+    fun autoPushSettings(bearerToken: String): Flow<ResultState<Unit>> = flow {
+        emit(ResultState.Loading())
+        sharedPrefs.setSettingsSyncPending(true)
+
+        val localUserSettingsState = settingsUseCase.getFlowCurrentSettingsState()
+            .first { it is ResultState.Success || it is ResultState.Error }
+        if (localUserSettingsState !is ResultState.Success) { emit(ResultState.Success(Unit)); return@flow }
+        val local = localUserSettingsState.data
+        if (local.subscriptionPeriod <= Clock.System.now().toEpochMilliseconds()) {
+            // Без подписки синхронизация недоступна — просто выходим (флаг останется взведён).
+            emit(ResultState.Success(Unit)); return@flow
+        }
+
+        var allOk = true
+        val remoteSub = try {
+            (settingManager.getUserSettingFromRemote(bearerToken)
+                .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)?.data?.subscriptionPeriod ?: 0L
+        } catch (e: Exception) { 0L }
+        val mergedSub = maxOf(local.subscriptionPeriod, remoteSub)
+        settingManager.saveUserSettingInRemote(local.copy(subscriptionPeriod = mergedSub), bearerToken)
+            .catch { allOk = false }.collect { if (it is ResultState.Error) allOk = false }
+
+        val localSalary = salarySettingUseCase.salarySettingFlow().first()
+        settingManager.saveSalarySettingInRemote(localSalary, bearerToken)
+            .catch { allOk = false }.collect { if (it is ResultState.Error) allOk = false }
+
+        val localMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
+        if (localMonths.isNotEmpty()) {
+            settingManager.saveMonthOfYearListInRemote(localMonths.map { it.copy(days = emptyList()) }, bearerToken)
+                .catch { allOk = false }.collect {}
+        }
+        val localReleaseDays = releaseDayUseCase.getAll()
+        settingManager.saveReleaseDaysInRemote(localReleaseDays, bearerToken)
+            .catch { allOk = false }.collect { if (it is ResultState.Error) allOk = false }
+
+        val localLocoSeries = locomotiveSeriesRepository.getAll()
+        if (localLocoSeries.isNotEmpty()) {
+            settingManager.saveNormaTimeLocomotivesInRemote(localLocoSeries, bearerToken)
+                .catch { allOk = false }
+                .collect { if (it is ResultState.Error) allOk = false }
+        }
+        val localStationNorms = stationNormRepository.getAll()
+        if (localStationNorms.isNotEmpty()) {
+            settingManager.saveNormaTimeStationsInRemote(localStationNorms, bearerToken)
+                .catch { allOk = false }
+                .collect { if (it is ResultState.Error) allOk = false }
+        }
+        val localPartners = partnerRepository.getAll()
+        if (localPartners.isNotEmpty()) {
+            settingManager.savePartnersInRemote(localPartners, bearerToken)
+                .catch { allOk = false }
+                .collect { if (it is ResultState.Error) allOk = false }
+        }
+
+        if (allOk) sharedPrefs.setSettingsSyncPending(false)
+        emit(ResultState.Success(Unit))
     }.flowOn(Dispatchers.Default)
 
     fun firstSyncAfterRegistration(bearerToken: String): Flow<ResultState<SyncUploadResult>> = flow {

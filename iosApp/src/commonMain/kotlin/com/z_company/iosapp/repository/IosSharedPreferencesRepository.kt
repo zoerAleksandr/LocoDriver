@@ -53,6 +53,10 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setLastSyncTimestamp(time: Long) { lastSyncTimestamp = time }
     override fun getLastSyncTimestamp(): Long = lastSyncTimestamp
 
+    private var settingsSyncPending: Boolean = true
+    override fun getSettingsSyncPending(): Boolean = settingsSyncPending
+    override fun setSettingsSyncPending(value: Boolean) { settingsSyncPending = value }
+
     override fun getOPKeyRobokassa(): String? = opKeyRobokassa
     override fun setOPKeyRobokassa(opKey: String?) { opKeyRobokassa = opKey }
     override fun isMigrated(): Boolean = isMigrated

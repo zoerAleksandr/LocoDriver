@@ -16,6 +16,7 @@ private const val TOKEN_IS_LOAD_STATION_NAME_AND_LOCOMOTIVE_SERIES =
     "TOKEN_IS_LOAD_STATION_NAME_AND_LOCOMOTIVE_SERIES"
 private const val TOKEN_IS_FIRST_APP_ENTRY_TAG = "TOKEN_IS_FIRST_APP_ENTRY_TAG"
 private const val TOKEN_IS_SYNC_TAG = "TOKEN_IS_SYNC_TAG"
+private const val TOKEN_SETTINGS_SYNC_PENDING = "TOKEN_SETTINGS_SYNC_PENDING"
 private const val TOKEN_IS_CHANGES_HAVE_TAG = "TOKEN_IS_CHANGES_HAVE_TAG"
 private const val TOKEN_SUBSCRIPTION_EXPIRATION_TAG = "TOKEN_SUBSCRIPTION_EXPIRATION_TAG"
 private const val TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16 =
@@ -69,6 +70,13 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun getLastSyncTimestamp(): Long =
         sharedpref.getLong(TOKEN_LAST_SYNC_TIME, 0L)
+
+    override fun getSettingsSyncPending(): Boolean =
+        sharedpref.getBoolean(TOKEN_SETTINGS_SYNC_PENDING, true)
+
+    override fun setSettingsSyncPending(value: Boolean) {
+        editor.putBoolean(TOKEN_SETTINGS_SYNC_PENDING, value).apply()
+    }
 
 
     override fun getOPKeyRobokassa(): String? =
