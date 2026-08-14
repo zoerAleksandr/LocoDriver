@@ -15,6 +15,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -655,8 +656,8 @@ fun FormLocoScreen(
                                 initialStationId = locomotive.acceptanceStationId,
                                 timeZoneText = displayTz,
                                 onSave = { result ->
+                                    // Сохраняем немедленно при каждом вводе; шторку закрывает onClose.
                                     viewModel.saveAcceptanceFromSheet(result.startTime, result.endTime, result.barrierOut, result.stationId)
-                                    showAcceptanceSheet = false
                                 },
                                 onClose = { showAcceptanceSheet = false },
                                 onNavigateToSeriesSettings = onNavigateToSeriesSettings,
@@ -681,8 +682,8 @@ fun FormLocoScreen(
                                 initialStationId = locomotive.deliveryStationId,
                                 timeZoneText = displayTz,
                                 onSave = { result ->
+                                    // Сохраняем немедленно при каждом вводе; шторку закрывает onClose.
                                     viewModel.saveDeliveryFromSheet(result.barrierIn, result.startTime, result.endTime, result.stationId)
-                                    showDeliverySheet = false
                                 },
                                 onClose = { showDeliverySheet = false },
                                 onNavigateToSeriesSettings = onNavigateToSeriesSettings,
@@ -832,7 +833,7 @@ fun FormLocoScreen(
                         val showAux = userSettings?.isShowLocoAuxiliary != false
                         if (showHeating || showAux) {
                             item {
-                                GroupHead(text = "Показания")
+                                GroupHead(text = "Другое")
                                 MCard {
                                     if (showHeating) {
                                         ReadingRow(
@@ -1149,7 +1150,6 @@ private fun ReadingRow(
     dataTextStyle: androidx.compose.ui.text.TextStyle,
     noValueColor: Color,
 ) {
-    val borderColor = MaterialTheme.colorScheme.outlineVariant
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1193,9 +1193,10 @@ private fun ReadingRow(
                 value = accepted,
                 textStyle = dataTextStyle,
                 fieldElevation = 0.dp,
-                borderColor = borderColor,
-                colorBackgroundEmptyField = Color.Transparent,
-                colorBackgroundNotEmptyField = Color.Transparent,
+                borderColor = Color.Transparent,
+                colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                 placeholder = {
                     Text(
                         text = "Принял",
@@ -1216,9 +1217,10 @@ private fun ReadingRow(
                 value = delivered,
                 textStyle = dataTextStyle,
                 fieldElevation = 0.dp,
-                borderColor = borderColor,
-                colorBackgroundEmptyField = Color.Transparent,
-                colorBackgroundNotEmptyField = Color.Transparent,
+                borderColor = Color.Transparent,
+                colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                 placeholder = {
                     Text(
                         text = "Сдал",

@@ -244,9 +244,10 @@ object UtilsForEntities {
 
     fun Route.shortRest(minTime: Long?): Long? {
         return if (this.isTimeWorkValid()) {
-            val startTime = this.basicData.timeStartWork
             val endTime = this.basicData.timeEndWork
-            val timeResult = (endTime - startTime) - getBreakDuration()
+            // Отдых считаем от полного отработанного времени (getWorkTime):
+            // с учётом перерыва и проезда пассажиром до явки.
+            val timeResult = this.getWorkTime()
             var halfRest = timeResult / 2
             halfRest?.let { half ->
                 if (half % 60_000L != 0L) {
@@ -265,9 +266,10 @@ object UtilsForEntities {
 
     fun Route.fullRest(minTime: Long?): Long? {
         return if (this.isTimeWorkValid()) {
-            val startTime = this.basicData.timeStartWork
             val endTime = this.basicData.timeEndWork
-            val timeResult = (endTime - startTime) - getBreakDuration()
+            // Полный отдых в ПО равен всему отработанному времени (getWorkTime),
+            // но не меньше минимального отдыха из настроек.
+            val timeResult = this.getWorkTime()
             if (minTime.moreThan(timeResult)) {
                 endTime + minTime
             } else {

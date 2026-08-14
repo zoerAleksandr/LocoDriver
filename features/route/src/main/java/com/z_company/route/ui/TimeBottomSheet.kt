@@ -156,8 +156,16 @@ fun TimeBottomSheet(
     var barrierIn by remember { mutableStateOf(initialBarrierIn) }
     var workEnd by remember { mutableStateOf(routeEndWork) }
 
-    var selectedStation by remember(initialStationId, allStations) {
-        mutableStateOf(allStations.find { it.stationId == initialStationId })
+    // Выбранная станция. НЕ пере-ключаемся на initialStationId: иначе немедленное
+    // сохранение (initialStationId «догоняет» выбранный id) пересоздаёт state и на
+    // кадр сбрасывает выбор в null, а авто-сейв затирает станцию. Инициализируем
+    // синхронно (справочник обычно уже прогрет), а при холодной загрузке —
+    // восстанавливаем из справочника, только пока выбор ещё пуст.
+    var selectedStation by remember { mutableStateOf(allStations.find { it.stationId == initialStationId }) }
+    LaunchedEffect(allStations) {
+        if (selectedStation == null && initialStationId != null) {
+            selectedStation = allStations.find { it.stationId == initialStationId }
+        }
     }
     var selectedSeriesName by remember { mutableStateOf(seriesName) }
     val selectedSeries: LocomotiveSeries? = allSeries.find { it.name == selectedSeriesName }
@@ -217,6 +225,29 @@ fun TimeBottomSheet(
 
     // Закрытые пользователем (крестиком) предупреждения о нормах — на сессию шторки.
     var dismissedWarnings by remember { mutableStateOf(setOf<String>()) }
+
+    // Немедленное сохранение введённых значений в форму — чтобы данные не
+    // терялись при закрытии шторки свайпом (не только по «Готово»). Пишем,
+    // как только состояние отличается от переданного initial* (при открытии
+    // и при асинхронной загрузке станции ничего лишнего не сохраняем).
+    LaunchedEffect(startTime, endTime, barrierOut, barrierIn, selectedStation?.stationId) {
+        // Станцию считаем изменённой только когда она реально выбрана (не null):
+        // иначе на кадр незагруженного справочника авто-сейв затёр бы станцию null-ом.
+        val stationChanged = selectedStation != null && selectedStation?.stationId != initialStationId
+        val changedFromInitial = startTime != initialStartTime ||
+            endTime != initialEndTime ||
+            barrierOut != initialBarrierOut ||
+            barrierIn != initialBarrierIn ||
+            stationChanged
+        if (changedFromInitial) {
+            onSave(
+                TimeSheetResult(
+                    startTime, endTime, barrierOut, barrierIn, workEnd,
+                    selectedStation?.stationId
+                )
+            )
+        }
+    }
 
     // InfiniteTransition for ASKING blink — runs continuously, alpha applied only when ASKING
     val infiniteTransition = rememberInfiniteTransition(label = "asking_blink")
@@ -549,7 +580,11 @@ fun TimeBottomSheet(
     )
     if (showWorkEndPicker) AppDateTimePicker(
         title = "Окончание работы",
-        onDateTimeSelected = { workEnd = it; workEndAccepted = true; showWorkEndPicker = false },
+        onDateTimeSelected = {
+            workEnd = it; workEndAccepted = true; showWorkEndPicker = false
+            // Сразу синхронизируем окончание работы в маршрут (не ждём «Готово»).
+            onTimeEndWorkChanged?.invoke(it)
+        },
         onDismiss = { showWorkEndPicker = false },
         startDateTime = workEnd ?: Calendar.getInstance().timeInMillis,
         timeZoneStr = timeZoneText, recentTimes = emptyList(), onRecentTimeSaved = {}
@@ -660,7 +695,10 @@ fun TimeBottomSheet(
                                 }
                                 scope.launch {
                                     sheetState.hide()
+                                    // Значения уже сохраняются немедленно при вводе;
+                                    // здесь — финальный флаш и закрытие шторки.
                                     onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
+                                    onClose()
                                 }
                             } else Modifier
                         )
@@ -746,7 +784,7 @@ fun TimeBottomSheet(
                     // Часть норм есть — просто сообщаем, какого интервала не хватает.
                     // Расчёт остаётся доступным, интервал считается нулевым.
                     add(WarnItem(
-                        "Нет нормы интервала: ${stationMissingNorms.joinToString(", ")}",
+                        "Нет нормы времени: ${stationMissingNorms.joinToString(", ")}",
                         "Расчёт выполнится без этого интервала",
                         "Настроить станцию", false, dismissible = true
                     ))
@@ -805,7 +843,7 @@ fun TimeBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "Нажмите на момент времени, от которого рассчитать",
+                        text = "Выберите, от какой операции начать отсчёт времени",
                         fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = textColor()
                     )
                     if (askingEmptyHint) {

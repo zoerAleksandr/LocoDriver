@@ -560,11 +560,16 @@ object WidgetDataLoader : KoinComponent {
 
         val startWork = previousRoute.basicData.timeStartWork!!
         val endWork = previousRoute.basicData.timeEndWork!!
-        val workTime = endWork - startWork
+        // Отдых считаем от полного отработанного времени (с учётом перерыва
+        // и проезда пассажиром до явки), а не от «сдача − явка».
+        val workTime = previousRoute.getWorkTime() ?: (endWork - startWork)
 
         if (previousRoute.basicData.restPointOfTurnover) {
             val minTime = userSettings.minTimeRestPointOfTurnover
-            val shortRest = maxOf(workTime / 2, minTime)
+            // Короткий отдых — половина, округлённая вверх до минуты (как в шторке отдыха).
+            var halfRest = workTime / 2
+            if (halfRest % 60_000L != 0L) halfRest += 60_000L
+            val shortRest = maxOf(halfRest, minTime)
             val fullRest = maxOf(workTime, minTime)
             return RestHome(
                 isPO = true,

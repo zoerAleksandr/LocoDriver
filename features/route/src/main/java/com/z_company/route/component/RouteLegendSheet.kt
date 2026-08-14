@@ -1,6 +1,8 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +23,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,7 +51,7 @@ private data class LegendItem(
  * Bottom-sheet «Обозначения» — расшифровка значков в строке маршрута.
  * Открывается с главного экрана (Поездки) по нажатию на значки маршрута.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun RouteLegendSheet(
     onDismissRequest: () -> Unit,
@@ -75,6 +78,10 @@ fun RouteLegendSheet(
         sheetState = sheetState,
         containerColor = cs.surface,
     ) {
+        // Отключаем overscroll (EdgeEffect) у внутренней прокрутки: на весь экран
+        // шторка при свайпе вниз с самого верха списка ловила bounce-эффект, который
+        // конфликтовал с драгом самой шторки на закрытие — визуально «прыгала».
+        CompositionLocalProvider(LocalOverscrollFactory provides null) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -134,6 +141,7 @@ fun RouteLegendSheet(
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
+        }
         }
     }
 }

@@ -17,6 +17,7 @@ import com.z_company.route.viewmodel.all_route_view_model.RouteFilter
 import com.z_company.route.viewmodel.home_view_model.ItemState
 import java.util.Calendar
 import com.z_company.domain.entities.route.UtilsForEntities.isTimeWorkValid
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -407,7 +408,9 @@ class RouteActionsHelper() : KoinComponent {
         val userSettings = settingsUseCase.getUserSettingFlow().first()
         val minTimeRestPointOfTurnover = userSettings.minTimeRestPointOfTurnover
 
-        val timeResult = endTime - startTime
+        // Отдых считаем от полного отработанного времени (с учётом перерыва
+        // и проезда пассажиром до явки), а не от «сдача − явка».
+        val timeResult = route.getWorkTime() ?: (endTime - startTime)
         var halfRest = timeResult / 2
 
         if (halfRest % 60_000L != 0L) {
@@ -446,8 +449,9 @@ class RouteActionsHelper() : KoinComponent {
         val userSettings = settingsUseCase.getUserSettingFlow().first()
         val minTimeRestPointOfTurnover = userSettings.minTimeRestPointOfTurnover
 
-
-        val timeResult = endTime - startTime
+        // Полный отдых в ПО равен всему отработанному времени (с учётом перерыва
+        // и проезда пассажиром до явки), но не меньше минимального отдыха.
+        val timeResult = route.getWorkTime() ?: (endTime - startTime)
         val effectiveRest =
             if (timeResult > minTimeRestPointOfTurnover) timeResult else minTimeRestPointOfTurnover
         val endRestTime = endTime + effectiveRest
