@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ (API 31+): системный starting-window — ЕДИНСТВЕННЫЙ сплэш.
+         Показывает бренд-глиф «M» (themed) на фоне темы и держится до готовности
+         приложения (см. MainActivity). Своего Compose-сплэша тут нет — поэтому нет
+         перехода/«моргания» между двумя сплэшами (как у Google/YouTube). -->
+    <style name="Theme.LocoDriver.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_bg</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.LocoDriver</item>
+    </style>
+</resources>

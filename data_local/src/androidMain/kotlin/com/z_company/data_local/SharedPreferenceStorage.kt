@@ -415,9 +415,17 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         editor.putInt(LAST_SEEN_ANNOUNCEMENT_NUMBER, value).apply()
     }
 
+    override fun getThemeMode(): String? =
+        sharedpref.getString(TOKEN_THEME_MODE, null)
+
+    override fun setThemeMode(value: String) {
+        editor.putString(TOKEN_THEME_MODE, value).apply()
+    }
+
     private companion object {
         const val SCHEDULE_PATTERNS_KEY = "SCHEDULE_PATTERNS"
         const val LAST_SEEN_ANNOUNCEMENT_NUMBER = "LAST_SEEN_ANNOUNCEMENT_NUMBER"
+        const val TOKEN_THEME_MODE = "TOKEN_THEME_MODE"
         val schedulePatternsJson = Json { ignoreUnknownKeys = true }
     }
 }

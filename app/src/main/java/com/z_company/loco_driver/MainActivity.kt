@@ -2,6 +2,7 @@ package com.z_company.loco_driver
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -28,6 +29,9 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.robokassa.library.helper.toParams
 import com.robokassa.library.pay.RobokassaPayLauncher
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.z_company.core.theme.ThemeManager
+import com.z_company.core.theme.ThemeMode
 import com.z_company.RouteSerializer
 import com.z_company.loco_driver.ui.LocoDriverApp
 import com.z_company.repository.remote_rest.ShareRouteManager
@@ -40,14 +44,67 @@ import com.vk.id.VKID
 class MainActivity : ComponentActivity(), KoinComponent {
 
     private val mainViewModel: MainViewModel by viewModels()
+    private val themeManager: ThemeManager by inject()
 //    private val payClient: RuStorePayClient by inject()
+
+    // API 31+: системный сплэш — единственный, держим его до готовности приложения.
+    @Volatile
+    private var minSplashTimePassed = false
+
+    private val isSystemSplashOnly: Boolean
+        get() = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
+
+    // Форсируем night/day-конфигурацию активити по выбранной теме ДО создания окна,
+    // чтобы системный сплэш (windowSplashScreenBackground) резолвился из values/
+    // values-night и не мелькал белый «пустой» экран при тёмной теме на светлой системе.
+    override fun attachBaseContext(newBase: Context) {
+        val night: Int? = when (themeManager.themeMode.value) {
+            ThemeMode.MODE_DARK -> Configuration.UI_MODE_NIGHT_YES
+            ThemeMode.MODE_LIGHT -> Configuration.UI_MODE_NIGHT_NO
+            ThemeMode.MODE_SYSTEM -> null // как в системе — не переопределяем
+        }
+        if (night == null) {
+            super.attachBaseContext(newBase)
+            return
+        }
+        val config = Configuration(newBase.resources.configuration).apply {
+            uiMode = night or (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv())
+        }
+        super.attachBaseContext(newBase.createConfigurationContext(config))
+    }
 
     @OptIn(ExperimentalAnimationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Системный сплэш убираем сразу (первый кадр) — единственный видимый сплэш
-        // это брендовый Compose-overlay ниже (M + линия + МАШИНИСТ + слоган).
-        installSplashScreen()
+        // Сообщаем системе ночной режим приложения, чтобы системный starting-window
+        // (первый кадр) красился по ВЫБРАННОЙ теме, а не по настройке телефона.
+        // Без этого при «Тёмная» на светлом телефоне первый кадр белый → мелькание.
+        // Эффект применяется системой к последующим запускам (persist на уровне ОС).
+        applyApplicationNightMode()
+
+        val splashScreen = installSplashScreen()
+        if (isSystemSplashOnly) {
+            // Android 12+: системный сплэш (лого «M») — ЕДИНСТВЕННЫЙ. Держим его до
+            // готовности приложения и затем отдаём сразу в UI (как Google/YouTube) —
+            // своего Compose-сплэша нет, поэтому нет перехода/«моргания» между двумя.
+            window.decorView.postDelayed({ minSplashTimePassed = true }, 900)
+            splashScreen.setKeepOnScreenCondition {
+                !(mainViewModel.appInitialized.value && minSplashTimePassed)
+            }
+        }
+        // На API < 31 системную иконку не держим (она пустая) — брендовый сплэш
+        // рисует Compose (BrandedSplash) как раньше.
+        // Фон окна под выбранную тему, чтобы между системным сплэшем и первым
+        // кадром Compose не мелькал «пустой» светлый экран (цвета = BrandedSplash).
+        run {
+            val dark = themeManager.isDark(themeManager.themeMode.value) ?: run {
+                val uiMode = resources.configuration.uiMode and
+                    android.content.res.Configuration.UI_MODE_NIGHT_MASK
+                uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+            val bg = if (dark) 0xFF0F1011.toInt() else 0xFFFFFFFF.toInt()
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(bg))
+        }
         checkIntent(intent)
 //        if (savedInstanceState == null) {
 //            payClient.getIntentInteractor().proceedIntent(intent)
@@ -85,17 +142,26 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 onFormOpenedWithId = mainViewModel::clearOpenFormWithId
             )
 
-            // Единственный сплэш — брендовый лок-ап поверх приложения с самого старта.
-            // Держим пока идёт инициализация И минимальное время (чтобы слоган прочитался).
-            val appInitialized by mainViewModel.appInitialized.collectAsState()
-            var minTimePassed by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) { delay(1500); minTimePassed = true }
-            androidx.compose.animation.AnimatedVisibility(
-                visible = !appInitialized || !minTimePassed,
-                enter = androidx.compose.animation.EnterTransition.None,
-                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(400)),
-            ) {
-                com.z_company.loco_driver.ui.BrandedSplash()
+            // API < 31: брендовый Compose-сплэш поверх приложения (на старых устройствах
+            // системный starting-window иконку не показывает — см. res/values/splash.xml).
+            // На API 31+ единственный сплэш — системный (лого «M»), Compose-сплэша нет.
+            if (!isSystemSplashOnly) {
+                val appInitialized by mainViewModel.appInitialized.collectAsState()
+                var minTimePassed by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) { delay(1500); minTimePassed = true }
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = !appInitialized || !minTimePassed,
+                    enter = androidx.compose.animation.EnterTransition.None,
+                    exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(400)),
+                ) {
+                    val themeMode by themeManager.themeMode.collectAsState()
+                    val splashDark = when (themeMode) {
+                        ThemeMode.MODE_SYSTEM -> isSystemInDarkTheme()
+                        ThemeMode.MODE_DARK -> true
+                        ThemeMode.MODE_LIGHT -> false
+                    }
+                    com.z_company.loco_driver.ui.BrandedSplash(dark = splashDark)
+                }
             }
 
             // Полноэкранное сообщение-«новость при запуске» поверх приложения.
@@ -111,6 +177,22 @@ class MainActivity : ComponentActivity(), KoinComponent {
             } // Box
         }
         VKID.logsEnabled = true
+    }
+
+    /**
+     * Прокидывает выбранную тему в системный [UiModeManager] (API 31+), чтобы
+     * OS красила starting-window (первый кадр приложения) по нашей теме, а не по
+     * настройке телефона. MODE_SYSTEM → следуем телефону (авто).
+     */
+    private fun applyApplicationNightMode() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return
+        val uiModeManager = getSystemService(android.app.UiModeManager::class.java) ?: return
+        val mode = when (themeManager.themeMode.value) {
+            ThemeMode.MODE_DARK -> android.app.UiModeManager.MODE_NIGHT_YES
+            ThemeMode.MODE_LIGHT -> android.app.UiModeManager.MODE_NIGHT_NO
+            ThemeMode.MODE_SYSTEM -> android.app.UiModeManager.MODE_NIGHT_AUTO
+        }
+        runCatching { uiModeManager.setApplicationNightMode(mode) }
     }
 
     private fun checkIntent(i: Intent?) {

@@ -17,9 +17,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +45,8 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.z_company.core.theme.ThemeManager
+import com.z_company.core.theme.ThemeMode
 import com.z_company.loco_driver.ui.navigation.RouterImpl
 import com.z_company.loco_driver.ui.theme.LocoDriverTheme
 import com.z_company.route.component.AppAlertDialog
@@ -82,7 +86,14 @@ fun LocoDriverApp(
     pendingOpenFormWithId: String? = null,
     onFormOpenedWithId: () -> Unit = {}
 ) {
-    LocoDriverTheme {
+    val themeManager: ThemeManager = koinInject()
+    val themeMode by themeManager.themeMode.collectAsState()
+    val darkTheme = when (themeMode) {
+        ThemeMode.MODE_SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.MODE_DARK -> true
+        ThemeMode.MODE_LIGHT -> false
+    }
+    LocoDriverTheme(darkTheme = darkTheme) {
         val navController = rememberNavController()
         val scope = rememberCoroutineScope()
         val routeHelper: RouteActionsHelper = koinInject()

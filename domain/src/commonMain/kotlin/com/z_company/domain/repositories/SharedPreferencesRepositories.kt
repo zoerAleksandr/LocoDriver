@@ -125,4 +125,12 @@ interface SharedPreferencesRepositories {
      */
     fun getLastSeenAnnouncementNumber(): Int
     fun setLastSeenAnnouncementNumber(value: Int)
+
+    /**
+     * Выбранная тема оформления приложения (локально, без синхронизации).
+     * Хранится строкой — имя [com.z_company.core.theme.ThemeMode]. null —
+     * пользователь ещё не выбирал (по умолчанию — как в системе).
+     */
+    fun getThemeMode(): String?
+    fun setThemeMode(value: String)
 }

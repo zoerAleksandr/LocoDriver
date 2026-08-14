@@ -27,6 +27,8 @@ import com.z_company.domain.repositories.PartnerRepository
 import com.z_company.domain.repositories.StationNormRepository
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.snackbar.SnackbarManagerImpl
+import com.z_company.core.theme.ThemeManager
+import com.z_company.loco_driver.ui.theme.ThemeManagerImpl
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.ShareManager
 import com.z_company.repository.remote_rest.ApiForSendEmail
@@ -73,6 +75,8 @@ val repositoryModule = module {
     single<HistoryResponseRepository> { SqlDelightHistoryResponseRepository() }
 
     single<SharedPreferencesRepositories> { SharedPreferenceStorage(application = androidApplication()) }
+
+    single<ThemeManager> { ThemeManagerImpl(prefs = get()) }
 
     single<SalarySettingRepository> { SqlDelightSalarySettingRepository() }
 

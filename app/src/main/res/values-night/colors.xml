@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Фон окна/сплэша (совпадает с BrandedSplash · dark). -->
+    <color name="splash_bg">#FF0F1011</color>
+    <!-- Цвет логотипа на системном сплэше (ink · dark). -->
+    <color name="splash_ink">#FFF5F5F5</color>
+
     <!-- ─── Widget palette · DARK (M.dark from design system) ─── -->
     <color name="widget_card_bg">#FF2A2B2D</color>       <!-- bgElevated dark -->
     <color name="widget_card_stroke">#14FFFFFF</color>   <!-- border rgba(255,255,255,.08) -->

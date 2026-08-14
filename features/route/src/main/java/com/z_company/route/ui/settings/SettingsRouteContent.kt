@@ -15,6 +15,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.z_company.route.component.AppTimePicker
+import com.z_company.core.theme.ThemeManager
+import com.z_company.core.theme.ThemeMode
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.setting.UserSettings
@@ -33,6 +35,8 @@ fun SettingsRouteContent(
     changeShowBreak: (Boolean) -> Unit,
 ) {
     val sharedPrefs: SharedPreferencesRepositories = koinInject()
+    val themeManager: ThemeManager = koinInject()
+    val themeMode by themeManager.themeMode.collectAsState()
     var showWorkTimeDialog by remember { mutableStateOf(false) }
     val passenger12hOption by viewModel.passenger12hOption.collectAsState()
 
@@ -57,8 +61,30 @@ fun SettingsRouteContent(
             .padding(horizontal = 16.dp)
             .padding(top = 4.dp, bottom = 28.dp),
     ) {
+        // ── Тема оформления ──
+        SettingsGroupHeader("ТЕМА ОФОРМЛЕНИЯ", top = 8.dp, startPad = 4.dp)
+        SettingsCard {
+            SettingsRadioRow(
+                label = "Как в системе",
+                selected = themeMode == ThemeMode.MODE_SYSTEM,
+                onClick = { themeManager.setTheme(ThemeMode.MODE_SYSTEM) },
+            )
+            SettingsCardSep()
+            SettingsRadioRow(
+                label = "Светлая",
+                selected = themeMode == ThemeMode.MODE_LIGHT,
+                onClick = { themeManager.setTheme(ThemeMode.MODE_LIGHT) },
+            )
+            SettingsCardSep()
+            SettingsRadioRow(
+                label = "Тёмная",
+                selected = themeMode == ThemeMode.MODE_DARK,
+                onClick = { themeManager.setTheme(ThemeMode.MODE_DARK) },
+            )
+        }
+
         // ── Вид тяги (по умолчанию) ──
-        SettingsGroupHeader("ВИД ТЯГИ", top = 8.dp, startPad = 4.dp)
+        SettingsGroupHeader("ВИД ТЯГИ", top = 20.dp, startPad = 4.dp)
         SettingsCard {
             LocoType.entries.forEachIndexed { index, type ->
                 if (index > 0) SettingsCardSep()

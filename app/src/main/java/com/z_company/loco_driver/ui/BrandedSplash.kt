@@ -33,8 +33,7 @@ import com.z_company.loco_driver.R
  * Показывается overlay'ем поверх приложения на старте.
  */
 @Composable
-fun BrandedSplash() {
-    val dark = isSystemInDarkTheme()
+fun BrandedSplash(dark: Boolean = isSystemInDarkTheme()) {
     val bg = if (dark) Color(0xFF0F1011) else Color(0xFFFFFFFF)
     val ink = if (dark) Color(0xFFF5F5F5) else Color(0xFF0A0E14)
 

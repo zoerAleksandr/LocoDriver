@@ -1070,6 +1070,15 @@ STATION_LIST/SERIES_EDITOR_{id}/STATION_EDITOR_{id}).
 - **Работа**: время по умолчанию (`changeDefaultWorkTime` + `usingDefaultWorkTime`),
   тип локо по умолчанию (`setDefaultLocoType`), учитывать будущие маршруты,
   показывать перерыв, поведение «пассажир >12ч» (`Passenger12hOption`).
+- **Тема оформления** (под-раздел «Основные», `SettingsRouteContent`): три
+  взаимоисключающих варианта — «Как в системе» / «Светлая» / «Тёмная»
+  (`ThemeMode.MODE_SYSTEM/MODE_LIGHT/MODE_DARK`). Выбор через `ThemeManager`
+  (Koin-singleton). Хранение — **локально**, `SharedPreferences`
+  (`TOKEN_THEME_MODE`, имя enum'а строкой; по умолчанию `MODE_SYSTEM`), **без
+  синхронизации с сервером**. `ThemeManager.themeMode` — `StateFlow`; корневой
+  `LocoDriverApp` подписан на него и пересобирает `LocoDriverTheme` при
+  переключении (для `MODE_SYSTEM` — `isSystemInDarkTheme()`). Применяется
+  мгновенно, ко всему приложению.
 - **Видимость блоков формы**: локомотив, поезд, пассажиром, прочая работа, «в одно
   лицо», отопление/собственные нужды локо, другой род тока.
 - **Отдых**: мин. время отдыха в ПО (`changeMinTimeRest`), мин. домашний отдых.
