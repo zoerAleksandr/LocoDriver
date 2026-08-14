@@ -56,6 +56,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,6 +68,7 @@ import com.robokassa.library.pay.RobokassaPayLauncher
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
+import com.z_company.core.ui.theme.custom.AppTheme
 import com.z_company.domain.entities.Product
 import com.z_company.route.R
 import com.z_company.route.viewmodel.BillingEvent
@@ -77,6 +79,7 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -115,6 +118,12 @@ private fun Product.addLabel(): String = when (periodMonths()) {
     3 -> "+ 3 месяца"
     else -> "+ 1 месяц"
 }
+
+private val PROMO_DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+
+/** ms Unix epoch → «dd.MM.yyyy» в локальной зоне (для «Акция до …»). */
+private fun formatPromoUntil(ms: Long): String =
+    Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).toLocalDate().format(PROMO_DATE_FORMAT)
 
 private fun daysWord(n: Long): String {
     val nn = n % 100
@@ -302,9 +311,18 @@ fun PurchasesScreen(
     val monthlyBase = remember(plans) {
         plans.minByOrNull { it.periodMonths() }?.let { it.sum / it.periodMonths() }
     }
+    // Есть ли активная акция хоть в одном тарифе — тогда зелёные бейджи «выгоды»
+    // не показываем, вместо них оранжевый «Акция −N%» у цены.
+    val anyPromo = remember(plans) { plans.any { it.discountActive && it.discountPercent > 0 } }
     var selectedProduct by remember(plans) { mutableStateOf(plans.firstOrNull()) }
 
-    val showRestore = purchaseState is PurchaseUi.Paywall || purchaseState is PurchaseUi.Expired
+    // Статус подписки известен (загружен из локальных настроек). Пока нет —
+    // держим нейтральный лоадинг, не показываем «неактивную» шапку.
+    val isSubscriptionLoaded by viewModel.isSubscriptionLoaded.collectAsState()
+    val tariffsLoading = billingState.isLoading
+
+    val showRestore = isSubscriptionLoaded &&
+        (purchaseState is PurchaseUi.Paywall || purchaseState is PurchaseUi.Expired)
 
     Scaffold(
         topBar = {
@@ -354,14 +372,20 @@ fun PurchasesScreen(
             ) {
                 Spacer(modifier = Modifier.height(4.dp))
 
-                when (purchaseState) {
+                if (!isSubscriptionLoaded) {
+                    // Статус подписки ещё грузится — нейтральная шапка + лоадер
+                    // тарифов, без вида «неактивной подписки».
+                    ProHero()
+                    TariffsLoading()
+                } else when (purchaseState) {
                     is PurchaseUi.Paywall -> {
                         ProHeroWithFeatures()
                         SectionLabel("ВЫБЕРИТЕ ТАРИФ")
-                        PlanList(
+                        if (tariffsLoading) TariffsLoading() else PlanList(
                             plans = plans,
                             selected = selectedProduct,
                             monthlyBase = monthlyBase,
+                            anyPromo = anyPromo,
                             onSelect = { selectedProduct = it },
                         )
                     }
@@ -402,18 +426,23 @@ fun PurchasesScreen(
                         }
 
                         SectionLabel("ПЕРИОД ПРОДЛЕНИЯ")
-                        DateTransitionCard(
-                            currentEndTime = purchaseState.endTime,
-                            selected = selectedProduct,
-                            converter = converter,
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        PlanList(
-                            plans = plans,
-                            selected = selectedProduct,
-                            monthlyBase = monthlyBase,
-                            onSelect = { selectedProduct = it },
-                        )
+                        if (tariffsLoading) {
+                            TariffsLoading()
+                        } else {
+                            DateTransitionCard(
+                                currentEndTime = purchaseState.endTime,
+                                selected = selectedProduct,
+                                converter = converter,
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            PlanList(
+                                plans = plans,
+                                selected = selectedProduct,
+                                monthlyBase = monthlyBase,
+                                anyPromo = anyPromo,
+                                onSelect = { selectedProduct = it },
+                            )
+                        }
                     }
 
                     is PurchaseUi.Expired -> {
@@ -455,10 +484,11 @@ fun PurchasesScreen(
                         }
 
                         SectionLabel("ВЫБЕРИТЕ ТАРИФ")
-                        PlanList(
+                        if (tariffsLoading) TariffsLoading() else PlanList(
                             plans = plans,
                             selected = selectedProduct,
                             monthlyBase = monthlyBase,
+                            anyPromo = anyPromo,
                             onSelect = { selectedProduct = it },
                         )
                     }
@@ -468,6 +498,8 @@ fun PurchasesScreen(
             }
 
             // ── Закреплённая снизу CTA + подпись ────────────────────────────
+            // Пока грузятся статус/тарифы (нет выбранного тарифа) — CTA прячем.
+            if (isSubscriptionLoaded && !tariffsLoading && selectedProduct != null) {
             val ctaLabel: String
             val ctaNote: String
             val onCta: () -> Unit
@@ -528,6 +560,7 @@ fun PurchasesScreen(
                     textAlign = TextAlign.Center,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+            }
             }
         }
     }
@@ -771,12 +804,30 @@ private fun SectionLabel(text: String) {
     )
 }
 
+/** Лоадер на месте списка тарифов, пока они тянутся с сервера. */
+@Composable
+private fun TariffsLoading() {
+    Spacer(modifier = Modifier.height(20.dp))
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(160.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(
+            color = MaterialTheme.colorScheme.tertiary,
+            strokeWidth = 3.dp,
+        )
+    }
+}
+
 // ── Список тарифов ─────────────────────────────────────────────────────────
 @Composable
 private fun PlanList(
     plans: List<Product>,
     selected: Product?,
     monthlyBase: Double?,
+    anyPromo: Boolean,
     onSelect: (Product) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -785,6 +836,7 @@ private fun PlanList(
                 product = product,
                 selected = selected?.name == product.name,
                 monthlyBase = monthlyBase,
+                anyPromo = anyPromo,
                 onClick = { onSelect(product) },
             )
         }
@@ -796,11 +848,17 @@ private fun PlanCard(
     product: Product,
     selected: Boolean,
     monthlyBase: Double?,
+    anyPromo: Boolean,
     onClick: () -> Unit,
 ) {
     val accent = MaterialTheme.colorScheme.tertiary
+    val orange = AppTheme.colors.warnOrange
     val perMonth = (product.sum / product.periodMonths()).roundToInt()
-    val discount = monthlyBase
+    // Промо-скидка (акция из кабинета).
+    val promo = product.discountActive && product.discountPercent > 0
+    // «Выгода тарифа» (зелёный бейдж у цены месяца) — показываем ТОЛЬКО когда ни
+    // у одного тарифа нет активной акции. Иначе визуал остаётся за оранжевой акцией.
+    val tieredDiscount = if (anyPromo) null else monthlyBase
         ?.takeIf { it > 0 }
         ?.let { (100 * (1 - perMonth / it)).roundToInt() }
         ?.takeIf { it > 0 }
@@ -851,7 +909,7 @@ private fun PlanCard(
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primary,
             )
-            // Цена за месяц + бейдж скидки рядом с ней.
+            // Цена за месяц + зелёный бейдж «выгоды тарифа» (только когда нет акции).
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -862,17 +920,46 @@ private fun PlanCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (discount != null) {
-                    DiscountPill(text = "−$discount%")
+                if (tieredDiscount != null) {
+                    DiscountPill(text = "−$tieredDiscount%")
                 }
+            }
+            // Срок действия акции — только если задан.
+            if (promo && product.discountUntil != null) {
+                Text(
+                    text = "Действует до ${formatPromoUntil(product.discountUntil!!)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = orange,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
             }
         }
 
-        Text(
-            text = "${product.sum.toInt()} ₽",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.primary,
-        )
+        // Цена справа: при акции — старая цена зачёркнута над новой + оранжевый
+        // бейдж «Акция −N%» прижат к стоимости подписки.
+        if (promo) {
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "${product.basePrice.toInt()} ₽",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textDecoration = TextDecoration.LineThrough,
+                )
+                Text(
+                    text = "${product.sum.toInt()} ₽",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                PromoPill(text = "Акция −${product.discountPercent}%")
+            }
+        } else {
+            Text(
+                text = "${product.sum.toInt()} ₽",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }
 
@@ -889,6 +976,26 @@ private fun DiscountPill(text: String) {
             text = text,
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
             color = success,
+            maxLines = 1,
+            softWrap = false,
+        )
+    }
+}
+
+/** Оранжевый бейдж акции «Акция −N%» (промо из кабинета админа). */
+@Composable
+private fun PromoPill(text: String) {
+    val orange = AppTheme.colors.warnOrange
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(orange.copy(alpha = 0.18f))
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = orange,
             maxLines = 1,
             softWrap = false,
         )

@@ -20,6 +20,7 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.AuthManager
 import com.z_company.repository.remote_rest.GetUserProfileState
+import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
@@ -60,6 +61,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val subscriptionHelper: SubscriptionHelper by inject()
     private val authManager: AuthManager by inject()
     private val settingManager: SettingManager by inject()
+    private val remoteRestApi: RemoteRestApi by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
 
     private val _state = MutableStateFlow(BillingState(isLoading = true))
@@ -67,6 +69,12 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     private val _purchasesEndTime = MutableStateFlow(0L)
     val purchasesEndTime = _purchasesEndTime.asStateFlow()
+
+    // Статус подписки известен (загружен из локальных настроек). Пока false —
+    // экран не показывает шапку/блок статуса как «неактивную подписку», а держит
+    // нейтральный лоадинг (мы узнаём реальный статус ещё в Профиле, быстро).
+    private val _isSubscriptionLoaded = MutableStateFlow(false)
+    val isSubscriptionLoaded = _isSubscriptionLoaded.asStateFlow()
 
     private val _showPaymentSuccessDialog = MutableStateFlow(false)
     val showPaymentSuccessDialog = _showPaymentSuccessDialog.asStateFlow()
@@ -90,7 +98,22 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     init {
         loadDateConverter()
+        observeSubscription()
         refreshProductsAndPurchases()
+    }
+
+    /**
+     * Статус подписки (endTime) грузим отдельно от тарифов — из локальных
+     * настроек, быстро и параллельно. Так шапка/блок статуса не мигают
+     * «неактивной подпиской», пока тарифы тянутся из сети.
+     */
+    private fun observeSubscription() {
+        viewModelScope.launch {
+            settingsUseCase.getUserSettingFlow().collect { setting ->
+                _purchasesEndTime.value = setting.subscriptionPeriod
+                _isSubscriptionLoaded.value = true
+            }
+        }
     }
 
     private fun loadDateConverter() {
@@ -114,23 +137,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val products = listOf(
-                    Product(
-                        name = "1 месяц",
-                        desc = "Новичек",
-                        sum = 69.0
-                    ),
-                    Product(
-                        name = "3 месяца",
-                        desc = "Эксперт",
-                        sum = 179.0
-                    ),
-                    Product(
-                        name = "1 год",
-                        desc = "Профи",
-                        sum = 599.0
-                    )
-                )
+                val products = fetchTariffsOrDefault()
                 _state.update {
                     it.copy(
                         products = products,
@@ -143,13 +150,43 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 _event.tryEmit(BillingEvent.ShowError(t))
                 _state.update { it.copy(isLoading = false) }
             }
-
-            settingsUseCase.getUserSettingFlow().collect { setting ->
-                val purchasesEndTime = setting.subscriptionPeriod
-                _purchasesEndTime.value = purchasesEndTime
-            }
         }
     }
+
+    /**
+     * Тарифы с сервера (`GET /v1/tariffs`) → доменные [Product]. При офлайне/
+     * ошибке или пустом ответе — дефолтный набор, чтобы экран не был пустым.
+     * Дефолты несут `code`, поэтому оплата корректно начислит срок и офлайн-путём.
+     */
+    private suspend fun fetchTariffsOrDefault(): List<Product> {
+        return try {
+            val tariffs = remoteRestApi.getTariffs().tariffs
+            if (tariffs.isEmpty()) defaultProducts()
+            else tariffs.map { t ->
+                Product(
+                    name = t.title,
+                    desc = t.desc,
+                    sum = t.price,
+                    code = t.code,
+                    periodDays = t.periodDays,
+                    basePrice = t.basePrice,
+                    discountPercent = if (t.discountActive) t.discountPercent else 0,
+                    discountActive = t.discountActive,
+                    discountUntil = t.discountUntil,
+                )
+            }
+        } catch (t: Throwable) {
+            t.sendToSentry("PurchasesViewModel", "fetchTariffsOrDefault")
+            defaultProducts()
+        }
+    }
+
+    /** Резервные тарифы (совпадают с серверным сидом), если сеть недоступна. */
+    private fun defaultProducts(): List<Product> = listOf(
+        Product(name = "1 месяц", desc = "Новичок", sum = 69.0, code = "month", periodDays = 31, basePrice = 69.0),
+        Product(name = "3 месяца", desc = "Эксперт", sum = 179.0, code = "quarter", periodDays = 93, basePrice = 179.0),
+        Product(name = "1 год", desc = "Профи", sum = 599.0, code = "year", periodDays = 365, basePrice = 599.0),
+    )
 
     fun restoreSubscribe() {
         viewModelScope.launch {
@@ -211,7 +248,13 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
             viewParams {
                 toolbarText = "Оплата ${product.name}"
             }
-            shp = mapOf("user_id" to userId)
+            // tariff_code — по нему сервер начисляет срок подписки (webhook),
+            // независимо от суммы. Для legacy-дефолтов без кода не добавляем —
+            // тогда сервер откатится к маппингу по сумме.
+            shp = buildMap {
+                put("user_id", userId)
+                if (product.code.isNotBlank()) put("tariff_code", product.code)
+            }
         }.also {
             it.setCredentials(
                 MERCHANT_LOGIN,

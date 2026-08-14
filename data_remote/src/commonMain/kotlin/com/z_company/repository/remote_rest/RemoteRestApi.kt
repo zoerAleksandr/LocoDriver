@@ -16,6 +16,7 @@ import com.z_company.repository.remote_rest.request.RegisteredRequestByEmail
 import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import com.z_company.repository.remote_rest.response.AnnouncementResponse
+import com.z_company.repository.remote_rest.response.TariffsResponse
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
 import com.z_company.repository.remote_rest.response.SaveRouteResponse
@@ -101,6 +102,14 @@ interface RemoteRestApi {
      * Возвращает null, если показывать нечего (сервер ответил 204).
      */
     suspend fun getLatestAnnouncement(platform: String, build: Long): AnnouncementResponse?
+
+    // --- Tariffs (тарифы подписки: цены и скидки) ---
+
+    /**
+     * Активные тарифы подписки со скидками (без авторизации, `GET /v1/tariffs`).
+     * Единый источник цен для приложения и сайта.
+     */
+    suspend fun getTariffs(): TariffsResponse
 
     // --- ProductionCalendar (производственный календарь) ---
 

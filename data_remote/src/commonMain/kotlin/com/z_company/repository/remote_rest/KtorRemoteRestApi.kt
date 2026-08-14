@@ -10,6 +10,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.repository.remote_rest.response.AnnouncementResponse
+import com.z_company.repository.remote_rest.response.TariffsResponse
 import com.z_company.repository.remote_rest.response.NormaTimeLocomotiveResponse
 import com.z_company.repository.remote_rest.response.NormaTimeStationResponse
 import com.z_company.repository.remote_rest.response.PartnerResponse
@@ -247,5 +248,9 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
         }
         // Сервер отвечает 204, когда показывать нечего — тела нет.
         return if (response.status == HttpStatusCode.NoContent) null else response.body()
+    }
+
+    override suspend fun getTariffs(): TariffsResponse {
+        return client.get("v1/tariffs").body()
     }
 }
