@@ -72,6 +72,7 @@ fun SettingsShouldersContent(
                             departureStation = phase.arrivalStation,
                             arrivalStation = phase.departureStation,
                             distance = phase.distance,
+                            linearMileageRate = phase.linearMileageRate,
                         ),
                         -1
                     )
@@ -204,11 +205,18 @@ private fun ShoulderRow(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
-        Text(
-            text = "${item.distance} км",
-            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = "${item.distance} км",
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "${item.linearMileageRate} ₽/км",
+                style = MaterialTheme.typography.labelSmall.copy(fontFamily = MonoFont),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Icon(
             painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
             contentDescription = null,

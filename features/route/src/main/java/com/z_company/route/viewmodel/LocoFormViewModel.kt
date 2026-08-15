@@ -517,6 +517,7 @@ class LocoFormViewModel(
         _settings.value?.let { settings ->
             viewModelScope.launch {
                 settingsUseCase.saveSetting(settings).collect { }
+                sharedPreferenceStorage.setSettingsSyncPending(true)
             }
         }
     }

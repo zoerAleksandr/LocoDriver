@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS SalarySetting (
     surchargeExtendedServicePhaseList TEXT NOT NULL,
     surchargeHeavyTrainsList TEXT NOT NULL DEFAULT '[]',
     surchargeLongTrainsList TEXT NOT NULL DEFAULT '[]',
+    surchargeHeavyLongDistanceTrains REAL NOT NULL DEFAULT 5.0,
     surchargeLongTrain REAL NOT NULL DEFAULT 0.0,
     lengthLongDistanceTrain INTEGER NOT NULL DEFAULT 0,
     otherSurcharge REAL NOT NULL,
@@ -21,8 +22,8 @@ CREATE TABLE IF NOT EXISTS SalarySetting (
 );
 
 insertOrReplace:
-INSERT OR REPLACE INTO SalarySetting (salarySettingKey, nightTimePercent, zonalSurcharge, averagePaymentHour, districtCoefficient, nordicCoefficient, onePersonOperationPercent, onePersonOperationPassengerTrainPercent, harmfulnessPercent, surchargeQualificationClass, surchargeExtendedServicePhaseList, surchargeHeavyTrainsList, surchargeLongTrainsList, surchargeLongTrain, lengthLongDistanceTrain, otherSurcharge, ndfl, unionistsRetention, otherRetention)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO SalarySetting (salarySettingKey, nightTimePercent, zonalSurcharge, averagePaymentHour, districtCoefficient, nordicCoefficient, onePersonOperationPercent, onePersonOperationPassengerTrainPercent, harmfulnessPercent, surchargeQualificationClass, surchargeExtendedServicePhaseList, surchargeHeavyTrainsList, surchargeLongTrainsList, surchargeHeavyLongDistanceTrains, surchargeLongTrain, lengthLongDistanceTrain, otherSurcharge, ndfl, unionistsRetention, otherRetention)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getByKey:
 SELECT * FROM SalarySetting WHERE salarySettingKey = :key;

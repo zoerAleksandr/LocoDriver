@@ -1118,7 +1118,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
     /** Тихо подтянуть изменения при каждом открытии главного экрана. */
     fun syncOnScreenOpen() {
         if (backgroundSyncJob?.isActive == true || syncJob?.isActive == true) return
+        if (syncManager.isSyncInProgress() || !syncManager.shouldRunAutomaticSync()) return
         backgroundSyncJob = viewModelScope.launch(Dispatchers.IO) {
+            if (syncManager.isSyncInProgress() || !syncManager.shouldRunAutomaticSync()) return@launch
             if (!routeHelper.hasActiveSubscription()) return@launch
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             if (token.isNullOrBlank()) return@launch

@@ -879,7 +879,8 @@ fun FormTrainScreen(
                                 ServicePhase(
                                     departureStation = phase.arrivalStation,
                                     arrivalStation = phase.departureStation,
-                                    distance = phase.distance
+                                    distance = phase.distance,
+                                    linearMileageRate = phase.linearMileageRate,
                                 )
                             )
                         }

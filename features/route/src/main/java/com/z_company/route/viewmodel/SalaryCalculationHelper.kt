@@ -16,6 +16,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTimeOutsideWork
 import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyTrain
+import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyLongDistanceTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInLongTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
 import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
@@ -35,6 +36,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.datetime.Instant
 import kotlinx.datetime.toLocalDateTime
+
+data class LinearMileageAccrual(
+    val phaseId: String,
+    val phaseName: String,
+    val distance: Double,
+    val rate: Double,
+    val money: Double,
+)
 
 class SalaryCalculationHelper(
     private val userSettings: UserSettings,
@@ -867,6 +876,30 @@ class SalaryCalculationHelper(
         }
     }
 
+    fun getTimeHeavyLongDistanceTrainsFlow(routes: List<Route> = routeList): Flow<Long> = flow {
+        emit(routes.sumOf { it.getTimeInHeavyLongDistanceTrain() })
+    }
+
+    fun getPercentHeavyLongDistanceTrainsFlow(): Flow<Double> = flow {
+        emit(salarySetting.surchargeHeavyLongDistanceTrains)
+    }
+
+    fun getMoneyHeavyLongDistanceTrainsFlow(): Flow<Double> = flow {
+        val percent = salarySetting.surchargeHeavyLongDistanceTrains / 100
+        if (dateSetTariffRate == null) {
+            val time = getTimeHeavyLongDistanceTrainsFlow().first()
+            emit(time * currentMonthOfYear.tariffRate * percent / 3_600_000.0)
+        } else {
+            val (oldRateRoutes, currentRateRoutes) = getTwoRouteList(routeList).first()
+            val oldTime = getTimeHeavyLongDistanceTrainsFlow(oldRateRoutes).first()
+            val currentTime = getTimeHeavyLongDistanceTrainsFlow(currentRateRoutes).first()
+            emit(
+                (oldTime * dateSetTariffRate.oldRate * percent +
+                    currentTime * currentMonthOfYear.tariffRate * percent) / 3_600_000.0
+            )
+        }
+    }
+
     fun getPercentZonalSurchargeFlow(): Flow<Double> {
         return flow {
             val percent = salarySetting.zonalSurcharge
@@ -1260,12 +1293,50 @@ class SalaryCalculationHelper(
             // Оплата недоработки — по среднему часу, без районных/северных надбавок
             // (средний час их уже учитывает).
             val underworkMoney = getMoneyUnderworkFlow().first()
+            val linearMileageMoney = getMoneyLinearMileageFlow().first()
 
             val totalMoney =
-                baseMoney + holidayMoney + averageMoney + averageMoneyCaringForDisableChildren + businessTripMoney + nordicSurcharge + districtSurcharge + underworkMoney
+                baseMoney + holidayMoney + averageMoney + averageMoneyCaringForDisableChildren + businessTripMoney + nordicSurcharge + districtSurcharge + underworkMoney + linearMileageMoney
 
             emit(totalMoney)
         }
+    }
+
+    /** Разбивка доплаты по плечам: пробеги разных плеч никогда не смешиваются. */
+    fun getLinearMileageAccrualsFlow(): Flow<List<LinearMileageAccrual>> = flow {
+        val distancesByPhase = linkedMapOf<String, Double>()
+        val phasesById = linkedMapOf<String, com.z_company.domain.entities.setting.ServicePhase>()
+        routeList.forEach { route ->
+            route.trains.forEach { train ->
+                val savedPhase = train.servicePhase ?: return@forEach
+                val currentPhase = userSettings.servicePhases.firstOrNull { it.id == savedPhase.id }
+                    ?: savedPhase
+                val rate = currentPhase.linearMileageRate.coerceAtLeast(0.0)
+                if (rate == 0.0) return@forEach
+                val distance = (train.distance?.replace(',', '.')?.toDoubleOrNull()
+                    ?: savedPhase.distance.toDouble()).coerceAtLeast(0.0)
+                phasesById[currentPhase.id] = currentPhase
+                distancesByPhase[currentPhase.id] = (distancesByPhase[currentPhase.id] ?: 0.0) + distance
+            }
+        }
+        emit(distancesByPhase.map { (phaseId, distance) ->
+            val phase = phasesById.getValue(phaseId)
+            LinearMileageAccrual(
+                phaseId = phaseId,
+                phaseName = "${phase.departureStation} — ${phase.arrivalStation}",
+                distance = distance,
+                rate = phase.linearMileageRate,
+                money = distance * phase.linearMileageRate,
+            )
+        })
+    }
+
+    fun getLinearMileageDistanceFlow(): Flow<Double> = flow {
+        emit(getLinearMileageAccrualsFlow().first().sumOf { it.distance })
+    }
+
+    fun getMoneyLinearMileageFlow(): Flow<Double> = flow {
+        emit(getLinearMileageAccrualsFlow().first().sumOf { it.money })
     }
 
     fun getPercentNDFLRetentionFlow(): Flow<Double> {
@@ -1397,6 +1468,7 @@ class SalaryCalculationHelper(
             val surchargeHarmfulnessSurchargeMoney = getMoneyHarmfulnessFlow().first()
             val surchargeHeavyTrains = getMoneyListSurchargeExtendedHeavyTrainsFlow().first().sum()
             val surchargeLongTrains = getMoneyListSurchargeLongTrainsFlow().first().sum()
+            val surchargeHeavyLongDistanceTrains = getMoneyHeavyLongDistanceTrainsFlow().first()
             val otherSurcharge = getMoneyOtherSurchargeFlow().first()
             val surchargeDoubledTrainFirst = getMoneyDoubledTrainFirstSurchargeFlow().first()
             val surchargeDoubledTrainSecond = getMoneyDoubledTrainSecondSurchargeFlow().first()
@@ -1407,7 +1479,8 @@ class SalaryCalculationHelper(
                     surchargeExtendedServicePhaseMoney + surchargeOnePersonOperationMoney +
                     surchargeOnePersonOperationPassengerTrainFlow +
                     surchargeHarmfulnessSurchargeMoney +
-                    surchargeHeavyTrains + surchargeLongTrains + otherSurcharge + surchargeDoubledTrainFirst + surchargeDoubledTrainSecond +
+                    surchargeHeavyTrains + surchargeLongTrains + surchargeHeavyLongDistanceTrains +
+                    otherSurcharge + surchargeDoubledTrainFirst + surchargeDoubledTrainSecond +
                     overRestMoney
 
             emit(basicMoney)

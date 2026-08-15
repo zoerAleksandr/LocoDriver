@@ -73,6 +73,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     harmfulnessPercent = ResultState.Success(value?.harmfulnessPercent.str()),
                     zonalSurcharge = ResultState.Success(value?.zonalSurcharge.str()),
                     surchargeQualificationClass = ResultState.Success(value?.surchargeQualificationClass.str()),
+                    surchargeHeavyLongDistanceTrains = ResultState.Success(value?.surchargeHeavyLongDistanceTrains.str()),
                     otherSurchargeState = ResultState.Success(value?.otherSurcharge.str()),
                     ndfl = ResultState.Success(value?.ndfl.str()),
                     unionistsRetentionState = ResultState.Success(value?.unionistsRetention.str()),
@@ -375,6 +376,19 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 isErrorInputTariffRate = isErrorInputDouble(value)
             )
         }
+    }
+
+    fun setSurchargeHeavyLongDistanceTrains(value: String) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            surchargeHeavyLongDistanceTrains = value.toDoubleOrZero()
+        )
+        _uiState.update {
+            it.copy(
+                surchargeHeavyLongDistanceTrains = ResultState.Success(value),
+                isErrorInputSurchargeHeavyLongDistanceTrains = isErrorInputDouble(value)
+            )
+        }
+        scheduleAutoSave()
     }
 
     fun setOldTariffRate(value: String) {

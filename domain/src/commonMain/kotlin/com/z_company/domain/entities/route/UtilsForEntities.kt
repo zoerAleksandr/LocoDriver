@@ -1261,6 +1261,22 @@ object UtilsForEntities {
         return 0L
     }
 
+    /**
+     * Время доплаты за поезд одновременно повышенной массы и длины.
+     * Критерии фиксированы отраслевым правилом: вес > 6000 т и осность >= 350.
+     */
+    fun Route.getTimeInHeavyLongDistanceTrain(): Long {
+        val matches = trains.any { train ->
+            (train.weight?.toDoubleOrNull() ?: 0.0) > 6000.0 &&
+                train.axle.toIntOrZero() >= 350
+        }
+        if (!matches) return 0L
+        val startWork = basicData.timeStartWork ?: return 0L
+        val endWork = basicData.timeEndWork ?: return 0L
+        val passengerTime = getPassengerTime() ?: 0L
+        return ((endWork - startWork) - passengerTime).coerceAtLeast(0L)
+    }
+
     private fun Train.getTimeInLongDistance(
         lengthIsLongDistance: Int,
         workInterval: LongRange

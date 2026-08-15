@@ -21,6 +21,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.isHeavyTrains
 import com.z_company.domain.entities.route.UtilsForEntities.isLongCompositionTrain
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.RouteUseCase
@@ -72,6 +73,8 @@ class CalendarViewModel : ViewModel(), KoinComponent {
     private val secureTokenStorage: SecureTokenStorage by inject()
     private val routesManager: RoutesManager by inject()
     private val shareRouteManager: ShareRouteManager by inject()
+    private val sharedPrefs: SharedPreferencesRepositories by inject()
+    private val syncManager: SyncManager by inject()
 
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
@@ -294,7 +297,10 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             try {
                 val dates = days.map { LocalDate(m.year, m.month + 1, it) }
-                releaseDayUseCase.deletePeriod(ReleasePeriod(days = dates, type = null)).collect {}
+                val deleteResult = releaseDayUseCase
+                    .deletePeriod(ReleasePeriod(days = dates, type = null))
+                    .first { it is ResultState.Success || it is ResultState.Error }
+                if (deleteResult is ResultState.Success) autoPushSettings()
                 // Синхронизируем месяц в настройки, чтобы зарплата/норма увидели удаление.
                 runCatching {
                     calendarUseCase.loadFlowMonthOfYearListState().first()
@@ -315,9 +321,10 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             try {
                 val date = LocalDate(m.year, m.month + 1, day)
-                releaseDayUseCase.savePeriod(
+                val saveResult = releaseDayUseCase.savePeriod(
                     ReleasePeriod(days = listOf(date), type = ReleaseType.DayOff)
-                ).collect {}
+                ).first { it is ResultState.Success || it is ResultState.Error }
+                if (saveResult is ResultState.Success) autoPushSettings()
                 // Синхронизируем объединённый месяц (с отвлечениями) в settings.selectMonthOfYear —
                 // именно оттуда расчёт зарплаты/нормы читает дни, поэтому без этого ×2 за DayOff
                 // не применится. Так же делает SelectReleaseDaysViewModel.
@@ -333,6 +340,14 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                 t.sendToSentry("CalendarViewModel", "addDayOff")
                 snackbarManager.show("Не удалось добавить выходной")
             }
+        }
+    }
+
+    private fun autoPushSettings() {
+        sharedPrefs.setSettingsSyncPending(true)
+        viewModelScope.launch(Dispatchers.IO) {
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
+            syncManager.autoPushSettings("Bearer $token").collect {}
         }
     }
 

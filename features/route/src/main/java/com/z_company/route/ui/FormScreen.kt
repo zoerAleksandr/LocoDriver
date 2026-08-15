@@ -2494,7 +2494,6 @@ private fun CalcBottomSheet(
                 ?.takeIf { it > 0L }
                 ?.let { "${ConverterLongToTime.getTimeInStringFormat(it)} в праздничные дни" }
                 ?: "доплата за работу в праздничные дни"
-
             val rows = buildList {
                 fun add(label: String, hint: String, value: Double?) {
                     if (value != null && value != 0.0) add(Triple(label, hint, value))
@@ -2505,6 +2504,19 @@ private fun CalcBottomSheet(
                 add("Ночные", nightHint, salaryForRouteState.paymentAtNightTime)
                 add("Пассажиром", passengerHint, salaryForRouteState.paymentAtPassengerTime)
                 add("Пассажиром до явки", passengerOutsideHint, salaryForRouteState.paymentAtPassengerOutsideTime)
+                salaryForRouteState.linearMileageAccruals.forEach { accrual ->
+                    val distance = if (accrual.distance % 1.0 == 0.0) {
+                        accrual.distance.toLong().toString()
+                    } else {
+                        "%.1f".format(accrual.distance).replace('.', ',')
+                    }
+                    val rate = accrual.rate.toMoneyString(currency)
+                    add(
+                        "Доплата за пробег",
+                        "${accrual.phaseName}: $distance км × $rate/км",
+                        accrual.money,
+                    )
+                }
                 add("Одно лицо", onePersonHint, salaryForRouteState.paymentAtOnePerson)
                 val trainSurchargeHint = salaryForRouteState.trainSurchargeTypes
                     .takeIf { it.isNotEmpty() }

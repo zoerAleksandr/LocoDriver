@@ -11,6 +11,10 @@ import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.repository.SecureTokenStorage
+import com.z_company.repository.remote_rest.SyncManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +36,9 @@ class AbsenceViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     private val releaseDayUseCase: ReleaseDayUseCase by inject()
     private val snackbarManager: ISnackbarManager by inject()
+    private val sharedPrefs: SharedPreferencesRepositories by inject()
+    private val secureTokenStorage: SecureTokenStorage by inject()
+    private val syncManager: SyncManager by inject()
 
     private val _uiState = MutableStateFlow(AbsenceUiState())
     val uiState: StateFlow<AbsenceUiState> = _uiState.asStateFlow()
@@ -138,9 +145,10 @@ class AbsenceViewModel : ViewModel(), KoinComponent {
                 val days = (minOf(start, end)..maxOf(start, end)).map { d ->
                     LocalDate(m.year, m.month + 1, d)
                 }
-                releaseDayUseCase.savePeriod(
+                val saveResult = releaseDayUseCase.savePeriod(
                     ReleasePeriod(days = days, type = s.selectedType)
-                ).collect {}
+                ).first { it is com.z_company.core.ResultState.Success || it is com.z_company.core.ResultState.Error }
+                if (saveResult is com.z_company.core.ResultState.Success) autoPushSettings()
                 // Синхронизируем объединённый месяц в настройки — иначе зарплата/норма
                 // не увидят новое отвлечение (см. addDayOff в CalendarViewModel).
                 runCatching {
@@ -156,6 +164,14 @@ class AbsenceViewModel : ViewModel(), KoinComponent {
                 snackbarManager.show("Не удалось сохранить отвлечение")
                 _uiState.update { it.copy(isSaving = false) }
             }
+        }
+    }
+
+    private fun autoPushSettings() {
+        sharedPrefs.setSettingsSyncPending(true)
+        viewModelScope.launch(Dispatchers.IO) {
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
+            syncManager.autoPushSettings("Bearer $token").collect {}
         }
     }
 

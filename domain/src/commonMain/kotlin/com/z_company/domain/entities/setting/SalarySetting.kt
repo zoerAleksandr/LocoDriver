@@ -22,6 +22,7 @@ data class SalarySetting(
     var surchargeExtendedServicePhaseList: List<SurchargeExtendedServicePhase> = emptyList(),
     var surchargeHeavyTrainsList: List<SurchargeHeavyTrains> = emptyList(),
     var surchargeLongTrainsList: List<SurchargeLongTrains> = emptyList(),
+    val surchargeHeavyLongDistanceTrains: Double = 5.0,
     val otherSurcharge: Double = 0.0,
     val ndfl: Double = 13.0,
     val unionistsRetention: Double = 1.0,

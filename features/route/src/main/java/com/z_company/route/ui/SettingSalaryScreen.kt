@@ -112,6 +112,9 @@ fun SettingSalaryScreen(
     harmfulnessPercentState: ResultState<String>,
     setHarmfulnessPercent: (String) -> Unit,
     isErrorInputHarmfulness: Boolean,
+    surchargeHeavyLongDistanceTrainsState: ResultState<String>,
+    setSurchargeHeavyLongDistanceTrains: (String) -> Unit,
+    isErrorInputSurchargeHeavyLongDistanceTrains: Boolean,
     surchargeHeavyTrainsState: SnapshotStateList<SurchargeHeavyTrains>,
     addSurchargeHeavyTran: () -> Unit,
     setSurchargeHeavyTrainPercent: (Int, String) -> Unit,
@@ -472,6 +475,23 @@ fun SettingSalaryScreen(
                     PayFieldSlot("Районный коэффициент") {
                         AsyncDataValue(resultState = uiState.districtCoefficient) { v ->
                             v?.let { PayInput(it, setDistrictCoefficient, "%", uiState.isErrorInputDistrictCoefficient) }
+                        }
+                    }
+                }
+            }
+
+            item {
+                PayCard {
+                    PayFieldSlot("Доплата за ПДМ (6000 т. и 350 осей)") {
+                        AsyncDataValue(resultState = surchargeHeavyLongDistanceTrainsState) { v ->
+                            v?.let {
+                                PayInput(
+                                    it,
+                                    setSurchargeHeavyLongDistanceTrains,
+                                    "%",
+                                    isErrorInputSurchargeHeavyLongDistanceTrains
+                                )
+                            }
                         }
                     }
                 }

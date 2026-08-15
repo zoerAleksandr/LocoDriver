@@ -202,6 +202,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             SalarySettingDatabase.Schema.version.toInt(),
             "SalarySetting" to "nightTimePercent",
             "SalarySetting" to "surchargeLongTrainsList",
+            "SalarySetting" to "surchargeHeavyLongDistanceTrains",
             primaryTable = "SalarySetting")
         return createDriver(SalarySettingDatabase.Schema, "SalarySetting.db")
     }
@@ -329,7 +330,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "Passenger.isWorkStartByArrival" to ColumnSpec("INTEGER", false, "0"),
             // SalarySetting
             "SalarySetting.nightTimePercent" to ColumnSpec("REAL", false, "40.0"),
-            "SalarySetting.surchargeLongTrainsList" to ColumnSpec("TEXT", false, "'[]'")
+            "SalarySetting.surchargeLongTrainsList" to ColumnSpec("TEXT", false, "'[]'"),
+            "SalarySetting.surchargeHeavyLongDistanceTrains" to ColumnSpec("REAL", false, "5.0")
         )
     }
 

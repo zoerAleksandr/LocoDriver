@@ -96,6 +96,9 @@ fun ShoulderEditBottomSheet(
         )
     }
     var distance by remember { mutableStateOf(phase?.distance?.takeIf { it > 0 }?.toString() ?: "") }
+    var linearMileageRate by remember {
+        mutableStateOf(phase?.linearMileageRate?.takeIf { it > 0.0 }?.toString() ?: "")
+    }
     var createReverse by remember { mutableStateOf(false) }
 
     var depFiltered by remember { mutableStateOf(stationList) }
@@ -266,6 +269,37 @@ fun ShoulderEditBottomSheet(
                 colorBackgroundNotEmptyField = fieldColor
             )
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ── Стоимость линейного пробега ──
+            OutlinedTextFieldApp(
+                modifier = Modifier.fillMaxWidth(),
+                value = linearMileageRate,
+                onValueChange = { value ->
+                    linearMileageRate = value.filter { it.isDigit() || it == ',' || it == '.' }
+                },
+                placeholder = { Text("Доплата за пробег", style = dataStyle, color = hintColor) },
+                suffix = {
+                    Text(
+                        "₽/км",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = hintColor
+                    )
+                },
+                textStyle = dataStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = {
+                    scope.launch { focusManager.clearFocus() }
+                }),
+                singleLine = true,
+                shape = fieldShape,
+                fieldElevation = 0.dp,
+                colorBackgroundEmptyField = fieldColor,
+                colorBackgroundNotEmptyField = fieldColor
+            )
+
             // ── Обратное направление (только для нового) ──
             if (isNew) {
                 Row(
@@ -319,15 +353,19 @@ fun ShoulderEditBottomSheet(
                     if (dist > 0 && departure.text.isNotBlank() && arrival.text.isNotBlank()) {
                         val dep = departure.text.trim()
                         val arr = arrival.text.trim()
+                        val mileageRate = linearMileageRate.replace(',', '.').toDoubleOrNull()
+                            ?.coerceAtLeast(0.0) ?: 0.0
                         // Для редактирования сохраняем id через copy, для нового — новый id по умолчанию.
                         val result = phase?.copy(
                             departureStation = dep,
                             arrivalStation = arr,
-                            distance = dist
+                            distance = dist,
+                            linearMileageRate = mileageRate,
                         ) ?: ServicePhase(
                             departureStation = dep,
                             arrivalStation = arr,
-                            distance = dist
+                            distance = dist,
+                            linearMileageRate = mileageRate,
                         )
                         onSave(result, createReverse && isNew)
                         onDismiss()

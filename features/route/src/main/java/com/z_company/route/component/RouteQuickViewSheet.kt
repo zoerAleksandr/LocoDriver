@@ -814,6 +814,14 @@ private fun LocomotiveBlock(loco: Locomotive, dateAndTimeConverter: DateAndTimeC
             LocoType.DIESEL -> {
                 val accFuel = loco.dieselSectionList.sumOfOrNull { it.acceptedFuel }
                 val delFuel = loco.dieselSectionList.sumOfOrNull { it.deliveryFuel }
+                val accFuelKilo = loco.dieselSectionList.sumOfOrNull {
+                    it.acceptedFuel.times(it.coefficient)
+                }
+                val delFuelKilo = loco.dieselSectionList.sumOfOrNull {
+                    it.deliveryFuel.times(it.coefficient)
+                }
+                val refuel = loco.dieselSectionList.sumOfOrNull { it.fuelSupply }
+                val refuelKilo = loco.dieselSectionList.sumOfOrNull { it.fuelSupplyInKilo }
                 val consFuel = loco.dieselSectionList.mapNotNull {
                     CalculationEnergy.getTotalFuelConsumption(it.acceptedFuel, it.deliveryFuel, it.fuelSupply)
                 }.takeIf { it.isNotEmpty() }?.sum()
@@ -835,6 +843,18 @@ private fun LocomotiveBlock(loco: Locomotive, dateAndTimeConverter: DateAndTimeC
                         totalColor = text,
                         accepted = accFuel?.let { grouped(it) },
                         delivery = delFuel?.let { grouped(it) },
+                        acceptedSupporting = accFuelKilo?.let { grouped(it) + " кг" },
+                        deliverySupporting = delFuelKilo?.let { grouped(it) + " кг" },
+                    )
+                }
+                if (refuel != null || refuelKilo != null) {
+                    Spacer(Modifier.height(10.dp))
+                    SummaryLine(
+                        title = "Экипировка",
+                        value = buildList {
+                            refuel?.let { add(grouped(it) + " л") }
+                            refuelKilo?.let { add(grouped(it) + " кг") }
+                        }.joinToString(" · "),
                     )
                 }
             }
@@ -849,6 +869,8 @@ private fun ConsumptionBlock(
     totalColor: Color,
     accepted: String?,
     delivery: String?,
+    acceptedSupporting: String? = null,
+    deliverySupporting: String? = null,
 ) {
     val text = MaterialTheme.colorScheme.primary
     val textMuted = text.copy(alpha = 0.6f)
@@ -868,14 +890,29 @@ private fun ConsumptionBlock(
     if (accepted != null || delivery != null) {
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            CounterPill(modifier = Modifier.weight(1f), label = "Принял", value = accepted)
-            CounterPill(modifier = Modifier.weight(1f), label = "Сдал", value = delivery)
+            CounterPill(
+                modifier = Modifier.weight(1f),
+                label = "Принял",
+                value = accepted,
+                supporting = acceptedSupporting,
+            )
+            CounterPill(
+                modifier = Modifier.weight(1f),
+                label = "Сдал",
+                value = delivery,
+                supporting = deliverySupporting,
+            )
         }
     }
 }
 
 @Composable
-private fun CounterPill(modifier: Modifier, label: String, value: String?) {
+private fun CounterPill(
+    modifier: Modifier,
+    label: String,
+    value: String?,
+    supporting: String? = null,
+) {
     val text = MaterialTheme.colorScheme.primary
     val textMuted = text.copy(alpha = 0.6f)
     Column(
@@ -894,6 +931,38 @@ private fun CounterPill(modifier: Modifier, label: String, value: String?) {
             text = value ?: "—",
             style = MaterialTheme.typography.titleSmall.copy(
                 fontFamily = MonoFont, fontWeight = FontWeight.W700,
+            ),
+            color = text,
+        )
+        supporting?.let {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = it,
+                style = MaterialTheme.typography.labelSmall.copy(fontFamily = MonoFont),
+                color = textMuted,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryLine(title: String, value: String) {
+    val text = MaterialTheme.colorScheme.primary
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            color = text.copy(alpha = 0.6f),
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = MonoFont,
+                fontWeight = FontWeight.W700,
             ),
             color = text,
         )

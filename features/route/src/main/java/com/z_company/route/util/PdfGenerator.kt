@@ -1078,6 +1078,19 @@ class PdfGenerator(private val context: Context) {
         }
         rowPct("Зональная надбавка", s.zonalSurchargePercent, s.zonalSurchargeMoney)
         rowPct("Надбавка за класс квалификации", s.surchargeQualificationClassPercent, s.surchargeQualificationClassMoney)
+        s.linearMileageAccruals.forEach { accrual ->
+            val distanceText = if (accrual.distance % 1.0 == 0.0) {
+                accrual.distance.toLong().toString()
+            } else {
+                "%.1f".format(accrual.distance)
+            }
+            pm.salaryRow(
+                "Пробег ${accrual.phaseName} ($distanceText км × ${"%.2f".format(accrual.rate)} ₽/км)",
+                "",
+                "",
+                fmtMoney(accrual.money),
+            )
+        }
         row("В одно лицо (груз.)", s.onePersonOperationHours, s.onePersonOperationPercent, s.onePersonOperationMoney)
         row("В одно лицо (пас.)", s.onePersonOperationPassengerTrainHours, s.onePersonOperationPassengerTrainPercent, s.onePersonOperationPassengerTrainMoney)
         rowPct("Вредность", s.harmfulnessSurchargePercent, s.harmfulnessSurchargeMoney)
@@ -1099,6 +1112,12 @@ class PdfGenerator(private val context: Context) {
             if (m.isBlank()) return@forEachIndexed
             pm.salaryRow("Длинносост. поезда ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeLongTrainPercent.getOrNull(i)), m)
         }
+        row(
+            "Доплата за ПДМ (6000 т. и 350 осей)",
+            s.surchargeHeavyLongDistanceTrainsHours,
+            s.surchargeHeavyLongDistanceTrainsPercent,
+            s.surchargeHeavyLongDistanceTrainsMoney
+        )
         fmtMoney(s.surchargeDoubledTrainFirstMoney).takeIf { it.isNotBlank() }?.let { m ->
             pm.salaryRow("Сдвоенные (30%)", fmtHours(s.surchargeDoubledTrainFirstHours), "30%", m)
         }

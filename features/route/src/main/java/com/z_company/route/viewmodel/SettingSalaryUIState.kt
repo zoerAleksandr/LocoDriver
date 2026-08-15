@@ -37,6 +37,8 @@ data class SettingSalaryUIState(
     val surchargeHeavyTrain: SnapshotStateList<SurchargeHeavyTrains> = mutableStateListOf(SurchargeHeavyTrains()),
     val isErrorInputSurchargeHeavyTrain: Boolean = false,
     val surchargeLongTrain: SnapshotStateList<SurchargeLongTrains> = mutableStateListOf(SurchargeLongTrains()),
+    val surchargeHeavyLongDistanceTrains: ResultState<String> = ResultState.Loading(),
+    val isErrorInputSurchargeHeavyLongDistanceTrains: Boolean = false,
     val surchargeExtendedServicePhaseList: SnapshotStateList<SurchargeExtendedServicePhase> = mutableStateListOf(SurchargeExtendedServicePhase()),
     val isErrorInputSurchargeExtendedServicePhase: Boolean = false,
     val otherSurchargeState: ResultState<String> = ResultState.Loading(),

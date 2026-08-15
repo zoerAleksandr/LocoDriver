@@ -423,6 +423,7 @@ class TrainFormViewModel(
                 servicePhases = currentSettings.servicePhases + newPhases
             )
             settingsUseCase.saveSetting(updatedSettings).first()
+            sharedPreferenceStorage.setSettingsSyncPending(true)
 
             // Now save the train
             val state = _uiState.value.trainDetailState
@@ -441,6 +442,7 @@ class TrainFormViewModel(
             val settings = settingsUseCase.getUserSettingFlow().first()
             val updated = settings.copy(servicePhases = settings.servicePhases + phase)
             settingsUseCase.saveSetting(updated).first()
+            sharedPreferenceStorage.setSettingsSyncPending(true)
         }
     }
 
@@ -452,6 +454,7 @@ class TrainFormViewModel(
                 if (it.id == newPhase.id) newPhase else it
             }
             settingsUseCase.saveSetting(settings.copy(servicePhases = updatedList)).first()
+            sharedPreferenceStorage.setSettingsSyncPending(true)
             if (_uiState.value.selectedServicePhase?.id == newPhase.id) {
                 _uiState.update { it.copy(selectedServicePhase = newPhase) }
                 setDistance(newPhase.distance.toString())
@@ -465,6 +468,7 @@ class TrainFormViewModel(
             val settings = settingsUseCase.getUserSettingFlow().first()
             val updatedList = settings.servicePhases.filterNot { it.id == phase.id }
             settingsUseCase.saveSetting(settings.copy(servicePhases = updatedList)).first()
+            sharedPreferenceStorage.setSettingsSyncPending(true)
             if (_uiState.value.selectedServicePhase?.id == phase.id) {
                 _uiState.update { it.copy(selectedServicePhase = null) }
             }

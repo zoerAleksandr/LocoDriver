@@ -66,7 +66,9 @@ data class ServicePhase(
     val id: String = generateId(),
     val departureStation: String,
     val arrivalStation: String,
-    val distance: Int
+    val distance: Int,
+    /** Стоимость линейного пробега по этому плечу, рублей за километр. */
+    val linearMileageRate: Double = 0.0,
 )
 
 @Serializable

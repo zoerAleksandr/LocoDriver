@@ -466,6 +466,18 @@ class FormViewModel(
                 salaryCalculationHelper.getMoneyAtHolidayFlow().first()
             }
 
+            val deferredLinearMileageDistance = async {
+                salaryCalculationHelper.getLinearMileageDistanceFlow().first()
+            }
+
+            val deferredLinearMileageMoney = async {
+                salaryCalculationHelper.getMoneyLinearMileageFlow().first()
+            }
+
+            val deferredLinearMileageAccruals = async {
+                salaryCalculationHelper.getLinearMileageAccrualsFlow().first()
+            }
+
             val deferredSurchargeAtExtendedServicePhase = async {
                 salaryCalculationHelper.getMoneyListSurchargeExtendedServicePhaseFlow().first()
                     .sum()
@@ -565,6 +577,9 @@ class FormViewModel(
             val moneyAtPassengerTime = deferredMoneyAtPassengerTime.await()
             val moneyAtPassengerOutside = deferredMoneyAtPassengerOutside.await()
             val moneyAtHoliday = deferredMoneyAtHoliday.await()
+            val linearMileageDistance = deferredLinearMileageDistance.await()
+            val linearMileageMoney = deferredLinearMileageMoney.await()
+            val linearMileageAccruals = deferredLinearMileageAccruals.await()
 
             val surchargeAtExtendedServicePhase = deferredSurchargeAtExtendedServicePhase.await()
             val surchargeAtHeavyTrains = deferredSurchargeAtHeavyTrains.await()
@@ -607,9 +622,27 @@ class FormViewModel(
             // составляющие выше равны 0 (маршрут исключён из расчёта), а оплата —
             // только по среднему часу.
             val businessTripMoney = salaryCalculationHelper.getMoneyBusinessTripFlow().first()
+            val isBusinessTrip = salaryCalculationHelper.hasBusinessTripRoutes()
+
+            // Жёсткий инвариант командировки: даже расчёты, которым по ошибке
+            // передали маршрут напрямую (например, сдвоенный поезд или переотдых),
+            // не должны попасть ни в строки шторки, ни в итоговую сумму.
+            if (isBusinessTrip) {
+                _salaryForRouteState.update {
+                    SalaryForRouteState(
+                        isCalculated = true,
+                        isSetTariffRate = isSetTariffRate,
+                        totalPayment = businessTripMoney,
+                        businessTripMoney = businessTripMoney,
+                        isBusinessTrip = true,
+                        tariffRate = setting.selectMonthOfYear.tariffRate,
+                    )
+                }
+                return@coroutineScope
+            }
 
             val totalMoney =
-                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtPassengerOutside + moneyAtHoliday + surchargeAtTrains + moneyAtOnePerson + otherSurcharge + overRestMoney + businessTripMoney
+                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtPassengerOutside + moneyAtHoliday + linearMileageMoney + surchargeAtTrains + moneyAtOnePerson + otherSurcharge + overRestMoney + businessTripMoney
 
             // Логи (оставляем как есть)
             Log.d("zzz", "moneyAtTariffRate $moneyAtTariffRate")
@@ -627,12 +660,15 @@ class FormViewModel(
                     paymentAtPassengerTime = moneyAtPassengerTime,
                     paymentAtPassengerOutsideTime = moneyAtPassengerOutside,
                     paymentHolidayMoney = moneyAtHoliday,
+                    linearMileageDistance = linearMileageDistance,
+                    linearMileageMoney = linearMileageMoney,
+                    linearMileageAccruals = linearMileageAccruals,
                     surchargesAtTrain = surchargeAtTrains,
                     paymentAtOnePerson = moneyAtOnePerson,
                     otherSurcharge = otherSurcharge,
                     overRestMoney = overRestMoney,
                     businessTripMoney = businessTripMoney,
-                    isBusinessTrip = salaryCalculationHelper.hasBusinessTripRoutes(),
+                    isBusinessTrip = false,
                     tariffRate = setting.selectMonthOfYear.tariffRate,
                     workTimeForPay = workTimeForPay,
                     zonalPercent = zonalPercent,

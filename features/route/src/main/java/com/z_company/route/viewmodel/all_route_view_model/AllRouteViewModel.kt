@@ -148,7 +148,9 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     /** Тихо подтянуть изменения при каждом открытии списка маршрутов. */
     fun syncOnScreenOpen() {
         if (backgroundSyncJob?.isActive == true) return
+        if (syncManager.isSyncInProgress() || !syncManager.shouldRunAutomaticSync()) return
         backgroundSyncJob = viewModelScope.launch(Dispatchers.IO) {
+            if (syncManager.isSyncInProgress() || !syncManager.shouldRunAutomaticSync()) return@launch
             if (!routeHelper.hasActiveSubscription()) return@launch
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             if (token.isNullOrBlank()) return@launch
