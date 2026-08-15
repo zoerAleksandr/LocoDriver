@@ -778,84 +778,91 @@ private fun LocomotiveBlock(loco: Locomotive, dateAndTimeConverter: DateAndTimeC
 
         when (loco.type) {
             LocoType.ELECTRIC -> {
-                val accEnergy = loco.electricSectionList.sumOfOrNull { it.acceptedEnergy }
-                val delEnergy = loco.electricSectionList.sumOfOrNull { it.deliveryEnergy }
-                val consEnergy = loco.electricSectionList.mapNotNull {
-                    CalculationEnergy.getTotalEnergyConsumption(it.acceptedEnergy, it.deliveryEnergy)
-                }.takeIf { it.isNotEmpty() }?.sum()
-                val accRec = loco.electricSectionList.sumOfOrNull { it.acceptedRecovery }
-                val delRec = loco.electricSectionList.sumOfOrNull { it.deliveryRecovery }
-                val consRec = loco.electricSectionList.mapNotNull {
-                    CalculationEnergy.getTotalEnergyConsumption(it.acceptedRecovery, it.deliveryRecovery)
-                }.takeIf { it.isNotEmpty() }?.sum()
+                loco.electricSectionList.forEachIndexed { index, section ->
+                    val consEnergy = CalculationEnergy.getTotalEnergyConsumption(
+                        section.acceptedEnergy,
+                        section.deliveryEnergy,
+                    )
+                    val consRec = CalculationEnergy.getTotalEnergyConsumption(
+                        section.acceptedRecovery,
+                        section.deliveryRecovery,
+                    )
+                    val hasEnergy = consEnergy != null ||
+                        section.acceptedEnergy != null || section.deliveryEnergy != null
+                    val hasRecovery = consRec != null ||
+                        section.acceptedRecovery != null || section.deliveryRecovery != null
+                    if (!hasEnergy && !hasRecovery) return@forEachIndexed
 
-                if (consEnergy != null || accEnergy != null || delEnergy != null) {
                     Spacer(Modifier.height(12.dp))
-                    ConsumptionBlock(
-                        title = "Расход",
-                        total = consEnergy?.let { grouped(it) + " кВт·ч" },
-                        totalColor = text,
-                        accepted = accEnergy?.let { grouped(it) },
-                        delivery = delEnergy?.let { grouped(it) },
-                    )
-                }
-                if (consRec != null || accRec != null || delRec != null) {
-                    Spacer(Modifier.height(10.dp))
-                    ConsumptionBlock(
-                        title = "Рекуперация",
-                        total = consRec?.let { "−" + grouped(abs(it)) + " кВт·ч" },
-                        totalColor = success,
-                        accepted = accRec?.let { grouped(it) },
-                        delivery = delRec?.let { grouped(it) },
-                    )
+                    SectionLabel(index)
+                    if (hasEnergy) {
+                        Spacer(Modifier.height(6.dp))
+                        ConsumptionBlock(
+                            title = "Расход",
+                            total = consEnergy?.let { grouped(it) + " кВт·ч" },
+                            totalColor = text,
+                            accepted = section.acceptedEnergy?.let { grouped(it) },
+                            delivery = section.deliveryEnergy?.let { grouped(it) },
+                        )
+                    }
+                    if (hasRecovery) {
+                        Spacer(Modifier.height(10.dp))
+                        ConsumptionBlock(
+                            title = "Рекуперация",
+                            total = consRec?.let { "−" + grouped(abs(it)) + " кВт·ч" },
+                            totalColor = success,
+                            accepted = section.acceptedRecovery?.let { grouped(it) },
+                            delivery = section.deliveryRecovery?.let { grouped(it) },
+                        )
+                    }
                 }
             }
 
             LocoType.DIESEL -> {
-                val accFuel = loco.dieselSectionList.sumOfOrNull { it.acceptedFuel }
-                val delFuel = loco.dieselSectionList.sumOfOrNull { it.deliveryFuel }
-                val accFuelKilo = loco.dieselSectionList.sumOfOrNull {
-                    it.acceptedFuel.times(it.coefficient)
-                }
-                val delFuelKilo = loco.dieselSectionList.sumOfOrNull {
-                    it.deliveryFuel.times(it.coefficient)
-                }
-                val refuel = loco.dieselSectionList.sumOfOrNull { it.fuelSupply }
-                val refuelKilo = loco.dieselSectionList.sumOfOrNull { it.fuelSupplyInKilo }
-                val consFuel = loco.dieselSectionList.mapNotNull {
-                    CalculationEnergy.getTotalFuelConsumption(it.acceptedFuel, it.deliveryFuel, it.fuelSupply)
-                }.takeIf { it.isNotEmpty() }?.sum()
-                val consFuelKilo = loco.dieselSectionList.mapNotNull { sec ->
-                    CalculationEnergy.getTotalFuelInKiloConsumption(
-                        acceptedInKilo = sec.acceptedFuel.times(sec.coefficient),
-                        deliveryInKilo = sec.deliveryFuel.times(sec.coefficient),
-                        refuelInKilo = sec.fuelSupplyInKilo,
+                loco.dieselSectionList.forEachIndexed { index, section ->
+                    val accFuelKilo = section.acceptedFuel.times(section.coefficient)
+                    val delFuelKilo = section.deliveryFuel.times(section.coefficient)
+                    val consFuel = CalculationEnergy.getTotalFuelConsumption(
+                        section.acceptedFuel,
+                        section.deliveryFuel,
+                        section.fuelSupply,
                     )
-                }.takeIf { it.isNotEmpty() }?.sum()
+                    val consFuelKilo = CalculationEnergy.getTotalFuelInKiloConsumption(
+                        acceptedInKilo = accFuelKilo,
+                        deliveryInKilo = delFuelKilo,
+                        refuelInKilo = section.fuelSupplyInKilo,
+                    )
+                    val hasFuel = consFuel != null ||
+                        section.acceptedFuel != null || section.deliveryFuel != null
+                    val hasRefuel = section.fuelSupply != null || section.fuelSupplyInKilo != null
+                    if (!hasFuel && !hasRefuel) return@forEachIndexed
 
-                if (consFuel != null || accFuel != null || delFuel != null) {
                     Spacer(Modifier.height(12.dp))
-                    ConsumptionBlock(
-                        title = "Расход",
-                        total = consFuel?.let {
-                            grouped(it) + " л" + (consFuelKilo?.let { kg -> " · ${grouped(kg)} кг" } ?: "")
-                        },
-                        totalColor = text,
-                        accepted = accFuel?.let { grouped(it) },
-                        delivery = delFuel?.let { grouped(it) },
-                        acceptedSupporting = accFuelKilo?.let { grouped(it) + " кг" },
-                        deliverySupporting = delFuelKilo?.let { grouped(it) + " кг" },
-                    )
-                }
-                if (refuel != null || refuelKilo != null) {
-                    Spacer(Modifier.height(10.dp))
-                    SummaryLine(
-                        title = "Экипировка",
-                        value = buildList {
-                            refuel?.let { add(grouped(it) + " л") }
-                            refuelKilo?.let { add(grouped(it) + " кг") }
-                        }.joinToString(" · "),
-                    )
+                    SectionLabel(index)
+                    if (hasFuel) {
+                        Spacer(Modifier.height(6.dp))
+                        ConsumptionBlock(
+                            title = "Расход",
+                            total = consFuel?.let {
+                                grouped(it) + " л" + (consFuelKilo?.let { kg -> " · ${grouped(kg)} кг" } ?: "")
+                            },
+                            totalColor = text,
+                            accepted = section.acceptedFuel?.let { grouped(it) },
+                            delivery = section.deliveryFuel?.let { grouped(it) },
+                            acceptedSupporting = accFuelKilo?.let { grouped(it) + " кг" },
+                            deliverySupporting = delFuelKilo?.let { grouped(it) + " кг" },
+                        )
+                    }
+                    if (hasRefuel) {
+                        Spacer(Modifier.height(10.dp))
+                        SummaryLine(
+                            title = "Экипировка",
+                            value = buildList {
+                                section.fuelSupply?.let { add(grouped(it) + " л") }
+                                section.fuelSupplyInKilo?.let { add(grouped(it) + " кг") }
+                            }.joinToString(" · "),
+                        )
+                    }
                 }
             }
         }
@@ -915,34 +922,47 @@ private fun CounterPill(
 ) {
     val text = MaterialTheme.colorScheme.primary
     val textMuted = text.copy(alpha = 0.6f)
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 10.dp, vertical = 8.dp)
-    ) {
-        Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 0.6.sp),
-            color = textMuted,
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = value ?: "—",
-            style = MaterialTheme.typography.titleSmall.copy(
-                fontFamily = MonoFont, fontWeight = FontWeight.W700,
-            ),
-            color = text,
-        )
-        supporting?.let {
+    Column(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.background)
+                .padding(horizontal = 10.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 0.6.sp),
+                color = textMuted,
+            )
             Spacer(Modifier.height(2.dp))
             Text(
+                text = value ?: "—",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontFamily = MonoFont, fontWeight = FontWeight.W700,
+                ),
+                color = text,
+            )
+        }
+        supporting?.let {
+            Spacer(Modifier.height(4.dp))
+            Text(
                 text = it,
+                modifier = Modifier.padding(horizontal = 10.dp),
                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = MonoFont),
                 color = textMuted,
             )
         }
     }
+}
+
+@Composable
+private fun SectionLabel(index: Int) {
+    Text(
+        text = "СЕКЦИЯ ${index + 1}",
+        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+    )
 }
 
 @Composable
@@ -1367,9 +1387,4 @@ private fun grouped(value: Double): String {
         sb.append(c)
     }
     return (if (rounded < 0) "−" else "") + sb.toString()
-}
-
-private inline fun <T> List<T>.sumOfOrNull(selector: (T) -> Double?): Double? {
-    val vals = mapNotNull(selector)
-    return if (vals.isEmpty()) null else vals.sum()
 }
