@@ -21,6 +21,7 @@ import com.z_company.core.util.VPN_ERROR_HINT
 import com.z_company.core.util.friendlyNetworkErrorMessage
 import com.z_company.core.util.isConnectivityErrorMessage
 import com.z_company.core.util.isVpnActive
+import com.z_company.repository.remote_rest.NetworkErrorMapper
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.calculateWorkTimeWithSettings
 import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
@@ -156,9 +157,21 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
             if (token.isNullOrBlank()) return@launch
             _uiState.update { it.copy(isBackgroundSyncing = true) }
             try {
-                syncManager.syncBidirectional("Bearer $token").collect {}
+                var failureMessage: String? = null
+                syncManager.syncBidirectional("Bearer $token").collect { state ->
+                    if (state is ResultState.Error) {
+                        failureMessage = NetworkErrorMapper.syncFailureMessage(
+                            state.entity.message,
+                            state.entity.throwable,
+                        )
+                    }
+                }
+                failureMessage?.let { snackbarManager.show(it) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 e.sendToSentry("AllRouteViewModel", "syncOnScreenOpen")
+                snackbarManager.show(NetworkErrorMapper.syncFailureMessage(e.message, e))
             } finally {
                 _uiState.update { it.copy(isBackgroundSyncing = false) }
             }

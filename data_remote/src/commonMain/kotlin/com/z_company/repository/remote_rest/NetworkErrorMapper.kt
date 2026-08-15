@@ -99,6 +99,16 @@ object NetworkErrorMapper {
         "Нет соединения с сервером. Проверьте интернет и попробуйте снова."
     const val TIMEOUT_MESSAGE =
         "Превышено время ожидания ответа сервера. Проверьте соединение и попробуйте снова."
+    const val SYNC_TIMEOUT_MESSAGE =
+        "Синхронизация не выполнена: сервер не ответил за 25 секунд. Проверьте соединение и попробуйте снова."
+
+    fun syncFailureMessage(message: String?, throwable: Throwable? = null): String {
+        val reason = message?.trim()?.takeIf { it.isNotEmpty() }
+            ?: humanMessage(throwable)
+        if (reason.startsWith("Синхронизация не выполнена", ignoreCase = true)) return reason
+        val conciseReason = reason.lineSequence().firstOrNull().orEmpty().take(240)
+        return "Синхронизация не выполнена: $conciseReason"
+    }
 
     private fun safeTechnicalMessage(throwable: Throwable): String {
         val type = throwable::class.simpleName ?: "неизвестная ошибка"

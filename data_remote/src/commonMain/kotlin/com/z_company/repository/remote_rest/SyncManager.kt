@@ -17,8 +17,11 @@ import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.entities.route.Route
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -85,6 +88,23 @@ class SyncManager(
 
     private val syncMutex = Mutex()
 
+    private fun <T> Flow<ResultState<T>>.withSyncDeadline(): Flow<ResultState<T>> = channelFlow {
+        try {
+            withTimeout(SYNC_OPERATION_TIMEOUT_MILLIS) {
+                collect { send(it) }
+            }
+        } catch (e: TimeoutCancellationException) {
+            send(
+                ResultState.Error(
+                    ErrorEntity(
+                        message = NetworkErrorMapper.SYNC_TIMEOUT_MESSAGE,
+                        throwable = e,
+                    )
+                )
+            )
+        }
+    }
+
     /**
      * Автоматические, ручные и фоновые запуски используют один экземпляр SyncManager.
      * Пока mutex занят, новый автоматический запуск не нужен: текущая операция уже
@@ -107,13 +127,23 @@ class SyncManager(
         syncMutex.unlock()
     }
 
-    fun syncToRemote(bearerToken: String): Flow<ResultState<SyncUploadResult>> = flow {
+    fun syncToRemote(
+        bearerToken: String,
+        pendingSettingsOnly: Boolean = false,
+    ): Flow<ResultState<SyncUploadResult>> = flow {
         beginSync()
         try {
             emit(ResultState.Loading())
 
         val result = SyncUploadResult()
+        val shouldUploadSettings = !pendingSettingsOnly || sharedPrefs.getSettingsSyncPending()
+        if (!shouldUploadSettings) {
+            result.userSettingsSaved = true
+            result.salarySettingsSaved = true
+            result.releaseDaysSaved = true
+        }
 
+        if (shouldUploadSettings) {
         // 1. Сохранение UserSettings
         val localUserSettingsState = settingsUseCase.getFlowCurrentSettingsState()
             .first { it is ResultState.Success || it is ResultState.Error }
@@ -224,6 +254,7 @@ class SyncManager(
                 .catch { /* Не прерываем основную синхронизацию */ }
                 .collect {}
         }
+        }
 
         val allWarnings = mutableListOf<String>()
         val allErrors = mutableListOf<String>()
@@ -294,7 +325,10 @@ class SyncManager(
         result.routeErrors = allErrors
         emit(ResultState.Success(result.copy()))
 
-        if (result.userSettingsSaved && result.salarySettingsSaved && result.releaseDaysSaved && result.routesSavedCount >= 0) {
+        if (result.userSettingsSaved && result.salarySettingsSaved && result.releaseDaysSaved &&
+            result.routesSavedCount >= 0 && allErrors.isEmpty()
+        ) {
+            if (shouldUploadSettings) sharedPrefs.setSettingsSyncPending(false)
             val timestamp = Clock.System.now().toEpochMilliseconds()
             sharedPrefs.setLastSyncTimestamp(timestamp)
             emit(ResultState.Success(result.copy(timestamp = timestamp)))
@@ -306,7 +340,7 @@ class SyncManager(
         } finally {
             endSync()
         }
-    }.flowOn(Dispatchers.Default)
+    }.flowOn(Dispatchers.Default).withSyncDeadline()
 
     /**
      * Синхронизирует один маршрут на сервер.
@@ -344,7 +378,7 @@ class SyncManager(
         } finally {
             endSync()
         }
-    }.flowOn(Dispatchers.Default)
+    }.flowOn(Dispatchers.Default).withSyncDeadline()
 
     fun syncFromRemote(bearerToken: String): Flow<ResultState<SyncDownloadResult>> = flow {
         beginSync()
@@ -615,7 +649,7 @@ class SyncManager(
         } finally {
             endSync()
         }
-    }.flowOn(Dispatchers.Default)
+    }.flowOn(Dispatchers.Default).withSyncDeadline()
 
     /**
      * ДВУСТОРОННЯЯ синхронизация — за одной кнопкой «Синхронизация».
@@ -941,7 +975,7 @@ class SyncManager(
         } finally {
             endSync()
         }
-    }.flowOn(Dispatchers.Default)
+    }.flowOn(Dispatchers.Default).withSyncDeadline()
 
     /** Сохранить маршрут, пришедший с сервера (пометив синхронизированным). */
     private suspend fun saveDownloadedRoute(server: Route) {
@@ -1061,7 +1095,7 @@ class SyncManager(
         } finally {
             endSync()
         }
-    }.flowOn(Dispatchers.Default)
+    }.flowOn(Dispatchers.Default).withSyncDeadline()
 
     fun firstSyncAfterRegistration(bearerToken: String): Flow<ResultState<SyncUploadResult>> = flow {
         beginSync()
@@ -1220,10 +1254,11 @@ class SyncManager(
         } finally {
             endSync()
         }
-    }.flowOn(Dispatchers.Default)
+    }.flowOn(Dispatchers.Default).withSyncDeadline()
 
     companion object {
         const val AUTOMATIC_SYNC_COOLDOWN_MILLIS: Long = 5 * 60 * 1000L
+        const val SYNC_OPERATION_TIMEOUT_MILLIS: Long = 25_000L
 
         /**
          * Формирует человекочитаемую метку маршрута: "Маршрут dd.MM.yy" + optional " №123"

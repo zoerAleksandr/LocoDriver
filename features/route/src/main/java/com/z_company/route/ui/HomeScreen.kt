@@ -128,6 +128,7 @@ import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.component.RouteQuickViewSheet
 import com.z_company.route.component.HomeScreenSkeleton
+import com.z_company.route.component.PullToSyncContainer
 import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.home_view_model.ItemState
@@ -223,6 +224,8 @@ fun HomeScreen(
     syncReportUserId: String? = null,
     isNetworkError: Boolean = false,
     onResetSyncState: () -> Unit = {},
+    isPullRefreshing: Boolean = false,
+    onPullRefresh: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -834,14 +837,18 @@ fun HomeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         val pagerState = rememberPagerState(pageCount = { 3 })
-        AsyncData(
-            resultState = uiState,
-            loadingContent = { HomeScreenSkeleton(contentPadding = padding) }
+        PullToSyncContainer(
+            isRefreshing = isPullRefreshing,
+            onRefresh = onPullRefresh,
+            modifier = Modifier.padding(padding),
         ) {
-            LazyColumn(
+            AsyncData(
+                resultState = uiState,
+                loadingContent = { HomeScreenSkeleton() }
+            ) {
+                LazyColumn(
                 Modifier
                     .fillMaxSize()
-                    .padding(padding)
                     .testTag("home_lazy_column"),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(32.dp)
@@ -1498,6 +1505,7 @@ fun HomeScreen(
                             .height(50.dp)
                             .animateItem()
                     )
+                }
                 }
             }
         }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -74,6 +75,7 @@ import com.z_company.route.ui.settings.SettingsStationEditorContent
 import com.z_company.route.ui.settings.SettingsPartnerListContent
 import com.z_company.route.ui.settings.SettingsPartnerEditorContent
 import com.z_company.route.viewmodel.SettingsViewModel
+import com.z_company.route.component.PullToSyncContainer
 import com.z_company.route.viewmodel.SettingsUiState
 import com.z_company.route.viewmodel.TimeZoneRussia
 import com.z_company.route.viewmodel.SeriesListViewModel
@@ -145,6 +147,8 @@ fun SettingsScreen(
     seriesListViewModel: SeriesListViewModel? = null,
     stationListViewModel: StationNormListViewModel? = null,
     partnerListViewModel: PartnerListViewModel? = null,
+    isPullRefreshing: Boolean = false,
+    onPullRefresh: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -306,8 +310,13 @@ fun SettingsScreen(
             }
         }
 
-        Box(Modifier.padding(paddingValues)) {
-            currentSettings?.let { settings ->
+        PullToSyncContainer(
+            isRefreshing = isPullRefreshing,
+            onRefresh = onPullRefresh,
+            modifier = Modifier.padding(paddingValues),
+        ) {
+            Box(Modifier.fillMaxSize()) {
+                currentSettings?.let { settings ->
                 AnimatedContent(
                     targetState = currentSubScreen,
                     transitionSpec = {
@@ -517,6 +526,7 @@ fun SettingsScreen(
                         }
 
                     }
+                }
                 }
             }
         }

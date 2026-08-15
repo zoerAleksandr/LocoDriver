@@ -54,6 +54,7 @@ import com.z_company.route.component.ChipApp
 import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.PdfActionSheet
 import com.z_company.route.component.PdfContentDialog
+import com.z_company.route.component.PullToSyncContainer
 import com.z_company.route.component.RadioButtonWithLabel
 import com.z_company.route.component.RouteQuickViewSheet
 import com.z_company.route.util.toShareIntent
@@ -80,6 +81,8 @@ fun AllRouteScreen(
     showFormScreen: () -> Unit,
     showPurchasesScreen: () -> Unit,
     onBack: () -> Unit = {},
+    isPullRefreshing: Boolean = false,
+    onPullRefresh: () -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -771,6 +774,11 @@ fun AllRouteScreen(
 
             }
 
+            PullToSyncContainer(
+                isRefreshing = isPullRefreshing,
+                onRefresh = onPullRefresh,
+                modifier = Modifier.weight(1f),
+            ) {
             when {
                 state.isLoading -> {
                     Box(
@@ -912,6 +920,7 @@ fun AllRouteScreen(
                         }
                     }
                 }
+            }
             }
         }
 

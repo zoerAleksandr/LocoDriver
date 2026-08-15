@@ -74,6 +74,7 @@ import com.z_company.route.R
 import com.z_company.route.viewmodel.BillingEvent
 import com.z_company.route.viewmodel.BillingState
 import com.z_company.route.viewmodel.PurchasesViewModel
+import com.z_company.route.component.PullToSyncContainer
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -145,6 +146,8 @@ fun PurchasesScreen(
     onProductClick: (Product) -> Unit,
     onBack: () -> Unit,
     eventSharedFlow: SharedFlow<BillingEvent>,
+    isPullRefreshing: Boolean = false,
+    onPullRefresh: () -> Unit = {},
 ) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val scope = rememberCoroutineScope()
@@ -359,11 +362,14 @@ fun PurchasesScreen(
             }
         },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+        PullToSyncContainer(
+            isRefreshing = isPullRefreshing,
+            onRefresh = onPullRefresh,
+            modifier = Modifier.padding(padding),
         ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+            ) {
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -566,6 +572,7 @@ fun PurchasesScreen(
     }
 
 }
+}
 
 // ── Единый диалог возврата с оплаты (стиль ConfirmDeleteDialog) ─────────────
 @Composable
@@ -676,9 +683,9 @@ private fun PaymentDialog(
                     )
                 }
             }
+            }
         }
     }
-}
 
 // ── Hero «Машинист Pro» ────────────────────────────────────────────────────
 @Composable

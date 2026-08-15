@@ -1126,9 +1126,21 @@ class HomeViewModel : ViewModel(), KoinComponent {
             if (token.isNullOrBlank()) return@launch
             _uiState.update { it.copy(isBackgroundSyncing = true) }
             try {
-                syncManager.syncBidirectional("Bearer $token").collect {}
+                var failureMessage: String? = null
+                syncManager.syncBidirectional("Bearer $token").collect { state ->
+                    if (state is ResultState.Error) {
+                        failureMessage = NetworkErrorMapper.syncFailureMessage(
+                            state.entity.message,
+                            state.entity.throwable,
+                        )
+                    }
+                }
+                failureMessage?.let { snackbarManager.show(it) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 e.sendToSentry("HomeViewModel", "syncOnScreenOpen")
+                snackbarManager.show(NetworkErrorMapper.syncFailureMessage(e.message, e))
             } finally {
                 _uiState.update { it.copy(isBackgroundSyncing = false) }
             }

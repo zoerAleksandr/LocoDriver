@@ -55,9 +55,9 @@ object RemoteRestClient {
             allowHttpsDowngrade = false
         }
         install(HttpTimeout) {
-            connectTimeoutMillis = 30_000
-            requestTimeoutMillis = 30_000
-            socketTimeoutMillis = 30_000
+            connectTimeoutMillis = 25_000
+            requestTimeoutMillis = 25_000
+            socketTimeoutMillis = 25_000
         }
         install(DefaultRequest) {
             url(baseUrl)

@@ -14,12 +14,15 @@ import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.CalendarScreen
 import com.z_company.route.util.toShareIntent
 import com.z_company.route.viewmodel.CalendarViewModel
+import com.z_company.route.viewmodel.PullToSyncViewModel
 
 @Composable
 fun CalendarDestination(
     router: Router,
 ) {
     val viewModel: CalendarViewModel = viewModel()
+    val pullToSyncViewModel: PullToSyncViewModel = viewModel()
+    val pullToSyncState by pullToSyncViewModel.uiState.collectAsState()
     val state by viewModel.uiState.collectAsState()
     val plan by viewModel.routePlan.collectAsState()
     val previewRouteState by viewModel.previewRouteUiState.collectAsState()
@@ -82,5 +85,7 @@ fun CalendarDestination(
         onShareRoute = viewModel::shareRoute,
         onSyncRoute = viewModel::syncRoute,
         onMakeCopy = viewModel::makeCopyRoute,
+        isPullRefreshing = pullToSyncState.isRefreshing,
+        onPullRefresh = { pullToSyncViewModel.refresh(viewModel::reload) },
     )
 }

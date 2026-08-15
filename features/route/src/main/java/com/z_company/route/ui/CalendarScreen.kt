@@ -71,6 +71,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
+import com.z_company.route.component.PullToSyncContainer
 import com.z_company.route.component.ItemHomeScreen
 import com.z_company.route.component.RouteQuickViewSheet
 import com.z_company.route.component.SwipeToRevealDelete
@@ -208,6 +209,8 @@ fun CalendarScreen(
     onShareRoute: (Route) -> Unit = {},
     onSyncRoute: (Route) -> Unit = {},
     onMakeCopy: (String) -> Unit = {},
+    isPullRefreshing: Boolean = false,
+    onPullRefresh: () -> Unit = {},
 ) {
     val cs = MaterialTheme.colorScheme
     var selectedDay by remember { mutableIntStateOf(state.today ?: 1) }
@@ -239,13 +242,17 @@ fun CalendarScreen(
             return@Scaffold
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .verticalScroll(rememberScrollState()),
+        PullToSyncContainer(
+            isRefreshing = isPullRefreshing,
+            onRefresh = onPullRefresh,
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .verticalScroll(rememberScrollState()),
+            ) {
             // Тонкий индикатор загрузки при смене месяца (данные уже есть на экране,
             // полноэкранный лоадер тут не нужен). Фиксированная высота — без сдвига вёрстки.
             Box(Modifier.fillMaxWidth().height(3.dp)) {
@@ -460,6 +467,7 @@ fun CalendarScreen(
                 )
 
                 Spacer(Modifier.height(24.dp))
+            }
             }
         }
     }

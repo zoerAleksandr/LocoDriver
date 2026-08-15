@@ -10,6 +10,7 @@ import com.z_company.route.ui.SettingsScreen
 import com.z_company.route.viewmodel.PartnerListViewModel
 import com.z_company.route.viewmodel.SeriesListViewModel
 import com.z_company.route.viewmodel.SettingsViewModel
+import com.z_company.route.viewmodel.PullToSyncViewModel
 import com.z_company.route.viewmodel.StationNormListViewModel
 
 @Composable
@@ -18,6 +19,8 @@ fun SettingDestination(
     backStackEntry: NavBackStackEntry
 ) {
     val settingsViewModel: SettingsViewModel = viewModel()
+    val pullToSyncViewModel: PullToSyncViewModel = viewModel()
+    val pullToSyncState by pullToSyncViewModel.uiState.collectAsState()
     val uiState by settingsViewModel.uiState.collectAsState()
     val initialSubScreen = SettingsScreenRoute.getSubScreen(backStackEntry)
 
@@ -64,5 +67,7 @@ fun SettingDestination(
         seriesListViewModel = seriesListViewModel,
         stationListViewModel = stationListViewModel,
         partnerListViewModel = partnerListViewModel,
+        isPullRefreshing = pullToSyncState.isRefreshing,
+        onPullRefresh = { pullToSyncViewModel.refresh() },
     )
 }

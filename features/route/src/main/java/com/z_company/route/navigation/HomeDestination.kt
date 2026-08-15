@@ -12,6 +12,7 @@ import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.HomeScreen
 import com.z_company.route.util.startShare
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
+import com.z_company.route.viewmodel.PullToSyncViewModel
 import com.z_company.route.R
 
 @Composable
@@ -19,6 +20,8 @@ fun HomeDestination(
     router: Router
 ) {
     val homeViewModel: HomeViewModel = viewModel()
+    val pullToSyncViewModel: PullToSyncViewModel = viewModel()
+    val pullToSyncState by pullToSyncViewModel.uiState.collectAsState()
     val uiState by homeViewModel.uiState.collectAsState()
     val previewRouteUiState by homeViewModel.previewRouteUiState.collectAsState()
 
@@ -108,6 +111,8 @@ fun HomeDestination(
         unsyncedRoutesCount = uiState.unsyncedRoutesCount,
         hasActiveSubscription = uiState.hasActiveSubscription,
         onSyncClick = homeViewModel::manualSync,
+        isPullRefreshing = pullToSyncState.isRefreshing,
+        onPullRefresh = { pullToSyncViewModel.refresh() },
         showSyncDialog = uiState.showSyncDialog,
         isSyncSuccess = uiState.isSyncSuccess,
         isSyncComplete = uiState.isSyncComplete,

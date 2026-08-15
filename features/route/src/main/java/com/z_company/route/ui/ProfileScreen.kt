@@ -47,8 +47,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.vk.id.onetap.compose.onetap.OneTap
 import com.z_company.core.ResultState
 import com.z_company.core.ui.component.AsyncData
@@ -58,6 +56,7 @@ import com.z_company.core.ui.component.GenericLoading
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.repository.remote_rest.RegistrationState
 import com.z_company.route.viewmodel.ProfileViewModel
+import com.z_company.route.component.PullToSyncContainer
 import com.z_company.core.util.isEmailValid
 import com.z_company.core.util.isVpnActive
 import com.z_company.core.util.vpnAwareErrorMessage
@@ -167,6 +166,8 @@ private fun SyncCloudButton(
 fun ProfileScreen(
     viewModel: ProfileViewModel,
     onBillingClick: () -> Unit,
+    isPullRefreshing: Boolean = false,
+    onPullRefresh: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
@@ -781,11 +782,10 @@ fun ProfileScreen(
                                 )
                             }
                         }
-                    } else SwipeRefresh(
-                        state = rememberSwipeRefreshState(isRefreshing = uiState.isRefreshing),
-                        onRefresh = viewModel::refresh,
-                    )
-                    {
+                    } else PullToSyncContainer(
+                        isRefreshing = isPullRefreshing || uiState.isRefreshing,
+                        onRefresh = onPullRefresh,
+                    ) {
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxWidth()
