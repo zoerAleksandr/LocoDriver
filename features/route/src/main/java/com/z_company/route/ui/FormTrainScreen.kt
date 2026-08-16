@@ -723,9 +723,7 @@ fun FormTrainScreen(
                                     Text(
                                         modifier = Modifier.weight(1f),
                                         text = "${item.departureStation} — ${item.arrivalStation}",
-                                        style = dataTextStyle.copy(
-                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                                        ),
+                                        style = dataTextStyle,
                                         color = primaryColor,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -1477,7 +1475,7 @@ fun FormTrainScreen(
                                     )
                                     Text(
                                         text = "${phase.departureStation} — ${phase.arrivalStation}",
-                                        style = dataTextStyle.copy(fontWeight = FontWeight.SemiBold),
+                                        style = dataTextStyle,
                                         color = primaryColor,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis

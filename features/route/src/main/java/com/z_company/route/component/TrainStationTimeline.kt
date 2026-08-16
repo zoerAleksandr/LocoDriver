@@ -430,7 +430,7 @@ private fun StationRow(
             Text(
                 text = stationDisplayText,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (isFirst || isLast) FontWeight.SemiBold else FontWeight.Normal,
+                fontWeight = FontWeight.Normal,
                 color = colors.stationNameColor,
                 // Длинное название с номером пути не помещается в одну строку —
                 // переносим (до 3 строк), чтобы было видно целиком.

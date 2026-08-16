@@ -113,6 +113,8 @@ fun HomeDestination(
         onSyncClick = homeViewModel::manualSync,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh() },
+        pullSyncMessage = pullToSyncState.message,
+        onPullSyncMessageShown = pullToSyncViewModel::consumeMessage,
         showSyncDialog = uiState.showSyncDialog,
         isSyncSuccess = uiState.isSyncSuccess,
         isSyncComplete = uiState.isSyncComplete,

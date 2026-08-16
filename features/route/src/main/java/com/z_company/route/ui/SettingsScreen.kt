@@ -149,6 +149,8 @@ fun SettingsScreen(
     partnerListViewModel: PartnerListViewModel? = null,
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
+    pullSyncMessage: String? = null,
+    onPullSyncMessageShown: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -313,6 +315,8 @@ fun SettingsScreen(
         PullToSyncContainer(
             isRefreshing = isPullRefreshing,
             onRefresh = onPullRefresh,
+            message = pullSyncMessage,
+            onMessageShown = onPullSyncMessageShown,
             modifier = Modifier.padding(paddingValues),
         ) {
             Box(Modifier.fillMaxSize()) {

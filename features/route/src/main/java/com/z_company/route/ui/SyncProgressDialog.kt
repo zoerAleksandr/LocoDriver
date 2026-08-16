@@ -56,6 +56,7 @@ fun SyncProgressDialog(
     syncRoutesSavedCount: Int,
     userId: String? = null,
     isNetworkError: Boolean = false,
+    showPercentageProgress: Boolean = false,
     onDismiss: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -175,7 +176,7 @@ fun SyncProgressDialog(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (syncType == SyncType.Sync) {
+            if (syncType == SyncType.Sync || showPercentageProgress) {
                 val completedSteps = progressMap.values.count { it !is SyncStepState.Loading }
                 val totalSteps = progressMap.size.coerceAtLeast(1)
                 val progress = completedSteps.toFloat() / totalSteps.toFloat()

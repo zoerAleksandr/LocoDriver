@@ -83,6 +83,8 @@ fun AllRouteScreen(
     onBack: () -> Unit = {},
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
+    pullSyncMessage: String? = null,
+    onPullSyncMessageShown: () -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -777,6 +779,8 @@ fun AllRouteScreen(
             PullToSyncContainer(
                 isRefreshing = isPullRefreshing,
                 onRefresh = onPullRefresh,
+                message = pullSyncMessage,
+                onMessageShown = onPullSyncMessageShown,
                 modifier = Modifier.weight(1f),
             ) {
             when {

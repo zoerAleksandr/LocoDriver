@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.sendToSentry
-import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.repository.remote_rest.NetworkErrorMapper
@@ -21,6 +20,7 @@ import org.koin.core.component.inject
 
 data class PullToSyncUiState(
     val isRefreshing: Boolean = false,
+    val message: String? = null,
 )
 
 /**
@@ -34,7 +34,6 @@ class PullToSyncViewModel : ViewModel(), KoinComponent {
     private val syncManager: SyncManager by inject()
     private val routeActionsHelper: RouteActionsHelper by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
-    private val snackbarManager: ISnackbarManager by inject()
 
     private val _uiState = MutableStateFlow(PullToSyncUiState())
     val uiState = _uiState.asStateFlow()
@@ -43,18 +42,18 @@ class PullToSyncViewModel : ViewModel(), KoinComponent {
         if (_uiState.value.isRefreshing) return
 
         viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update { it.copy(isRefreshing = true) }
+            _uiState.update { it.copy(isRefreshing = true, message = null) }
             var completed = false
             var failureMessage: String? = null
             try {
                 if (!routeActionsHelper.hasActiveSubscription()) {
-                    snackbarManager.show("Синхронизация доступна по подписке")
+                    showMessage("Синхронизация доступна по подписке")
                     return@launch
                 }
 
                 val token = secureTokenStorage.getAuthBearerTokenFlow().first()
                 if (token.isNullOrBlank()) {
-                    snackbarManager.show("Необходимо войти в профиль")
+                    showMessage("Необходимо войти в профиль")
                     return@launch
                 }
 
@@ -71,7 +70,7 @@ class PullToSyncViewModel : ViewModel(), KoinComponent {
                     }
                 }
 
-                snackbarManager.show(
+                showMessage(
                     failureMessage ?: if (completed) {
                         "Синхронизация завершена"
                     } else {
@@ -82,11 +81,19 @@ class PullToSyncViewModel : ViewModel(), KoinComponent {
                 throw t
             } catch (t: Throwable) {
                 t.sendToSentry("PullToSyncViewModel", "refresh")
-                snackbarManager.show(NetworkErrorMapper.syncFailureMessage(t.message, t))
+                showMessage(NetworkErrorMapper.syncFailureMessage(t.message, t))
             } finally {
                 _uiState.update { it.copy(isRefreshing = false) }
                 withContext(Dispatchers.Main) { onFinished() }
             }
         }
+    }
+
+    fun consumeMessage() {
+        _uiState.update { it.copy(message = null) }
+    }
+
+    private fun showMessage(message: String) {
+        _uiState.update { it.copy(message = message) }
     }
 }

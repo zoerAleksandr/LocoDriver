@@ -21,6 +21,8 @@ fun ProfileDestination(
         onBillingClick = router::showPurchasesScreen,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh(viewModel::refresh) },
+        pullSyncMessage = pullToSyncState.message,
+        onPullSyncMessageShown = pullToSyncViewModel::consumeMessage,
 //        onLogOut = router::showSignIn,
     )
 }

@@ -168,6 +168,8 @@ fun ProfileScreen(
     onBillingClick: () -> Unit,
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
+    pullSyncMessage: String? = null,
+    onPullSyncMessageShown: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
@@ -785,6 +787,8 @@ fun ProfileScreen(
                     } else PullToSyncContainer(
                         isRefreshing = isPullRefreshing || uiState.isRefreshing,
                         onRefresh = onPullRefresh,
+                        message = pullSyncMessage,
+                        onMessageShown = onPullSyncMessageShown,
                     ) {
                         LazyColumn(
                             modifier = Modifier

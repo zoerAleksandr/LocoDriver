@@ -8,6 +8,10 @@ import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
@@ -18,10 +22,21 @@ import androidx.compose.ui.zIndex
 fun PullToSyncContainer(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
+    message: String? = null,
+    onMessageShown: () -> Unit = {},
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val state = rememberPullRefreshState(isRefreshing, onRefresh)
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(message) {
+        message?.let {
+            snackbarHostState.showSnackbar(it)
+            onMessageShown()
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize().pullRefresh(state)) {
         Box(Modifier.fillMaxSize()) { content() }
         PullRefreshIndicator(
@@ -33,6 +48,12 @@ fun PullToSyncContainer(
             backgroundColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.tertiary,
             scale = true,
+        )
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .zIndex(20f),
         )
     }
 }

@@ -68,7 +68,7 @@ private fun rememberNow(): Long {
 @Composable
 private fun RestGroupHeader(text: String) {
     Text(
-        modifier = Modifier.padding(horizontal = 16.dp),
+        modifier = Modifier.padding(horizontal = 8.dp),
         text = text,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -190,7 +190,7 @@ fun RestPointOfTurnoverBlock(
         RestGroupHeader("ОТДЫХ В ПУНКТЕ ОБОРОТА")
         Card(
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 8.dp, vertical = 12.dp)
                 .fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -243,7 +243,7 @@ fun HomeRestBlock(
         RestGroupHeader("ДОМАШНИЙ ОТДЫХ")
         Card(
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 8.dp, vertical = 12.dp)
                 .fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

@@ -226,6 +226,8 @@ fun HomeScreen(
     onResetSyncState: () -> Unit = {},
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
+    pullSyncMessage: String? = null,
+    onPullSyncMessageShown: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -388,6 +390,7 @@ fun HomeScreen(
         syncRoutesSavedCount = syncRoutesSavedCount,
         userId = syncReportUserId,
         isNetworkError = isNetworkError,
+        showPercentageProgress = true,
         onDismiss = onResetSyncState
     )
 
@@ -766,7 +769,7 @@ fun HomeScreen(
                 if (isBackgroundSyncing) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
-                // Заголовок месяца (отступ слева 16dp как у остального контента) +
+                // Заголовок месяца выровнен по общему внешнему полю контента +
                 // стрелки переключения месяца.
                 val monthYearListState by viewModel.monthYearList.collectAsState()
                 val currentIndex = currentMonthOfYear?.let { cur ->
@@ -778,7 +781,7 @@ fun HomeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(
@@ -840,6 +843,8 @@ fun HomeScreen(
         PullToSyncContainer(
             isRefreshing = isPullRefreshing,
             onRefresh = onPullRefresh,
+            message = pullSyncMessage,
+            onMessageShown = onPullSyncMessageShown,
             modifier = Modifier.padding(padding),
         ) {
             AsyncData(
@@ -865,7 +870,7 @@ fun HomeScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
+                                .padding(horizontal = 8.dp),
                         ) {
                             Text(
                                 text = "ОТРАБОТАНО",
@@ -968,7 +973,7 @@ fun HomeScreen(
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.secondary
                                 ),
@@ -1040,7 +1045,7 @@ fun HomeScreen(
                         ) {
                             Text(
                                 modifier = Modifier
-                                    .padding(horizontal = 16.dp)
+                                    .padding(horizontal = 8.dp)
                                     .pointerInput(Unit) {
                                         detectTapGestures(
                                             onPress = {
@@ -1061,7 +1066,7 @@ fun HomeScreen(
                                 item {
                                     Box(
                                         modifier = Modifier
-                                            .padding(start = 12.dp)
+                                            .padding(start = 8.dp)
                                             .size(156.dp)
                                     ) {
                                         Card(
@@ -1180,7 +1185,7 @@ fun HomeScreen(
                         ) {
                             Text(
                                 modifier = Modifier
-                                    .padding(horizontal = 16.dp)
+                                    .padding(horizontal = 8.dp)
                                     .pointerInput(Unit) {
                                         detectTapGestures(
                                             onPress = {
@@ -1197,7 +1202,7 @@ fun HomeScreen(
                             // Единая карточка по референсу: «ДО ЯВКИ ОСТАЛОСЬ» + счётчик + явка
                             Card(
                                 modifier = Modifier
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    .padding(horizontal = 8.dp, vertical = 12.dp)
                                     .fillMaxWidth()
                                     .clickable { onRouteClick(nextFutureRoute.basicData.id) },
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
@@ -1285,7 +1290,7 @@ fun HomeScreen(
                     ) {
                         Row(
                             modifier = Modifier
-                                .padding(horizontal = 16.dp)
+                                .padding(horizontal = 8.dp)
                                 .fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -1309,7 +1314,8 @@ fun HomeScreen(
                             }
                         }
                         Column(
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp),
+                            // Та же ширина карточек, что на AllRouteScreen.
+                            modifier = Modifier.padding(horizontal = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             dateAndTimeConverter?.let {
@@ -1410,7 +1416,7 @@ fun HomeScreen(
                     ) {
                         Text(
                             modifier = Modifier
-                                .padding(horizontal = 16.dp),
+                                .padding(horizontal = 8.dp),
                             style = MaterialTheme.typography.labelMedium,
                             text = "ИНСТРУМЕНТЫ",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1426,7 +1432,7 @@ fun HomeScreen(
                             // «График» и «Отвлечения» (теперь один экран).
                             item {
                                 ActionCard(
-                                    modifier = Modifier.padding(start = 12.dp),
+                                    modifier = Modifier.padding(start = 8.dp),
                                     title = "Календарь",
                                     iconRes = R.drawable.ic_card_calendar,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -1981,7 +1987,7 @@ fun MainInfo(
 ) {
     Column(
         modifier = Modifier
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 8.dp)
             .wrapContentHeight(Alignment.Top)
             .fillMaxWidth(),
     ) {

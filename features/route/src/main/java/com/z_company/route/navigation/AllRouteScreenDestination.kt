@@ -51,5 +51,7 @@ fun AllRouteScreenDestination(
         onBack = router::back,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh() },
+        pullSyncMessage = pullToSyncState.message,
+        onPullSyncMessageShown = pullToSyncViewModel::consumeMessage,
     )
 }

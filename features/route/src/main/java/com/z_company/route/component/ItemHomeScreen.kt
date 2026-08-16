@@ -222,25 +222,18 @@ fun ItemHomeScreen(
                         fontSize = requiredSizeText,
                     )
                     val headerGapPx = with(LocalDensity.current) { 8.dp.roundToPx() }
-                    // Решение «ряд или столбец» принимаем по ФИКСИРОВАННОМУ худшему
-                    // случаю (кросс-дневной диапазон + время), а не по фактическому
-                    // тексту этого маршрута. Иначе одни карточки (даты в разных сутках,
-                    // длиннее) уходят в столбец, а другие (та же дата, короче) остаются
-                    // в ряд с ужатым AutoSizeText — в одном списке это выглядит как
-                    // случайно «разный шрифт». Шрифт моно → ширина определяется числом
-                    // символов, поэтому один эталон решает одинаково для всех карточек.
-                    val worstCaseRange = "00.00 00:00 - 00.00 00:00"
-                    val worstCaseWorkTime = "000:00"
+                    // Проверяем фактические значения маршрута: короткий диапазон
+                    // остаётся в одну строку, перенос включается только когда именно
+                    // этот текст не помещается без уменьшения шрифта.
                     val oneLineFits = textsFitInWidth(
                         availableWidthPx = constraints.maxWidth,
                         extraPx = headerGapPx,
-                        worstCaseRange to measureStyle,
-                        worstCaseWorkTime to measureStyle.copy(fontWeight = FontWeight.Bold),
+                        timeTextMemo to measureStyle,
+                        workTimeStringMemo to measureStyle.copy(fontWeight = FontWeight.Medium),
                     )
                     if (!oneLineFits) {
-                        // Не помещается: явка и сдача друг над другом, а продолжительность
-                        // работы — справа в чипе (как блок «Расчёт за смену»). Так дата и
-                        // «10:30» одного размера и ничего не ужимается.
+                        // Не помещается: явка и сдача друг над другом, продолжительность
+                        // работы — справа тем же шрифтом и без отдельного фона.
                         val timeStyle = MaterialTheme.typography.bodyLarge.copy(
                             fontFamily = com.z_company.core.ui.theme.MonoFont,
                             fontWeight = FontWeight.Medium,
@@ -271,26 +264,16 @@ fun ItemHomeScreen(
                                     )
                                 }
                             }
-                            // Чип с продолжительностью — только если она есть (у маршрута
-                            // без времени сдачи её нет, пустой чип не показываем).
+                            // Продолжительность — только если она есть (у маршрута без
+                            // времени сдачи её нет, пустое значение не показываем).
                             if (workTimeStringMemo.isNotBlank()) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceBright)
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                ) {
-                                    Text(
-                                        text = workTimeStringMemo,
-                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                            fontFamily = com.z_company.core.ui.theme.MonoFont,
-                                            fontWeight = FontWeight.Bold,
-                                        ),
-                                        color = MaterialTheme.colorScheme.primary,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                    )
-                                }
+                                Text(
+                                    text = workTimeStringMemo,
+                                    style = timeStyle,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
                             }
                         }
                     } else {
@@ -334,7 +317,7 @@ fun ItemHomeScreen(
                             maxTextSize = requiredSizeText,
                             minTextSize = 10.sp,
                             maxLines = 1,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.Medium,
                             overflow = TextOverflow.Ellipsis,
                             onTextLayout = { textLayoutResult ->
                                 val size = textLayoutResult.layoutInput.style.fontSize

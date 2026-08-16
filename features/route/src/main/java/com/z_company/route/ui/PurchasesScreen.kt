@@ -148,6 +148,8 @@ fun PurchasesScreen(
     eventSharedFlow: SharedFlow<BillingEvent>,
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
+    pullSyncMessage: String? = null,
+    onPullSyncMessageShown: () -> Unit = {},
 ) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val scope = rememberCoroutineScope()
@@ -365,6 +367,8 @@ fun PurchasesScreen(
         PullToSyncContainer(
             isRefreshing = isPullRefreshing,
             onRefresh = onPullRefresh,
+            message = pullSyncMessage,
+            onMessageShown = onPullSyncMessageShown,
             modifier = Modifier.padding(padding),
         ) {
             Column(

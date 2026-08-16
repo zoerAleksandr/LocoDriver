@@ -194,6 +194,7 @@ class PassengerFormViewModel(
                     // Не сохраняем абсолютно пустой новый объект (форма открыта и закрыта
                     // без ввода). Существующего пассажира сохраняем всегда.
                     if (isNewPassenger && isPassengerEmpty(passenger)) return@launch
+                    syncWorkStartToRoute(passenger)
                     passengerUseCase.savePassenger(passenger).collect {}
                 }
             }
@@ -252,15 +253,19 @@ class PassengerFormViewModel(
             if (state is ResultState.Success) {
                 state.data?.let { passenger ->
                     savePassengerJob?.cancel()
-                    savePassengerJob =
-                        passengerUseCase.savePassenger(passenger).onEach { resultState ->
+                    savePassengerJob = viewModelScope.launch {
+                        // Флаг пассажира и явка родительского маршрута должны
+                        // попасть в БД как одна логическая операция.
+                        syncWorkStartToRoute(passenger)
+                        passengerUseCase.savePassenger(passenger).collect { resultState ->
                             saveStationsName(passenger.stationDeparture, passenger.stationArrival)
                             _uiState.update {
                                 it.copy(
                                     savePassengerState = resultState
                                 )
                             }
-                        }.launchIn(viewModelScope)
+                        }
+                    }
                 }
             }
         }
@@ -397,7 +402,9 @@ class PassengerFormViewModel(
             basicData = newBasic,
             passengers = mergedPassengers
         )
-        routeUseCase.saveRoute(newRoute).first()
+        // ResultState.flowRequest сначала эмитит Loading. Ожидаем конечный
+        // результат, иначе first() отменит flow до выполнения записи.
+        routeUseCase.saveRoute(newRoute).first { it !is ResultState.Loading }
     }
 
     fun setNotes(notes: String) {

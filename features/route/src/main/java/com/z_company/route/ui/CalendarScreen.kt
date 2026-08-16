@@ -211,6 +211,8 @@ fun CalendarScreen(
     onMakeCopy: (String) -> Unit = {},
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
+    pullSyncMessage: String? = null,
+    onPullSyncMessageShown: () -> Unit = {},
 ) {
     val cs = MaterialTheme.colorScheme
     var selectedDay by remember { mutableIntStateOf(state.today ?: 1) }
@@ -245,6 +247,8 @@ fun CalendarScreen(
         PullToSyncContainer(
             isRefreshing = isPullRefreshing,
             onRefresh = onPullRefresh,
+            message = pullSyncMessage,
+            onMessageShown = onPullSyncMessageShown,
         ) {
             Column(
                 modifier = Modifier
@@ -268,7 +272,7 @@ fun CalendarScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 20.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -317,7 +321,7 @@ fun CalendarScreen(
                 SegmentedFilter(
                     filter = filter,
                     onSelect = { filter = it },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
                 )
             }
 
@@ -325,7 +329,7 @@ fun CalendarScreen(
             if (planning) {
                 PlanHint(
                     plan = plan,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp),
+                    modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 2.dp),
                 )
             }
 
@@ -365,7 +369,7 @@ fun CalendarScreen(
                     plan = plan,
                     onPick = onPickTime,
                     onCustom = { showCustomTime = true },
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                    modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 12.dp),
                 )
                 Spacer(Modifier.height(24.dp))
             } else {
@@ -397,7 +401,7 @@ fun CalendarScreen(
 
                 // ── Кнопки действий ──
                 Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Box(
@@ -745,7 +749,7 @@ private fun CreateRoutesBar(plan: RoutePlanState, onCreate: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .background(cs.background)
-            .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 26.dp),
+            .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 26.dp),
     ) {
         Text(
             if (enabled) "$count ${plural(count, "маршрут", "маршрута", "маршрутов")} к созданию"
@@ -1085,7 +1089,7 @@ private fun DayDetails(
                 .background(cs.outlineVariant),
         )
         Row(
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 10.dp),
+            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 10.dp),
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -1107,7 +1111,7 @@ private fun DayDetails(
         if (state.holidayDays.contains(selectedDay)) {
             Row(
                 modifier = Modifier
-                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                    .padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .background(cs.error.copy(alpha = 0.10f))
@@ -1126,7 +1130,7 @@ private fun DayDetails(
         }
 
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(horizontal = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             absence?.let { abs ->

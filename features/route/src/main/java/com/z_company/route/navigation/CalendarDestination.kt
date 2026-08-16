@@ -87,5 +87,7 @@ fun CalendarDestination(
         onMakeCopy = viewModel::makeCopyRoute,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh(viewModel::reload) },
+        pullSyncMessage = pullToSyncState.message,
+        onPullSyncMessageShown = pullToSyncViewModel::consumeMessage,
     )
 }

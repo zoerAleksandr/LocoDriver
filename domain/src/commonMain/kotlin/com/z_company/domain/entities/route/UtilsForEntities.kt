@@ -440,12 +440,25 @@ object UtilsForEntities {
 
     /**
      * Следование пассажиром ВНЕ рабочего времени — проезд к месту «явки по прибытию».
-     * Не входит в отработанное время, но оплачивается отдельно.
+     * Возвращает только часть проезда за границами [явка, сдача], чтобы
+     * пассажирские часы, уже попавшие в смену, не прибавлялись повторно.
      */
     fun Route.getPassengerTimeOutsideWork(): Long {
+        val workStart = basicData.timeStartWork?.floorToMinute() ?: return 0L
+        val workEnd = basicData.timeEndWork?.floorToMinute() ?: return 0L
         var total = 0L
         this.passengers.forEach { p ->
-            if (p.isWorkStartByArrival) total += p.getFollowingTime() ?: 0L
+            if (p.isWorkStartByArrival) {
+                val departure = p.timeDeparture?.floorToMinute()
+                val arrival = p.timeArrival?.floorToMinute()
+                if (departure != null && arrival != null && arrival > departure) {
+                    val fullDuration = arrival - departure
+                    val overlapStart = maxOf(departure, workStart)
+                    val overlapEnd = minOf(arrival, workEnd)
+                    val overlap = (overlapEnd - overlapStart).coerceAtLeast(0L)
+                    total += (fullDuration - overlap).coerceAtLeast(0L)
+                }
+            }
         }
         return total
     }

@@ -26,5 +26,7 @@ fun PurchasesDestination(
         eventSharedFlow = viewModel.event,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh(viewModel::refreshProductsAndPurchases) },
+        pullSyncMessage = pullToSyncState.message,
+        onPullSyncMessageShown = pullToSyncViewModel::consumeMessage,
     )
 }
