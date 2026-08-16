@@ -3,6 +3,7 @@ package com.z_company.route.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.domain.entities.partner.Partner
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.PartnerUseCase
 import com.z_company.domain.util.generateId
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +30,7 @@ class PartnerEditorViewModel(
     private val partnerId: String?,
 ) : ViewModel(), KoinComponent {
     private val useCase: PartnerUseCase by inject()
+    private val sharedPrefs: SharedPreferencesRepositories by inject()
 
     private val persistentId: String = partnerId ?: generateId()
 
@@ -60,6 +62,7 @@ class PartnerEditorViewModel(
     fun save() {
         val s = _state.value
         if (s.fullName.isBlank()) return
+        sharedPrefs.setSettingsSyncPending(true)
         viewModelScope.launch {
             useCase.upsert(
                 Partner(
@@ -73,6 +76,7 @@ class PartnerEditorViewModel(
     }
 
     fun delete() {
+        sharedPrefs.setSettingsSyncPending(true)
         viewModelScope.launch {
             useCase.delete(persistentId).collect {}
             _state.update { it.copy(deleted = true) }

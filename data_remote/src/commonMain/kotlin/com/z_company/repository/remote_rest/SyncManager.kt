@@ -801,7 +801,9 @@ class SyncManager(
             }
 
         // 1.5 Нормы времени и напарники (full-replace; merge не поддерживается контрактом).
-        // Push если менялось локально и есть данные; pull если локально пусто.
+        // Напарники: при локальном изменении сервер получает полный список (включая
+        // пустой — это удаление всех записей). На остальных устройствах серверный
+        // список всегда заменяет локальный, даже если локальный справочник не пуст.
         val localLocoSeries = locomotiveSeriesRepository.getAll()
         if (settingsPending && localLocoSeries.isNotEmpty()) {
             settingManager.saveNormaTimeLocomotivesInRemote(localLocoSeries, bearerToken)
@@ -823,13 +825,13 @@ class SyncManager(
             }
         }
         val localPartners = partnerRepository.getAll()
-        if (settingsPending && localPartners.isNotEmpty()) {
+        if (settingsPending) {
             settingManager.savePartnersInRemote(localPartners, bearerToken)
                 .catch { settingsUploadSucceeded = false }
                 .collect { if (it is ResultState.Error) settingsUploadSucceeded = false }
-        } else if (localPartners.isEmpty()) {
+        } else {
             settingManager.getPartnersFromRemote(bearerToken).catch { }.collect { s ->
-                if (s is ResultState.Success && s.data.isNotEmpty()) partnerRepository.replaceAll(s.data).collect {}
+                if (s is ResultState.Success) partnerRepository.replaceAll(s.data).collect {}
             }
         }
 

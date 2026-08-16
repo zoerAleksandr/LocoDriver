@@ -3,6 +3,7 @@ package com.z_company.route.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.domain.entities.partner.Partner
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.PartnerUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +19,7 @@ import org.koin.core.component.inject
  */
 class PartnerListViewModel : ViewModel(), KoinComponent {
     private val useCase: PartnerUseCase by inject()
+    private val sharedPrefs: SharedPreferencesRepositories by inject()
 
     private val _partners = MutableStateFlow<List<Partner>>(emptyList())
     val partnersFlow = _partners.asStateFlow()
@@ -29,6 +31,7 @@ class PartnerListViewModel : ViewModel(), KoinComponent {
     }
 
     fun delete(partner: Partner) {
+        sharedPrefs.setSettingsSyncPending(true)
         viewModelScope.launch {
             useCase.delete(partner.partnerId).collect {}
         }

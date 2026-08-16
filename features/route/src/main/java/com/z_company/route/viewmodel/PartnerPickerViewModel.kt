@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.domain.entities.partner.Partner
 import com.z_company.domain.entities.route.RoutePartner
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.PartnerUseCase
 import com.z_company.domain.use_cases.RoutePartnerUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,7 @@ class PartnerPickerViewModel(
 ) : ViewModel(), KoinComponent {
     private val partnerUseCase: PartnerUseCase by inject()
     private val routePartnerUseCase: RoutePartnerUseCase by inject()
+    private val sharedPrefs: SharedPreferencesRepositories by inject()
 
     private val _partners = MutableStateFlow<List<Partner>>(emptyList())
     val partnersFlow = _partners.asStateFlow()
@@ -52,6 +54,7 @@ class PartnerPickerViewModel(
     /** Удаление записи справочника (свайп в списке). */
     fun deletePartner(partner: Partner) {
         _selectedIds.update { it - partner.partnerId }
+        sharedPrefs.setSettingsSyncPending(true)
         viewModelScope.launch { partnerUseCase.delete(partner.partnerId).collect {} }
     }
 
