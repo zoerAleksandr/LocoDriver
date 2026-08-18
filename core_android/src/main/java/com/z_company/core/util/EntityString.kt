@@ -6,6 +6,7 @@ import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.Passenger
+import com.z_company.domain.entities.route.RoutePartner
 import com.z_company.domain.entities.route.SectionDiesel
 import com.z_company.domain.entities.route.SectionElectric
 import com.z_company.domain.entities.route.Station
@@ -212,6 +213,20 @@ class EntityString(setting: UserSettings) {
         }
         passenger.notes?.let { notes ->
             text.append("\n$notes")
+        }
+        return text.toString()
+    }
+
+    fun partnerStr(partner: RoutePartner): String {
+        val text = StringBuilder("Напарник")
+        partner.fullName?.let { name ->
+            if (name.isNotBlank()) text.append(". $name")
+        }
+        partner.tabNumber?.let { tab ->
+            if (tab.isNotBlank()) text.append("\nТаб. № $tab")
+        }
+        partner.notes?.let { notes ->
+            if (notes.isNotBlank()) text.append("\n$notes")
         }
         return text.toString()
     }

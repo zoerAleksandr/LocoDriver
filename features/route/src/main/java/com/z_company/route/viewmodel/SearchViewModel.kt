@@ -211,6 +211,16 @@ class SearchViewModel : ViewModel(), KoinComponent {
                 }
             }
 
+            FilterNames.PARTNER_DATA.value -> {
+                _uiState.update {
+                    it.copy(
+                        searchFilter = it.searchFilter.copy(
+                            partnerData = pair
+                        )
+                    )
+                }
+            }
+
             FilterNames.NOTES_DATA.value -> {
                 _uiState.update {
                     it.copy(

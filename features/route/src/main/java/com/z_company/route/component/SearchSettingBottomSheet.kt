@@ -160,6 +160,7 @@ fun SearchSettingBottomSheet(
                     filter.trainData,
                     filter.passengerData,
                     filter.otherWorkData,
+                    filter.partnerData,
                     filter.notesData,
                 ).forEach { pair ->
                     ChipApp(

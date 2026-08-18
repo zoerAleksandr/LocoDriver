@@ -55,6 +55,7 @@ class SearchRouteUseCase(val repository: RouteRepository) {
         val trainMatch: List<String>,
         val passengerMatch: List<String>,
         val otherWorkMatch: List<String>,
+        val partnerMatch: List<String>,
         val notesMatch: String?,
         val keyValues: Set<String>,
         val vocabulary: List<String>,
@@ -173,6 +174,16 @@ class SearchRouteUseCase(val repository: RouteRepository) {
             p.joinToString(" ").lowercase()
         }
 
+        // ---- Напарники ----
+        val partnerMatch = route.partners.map { partner ->
+            val p = ArrayList<String>()
+            p += "напарник"
+            key(partner.fullName); partner.fullName?.let { p += it }
+            key(partner.tabNumber); partner.tabNumber?.let { p += it }
+            partner.notes?.let { p += it }
+            p.joinToString(" ").lowercase()
+        }
+
         // ---- Примечания маршрута ----
         val notesMatch = route.basicData.notes?.takeIf { it.isNotBlank() }?.lowercase()
 
@@ -184,6 +195,7 @@ class SearchRouteUseCase(val repository: RouteRepository) {
             trainMatch = trainMatch,
             passengerMatch = passengerMatch,
             otherWorkMatch = otherWorkMatch,
+            partnerMatch = partnerMatch,
             notesMatch = notesMatch,
             keyValues = keys.mapTo(HashSet()) { it.lowercase() },
             vocabulary = keys.toList(),
@@ -242,6 +254,9 @@ class SearchRouteUseCase(val repository: RouteRepository) {
             }
             if (filter.otherWorkData.second && entry.otherWorkMatch.any { containsAll(it, tokens) }) {
                 matches += Scored(RouteWithTag(SearchTag.OTHER_WORK, entry.route), entry, score)
+            }
+            if (filter.partnerData.second && entry.partnerMatch.any { containsAll(it, tokens) }) {
+                matches += Scored(RouteWithTag(SearchTag.PARTNER, entry.route), entry, score)
             }
             if (filter.notesData.second &&
                 entry.notesMatch != null && containsAll(entry.notesMatch, tokens)

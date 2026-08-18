@@ -9,6 +9,7 @@ data class FilterSearch(
     val trainData: Pair<String, Boolean> = Pair(FilterNames.TRAIN_DATA.value, true),
     val passengerData: Pair<String, Boolean> = Pair(FilterNames.PASSENGER_DATA.value, true),
     val otherWorkData: Pair<String, Boolean> = Pair(FilterNames.OTHER_WORK_DATA.value, true),
+    val partnerData: Pair<String, Boolean> = Pair(FilterNames.PARTNER_DATA.value, true),
     val notesData: Pair<String, Boolean> = Pair(FilterNames.NOTES_DATA.value, true),
     val timePeriod: TimePeriod = TimePeriod(null, null)
 )
@@ -19,6 +20,7 @@ enum class FilterNames(val value: String){
     TRAIN_DATA("поезд"),
     PASSENGER_DATA("следование пассажиром"),
     OTHER_WORK_DATA("прочая работа"),
+    PARTNER_DATA("напарник"),
     NOTES_DATA("примечания")
 }
 
@@ -28,7 +30,7 @@ data class TimePeriod(
 )
 
 enum class SearchTag {
-    BASIC_DATA, LOCO, TRAIN, PASSENGER, OTHER_WORK, NOTES
+    BASIC_DATA, LOCO, TRAIN, PASSENGER, OTHER_WORK, PARTNER, NOTES
 }
 
 data class RouteWithTag(val tag: SearchTag, val route: Route)
