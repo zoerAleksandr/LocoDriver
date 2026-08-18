@@ -95,6 +95,7 @@ private val ChildCareColor = Color(0xFF00A0F5)
 private val OtherColor = Color(0xFF8A8278)
 private val DayOffColor = Color(0xFFF4433C)
 private val BusinessTripColor = Color(0xFF30B0C7)
+private val TechnicalStudyColor = Color(0xFF5856D6)
 
 private fun releaseColor(type: ReleaseType): Color = when (type) {
     ReleaseType.Vacation -> VacationColor
@@ -104,6 +105,7 @@ private fun releaseColor(type: ReleaseType): Color = when (type) {
     ReleaseType.ChildCare -> ChildCareColor
     ReleaseType.DayOff -> DayOffColor
     ReleaseType.BusinessTrip -> BusinessTripColor
+    ReleaseType.TechnicalStudy -> TechnicalStudyColor
     ReleaseType.Other -> OtherColor
 }
 
@@ -115,6 +117,7 @@ private fun absBadge(type: ReleaseType): String = when (type) {
     ReleaseType.ChildCare -> "УХ"
     ReleaseType.DayOff -> "ВЫХ"
     ReleaseType.BusinessTrip -> "КОМ"
+    ReleaseType.TechnicalStudy -> "ТЕХ"
     ReleaseType.Other -> "ОТВ"
 }
 
@@ -148,6 +151,12 @@ private fun AbsenceGlyph(type: ReleaseType, color: Color, modifier: Modifier = M
                 line(3f, 9f, 21f, 9f)
                 line(8f, 2f, 8f, 6f)
                 line(16f, 2f, 16f, 6f)
+            }
+            ReleaseType.TechnicalStudy -> { // книга (учебные занятия)
+                // Корешок по центру + две страницы.
+                line(12f, 6f, 12f, 19f)
+                line(12f, 6f, 4f, 7f); line(4f, 7f, 4f, 18f); line(4f, 18f, 12f, 19f)
+                line(12f, 6f, 20f, 7f); line(20f, 7f, 20f, 18f); line(20f, 18f, 12f, 19f)
             }
             else -> { // мед-кейс (больничный/курсы/донорские/уход/прочее)
                 drawRoundRect(
@@ -195,6 +204,7 @@ fun CalendarScreen(
     onCreateRoutes: () -> Unit,
     onAddAbsence: (Int) -> Unit,
     onAddDayoff: (Int) -> Unit,
+    onAddTechnicalStudy: (Int, Double) -> Unit,
     onDeleteAbsenceDay: (Int) -> Unit,
     onDeleteAbsencePeriod: (Int, Int) -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?,
@@ -224,6 +234,9 @@ fun CalendarScreen(
     var expanded by remember { mutableStateOf(true) }
     var showAddSheet by remember { mutableStateOf(false) }
     var showCustomTime by remember { mutableStateOf(false) }
+    // Диалог техзанятий: (день, начальные часы) или null. Начальные часы > 0 —
+    // режим редактирования существующей записи.
+    var techStudyEdit by remember { mutableStateOf<Pair<Int, Double>?>(null) }
 
     val planning = plan.active
     val monthExpanded = expanded || planning // в режиме планирования — всегда месяц
@@ -461,6 +474,7 @@ fun CalendarScreen(
                     onLongClickRoute = { routeForQuickView = it },
                     onDeleteAbsenceDay = onDeleteAbsenceDay,
                     onDeleteAbsencePeriod = onDeleteAbsencePeriod,
+                    onEditTechnicalStudy = { day, h -> techStudyEdit = day to h },
                     dateAndTimeConverter = dateAndTimeConverter,
                     timeContext = timeContext,
                     convertTimeToString = convertTimeToString,
@@ -488,8 +502,20 @@ fun CalendarScreen(
                 onRoute = { showAddSheet = false; onEnterRoutePlan() },
                 onAbsence = { showAddSheet = false; onAddAbsence(selectedDay) },
                 onDayoff = { showAddSheet = false; onAddDayoff(selectedDay) },
+                onTechnicalStudy = { showAddSheet = false; techStudyEdit = selectedDay to 2.0 },
             )
         }
+    }
+
+    techStudyEdit?.let { (day, initialHours) ->
+        TechnicalStudyDialog(
+            dayLabel = "$day ${monthGenitive(state.month)}",
+            initialHours = initialHours,
+            averagePaymentHour = state.averagePaymentHour,
+            currencySymbol = state.currencySymbol,
+            onConfirm = { hours -> techStudyEdit = null; onAddTechnicalStudy(day, hours) },
+            onDismiss = { techStudyEdit = null },
+        )
     }
 
     if (showCustomTime) {
@@ -1068,6 +1094,7 @@ private fun DayDetails(
     onLongClickRoute: (Route) -> Unit,
     onDeleteAbsenceDay: (Int) -> Unit,
     onDeleteAbsencePeriod: (Int, Int) -> Unit,
+    onEditTechnicalStudy: (Int, Double) -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?,
     timeContext: TimeCalculationContext?,
     convertTimeToString: (Long?) -> String,
@@ -1138,7 +1165,14 @@ private fun DayDetails(
                     onDeleteClick = { showDeleteAbsence = true },
                     backgroundVerticalPadding = 0.dp,
                 ) {
-                    AbsenceCard(abs, monthIndex = state.month)
+                    // Техзанятия по тапу открывают редактирование часов.
+                    AbsenceCard(
+                        abs,
+                        monthIndex = state.month,
+                        onClick = if (abs.type == ReleaseType.TechnicalStudy) {
+                            { onEditTechnicalStudy(selectedDay, abs.customHoursPerDay ?: 0.0) }
+                        } else null,
+                    )
                 }
             }
             // Маршруты — тот же item, что на главном экране (со свайпом на удаление).
@@ -1254,6 +1288,11 @@ private fun DayDetails(
     }
 }
 
+/** Формат часов техзанятий: целое → «3», дробное → «3,5». */
+private fun formatStudyHours(h: Double): String =
+    if (h % 1.0 == 0.0) h.toInt().toString()
+    else h.toString().replace('.', ',')
+
 private fun daysWord(n: Int): String {
     val m10 = n % 10; val m100 = n % 100
     return when {
@@ -1265,7 +1304,7 @@ private fun daysWord(n: Int): String {
 }
 
 @Composable
-private fun AbsenceCard(abs: AbsenceInfo, monthIndex: Int) {
+private fun AbsenceCard(abs: AbsenceInfo, monthIndex: Int, onClick: (() -> Unit)? = null) {
     val cs = MaterialTheme.colorScheme
     val c = releaseColor(abs.type)
     val multi = abs.periodDays > 1
@@ -1277,6 +1316,7 @@ private fun AbsenceCard(abs: AbsenceInfo, monthIndex: Int) {
             // иначе красная кнопка «Удалить» просвечивает сквозь карточку при свайпе.
             .background(cs.background)
             .background(c.copy(alpha = 0.16f))
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1304,8 +1344,11 @@ private fun AbsenceCard(abs: AbsenceInfo, monthIndex: Int) {
         Column(modifier = Modifier.weight(1f)) {
             Text(abs.label, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = cs.primary)
             Text(
-                if (multi) "${abs.periodStart}–${abs.periodEnd} ${monthGenitive(monthIndex)} · ${abs.periodDays} ${daysWord(abs.periodDays)}"
-                else "Весь день",
+                when {
+                    multi -> "${abs.periodStart}–${abs.periodEnd} ${monthGenitive(monthIndex)} · ${abs.periodDays} ${daysWord(abs.periodDays)}"
+                    abs.type == ReleaseType.TechnicalStudy -> "Оплата по среднему часу"
+                    else -> "Весь день"
+                },
                 fontSize = 13.sp, color = cs.onSurfaceVariant,
             )
         }
@@ -1320,6 +1363,17 @@ private fun AbsenceCard(abs: AbsenceInfo, monthIndex: Int) {
                     color = cs.tertiary,
                 )
                 Text("тариф", fontSize = 11.sp, color = cs.onSurfaceVariant)
+            } else if (abs.type == ReleaseType.TechnicalStudy) {
+                // Техзанятия: показываем введённые пользователем часы (Double).
+                val h = if (multi) abs.customPeriodHours ?: 0.0 else abs.customHoursPerDay ?: 0.0
+                Text(
+                    formatStudyHours(h),
+                    fontFamily = MonoFont,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = cs.primary,
+                )
+                Text(if (multi) "всего" else "часов", fontSize = 11.sp, color = cs.onSurfaceVariant)
             } else {
                 // Для периода — всего часов за период, для одного дня — часы дня.
                 Text(
@@ -1335,12 +1389,110 @@ private fun AbsenceCard(abs: AbsenceInfo, monthIndex: Int) {
     }
 }
 
+/**
+ * Диалог ввода длительности «Технических занятий» на выбранный день через
+ * стандартный TimePicker (часы:минуты). Сразу показывает начисление
+ * (длительность × средний час) или сообщает, что средний час не задан.
+ * Используется и для добавления, и для редактирования (initialHours != null).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TechnicalStudyDialog(
+    dayLabel: String,
+    initialHours: Double,
+    averagePaymentHour: Double,
+    currencySymbol: String,
+    onConfirm: (Double) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val initH = initialHours.toInt().coerceIn(0, 23)
+    val initM = (((initialHours - initH) * 60) + 0.5).toInt().coerceIn(0, 59)
+    val timeState = rememberTimePickerState(
+        initialHour = initH, initialMinute = initM, is24Hour = true
+    )
+    // Читаем состояние в composition — при кручении пикера пересчитываем начисление.
+    val totalHours = timeState.hour + timeState.minute / 60.0
+    val isValid = totalHours > 0.0
+    val hasAverage = averagePaymentHour > 0.0
+    val money = averagePaymentHour * totalHours
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        // По правилу проекта Material3 AlertDialog красит контейнер в
+        // surfaceContainerHigh (= Warning в теме) — задаём surface явно.
+        containerColor = cs.surface,
+        title = { Text("Технические занятия", color = cs.primary) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("На $dayLabel", fontSize = 13.sp, color = cs.onSurfaceVariant)
+                Spacer(Modifier.height(12.dp))
+                TimePicker(state = timeState)
+                Spacer(Modifier.height(12.dp))
+                if (hasAverage) {
+                    // Живой предпросмотр начисления по среднему часу.
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(cs.primaryContainer.copy(alpha = 0.5f))
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("К начислению", fontSize = 13.sp, color = cs.onSurfaceVariant)
+                        Text(
+                            "${formatStudyMoney(money)} $currencySymbol",
+                            fontFamily = MonoFont,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = cs.primary,
+                        )
+                    }
+                } else {
+                    // Средний час не задан — оплату посчитать нельзя.
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(TechnicalStudyColor.copy(alpha = 0.14f))
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Средний час не задан в настройках зарплаты — сумма не рассчитается. Часы сохранятся.",
+                            fontSize = 12.sp,
+                            color = cs.onSurface,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(totalHours) }, enabled = isValid) {
+                Text("Сохранить")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+    )
+}
+
+/** Формат суммы: «2 800» / «2 800,50» с разделителем тысяч. */
+private fun formatStudyMoney(v: Double): String {
+    val rounded = (v * 100).toLong()
+    val whole = rounded / 100
+    val cents = (rounded % 100).toInt()
+    val wholeStr = whole.toString().reversed().chunked(3).joinToString(" ").reversed()
+    return if (cents == 0) wholeStr else "$wholeStr,${cents.toString().padStart(2, '0')}"
+}
+
 @Composable
 private fun AddEventSheet(
     dayLabel: String,
     onRoute: () -> Unit,
     onAbsence: () -> Unit,
     onDayoff: () -> Unit,
+    onTechnicalStudy: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -1352,6 +1504,8 @@ private fun AddEventSheet(
         AddEventRow("Отвлечение", SickColor, onAbsence)
         Spacer(Modifier.height(8.dp))
         AddEventRow("Выходной", DayOffColor, onDayoff)
+        Spacer(Modifier.height(8.dp))
+        AddEventRow("Технические занятия", TechnicalStudyColor, onTechnicalStudy)
         Spacer(Modifier.height(24.dp))
     }
 }

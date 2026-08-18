@@ -7,6 +7,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursExcludingW
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursIncludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHoursInPeriod
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
+import com.z_company.domain.entities.UtilForMonthOfYear.getTechnicalStudyHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getNewRoutesToDayRange
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
@@ -1121,6 +1122,25 @@ class SalaryCalculationHelper(
         }
     }
 
+    // ── Технические занятия ───────────────────────────────────────────
+    // Явно заданные пользователем часы техзанятий (ReleaseType.TechnicalStudy)
+    // за месяц. На норму не влияют, в «отработанное» не входят — оплачиваются
+    // отдельной строкой по среднему часу.
+    fun getTechnicalStudyTimeFlow(): Flow<Long> {
+        return flow {
+            val hours = currentMonthOfYear.getTechnicalStudyHours()
+            emit((hours * 3_600_000).toLong())
+        }
+    }
+
+    // Оплата технических занятий — ТОЛЬКО по среднему часу.
+    fun getMoneyTechnicalStudyFlow(): Flow<Double> {
+        return flow {
+            val hours = currentMonthOfYear.getTechnicalStudyHours()
+            emit(salarySetting.averagePaymentHour.times(hours))
+        }
+    }
+
     fun getHoursCaringForDisableChildren(): Flow<Long> {
         return flow {
             val hours = currentMonthOfYear.getDayoffHoursExcludingWeekends()
@@ -1288,6 +1308,7 @@ class SalaryCalculationHelper(
             val averageMoney = getMoneyAverageFlow().first()
             val averageMoneyCaringForDisableChildren = getMoneyCaringForDisableChildren().first()
             val businessTripMoney = getMoneyBusinessTripFlow().first()
+            val technicalStudyMoney = getMoneyTechnicalStudyFlow().first()
             val nordicSurcharge = getMoneyNordicSurcharge().first()
             val districtSurcharge = getMoneyDistrictSurcharge().first()
             // Оплата недоработки — по среднему часу, без районных/северных надбавок
@@ -1296,7 +1317,7 @@ class SalaryCalculationHelper(
             val linearMileageMoney = getMoneyLinearMileageFlow().first()
 
             val totalMoney =
-                baseMoney + holidayMoney + averageMoney + averageMoneyCaringForDisableChildren + businessTripMoney + nordicSurcharge + districtSurcharge + underworkMoney + linearMileageMoney
+                baseMoney + holidayMoney + averageMoney + averageMoneyCaringForDisableChildren + businessTripMoney + technicalStudyMoney + nordicSurcharge + districtSurcharge + underworkMoney + linearMileageMoney
 
             emit(totalMoney)
         }

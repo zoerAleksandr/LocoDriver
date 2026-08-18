@@ -1,0 +1,4 @@
+-- Миграция 18: часы «Технических занятий» (ReleaseType.TechnicalStudy).
+-- Nullable REAL — обратная совместимость: у существующих записей отвлечений
+-- часы не заданы (null), заполняется только для технических занятий.
+ALTER TABLE ReleaseDay ADD COLUMN hours REAL;

@@ -180,6 +180,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                     async { setAveragePaymentData(salaryCalculationHelper) },
                     async { setUnderworkData(salaryCalculationHelper, salarySetting) },
                     async { setBusinessTripData(salaryCalculationHelper) },
+                    async { setTechnicalStudyData(salaryCalculationHelper) },
                     async { setCaringForDisableChildrenPaymentData(salaryCalculationHelper) },
                     async { setOtherSurchargeData(salaryCalculationHelper) },
                     async { setRestInExcessOfTheNormData(salaryCalculationHelper) },
@@ -324,6 +325,10 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                             ?: acc.businessTripHours,
                         businessTripMoney = partial.businessTripMoney
                             ?: acc.businessTripMoney,
+                        technicalStudyHours = partial.technicalStudyHours
+                            ?: acc.technicalStudyHours,
+                        technicalStudyMoney = partial.technicalStudyMoney
+                            ?: acc.technicalStudyMoney,
                         totalChargedMoney = partial.totalChargedMoney ?: acc.totalChargedMoney,
                         retentionNdfl = partial.retentionNdfl ?: acc.retentionNdfl,
                         unionistsRetention = partial.unionistsRetention ?: acc.unionistsRetention,
@@ -415,6 +420,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         caringForDisableChildrenMoney = combinedPartial.caringForDisableChildrenMoney,
                         businessTripHours = combinedPartial.businessTripHours,
                         businessTripMoney = combinedPartial.businessTripMoney,
+                        technicalStudyHours = combinedPartial.technicalStudyHours,
+                        technicalStudyMoney = combinedPartial.technicalStudyMoney,
                         totalChargedMoney = combinedPartial.totalChargedMoney,
                         retentionNdfl = combinedPartial.retentionNdfl,
                         unionistsRetention = combinedPartial.unionistsRetention,
@@ -755,6 +762,17 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    // Метод для установки данных по техническим занятиям (часы, сумма по среднему).
+    private suspend fun setTechnicalStudyData(helper: SalaryCalculationHelper): PartialState {
+        val hours = helper.getTechnicalStudyTimeFlow().first()
+        val money = helper.getMoneyTechnicalStudyFlow().first()
+
+        return PartialState(
+            technicalStudyHours = hours,
+            technicalStudyMoney = money
+        )
+    }
+
     // Метод для установки данных по уходу за ребенком инвалидом
     private suspend fun setCaringForDisableChildrenPaymentData(helper: SalaryCalculationHelper): PartialState {
         val hours = helper.getHoursCaringForDisableChildren().first()
@@ -893,6 +911,8 @@ data class PartialState(
     val caringForDisableChildrenMoney: Double? = null,
     val businessTripHours: Long? = null,
     val businessTripMoney: Double? = null,
+    val technicalStudyHours: Long? = null,
+    val technicalStudyMoney: Double? = null,
     val totalChargedMoney: Double? = null,
     val retentionNdfl: Double? = null,
     val unionistsRetention: Double? = null,

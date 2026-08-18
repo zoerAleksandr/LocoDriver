@@ -936,9 +936,6 @@ private data class AccrualRow(
 
 private fun formatPercent(value: Double): String = "%.1f".format(value).replace('.', ',')
 
-private fun formatMileage(value: Double): String =
-    if (value % 1.0 == 0.0) value.toLong().toString() else "%.1f".format(value).replace('.', ',')
-
 // Денежный формат — общий для приложения (str2decimalSign → «69 928,32»).
 // null трактуем как ноль, чтобы в шапке/итогах всегда было «0,00».
 private fun formatMoney(value: Double?): String = (value ?: 0.0).str2decimalSign()
@@ -973,6 +970,9 @@ private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow
     uiState.businessTripHours?.takeIf { it > 0 }?.let {
         AccrualRow("Командировка (по среднему)", it, null, uiState.businessTripMoney)
     },
+    uiState.technicalStudyHours?.takeIf { it > 0 }?.let {
+        AccrualRow("Технические занятия", it, null, uiState.technicalStudyMoney)
+    },
 
     // Надбавки
     uiState.zonalSurchargePercent?.let {
@@ -983,7 +983,7 @@ private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow
     },
     *uiState.linearMileageAccruals.map { accrual ->
         AccrualRow(
-            "Доплата за пробег: ${accrual.phaseName} (${formatMileage(accrual.distance)} км × ${formatMoney(accrual.rate)} ₽/км)",
+            "Доплата за пробег: ${accrual.phaseName} (${formatMoney(accrual.rate)} ₽/км)",
             null,
             null,
             accrual.money,

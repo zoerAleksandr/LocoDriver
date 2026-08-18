@@ -3,14 +3,15 @@ CREATE TABLE IF NOT EXISTS ReleaseDay (
     year INTEGER NOT NULL,
     month INTEGER NOT NULL,
     dayOfMonth INTEGER NOT NULL,
-    releaseType TEXT NOT NULL
+    releaseType TEXT NOT NULL,
+    hours REAL
 );
 
 CREATE INDEX IF NOT EXISTS idx_release_day_year_month ON ReleaseDay(year, month);
 
 insertOrReplace:
-INSERT OR REPLACE INTO ReleaseDay (id, year, month, dayOfMonth, releaseType)
-VALUES (?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO ReleaseDay (id, year, month, dayOfMonth, releaseType, hours)
+VALUES (?, ?, ?, ?, ?, ?);
 
 getAll:
 SELECT * FROM ReleaseDay ORDER BY year, month, dayOfMonth;

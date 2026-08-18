@@ -19,7 +19,11 @@ data class ReleaseDay(
     val year: Int,
     val month: Int,        // 0-based (0=январь), как в MonthOfYear
     val dayOfMonth: Int,
-    val releaseType: ReleaseType
+    val releaseType: ReleaseType,
+    // Явно заданные часы (только для ReleaseType.TechnicalStudy — «Технические
+    // занятия»). Оплачиваются по среднему часу. Для остальных типов null.
+    // Синхронизируется с сервером (новое поле контракта release_days).
+    val hours: Double? = null,
 ) {
     fun toLocalDate(): LocalDate = LocalDate(year, month + 1, dayOfMonth)
 }

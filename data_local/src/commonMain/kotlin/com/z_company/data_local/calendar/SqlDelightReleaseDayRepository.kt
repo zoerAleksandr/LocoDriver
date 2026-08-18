@@ -39,7 +39,8 @@ class SqlDelightReleaseDayRepository : ReleaseDayRepository, KoinComponent {
                 year = day.year.toLong(),
                 month = day.month.toLong(),
                 dayOfMonth = day.dayOfMonth.toLong(),
-                releaseType = day.releaseType.text
+                releaseType = day.releaseType.text,
+                hours = day.hours
             )
         }
     }
@@ -64,7 +65,8 @@ class SqlDelightReleaseDayRepository : ReleaseDayRepository, KoinComponent {
                 year = day.year.toLong(),
                 month = day.month.toLong(),
                 dayOfMonth = day.dayOfMonth.toLong(),
-                releaseType = day.releaseType.text
+                releaseType = day.releaseType.text,
+                hours = day.hours
             )
         }
     }
@@ -75,7 +77,8 @@ class SqlDelightReleaseDayRepository : ReleaseDayRepository, KoinComponent {
             year = year.toInt(),
             month = month.toInt(),
             dayOfMonth = dayOfMonth.toInt(),
-            releaseType = releaseTypeFromText(releaseType)
+            releaseType = releaseTypeFromText(releaseType),
+            hours = hours
         )
 
     private fun releaseTypeFromText(text: String): ReleaseType = when (text) {
@@ -86,6 +89,7 @@ class SqlDelightReleaseDayRepository : ReleaseDayRepository, KoinComponent {
         "По уходу за ребенком-инвалидом" -> ReleaseType.ChildCare
         "Выходной" -> ReleaseType.DayOff
         "Командировка" -> ReleaseType.BusinessTrip
+        "Технические занятия" -> ReleaseType.TechnicalStudy
         else -> ReleaseType.Other
     }
 }

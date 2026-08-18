@@ -44,6 +44,7 @@ private fun absTypeColor(type: ReleaseType): Color = when (type) {
     ReleaseType.ChildCare -> Color(0xFF00A0F5)
     ReleaseType.DayOff -> Color(0xFFF4433C)
     ReleaseType.BusinessTrip -> Color(0xFF30B0C7)
+    ReleaseType.TechnicalStudy -> Color(0xFF5856D6)
     ReleaseType.Other -> Color(0xFF8A8278)
 }
 
@@ -294,6 +295,7 @@ private fun absBadgeAbs(type: ReleaseType): String = when (type) {
     ReleaseType.ChildCare -> "УХ"
     ReleaseType.DayOff -> "ВЫХ"
     ReleaseType.BusinessTrip -> "КОМ"
+    ReleaseType.TechnicalStudy -> "ТЕХ"
     ReleaseType.Other -> "ОТВ"
 }
 

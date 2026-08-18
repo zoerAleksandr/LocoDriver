@@ -20,7 +20,11 @@ object UtilForMonthOfYear {
     // и не входит в пул «оплата по среднему» — единственный эффект DayOff —
     // ×2 при работе (см. UtilsForEntities.isHolidayTimeInRoute).
     private fun Day.reducesNorma(): Boolean =
-        isReleaseDay && releaseType != ReleaseType.DayOff
+        isReleaseDay &&
+            releaseType != ReleaseType.DayOff &&
+            // «Технические занятия» оплачиваются отдельно по среднему часу и на
+            // норму не влияют (решение пользователя): норма остаётся полной.
+            releaseType != ReleaseType.TechnicalStudy
 
     fun MonthOfYear.getPersonalNormaHours(): Int {
         var normaOfMonth = 0
@@ -40,7 +44,9 @@ object UtilForMonthOfYear {
     fun MonthOfYear.getDayoffHours(): Int {
         var totalRelease = 0
         this.days.forEach { day ->
-            if (day.isReleaseDay) {
+            // «Технические занятия» не входят в общий счётчик часов отвлечений —
+            // у них собственные часы и отдельная оплата по среднему.
+            if (day.isReleaseDay && day.releaseType != ReleaseType.TechnicalStudy) {
                 totalRelease += when (day.tag) {
                     TagForDay.WORKING_DAY -> 8
                     TagForDay.SHORTENED_DAY -> 7
@@ -62,7 +68,10 @@ object UtilForMonthOfYear {
             if (day.isReleaseDay &&
                 day.releaseType != ReleaseType.ChildCare &&
                 day.releaseType != ReleaseType.BusinessTrip &&
-                day.releaseType != ReleaseType.DayOff
+                day.releaseType != ReleaseType.DayOff &&
+                // «Технические занятия» оплачиваются собственной строкой по
+                // введённым часам, а не через общий пул «оплата по среднему».
+                day.releaseType != ReleaseType.TechnicalStudy
             ) {
                 totalRelease += when (day.tag) {
                     TagForDay.WORKING_DAY -> 8
@@ -73,6 +82,18 @@ object UtilForMonthOfYear {
             }
         }
         return totalRelease
+    }
+
+    // Сумма явно заданных часов «Технических занятий» за месяц (ReleaseType.
+    // TechnicalStudy). Оплачивается по среднему часу отдельной строкой.
+    fun MonthOfYear.getTechnicalStudyHours(): Double {
+        var total = 0.0
+        this.days.forEach { day ->
+            if (day.isReleaseDay && day.releaseType == ReleaseType.TechnicalStudy) {
+                total += day.hours ?: 0.0
+            }
+        }
+        return total
     }
 
     // расчет количества часов в отвлечении без учета выходных (для оплаты по уходу за ребенком-инвалидом)

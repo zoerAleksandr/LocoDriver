@@ -56,6 +56,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "isShowPassenger",
             "MonthOfYear" to "tariffRate",
             "MonthOfYear" to "dateSetTariffRate",
+            "ReleaseDay" to "hours",
             "LocomotiveSeries" to "acceptanceHandToHandMin",
             "LocomotiveSeries" to "deliveryHandToHandMin",
             primaryTable = "UserSettings")
@@ -310,6 +311,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             // Settings — MonthOfYear
             "MonthOfYear.tariffRate" to ColumnSpec("REAL", false, "0.0"),
             "MonthOfYear.dateSetTariffRate" to ColumnSpec("TEXT", true, "NULL"),
+            // ReleaseDay — часы «Технических занятий» (миграция 18)
+            "ReleaseDay.hours" to ColumnSpec("REAL", true, "NULL"),
             // Route — BasicData
             "BasicData.timeStartBreak" to ColumnSpec("INTEGER", true, "NULL"),
             "BasicData.timeStartWorkBeforeArrival" to ColumnSpec("INTEGER", true, "NULL"),

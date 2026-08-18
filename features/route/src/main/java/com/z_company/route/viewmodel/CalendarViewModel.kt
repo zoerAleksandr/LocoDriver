@@ -9,6 +9,7 @@ import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.friendlyNetworkErrorMessage
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.ReleasePeriod
 import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.TagForDay
@@ -343,6 +344,47 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    /**
+     * Добавить «Технические занятия» на выбранный день с указанным числом часов.
+     * Часы оплачиваются по среднему часу отдельной строкой в расчётном листе,
+     * на норму не влияют. Заменяет любое существующее отвлечение на этот день.
+     */
+    fun addTechnicalStudy(day: Int, hours: Double) {
+        val m = currentMonth ?: return
+        if (hours <= 0.0) return
+        viewModelScope.launch {
+            try {
+                val date = LocalDate(m.year, m.month + 1, day)
+                // Убираем любое отвлечение, ранее стоявшее на этот день.
+                releaseDayUseCase.deletePeriod(ReleasePeriod(days = listOf(date), type = null))
+                    .first { it is ResultState.Success || it is ResultState.Error }
+                val releaseDay = ReleaseDay(
+                    year = m.year,
+                    month = m.month,
+                    dayOfMonth = day,
+                    releaseType = ReleaseType.TechnicalStudy,
+                    hours = hours,
+                )
+                val saveResult = releaseDayUseCase.saveAll(listOf(releaseDay))
+                    .first { it is ResultState.Success || it is ResultState.Error }
+                if (saveResult is ResultState.Success) autoPushSettings()
+                // Синхронизируем объединённый месяц в settings.selectMonthOfYear —
+                // оттуда расчёт зарплаты читает часы техзанятий (Day.hours).
+                runCatching {
+                    calendarUseCase.loadFlowMonthOfYearListState().first()
+                        .find { it.year == m.year && it.month == m.month }
+                }.getOrNull()?.let { merged ->
+                    settingsUseCase.setCurrentMonthOfYear(merged).first()
+                }
+                loadMonth()
+            } catch (t: Throwable) {
+                if (t is CancellationException) throw t
+                t.sendToSentry("CalendarViewModel", "addTechnicalStudy")
+                snackbarManager.show("Не удалось добавить технические занятия")
+            }
+        }
+    }
+
     private fun autoPushSettings() {
         sharedPrefs.setSettingsSyncPending(true)
         viewModelScope.launch(Dispatchers.IO) {
@@ -503,6 +545,12 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         val conv = converter ?: return
         val context = TimeCalculationContext.from(setting)
 
+        // Обновляем настройки зарплаты — средний час мог измениться (например,
+        // пользователь вернулся с экрана настроек ЗП). Нужен для показа
+        // начисления за техзанятия в пикере.
+        salarySetting = runCatching { salarySettingUseCase.salarySettingFlow().first() }
+            .getOrNull() ?: salarySetting
+
         // Берём месяц из реактивного календаря (там объединены производственный
         // календарь + личные отвлечения из ReleaseDay), чтобы отвлечения
         // отображались и обновлялись после добавления.
@@ -553,6 +601,10 @@ class CalendarViewModel : ViewModel(), KoinComponent {
             val relByDay = month.days
                 .filter { it.isReleaseDay && it.releaseType != null }
                 .associate { it.dayOfMonth to (it.releaseType ?: ReleaseType.Other) }
+            // Явно заданные часы техзанятий по дням (для отображения в карточке).
+            val techHoursByDay = month.days
+                .filter { it.isReleaseDay && it.releaseType == ReleaseType.TechnicalStudy }
+                .associate { it.dayOfMonth to (it.hours ?: 0.0) }
             val sortedRel = relByDay.keys.sorted()
             var ri = 0
             while (ri < sortedRel.size) {
@@ -567,6 +619,10 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                 val periodHours = (startDay..endDay).sumOf { d ->
                     releaseHoursForDay(type, tagByDay[d] ?: TagForDay.WORKING_DAY)
                 }
+                // Для техзанятий — часы задаёт пользователь (Day.hours), а не тег дня.
+                val isTech = type == ReleaseType.TechnicalStudy
+                val customPeriodHours = if (isTech)
+                    (startDay..endDay).sumOf { d -> techHoursByDay[d] ?: 0.0 } else null
                 for (d in startDay..endDay) {
                     absenceByDay[d] = AbsenceInfo(
                         type = type,
@@ -576,6 +632,8 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                         periodEnd = endDay,
                         periodDays = endDay - startDay + 1,
                         periodHours = periodHours,
+                        customHoursPerDay = if (isTech) techHoursByDay[d] ?: 0.0 else null,
+                        customPeriodHours = customPeriodHours,
                     )
                 }
                 ri = rj + 1
@@ -670,6 +728,8 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                     dateAndTimeConverter = conv,
                     timeContext = context,
                     today = today,
+                    averagePaymentHour = salarySetting?.averagePaymentHour ?: 0.0,
+                    currencySymbol = currencySymbol(setting.country),
                 )
             }
         }
@@ -682,7 +742,10 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         // «Выходной» — не норма-часы, а ×2 тариф при работе; часы не показываем.
         // «Командировка» — оплата по фактическим маршрутам (средний час), норма-
         // часы отдыха не показываем.
-        if (type == ReleaseType.DayOff || type == ReleaseType.BusinessTrip) {
+        if (type == ReleaseType.DayOff || type == ReleaseType.BusinessTrip ||
+            type == ReleaseType.TechnicalStudy
+        ) {
+            // Техзанятия — часы задаёт пользователь (Day.hours), норма-часы не считаем.
             0
         } else if (type == ReleaseType.ChildCare) {
             when (tag) {
@@ -758,6 +821,8 @@ data class CalendarUiState(
     val dateAndTimeConverter: DateAndTimeConverter? = null,
     val timeContext: TimeCalculationContext? = null,
     val today: Int? = null,
+    val averagePaymentHour: Double = 0.0,   // средний час из настроек ЗП (для техзанятий)
+    val currencySymbol: String = "₽",
 )
 
 /** Признаки маршрута для быстрого просмотра (LongClick): чипы в шапке шторки. */
@@ -788,6 +853,10 @@ data class AbsenceInfo(
     val periodEnd: Int,      // конец периода
     val periodDays: Int,     // всего дней в периоде
     val periodHours: Int,    // всего норма-часов за период
+    // Для «Технических занятий» — введённые пользователем часы (Double), которые
+    // отображаются вместо норма-часов дня. Для остальных типов null.
+    val customHoursPerDay: Double? = null,
+    val customPeriodHours: Double? = null,
 )
 
 /**

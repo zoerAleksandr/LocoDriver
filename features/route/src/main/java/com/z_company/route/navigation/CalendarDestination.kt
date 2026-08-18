@@ -72,6 +72,7 @@ fun CalendarDestination(
         onCreateRoutes = viewModel::createPlannedRoutes,
         onAddAbsence = { router.showAbsence() },
         onAddDayoff = viewModel::addDayOff,
+        onAddTechnicalStudy = viewModel::addTechnicalStudy,
         onDeleteAbsenceDay = viewModel::deleteAbsenceDay,
         onDeleteAbsencePeriod = viewModel::deleteAbsencePeriod,
         dateAndTimeConverter = state.dateAndTimeConverter,

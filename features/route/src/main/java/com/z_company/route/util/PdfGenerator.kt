@@ -943,6 +943,7 @@ class PdfGenerator(private val context: Context) {
                             is ReleaseType.Donor -> "Донор"
                             is ReleaseType.ChildCare -> "Уход"
                             is ReleaseType.BusinessTrip -> "Команд."
+                            is ReleaseType.TechnicalStudy -> "Техзан."
                             else -> "Отвл."
                         }
                         val textW = paintTiny.measureText(label)
@@ -1069,6 +1070,7 @@ class PdfGenerator(private val context: Context) {
         row("По среднему", s.averagePaymentHours, null, s.averagePaymentMoney)
         row("По уходу за ребёнком-инвалидом", s.caringForDisableChildrenHours, null, s.caringForDisableChildrenMoney)
         row("Командировка (по среднему)", s.businessTripHours, null, s.businessTripMoney)
+        row("Технические занятия", s.technicalStudyHours, null, s.technicalStudyMoney)
 
         // Percentage-only surcharges
         fun rowPct(desc: String, pct: Double?, money: Double?) {
@@ -1079,13 +1081,8 @@ class PdfGenerator(private val context: Context) {
         rowPct("Зональная надбавка", s.zonalSurchargePercent, s.zonalSurchargeMoney)
         rowPct("Надбавка за класс квалификации", s.surchargeQualificationClassPercent, s.surchargeQualificationClassMoney)
         s.linearMileageAccruals.forEach { accrual ->
-            val distanceText = if (accrual.distance % 1.0 == 0.0) {
-                accrual.distance.toLong().toString()
-            } else {
-                "%.1f".format(accrual.distance)
-            }
             pm.salaryRow(
-                "Пробег ${accrual.phaseName} ($distanceText км × ${"%.2f".format(accrual.rate)} ₽/км)",
+                "Пробег ${accrual.phaseName} (${"%.2f".format(accrual.rate)} ₽/км)",
                 "",
                 "",
                 fmtMoney(accrual.money),

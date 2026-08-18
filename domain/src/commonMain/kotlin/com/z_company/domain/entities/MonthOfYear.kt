@@ -80,6 +80,7 @@ object ReleaseTypeSerializer : KSerializer<ReleaseType> {
         "По уходу за ребенком-инвалидом" -> ReleaseType.ChildCare
         "Выходной" -> ReleaseType.DayOff
         "Командировка" -> ReleaseType.BusinessTrip
+        "Технические занятия" -> ReleaseType.TechnicalStudy
         else -> ReleaseType.Other
     }
 
@@ -115,6 +116,14 @@ sealed class ReleaseType(val text: String) {
     // (по среднему)». Дни командировки — release-дни: уменьшают норму месяца.
     // Default-совместимость: старые клиенты/сервер распознают как Other.
     object BusinessTrip : ReleaseType("Командировка")
+
+    // «Технические занятия» — учебные занятия с явно указанным числом часов
+    // (поле ReleaseDay.hours / Day.hours). Эти часы оплачиваются ТОЛЬКО по
+    // среднему часу (SalarySetting.averagePaymentHour) отдельной строкой
+    // «Технические занятия (по среднему)». На месячную норму НЕ влияют, в
+    // «отработанное» время и в пул «оплата по среднему» (отвлечения) не входят.
+    // Default-совместимость: старые клиенты/сервер распознают как Other.
+    object TechnicalStudy : ReleaseType("Технические занятия")
     object Other : ReleaseType("Прочее")
 }
 
@@ -123,7 +132,11 @@ data class Day(
     val dayOfMonth: Int,
     val tag: TagForDay,
     val isReleaseDay: Boolean = false,
-    val releaseType: ReleaseType? = null
+    val releaseType: ReleaseType? = null,
+    // Явно заданные пользователем часы для дня (заполняется только для
+    // ReleaseType.TechnicalStudy — «Технические занятия»). Для остальных типов
+    // null; часы отвлечений считаются от тега дня, а не хранятся здесь.
+    val hours: Double? = null,
 )
 
 @Serializable

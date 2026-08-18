@@ -82,6 +82,8 @@ data class SalaryCalculationUIState(
     val caringForDisableChildrenMoney: Double? = null,
     val businessTripHours: Long? = null,
     val businessTripMoney: Double? = null,
+    val technicalStudyHours: Long? = null,
+    val technicalStudyMoney: Double? = null,
     val totalChargedMoney: Double? = null,
     val retentionNdfl: Double? = null,
     val unionistsRetention: Double? = null,

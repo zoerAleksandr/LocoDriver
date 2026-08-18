@@ -95,7 +95,8 @@ class SqlDelightCalendarRepository : CalendarRepositories, KoinComponent {
                         year = row.year.toInt(),
                         month = row.month.toInt(),
                         dayOfMonth = row.dayOfMonth.toInt(),
-                        releaseType = releaseTypeFromText(row.releaseType)
+                        releaseType = releaseTypeFromText(row.releaseType),
+                        hours = row.hours
                     )
                 } ?: emptyList()
 
@@ -183,7 +184,10 @@ class SqlDelightCalendarRepository : CalendarRepositories, KoinComponent {
             val releaseDay = releaseByDayOfMonth[day.dayOfMonth]
             day.copy(
                 isReleaseDay = releaseDay != null,
-                releaseType = releaseDay?.releaseType
+                releaseType = releaseDay?.releaseType,
+                // Часы «Технических занятий» переносим в Day — оттуда их читает
+                // расчёт зарплаты (оплата по среднему часу).
+                hours = releaseDay?.hours
             )
         }
         return month.copy(days = mergedDays)
@@ -197,6 +201,7 @@ class SqlDelightCalendarRepository : CalendarRepositories, KoinComponent {
         "По уходу за ребенком-инвалидом" -> ReleaseType.ChildCare
         "Выходной" -> ReleaseType.DayOff
         "Командировка" -> ReleaseType.BusinessTrip
+        "Технические занятия" -> ReleaseType.TechnicalStudy
         else -> ReleaseType.Other
     }
 }
