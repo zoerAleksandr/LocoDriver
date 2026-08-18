@@ -1031,8 +1031,13 @@ private fun TrainBlock(train: Train, dateAndTimeConverter: DateAndTimeConverter?
         // Характеристика (вес / оси / у.д.)
         val meta = buildList {
             train.weight?.takeIf { it.isNotBlank() }?.let { add("$it т") }
-            train.axle?.takeIf { it.isNotBlank() }?.let { add("$it ваг") }
-            train.conditionalLength?.takeIf { it.isNotBlank() }?.let { add("$it у.д.") }
+            train.axle?.takeIf { it.isNotBlank() }?.let { add("$it оси") }
+            train.conditionalLength?.takeIf { it.isNotBlank() }?.let { raw ->
+                val fmt = raw.toDoubleOrNull()
+                    ?.let { d -> if (d == kotlin.math.floor(d)) d.toLong().toString() else raw }
+                    ?: raw
+                add("$fmt у.д.")
+            }
         }
         if (meta.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
@@ -1150,7 +1155,7 @@ private fun StationRow(
                 Text(
                     text = "приб ${dateAndTimeConverter?.getTime(it) ?: ""}",
                     style = MaterialTheme.typography.labelMedium.copy(fontFamily = MonoFont),
-                    color = textMuted,
+                    color = text,
                 )
             }
             station.timeDeparture?.let {
