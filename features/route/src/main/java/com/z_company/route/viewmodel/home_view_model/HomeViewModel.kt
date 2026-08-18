@@ -387,8 +387,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
             todayWorkTime = completedRoutes.getWorkTime(monthOfYear, TimeCalculationContext.from(userSettings))
         }
 
-        // Запускаем обратный отсчёт до следующего маршрута
-        val next = routeList.findNextFutureRoute(currentTimeInMillis)
+        // Запускаем обратный отсчёт до следующего маршрута.
+        // Ищем по всем месяцам (allRoutesGlobal), а не по выбранному —
+        // блок «Следующий маршрут» не должен зависеть от выбранного месяца.
+        val next = allRoutesGlobal.findNextFutureRoute(currentTimeInMillis)
         nextFutureRoute = next
         next?.basicData?.timeStartWork?.let { startWork ->
             countdownTimer(startWork)
@@ -1841,21 +1843,13 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                 }
                             }
 
-                            currentRoute = fullRouteList.findCurrentRoute(
-                                currentTimeInMillis = currentTimeInMillis,
-                                userSettings = userSettings
-                            )
-
-                            if (currentRoute != null) {
-                                workTimer(currentRoute!!.basicData.timeStartWork!!)
-                                nextFutureRoute = null
-                                countdownTimerJob?.cancel()
-                            } else {
-                                nextFutureRoute = allRoutesGlobal.findNextFutureRoute(currentTimeInMillis)
-                                nextFutureRoute?.basicData?.timeStartWork?.let { startWork ->
-                                    countdownTimer(startWork)
-                                }
-                            }
+                            // Блоки «Текущий/Следующий маршрут» и «Отдых» НЕ зависят от
+                            // выбранного месяца: их считает коллектор getListRoutesAsFlow()
+                            // (все месяцы) через updateCurrentAndNextRoute()/recomputeRestBlock().
+                            // Раньше здесь currentRoute/nextFutureRoute пересчитывались из
+                            // fullRouteList выбранного месяца — при просмотре истории
+                            // (прошлый месяц) это искажало состояние: текущий маршрут пропадал.
+                            // Оставляем этот коллектор только для расчётов по выбранному месяцу.
 
 //                            withContext(Dispatchers.Main) {
                             _uiState.update {
