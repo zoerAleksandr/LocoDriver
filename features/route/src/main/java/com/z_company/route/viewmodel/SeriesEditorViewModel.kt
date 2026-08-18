@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
+import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.generateId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +47,7 @@ class SeriesEditorViewModel(
     initialName: String? = null,
 ) : ViewModel(), KoinComponent {
     private val repository: LocomotiveSeriesRepository by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
 
     // Generate ID once — prevents duplicates on autosave for new series
     private val persistentId: String = seriesId ?: generateId()
@@ -116,37 +118,64 @@ class SeriesEditorViewModel(
 
     /** Autosave — silent, does NOT set saved = true (no navigation side-effect). */
     fun save() {
+        viewModelScope.launch { persistRecord() }
+    }
+
+    /**
+     * Финальное сохранение при выходе («Готово»/назад): дописывает запись норм
+     * и регистрирует имя в справочнике настроек (locomotiveSeriesList), чтобы
+     * серия появилась в выпадающих списках при заполнении полей локомотива.
+     *
+     * Регистрацию имени делаем ТОЛЬКО здесь (не в autosave), иначе debounce во
+     * время набора успел бы добавить в справочник частичные имена-мусор.
+     */
+    fun commit() {
+        val name = _state.value.name.trim()
+        if (name.isBlank()) return
+        viewModelScope.launch { persistRecord() }
+        // Отдельная корутина: setLocomotiveSeries в конце вызывает this.cancel().
+        viewModelScope.launch { settingsUseCase.setLocomotiveSeries(name) }
+    }
+
+    private suspend fun persistRecord() {
         val s = _state.value
         if (s.name.isBlank()) return
         val hasNorm = s.acceptanceDurationMin != null || s.deliveryDurationMin != null ||
             s.acceptanceHandToHandMin != null || s.deliveryHandToHandMin != null
-        viewModelScope.launch {
-            val all = repository.getAll().toMutableList()
-            val idx = all.indexOfFirst { it.seriesId == persistentId }
-            // Не создаём новую запись без норм: иначе «старая» серия (только имя в
-            // locomotiveSeriesList), открытая и закрытая без ввода, сохранилась бы
-            // как серия и «переехала» бы из раздела «без норм» наверх.
-            if (idx < 0 && !hasNorm) return@launch
-            val updated = LocomotiveSeries(
-                seriesId = persistentId,
-                name = s.name.trim(),
-                type = s.type,
-                acceptanceDurationMin = s.acceptanceDurationMin,
-                deliveryDurationMin = s.deliveryDurationMin,
-                acceptanceHandToHandMin = s.acceptanceHandToHandMin,
-                deliveryHandToHandMin = s.deliveryHandToHandMin,
-            )
-            if (idx >= 0) all[idx] = updated else all.add(updated)
-            repository.replaceAll(all).collect {}
-        }
+        val all = repository.getAll().toMutableList()
+        val idx = all.indexOfFirst { it.seriesId == persistentId }
+        // Не создаём новую запись без норм: иначе «старая» серия (только имя в
+        // locomotiveSeriesList), открытая и закрытая без ввода, сохранилась бы
+        // как серия и «переехала» бы из раздела «без норм» наверх.
+        if (idx < 0 && !hasNorm) return
+        val updated = LocomotiveSeries(
+            seriesId = persistentId,
+            name = s.name.trim(),
+            type = s.type,
+            acceptanceDurationMin = s.acceptanceDurationMin,
+            deliveryDurationMin = s.deliveryDurationMin,
+            acceptanceHandToHandMin = s.acceptanceHandToHandMin,
+            deliveryHandToHandMin = s.deliveryHandToHandMin,
+        )
+        if (idx >= 0) all[idx] = updated else all.add(updated)
+        repository.replaceAll(all).collect {}
     }
 
     fun delete() {
         val sid = _state.value.seriesId ?: return
+        val name = _state.value.name.trim()
         viewModelScope.launch {
             val updated = repository.getAll().filter { it.seriesId != sid }
             repository.replaceAll(updated).collect {}
+            // Ставим deleted ДО removeLocomotiveSeries: тот в конце вызывает
+            // this.cancel(), и отмена прервала бы корутину раньше, чем выставится
+            // флаг (из-за чего экран не перенаправлялся к списку).
             _state.update { it.copy(deleted = true) }
+        }
+        // Серия в справочнике = запись норм (LocomotiveSeries) ∪ имя в
+        // settings.locomotiveSeriesList. Отдельная корутина — из-за this.cancel().
+        if (name.isNotBlank()) {
+            viewModelScope.launch { settingsUseCase.removeLocomotiveSeries(name) }
         }
     }
 }

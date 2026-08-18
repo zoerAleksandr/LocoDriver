@@ -34,6 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -191,6 +192,11 @@ fun SettingsScreen(
     // То же для «старой» станции (из stationList, без норм).
     var prefillStationName by remember { mutableStateOf<String?>(null) }
 
+    // Ссылки на активные редакторы — чтобы «Готово»/системный «назад» из топбара
+    // могли сохранить (commit) станцию/серию перед уходом с экрана.
+    var activeStationEditor by remember { mutableStateOf<StationNormEditorViewModel?>(null) }
+    var activeSeriesEditor by remember { mutableStateOf<SeriesEditorViewModel?>(null) }
+
     // Если пользователь попал сразу на под-экран (через deep link из FormLocoScreen
     // и т.п.) — back должен возвращать по backstack, а не в HUB настроек.
     // Если пользователь открыл настройки с HUB и перешёл во вложенный — back возвращает в HUB.
@@ -207,10 +213,14 @@ fun SettingsScreen(
 
     BackHandler(currentSubScreen != SettingsSubScreen.HUB) {
         when (currentSubScreen) {
-            SettingsSubScreen.SERIES_EDITOR ->
+            SettingsSubScreen.SERIES_EDITOR -> {
+                activeSeriesEditor?.commit()
                 if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.SERIES_LIST
-            SettingsSubScreen.STATION_EDITOR ->
+            }
+            SettingsSubScreen.STATION_EDITOR -> {
+                activeStationEditor?.commit()
                 if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.STATION_LIST
+            }
             SettingsSubScreen.PARTNER_EDITOR ->
                 currentSubScreen = SettingsSubScreen.PARTNER_LIST
             else -> {
@@ -228,13 +238,33 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    if (currentSubScreen != SettingsSubScreen.HUB) {
+                    val isEditor = currentSubScreen == SettingsSubScreen.STATION_EDITOR ||
+                        currentSubScreen == SettingsSubScreen.SERIES_EDITOR
+                    if (isEditor) {
+                        // В редакторе станции/серии — синий «Готово» (как в форме
+                        // маршрута): сохраняет и возвращает к списку.
+                        TextButton(onClick = {
+                            when (currentSubScreen) {
+                                SettingsSubScreen.STATION_EDITOR -> {
+                                    activeStationEditor?.commit()
+                                    if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.STATION_LIST
+                                }
+                                SettingsSubScreen.SERIES_EDITOR -> {
+                                    activeSeriesEditor?.commit()
+                                    if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.SERIES_LIST
+                                }
+                                else -> {}
+                            }
+                        }) {
+                            Text(
+                                text = "Готово",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.tertiary,
+                            )
+                        }
+                    } else if (currentSubScreen != SettingsSubScreen.HUB) {
                         IconButton(onClick = {
                             when (currentSubScreen) {
-                                SettingsSubScreen.SERIES_EDITOR ->
-                                    if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.SERIES_LIST
-                                SettingsSubScreen.STATION_EDITOR ->
-                                    if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.STATION_LIST
                                 SettingsSubScreen.PARTNER_EDITOR ->
                                     currentSubScreen = SettingsSubScreen.PARTNER_LIST
                                 else -> if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
@@ -462,6 +492,7 @@ fun SettingsScreen(
                                 key = "series_editor_${selectedSeriesId ?: prefillSeriesName ?: "new"}",
                                 parameters = { parametersOf(selectedSeriesId, prefillSeriesName) }
                             )
+                            LaunchedEffect(editorVm) { activeSeriesEditor = editorVm }
                             SettingsSeriesEditorContent(
                                 viewModel = editorVm,
                                 onDone = {
@@ -497,6 +528,7 @@ fun SettingsScreen(
                                 key = "station_editor_${selectedStationId ?: prefillStationName ?: "new"}",
                                 parameters = { parametersOf(selectedStationId, prefillStationName) }
                             )
+                            LaunchedEffect(editorVm) { activeStationEditor = editorVm }
                             SettingsStationEditorContent(
                                 viewModel = editorVm,
                                 onDone = {
@@ -559,8 +591,8 @@ private fun SettingsHubContent(
             .padding(bottom = 32.dp)
             .testTag("settings_scroll_column"),
     ) {
-        // ── Справочники норм ──────────────────────────────────────
-        SettingsGroupHeader("Справочники норм", top = 4.dp)
+        // ── Справочники ──────────────────────────────────────
+        SettingsGroupHeader("Справочники", top = 4.dp)
         SettingsGroupCard {
             SettingsRow(
                 iconRes = com.z_company.route.R.drawable.ic_card_locomotive_ref,

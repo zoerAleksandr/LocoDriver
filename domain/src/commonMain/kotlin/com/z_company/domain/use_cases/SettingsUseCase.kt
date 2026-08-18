@@ -127,7 +127,9 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
                             val oldStations = settings.stationList
                             val newList = mutableListOf<String>()
                             newList.addAll(oldStations)
-                            newList.remove(value)
+                            // trim-сравнение: в списке имя могло сохраниться с
+                            // пробелами, а вызывающий передаёт уже обрезанное.
+                            newList.removeAll { it.trim() == value.trim() }
 
                             settingsRepository.setStations(newList).collect()
                         }
@@ -147,7 +149,7 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
                             val oldSeries = settings.locomotiveSeriesList
                             val newList = mutableListOf<String>()
                             newList.addAll(oldSeries)
-                            newList.remove(value)
+                            newList.removeAll { it.trim() == value.trim() }
                             settingsRepository.setLocomotiveSeriesList(newList).collect()
                         }
                         this.cancel()

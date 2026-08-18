@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.domain.entities.norma_time.StationNorm
 import com.z_company.domain.repositories.StationNormRepository
+import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.generateId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +35,7 @@ class StationNormEditorViewModel(
     initialName: String? = null,
 ) : ViewModel(), KoinComponent {
     private val repository: StationNormRepository by inject()
+    private val settingsUseCase: SettingsUseCase by inject()
 
     // Generate the ID once — prevents duplicate rows on each autosave for new stations.
     private val persistentId: String = stationId ?: generateId()
@@ -125,36 +127,65 @@ class StationNormEditorViewModel(
 
     /** Autosave — silent, does NOT set saved = true (no navigation side-effect). */
     fun save() {
+        viewModelScope.launch { persistRecord() }
+    }
+
+    /**
+     * Финальное сохранение при выходе («Готово»/назад): дописывает запись норм
+     * и регистрирует имя в справочнике настроек (stationList), чтобы станция
+     * появилась в выпадающих списках при заполнении полей.
+     *
+     * Регистрацию имени делаем ТОЛЬКО здесь (не в autosave), иначе debounce во
+     * время набора успел бы добавить в справочник частичные имена-мусор.
+     */
+    fun commit() {
+        val name = _state.value.name.trim()
+        if (name.isBlank()) return
+        viewModelScope.launch { persistRecord() }
+        // Отдельная корутина: setStations в конце вызывает this.cancel(),
+        // и эта отмена не должна прерывать сохранение записи выше.
+        viewModelScope.launch { settingsUseCase.setStations(listOf(name)) }
+    }
+
+    private suspend fun persistRecord() {
         val s = _state.value
         if (s.name.isBlank()) return
         val hasAnyNorm = s.appearanceToStartMin != null || s.endToBarrierMin != null ||
             s.barrierToStartMin != null || s.endToWorkEndMin != null
-        viewModelScope.launch {
-            val all = repository.getAll().toMutableList()
-            val idx = all.indexOfFirst { it.stationId == persistentId }
-            // Не создаём новую запись без норм: иначе «старая» станция (только имя в
-            // stationList), открытая и закрытая без ввода, сохранилась бы записью и
-            // «переехала» бы из раздела «без норм» наверх.
-            if (idx < 0 && !hasAnyNorm) return@launch
-            val updated = StationNorm(
-                stationId = persistentId,
-                name = s.name.trim(),
-                appearanceToStartMin = s.appearanceToStartMin,
-                endToBarrierMin = s.endToBarrierMin,
-                barrierToStartMin = s.barrierToStartMin,
-                endToWorkEndMin = s.endToWorkEndMin,
-            )
-            if (idx >= 0) all[idx] = updated else all.add(updated)
-            repository.replaceAll(all).collect {}
-        }
+        val all = repository.getAll().toMutableList()
+        val idx = all.indexOfFirst { it.stationId == persistentId }
+        // Не создаём новую запись без норм: иначе «старая» станция (только имя в
+        // stationList), открытая и закрытая без ввода, сохранилась бы записью и
+        // «переехала» бы из раздела «без норм» наверх.
+        if (idx < 0 && !hasAnyNorm) return
+        val updated = StationNorm(
+            stationId = persistentId,
+            name = s.name.trim(),
+            appearanceToStartMin = s.appearanceToStartMin,
+            endToBarrierMin = s.endToBarrierMin,
+            barrierToStartMin = s.barrierToStartMin,
+            endToWorkEndMin = s.endToWorkEndMin,
+        )
+        if (idx >= 0) all[idx] = updated else all.add(updated)
+        repository.replaceAll(all).collect {}
     }
 
     fun delete() {
         val sid = _state.value.stationId ?: return
+        val name = _state.value.name.trim()
         viewModelScope.launch {
             val updated = repository.getAll().filter { it.stationId != sid }
             repository.replaceAll(updated).collect {}
+            // Ставим deleted ДО removeStation: тот в конце вызывает this.cancel(),
+            // и отмена прервала бы корутину раньше, чем выставится флаг (из-за
+            // чего экран не перенаправлялся к списку).
             _state.update { it.copy(deleted = true) }
+        }
+        // Станция в справочнике = запись норм (StationNorm) ∪ имя в
+        // settings.stationList. Удаляем и имя, иначе станция «возвращается»
+        // как legacy-запись без норм. Отдельная корутина — из-за this.cancel().
+        if (name.isNotBlank()) {
+            viewModelScope.launch { settingsUseCase.removeStation(name) }
         }
     }
 }

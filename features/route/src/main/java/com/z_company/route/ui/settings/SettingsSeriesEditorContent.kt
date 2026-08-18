@@ -46,6 +46,7 @@ import com.z_company.route.viewmodel.SeriesEditorViewModel
 import com.z_company.route.viewmodel.SeriesNormField
 import kotlinx.coroutines.delay
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsSeriesEditorContent(
     viewModel: SeriesEditorViewModel,
@@ -56,6 +57,45 @@ fun SettingsSeriesEditorContent(
     // Navigate only when deleted
     LaunchedEffect(state.deleted) {
         if (state.deleted) onDone()
+    }
+
+    // Шторка подтверждения удаления — как при удалении маршрута.
+    var showConfirmDelete by remember { mutableStateOf(false) }
+    val deleteSheetState = androidx.compose.material3.rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+    if (showConfirmDelete) {
+        com.z_company.route.component.AppBottomSheet(
+            onDismissRequest = { showConfirmDelete = false },
+            sheetState = deleteSheetState,
+            headerContent = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "Удалить серию?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                    if (state.name.isNotBlank()) {
+                        Text(
+                            text = state.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            },
+            actions = listOf(
+                com.z_company.route.component.BottomSheetAction(text = "Да, удалить") {
+                    viewModel.delete()
+                }
+            )
+        )
     }
 
     // Autosave with 500ms debounce on any field change
@@ -270,13 +310,7 @@ fun SettingsSeriesEditorContent(
                 .fillMaxWidth()
                 .clip(Shapes.medium)
                 .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), Shapes.medium)
-                .clickable {
-                    if (state.seriesId == null) {
-                        onDone()
-                    } else {
-                        viewModel.delete()
-                    }
-                }
+                .clickable { showConfirmDelete = true }
                 .padding(vertical = 14.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
