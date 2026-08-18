@@ -18,6 +18,7 @@ import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.RoutePartner
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.reidentifyForImport
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
@@ -295,11 +296,14 @@ class FormViewModel(
                 routeId?.let { id ->
                     routeUseCase.routeDetails(id).collectLatest { result ->
                         if (result is ResultState.Success) {
-                            val loadedRoute = if (isCopy) result.data?.copy(
-                                basicData = result.data!!.basicData.copy(
-                                    id = UUID.randomUUID().toString()
-                                )
-                            ) else result.data
+                            // Копия: переприсваиваем ВСЕ идентификаторы (BasicData +
+                            // локомотивы/поезда/пассажиры/прочая работа/напарники) и
+                            // сбрасываем ссылки облачной синхронизации. Иначе дочерние
+                            // записи сохраняются с прежним basicId (foreign key) и
+                            // остаются привязанными к оригиналу — в копию не попадают
+                            // (симптом: «прочая работа» не переносится в копию).
+                            val loadedRoute = if (isCopy) result.data?.reidentifyForImport()
+                            else result.data
                             _uiState.update { it.copy(routeDetailState = result) }
                             countLoadRoute += 1
                             // Копию НЕ сохраняем сразу — ждём первого изменения от пользователя
