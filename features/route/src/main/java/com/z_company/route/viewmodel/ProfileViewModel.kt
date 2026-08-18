@@ -719,6 +719,29 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    /**
+     * Централизованная обработка просроченного (невалидного) bearer-токена.
+     *
+     * Сервер вернул 401 — локальная сессия больше не действительна. Полностью
+     * разлогиниваем пользователя (как [logOut]), чтобы стухший токен не остался
+     * в хранилище и не вызывал мигание «залогинен → форма входа» при следующем
+     * открытии экрана. Профиль сбрасываем в состояние формы входа
+     * (`Success(null)`), а не «ошибка загрузки», и поясняем причину.
+     */
+    private suspend fun handleSessionExpired() {
+        secureTokenStorage.saveAuthToken("")
+        secureTokenStorage.saveVkId("")
+        _isLoggedIn.value = false
+        _uiState.update {
+            it.copy(
+                userDetailsState = ResultState.Success(null),
+                vkUserState = ResultState.Success(null),
+                isProfileNetworkError = false
+            )
+        }
+        snackbarManager.show("Сессия истекла. Войдите снова.")
+    }
+
     // Чтобы выполнять вход с email и password, обновлять состояние авторизации, сохранять токен при успехе и обновлять _isLoggedIn. Это вызывается из кнопки "Войти" в ProfileScreen.
     fun authWithEmail(email: String, password: String) {
         loginJob?.cancel()
@@ -900,14 +923,17 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     }
                     if (state is GetUserProfileState.Error) {
                         if (state.code == 401) {
-                            _isLoggedIn.value = false
-                        }
-                        val networkErr = state.code == 0 || isNetworkErrorMessage(state.message ?: "")
-                        _uiState.update {
-                            it.copy(
-                                userDetailsState = ResultState.Error(ErrorEntity(message = state.message)),
-                                isProfileNetworkError = networkErr
-                            )
+                            // Просроченный/невалидный bearer-токен — сессия истекла.
+                            // Разлогиниваем и показываем форму входа, а не «ошибку загрузки».
+                            handleSessionExpired()
+                        } else {
+                            val networkErr = state.code == 0 || isNetworkErrorMessage(state.message ?: "")
+                            _uiState.update {
+                                it.copy(
+                                    userDetailsState = ResultState.Error(ErrorEntity(message = state.message)),
+                                    isProfileNetworkError = networkErr
+                                )
+                            }
                         }
                     }
                 }
