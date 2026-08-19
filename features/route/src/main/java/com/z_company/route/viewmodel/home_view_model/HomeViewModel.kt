@@ -336,12 +336,13 @@ class HomeViewModel : ViewModel(), KoinComponent {
             }
         }
         set(value) {
-            val subscriptionActive =
-                (value?.subscriptionPeriod ?: 0L) > System.currentTimeMillis()
+            val subscriptionEndTime = value?.subscriptionPeriod ?: 0L
+            val subscriptionActive = subscriptionEndTime > System.currentTimeMillis()
             _uiState.update {
                 it.copy(
                     settingState = ResultState.Success(value),
-                    hasActiveSubscription = subscriptionActive
+                    hasActiveSubscription = subscriptionActive,
+                    subscriptionEndTime = subscriptionEndTime
                 )
             }
         }

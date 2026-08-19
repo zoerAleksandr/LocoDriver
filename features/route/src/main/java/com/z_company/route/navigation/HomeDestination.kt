@@ -110,6 +110,8 @@ fun HomeDestination(
         onStatistics = router::showStatistics,
         unsyncedRoutesCount = uiState.unsyncedRoutesCount,
         hasActiveSubscription = uiState.hasActiveSubscription,
+        subscriptionEndTime = uiState.subscriptionEndTime,
+        onPurchasesClick = router::showPurchasesScreen,
         onSyncClick = homeViewModel::manualSync,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh() },

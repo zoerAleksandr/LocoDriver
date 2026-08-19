@@ -22,6 +22,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -115,6 +116,7 @@ import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.toMoneyString
 import com.z_company.route.R
+import kotlin.math.ceil
 import android.net.Uri
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
@@ -211,6 +213,8 @@ fun HomeScreen(
     normaHours: Int? = null,
     unsyncedRoutesCount: Int = 0,
     hasActiveSubscription: Boolean = false,
+    subscriptionEndTime: Long = 0L,
+    onPurchasesClick: () -> Unit = {},
     isBackgroundSyncing: Boolean = false,
     onSyncClick: () -> Unit = {},
     showSyncDialog: Boolean = false,
@@ -244,6 +248,26 @@ fun HomeScreen(
     // текущему числу — если появятся новые несинхронизированные маршруты,
     // карточка покажется снова.
     var syncCardDismissed by remember(unsyncedRoutesCount) { mutableStateOf(false) }
+
+    // Карточка «Подписка скоро закончится / закончилась». Логика состояний та же,
+    // что на экране покупок (PurchasesScreen: PurchaseUi.Active/Expired).
+    val subscriptionNotice = remember(subscriptionEndTime) {
+        val now = System.currentTimeMillis()
+        when {
+            subscriptionEndTime == 0L -> null
+            subscriptionEndTime > now -> {
+                val daysLeft =
+                    ceil((subscriptionEndTime - now).toDouble() / SUBSCRIPTION_DAY_MS).toLong()
+                if (daysLeft <= SUBSCRIPTION_EXPIRING_SOON_DAYS) {
+                    SubscriptionNotice.ExpiringSoon(daysLeft)
+                } else null
+            }
+
+            else -> SubscriptionNotice.Expired
+        }
+    }
+    // Ручное скрытие — до следующей смены состояния подписки (как у карточки синхронизации).
+    var subscriptionCardDismissed by remember(subscriptionNotice) { mutableStateOf(false) }
 
     val snackbarManager: ISnackbarManager = koinInject()
     val pdfViewModel: PdfViewModel = koinInject()
@@ -965,71 +989,29 @@ fun HomeScreen(
                                 .animateItem(),
                             state = pagerState
                         )
-                        AnimatedVisibility(
-                            visible = hasActiveSubscription &&
-                                unsyncedRoutesCount > 2 &&
-                                !syncCardDismissed
-                        ) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.secondary
-                                ),
-                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            modifier = Modifier.weight(1f),
-                                            text = "Внимание!",
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                        IconButton(
-                                            onClick = { syncCardDismissed = true },
-                                            modifier = Modifier.size(24.dp)
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_close_24px),
-                                                contentDescription = "Закрыть",
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    }
-                                    Text(
-                                        text = "Не синхронизировано маршрутов: $unsyncedRoutesCount",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Text(
-                                        text = "Проверьте подключение к интернету и выполните синхронизацию.",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Button(
-                                        onClick = onSyncClick,
-                                        shape = Shapes.medium,
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                                        )
-                                    ) {
-                                        Text(
-                                            text = "Синхронизировать",
-                                            color = MaterialTheme.colorScheme.secondary,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                        )
-                                    }
-                                }
+                        // Информационные карточки («Подписка заканчивается»,
+                        // «Не синхронизировано маршрутов»). Если актуальна больше
+                        // одной — показываем каруселью, чтобы не растягивать экран.
+                        val notices = buildList {
+                            if (subscriptionNotice != null && !subscriptionCardDismissed) {
+                                add(HomeNoticeType.Subscription)
                             }
+                            if (hasActiveSubscription && unsyncedRoutesCount > 2 && !syncCardDismissed) {
+                                add(HomeNoticeType.UnsyncedRoutes)
+                            }
+                        }
+                        AnimatedVisibility(visible = notices.isNotEmpty()) {
+                            HomeNoticeCarousel(
+                                notices = notices,
+                                subscriptionNotice = subscriptionNotice,
+                                subscriptionEndTime = subscriptionEndTime,
+                                dateAndTimeConverter = dateAndTimeConverter,
+                                unsyncedRoutesCount = unsyncedRoutesCount,
+                                onSubscriptionDismiss = { subscriptionCardDismissed = true },
+                                onPurchasesClick = onPurchasesClick,
+                                onSyncDismiss = { syncCardDismissed = true },
+                                onSyncClick = onSyncClick,
+                            )
                         }
                     }
                 }
@@ -2654,4 +2636,270 @@ fun DetailTrainCard(
             }
         }
     }
+}
+
+
+// ── Информационные карточки главного экрана ─────────────────────────────────
+// Живут одним слотом под сводкой месяца. Если актуальны обе — листаются
+// каруселью (с индикатором), чтобы не растягивать экран двумя баннерами.
+
+private enum class HomeNoticeType { Subscription, UnsyncedRoutes }
+
+@Composable
+private fun HomeNoticeCarousel(
+    notices: List<HomeNoticeType>,
+    subscriptionNotice: SubscriptionNotice?,
+    subscriptionEndTime: Long,
+    dateAndTimeConverter: DateAndTimeConverter?,
+    unsyncedRoutesCount: Int,
+    onSubscriptionDismiss: () -> Unit,
+    onPurchasesClick: () -> Unit,
+    onSyncDismiss: () -> Unit,
+    onSyncClick: () -> Unit,
+) {
+    if (notices.isEmpty()) return
+    val pagerState = rememberPagerState(pageCount = { notices.size })
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        HorizontalPager(
+            state = pagerState,
+            verticalAlignment = Alignment.Top,
+        ) { page ->
+            when (notices[page]) {
+                HomeNoticeType.Subscription -> SubscriptionNoticeCard(
+                    notice = subscriptionNotice,
+                    endTime = subscriptionEndTime,
+                    dateAndTimeConverter = dateAndTimeConverter,
+                    onDismiss = onSubscriptionDismiss,
+                    onPurchasesClick = onPurchasesClick,
+                )
+
+                HomeNoticeType.UnsyncedRoutes -> UnsyncedRoutesCard(
+                    unsyncedRoutesCount = unsyncedRoutesCount,
+                    onDismiss = onSyncDismiss,
+                    onSyncClick = onSyncClick,
+                )
+            }
+        }
+        if (notices.size > 1) {
+            LinearPagerIndicator(
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                state = pagerState
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeNoticeCard(
+    title: String,
+    message: String,
+    hint: String,
+    buttonText: String,
+    iconRes: Int?,
+    /** Акцентный цвет баннера (оранжевый/красный, как на экране покупок). null — нейтральная карточка. */
+    tone: Color?,
+    buttonContentColor: Color?,
+    onDismiss: () -> Unit,
+    onButtonClick: () -> Unit,
+) {
+    val content: @Composable ColumnScope.() -> Unit = {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (iconRes != null) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(11.dp))
+                        .background((tone ?: MaterialTheme.colorScheme.primary).copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        modifier = Modifier.size(21.dp),
+                        painter = painterResource(iconRes),
+                        contentDescription = null,
+                        tint = tone ?: MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            Text(
+                modifier = Modifier.weight(1f),
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_close_24px),
+                    contentDescription = "Закрыть",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = hint,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(
+            onClick = onButtonClick,
+            shape = Shapes.medium,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = tone ?: MaterialTheme.colorScheme.surfaceContainerLow
+            )
+        ) {
+            Text(
+                text = buttonText,
+                color = buttonContentColor ?: MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
+
+    if (tone == null) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondary
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                content = content
+            )
+        }
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp)
+                .clip(Shapes.medium)
+                .background(tone.copy(alpha = 0.12f))
+                .border(1.dp, tone.copy(alpha = 0.32f), Shapes.medium)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun UnsyncedRoutesCard(
+    unsyncedRoutesCount: Int,
+    onDismiss: () -> Unit,
+    onSyncClick: () -> Unit,
+) {
+    HomeNoticeCard(
+        title = "Внимание!",
+        message = "Не синхронизировано маршрутов: $unsyncedRoutesCount",
+        hint = "Проверьте подключение к интернету и выполните синхронизацию.",
+        buttonText = "Синхронизировать",
+        iconRes = null,
+        tone = null,
+        buttonContentColor = null,
+        onDismiss = onDismiss,
+        onButtonClick = onSyncClick,
+    )
+}
+
+// ── Карточка «Подписка скоро закончится / закончилась» ──────────────────────
+// Живёт в том же месте главного экрана, что и карточка «Не синхронизировано
+// маршрутов». Состояния повторяют экран покупок (PurchasesScreen: PurchaseUi).
+
+/** Порог «скоро закончится» — как EXPIRING_SOON_DAYS на экране покупок. */
+private const val SUBSCRIPTION_EXPIRING_SOON_DAYS = 7L
+private const val SUBSCRIPTION_DAY_MS = 24L * 60 * 60 * 1000
+
+private sealed interface SubscriptionNotice {
+    /** Подписка ещё активна, но осталось не больше SUBSCRIPTION_EXPIRING_SOON_DAYS дней. */
+    data class ExpiringSoon(val daysLeft: Long) : SubscriptionNotice
+
+    /** Подписка была, но закончилась. */
+    data object Expired : SubscriptionNotice
+}
+
+private fun subscriptionDaysWord(n: Long): String {
+    val nn = n % 100
+    val n1 = n % 10
+    return when {
+        nn in 11..14 -> "дней"
+        n1 == 1L -> "день"
+        n1 in 2..4 -> "дня"
+        else -> "дней"
+    }
+}
+
+@Composable
+private fun SubscriptionNoticeCard(
+    notice: SubscriptionNotice?,
+    endTime: Long,
+    dateAndTimeConverter: DateAndTimeConverter?,
+    onDismiss: () -> Unit,
+    onPurchasesClick: () -> Unit,
+) {
+    if (notice == null) return
+    val dateText = dateAndTimeConverter?.getDate(endTime) ?: ""
+
+    val title: String
+    val message: String
+    val hint: String
+    val buttonText: String
+    val iconRes: Int
+    val tone: Color
+    val buttonContentColor: Color
+    when (notice) {
+        is SubscriptionNotice.ExpiringSoon -> {
+            title = "Подписка заканчивается"
+            message = if (notice.daysLeft <= 0L) {
+                "Заканчивается сегодня, $dateText"
+            } else {
+                "Осталось ${notice.daysLeft} ${subscriptionDaysWord(notice.daysLeft)} — до $dateText"
+            }
+            hint = "Продлите заранее — новый срок прибавится к текущему, дни не сгорят."
+            buttonText = "Продлить"
+            iconRes = R.drawable.ic_pro_schedule
+            // Тот же «предупреждающий» оранжевый, что у WarningBanner на экране покупок.
+            tone = MaterialTheme.colorScheme.surfaceContainerHigh
+            buttonContentColor = Color(0xFF1B1300)
+        }
+
+        SubscriptionNotice.Expired -> {
+            title = "Подписка закончилась"
+            message = "Закончилась $dateText"
+            hint = "Маршруты и история сохранены. Но добавлять новые и пользоваться синхронизацией нельзя, пока подписка не возобновлена."
+            buttonText = "Возобновить"
+            iconRes = R.drawable.ic_pro_alert
+            // Тот же красный, что у StatusBanner «Подписка истекла» на экране покупок.
+            tone = MaterialTheme.colorScheme.error
+            buttonContentColor = MaterialTheme.colorScheme.onError
+        }
+    }
+
+    HomeNoticeCard(
+        title = title,
+        message = message,
+        hint = hint,
+        buttonText = buttonText,
+        iconRes = iconRes,
+        tone = tone,
+        buttonContentColor = buttonContentColor,
+        onDismiss = onDismiss,
+        onButtonClick = onPurchasesClick,
+    )
 }

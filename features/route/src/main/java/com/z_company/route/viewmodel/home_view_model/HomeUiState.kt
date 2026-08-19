@@ -49,6 +49,12 @@ data class HomeUiState(
      * «не синхронизированы», но синхронизировать их всё равно нельзя).
      */
     val hasActiveSubscription: Boolean = false,
+    /**
+     * Время окончания подписки (ms epoch), 0 — подписки никогда не было.
+     * Нужно для карточки «Подписка скоро закончится / закончилась» на главном
+     * экране (та же логика, что на экране покупок: PurchaseUi.Active/Expired).
+     */
+    val subscriptionEndTime: Long = 0L,
     /** Фоновая синхронизация при открытии экрана; UI показывает тонкую полосу сверху. */
     val isBackgroundSyncing: Boolean = false,
     val showSyncDialog: Boolean = false,
