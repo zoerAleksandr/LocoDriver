@@ -591,7 +591,17 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 .collect { result ->
                     when (result) {
                         is ResultState.Loading -> {
-                            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+                            // Полноэкранный спиннер — только для самой первой загрузки.
+                            // Если список уже отрисован (например, идёт фоновая
+                            // синхронизация и combinedData перезапустил loadRoutes из-за
+                            // обновления настроек), не подменяем его спиннером — иначе
+                            // экран «моргает» на каждое такое переоткрытие потока.
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = it.routes.isEmpty(),
+                                    errorMessage = null
+                                )
+                            }
                         }
 
                         is ResultState.Success -> {
