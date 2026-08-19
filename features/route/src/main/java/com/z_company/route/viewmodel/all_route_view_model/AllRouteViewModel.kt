@@ -93,7 +93,11 @@ data class RoutesUiState(
     // формат HH:MM — показывается рядом со счётчиком маршрутов.
     val monthWorkedTimeText: String = "",
     /** Фоновая синхронизация при открытии экрана. */
-    val isBackgroundSyncing: Boolean = false
+    val isBackgroundSyncing: Boolean = false,
+    /** Режим множественного выбора (кнопка «Выбрать» в топбаре). */
+    val isSelectionMode: Boolean = false,
+    /** id выбранных маршрутов — действия нижней панели применяются к ним. */
+    val selectedRouteIds: Set<String> = emptySet()
 )
 
 enum class SortOption {
@@ -695,6 +699,164 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
         return newValue
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // Режим множественного выбора маршрутов («Выбрать» в топбаре).
+    // Действия нижней панели применяются к selectedRouteIds.
+    // ─────────────────────────────────────────────────────────────
+
+    fun enterSelectionMode() {
+        _uiState.update { it.copy(isSelectionMode = true, selectedRouteIds = emptySet()) }
+    }
+
+    fun exitSelectionMode() {
+        _uiState.update { it.copy(isSelectionMode = false, selectedRouteIds = emptySet()) }
+    }
+
+    fun toggleRouteSelection(routeId: String) {
+        _uiState.update { state ->
+            val selected = state.selectedRouteIds
+            state.copy(
+                selectedRouteIds = if (selected.contains(routeId)) selected.minus(routeId)
+                else selected.plus(routeId)
+            )
+        }
+    }
+
+    /** Выделить все видимые (после фильтров) маршруты или снять выделение со всех. */
+    fun toggleSelectAll() {
+        _uiState.update { state ->
+            val visibleIds = state.filteredRoutes.map { it.route.basicData.id }.toSet()
+            state.copy(
+                selectedRouteIds = if (state.selectedRouteIds.containsAll(visibleIds) &&
+                    visibleIds.isNotEmpty()
+                ) emptySet() else visibleIds
+            )
+        }
+    }
+
+    /** Маршруты по текущему выделению (в порядке загруженного списка). */
+    private fun selectedRoutes(): List<Route> {
+        val ids = _uiState.value.selectedRouteIds
+        return _uiState.value.routes
+            .filter { ids.contains(it.route.basicData.id) }
+            .map { it.route }
+    }
+
+    /** Массовое удаление (soft-delete, как одиночное — маршрут уходит в isDeleted). */
+    fun deleteSelectedRoutes() {
+        val routes = selectedRoutes()
+        if (routes.isEmpty()) return
+        removeRouteJob?.cancel()
+        removeRouteJob = viewModelScope.launch {
+            _uiState.update { it.copy(removeRouteState = ResultState.Loading()) }
+            var deleted = 0
+            var failed = 0
+            routes.forEach { route ->
+                when (routeUseCase.markAsRemoved(route).first { it !is ResultState.Loading }) {
+                    is ResultState.Success -> deleted++
+                    else -> failed++
+                }
+            }
+            _uiState.update { it.copy(removeRouteState = null) }
+            snackbarManager.show(
+                message = when {
+                    failed == 0 && deleted == 1 -> "Маршрут удалён"
+                    failed == 0 -> "Удалено маршрутов: $deleted"
+                    deleted == 0 -> "Не удалось удалить маршруты"
+                    else -> "Удалено: $deleted, не удалось: $failed"
+                }
+            )
+            exitSelectionMode()
+        }
+    }
+
+    /**
+     * Массовое избранное. Если среди выбранных есть хотя бы один не в избранном —
+     * добавляем все; если все уже в избранном — снимаем со всех.
+     */
+    fun toggleFavoriteSelectedRoutes() {
+        val routes = selectedRoutes()
+        if (routes.isEmpty()) return
+        val newValue = routes.any { !it.basicData.isFavorite }
+        viewModelScope.launch {
+            var changed = 0
+            routes.forEach { route ->
+                if (route.basicData.isFavorite != newValue) {
+                    val result = routeUseCase
+                        .setFavoriteRoute(route.basicData.id, newValue)
+                        .first { it !is ResultState.Loading }
+                    if (result is ResultState.Success) changed++
+                }
+            }
+            snackbarManager.show(
+                message = when {
+                    changed == 0 -> "Ничего не изменилось"
+                    newValue && changed == 1 -> "Маршрут добавлен в избранное"
+                    newValue -> "Добавлено в избранное: $changed"
+                    changed == 1 -> "Маршрут удален из избранного"
+                    else -> "Убрано из избранного: $changed"
+                }
+            )
+            exitSelectionMode()
+        }
+    }
+
+    /**
+     * Массовый шеринг: для каждого выбранного маршрута создаём публичную ссылку и
+     * отправляем одним сообщением (см. [com.z_company.route.util.ShareLinkData.fromRoutes]).
+     */
+    fun shareSelectedRoutes() {
+        val routes = selectedRoutes()
+        if (routes.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                val rawToken = secureTokenStorage.getAuthBearerTokenFlow().first()
+                if (rawToken.isNullOrBlank()) {
+                    snackbarManager.show("Неавторизованный пользователь")
+                    return@launch
+                }
+                val bearerToken = "Bearer $rawToken"
+                val links = mutableListOf<Pair<Route, String>>()
+                var errorMessage: String? = null
+                routes.forEach { route ->
+                    val result = shareRouteManager.createShareLink(route, bearerToken)
+                        .first { it !is ResultState.Loading }
+                    when (result) {
+                        is ResultState.Success -> links.add(route to result.data)
+                        is ResultState.Error -> {
+                            val raw = result.entity.message ?: result.entity.throwable?.message
+                            errorMessage = if (isConnectivityErrorMessage(raw) &&
+                                isVpnActive(getApplication())
+                            ) {
+                                VPN_ERROR_HINT
+                            } else {
+                                friendlyNetworkErrorMessage(raw, "Не удалось создать ссылку")
+                            }
+                        }
+
+                        else -> Unit
+                    }
+                }
+                if (links.isEmpty()) {
+                    snackbarManager.show(errorMessage ?: "Не удалось создать ссылку")
+                    return@launch
+                }
+                _shareRouteEvent.emit(
+                    com.z_company.route.util.ShareLinkData.fromRoutes(links)
+                )
+                if (links.size < routes.size) {
+                    snackbarManager.show("Ссылки созданы не для всех маршрутов")
+                }
+                exitSelectionMode()
+            } catch (e: Exception) {
+                e.sendToSentry("AllRouteViewModel", "shareSelectedRoutes")
+                val message = if (isVpnActive(getApplication())) VPN_ERROR_HINT
+                else friendlyNetworkErrorMessage(e.message, "Не удалось создать ссылку")
+                snackbarManager.show(message)
+            }
+        }
+    }
+
     fun reload() {
         userSettings?.let { setting ->
             loadRoutesJob?.cancel()
@@ -779,6 +941,9 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
 
     // Expose set current month/year: find matching MonthOfYear and save via settingsUseCase
     fun setCurrentMonth(yearAndMonth: Pair<Int, Int>) {
+        // Выделение относится к маршрутам текущего месяца — при смене месяца
+        // сбрасываем режим выбора, чтобы действия не ушли по «невидимым» id.
+        if (_uiState.value.isSelectionMode) exitSelectionMode()
         viewModelScope.launch {
             calendarUseCase.loadFlowMonthOfYearListState().collect { list ->
                 val found =

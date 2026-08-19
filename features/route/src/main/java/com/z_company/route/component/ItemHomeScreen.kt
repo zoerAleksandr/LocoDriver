@@ -12,6 +12,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -31,6 +33,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.DismissDirection
@@ -114,6 +117,10 @@ fun ItemHomeScreen(
     // Итог оплаты за смену для блока «Расчёт за смену» в развёрнутой карточке.
     // null → блок не показывается (например, на Главном/в Календаре).
     shiftPaymentText: String? = null,
+    // Режим множественного выбора (экран «Маршруты», кнопка «Выбрать»):
+    // свайп-удаление отключено, тап по карточке = выделение, слева — маркер.
+    selectionMode: Boolean = false,
+    isSelected: Boolean = false,
 ) {
 
     // --- мемоизируем тяжёлые вычисления по route ---
@@ -177,22 +184,9 @@ fun ItemHomeScreen(
         )
     }
 
-    // Свайп-удаление как у станции/секции локомотива: раскрывает красную кнопку
-    // «УДАЛИТЬ», по нажатию → onRequestDelete (подтверждение показывает экран).
-    SwipeToRevealDelete(
-        // Уважаем переданный modifier (например, padding/animateItem с экрана «Все
-        // маршруты»); раньше он игнорировался и внешние отступы не применялись.
-        modifier = modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = 65.dp),
-        onDeleteClick = { onRequestDelete(route) },
-        onContentClick = onClick,
-        onContentLongClick = onLongClick,
-        backgroundVerticalPadding = 0.dp,
-        // Привязываем состояние свайпа к id маршрута: когда после удаления в тот же
-        // слот попадает следующий маршрут, свайп сбрасывается (не «прилипает»).
-        itemKey = route.basicData.id,
-    ) { _ ->
+    // Тело карточки — одно и то же для обычного режима (со свайп-удалением)
+    // и для режима множественного выбора (свайп отключён, тап = выделение).
+    val cardContent: @Composable () -> Unit = {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -205,10 +199,21 @@ fun ItemHomeScreen(
                     containerColor = containerColor,
                     contentColor = MaterialTheme.colorScheme.primary
                 ),
+                // Выбранная карточка в режиме множественного выбора — акцентная рамка.
+                border = if (selectionMode && isSelected) {
+                    BorderStroke(2.dp, MaterialTheme.colorScheme.surfaceContainerLow)
+                } else null,
             ) {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                if (selectionMode) {
+                    SelectionMarker(
+                        isSelected = isSelected,
+                        modifier = Modifier.padding(start = 12.dp)
+                    )
+                }
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .weight(1f)
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalAlignment = Alignment.Start,
                     verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
@@ -659,8 +664,69 @@ fun ItemHomeScreen(
                             }
                     }
                 }
+              }
             }
+    }
+
+    if (selectionMode) {
+        // В режиме выбора свайп-удаление выключено, тап по карточке — выделение.
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 65.dp)
+                .clickable { onClick() }
+        ) { cardContent() }
+    } else {
+        // Свайп-удаление как у станции/секции локомотива: раскрывает красную кнопку
+        // «УДАЛИТЬ», по нажатию → onRequestDelete (подтверждение показывает экран).
+        SwipeToRevealDelete(
+            // Уважаем переданный modifier (например, padding/animateItem с экрана «Все
+            // маршруты»); раньше он игнорировался и внешние отступы не применялись.
+            modifier = modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 65.dp),
+            onDeleteClick = { onRequestDelete(route) },
+            onContentClick = onClick,
+            onContentLongClick = onLongClick,
+            backgroundVerticalPadding = 0.dp,
+            // Привязываем состояние свайпа к id маршрута: когда после удаления в тот же
+            // слот попадает следующий маршрут, свайп сбрасывается (не «прилипает»).
+            itemKey = route.basicData.id,
+        ) { _ -> cardContent() }
+    }
+}
+
+/**
+ * Круглый маркер выделения карточки в режиме множественного выбора:
+ * пустой контур — не выбрана, залитый акцентом с галочкой — выбрана.
+ */
+@Composable
+private fun SelectionMarker(
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val accent = MaterialTheme.colorScheme.surfaceContainerLow
+    Box(
+        modifier = modifier
+            .size(24.dp)
+            .clip(CircleShape)
+            .background(if (isSelected) accent else Color.Transparent)
+            .border(
+                width = 2.dp,
+                color = if (isSelected) accent else MaterialTheme.colorScheme.outline,
+                shape = CircleShape
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (isSelected) {
+            Icon(
+                modifier = Modifier.size(16.dp),
+                painter = painterResource(R.drawable.ic_pro_check),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.surface
+            )
         }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────

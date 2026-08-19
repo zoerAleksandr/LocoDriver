@@ -59,6 +59,38 @@ data class ShareLinkData(
 
             return ShareLinkData(text = text, subject = subject)
         }
+
+        /**
+         * Собирает [ShareLinkData] сразу для НЕСКОЛЬКИХ маршрутов — режим
+         * множественного выбора на экране «Маршруты». Каждому маршруту
+         * соответствует пара (маршрут, публичная ссылка).
+         * Для одного маршрута полностью повторяет [fromRoute].
+         */
+        fun fromRoutes(links: List<Pair<Route, String>>): ShareLinkData {
+            if (links.size == 1) {
+                val (route, url) = links.first()
+                return fromRoute(route, url)
+            }
+            val sdf = java.text.SimpleDateFormat(
+                "dd.MM.yyyy HH:mm",
+                java.util.Locale.getDefault()
+            )
+            val text = buildString {
+                append("Маршруты из приложения «Машинист» \uD83D\uDE82")
+                append("\n\n")
+                links.forEach { (route, url) ->
+                    val date = route.basicData.timeStartWork?.let {
+                        sdf.format(java.util.Date(it))
+                    }
+                    append(if (date != null) "Маршрут от $date" else "Маршрут")
+                    append("\n")
+                    append(url)
+                    append("\n\n")
+                }
+                append("Чтобы открыть маршрут, нажмите на нужную ссылку")
+            }
+            return ShareLinkData(text = text, subject = "Маршруты (${links.size})")
+        }
     }
 }
 

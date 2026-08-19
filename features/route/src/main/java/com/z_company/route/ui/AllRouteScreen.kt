@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -11,6 +12,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
@@ -52,8 +57,6 @@ import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.ChipApp
 import com.z_company.route.component.ItemHomeScreen
-import com.z_company.route.component.PdfActionSheet
-import com.z_company.route.component.PdfContentDialog
 import com.z_company.route.component.PullToSyncContainer
 import com.z_company.route.component.RadioButtonWithLabel
 import com.z_company.route.component.RouteQuickViewSheet
@@ -112,6 +115,8 @@ fun AllRouteScreen(
     var isShowAlertSubscribeDialog by remember { mutableStateOf(false) }
     var isShowNeedSubscribeDialog by remember { mutableStateOf(false) }
     var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
+    // Подтверждение массового удаления выбранных маршрутов (режим «Выбрать»).
+    var isShowDialogConfirmRemoveSelected by remember { mutableStateOf(false) }
     var copyRouteId by remember { mutableStateOf<String?>(null) }
 
     val sheetState = rememberModalBottomSheetState(
@@ -169,23 +174,6 @@ fun AllRouteScreen(
         } ?: ""
         pdfViewModel.updateRoutes(displayedRoutes.map { it.route }, monthLabel)
     }
-    var showPdfDialog by remember { mutableStateOf(false) }
-    var pdfUri by remember { mutableStateOf<android.net.Uri?>(null) }
-    val isPdfGenerating by pdfViewModel.isGenerating.collectAsState()
-    val pdfError by pdfViewModel.errorMessage.collectAsState()
-
-    // PDF ready event
-    LaunchedEffect(Unit) {
-        pdfViewModel.pdfReady.collect { uri ->
-            pdfUri = uri
-        }
-    }
-
-    // Show PDF error in snackbar
-    LaunchedEffect(pdfError) {
-        pdfError?.let { snackbarHostState.showSnackbar(it) }
-    }
-
     LaunchedEffect(Unit) {
         snackbarManager.events
             .flowWithLifecycle(lifecycle)
@@ -224,85 +212,78 @@ fun AllRouteScreen(
         }
     }
 
+    // Режим множественного выбора: тап по карточке выделяет маршрут, внизу
+    // появляется панель действий (избранное / поделиться / удалить).
+    val isSelectionMode = state.isSelectionMode
+    val selectedIds = state.selectedRouteIds
+    val visibleIds = remember(displayedRoutes) {
+        displayedRoutes.map { it.route.basicData.id }.toSet()
+    }
+    val isAllSelected = visibleIds.isNotEmpty() && selectedIds.containsAll(visibleIds)
+    // Системная «назад» в режиме выбора выходит из него, а не с экрана.
+    BackHandler(enabled = isSelectionMode) { viewModel.exitSelectionMode() }
+
+    // FAB «Добавить маршрут»: та же анимация появления/скрытия, что у нижней
+    // контекстной панели в FormScreen — прячется при скролле списка вниз,
+    // появляется при скролле вверх.
+    var fabVisible by remember { mutableStateOf(true) }
+    val fabNestedScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -3f) fabVisible = false
+                else if (available.y > 3f) fabVisible = true
+                return Offset.Zero
+            }
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         modifier = modifier.fillMaxSize(),
         topBar = {
             Column {
-                TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
+                CenterAlignedTopAppBar(
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Text("‹", style = MaterialTheme.typography.headlineLarge,
-                            color = MaterialTheme.colorScheme.primary)
+                    if (isSelectionMode) {
+                        // Выделить все видимые маршруты / снять выделение со всех.
+                        TextButton(onClick = { viewModel.toggleSelectAll() }) {
+                            Text(
+                                text = if (isAllSelected) "Снять" else "Все",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = onBack) {
+                            Text("‹", style = MaterialTheme.typography.headlineLarge,
+                                color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 },
                 title = {
                     Text(
-                        text = "Маршруты",
+                        text = if (isSelectionMode) "Выбрано: ${selectedIds.size}"
+                        else "Маршруты",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 },
                 actions = {
-                    // Переключатель показа объединения «отдых в ПО» (трей с коннектором).
-                    // Активен (accent) — показываем; выключен (muted) — плоский список.
-                    IconButton(onClick = {
-                        val shown = viewModel.toggleShowTurnaroundRest()
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(
-                                if (shown) "Отдых в ПО показан"
-                                else "Отдых в ПО скрыт"
-                            )
+                    // Вход/выход из режима множественного выбора.
+                    TextButton(
+                        onClick = {
+                            if (isSelectionMode) viewModel.exitSelectionMode()
+                            else viewModel.enterSelectionMode()
                         }
-                    }) {
-                        Icon(
-                            painter = painterResource(R.drawable.hotel_24px),
-                            contentDescription = if (state.showTurnaroundRest) {
-                                "Скрыть отдыхи в ПО"
-                            } else {
-                                "Показать отдыхи в ПО"
-                            },
-                            tint = if (state.showTurnaroundRest) {
-                                MaterialTheme.colorScheme.surfaceContainerLow
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            },
-                        )
-                    }
-                    // Переключатель плотности карточек: свёрнуто ⇄ развёрнуто (для
-                    // всех карточек сразу). Развёрнутая карточка показывает локомотивы,
-                    // поезда, следование пассажиром и расчёт за смену.
-                    IconButton(onClick = { viewModel.toggleExpandedView() }) {
-                        Icon(
-                            painter = painterResource(
-                                if (state.isExpandedView) R.drawable.collapse_rows_24px
-                                else R.drawable.expand_rows_24px
-                            ),
-                            contentDescription = if (state.isExpandedView) "Свернуть карточки" else "Развернуть карточки",
-                            tint = if (state.isExpandedView) MaterialTheme.colorScheme.surfaceContainerLow
-                            else MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    IconButton(
-                        onClick = { if (!isPdfGenerating) showPdfDialog = true },
-                        enabled = !isPdfGenerating,
                     ) {
-                        if (isPdfGenerating) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.padding(8.dp).size(24.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            // Та же иконка, что на карточке «PDF» в инструментах Главного.
-                            Icon(
-                                painter = painterResource(R.drawable.ic_card_pdf),
-                                contentDescription = "PDF",
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        }
+                        Text(
+                            text = if (isSelectionMode) "Готово" else "Выбрать",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        )
                     }
                 },
                 )
@@ -547,6 +528,42 @@ fun AllRouteScreen(
             )
         }
 
+        // Подтверждение массового удаления выбранных маршрутов
+        if (isShowDialogConfirmRemoveSelected) {
+            val count = state.selectedRouteIds.size
+            AppBottomSheet(
+                onDismissRequest = { isShowDialogConfirmRemoveSelected = false },
+                sheetState = sheetState,
+                headerContent = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = if (count == 1) "Удалить маршрут?"
+                            else "Удалить маршруты?",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "Выбрано: $count",
+                            fontFamily = com.z_company.core.ui.theme.MonoFont,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                },
+                actions = listOf(
+                    BottomSheetAction(text = "Да, удалить") {
+                        viewModel.deleteSelectedRoutes()
+                    }
+                )
+            )
+        }
+
         // Шторка подтверждения создания копии маршрута
         copyRouteId?.let { id ->
             AppBottomSheet(
@@ -657,7 +674,12 @@ fun AllRouteScreen(
             }
         }
 
-        Column(modifier = Modifier.padding(padding)) {
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .nestedScroll(fabNestedScroll)
+        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             // Переключатель месяца
             val monthText =
                 state.currentMonthOfYear?.month?.let { getMonthFullText(it) } ?: ""
@@ -671,59 +693,85 @@ fun AllRouteScreen(
             val hasPrevMonth = currentMonthIndex > 0
             val hasNextMonth = currentMonthIndex in 0 until monthYearList.lastIndex
 
+            // Слева — месяц и год со стрелками переключения, справа — счётчики
+            // «маршрутов» и «отработано» за выбранный месяц.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                IconButton(
-                    onClick = {
-                        monthYearList.getOrNull(currentMonthIndex - 1)
-                            ?.let { viewModel.setCurrentMonth(it) }
-                    },
-                    enabled = hasPrevMonth,
-                    modifier = Modifier.size(48.dp),
-                ) {
-                    Text("‹", fontSize = 34.sp,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                        color = if (hasPrevMonth) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.clickable { isMonthSheetVisible = true },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = monthText,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = yearText,
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            monthYearList.getOrNull(currentMonthIndex - 1)
+                                ?.let { viewModel.setCurrentMonth(it) }
+                        },
+                        enabled = hasPrevMonth,
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Text("‹", fontSize = 30.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (hasPrevMonth) MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
+                    }
+                    IconButton(
+                        onClick = {
+                            monthYearList.getOrNull(currentMonthIndex + 1)
+                                ?.let { viewModel.setCurrentMonth(it) }
+                        },
+                        enabled = hasNextMonth,
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Text("›", fontSize = 30.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (hasNextMonth) MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
+                    }
                 }
+
+                // Счётчики: количество маршрутов и отработанное время за месяц (моно).
                 Row(
-                    modifier = Modifier.clickable { isMonthSheetVisible = true },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(
-                        text = monthText,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                    StatPill(
+                        // Без иконки — просто число маршрутов, чтобы не путать с
+                        // соседней пилюлей отработанного времени.
+                        iconRes = null,
+                        text = "${state.routes.size}",
+                        contentDescription = "Количество маршрутов",
                     )
-                    Text(
-                        text = yearText,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                IconButton(
-                    onClick = {
-                        monthYearList.getOrNull(currentMonthIndex + 1)
-                            ?.let { viewModel.setCurrentMonth(it) }
-                    },
-                    enabled = hasNextMonth,
-                    modifier = Modifier.size(48.dp),
-                ) {
-                    Text("›", fontSize = 34.sp,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                        color = if (hasNextMonth) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
+                    if (state.monthWorkedTimeText.isNotBlank()) {
+                        StatPill(
+                            iconRes = R.drawable.schedule_24px,
+                            text = state.monthWorkedTimeText,
+                            contentDescription = "Отработано часов",
+                        )
+                    }
                 }
             }
 
-            // Assist chips: Фильтр + Дата + счётчик
+            // Один ряд: фильтр и сортировка слева, справа — переключатели
+            // «отдых в ПО» и плотности карточек (раньше были в топбаре).
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -759,21 +807,56 @@ fun AllRouteScreen(
                     )
                 }
 
-                // Счётчик маршрутов + отработанное время за месяц (моно).
-                val routeCount = state.routes.size
-                val counterText = if (state.monthWorkedTimeText.isNotBlank()) {
-                    "$routeCount · ${state.monthWorkedTimeText}"
-                } else {
-                    "$routeCount"
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Переключатель показа объединения «отдых в ПО» (трей с коннектором).
+                    // Активен (accent) — показываем; выключен (muted) — плоский список.
+                    IconButton(
+                        onClick = {
+                            val shown = viewModel.toggleShowTurnaroundRest()
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    if (shown) "Отдых в ПО показан"
+                                    else "Отдых в ПО скрыт"
+                                )
+                            }
+                        },
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.hotel_24px),
+                            contentDescription = if (state.showTurnaroundRest) {
+                                "Скрыть отдыхи в ПО"
+                            } else {
+                                "Показать отдыхи в ПО"
+                            },
+                            // Та же пара цветов, что у соседнего переключателя вида:
+                            // активен — surfaceContainerLow, выключен — primary.
+                            tint = if (state.showTurnaroundRest) {
+                                MaterialTheme.colorScheme.surfaceContainerLow
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
+                        )
+                    }
+                    // Переключатель плотности карточек: свёрнуто ⇄ развёрнуто (для
+                    // всех карточек сразу). Развёрнутая карточка показывает локомотивы,
+                    // поезда, следование пассажиром и расчёт за смену.
+                    IconButton(
+                        onClick = { viewModel.toggleExpandedView() },
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                if (state.isExpandedView) R.drawable.collapse_rows_24px
+                                else R.drawable.expand_rows_24px
+                            ),
+                            contentDescription = if (state.isExpandedView) "Свернуть карточки"
+                            else "Развернуть карточки",
+                            tint = if (state.isExpandedView) MaterialTheme.colorScheme.surfaceContainerLow
+                            else MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
-                Text(
-                    text = counterText,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = com.z_company.core.ui.theme.MonoFont,
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
             }
 
             PullToSyncContainer(
@@ -822,7 +905,11 @@ fun AllRouteScreen(
                             .testTag("all_route_lazy_column"),
                         // Горизонтальный отступ вынесен на сами элементы: одиночные
                         // карточки инсетятся на 8dp, а трей-пара выходит на всю ширину.
-                        contentPadding = PaddingValues(vertical = 8.dp)
+                        // Снизу оставляем место под панель действий режима выбора.
+                        contentPadding = PaddingValues(
+                            top = 8.dp,
+                            bottom = if (isSelectionMode) 88.dp else 8.dp,
+                        )
                     ) {
                         viewModel.dateAndTimeConverter?.let { converter ->
                             items(
@@ -850,7 +937,15 @@ fun AllRouteScreen(
                                             dateAndTimeConverter = converter,
                                             convertTimeToString = viewModel::convertTimeToStringFormat,
                                             shiftPaymentText = state.routePayments[routeId],
-                                            onClick = { onRouteClick(routeId) },
+                                            selectionMode = isSelectionMode,
+                                            isSelected = selectedIds.contains(routeId),
+                                            onClick = {
+                                                if (isSelectionMode) {
+                                                    viewModel.toggleRouteSelection(routeId)
+                                                } else {
+                                                    onRouteClick(routeId)
+                                                }
+                                            },
                                             onRequestDelete = { r ->
                                                 isShowDialogConfirmRemoveRoute = true
                                                 routeForRemove = r
@@ -881,7 +976,15 @@ fun AllRouteScreen(
                                                 dateAndTimeConverter = converter,
                                                 convertTimeToString = viewModel::convertTimeToStringFormat,
                                                 shiftPaymentText = state.routePayments[upperRoute.basicData.id],
-                                                onClick = { onRouteClick(upperRoute.basicData.id) },
+                                                selectionMode = isSelectionMode,
+                                                isSelected = selectedIds.contains(upperRoute.basicData.id),
+                                                onClick = {
+                                                    if (isSelectionMode) {
+                                                        viewModel.toggleRouteSelection(upperRoute.basicData.id)
+                                                    } else {
+                                                        onRouteClick(upperRoute.basicData.id)
+                                                    }
+                                                },
                                                 onRequestDelete = { r ->
                                                     isShowDialogConfirmRemoveRoute = true
                                                     routeForRemove = r
@@ -906,7 +1009,15 @@ fun AllRouteScreen(
                                                 dateAndTimeConverter = converter,
                                                 convertTimeToString = viewModel::convertTimeToStringFormat,
                                                 shiftPaymentText = state.routePayments[lowerRoute.basicData.id],
-                                                onClick = { onRouteClick(lowerRoute.basicData.id) },
+                                                selectionMode = isSelectionMode,
+                                                isSelected = selectedIds.contains(lowerRoute.basicData.id),
+                                                onClick = {
+                                                    if (isSelectionMode) {
+                                                        viewModel.toggleRouteSelection(lowerRoute.basicData.id)
+                                                    } else {
+                                                        onRouteClick(lowerRoute.basicData.id)
+                                                    }
+                                                },
                                                 onRequestDelete = { r ->
                                                     isShowDialogConfirmRemoveRoute = true
                                                     routeForRemove = r
@@ -928,30 +1039,154 @@ fun AllRouteScreen(
             }
         }
 
-        // PDF dialog
-        if (showPdfDialog) {
-            PdfContentDialog(
-                onDismiss = { showPdfDialog = false },
-                onGenerate = { sections ->
-                    showPdfDialog = false
-                    val routes = displayedRoutes.map { it.route }
-                    val monthLabel = state.currentMonthOfYear?.let {
-                        "${getMonthFullText(it.month)} ${it.year}"
-                    } ?: ""
-                    pdfViewModel.generateAndShare(sections, routes, monthLabel, emptyList())
+            // Нижняя панель действий над выбранными маршрутами (как в FormScreen).
+            if (isSelectionMode) {
+                SelectionBottomAppBar(
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    isEnabled = selectedIds.isNotEmpty(),
+                    isAllFavorite = selectedIds.isNotEmpty() && displayedRoutes
+                        .filter { selectedIds.contains(it.route.basicData.id) }
+                        .all { it.route.basicData.isFavorite },
+                    onFavoriteClick = { viewModel.toggleFavoriteSelectedRoutes() },
+                    onShareClick = { viewModel.shareSelectedRoutes() },
+                    onDeleteClick = { isShowDialogConfirmRemoveSelected = true },
+                )
+            } else {
+                // FAB «Добавить маршрут» — скрыт в режиме выбора (там место занято
+                // панелью массовых действий). Оффсет считается по фактической высоте
+                // обёртки (margin + сама кнопка), поэтому при скрытии уезжает
+                // полностью за пределы экрана — тот же приём, что у FormBottomAppBar.
+                var fabWrapperHeightPx by remember { mutableStateOf(0) }
+                val fabOffsetY by androidx.compose.animation.core.animateIntAsState(
+                    targetValue = if (fabVisible) 0 else fabWrapperHeightPx,
+                    animationSpec = androidx.compose.animation.core.tween(
+                        durationMillis = 600,
+                        easing = androidx.compose.animation.core.FastOutSlowInEasing,
+                    ),
+                    label = "fabOffset"
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .onSizeChanged { fabWrapperHeightPx = it.height }
+                        .offset { androidx.compose.ui.unit.IntOffset(0, fabOffsetY) }
+                        .navigationBarsPadding()
+                        .padding(16.dp)
+                ) {
+                    FloatingActionButton(
+                        onClick = { viewModel.newRouteClick() },
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.onTertiary,
+                    ) {
+                        Icon(
+                            painter = painterResource(com.z_company.core.R.drawable.ic_add),
+                            contentDescription = "Добавить маршрут",
+                        )
+                    }
                 }
-            )
+            }
         }
 
-        pdfUri?.let { uri ->
-            PdfActionSheet(
-                uri = uri,
-                onDismiss = { pdfUri = null }
-            )
-        }
     }
 }
 
+
+/**
+ * Компактная «пилюля» со счётчиком в строке месяца: иконка + моно-значение.
+ * Используется для количества маршрутов и отработанного времени за месяц.
+ */
+@Composable
+private fun StatPill(
+    iconRes: Int?,
+    text: String,
+    contentDescription: String? = null,
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        if (iconRes != null) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = contentDescription,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = com.z_company.core.ui.theme.MonoFont,
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * Нижняя панель действий над выбранными маршрутами — тот же вид, что и панель
+ * маршрута в FormScreen: избранное и «поделиться» слева, удаление справа.
+ */
+@Composable
+private fun SelectionBottomAppBar(
+    isEnabled: Boolean,
+    isAllFavorite: Boolean,
+    onFavoriteClick: () -> Unit,
+    onShareClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val disabledTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+    Column(modifier = modifier.fillMaxWidth()) {
+        HorizontalDivider(
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .navigationBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onFavoriteClick, enabled = isEnabled) {
+                Icon(
+                    painter = painterResource(
+                        if (isAllFavorite) R.drawable.favorite_fill_24px
+                        else R.drawable.favorite_24px
+                    ),
+                    contentDescription = if (isAllFavorite) "Убрать из избранного"
+                    else "В избранное",
+                    tint = when {
+                        !isEnabled -> disabledTint
+                        isAllFavorite -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+                )
+            }
+            IconButton(onClick = onShareClick, enabled = isEnabled) {
+                Icon(
+                    painter = painterResource(R.drawable.share_24px),
+                    contentDescription = "Поделиться",
+                    tint = if (isEnabled) MaterialTheme.colorScheme.primary else disabledTint
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            IconButton(onClick = onDeleteClick, enabled = isEnabled) {
+                Icon(
+                    painter = painterResource(R.drawable.delete_24px),
+                    contentDescription = "Удалить выбранные маршруты",
+                    tint = if (isEnabled) MaterialTheme.colorScheme.error else disabledTint
+                )
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -1289,6 +1524,8 @@ private fun RouteCardItem(
     onRequestDelete: (Route) -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
+    selectionMode: Boolean = false,
+    isSelected: Boolean = false,
 ) {
     val background = when {
         routeState.isFuture -> MaterialTheme.colorScheme.surfaceBright
@@ -1313,6 +1550,8 @@ private fun RouteCardItem(
         monthOfYear = monthOfYear,
         timeCalculationContext = timeCalculationContext,
         shiftPaymentText = shiftPaymentText,
+        selectionMode = selectionMode,
+        isSelected = isSelected,
     )
 }
 
