@@ -331,8 +331,16 @@ fun ItemHomeScreen(
                     // Свёрнутый вид (как на Главном): основной поезд одной строкой,
                     // «+N» для остальных показывает футер ниже. В развёрнутом виде
                     // поезда выводятся отдельной группой с иконками (см. ниже).
+                    // Если поездов нет, но есть прочая работа — на этом месте
+                    // показываем её тип и станцию (та же строка под явкой/сдачей).
+                    val otherWorksToShow = if (sortedTrains.isEmpty()) {
+                        route.otherWorks.take(1)
+                    } else {
+                        emptyList()
+                    }
                     AnimatedVisibility(
-                        visible = !isExpand && sortedTrains.isNotEmpty(),
+                        visible = !isExpand &&
+                            (sortedTrains.isNotEmpty() || otherWorksToShow.isNotEmpty()),
                         // tween без пружины — без отскока и «подёргивания» на затухании.
                         enter = expandVertically(tween(220, easing = FastOutSlowInEasing)) +
                             fadeIn(tween(220)),
@@ -355,6 +363,28 @@ fun ItemHomeScreen(
                                     else -> first ?: last ?: ""
                                 }
                                 val info = "$tn$path".trim()
+                                if (info.isNotBlank()) {
+                                    Text(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        text = info,
+                                        // Тот же шрифт что и время работы — JetBrains Mono
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                            fontSize = 14.sp,
+                                        ),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                            otherWorksToShow.forEach { otherWork ->
+                                val type = otherWork.workType?.takeIf { it.isNotBlank() }
+                                val station = otherWork.station?.takeIf { it.isNotBlank() }
+                                val info = when {
+                                    type != null && station != null -> "$type — $station"
+                                    else -> type ?: station ?: ""
+                                }
                                 if (info.isNotBlank()) {
                                     Text(
                                         modifier = Modifier.fillMaxWidth(),
