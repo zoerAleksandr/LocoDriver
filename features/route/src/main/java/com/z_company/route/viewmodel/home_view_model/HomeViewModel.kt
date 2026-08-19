@@ -1748,6 +1748,15 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     currentUserSetting = userSettings
                     currentMonthOfYear = userSettings.selectMonthOfYear
 
+                    // Настройки могут прийти позже первого эмита getListRoutesAsFlow()
+                    // (init запускает оба коллектора параллельно) — тогда
+                    // updateCurrentAndNextRoute() уже отработал с currentUserSetting == null
+                    // и вышел по раннему return, «Следующий маршрут» не посчитался и
+                    // навсегда завис в null (следующий пересчёт — только при изменении
+                    // списка маршрутов). Досчитываем здесь: обе функции идемпотентны.
+                    updateCurrentAndNextRoute(allRoutesGlobal)
+                    viewModelScope.launch { recomputeRestBlock(allRoutesGlobal) }
+
                     val dateAndTimeConverter = DateAndTimeConverter(userSettings)
                     _uiState.update {
                         it.copy(
