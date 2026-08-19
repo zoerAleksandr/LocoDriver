@@ -107,7 +107,7 @@ object NetworkErrorMapper {
             ?: humanMessage(throwable)
         if (reason.startsWith("Синхронизация не выполнена", ignoreCase = true)) return reason
         val conciseReason = reason.lineSequence().firstOrNull().orEmpty().take(240)
-        return "Синхронизация не выполнена: $conciseReason"
+        return conciseReason
     }
 
     private fun safeTechnicalMessage(throwable: Throwable): String {
