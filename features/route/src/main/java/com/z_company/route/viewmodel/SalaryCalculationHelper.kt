@@ -1087,8 +1087,12 @@ class SalaryCalculationHelper(
             return@flow
         }
         val worked = getTotalWorkTimeWithCommute().first()
+        // Техзанятия норму не уменьшают, но оплачиваются отдельной строкой по
+        // среднему часу — то есть эти часы норму уже «закрывают». Без их учёта
+        // те же часы попали бы ещё и в недоработку → двойная оплата по среднему.
+        val technicalStudy = getTechnicalStudyTimeFlow().first()
         val normaInLong = effectiveNormaHoursForUnderwork.toLong() * 3_600_000L
-        emit((normaInLong - worked).coerceAtLeast(0L))
+        emit((normaInLong - worked - technicalStudy).coerceAtLeast(0L))
     }
 
     // Оплата недоработки = недостающие часы × средний час.

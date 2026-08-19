@@ -90,8 +90,14 @@ class NormaUseCase(
         // уменьшает норму месяца (работник отрабатывает другой день). Поэтому
         // DayOff-дни исключаем из набора «пропускаемых» — они считаются в норму
         // как обычные дни. Единственный эффект DayOff — ×2 при работе.
+        // «Технические занятия» тоже НЕ уменьшают норму: они оплачиваются
+        // отдельной строкой по среднему часу за явно заданные часы
+        // (см. UtilForMonthOfYear.reducesNorma — правило должно совпадать).
         val releaseDayNumbers = releaseDays
-            .filter { it.releaseType != ReleaseType.DayOff }
+            .filter {
+                it.releaseType != ReleaseType.DayOff &&
+                    it.releaseType != ReleaseType.TechnicalStudy
+            }
             .map { it.dayOfMonth }
             .toSet()
 
@@ -100,9 +106,12 @@ class NormaUseCase(
             // Считаем норму только по дням до указанной даты включительно
             if (day.dayOfMonth > upToDayInclusive) return@forEach
             // Пропускаем норму-уменьшающие отвлечения: устаревший флаг isReleaseDay
-            // (кроме DayOff) ИЛИ день в таблице ReleaseDay (уже без DayOff).
+            // (кроме DayOff и «Технических занятий») ИЛИ день в таблице ReleaseDay
+            // (уже без DayOff и «Технических занятий»).
             val isNormReducingRelease =
-                (day.isReleaseDay && day.releaseType != ReleaseType.DayOff) ||
+                (day.isReleaseDay &&
+                    day.releaseType != ReleaseType.DayOff &&
+                    day.releaseType != ReleaseType.TechnicalStudy) ||
                     day.dayOfMonth in releaseDayNumbers
             if (!isNormReducingRelease) {
                 norma += when (day.tag) {

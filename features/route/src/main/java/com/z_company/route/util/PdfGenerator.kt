@@ -1006,7 +1006,14 @@ class PdfGenerator(private val context: Context) {
                 else -> 0
             }
         }
-        val detachmentHours = calendarDays.filter { it.isReleaseDay }.sumOf { day ->
+        // Норму уменьшают не все отвлечения: «Выходной» — перенос выходного дня,
+        // а «Технические занятия» оплачиваются отдельно по среднему часу
+        // (см. UtilForMonthOfYear.reducesNorma / NormaUseCase).
+        val detachmentHours = calendarDays.filter {
+            it.isReleaseDay &&
+                it.releaseType != ReleaseType.DayOff &&
+                it.releaseType != ReleaseType.TechnicalStudy
+        }.sumOf { day ->
             when (day.tag) {
                 TagForDay.WORKING_DAY -> 8
                 TagForDay.SHORTENED_DAY -> 7
