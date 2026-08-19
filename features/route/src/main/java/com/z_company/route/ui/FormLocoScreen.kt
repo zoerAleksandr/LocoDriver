@@ -119,7 +119,6 @@ import com.z_company.route.viewmodel.ElectricSectionFormState
 import com.z_company.route.viewmodel.ElectricSectionType
 import com.z_company.route.viewmodel.LocoFormViewModel
 import com.z_company.domain.entities.setting.UserSettings
-import androidx.compose.material3.AlertDialog
 import com.z_company.route.ui.TimeBottomSheet
 import com.z_company.route.ui.TimeSheetResult
 import kotlinx.coroutines.launch
@@ -179,32 +178,6 @@ fun FormLocoScreen(
     val topLevelFocusManager = LocalFocusManager.current
 
     val noValueColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-
-    if (formUiState.isShowUpdateHint) {
-        AlertDialog(
-            onDismissRequest = viewModel::dismissUpdateHint,
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(28.dp),
-            titleContentColor = MaterialTheme.colorScheme.primary,
-            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            title = { Text("Обновление", fontSize = 22.sp, fontWeight = FontWeight.W600) },
-            text = {
-                Text(
-                    "В форму локомотива добавлены новые поля: счётчики отопления и собственных нужд.\n\n" +
-                            "Вы можете отключить их отображение в Настройках \u2192 Локомотив."
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = viewModel::dismissUpdateHint) {
-                    Text(
-                        text = "Понятно",
-                        color = MaterialTheme.colorScheme.tertiary,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        )
-    }
 
     // Подтверждение удаления секции (Diesel/Electric).
     // Каждый sheet — отдельный sheetState чтобы избежать конфликта shared state.

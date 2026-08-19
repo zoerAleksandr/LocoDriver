@@ -33,7 +33,6 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var expandedView: Boolean = false
     private var showTurnaroundRest: Boolean = true
     private var showTravelTime: Boolean = false
-    private var showLocoFormUpdateHint: Boolean = true
     private var locoSectionTimeExpanded: Boolean = false
     private var locoSectionHeatingExpanded: Boolean = false
     private var locoSectionAuxiliaryExpanded: Boolean = false
@@ -97,8 +96,6 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setShowTurnaroundRest(value: Boolean) { showTurnaroundRest = value }
     override fun toggleShowTravelTime(value: Boolean) { showTravelTime = value }
     override fun isShowTravelTime(): Boolean = showTravelTime
-    override fun isShowLocoFormUpdateHint(): Boolean = showLocoFormUpdateHint
-    override fun setLocoFormUpdateHintShown() { showLocoFormUpdateHint = false }
     override fun isLocoSectionTimeExpanded(): Boolean = locoSectionTimeExpanded
     override fun setLocoSectionTimeExpanded(value: Boolean) { locoSectionTimeExpanded = value }
     override fun isLocoSectionHeatingExpanded(): Boolean = locoSectionHeatingExpanded

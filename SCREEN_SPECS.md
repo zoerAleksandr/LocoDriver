@@ -123,7 +123,7 @@ RoutePartner(                // напарник внутри маршрута (
   - `electricSectionListState / dieselSectionListState` — секции по виду тяги.
   - `routeStartWork: Long? / routeEndWork: Long?` — время явки/сдачи **маршрута**
     (из `basicData` через `RouteUseCase`); нужны шторке времени.
-  - `uiState` — флаги (в т.ч. `changesHaveState`, `isShowUpdateHint`).
+  - `uiState` — флаги (в т.ч. `changesHaveState`).
 - **Загрузка**: по `locoId` через `locomotiveUseCase.getLocoById`; секции
   раскладываются по типу. Новый локомотив создаётся с одной секцией по
   умолчанию (тип из формы).

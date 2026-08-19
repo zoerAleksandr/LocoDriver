@@ -18440,14 +18440,12 @@ PLcom/z_company/data_local/SharedPreferenceStorage;->isMigrated()Z
 PLcom/z_company/data_local/SharedPreferenceStorage;->isPassenger12hDontAskAgain()Z
 PLcom/z_company/data_local/SharedPreferenceStorage;->isReversedSortStationList()Z
 PLcom/z_company/data_local/SharedPreferenceStorage;->isShowLocoAuxiliary()Z
-PLcom/z_company/data_local/SharedPreferenceStorage;->isShowLocoFormUpdateHint()Z
 PLcom/z_company/data_local/SharedPreferenceStorage;->isShowLocoHeating()Z
 PLcom/z_company/data_local/SharedPreferenceStorage;->isShowLocoNorma()Z
 PLcom/z_company/data_local/SharedPreferenceStorage;->isShowLocoStatistics()Z
 PLcom/z_company/data_local/SharedPreferenceStorage;->isShowOtherCurrent()Z
 PLcom/z_company/data_local/SharedPreferenceStorage;->isShowTurnaroundRest()Z
 PLcom/z_company/data_local/SharedPreferenceStorage;->setLastSyncTimestamp(J)V
-PLcom/z_company/data_local/SharedPreferenceStorage;->setLocoFormUpdateHintShown()V
 PLcom/z_company/data_local/SharedPreferenceStorage;->setShowTurnaroundRest(Z)V
 PLcom/z_company/data_local/SharedPreferenceStorage;->setTokenIsChangeHave(Z)V
 PLcom/z_company/data_local/calendar/SqlDelightCalendarRepository;->getRegionalHolidays(Ljava/lang/String;ILkotlin/coroutines/Continuation;)Ljava/lang/Object;
@@ -23142,7 +23140,6 @@ PLcom/z_company/route/viewmodel/LocoFormUiState;->getExitFromScreen()Z
 PLcom/z_company/route/viewmodel/LocoFormUiState;->getSaveLocoState()Lcom/z_company/core/ResultState;
 PLcom/z_company/route/viewmodel/LocoFormUiState;->isExpandedDropDownMenuSeries()Z
 PLcom/z_company/route/viewmodel/LocoFormUiState;->isShowOtherCurrent()Z
-PLcom/z_company/route/viewmodel/LocoFormUiState;->isShowUpdateHint()Z
 PLcom/z_company/route/viewmodel/LocoFormViewModel$1$1;-><init>(Lcom/z_company/route/viewmodel/LocoFormViewModel;ZZZZZLkotlin/coroutines/Continuation;)V
 PLcom/z_company/route/viewmodel/LocoFormViewModel$1$1;->create(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Lkotlin/coroutines/Continuation;
 PLcom/z_company/route/viewmodel/LocoFormViewModel$1$1;->invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
@@ -23205,7 +23202,6 @@ PLcom/z_company/route/viewmodel/LocoFormViewModel;->access$setNewLoco(Lcom/z_com
 PLcom/z_company/route/viewmodel/LocoFormViewModel;->access$setSavedAuxiliaryExpanded$p(Lcom/z_company/route/viewmodel/LocoFormViewModel;Z)V
 PLcom/z_company/route/viewmodel/LocoFormViewModel;->access$setSavedHeatingExpanded$p(Lcom/z_company/route/viewmodel/LocoFormViewModel;Z)V
 PLcom/z_company/route/viewmodel/LocoFormViewModel;->access$setSectionData(Lcom/z_company/route/viewmodel/LocoFormViewModel;Lcom/z_company/domain/entities/route/Locomotive;)V
-PLcom/z_company/route/viewmodel/LocoFormViewModel;->dismissUpdateHint()V
 PLcom/z_company/route/viewmodel/LocoFormViewModel;->getCurrentLoco()Lkotlinx/coroutines/flow/StateFlow;
 PLcom/z_company/route/viewmodel/LocoFormViewModel;->getDieselSectionListState()Lkotlinx/coroutines/flow/StateFlow;
 PLcom/z_company/route/viewmodel/LocoFormViewModel;->getDropDownSeriesList()Landroidx/compose/runtime/snapshots/SnapshotStateList;

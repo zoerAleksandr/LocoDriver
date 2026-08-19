@@ -99,7 +99,6 @@ class LocoFormViewModel(
     init {
         viewModelScope.launch {
             val isKiloMode = sharedPreferenceStorage.isInputDieselInKilo()
-            val showUpdateHint = sharedPreferenceStorage.isShowLocoFormUpdateHint()
             val savedTime = sharedPreferenceStorage.isLocoSectionTimeExpanded()
             savedHeatingExpanded = sharedPreferenceStorage.isLocoSectionHeatingExpanded()
             savedAuxiliaryExpanded = sharedPreferenceStorage.isLocoSectionAuxiliaryExpanded()
@@ -120,7 +119,6 @@ class LocoFormViewModel(
                     it.copy(
                         dateAndTimeConverter = DateAndTimeConverter(sett),
                         isKiloMode = isKiloMode,
-                        isShowUpdateHint = showUpdateHint,
                         isShowTime = savedTime,
                         isShowHeatingCounter = savedHeatingExpanded,
                         isShowAuxiliaryCounter = savedAuxiliaryExpanded,
@@ -447,11 +445,6 @@ class LocoFormViewModel(
         val newValue = !_uiState.value.isShowNorma
         _uiState.update { it.copy(isShowNorma = newValue) }
         sharedPreferenceStorage.setLocoSectionNormaExpanded(newValue)
-    }
-
-    fun dismissUpdateHint() {
-        sharedPreferenceStorage.setLocoFormUpdateHintShown()
-        _uiState.update { it.copy(isShowUpdateHint = false) }
     }
 
     /**

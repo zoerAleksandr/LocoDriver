@@ -55,8 +55,6 @@ interface SharedPreferencesRepositories {
     fun setShowTurnaroundRest(value: Boolean)
     fun toggleShowTravelTime(value: Boolean)
     fun isShowTravelTime(): Boolean
-    fun isShowLocoFormUpdateHint(): Boolean
-    fun setLocoFormUpdateHintShown()
 
     /**
      * Инфо-окно про оплату недоработки (когда норма не выработана, а средний час
