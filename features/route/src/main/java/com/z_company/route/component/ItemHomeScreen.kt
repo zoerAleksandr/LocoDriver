@@ -410,6 +410,7 @@ fun ItemHomeScreen(
                     val hasExpandedContent = route.locomotives.isNotEmpty() ||
                         sortedTrains.isNotEmpty() ||
                         route.passengers.isNotEmpty() ||
+                        route.otherWorks.isNotEmpty() ||
                         !route.basicData.notes.isNullOrBlank() ||
                         shiftPaymentText != null
                     AnimatedVisibility(
@@ -480,6 +481,19 @@ fun ItemHomeScreen(
                                         title = passenger.trainNumber?.takeIf { it.isNotBlank() }
                                             ?.let { "№$it" } ?: "Поездка",
                                         subtitle = path,
+                                    )
+                                }
+                            }
+                        }
+
+                        if (route.otherWorks.isNotEmpty()) {
+                            RouteUnitGroup(label = "Прочая работа") {
+                                route.otherWorks.forEach { otherWork ->
+                                    RouteUnitRow(
+                                        iconRes = R.drawable.ic_card_other_work_ref,
+                                        title = otherWork.workType?.takeIf { it.isNotBlank() }
+                                            ?: "Прочая работа",
+                                        subtitle = otherWork.station?.takeIf { it.isNotBlank() },
                                     )
                                 }
                             }
