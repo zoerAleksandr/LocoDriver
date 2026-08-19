@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,23 +29,25 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.imageLoader
+import coil.request.ImageRequest
 import com.z_company.domain.entities.announcement.Announcement
 import com.z_company.loco_driver.ui.theme.LocoDriverTheme
+import kotlinx.coroutines.launch
 
 /**
  * Полноэкранное сообщение при запуске (см. [Announcement]). Показывается
@@ -54,8 +58,8 @@ import com.z_company.loco_driver.ui.theme.LocoDriverTheme
  * - [Announcement.TYPE_NEWS] — новость: заголовок и текст, при наличии
  *   [Announcement.imageUrl] — картинка сверху, иначе текст центрируется;
  * - [Announcement.TYPE_UPDATE] — обновление: карусель фич
- *   (картинка → название → описание, «Далее»/«Понятно»), строго на одном
- *   экране без скролла.
+ *   (заголовок обновления → картинка → название → описание,
+ *   «Далее»/«Понятно»), строго на одном экране без скролла.
  *
  * Общее правило: если у экрана/фичи нет картинки — текст центрируется.
  */
@@ -114,7 +118,8 @@ private fun BottomPillButton(label: String, onClick: () -> Unit, modifier: Modif
 
 /**
  * Блок «картинка сверху → заголовок → текст» (когда картинка есть). Занимает
- * гибкую высоту: картинка и текст делят место через weight, текст обрезается.
+ * гибкую высоту: картинка и текст делят место через weight (картинка —
+ * бо́льшая доля, текст уходит ниже и обрезается при нехватке места).
  */
 @Composable
 private fun ColumnScope.ImageTitleTextBlock(
@@ -126,8 +131,8 @@ private fun ColumnScope.ImageTitleTextBlock(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .weight(1.25f)
-            .heightIn(min = 120.dp)
+            .weight(1.9f)
+            .heightIn(min = 160.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(cs.surfaceVariant.copy(alpha = 0.5f)),
         contentAlignment = Alignment.Center,
@@ -155,7 +160,7 @@ private fun ColumnScope.ImageTitleTextBlock(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .fillMaxWidth()
-            .weight(0.75f)
+            .weight(0.55f)
             .padding(top = 12.dp),
     )
 }
@@ -287,10 +292,17 @@ private fun AnnouncementNewsContent(
 }
 
 /**
- * Вариант «Обновление»: карусель фич. Одна фича на экране — картинка сверху
- * (если есть; иначе текст центрируется) → название → описание, снизу pill-кнопка
- * «Далее» (если есть ещё фичи) или «Понятно» (на последней). Строго на одном
- * экране без скролла: описание при нехватке места обрезается, кнопка видна всегда.
+ * Вариант «Обновление»: карусель фич, листается свайпом в обе стороны
+ * ([HorizontalPager]) и кнопкой «Далее». Сверху на каждой странице — общий
+ * заголовок обновления ([Announcement.title], например «Обновление 3.0.0»),
+ * ниже — картинка (если есть; иначе текст центрируется) → название → описание
+ * текущей фичи, снизу индикатор-точки и pill-кнопка «Далее» (если есть ещё
+ * фичи) или «Понятно» (на последней). Строго на одном экране без скролла:
+ * описание при нехватке места обрезается, кнопка видна всегда.
+ *
+ * Картинки всех фич ставятся в очередь на загрузку в Coil сразу при первом
+ * показе карусели ([LaunchedEffect]), а не по одной при перелистывании — так
+ * при свайпе между уже подгруженными фичами не видно задержки на загрузку.
  */
 @Composable
 private fun AnnouncementUpdateContent(
@@ -298,10 +310,23 @@ private fun AnnouncementUpdateContent(
     onDismiss: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
+    val context = LocalContext.current
     val features = announcement.features
-    var index by remember { mutableIntStateOf(0) }
-    val current = features[index.coerceIn(0, features.lastIndex)]
-    val isLast = index >= features.lastIndex
+    val pagerState = rememberPagerState(pageCount = { features.size })
+    val scope = rememberCoroutineScope()
+    val isLast = pagerState.currentPage >= features.lastIndex
+
+    // Предзагрузка картинок всех фич в кэш Coil — чтобы при свайпе между
+    // страницами карусели не было заметной задержки на загрузку.
+    LaunchedEffect(features) {
+        features.forEach { feature ->
+            feature.imageUrl?.let { url ->
+                context.imageLoader.enqueue(
+                    ImageRequest.Builder(context).data(url).build()
+                )
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -312,17 +337,44 @@ private fun AnnouncementUpdateContent(
         Column(modifier = Modifier.fillMaxSize()) {
             Spacer(modifier = Modifier.height(48.dp)) // место под крестик
 
-            if (current.imageUrl != null) {
-                ImageTitleTextBlock(
-                    imageUrl = current.imageUrl,
-                    title = current.title,
-                    text = current.description,
+            if (announcement.title.isNotBlank()) {
+                Text(
+                    text = announcement.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = cs.onSurfaceVariant,
+                    textAlign = TextAlign.Start,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
                 )
-            } else {
-                CenteredTitleTextBlock(
-                    title = current.title,
-                    text = current.description,
-                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            ) { page ->
+                val feature = features[page]
+                Column(modifier = Modifier.fillMaxSize()) {
+                    if (feature.imageUrl != null) {
+                        ImageTitleTextBlock(
+                            imageUrl = feature.imageUrl,
+                            title = feature.title,
+                            text = feature.description,
+                        )
+                    } else {
+                        CenteredTitleTextBlock(
+                            title = feature.title,
+                            text = feature.description,
+                        )
+                    }
+                }
             }
 
             // Индикатор-точки (если фич больше одной).
@@ -334,7 +386,7 @@ private fun AnnouncementUpdateContent(
                     horizontalArrangement = Arrangement.Center,
                 ) {
                     features.indices.forEach { i ->
-                        val active = i == index
+                        val active = i == pagerState.currentPage
                         Box(
                             modifier = Modifier
                                 .padding(horizontal = 4.dp)
@@ -351,7 +403,13 @@ private fun AnnouncementUpdateContent(
 
             BottomPillButton(
                 label = if (isLast) "Понятно" else "Далее",
-                onClick = { if (isLast) onDismiss() else index++ },
+                onClick = {
+                    if (isLast) {
+                        onDismiss()
+                    } else {
+                        scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                    }
+                },
                 modifier = Modifier.padding(top = 16.dp, bottom = 16.dp),
             )
         }
