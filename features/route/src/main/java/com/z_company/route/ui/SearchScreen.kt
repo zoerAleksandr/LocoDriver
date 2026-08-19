@@ -42,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.painterResource
@@ -142,6 +143,7 @@ fun SearchScreen(
                 .padding(paddingValues)
                 .fillMaxSize()
                 .padding(16.dp)
+                .testTag("search_screen")
         ) {
             SearchBar(
                 modifier = Modifier
@@ -193,7 +195,7 @@ fun SearchScreen(
                 }) { resultList ->
                 resultList?.let { list ->
                     LazyColumn(
-                        modifier = Modifier.padding(top = 12.dp),
+                        modifier = Modifier.padding(top = 12.dp).testTag("search_lazy_column"),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         state = scrollState
                     ) {

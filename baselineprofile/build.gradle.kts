@@ -48,5 +48,8 @@ baselineProfile {
 dependencies {
     implementation("androidx.test.ext:junit:1.2.1")
     implementation("androidx.test.uiautomator:uiautomator:2.3.0")
-    implementation("androidx.benchmark:benchmark-macro-junit4:1.3.4")
+    // 1.4.1 — минимум, где androidx.benchmark умеет парсить новый формат
+    // вывода `pm dump-profiles` на свежих Android (у нас эмулятор API 36).
+    // На 1.3.4 генерация профиля падала с IllegalStateException.
+    implementation("androidx.benchmark:benchmark-macro-junit4:1.4.1")
 }

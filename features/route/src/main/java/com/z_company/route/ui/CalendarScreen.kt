@@ -49,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
@@ -268,7 +269,8 @@ fun CalendarScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(rememberScrollState())
+                    .testTag("calendar_scroll_column"),
             ) {
             // Тонкий индикатор загрузки при смене месяца (данные уже есть на экране,
             // полноэкранный лоадер тут не нужен). Фиксированная высота — без сдвига вёрстки.

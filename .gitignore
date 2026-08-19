@@ -35,6 +35,10 @@ iosApp/build/generated/
 iosApp/build/kotlin/
 features/tracking/build/
 
+# Baseline Profile — сырой вывод generateReleaseBaselineProfile.
+# Эталонная, закоммиченная копия — app/src/main/baselineProfiles/.
+app/src/release/generated/baselineProfiles/
+
 # Claude Code local permissions
 .claude/settings.local.json
 
