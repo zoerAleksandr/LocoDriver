@@ -1,10 +1,13 @@
 package com.z_company.loco_driver.widget
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
@@ -21,8 +24,9 @@ import kotlin.math.ceil
  * блок текущего маршрута с быстрой записью прибытия/отправления.
  *
  * Цвета, зависящие от темы, резолвятся ресурсами @color (values / values-night)
- * автоматически на стороне хоста. Немногие цвета, зависящие от ДАННЫХ
- * (знак дельты), резолвятся в рантайме через ContextCompat.getColor.
+ * автоматически на стороне хоста для обычных XML-атрибутов. Цвета, которые
+ * выставляются в рантайме (Bitmap-числа, знак дельты) — через
+ * `RemoteViews.setColorInt(..., notNight, night)`, см. [WidgetRender.forcedNightColor].
  */
 object WKeys {
     // ─── Блок нормы (общий для малого и развёрнутого) ───
@@ -43,6 +47,14 @@ object WKeys {
     val TRAIN_LINE = stringPreferencesKey("w_train_line")        // "№2654 · КАНСК..."
     val IS_DEPARTURE_NEXT = booleanPreferencesKey("w_is_departure_next")
     val STAMP_DONE_TIME = stringPreferencesKey("w_stamp_done_time") // "23:48" / ""
+    // Поезд ещё не добавлен, ИЛИ уже записано прибытие на конечную станцию
+    // плеча — кнопкам «Прибытие/Отправление» уже нечего делать.
+    val SHOW_STAMP_BUTTONS = booleanPreferencesKey("w_show_stamp_buttons")
+    // Поезд добавлен И у него есть хотя бы одна станция. Поезд без станций
+    // равнозначен «поезда нет» — показывать по нему нечего.
+    val CURRENT_HAS_TRAIN = booleanPreferencesKey("w_current_has_train")
+    val CURRENT_REPORT_TIME = stringPreferencesKey("w_current_report_time") // явка, "20:00"
+    val CURRENT_REPORT_DATE = stringPreferencesKey("w_current_report_date") // "16.07.26"
 
     // ─── Состояние нижнего блока развёрнутого виджета ───
     // "current" | "upcoming" | "upcoming_unknown" | "rest" | "home_rest" | "none"
@@ -90,6 +102,50 @@ object WidgetRender {
             ResourcesCompat.getFont(context, fontRes) ?: Typeface.DEFAULT_BOLD
         }
 
+    /**
+     * `MainActivity.applyApplicationNightMode()` красит ВЕСЬ процесс приложения
+     * (`UiModeManager.setApplicationNightMode`, API 31+) под ВЫБРАННУЮ в
+     * приложении тему, и это сохраняется на уровне ОС между запусками. Поэтому
+     * обычный `ContextCompat.getColor(context, ...)` в этом процессе может
+     * резолвить цвет по теме приложения, а не по теме устройства — виджет же
+     * должен краситься под тему домашнего экрана независимо от того, что
+     * выбрано в самом приложении.
+     *
+     * Обойти это напрямую (узнать «текущую реальную» тему устройства изнутри
+     * процесса) — ненадёжно: `Resources.getSystem()` не отслеживает live-тему
+     * (у неё всегда пустой/неопределённый uiMode, отсюда прошлый баг — виджет
+     * стал всегда светлым). Правильный путь — не гадать «какая тема сейчас»,
+     * а форсированно резолвить ОБА варианта цвета (light и dark), передать их
+     * оба через `RemoteViews.setColorInt(viewId, method, notNight, night)`
+     * (API 31+) и дать ХОСТУ (лаунчеру) выбрать нужный по СВОЕЙ, настоящей
+     * Configuration — она этим оверрайдом не затронута.
+     * `createConfigurationContext` с форсированным uiMode резолвит ресурс
+     * детерминированно, независимо от текущего (возможно испорченного)
+     * состояния `context`.
+     */
+    private fun forcedNightColor(context: Context, colorRes: Int, night: Boolean): Int {
+        val bit = if (night) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
+        val config = Configuration(context.resources.configuration).apply {
+            uiMode = bit or (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv())
+        }
+        return ContextCompat.getColor(context.createConfigurationContext(config), colorRes)
+    }
+
+    /** Красит TextView под реальную тему устройства (см. [forcedNightColor]). */
+    private fun setThemedTextColor(context: Context, rv: RemoteViews, viewId: Int, colorRes: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            rv.setColorInt(
+                viewId, "setTextColor",
+                forcedNightColor(context, colorRes, night = false),
+                forcedNightColor(context, colorRes, night = true),
+            )
+        } else {
+            // До API 31 `setApplicationNightMode` не вызывается (гейт в
+            // MainActivity), процесс не перекрашен — прямой резолв безопасен.
+            rv.setTextColor(viewId, ContextCompat.getColor(context, colorRes))
+        }
+    }
+
     /** Рендерит mono-число в Bitmap. fontRes — вес (extrabold/bold/semibold). */
     fun renderMonoBitmap(
         context: Context,
@@ -99,10 +155,19 @@ object WidgetRender {
         fontRes: Int = R.font.jetbrains_mono_extrabold,
     ): Bitmap {
         val density = context.resources.displayMetrics.density
+        // На API 31+ красим глиф нейтральным непрозрачным цветом — важна
+        // только альфа (форма), реальный цвет накладывается позже через
+        // setColorInt/setColorFilter (см. bindMonoBitmap), по теме ХОСТА.
+        // На API < 31 риска перекраса процесса нет — резолвим сразу.
+        val color = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Color.WHITE
+        } else {
+            ContextCompat.getColor(context, colorRes)
+        }
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = mono(context, fontRes)
             textSize = sizeSp * density
-            color = ContextCompat.getColor(context, colorRes)
+            this.color = color
             letterSpacing = -0.03f
         }
         val fm = paint.fontMetrics
@@ -113,9 +178,28 @@ object WidgetRender {
         return bmp
     }
 
-    /** Отработанное время (ExtraBold). */
-    fun renderMetricBitmap(context: Context, text: String, sizeSp: Float, colorRes: Int): Bitmap =
-        renderMonoBitmap(context, text, sizeSp, colorRes, R.font.jetbrains_mono_extrabold)
+    /**
+     * Ставит mono-Bitmap в ImageView и красит его под реальную тему устройства
+     * (см. [renderMonoBitmap] / [forcedNightColor]).
+     */
+    private fun bindMonoBitmap(
+        context: Context,
+        rv: RemoteViews,
+        viewId: Int,
+        text: String,
+        sizeSp: Float,
+        colorRes: Int,
+        fontRes: Int = R.font.jetbrains_mono_extrabold,
+    ) {
+        rv.setImageViewBitmap(viewId, renderMonoBitmap(context, text, sizeSp, colorRes, fontRes))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            rv.setColorInt(
+                viewId, "setColorFilter",
+                forcedNightColor(context, colorRes, night = false),
+                forcedNightColor(context, colorRes, night = true),
+            )
+        }
+    }
 
     /**
      * Заполняет layout блока нормы (widget_small_norm / widget_norm_block).
@@ -124,9 +208,9 @@ object WidgetRender {
      * @param metricSizeSp размер отработанного времени (44 — развёрнутый, 38 — малый).
      */
     fun populateNorm(context: Context, rv: RemoteViews, d: NormData, metricSizeSp: Float) {
-        rv.setImageViewBitmap(
-            R.id.metric_image,
-            renderMetricBitmap(context, d.workedHm, metricSizeSp, R.color.widget_text)
+        bindMonoBitmap(
+            context, rv, R.id.metric_image,
+            d.workedHm, metricSizeSp, R.color.widget_text, R.font.jetbrains_mono_extrabold
         )
         rv.setTextViewText(R.id.norm_value, d.normHm)
 
@@ -134,11 +218,10 @@ object WidgetRender {
             rv.setViewVisibility(R.id.delta_text, View.VISIBLE)
             rv.setViewVisibility(R.id.delta_label, View.VISIBLE)
             rv.setTextViewText(R.id.delta_text, d.deltaText)
-            val deltaColor = ContextCompat.getColor(
-                context,
+            setThemedTextColor(
+                context, rv, R.id.delta_text,
                 if (d.isOvertime) R.color.widget_warning else R.color.widget_success
             )
-            rv.setTextColor(R.id.delta_text, deltaColor)
             rv.setTextViewText(
                 R.id.delta_label,
                 if (d.isOvertime) "сверх нормы" else "до нормы"
@@ -153,19 +236,30 @@ object WidgetRender {
         rv.setInt(R.id.norm_bar, "setSecondaryProgress", d.barSecondary)
     }
 
-    /** Заполняет хедер текущего маршрута (widget_route_header). */
+    /**
+     * Заполняет хедер текущего маршрута (widget_route_header).
+     * @param showCaption показывать строку «ТЕКУЩИЙ МАРШРУТ» + номер.
+     * `false`, когда под хедером ещё показаны кнопки записи — так
+     * экономится высота, а номер маршрута и так виден в приложении.
+     */
     fun populateRouteHeader(
         rv: RemoteViews,
         routeNumber: String,
         from: String,
         to: String,
         trainLine: String,
+        showCaption: Boolean = true,
     ) {
-        if (routeNumber.isNotEmpty()) {
-            rv.setViewVisibility(R.id.route_number, View.VISIBLE)
-            rv.setTextViewText(R.id.route_number, routeNumber)
+        if (showCaption) {
+            rv.setViewVisibility(R.id.header_caption_row, View.VISIBLE)
+            if (routeNumber.isNotEmpty()) {
+                rv.setViewVisibility(R.id.route_number, View.VISIBLE)
+                rv.setTextViewText(R.id.route_number, routeNumber)
+            } else {
+                rv.setViewVisibility(R.id.route_number, View.GONE)
+            }
         } else {
-            rv.setViewVisibility(R.id.route_number, View.GONE)
+            rv.setViewVisibility(R.id.header_caption_row, View.GONE)
         }
         // Направление: скрываем целиком, если станции неизвестны.
         if (from.isEmpty() && to.isEmpty()) {
@@ -186,23 +280,26 @@ object WidgetRender {
         }
     }
 
-    /** Состояние «Следующий маршрут» (widget_upcoming). */
+    /**
+     * Блок явки (widget_upcoming) — «Следующий маршрут» либо, с
+     * `caption = "ТЕКУЩИЙ МАРШРУТ"`, текущий маршрут без добавленного поезда
+     * (когда показать нечего, кроме номера и времени/даты явки).
+     */
     fun buildUpcoming(
         context: Context,
         number: String, time: String, date: String,
         from: String, to: String, known: Boolean,
+        caption: String = "СЛЕДУЮЩИЙ МАРШРУТ",
     ): RemoteViews {
         val rv = RemoteViews(context.packageName, R.layout.widget_upcoming)
+        rv.setTextViewText(R.id.up_caption, caption)
         if (number.isNotEmpty()) {
             rv.setViewVisibility(R.id.up_number, View.VISIBLE)
             rv.setTextViewText(R.id.up_number, number)
         } else {
             rv.setViewVisibility(R.id.up_number, View.GONE)
         }
-        rv.setImageViewBitmap(
-            R.id.up_time_image,
-            renderMonoBitmap(context, time, 30f, R.color.widget_text)
-        )
+        bindMonoBitmap(context, rv, R.id.up_time_image, time, 30f, R.color.widget_text)
         rv.setTextViewText(R.id.up_date, date)
         if (known && (from.isNotEmpty() || to.isNotEmpty())) {
             rv.setViewVisibility(R.id.up_path_section, View.VISIBLE)
@@ -221,15 +318,9 @@ object WidgetRender {
         fullDur: String, fullEnd: String,
     ): RemoteViews {
         val rv = RemoteViews(context.packageName, R.layout.widget_rest_po)
-        rv.setImageViewBitmap(
-            R.id.rest_short_dur,
-            renderMonoBitmap(context, shortDur, 24f, R.color.widget_text)
-        )
+        bindMonoBitmap(context, rv, R.id.rest_short_dur, shortDur, 24f, R.color.widget_text)
         rv.setTextViewText(R.id.rest_short_end, shortEnd)
-        rv.setImageViewBitmap(
-            R.id.rest_full_dur,
-            renderMonoBitmap(context, fullDur, 24f, R.color.widget_text)
-        )
+        bindMonoBitmap(context, rv, R.id.rest_full_dur, fullDur, 24f, R.color.widget_text)
         rv.setTextViewText(R.id.rest_full_end, fullEnd)
         return rv
     }
@@ -237,10 +328,7 @@ object WidgetRender {
     /** Состояние «Домашний отдых» (widget_home_rest). Кнопка — в Glance. */
     fun buildHomeRest(context: Context, dur: String, end: String): RemoteViews {
         val rv = RemoteViews(context.packageName, R.layout.widget_home_rest)
-        rv.setImageViewBitmap(
-            R.id.hr_duration,
-            renderMonoBitmap(context, dur, 26f, R.color.widget_text)
-        )
+        bindMonoBitmap(context, rv, R.id.hr_duration, dur, 26f, R.color.widget_text)
         rv.setTextViewText(R.id.hr_end, end)
         return rv
     }

@@ -28,6 +28,7 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
@@ -111,34 +112,40 @@ class LocoDriverWidget : GlanceAppWidget() {
             WidgetRender.populateNorm(context, it, norm, metricSizeSp = 44f)
         }
 
-        // Карточка обёртывает контент по высоте (как в референсе — компактная
-        // карточка на обоях), а не заливает всю выделенную область виджета.
-        // Свободное место виджета остаётся прозрачным.
+        // Карточка ЗАПОЛНЯЕТ всю выделенную область виджета (fillMaxSize), чтобы
+        // при растягивании пользователем по высоте фон рос вместе с виджетом, а
+        // не оставался компактным с пустотой сверху.
         Box(
             modifier = GlanceModifier
-                .fillMaxWidth()
-                .wrapContentHeight()
+                .fillMaxSize()
                 .cornerRadius(24.dp)
                 .background(ImageProvider(R.drawable.widget_card_bg))
                 .clickable(actionRunCallback<OpenAppActionCallback>())
                 .padding(18.dp)
         ) {
-            Column(modifier = GlanceModifier.fillMaxWidth().wrapContentHeight()) {
+            // Контент — две логические группы, разведённые распоркой с весом:
+            //   верхняя (отработанное время + индикатор нормы) прижата к ВЕРХУ,
+            //   нижняя (маршрут / отдых / кнопки записи) — к НИЗУ.
+            // Вся лишняя высота при растягивании уходит в распорку между ними,
+            // поэтому нижняя группа всегда у нижнего края и не обрезается
+            // (RemoteViews не скроллит, а обрезает контент).
+            Column(modifier = GlanceModifier.fillMaxSize()) {
                 AndroidRemoteViews(
                     remoteViews = normRv,
                     modifier = GlanceModifier.fillMaxWidth().wrapContentHeight()
                 )
 
+                Spacer(modifier = GlanceModifier.defaultWeight())
+
                 if (state != "none") {
-                    // Разделитель под блоком нормы
-                    Spacer(modifier = GlanceModifier.height(14.dp))
+                    // Разделитель над нижней группой
                     Box(
                         modifier = GlanceModifier
                             .fillMaxWidth()
                             .height(1.dp)
                             .background(ImageProvider(R.drawable.widget_divider))
                     ) {}
-                    Spacer(modifier = GlanceModifier.height(14.dp))
+                    Spacer(modifier = GlanceModifier.height(6.dp))
 
                     when (state) {
                         "current" -> RouteSection(context, prefs)
@@ -151,9 +158,33 @@ class LocoDriverWidget : GlanceAppWidget() {
         }
     }
 
-    /** Нижняя секция с активным маршрутом: хедер + две кнопки записи. */
+    /**
+     * Нижняя секция с активным маршрутом.
+     * Поезд ещё не добавлен ЛИБО у поезда нет ни одной станции → показываем
+     * только явку (номер маршрута + время/дата, без направления — его ещё
+     * неоткуда взять) и НЕ показываем кнопки.
+     * Поезд со станциями → обычный хедер (номер/направление/статус); кнопки
+     * «Прибытие»/«Отправление» — только если по плечу ещё есть что записать
+     * (см. [WidgetDataLoader.hasPendingStampAction]).
+     */
     @Composable
     private fun RouteSection(context: Context, prefs: Preferences) {
+        val hasTrain = prefs[WKeys.CURRENT_HAS_TRAIN] ?: true
+        if (!hasTrain) {
+            val rv = WidgetRender.buildUpcoming(
+                context = context,
+                number = prefs[WKeys.ROUTE_NUMBER] ?: "",
+                time = prefs[WKeys.CURRENT_REPORT_TIME] ?: "",
+                date = prefs[WKeys.CURRENT_REPORT_DATE] ?: "",
+                from = "", to = "", known = false,
+                caption = "ТЕКУЩИЙ МАРШРУТ",
+            )
+            AndroidRemoteViews(rv, GlanceModifier.fillMaxWidth().wrapContentHeight())
+            return
+        }
+
+        val showButtons = prefs[WKeys.SHOW_STAMP_BUTTONS] ?: true
+
         val headerRv = RemoteViews(context.packageName, R.layout.widget_route_header).also {
             WidgetRender.populateRouteHeader(
                 rv = it,
@@ -161,15 +192,20 @@ class LocoDriverWidget : GlanceAppWidget() {
                 from = prefs[WKeys.STATION_FROM] ?: "",
                 to = prefs[WKeys.STATION_TO] ?: "",
                 trainLine = prefs[WKeys.TRAIN_LINE] ?: "",
+                // Строка «ТЕКУЩИЙ МАРШРУТ»+номер скрыта, когда под хедером
+                // ещё покажутся кнопки — освобождает высоту под них.
+                showCaption = !showButtons,
             )
         }
-        val isDepartureNext = prefs[WKeys.IS_DEPARTURE_NEXT] ?: true
-        val doneTime = prefs[WKeys.STAMP_DONE_TIME] ?: ""
-
         AndroidRemoteViews(
             remoteViews = headerRv,
             modifier = GlanceModifier.fillMaxWidth().wrapContentHeight()
         )
+
+        if (!showButtons) return
+
+        val isDepartureNext = prefs[WKeys.IS_DEPARTURE_NEXT] ?: true
+        val doneTime = prefs[WKeys.STAMP_DONE_TIME] ?: ""
 
         Spacer(modifier = GlanceModifier.height(12.dp))
 
@@ -265,6 +301,10 @@ class LocoDriverWidget : GlanceAppWidget() {
             trainLine: String,
             isDepartureNext: Boolean,
             stampDoneTime: String,
+            showStampButtons: Boolean,
+            currentHasTrain: Boolean,
+            currentReportTime: String,
+            currentReportDate: String,
             upTime: String, upDate: String, upNumber: String,
             upFrom: String, upTo: String,
             restShortDur: String, restShortEnd: String,
@@ -291,6 +331,10 @@ class LocoDriverWidget : GlanceAppWidget() {
                         this[WKeys.TRAIN_LINE] = trainLine
                         this[WKeys.IS_DEPARTURE_NEXT] = isDepartureNext
                         this[WKeys.STAMP_DONE_TIME] = stampDoneTime
+                        this[WKeys.SHOW_STAMP_BUTTONS] = showStampButtons
+                        this[WKeys.CURRENT_HAS_TRAIN] = currentHasTrain
+                        this[WKeys.CURRENT_REPORT_TIME] = currentReportTime
+                        this[WKeys.CURRENT_REPORT_DATE] = currentReportDate
                         this[WKeys.UP_TIME] = upTime
                         this[WKeys.UP_DATE] = upDate
                         this[WKeys.UP_NUMBER] = upNumber
@@ -406,14 +450,24 @@ object WidgetDataLoader : KoinComponent {
         )
         val hasCurrentRoute = currentRoute != null
         val lastTrain = currentRoute?.trains?.lastOrNull()
+        // Поезд без единой станции показывать нечем (ни направления, ни статуса,
+        // ни события для кнопок), поэтому он равнозначен «поезда ещё нет» —
+        // виджет отдаёт то же состояние с блоком явки.
+        val hasTrainWithStations = lastTrain != null && lastTrain.stations.isNotEmpty()
 
         val isDepartureNext = if (hasCurrentRoute) nextIsDeparture(lastTrain) else true
 
         val dateAndTimeConverter = DateAndTimeConverter(userSettings)
         val buttonInfo = computeButtonInfo(currentRoute, dateAndTimeConverter)
 
-        // Route header fields
-        val routeNumber = lastTrain?.number?.takeIf { it.isNotBlank() }?.let { "№$it" } ?: ""
+        // Route header fields. Без поезда (или у поезда нет станций) — берём
+        // номер самого маршрута: направления/статуса ещё неоткуда взять,
+        // показываем явку вместо них.
+        val routeNumber = if (hasTrainWithStations) {
+            lastTrain.number?.takeIf { it.isNotBlank() }?.let { "№$it" } ?: ""
+        } else {
+            currentRoute?.basicData?.number?.takeIf { it.isNotBlank() }?.let { "№$it" } ?: ""
+        }
         val stationFrom = lastTrain?.stations?.firstOrNull()?.stationName?.trim().orEmpty()
         val stationTo = if ((lastTrain?.stations?.size ?: 0) > 1) {
             lastTrain?.stations?.lastOrNull()?.stationName?.trim().orEmpty()
@@ -423,6 +477,10 @@ object WidgetDataLoader : KoinComponent {
             .filter { it.isNotEmpty() }
             .joinToString(" ")
             .uppercase()
+
+        val currentReportTime = dateAndTimeConverter.getTime(currentRoute?.basicData?.timeStartWork)
+        val currentReportDate = dateAndTimeConverter.getDate(currentRoute?.basicData?.timeStartWork)
+        val showStampButtons = hasPendingStampAction(lastTrain)
 
         // ─── Состояние нижнего блока (как на главном экране) ───
         val state: String
@@ -478,6 +536,10 @@ object WidgetDataLoader : KoinComponent {
             trainLine = trainLine,
             isDepartureNext = isDepartureNext,
             stampDoneTime = buttonInfo.rawTime,
+            showStampButtons = showStampButtons,
+            currentHasTrain = hasTrainWithStations,
+            currentReportTime = currentReportTime,
+            currentReportDate = currentReportDate,
             upTime = upTime, upDate = upDate, upNumber = upNumber,
             upFrom = upFrom, upTo = upTo,
             restShortDur = restShortDur, restShortEnd = restShortEnd,
@@ -611,6 +673,25 @@ object WidgetDataLoader : KoinComponent {
                 hrEnd = dtc.getDateMiniAndTime(endRestTime),
             )
         }
+    }
+
+    /**
+     * Есть ли ещё что записать кнопками «Прибытие»/«Отправление» по текущему
+     * плечу: поезд добавлен И на конечной станции плеча ещё нет прибытия
+     * (иначе плечо уже закрыто — дальше действие только через приложение,
+     * добавлением следующего поезда).
+     */
+    fun hasPendingStampAction(train: Train?): Boolean {
+        if (train == null) return false
+        val stations = train.stations
+        if (stations.isEmpty()) return false
+
+        val hasServicePhase = train.servicePhase != null
+        val endIdx = if (hasServicePhase && stations.size >= 2)
+            stations.lastIndex - 1 else stations.lastIndex
+        if (endIdx < 0) return false
+
+        return stations[endIdx].timeArrival == null
     }
 
     /** Determine if next action is departure (same logic as HomeViewModel). */

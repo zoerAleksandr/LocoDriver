@@ -5,47 +5,12 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-    <!-- Шапка: лейбл + чип «М» -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="ОТРАБОТАНО"
-            android:fontFamily="@font/jetbrains_mono_semibold"
-            android:textColor="@color/widget_text_muted"
-            android:textSize="10sp"
-            android:letterSpacing="0.13"
-            android:maxLines="1"
-            android:ellipsize="end" />
-
-        <FrameLayout
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:background="@drawable/widget_brand_chip">
-
-            <ImageView
-                android:layout_width="15dp"
-                android:layout_height="14dp"
-                android:layout_gravity="center"
-                android:src="@drawable/ic_logo_m"
-                android:tint="@color/widget_ink_on"
-                android:contentDescription="Машинист" />
-        </FrameLayout>
-    </LinearLayout>
-
     <!-- Метрика + дельта -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="bottom"
-        android:layout_marginTop="8dp">
+        android:gravity="bottom">
 
         <ImageView
             android:id="@+id/metric_image"

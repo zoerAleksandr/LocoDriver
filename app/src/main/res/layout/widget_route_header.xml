@@ -5,8 +5,11 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-    <!-- Заголовок + номер -->
+    <!-- Заголовок + номер. Скрывается целиком, когда показаны кнопки
+         записи (WidgetRender.populateRouteHeader, showCaption=false) —
+         освобождает высоту под кнопки. -->
     <LinearLayout
+        android:id="@+id/header_caption_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
