@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -106,6 +107,18 @@ enum class SettingsSubScreen(val title: String, val depth: Int) {
     PARTNER_LIST("Напарники", 1),
     PARTNER_EDITOR("Напарник", 2),
 }
+
+// Под-экраны настроек, где заголовок — по центру, а слева вместо стрелки
+// назад — синий текст «Готово». Справочники (списки и их редакторы —
+// Серии/Станции/Плечи/Напарники) в этот набор не входят.
+private val SETTINGS_CENTERED_DONE_SCREENS = setOf(
+    SettingsSubScreen.ROUTE,
+    SettingsSubScreen.ROUTE_FORM,
+    SettingsSubScreen.NORMA,
+    SettingsSubScreen.ACCOUNTING,
+    SettingsSubScreen.REST,
+    SettingsSubScreen.LOCOMOTIVE,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -236,25 +249,15 @@ fun SettingsScreen(
             }
         },
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    val isEditor = currentSubScreen == SettingsSubScreen.STATION_EDITOR ||
-                        currentSubScreen == SettingsSubScreen.SERIES_EDITOR
-                    if (isEditor) {
-                        // В редакторе станции/серии — синий «Готово» (как в форме
-                        // маршрута): сохраняет и возвращает к списку.
+            // Простые (не-справочные) под-экраны Настроек: заголовок по центру
+            // + синий «Готово» слева вместо стрелки назад (тот же переход, что
+            // и раньше был у стрелки). Справочники (Серии/Станции/Плечи/
+            // Напарники — списки и их редакторы) сохраняют старое поведение.
+            if (currentSubScreen in SETTINGS_CENTERED_DONE_SCREENS) {
+                CenterAlignedTopAppBar(
+                    navigationIcon = {
                         TextButton(onClick = {
-                            when (currentSubScreen) {
-                                SettingsSubScreen.STATION_EDITOR -> {
-                                    activeStationEditor?.commit()
-                                    if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.STATION_LIST
-                                }
-                                SettingsSubScreen.SERIES_EDITOR -> {
-                                    activeSeriesEditor?.commit()
-                                    if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.SERIES_LIST
-                                }
-                                else -> {}
-                            }
+                            if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
                         }) {
                             Text(
                                 text = "Готово",
@@ -262,43 +265,83 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.tertiary,
                             )
                         }
-                    } else if (currentSubScreen != SettingsSubScreen.HUB) {
-                        IconButton(onClick = {
-                            when (currentSubScreen) {
-                                SettingsSubScreen.PARTNER_EDITOR ->
-                                    currentSubScreen = SettingsSubScreen.PARTNER_LIST
-                                else -> if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
-                            }
-                        }) {
-                            Icon(
-                                painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
-                                contentDescription = "Назад",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                },
-                title = {
-                    val titleText = when (currentSubScreen) {
-                        SettingsSubScreen.SERIES_EDITOR -> {
-                            if (selectedSeriesId != null)
-                                seriesListViewModel?.seriesFlow?.collectAsState()?.value
-                                    ?.find { it.seriesId == selectedSeriesId }?.name
-                                    ?: "Новая серия"
-                            else "Новая серия"
-                        }
-                        else -> currentSubScreen.title
-                    }
-                    Text(
-                        text = titleText,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
+                    },
+                    title = {
+                        Text(
+                            text = currentSubScreen.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors().copy(
+                        containerColor = Color.Transparent,
                     )
-                },
-                colors = TopAppBarDefaults.topAppBarColors().copy(
-                    containerColor = Color.Transparent,
                 )
-            )
+            } else {
+                TopAppBar(
+                    navigationIcon = {
+                        val isEditor = currentSubScreen == SettingsSubScreen.STATION_EDITOR ||
+                            currentSubScreen == SettingsSubScreen.SERIES_EDITOR
+                        if (isEditor) {
+                            // В редакторе станции/серии — синий «Готово» (как в форме
+                            // маршрута): сохраняет и возвращает к списку.
+                            TextButton(onClick = {
+                                when (currentSubScreen) {
+                                    SettingsSubScreen.STATION_EDITOR -> {
+                                        activeStationEditor?.commit()
+                                        if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.STATION_LIST
+                                    }
+                                    SettingsSubScreen.SERIES_EDITOR -> {
+                                        activeSeriesEditor?.commit()
+                                        if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.SERIES_LIST
+                                    }
+                                    else -> {}
+                                }
+                            }) {
+                                Text(
+                                    text = "Готово",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                )
+                            }
+                        } else if (currentSubScreen != SettingsSubScreen.HUB) {
+                            IconButton(onClick = {
+                                when (currentSubScreen) {
+                                    SettingsSubScreen.PARTNER_EDITOR ->
+                                        currentSubScreen = SettingsSubScreen.PARTNER_LIST
+                                    else -> if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
+                                }
+                            }) {
+                                Icon(
+                                    painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
+                                    contentDescription = "Назад",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    },
+                    title = {
+                        val titleText = when (currentSubScreen) {
+                            SettingsSubScreen.SERIES_EDITOR -> {
+                                if (selectedSeriesId != null)
+                                    seriesListViewModel?.seriesFlow?.collectAsState()?.value
+                                        ?.find { it.seriesId == selectedSeriesId }?.name
+                                        ?: "Новая серия"
+                                else "Новая серия"
+                            }
+                            else -> currentSubScreen.title
+                        }
+                        Text(
+                            text = titleText,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors().copy(
+                        containerColor = Color.Transparent,
+                    )
+                )
+            }
         }
     ) { paddingValues ->
 

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -108,28 +109,21 @@ fun PartnersListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                ),
-                title = {
-                    Text(
-                        text = "Напарники",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
+            if (mode == PartnerListMode.SELECT) {
+                // Экран выбора напарника (из формы маршрута): заголовок по центру,
+                // без стрелки назад — слева синий «Готово» вместо неё.
+                CenterAlignedTopAppBar(
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    ),
+                    title = {
                         Text(
-                            text = "‹",
-                            style = MaterialTheme.typography.headlineLarge,
+                            text = "Напарники",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
                             color = MaterialTheme.colorScheme.primary,
                         )
-                    }
-                },
-                actions = {
-                    if (mode == PartnerListMode.SELECT) {
+                    },
+                    navigationIcon = {
                         TextButton(onClick = onDone) {
                             Text(
                                 text = "Готово",
@@ -137,9 +131,31 @@ fun PartnersListScreen(
                                 color = MaterialTheme.colorScheme.tertiary,
                             )
                         }
-                    }
-                },
-            )
+                    },
+                )
+            } else {
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    ),
+                    title = {
+                        Text(
+                            text = "Напарники",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Text(
+                                text = "‹",
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    },
+                )
+            }
         },
         bottomBar = {
             // Нижняя filled-кнопка «Добавить напарника».
