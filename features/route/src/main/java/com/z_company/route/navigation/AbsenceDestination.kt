@@ -29,6 +29,7 @@ fun AbsenceDestination(
         onDayTap = viewModel::onDayTap,
         onSetType = viewModel::setType,
         onToggleTypePicker = viewModel::toggleTypePicker,
+        onShiftMonth = viewModel::shiftMonth,
         onSave = viewModel::save,
     )
 }

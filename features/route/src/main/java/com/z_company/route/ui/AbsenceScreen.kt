@@ -34,7 +34,9 @@ import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.domain.entities.ReleaseType
 import com.z_company.route.viewmodel.AbsenceUiState
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.daysUntil
+import java.time.LocalDate as JLocalDate
 
 private fun absTypeColor(type: ReleaseType): Color = when (type) {
     ReleaseType.Vacation -> Color(0xFF34C759)
@@ -63,13 +65,15 @@ fun AbsenceScreen(
     onDayTap: (Int) -> Unit,
     onSetType: (ReleaseType) -> Unit,
     onToggleTypePicker: () -> Unit,
+    onShiftMonth: (Int) -> Unit,
     onSave: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     val typeColor = absTypeColor(state.selectedType)
     val hasRange = state.rangeStart != null
-    val days = if (state.rangeStart != null && state.rangeEnd != null)
-        maxOf(state.rangeStart, state.rangeEnd) - minOf(state.rangeStart, state.rangeEnd) + 1 else 0
+    val rangeLo = state.rangeStart?.let { s -> state.rangeEnd?.let { e -> minOf(s, e) } ?: s }
+    val rangeHi = state.rangeStart?.let { s -> state.rangeEnd?.let { e -> maxOf(s, e) } ?: s }
+    val days = if (rangeLo != null && rangeHi != null) rangeLo.daysUntil(rangeHi) + 1 else 0
 
     Scaffold(
         containerColor = cs.background,
@@ -143,12 +147,37 @@ fun AbsenceScreen(
                 Spacer(Modifier.width(56.dp))
             }
 
-            // Месяц
-            Text(
-                "${state.monthName} ${state.year}",
-                fontSize = 17.sp, fontWeight = FontWeight.Bold, color = cs.primary,
-                modifier = Modifier.padding(start = 20.dp, top = 4.dp, bottom = 4.dp),
-            )
+            // Месяц (со стрелками переключения — диапазон можно начать в одном
+            // месяце и закончить в другом)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .clickable { onShiftMonth(-1) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("‹", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = cs.primary)
+                }
+                Text(
+                    "${state.monthName} ${state.year}",
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    fontSize = 17.sp, fontWeight = FontWeight.Bold, color = cs.primary,
+                )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .clickable { onShiftMonth(1) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("›", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = cs.primary)
+                }
+            }
 
             // Дни недели
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
@@ -183,8 +212,14 @@ fun AbsenceScreen(
                 typeColor = typeColor,
                 typeLabel = state.selectedType.text,
                 rangeText = when {
-                    days > 1 -> "${minOf(state.rangeStart!!, state.rangeEnd!!)}–${maxOf(state.rangeStart, state.rangeEnd)} ${monthGen(state.month)}"
-                    days == 1 -> "${state.rangeStart} ${monthGen(state.month)}"
+                    days > 1 && rangeLo!!.year == rangeHi!!.year && rangeLo.monthNumber == rangeHi.monthNumber ->
+                        "${rangeLo.dayOfMonth}–${rangeHi.dayOfMonth} ${monthGen(rangeLo.monthNumber - 1)}"
+                    days > 1 -> {
+                        val yearSuffix = if (rangeLo!!.year != rangeHi!!.year) " ${rangeHi.year}" else ""
+                        "${rangeLo.dayOfMonth} ${monthGen(rangeLo.monthNumber - 1)} – " +
+                            "${rangeHi.dayOfMonth} ${monthGen(rangeHi.monthNumber - 1)}$yearSuffix"
+                    }
+                    days == 1 -> "${rangeLo!!.dayOfMonth} ${monthGen(rangeLo.monthNumber - 1)}"
                     else -> "Не выбрано"
                 },
                 days = days,
@@ -205,7 +240,7 @@ private fun RangeGrid(
     modifier: Modifier = Modifier,
 ) {
     if (state.year == 0) return
-    val first = LocalDate.of(state.year, state.month + 1, 1)
+    val first = JLocalDate.of(state.year, state.month + 1, 1)
     val offset = first.dayOfWeek.value - 1
     val cells = ArrayList<Int?>()
     repeat(offset) { cells.add(null) }
@@ -220,7 +255,8 @@ private fun RangeGrid(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 week.forEach { d ->
                     Box(modifier = Modifier.weight(1f)) {
-                        RangeCell(state, d, lo, hi, typeColor, onClick = { d?.let(onDayTap) })
+                        val cellDate = d?.let { LocalDate(state.year, state.month + 1, it) }
+                        RangeCell(state, d, cellDate, lo, hi, typeColor, onClick = { d?.let(onDayTap) })
                     }
                 }
                 repeat(7 - week.size) { Box(modifier = Modifier.weight(1f)) {} }
@@ -234,18 +270,19 @@ private fun RangeGrid(
 private fun RangeCell(
     state: AbsenceUiState,
     day: Int?,
-    lo: Int?,
-    hi: Int?,
+    cellDate: LocalDate?,
+    lo: LocalDate?,
+    hi: LocalDate?,
     typeColor: Color,
     onClick: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
-    if (day == null) {
+    if (day == null || cellDate == null) {
         Spacer(Modifier.height(52.dp))
         return
     }
-    val inRange = lo != null && hi != null && day in lo..hi
-    val isAnchor = day == lo || day == hi
+    val inRange = lo != null && hi != null && cellDate >= lo && cellDate <= hi
+    val isAnchor = cellDate == lo || cellDate == hi
     val isMid = inRange && !isAnchor
     val existing = state.existingAbsences[day]
     val ec = existing?.let { absTypeColor(it) }

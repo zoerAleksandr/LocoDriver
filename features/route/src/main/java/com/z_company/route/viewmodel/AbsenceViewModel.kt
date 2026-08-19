@@ -21,7 +21,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.plus
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.time.LocalDate as JLocalDate
@@ -43,10 +45,10 @@ class AbsenceViewModel : ViewModel(), KoinComponent {
     private val _uiState = MutableStateFlow(AbsenceUiState())
     val uiState: StateFlow<AbsenceUiState> = _uiState.asStateFlow()
 
-    private var month: MonthOfYear? = null
-    // Теги дней (рабочий/выходной/праздник) — для подсчёта часов отвлечения:
-    // норма-часы начисляются только за рабочие дни (кроме «по уходу» — за все).
-    private var dayTags: Map<Int, TagForDay> = emptyMap()
+    // Все месяцы производственного календаря, известные приложению, по (год, месяц-0based).
+    // Позволяет листать месяцы шторки независимо от выбранного диапазона дат
+    // (диапазон может начинаться в одном месяце и заканчиваться в другом).
+    private var monthsCache: Map<Pair<Int, Int>, MonthOfYear> = emptyMap()
 
     /** Типы отвлечений для выбора (без «Выходного» — он добавляется отдельным пунктом меню). */
     val types: List<ReleaseType> = listOf(
@@ -60,26 +62,12 @@ class AbsenceViewModel : ViewModel(), KoinComponent {
             try {
                 val setting = settingsUseCase.getUserSettingFlow().first()
                 val base = setting.selectMonthOfYear
-                val merged = runCatching {
+                val allMonths = runCatching {
                     calendarUseCase.loadFlowMonthOfYearListState().first()
-                        .find { it.year == base.year && it.month == base.month }
-                }.getOrNull() ?: base
-                month = merged
-                dayTags = merged.days.associate { it.dayOfMonth to it.tag }
-                val daysInMonth = JLocalDate.of(merged.year, merged.month + 1, 1).lengthOfMonth()
-                val existing = merged.days
-                    .filter { it.isReleaseDay && it.releaseType != null }
-                    .associate { it.dayOfMonth to (it.releaseType ?: ReleaseType.Other) }
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        year = merged.year,
-                        month = merged.month,
-                        monthName = monthName(merged.month),
-                        daysInMonth = daysInMonth,
-                        existingAbsences = existing,
-                    )
-                }
+                }.getOrNull().orEmpty()
+                monthsCache = allMonths.associateBy { it.year to it.month }
+                val merged = monthsCache[base.year to base.month] ?: base
+                applyMonth(merged)
             } catch (t: Throwable) {
                 if (t is CancellationException) throw t
                 t.sendToSentry("AbsenceViewModel", "prepareScreen")
@@ -88,14 +76,50 @@ class AbsenceViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    /** Тап по дню: 1-й — начало (одиночный), 2-й — конец диапазона, 3-й — сброс. */
+    /** Отобразить в шторке другой месяц, не трогая уже выбранный диапазон дат. */
+    private fun applyMonth(found: MonthOfYear) {
+        val daysInMonth = JLocalDate.of(found.year, found.month + 1, 1).lengthOfMonth()
+        val existing = found.days
+            .filter { it.isReleaseDay && it.releaseType != null }
+            .associate { it.dayOfMonth to (it.releaseType ?: ReleaseType.Other) }
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                year = found.year,
+                month = found.month,
+                monthName = monthName(found.month),
+                daysInMonth = daysInMonth,
+                existingAbsences = existing,
+            )
+        }
+    }
+
+    /** Переключить показанный в шторке месяц (delta = -1 / +1). Диапазон дат не сбрасывается —
+     * позволяет начать диапазон в одном месяце и закончить в другом. */
+    fun shiftMonth(delta: Int) {
+        val s = _uiState.value
+        var y = s.year
+        var m = s.month + delta
+        if (m < 0) { m = 11; y -= 1 }
+        if (m > 11) { m = 0; y += 1 }
+        val found = monthsCache[y to m]
+        if (found == null) {
+            snackbarManager.show("Нет данных календаря за этот месяц")
+            return
+        }
+        applyMonth(found)
+    }
+
+    /** Тап по дню (в текущем показанном месяце шторки):
+     * 1-й — начало (одиночный), 2-й — конец диапазона, 3-й — сброс. */
     fun onDayTap(day: Int) = _uiState.update { s ->
+        val tapped = LocalDate(s.year, s.month + 1, day)
         val start = s.rangeStart
         val end = s.rangeEnd
         val next = when {
-            start == null -> s.copy(rangeStart = day, rangeEnd = day)
-            start == end -> s.copy(rangeStart = minOf(start, day), rangeEnd = maxOf(start, day))
-            else -> s.copy(rangeStart = day, rangeEnd = day)
+            start == null -> s.copy(rangeStart = tapped, rangeEnd = tapped)
+            start == end -> s.copy(rangeStart = minOf(start, tapped), rangeEnd = maxOf(start, tapped))
+            else -> s.copy(rangeStart = tapped, rangeEnd = tapped)
         }
         next.copy(rangeHours = computeHours(next.rangeStart, next.rangeEnd, next.selectedType))
     }
@@ -108,12 +132,25 @@ class AbsenceViewModel : ViewModel(), KoinComponent {
         )
     }
 
-    /** Норма-часы за диапазон: только рабочие дни (кроме «по уходу» — все дни). */
-    private fun computeHours(start: Int?, end: Int?, type: ReleaseType): Int {
+    /** Тег дня (рабочий/выходной/праздник) по любой дате — по кэшу всех известных месяцев. */
+    private fun tagFor(date: LocalDate): TagForDay =
+        monthsCache[date.year to date.monthNumber - 1]?.days
+            ?.find { it.dayOfMonth == date.dayOfMonth }?.tag
+            ?: TagForDay.WORKING_DAY
+
+    /** Норма-часы за диапазон (может охватывать несколько месяцев):
+     * только рабочие дни (кроме «по уходу» — все дни). */
+    private fun computeHours(start: LocalDate?, end: LocalDate?, type: ReleaseType): Int {
         if (start == null || end == null) return 0
-        return (minOf(start, end)..maxOf(start, end)).sumOf { d ->
-            hoursForDay(dayTags[d] ?: TagForDay.WORKING_DAY, type)
+        val lo = minOf(start, end)
+        val hi = maxOf(start, end)
+        var total = 0
+        var d = lo
+        while (d <= hi) {
+            total += hoursForDay(tagFor(d), type)
+            d = d.plus(1, DateTimeUnit.DAY)
         }
+        return total
     }
 
     private fun hoursForDay(tag: TagForDay, type: ReleaseType): Int =
@@ -136,27 +173,32 @@ class AbsenceViewModel : ViewModel(), KoinComponent {
 
     fun save() {
         val s = _uiState.value
-        val m = month ?: return
         val start = s.rangeStart ?: run { snackbarManager.show("Выберите даты"); return }
         val end = s.rangeEnd ?: start
         _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
             try {
-                val days = (minOf(start, end)..maxOf(start, end)).map { d ->
-                    LocalDate(m.year, m.month + 1, d)
-                }
+                val lo = minOf(start, end)
+                val hi = maxOf(start, end)
+                val days = generateSequence(lo) { it.plus(1, DateTimeUnit.DAY) }
+                    .takeWhile { it <= hi }
+                    .toList()
                 val saveResult = releaseDayUseCase.savePeriod(
                     ReleasePeriod(days = days, type = s.selectedType)
                 ).first { it is com.z_company.core.ResultState.Success || it is com.z_company.core.ResultState.Error }
                 if (saveResult is com.z_company.core.ResultState.Success) autoPushSettings()
-                // Синхронизируем объединённый месяц в настройки — иначе зарплата/норма
-                // не увидят новое отвлечение (см. addDayOff в CalendarViewModel).
-                runCatching {
-                    calendarUseCase.loadFlowMonthOfYearListState().first()
-                        .find { it.year == m.year && it.month == m.month }
-                }.getOrNull()?.let { merged ->
-                    settingsUseCase.setCurrentMonthOfYear(merged).first()
-                }
+                // Синхронизируем объединённые месяцы в настройки — иначе зарплата/норма
+                // не увидят новое отвлечение (см. addDayOff в CalendarViewModel). Диапазон
+                // может охватывать несколько месяцев — обновляем каждый из затронутых.
+                runCatching { calendarUseCase.loadFlowMonthOfYearListState().first() }
+                    .getOrNull()?.let { allMonths ->
+                        val affected = days.map { it.year to (it.monthNumber - 1) }.distinct()
+                        affected.forEach { (y, m) ->
+                            allMonths.find { it.year == y && it.month == m }?.let { merged ->
+                                settingsUseCase.setCurrentMonthOfYear(merged).first()
+                            }
+                        }
+                    }
                 _uiState.update { it.copy(isSaving = false, done = true) }
             } catch (t: Throwable) {
                 if (t is CancellationException) throw t
@@ -187,8 +229,10 @@ data class AbsenceUiState(
     val month: Int = 0,
     val monthName: String = "",
     val daysInMonth: Int = 0,
-    val rangeStart: Int? = null,
-    val rangeEnd: Int? = null,
+    // Даты выбранного диапазона (могут лежать в разных месяцах — не обязательно
+    // совпадают с показанным в шторке `year`/`month`).
+    val rangeStart: LocalDate? = null,
+    val rangeEnd: LocalDate? = null,
     val rangeHours: Int = 0,
     val selectedType: ReleaseType = ReleaseType.Vacation,
     val typePickerOpen: Boolean = false,
