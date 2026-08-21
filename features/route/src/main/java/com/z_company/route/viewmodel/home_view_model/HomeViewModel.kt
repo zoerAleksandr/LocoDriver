@@ -1717,7 +1717,16 @@ class HomeViewModel : ViewModel(), KoinComponent {
             routeUseCase.getListRoutesAsFlow().collect { allRoutes ->
                 allRoutesGlobal = allRoutes
                 val unsyncedCount = allRoutes.count { !it.basicData.isSynchronized }
-                _uiState.update { it.copy(unsyncedRoutesCount = unsyncedCount) }
+                // Считаем отдельно (с учётом удалённых) — та же логика, что в
+                // RouteActionsHelper.newRouteClick, чтобы индикатор бесплатного
+                // периода совпадал с реальным лимитом.
+                val freeRoutesUsed = routeHelper.freeRoutesUsedCount()
+                _uiState.update {
+                    it.copy(
+                        unsyncedRoutesCount = unsyncedCount,
+                        freeRoutesUsedCount = freeRoutesUsed
+                    )
+                }
                 // Реактивно обновляем блоки «Текущий/Следующий маршрут» при любом
                 // изменении маршрутов (удаление/добавление/правка) в любом месяце.
                 updateCurrentAndNextRoute(allRoutes)
