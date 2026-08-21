@@ -55,6 +55,13 @@ data class HomeUiState(
      * экране (та же логика, что на экране покупок: PurchaseUi.Active/Expired).
      */
     val subscriptionEndTime: Long = 0L,
+    /**
+     * Сколько маршрутов уже создано из бесплатного лимита (см.
+     * [com.z_company.route.viewmodel.RouteActionsHelper.FREE_ROUTES_LIMIT]).
+     * Актуально только пока подписки никогда не было (subscriptionEndTime == 0L) —
+     * карточка «Бесплатный период» на главном экране показывает по нему индикатор.
+     */
+    val freeRoutesUsedCount: Int = 0,
     /** Фоновая синхронизация при открытии экрана; UI показывает тонкую полосу сверху. */
     val isBackgroundSyncing: Boolean = false,
     val showSyncDialog: Boolean = false,

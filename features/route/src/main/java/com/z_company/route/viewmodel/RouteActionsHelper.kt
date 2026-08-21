@@ -25,6 +25,12 @@ import kotlinx.coroutines.flow.*
 
 class RouteActionsHelper() : KoinComponent {
 
+    companion object {
+        /** Лимит бесплатных маршрутов без подписки. Используется и в проверке
+         * при создании маршрута, и в индикаторе на главном экране. */
+        const val FREE_ROUTES_LIMIT = 20
+    }
+
     // injected dependencies (same as used inside ViewModels)
     private val routeUseCase: RouteUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
@@ -55,7 +61,7 @@ class RouteActionsHelper() : KoinComponent {
         isMakeCopy: Boolean = false
     ): NewRouteResult {
         return try {
-            val countFreeRoutes = 20
+            val countFreeRoutes = FREE_ROUTES_LIMIT
             val currentTime = Calendar.getInstance().timeInMillis
             val gracePeriod = 24 * 3_600_000 // 1 day in ms
             val setting = settingsUseCase.getUserSettingFlow().first()
@@ -107,6 +113,16 @@ class RouteActionsHelper() : KoinComponent {
     suspend fun hasActiveSubscription(): Boolean {
         val setting = settingsUseCase.getUserSettingFlow().first()
         return setting.subscriptionPeriod > Calendar.getInstance().timeInMillis
+    }
+
+    /**
+     * Сколько маршрутов уже «потрачено» из бесплатного лимита [FREE_ROUTES_LIMIT].
+     * Считает так же, как [newRouteClick] — с учётом удалённых (см. комментарий
+     * там про "20-й уже создан → 21-й недоступен"), чтобы индикатор на главном
+     * экране совпадал с реальным поведением при попытке создать маршрут.
+     */
+    suspend fun freeRoutesUsedCount(): Int = withContext(Dispatchers.IO) {
+        routeUseCase.listRouteWithDeleting().size
     }
 
     /**

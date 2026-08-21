@@ -132,6 +132,7 @@ import com.z_company.route.component.RouteQuickViewSheet
 import com.z_company.route.component.HomeScreenSkeleton
 import com.z_company.route.component.PullToSyncContainer
 import com.z_company.route.viewmodel.PdfViewModel
+import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.home_view_model.ItemState
 import com.z_company.route.viewmodel.home_view_model.RestBlockType
@@ -214,6 +215,7 @@ fun HomeScreen(
     unsyncedRoutesCount: Int = 0,
     hasActiveSubscription: Boolean = false,
     subscriptionEndTime: Long = 0L,
+    freeRoutesUsedCount: Int = 0,
     onPurchasesClick: () -> Unit = {},
     isBackgroundSyncing: Boolean = false,
     onSyncClick: () -> Unit = {},
@@ -268,6 +270,14 @@ fun HomeScreen(
     }
     // Ручное скрытие — до следующей смены состояния подписки (как у карточки синхронизации).
     var subscriptionCardDismissed by remember(subscriptionNotice) { mutableStateOf(false) }
+
+    // Карточка «Бесплатный период» — подписки никогда не было, показываем индикатор
+    // использования лимита в RouteActionsHelper.FREE_ROUTES_LIMIT бесплатных маршрутов.
+    val freeRoutesLimit = RouteActionsHelper.FREE_ROUTES_LIMIT
+    val showFreeTrialNotice = subscriptionEndTime == 0L
+    // Ручное скрытие сбрасывается при новом маршруте (как у карточки синхронизации) —
+    // счётчик поменялся, стоит показать актуальный индикатор ещё раз.
+    var freeTrialCardDismissed by remember(freeRoutesUsedCount) { mutableStateOf(false) }
 
     val snackbarManager: ISnackbarManager = koinInject()
     val pdfViewModel: PdfViewModel = koinInject()
@@ -996,6 +1006,9 @@ fun HomeScreen(
                             if (subscriptionNotice != null && !subscriptionCardDismissed) {
                                 add(HomeNoticeType.Subscription)
                             }
+                            if (showFreeTrialNotice && !freeTrialCardDismissed) {
+                                add(HomeNoticeType.FreeTrial)
+                            }
                             if (hasActiveSubscription && unsyncedRoutesCount > 2 && !syncCardDismissed) {
                                 add(HomeNoticeType.UnsyncedRoutes)
                             }
@@ -1007,10 +1020,13 @@ fun HomeScreen(
                                 subscriptionEndTime = subscriptionEndTime,
                                 dateAndTimeConverter = dateAndTimeConverter,
                                 unsyncedRoutesCount = unsyncedRoutesCount,
+                                freeRoutesUsedCount = freeRoutesUsedCount,
+                                freeRoutesLimit = freeRoutesLimit,
                                 onSubscriptionDismiss = { subscriptionCardDismissed = true },
                                 onPurchasesClick = onPurchasesClick,
                                 onSyncDismiss = { syncCardDismissed = true },
                                 onSyncClick = onSyncClick,
+                                onFreeTrialDismiss = { freeTrialCardDismissed = true },
                             )
                         }
                     }
@@ -2643,7 +2659,7 @@ fun DetailTrainCard(
 // Живут одним слотом под сводкой месяца. Если актуальны обе — листаются
 // каруселью (с индикатором), чтобы не растягивать экран двумя баннерами.
 
-private enum class HomeNoticeType { Subscription, UnsyncedRoutes }
+private enum class HomeNoticeType { Subscription, FreeTrial, UnsyncedRoutes }
 
 @Composable
 private fun HomeNoticeCarousel(
@@ -2652,10 +2668,13 @@ private fun HomeNoticeCarousel(
     subscriptionEndTime: Long,
     dateAndTimeConverter: DateAndTimeConverter?,
     unsyncedRoutesCount: Int,
+    freeRoutesUsedCount: Int,
+    freeRoutesLimit: Int,
     onSubscriptionDismiss: () -> Unit,
     onPurchasesClick: () -> Unit,
     onSyncDismiss: () -> Unit,
     onSyncClick: () -> Unit,
+    onFreeTrialDismiss: () -> Unit,
 ) {
     if (notices.isEmpty()) return
     val pagerState = rememberPagerState(pageCount = { notices.size })
@@ -2671,6 +2690,13 @@ private fun HomeNoticeCarousel(
                     endTime = subscriptionEndTime,
                     dateAndTimeConverter = dateAndTimeConverter,
                     onDismiss = onSubscriptionDismiss,
+                    onPurchasesClick = onPurchasesClick,
+                )
+
+                HomeNoticeType.FreeTrial -> FreeTrialNoticeCard(
+                    usedCount = freeRoutesUsedCount,
+                    limit = freeRoutesLimit,
+                    onDismiss = onFreeTrialDismiss,
                     onPurchasesClick = onPurchasesClick,
                 )
 
@@ -2702,6 +2728,8 @@ private fun HomeNoticeCard(
     buttonContentColor: Color?,
     onDismiss: () -> Unit,
     onButtonClick: () -> Unit,
+    /** Доп. содержимое между подсказкой и кнопкой — например индикатор прогресса. */
+    extraContent: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val content: @Composable ColumnScope.() -> Unit = {
         Row(
@@ -2752,6 +2780,7 @@ private fun HomeNoticeCard(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary
         )
+        extraContent?.invoke(this)
         Spacer(modifier = Modifier.height(12.dp))
         Button(
             onClick = onButtonClick,
@@ -2815,6 +2844,85 @@ private fun UnsyncedRoutesCard(
         buttonContentColor = null,
         onDismiss = onDismiss,
         onButtonClick = onSyncClick,
+    )
+}
+
+// ── Карточка «Бесплатный период» ─────────────────────────────────────────────
+// Показывается, пока подписки никогда не было (subscriptionEndTime == 0L).
+// Индикатор использования лимита RouteActionsHelper.FREE_ROUTES_LIMIT бесплатных
+// маршрутов — та же логика лимита, что в RouteActionsHelper.newRouteClick.
+
+/** Порог «скоро закончится лимит» — последние N маршрутов из бесплатных. */
+private const val FREE_TRIAL_RUNNING_LOW = 5
+
+@Composable
+private fun FreeTrialNoticeCard(
+    usedCount: Int,
+    limit: Int,
+    onDismiss: () -> Unit,
+    onPurchasesClick: () -> Unit,
+) {
+    val used = usedCount.coerceIn(0, limit)
+    val remaining = (limit - used).coerceAtLeast(0)
+    val progress = if (limit > 0) used.toFloat() / limit.toFloat() else 0f
+
+    val title: String
+    val message: String
+    val hint: String
+    val iconRes: Int
+    val tone: Color?
+    val buttonContentColor: Color?
+    when {
+        used >= limit -> {
+            title = "Бесплатный лимит исчерпан"
+            message = "Использовано $limit из $limit бесплатных маршрутов"
+            hint = "Маршруты и история сохранены. Чтобы добавлять новые и пользоваться синхронизацией — оформите подписку."
+            iconRes = R.drawable.ic_pro_alert
+            tone = MaterialTheme.colorScheme.error
+            buttonContentColor = MaterialTheme.colorScheme.onError
+        }
+
+        remaining <= FREE_TRIAL_RUNNING_LOW -> {
+            title = "Бесплатный период"
+            message = "Осталось $remaining из $limit бесплатных маршрутов"
+            hint = "Оформите подписку заранее, чтобы не потерять возможность добавлять маршруты."
+            iconRes = R.drawable.ic_pro_schedule
+            tone = MaterialTheme.colorScheme.surfaceContainerHigh
+            buttonContentColor = Color(0xFF1B1300)
+        }
+
+        else -> {
+            title = "Бесплатный период"
+            message = "Использовано $used из $limit бесплатных маршрутов"
+            hint = "Оформите подписку в любой момент — снимет лимит и откроет синхронизацию."
+            iconRes = R.drawable.ic_pro_crown
+            tone = null
+            buttonContentColor = null
+        }
+    }
+
+    HomeNoticeCard(
+        title = title,
+        message = message,
+        hint = hint,
+        buttonText = "Оформить подписку",
+        iconRes = iconRes,
+        tone = tone,
+        buttonContentColor = buttonContentColor,
+        onDismiss = onDismiss,
+        onButtonClick = onPurchasesClick,
+        extraContent = {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp),
+                trackColor = (tone ?: MaterialTheme.colorScheme.primary).copy(alpha = 0.16f),
+                color = tone ?: MaterialTheme.colorScheme.primary,
+                gapSize = 4.dp,
+                drawStopIndicator = {},
+                progress = { progress },
+            )
+        },
     )
 }
 
