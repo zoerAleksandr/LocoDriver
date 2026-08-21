@@ -192,7 +192,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
             active = true,
             timeOptions = times.map { TimeOption(it, ConverterLongToTime.getTimeInStringFormat(it).trim()) },
             activeTime = times.firstOrNull(),
-            plannedDays = emptySet(),
+            plannedDays = emptyMap(),
         )
     }
 
@@ -200,8 +200,8 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         _routePlan.value = RoutePlanState()
     }
 
-    // Смена активного времени — явка меняется сразу на всех отмеченных днях
-    // (они рисуют activeTime), отдельно перезаписывать нечего.
+    // Смена активного времени — влияет только на дни, которые будут отмечены
+    // ПОСЛЕ этого. Уже отмеченные дни хранят своё время в plannedDays и не трогаются.
     fun pickPlanTime(millis: Long) = _routePlan.update { it.copy(activeTime = millis) }
 
     /** Добавить своё время явки в список чипов, выбрать его и сохранить в настройки. */
@@ -236,8 +236,11 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         // в такой день разрешаем.
         val absence = _uiState.value.absenceByDay[day]
         if (absence != null && absence.type != ReleaseType.DayOff) return
-        val days = s.plannedDays.toMutableSet()
-        if (!days.add(day)) days.remove(day)
+        val time = s.activeTime ?: return
+        val days = s.plannedDays.toMutableMap()
+        // Повторный тап по уже отмеченному дню — снять отметку. Иначе — отметить
+        // днём текущим активным временем (зафиксировать его за этим днём).
+        if (days.remove(day) == null) days[day] = time
         _routePlan.value = s.copy(plannedDays = days)
     }
 
@@ -246,8 +249,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         val plan = _routePlan.value
         val m = currentMonth ?: return
         val conv = converter ?: return
-        val time = plan.activeTime
-        if (plan.plannedDays.isEmpty() || time == null) {
+        if (plan.plannedDays.isEmpty()) {
             exitRoutePlan()
             return
         }
@@ -264,10 +266,10 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                     }
                     else -> { /* можно создавать */ }
                 }
-                val hour = ConverterLongToTime.getHour(time)
-                val minute = ConverterLongToTime.getRemainingMinuteFromHour(time)
                 var created = 0
-                for (day in plan.plannedDays.sorted()) {
+                for ((day, time) in plan.plannedDays.toSortedMap()) {
+                    val hour = ConverterLongToTime.getHour(time)
+                    val minute = ConverterLongToTime.getRemainingMinuteFromHour(time)
                     val start = conv.toEpochMillis(m.year, m.month, day, hour, minute)
                     val route = Route(basicData = BasicData(timeStartWork = start))
                     val res = routeUseCase.saveRoute(route)
@@ -883,8 +885,11 @@ data class TimeOption(val millis: Long, val label: String)
 data class RoutePlanState(
     val active: Boolean = false,
     val timeOptions: List<TimeOption> = emptyList(),
+    // Время, выбранное в чипах прямо сейчас — применяется к следующему
+    // отмечаемому дню. Смена этого чипа НЕ трогает уже отмеченные дни:
+    // у каждого своё время зафиксировано в [plannedDays].
     val activeTime: Long? = null,
-    // Отмеченные дни. Явка у всех — [activeTime], поэтому смена времени
-    // мгновенно меняет её на всех выбранных днях.
-    val plannedDays: Set<Int> = emptySet(),
+    // Отмеченные дни → время явки на этот день (зафиксировано в момент
+    // отметки). Разные дни могут иметь разное время.
+    val plannedDays: Map<Int, Long> = emptyMap(),
 )

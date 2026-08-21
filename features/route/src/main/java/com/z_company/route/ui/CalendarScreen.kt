@@ -912,7 +912,7 @@ private fun MonthGrid(
                             isSelected = d == selectedDay,
                             isHoliday = d != null && state.holidayDays.contains(d),
                             planning = plan.active,
-                            plannedTime = if (d != null && plan.plannedDays.contains(d)) plan.activeTime else null,
+                            plannedTime = if (d != null) plan.plannedDays[d] else null,
                             onClick = { d?.let(onDayClick) },
                         )
                     }
