@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.data_local.route
 
 import app.cash.sqldelight.coroutines.asFlow
@@ -26,6 +28,7 @@ import com.z_company.domain.entities.route.RoutePartner
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.util.generateId
+import kotlin.time.Clock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -55,6 +58,26 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             otherWorks = otherWorks.map { OtherWorkMapper.toData(it) }.toMutableList(),
             partners = partners.map { RoutePartnerMapper.toData(it) }.toMutableList(),
             photos = photos.map { PhotoMapper.toData(it) }.toMutableList()
+        )
+    }
+
+    /**
+     * Помечает маршрут несинхронизированным И одновременно штампует updatedAt = now.
+     * Вызывается из saveLocomotive/saveTrain/savePassenger/saveOtherWork/savePartner —
+     * прямых путей сохранения дочерних сущностей в обход RouteUseCase.saveRoute().
+     *
+     * ВАЖНО: раньше markUnsynchronized только сбрасывал isSynchronized, не трогая
+     * updatedAt. Из-за этого LWW-merge в SyncManager.syncBidirectional сравнивал
+     * СТАРЫЙ локальный updatedAt с серверным — и при pull-to-refresh до завершения
+     * фонового автопуша сервер (чьё время всегда чуть новее момента последней
+     * успешной синхронизации) побеждал, затирая ещё не отправленную правку
+     * (например, удалённую станцию) старой версией с сервера.
+     */
+    private fun markUnsynchronizedAndTouch(basicId: String) {
+        val now = Clock.System.now().toEpochMilliseconds()
+        db.basicDataQueries.markUnsynchronized(
+            updatedAt = BasicDataMapper.encodeUpdatedAt(now),
+            id = basicId
         )
     }
 
@@ -424,7 +447,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 acceptanceStationId = locomotive.acceptanceStationId,
                 deliveryStationId = locomotive.deliveryStationId
             )
-            db.basicDataQueries.markUnsynchronized(locomotive.basicId)
+            markUnsynchronizedAndTouch(locomotive.basicId)
         }
     }
 
@@ -445,7 +468,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 doubleTraction = TrainMapper.encodeTrainAssist(train.doubleTraction),
                 doubledTrain = TrainMapper.encodeTrainAssist(train.doubledTrain)
             )
-            db.basicDataQueries.markUnsynchronized(train.basicId)
+            markUnsynchronizedAndTouch(train.basicId)
         }
     }
 
@@ -465,7 +488,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 notes = passenger.notes,
                 isWorkStartByArrival = if (passenger.isWorkStartByArrival) 1L else 0L
             )
-            db.basicDataQueries.markUnsynchronized(passenger.basicId)
+            markUnsynchronizedAndTouch(passenger.basicId)
         }
     }
 
@@ -481,7 +504,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 station = otherWork.station,
                 notes = otherWork.notes
             )
-            db.basicDataQueries.markUnsynchronized(otherWork.basicId)
+            markUnsynchronizedAndTouch(otherWork.basicId)
         }
     }
 
@@ -496,7 +519,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 tabNumber = partner.tabNumber,
                 notes = partner.notes
             )
-            db.basicDataQueries.markUnsynchronized(partner.basicId)
+            markUnsynchronizedAndTouch(partner.basicId)
         }
     }
 
@@ -585,7 +608,7 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
     }
 
     override fun markUnsynchronized(basicId: String): Flow<ResultState<Unit>> {
-        return flowRequest { db.basicDataQueries.markUnsynchronized(basicId) }
+        return flowRequest { markUnsynchronizedAndTouch(basicId) }
     }
 
     override fun clearRepository(): Flow<ResultState<Unit>> {
