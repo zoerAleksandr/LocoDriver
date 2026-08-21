@@ -73,6 +73,11 @@ class MigrateTimestampsTest {
         override fun clearRepository(): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun setFavoriteRoute(routeId: String, isFavorite: Boolean): Flow<ResultState<Boolean>> = flow { emit(ResultState.Success(isFavorite)) }
         override fun markUnsynchronized(basicId: String): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
+        override fun loadPartner(routePartnerId: String): Flow<ResultState<RoutePartner?>> = flow { emit(ResultState.Success(null)) }
+        override fun loadPartnerListByBasicId(basicId: String): List<RoutePartner> = emptyList()
+        override fun savePartner(partner: RoutePartner): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
+        override fun removePartner(partner: RoutePartner): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
+        override fun setRemoteObjectIdPartner(routePartnerId: String, objectId: String): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
     }
 
     // ==================== Константы ====================

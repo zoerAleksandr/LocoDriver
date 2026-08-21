@@ -204,6 +204,10 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "SalarySetting" to "nightTimePercent",
             "SalarySetting" to "surchargeLongTrainsList",
             "SalarySetting" to "surchargeHeavyLongDistanceTrains",
+            // Найдено через Sentry: "no such column: SalarySetting.onePersonOperationPassengerTrainPercent"
+            // (~595 случаев). Столбец создаётся только через "CREATE TABLE IF NOT EXISTS" в 1.sqm,
+            // поэтому на БД, унаследованных от Room (таблица уже существовала), он не появлялся.
+            "SalarySetting" to "onePersonOperationPassengerTrainPercent",
             primaryTable = "SalarySetting")
         return createDriver(SalarySettingDatabase.Schema, "SalarySetting.db")
     }
@@ -334,7 +338,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             // SalarySetting
             "SalarySetting.nightTimePercent" to ColumnSpec("REAL", false, "40.0"),
             "SalarySetting.surchargeLongTrainsList" to ColumnSpec("TEXT", false, "'[]'"),
-            "SalarySetting.surchargeHeavyLongDistanceTrains" to ColumnSpec("REAL", false, "5.0")
+            "SalarySetting.surchargeHeavyLongDistanceTrains" to ColumnSpec("REAL", false, "5.0"),
+            "SalarySetting.onePersonOperationPassengerTrainPercent" to ColumnSpec("REAL", false, "50.0")
         )
     }
 
@@ -435,10 +440,23 @@ actual class DatabaseDriverFactory(private val context: Context) {
             }
 
             if (needsLocoRecreate) {
-                // Добавляем недостающие колонки в старую таблицу ПЕРЕД копированием
+                // Добавляем недостающие колонки в старую таблицу ПЕРЕД копированием.
+                // На очень старых Room-схемах (найдено через Sentry: "no such column:
+                // normaElectricCurrent1") часть этих столбцов ещё не существовала —
+                // INSERT...SELECT ниже падал с SQLiteException, а RouteDatabase не
+                // создавалась вовсе (InstanceCreationException, ~1000+ случаев).
                 val locoNewColumns = arrayOf(
                     "auxiliaryCounterAccepted" to "TEXT DEFAULT NULL",
-                    "auxiliaryCounterDelivery" to "TEXT DEFAULT NULL"
+                    "auxiliaryCounterDelivery" to "TEXT DEFAULT NULL",
+                    "normaElectricCurrent1" to "REAL DEFAULT NULL",
+                    "normaElectricCurrent2" to "REAL DEFAULT NULL",
+                    "normaDiesel" to "TEXT DEFAULT NULL",
+                    "heatingCounterAccepted" to "TEXT DEFAULT NULL",
+                    "heatingCounterDelivery" to "TEXT DEFAULT NULL",
+                    "timeBarrierOut" to "INTEGER DEFAULT NULL",
+                    "timeBarrierIn" to "INTEGER DEFAULT NULL",
+                    "acceptanceStationId" to "TEXT DEFAULT NULL",
+                    "deliveryStationId" to "TEXT DEFAULT NULL"
                 )
                 for ((col, def) in locoNewColumns) {
                     if (!hasColumn(db, "Locomotive", col)) {

@@ -60,4 +60,4 @@ setFavorite:
 UPDATE BasicData SET isFavorite = :favorite WHERE id = :id;
 
 markUnsynchronized:
-UPDATE BasicData SET isSynchronized = 0 WHERE id = :id;
+UPDATE BasicData SET isSynchronized = 0, updatedAt = :updatedAt WHERE id = :id;

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavBackStackEntry
+import com.z_company.core.ResultState
 import com.z_company.domain.navigation.Router
 import com.z_company.route.Const
 import com.z_company.route.ui.FormPassengerScreen
@@ -23,11 +24,17 @@ fun FormPassengerDestination(
         parameters = { parametersOf(passengerId, basicId) }
     )
     val formUiState by viewModel.uiState.collectAsState()
+    // Единый источник — снапшот formUiState.passengerDetailState, а не отдельный
+    // геттер viewModel.currentPassenger. Два независимых чтения геттера в одной
+    // композиции не гарантированно консистентны между собой при параллельной
+    // записи из корутины (init/автосейв), что могло давать рассинхронизацию
+    // между currentPassenger и isWorkStartByArrival на экране.
+    val currentPassenger = (formUiState.passengerDetailState as? ResultState.Success)?.data
 
     FormPassengerScreen(
         viewModel = viewModel,
         formUiState = formUiState,
-        currentPassenger = viewModel.currentPassenger,
+        currentPassenger = currentPassenger,
         onPassengerSaved = router::back,
         resetSaveState = viewModel::resetSaveState,
         onNumberChanged = viewModel::setNumberTrain,
@@ -36,7 +43,7 @@ fun FormPassengerDestination(
         onTimeDepartureChanged = viewModel::setTimeDeparture,
         onTimeArrivalChanged = viewModel::setTimeArrival,
         onNotesChanged = viewModel::setNotes,
-        isWorkStartByArrival = viewModel.currentPassenger?.isWorkStartByArrival ?: false,
+        isWorkStartByArrival = currentPassenger?.isWorkStartByArrival ?: false,
         onWorkStartByArrivalChanged = viewModel::setWorkStartByArrival,
         resultTime = formUiState.resultTime,
         errorMessage = formUiState.errorMessage,
