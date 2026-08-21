@@ -49,5 +49,9 @@ data class SettingSalaryUIState(
     val isErrorInputUnionistsRetention: Boolean = false,
     val otherRetention: ResultState<String> = ResultState.Loading(),
     val isErrorInputOtherRetention: Boolean = false,
+    val welfarePercentState: ResultState<String> = ResultState.Loading(),
+    val isErrorInputWelfarePercent: Boolean = false,
+    val alimonyPercentState: ResultState<String> = ResultState.Loading(),
+    val isErrorInputAlimonyPercent: Boolean = false,
     val isShowDialogChangeTariffRate: Boolean = false,
 )

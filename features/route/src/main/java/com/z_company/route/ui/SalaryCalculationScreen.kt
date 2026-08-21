@@ -812,6 +812,8 @@ private fun DeductionsCard(uiState: SalaryCalculationUIState) {
         uiState.retentionNdfl?.takeIf { it > 0 }?.let { "НДФЛ (13 %)" to it },
         uiState.unionistsRetention?.takeIf { it > 0 }?.let { "Профсоюз" to it },
         uiState.otherRetention?.takeIf { it > 0 }?.let { "Прочие удержания" to it },
+        uiState.welfareRetention?.takeIf { it > 0 }?.let { "Благосостояние" to it },
+        uiState.alimonyRetention?.takeIf { it > 0 }?.let { "Алименты" to it },
     ).map { (name, amount) ->
         listOf(CellVal(name), CellVal(formatMoney(amount)))
     }

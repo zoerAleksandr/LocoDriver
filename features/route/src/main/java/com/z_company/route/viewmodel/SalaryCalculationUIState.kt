@@ -90,6 +90,8 @@ data class SalaryCalculationUIState(
     val otherSurchargeMoney: Double? = null,
     val otherSurchargePercent: Double? = null,
     val otherRetention: Double? = null,
+    val welfareRetention: Double? = null,
+    val alimonyRetention: Double? = null,
     val totalRetention: Double? = null,
     val toBeCredited: Double? = null
 )

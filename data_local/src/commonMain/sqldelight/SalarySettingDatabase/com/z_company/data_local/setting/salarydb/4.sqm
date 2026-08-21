@@ -1,0 +1,4 @@
+-- Миграция 4: два новых удержания — «Благосостояние» (% от грязной суммы
+-- начисления, как Профсоюз/Прочие) и «Алименты» (% от чистой суммы к выдаче).
+ALTER TABLE SalarySetting ADD COLUMN welfarePercent REAL NOT NULL DEFAULT 0.0;
+ALTER TABLE SalarySetting ADD COLUMN alimonyPercent REAL NOT NULL DEFAULT 0.0;

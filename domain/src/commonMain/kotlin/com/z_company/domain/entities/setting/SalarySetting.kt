@@ -26,7 +26,12 @@ data class SalarySetting(
     val otherSurcharge: Double = 0.0,
     val ndfl: Double = 13.0,
     val unionistsRetention: Double = 1.0,
-    val otherRetention: Double = 0.0
+    val otherRetention: Double = 0.0,
+    // Благосостояние — удержание от грязной суммы начисления (как Профсоюз/Прочие).
+    val welfarePercent: Double = 0.0,
+    // Алименты — удержание от чистой суммы к выдаче (после НДФЛ, Профсоюза,
+    // Прочих удержаний и Благосостояния).
+    val alimonyPercent: Double = 0.0
 )
 
 @Serializable
