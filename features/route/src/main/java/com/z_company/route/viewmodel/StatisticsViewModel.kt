@@ -467,8 +467,14 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
     private suspend fun rawMonth(year: Int, month0: Int): Raw {
         val s = settings!!
         val month = monthOfYearFor(year, month0)
-        val norma = month.getPersonalNormaHours()
-        // Норма для оплаты недоработки — та же логика, что на экране ЗП.
+        // Норма для оплаты недоработки — та же логика, что на экране ЗП. Её же
+        // используем как Raw.normaHours (единственный потребитель — метрика
+        // «Переработка»): полная для завершённых месяцев, «на сегодня» для
+        // текущего, 0 для ещё не наступивших. Раньше здесь была всегда полная
+        // месячная норма (getPersonalNormaHours()) — из-за этого «Переработка»
+        // за незавершённый год считалась против нормы уже наступивших ПЛЮС ещё
+        // не начавшихся месяцев, как будто год уже закончился (выглядело как
+        // сравнение с прошлым годом, хотя сравнение было выключено).
         val effectiveNorma = effectiveNormaForUnderwork(month)
         val routes = routesOfMonth(year, month0)
         // Нет маршрутов — не запускаем тяжёлый расчёт зарплаты/ночных/пассажира.
@@ -485,7 +491,7 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
                     ).getMoneyToBeCredited().first()
                 } catch (_: Exception) { 0.0 }
             } else 0.0
-            return Raw(0L, norma, earnings, 0L, 0L, 0, 0.0, 0.0, 0L, 0.0)
+            return Raw(0L, effectiveNorma, earnings, 0L, 0L, 0, 0.0, 0.0, 0L, 0.0)
         }
         val ctx = TimeCalculationContext.from(s)
         val worked = routes.getWorkTime(month, ctx)
@@ -505,7 +511,7 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
                 effectiveNormaHoursForUnderwork = effectiveNorma,
             ).getMoneyToBeCredited().first()
         } catch (_: Exception) { 0.0 }
-        return Raw(worked, norma, earnings, night, passenger,
+        return Raw(worked, effectiveNorma, earnings, night, passenger,
             routes.size, distance, tkm, transit, speed)
     }
 
