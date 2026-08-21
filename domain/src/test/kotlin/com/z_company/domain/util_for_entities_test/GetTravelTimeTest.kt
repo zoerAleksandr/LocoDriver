@@ -11,13 +11,15 @@ class GetTravelTimeTest {
 
     @Test
     fun twoStationsReturnsTimeDifference() {
+        // getTravelTime() округляет до минуты (floorToMinute) — реальные явки всегда
+        // в минутах. 1:30 → floor 1:00, 5:45 → floor 5:00, разница = 4 минуты.
         val train = Train(
             stations = mutableListOf(
-                Station(timeDeparture = 1000L),
-                Station(timeArrival = 5000L)
+                Station(timeDeparture = 90_000L),   // 00:01:30
+                Station(timeArrival = 345_000L)     // 00:05:45
             )
         )
-        assertEquals(4000L, train.getTravelTime())
+        assertEquals(4 * 60_000L, train.getTravelTime())
     }
 
     @Test
@@ -71,13 +73,15 @@ class GetTravelTimeTest {
 
     @Test
     fun multipleStationsUsesFirstDepartureAndLastArrival() {
+        // Первое отправление 1:30 → floor 1:00, последнее прибытие 7:45 → floor 7:00,
+        // разница = 6 минут. Средняя станция не влияет на результат.
         val train = Train(
             stations = mutableListOf(
-                Station(timeDeparture = 1000L, timeArrival = null),
-                Station(timeDeparture = 2000L, timeArrival = 3000L),
-                Station(timeDeparture = null, timeArrival = 7000L)
+                Station(timeDeparture = 90_000L, timeArrival = null),      // 00:01:30
+                Station(timeDeparture = 120_000L, timeArrival = 180_000L), // 00:02:00–00:03:00
+                Station(timeDeparture = null, timeArrival = 465_000L)      // 00:07:45
             )
         )
-        assertEquals(6000L, train.getTravelTime())
+        assertEquals(6 * 60_000L, train.getTravelTime())
     }
 }
