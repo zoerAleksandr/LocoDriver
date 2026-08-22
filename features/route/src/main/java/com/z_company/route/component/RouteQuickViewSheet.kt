@@ -1361,9 +1361,17 @@ private fun durationText(until: Long?, end: Long?): String {
     return if (d > 0) ConverterLongToTime.getTimeInStringFormat(d) else "—"
 }
 
-/** Направление маршрута «перваяСтанция → последняяСтанция» из графика поездов. */
+/**
+ * Направление маршрута «перваяСтанция → последняяСтанция» из графика поездов.
+ * Сортируем по времени отправления первой станции — порядок route.trains из БД/сети
+ * не гарантирован (нет ORDER BY, insertOrReplace может физически переставить строки
+ * местами при повторном сохранении/синхронизации), поэтому просто «первый/последний
+ * в списке» ненадёжен и может показать маршрут в обратном направлении.
+ */
 private fun routeDirection(route: Route): Pair<String, String>? {
-    val trains = route.trains.filter { it.stations.isNotEmpty() }
+    val trains = route.trains
+        .filter { it.stations.isNotEmpty() }
+        .sortedBy { it.stations.firstOrNull()?.timeDeparture ?: Long.MAX_VALUE }
     val from = trains.firstOrNull()?.stations?.firstOrNull()?.stationName
     val to = trains.lastOrNull()?.stations?.lastOrNull()?.stationName
     return if (!from.isNullOrBlank() && !to.isNullOrBlank()) from to to else null
