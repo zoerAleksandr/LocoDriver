@@ -121,6 +121,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
             val pendingNavigateHome by mainViewModel.pendingNavigateHome.collectAsState()
             val pendingNavigateProfile by mainViewModel.pendingNavigateProfile.collectAsState()
             val pendingOpenFormWithId by mainViewModel.pendingOpenFormWithId.collectAsState()
+            val pendingOpenTrainWithId by mainViewModel.pendingOpenTrainWithId.collectAsState()
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -139,7 +140,9 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 pendingNavigateProfile = pendingNavigateProfile,
                 onNavigatedProfile = mainViewModel::clearNavigateProfile,
                 pendingOpenFormWithId = pendingOpenFormWithId,
-                onFormOpenedWithId = mainViewModel::clearOpenFormWithId
+                onFormOpenedWithId = mainViewModel::clearOpenFormWithId,
+                pendingOpenTrainWithId = pendingOpenTrainWithId,
+                onTrainOpenedWithId = mainViewModel::clearOpenTrainWithId
             )
 
             // API < 31: брендовый Compose-сплэш поверх приложения (на старых устройствах
@@ -245,6 +248,19 @@ class MainActivity : ComponentActivity(), KoinComponent {
         // Навигация из виджета → HomeScreen
         if (i?.getBooleanExtra("widget_open_home", false) == true) {
             mainViewModel.requestNavigateHome()
+        }
+
+        // Навигация из малого виджета (растянут по ширине) → раздел поезда
+        val widgetTrainId = i?.getStringExtra("widget_train_id")
+        val widgetTrainBasicId = i?.getStringExtra("widget_basic_id")
+        if (!widgetTrainId.isNullOrBlank() && !widgetTrainBasicId.isNullOrBlank()) {
+            mainViewModel.requestOpenTrainWithId(widgetTrainId, widgetTrainBasicId)
+        }
+
+        // Навигация из малого виджета (растянут по ширине) → текущий маршрут
+        val widgetRouteId = i?.getStringExtra("widget_route_id")
+        if (!widgetRouteId.isNullOrBlank()) {
+            mainViewModel.requestOpenFormWithId(widgetRouteId)
         }
     }
 

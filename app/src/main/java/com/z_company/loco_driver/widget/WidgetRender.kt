@@ -55,6 +55,8 @@ object WKeys {
     val CURRENT_HAS_TRAIN = booleanPreferencesKey("w_current_has_train")
     val CURRENT_REPORT_TIME = stringPreferencesKey("w_current_report_time") // явка, "20:00"
     val CURRENT_REPORT_DATE = stringPreferencesKey("w_current_report_date") // "16.07.26"
+    // id текущего маршрута — для перехода по тапу на блок «ТЕКУЩИЙ МАРШРУТ»
+    val CURRENT_ROUTE_ID = stringPreferencesKey("w_current_route_id")
 
     // ─── Состояние нижнего блока развёрнутого виджета ───
     // "current" | "upcoming" | "upcoming_unknown" | "rest" | "home_rest" | "none"
@@ -76,6 +78,12 @@ object WKeys {
     // home_rest — домашний отдых
     val HR_DUR = stringPreferencesKey("w_hr_dur")         // "16ч 15м"
     val HR_END = stringPreferencesKey("w_hr_end")         // "16.07 · 18:45"
+
+    // ─── Малый виджет: кнопка перехода при растягивании по ширине ───
+    // "train" (есть поезд) | "route" (есть маршрут без поезда) | "new" (маршрута нет).
+    val SMALL_TARGET_KIND = stringPreferencesKey("w_small_target_kind")
+    val SMALL_TARGET_TRAIN_ID = stringPreferencesKey("w_small_target_train_id")
+    val SMALL_TARGET_BASIC_ID = stringPreferencesKey("w_small_target_basic_id")
 }
 
 /** Данные блока нормы. */

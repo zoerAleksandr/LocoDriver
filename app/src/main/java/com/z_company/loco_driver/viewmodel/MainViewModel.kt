@@ -130,11 +130,22 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     fun requestOpenForm() { _pendingFormOpen.value = true }
     fun clearOpenForm() { _pendingFormOpen.value = false }
 
-    // Открыть FormRoute с конкретным routeId (shared route через SharedRouteHolder)
+    // Открыть FormRoute с конкретным routeId (shared route через SharedRouteHolder,
+    // либо переход из малого виджета на текущий маршрут)
     private val _pendingOpenFormWithId = MutableStateFlow<String?>(null)
     val pendingOpenFormWithId: StateFlow<String?> = _pendingOpenFormWithId.asStateFlow()
 
+    fun requestOpenFormWithId(id: String) { _pendingOpenFormWithId.value = id }
     fun clearOpenFormWithId() { _pendingOpenFormWithId.value = null }
+
+    // Навигация из малого виджета → FormTrain с конкретными trainId/basicId
+    private val _pendingOpenTrainWithId = MutableStateFlow<Pair<String, String>?>(null)
+    val pendingOpenTrainWithId: StateFlow<Pair<String, String>?> = _pendingOpenTrainWithId.asStateFlow()
+
+    fun requestOpenTrainWithId(trainId: String, basicId: String) {
+        _pendingOpenTrainWithId.value = trainId to basicId
+    }
+    fun clearOpenTrainWithId() { _pendingOpenTrainWithId.value = null }
 
     // Навигация из виджета → HomeScreen (по тапу на тело виджета)
     private val _pendingNavigateHome = MutableStateFlow(false)
