@@ -338,14 +338,15 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
         return when (key) {
             "worked" -> routes.getWorkTime(month, ctx).let { Triple(it / 3_600_000f, StatFormat.hm(it), "") }
             "overtime" ->
-                // Переработка = отработано − норма. Считаем только за месяцы, где есть
-                // маршруты; без работы переработки нет (иначе пустой месяц показывал бы
-                // −норму — «столбец в норму»).
+                // Переработка = отработано − полная норма месяца, не ниже нуля (считаем
+                // только переработку, не недоработку — как в rawMonth/Raw.overtimeMs).
+                // Пустой месяц — «—»: без маршрутов переработки нет, это не «0».
                 if (routes.isEmpty()) {
                     Triple(0f, "—", "")
                 } else {
                     (routes.getWorkTime(month, ctx) - month.getPersonalNormaHours() * 3_600_000L)
-                        .let { Triple(kotlin.math.abs(it / 3_600_000f), StatFormat.hm(it, signed = true), "") }
+                        .coerceAtLeast(0L)
+                        .let { Triple(it / 3_600_000f, StatFormat.hm(it), "") }
                 }
             "night" -> (try { routes.getNightTime(s) } catch (_: Exception) { 0L })
                 .let { Triple(it / 3_600_000f, StatFormat.hm(it), "") }
@@ -459,7 +460,7 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
 
     // Сырые метрики за календарный месяц (как на Главном: клип к месяцу).
     private data class Raw(
-        val workedMs: Long, val normaHours: Int, val earnings: Double,
+        val workedMs: Long, val overtimeMs: Long, val earnings: Double,
         val nightMs: Long, val passengerMs: Long, val routes: Int,
         val distanceKm: Double, val tkm: Double, val transitMs: Long, val speed: Double,
     )
@@ -467,18 +468,14 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
     private suspend fun rawMonth(year: Int, month0: Int): Raw {
         val s = settings!!
         val month = monthOfYearFor(year, month0)
-        // Норма для оплаты недоработки — та же логика, что на экране ЗП. Её же
-        // используем как Raw.normaHours (единственный потребитель — метрика
-        // «Переработка»): полная для завершённых месяцев, «на сегодня» для
-        // текущего, 0 для ещё не наступивших. Раньше здесь была всегда полная
-        // месячная норма (getPersonalNormaHours()) — из-за этого «Переработка»
-        // за незавершённый год считалась против нормы уже наступивших ПЛЮС ещё
-        // не начавшихся месяцев, как будто год уже закончился (выглядело как
-        // сравнение с прошлым годом, хотя сравнение было выключено).
+        // Норма для оплаты недоработки — своя логика (та же, что на экране ЗП):
+        // полная для завершённых месяцев, «на сегодня» для текущего, 0 для ещё
+        // не наступивших. НЕ путать с нормой для «Переработки» ниже — это разные
+        // вещи: недоработка оплачивается по норме «на сегодня», а переработка
+        // всегда считается против полной месячной нормы (см. overtimeMs).
         val effectiveNorma = effectiveNormaForUnderwork(month)
         val routes = routesOfMonth(year, month0)
         // Нет маршрутов — не запускаем тяжёлый расчёт зарплаты/ночных/пассажира.
-        // Норма берётся из календаря и нужна для агрегатов (переработка за год).
         if (routes.isEmpty()) {
             // Единственная возможная выплата без маршрутов — оплата недоработки.
             val earnings = if (effectiveNorma > 0 && salarySetting!!.averagePaymentHour > 0.0) {
@@ -491,10 +488,16 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
                     ).getMoneyToBeCredited().first()
                 } catch (_: Exception) { 0.0 }
             } else 0.0
-            return Raw(0L, effectiveNorma, earnings, 0L, 0L, 0, 0.0, 0.0, 0L, 0.0)
+            // Без маршрутов переработки нет (иначе пустой месяц отнимал бы от
+            // года полную норму, как будто уже отработан «в минус»).
+            return Raw(0L, 0L, earnings, 0L, 0L, 0, 0.0, 0.0, 0L, 0.0)
         }
         val ctx = TimeCalculationContext.from(s)
         val worked = routes.getWorkTime(month, ctx)
+        // Переработка = отработано − полная норма месяца, не ниже нуля: считаем
+        // только переработку, а не недоработку (недоработка одного месяца не
+        // должна «съедать» переработку другого при суммировании за год).
+        val overtime = (worked - month.getPersonalNormaHours() * 3_600_000L).coerceAtLeast(0L)
         val night = try { routes.getNightTime(s) } catch (_: Exception) { 0L }
         val passenger = routes.getPassengerTime(month, ctx)
         // Пробег/грузооборот/время в пути — по месяцу явки (переходные не задваиваем).
@@ -511,7 +514,7 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
                 effectiveNormaHoursForUnderwork = effectiveNorma,
             ).getMoneyToBeCredited().first()
         } catch (_: Exception) { 0.0 }
-        return Raw(worked, effectiveNorma, earnings, night, passenger,
+        return Raw(worked, overtime, earnings, night, passenger,
             routes.size, distance, tkm, transit, speed)
     }
 
@@ -531,17 +534,20 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
     }
 
     private suspend fun rawYear(year: Int): Raw {
-        var worked = 0L; var norma = 0; var earnings = 0.0; var night = 0L; var passenger = 0L
+        var worked = 0L; var overtime = 0L; var earnings = 0.0; var night = 0L; var passenger = 0L
         var routes = 0; var distance = 0.0; var tkm = 0.0; var transit = 0L
         for (m in 0..11) {
             val r = rawMonth(year, m)
-            worked += r.workedMs; norma += r.normaHours; earnings += r.earnings
+            // Переработка за год — сумма уже клэмпнутых (не ниже нуля) переработок
+            // по месяцам, а не (отработано за год − норма за год). Иначе недоработка
+            // в одном месяце вычитала бы переработку другого.
+            worked += r.workedMs; overtime += r.overtimeMs; earnings += r.earnings
             night += r.nightMs; passenger += r.passengerMs; routes += r.routes
             distance += r.distanceKm; tkm += r.tkm; transit += r.transitMs
             yield() // не монополизируем CPU — даём другим корутинам (экраны) работать
         }
         val speed = if (transit > 0) distance / (transit / 3_600_000.0) else 0.0
-        return Raw(worked, norma, earnings, night, passenger, routes, distance, tkm, transit, speed)
+        return Raw(worked, overtime, earnings, night, passenger, routes, distance, tkm, transit, speed)
     }
 
     // ── Сборка состояния «Месяц» ─────────────────────────────────────
@@ -737,14 +743,16 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
                     prev?.let { StatFormat.hm(it.workedMs) } ?: "",
                     (prev?.workedMs ?: 0L) / 3_600_000f, cur.workedMs / 3_600_000f)
                 "overtime" -> {
-                    val curOt = cur.workedMs - cur.normaHours * 3_600_000L
-                    val prevOt = prev?.let { it.workedMs - it.normaHours * 3_600_000L }
+                    // Всегда ≥ 0 (см. Raw.overtimeMs) — считаем только переработку,
+                    // недоработки тут не бывает, поэтому знак не нужен.
+                    val curOt = cur.overtimeMs
+                    val prevOt = prev?.overtimeMs
                     // Сравниваем переработку с предыдущим периодом (как остальные метрики),
                     // а не с нормой: если за период-базу нет данных — сравнения нет.
-                    StatMetric("overtime", "Переработка", StatFormat.hm(curOt, signed = true), "",
+                    StatMetric("overtime", "Переработка", StatFormat.hm(curOt), "",
                         d(curOt.toDouble(), prevOt?.toDouble()),
-                        prevOt?.let { StatFormat.hm(it, signed = true) } ?: "",
-                        abs((prevOt ?: 0L) / 3_600_000f), abs(curOt / 3_600_000f))
+                        prevOt?.let { StatFormat.hm(it) } ?: "",
+                        (prevOt ?: 0L) / 3_600_000f, curOt / 3_600_000f)
                 }
                 "earnings" -> {
                     val (v, u) = StatFormat.money(cur.earnings, moneyCurrency())
