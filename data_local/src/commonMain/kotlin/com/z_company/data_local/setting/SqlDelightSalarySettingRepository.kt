@@ -61,7 +61,9 @@ class SqlDelightSalarySettingRepository : SalarySettingRepository, KoinComponent
             otherSurcharge = row.otherSurcharge,
             ndfl = row.ndfl,
             unionistsRetention = row.unionistsRetention,
-            otherRetention = row.otherRetention
+            otherRetention = row.otherRetention,
+            welfarePercent = row.welfarePercent,
+            alimonyPercent = row.alimonyPercent
         )
 
     override fun getSalarySetting(): SalarySetting {
@@ -102,7 +104,9 @@ class SqlDelightSalarySettingRepository : SalarySettingRepository, KoinComponent
                 otherSurcharge = setting.otherSurcharge,
                 ndfl = setting.ndfl,
                 unionistsRetention = setting.unionistsRetention,
-                otherRetention = setting.otherRetention
+                otherRetention = setting.otherRetention,
+                welfarePercent = setting.welfarePercent,
+                alimonyPercent = setting.alimonyPercent
             )
         }
     }

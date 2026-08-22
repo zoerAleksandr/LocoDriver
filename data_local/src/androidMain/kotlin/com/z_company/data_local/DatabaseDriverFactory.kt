@@ -208,6 +208,9 @@ actual class DatabaseDriverFactory(private val context: Context) {
             // (~595 случаев). Столбец создаётся только через "CREATE TABLE IF NOT EXISTS" в 1.sqm,
             // поэтому на БД, унаследованных от Room (таблица уже существовала), он не появлялся.
             "SalarySetting" to "onePersonOperationPassengerTrainPercent",
+            // Миграция 4: Благосостояние / Алименты
+            "SalarySetting" to "welfarePercent",
+            "SalarySetting" to "alimonyPercent",
             primaryTable = "SalarySetting")
         return createDriver(SalarySettingDatabase.Schema, "SalarySetting.db")
     }
@@ -339,7 +342,9 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "SalarySetting.nightTimePercent" to ColumnSpec("REAL", false, "40.0"),
             "SalarySetting.surchargeLongTrainsList" to ColumnSpec("TEXT", false, "'[]'"),
             "SalarySetting.surchargeHeavyLongDistanceTrains" to ColumnSpec("REAL", false, "5.0"),
-            "SalarySetting.onePersonOperationPassengerTrainPercent" to ColumnSpec("REAL", false, "50.0")
+            "SalarySetting.onePersonOperationPassengerTrainPercent" to ColumnSpec("REAL", false, "50.0"),
+            "SalarySetting.welfarePercent" to ColumnSpec("REAL", false, "0.0"),
+            "SalarySetting.alimonyPercent" to ColumnSpec("REAL", false, "0.0")
         )
     }
 

@@ -77,7 +77,9 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     otherSurchargeState = ResultState.Success(value?.otherSurcharge.str()),
                     ndfl = ResultState.Success(value?.ndfl.str()),
                     unionistsRetentionState = ResultState.Success(value?.unionistsRetention.str()),
-                    otherRetention = ResultState.Success(value?.otherRetention.str())
+                    otherRetention = ResultState.Success(value?.otherRetention.str()),
+                    welfarePercentState = ResultState.Success(value?.welfarePercent.str()),
+                    alimonyPercentState = ResultState.Success(value?.alimonyPercent.str())
                 )
             }
         }
@@ -741,6 +743,32 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             it.copy(
                 otherRetention = ResultState.Success(value),
                 isErrorInputOtherRetention = isErrorInputDouble(value)
+            )
+        }
+        scheduleAutoSave()
+    }
+
+    fun setWelfarePercent(value: String) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            welfarePercent = value.toDoubleOrZero()
+        )
+        _uiState.update {
+            it.copy(
+                welfarePercentState = ResultState.Success(value),
+                isErrorInputWelfarePercent = isErrorInputDouble(value)
+            )
+        }
+        scheduleAutoSave()
+    }
+
+    fun setAlimonyPercent(value: String) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            alimonyPercent = value.toDoubleOrZero()
+        )
+        _uiState.update {
+            it.copy(
+                alimonyPercentState = ResultState.Success(value),
+                isErrorInputAlimonyPercent = isErrorInputDouble(value)
             )
         }
         scheduleAutoSave()

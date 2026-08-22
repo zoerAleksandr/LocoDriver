@@ -134,6 +134,12 @@ fun SettingSalaryScreen(
     otherRetentionValueState: ResultState<String>,
     setOtherRetention: (String) -> Unit,
     isErrorInputOtherRetention: Boolean,
+    welfarePercentState: ResultState<String>,
+    setWelfarePercent: (String) -> Unit,
+    isErrorInputWelfarePercent: Boolean,
+    alimonyPercentState: ResultState<String>,
+    setAlimonyPercent: (String) -> Unit,
+    isErrorInputAlimonyPercent: Boolean,
     onServicePhaseDismissed: (Int) -> Unit,
     isShowDialogChangeTariffRate: Boolean,
     onHideDialogChangeTariffRate: () -> Unit,
@@ -601,6 +607,18 @@ fun SettingSalaryScreen(
                     PayFieldSlot("Прочие удержания") {
                         AsyncDataValue(resultState = otherRetentionValueState) { v ->
                             v?.let { PayInput(it, setOtherRetention, "%", isErrorInputOtherRetention) }
+                        }
+                    }
+                    PaySep()
+                    PayFieldSlot("Благосостояние") {
+                        AsyncDataValue(resultState = welfarePercentState) { v ->
+                            v?.let { PayInput(it, setWelfarePercent, "%", isErrorInputWelfarePercent) }
+                        }
+                    }
+                    PaySep()
+                    PayFieldSlot("Алименты") {
+                        AsyncDataValue(resultState = alimonyPercentState) { v ->
+                            v?.let { PayInput(it, setAlimonyPercent, "%", isErrorInputAlimonyPercent) }
                         }
                     }
                 }

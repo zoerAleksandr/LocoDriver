@@ -1414,13 +1414,63 @@ class SalaryCalculationHelper(
         }
     }
 
+    fun getPercentWelfareRetentionFlow(): Flow<Double> {
+        return flow {
+            val percent = salarySetting.welfarePercent
+            emit(percent)
+        }
+    }
+
+    // Благосостояние — % от грязной суммы начисления (как Профсоюз/Прочие).
+    fun getMoneyWelfareRetentionFlow(): Flow<Double> {
+        return flow {
+            val percentWelfare = getPercentWelfareRetentionFlow().first()
+            val baseForCalculation = getMoneyTotalChargedFlow().first()
+            val money = baseForCalculation.times(percentWelfare / 100)
+            emit(money)
+        }
+    }
+
+    fun getPercentAlimonyRetentionFlow(): Flow<Double> {
+        return flow {
+            val percent = salarySetting.alimonyPercent
+            emit(percent)
+        }
+    }
+
+    // База для алиментов — «чистая» сумма к выдаче без учёта самих алиментов:
+    // всего начислено за вычетом НДФЛ, Профсоюза, Прочих удержаний и Благосостояния.
+    fun getMoneyAlimonyBaseFlow(): Flow<Double> {
+        return flow {
+            val gross = getMoneyTotalChargedFlow().first()
+            val ndfl = getMoneyNDFLRetentionFlow().first()
+            val unionists = getMoneyUnionistsRetentionFlow().first()
+            val other = getMoneyOtherRetentionFlow().first()
+            val welfare = getMoneyWelfareRetentionFlow().first()
+            emit(gross - ndfl - unionists - other - welfare)
+        }
+    }
+
+    // Алименты — % от чистой суммы к выдаче (после НДФЛ, Профсоюза, Прочих
+    // удержаний и Благосостояния).
+    fun getMoneyAlimonyRetentionFlow(): Flow<Double> {
+        return flow {
+            val percentAlimony = getPercentAlimonyRetentionFlow().first()
+            val baseForCalculation = getMoneyAlimonyBaseFlow().first()
+            val money = baseForCalculation.times(percentAlimony / 100)
+            emit(money)
+        }
+    }
+
     // всего удержано
     fun getMoneyTotalRetentionFlow(): Flow<Double> {
         return flow {
             val other = getMoneyOtherRetentionFlow().first()
             val unionists = getMoneyUnionistsRetentionFlow().first()
             val ndfl = getMoneyNDFLRetentionFlow().first()
-            val total = other + unionists + ndfl
+            val welfare = getMoneyWelfareRetentionFlow().first()
+            val alimony = getMoneyAlimonyRetentionFlow().first()
+            val total = other + unionists + ndfl + welfare + alimony
             emit(total)
         }
     }

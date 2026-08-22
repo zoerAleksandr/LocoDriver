@@ -337,6 +337,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         otherSurchargePercent = partial.otherSurchargePercent
                             ?: acc.otherSurchargePercent,
                         otherRetention = partial.otherRetention ?: acc.otherRetention,
+                        welfareRetention = partial.welfareRetention ?: acc.welfareRetention,
+                        alimonyRetention = partial.alimonyRetention ?: acc.alimonyRetention,
                         totalRetention = partial.totalRetention ?: acc.totalRetention,
                         toBeCredited = partial.toBeCredited ?: acc.toBeCredited
                     )
@@ -428,6 +430,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         otherSurchargeMoney = combinedPartial.otherSurchargeMoney,
                         otherSurchargePercent = combinedPartial.otherSurchargePercent,
                         otherRetention = combinedPartial.otherRetention,
+                        welfareRetention = combinedPartial.welfareRetention,
+                        alimonyRetention = combinedPartial.alimonyRetention,
                         totalRetention = combinedPartial.totalRetention,
                         toBeCredited = combinedPartial.toBeCredited
                     )
@@ -819,12 +823,16 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         val moneyNDFL = helper.getMoneyNDFLRetentionFlow().first()
         val moneyUnionists = helper.getMoneyUnionistsRetentionFlow().first()
         val moneyOther = helper.getMoneyOtherRetentionFlow().first()
+        val moneyWelfare = helper.getMoneyWelfareRetentionFlow().first()
+        val moneyAlimony = helper.getMoneyAlimonyRetentionFlow().first()
         val moneyTotal = helper.getMoneyTotalRetentionFlow().first()
 
         return PartialState(
             retentionNdfl = moneyNDFL,
             unionistsRetention = moneyUnionists,
             otherRetention = moneyOther,
+            welfareRetention = moneyWelfare,
+            alimonyRetention = moneyAlimony,
             totalRetention = moneyTotal
         )
     }
@@ -919,6 +927,8 @@ data class PartialState(
     val otherSurchargeMoney: Double? = null,
     val otherSurchargePercent: Double? = null,
     val otherRetention: Double? = null,
+    val welfareRetention: Double? = null,
+    val alimonyRetention: Double? = null,
     val totalRetention: Double? = null,
     val toBeCredited: Double? = null
 )

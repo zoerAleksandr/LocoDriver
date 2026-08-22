@@ -1155,6 +1155,8 @@ class PdfGenerator(private val context: Context) {
         if (fmtMoney(s.retentionNdfl).isNotBlank()) pm.retentionRow("НДФЛ (13%)", "13%", fmtMoney(s.retentionNdfl))
         if (fmtMoney(s.unionistsRetention).isNotBlank()) pm.retentionRow("Профсоюз", "", fmtMoney(s.unionistsRetention))
         if (fmtMoney(s.otherRetention).isNotBlank()) pm.retentionRow("Прочие удержания", "", fmtMoney(s.otherRetention))
+        if (fmtMoney(s.welfareRetention).isNotBlank()) pm.retentionRow("Благосостояние", "", fmtMoney(s.welfareRetention))
+        if (fmtMoney(s.alimonyRetention).isNotBlank()) pm.retentionRow("Алименты", "", fmtMoney(s.alimonyRetention))
         pm.retentionRow("Всего удержано", "", fmtMoney(s.totalRetention), bold = true)
 
         pm.y += 8f
