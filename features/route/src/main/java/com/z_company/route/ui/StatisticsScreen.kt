@@ -94,6 +94,7 @@ fun StatisticsScreen(
     onNext: () -> Unit,
     onCompareSelect: (String) -> Unit,
     onOpenDetail: (String) -> Unit = {},
+    onOpenDetailMonth: (String, Int) -> Unit = { _, _ -> },
     onCloseDetail: () -> Unit = {},
     onSelectDetailMonth: (Int) -> Unit = {},
     onPickBaselineMonth: (Int, Int) -> Unit = { _, _ -> },
@@ -192,7 +193,10 @@ fun StatisticsScreen(
                                 EmptyBlock(state.tab)
                             } else {
                                 if (state.tab == StatTab.YEAR) {
-                                    YearHero(state.yearHeroValue, state.yearHeroDelta, state.yearBars, state.compareEnabled)
+                                    YearHero(
+                                        state.yearHeroValue, state.yearHeroDelta, state.yearBars, state.compareEnabled,
+                                        onBarClick = { i -> onOpenDetailMonth("worked", i) },
+                                    )
                                     Spacer(Modifier.height(20.dp))
                                 }
                                 MetricGrid(state.metrics, state.wideFirst, state.compareEnabled, state.currency, onOpenDetail, onInfo = { infoKey = it })
@@ -695,7 +699,10 @@ private fun MetricInfoSheet(key: String, onDismiss: () -> Unit) {
 
 // ── Год: hero-итог + помесячные столбцы ──────────────────────────────
 @Composable
-private fun YearHero(value: String, delta: StatDelta?, bars: List<StatMonthBar>, compare: Boolean) {
+private fun YearHero(
+    value: String, delta: StatDelta?, bars: List<StatMonthBar>, compare: Boolean,
+    onBarClick: (Int) -> Unit = {},
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -729,14 +736,14 @@ private fun YearHero(value: String, delta: StatDelta?, bars: List<StatMonthBar>,
             }
             if (bars.isNotEmpty()) {
                 Spacer(Modifier.height(20.dp))
-                YearBarsChart(bars, compare)
+                YearBarsChart(bars, compare, onBarClick)
             }
         }
     }
 }
 
 @Composable
-private fun YearBarsChart(bars: List<StatMonthBar>, compare: Boolean) {
+private fun YearBarsChart(bars: List<StatMonthBar>, compare: Boolean, onBarClick: (Int) -> Unit = {}) {
     val overlayPrev = compare && bars.any { it.prev > 0f }
     val max = (bars.maxOfOrNull { maxOf(it.cur, it.prev) } ?: 1f).coerceAtLeast(1f) * 1.05f
     val accent = MaterialTheme.colorScheme.tertiary
@@ -753,21 +760,23 @@ private fun YearBarsChart(bars: List<StatMonthBar>, compare: Boolean) {
         Row(modifier = Modifier.fillMaxWidth().height(150.dp), verticalAlignment = Alignment.Bottom) {
             bars.forEachIndexed { i, m ->
                 Column(
-                    modifier = Modifier.weight(1f).height(150.dp),
+                    modifier = Modifier.weight(1f).height(150.dp).clickable { onBarClick(i) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom,
                 ) {
                     Row(
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally),
+                        // Столбцы заметно шире прежних (было 6dp/5dp) — так график
+                        // читается лучше на всю ширину карточки.
+                        horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally),
                     ) {
                         if (overlayPrev) {
-                            Box(Modifier.width(5.dp).height(130.dp * (m.prev / max))
-                                .clip(RoundedCornerShape(2.dp)).background(prevFill))
+                            Box(Modifier.width(10.dp).height(130.dp * (m.prev / max))
+                                .clip(RoundedCornerShape(3.dp)).background(prevFill))
                         }
-                        Box(Modifier.width(6.dp).height(130.dp * (m.cur / max))
-                            .clip(RoundedCornerShape(2.dp)).background(accent))
+                        Box(Modifier.width(14.dp).height(130.dp * (m.cur / max))
+                            .clip(RoundedCornerShape(3.dp)).background(accent))
                     }
                     CompositionLocalProvider(LocalDensity provides labelDensity) {
                         Text(if (i % 2 == 0) m.label else "", fontFamily = MonoFont, fontSize = 8.5.sp,

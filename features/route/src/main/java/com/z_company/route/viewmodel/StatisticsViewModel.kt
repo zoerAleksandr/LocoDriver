@@ -198,7 +198,10 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
     private var detailKey: String? = null
     private var detailSeries: List<DetailPoint> = emptyList()
 
-    fun openDetail(key: String) {
+    // [initialMonthIndex] — тап по конкретному месяцу (0=Янв..11=Дек) в помесячном
+    // графике «Года» (YearBarsChart): открываем детализацию сразу на этом месяце,
+    // а не на декабре. Игнорируется на вкладке «Месяц».
+    fun openDetail(key: String, initialMonthIndex: Int? = null) {
         if (settings == null) return
         detailKey = key
         viewModelScope.launch(computeDispatcher) {
@@ -211,7 +214,7 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
             val focusIndex: Int   // позиция выбранного месяца в окне [0..11]
             if (tab == StatTab.YEAR) {
                 end = selYear * 12 + 11
-                focusIndex = 11
+                focusIndex = initialMonthIndex?.coerceIn(0, 11) ?: 11
             } else {
                 val focus = selYear * 12 + selMonth
                 val latest = latestFilledYM() ?: focus
