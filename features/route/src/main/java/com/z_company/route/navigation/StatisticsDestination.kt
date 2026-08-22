@@ -41,7 +41,6 @@ fun StatisticsDestination(
         onNext = viewModel::nextPeriod,
         onCompareSelect = viewModel::setCompare,
         onOpenDetail = viewModel::openDetail,
-        onOpenDetailMonth = viewModel::openDetail,
         onCloseDetail = viewModel::closeDetail,
         onSelectDetailMonth = viewModel::selectDetailMonth,
         onPickBaselineMonth = viewModel::setCompareCustomMonth,

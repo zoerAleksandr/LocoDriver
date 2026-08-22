@@ -94,7 +94,6 @@ fun StatisticsScreen(
     onNext: () -> Unit,
     onCompareSelect: (String) -> Unit,
     onOpenDetail: (String) -> Unit = {},
-    onOpenDetailMonth: (String, Int) -> Unit = { _, _ -> },
     onCloseDetail: () -> Unit = {},
     onSelectDetailMonth: (Int) -> Unit = {},
     onPickBaselineMonth: (Int, Int) -> Unit = { _, _ -> },
@@ -193,10 +192,7 @@ fun StatisticsScreen(
                                 EmptyBlock(state.tab)
                             } else {
                                 if (state.tab == StatTab.YEAR) {
-                                    YearHero(
-                                        state.yearHeroValue, state.yearHeroDelta, state.yearBars, state.compareEnabled,
-                                        onBarClick = { i -> onOpenDetailMonth("worked", i) },
-                                    )
+                                    YearHero(state.yearHeroValue, state.yearHeroDelta, state.yearBars, state.compareEnabled)
                                     Spacer(Modifier.height(20.dp))
                                 }
                                 MetricGrid(state.metrics, state.wideFirst, state.compareEnabled, state.currency, onOpenDetail, onInfo = { infoKey = it })
@@ -699,10 +695,7 @@ private fun MetricInfoSheet(key: String, onDismiss: () -> Unit) {
 
 // ── Год: hero-итог + помесячные столбцы ──────────────────────────────
 @Composable
-private fun YearHero(
-    value: String, delta: StatDelta?, bars: List<StatMonthBar>, compare: Boolean,
-    onBarClick: (Int) -> Unit = {},
-) {
+private fun YearHero(value: String, delta: StatDelta?, bars: List<StatMonthBar>, compare: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -736,14 +729,14 @@ private fun YearHero(
             }
             if (bars.isNotEmpty()) {
                 Spacer(Modifier.height(20.dp))
-                YearBarsChart(bars, compare, onBarClick)
+                YearBarsChart(bars, compare)
             }
         }
     }
 }
 
 @Composable
-private fun YearBarsChart(bars: List<StatMonthBar>, compare: Boolean, onBarClick: (Int) -> Unit = {}) {
+private fun YearBarsChart(bars: List<StatMonthBar>, compare: Boolean) {
     val overlayPrev = compare && bars.any { it.prev > 0f }
     val max = (bars.maxOfOrNull { maxOf(it.cur, it.prev) } ?: 1f).coerceAtLeast(1f) * 1.05f
     val accent = MaterialTheme.colorScheme.tertiary
@@ -751,6 +744,10 @@ private fun YearBarsChart(bars: List<StatMonthBar>, compare: Boolean, onBarClick
     val labelDensity = LocalDensity.current.let { d ->
         if (d.fontScale > 1f) Density(d.density, 1f) else d
     }
+    // Тап по столбцу просто показывает значение месяца над ним (как в DetailBars) —
+    // никуда не переходим. Повторный тап по тому же столбцу скрывает подпись.
+    // Сбрасываем выбор при смене набора столбцов (перелистнули год).
+    var selected by remember(bars) { mutableStateOf<Int?>(null) }
     Column {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             LegendDot(accent, "текущий", false)
@@ -759,28 +756,42 @@ private fun YearBarsChart(bars: List<StatMonthBar>, compare: Boolean, onBarClick
         Spacer(Modifier.height(14.dp))
         Row(modifier = Modifier.fillMaxWidth().height(150.dp), verticalAlignment = Alignment.Bottom) {
             bars.forEachIndexed { i, m ->
+                val active = i == selected
                 Column(
-                    modifier = Modifier.weight(1f).height(150.dp).clickable { onBarClick(i) },
+                    modifier = Modifier.weight(1f).height(150.dp)
+                        .clickable { selected = if (selected == i) null else i },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom,
                 ) {
-                    Row(
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                        verticalAlignment = Alignment.Bottom,
-                        // Столбцы заметно шире прежних (было 6dp/5dp) — так график
-                        // читается лучше на всю ширину карточки.
-                        horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally),
-                    ) {
-                        if (overlayPrev) {
-                            Box(Modifier.width(10.dp).height(130.dp * (m.prev / max))
-                                .clip(RoundedCornerShape(3.dp)).background(prevFill))
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                            if (active) {
+                                CompositionLocalProvider(LocalDensity provides labelDensity) {
+                                    Text(formatBarValueLabel(m.cur), fontFamily = MonoFont, fontSize = 9.5.sp,
+                                        fontWeight = FontWeight.Bold, color = accent, maxLines = 1, softWrap = false,
+                                        modifier = Modifier.padding(bottom = 4.dp))
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                // Столбцы заметно шире прежних (было 6dp/5dp) — так график
+                                // читается лучше на всю ширину карточки.
+                                horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally),
+                            ) {
+                                if (overlayPrev) {
+                                    Box(Modifier.width(10.dp).height(130.dp * (m.prev / max))
+                                        .clip(RoundedCornerShape(3.dp)).background(prevFill))
+                                }
+                                Box(Modifier.width(14.dp).height(130.dp * (m.cur / max))
+                                    .clip(RoundedCornerShape(3.dp)).background(accent))
+                            }
                         }
-                        Box(Modifier.width(14.dp).height(130.dp * (m.cur / max))
-                            .clip(RoundedCornerShape(3.dp)).background(accent))
                     }
                     CompositionLocalProvider(LocalDensity provides labelDensity) {
-                        Text(if (i % 2 == 0) m.label else "", fontFamily = MonoFont, fontSize = 8.5.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false,
+                        Text(if (active || i % 2 == 0) m.label else "", fontFamily = MonoFont, fontSize = 8.5.sp,
+                            fontWeight = if (active) FontWeight.ExtraBold else FontWeight.Normal,
+                            color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1, softWrap = false,
                             modifier = Modifier.padding(top = 6.dp))
                     }
                 }
@@ -1143,7 +1154,7 @@ private fun DetailBars(bars: List<StatDetailBar>, selected: Int, onSelect: (Int)
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
                         CompositionLocalProvider(LocalDensity provides labelDensity) {
                             Text(
-                                text = if (active) StatFormatBarLabel(b) else "",
+                                text = if (active) formatBarValueLabel(b.value) else "",
                                 fontFamily = MonoFont, fontSize = 9.5.sp, fontWeight = FontWeight.Bold,
                                 color = accent, maxLines = 1, softWrap = false,
                                 modifier = Modifier.padding(bottom = 4.dp),
@@ -1169,15 +1180,12 @@ private fun DetailBars(bars: List<StatDetailBar>, selected: Int, onSelect: (Int)
     }
 }
 
-// Короткая подпись значения над выбранным столбцом (без единиц, компактно).
-private fun StatFormatBarLabel(b: StatDetailBar): String {
-    // Значение уже отражено в hero; над столбцом показываем месяц-значение кратко.
-    val v = b.value
-    return when {
-        v >= 100 -> v.toInt().toString()
-        v >= 10 -> ((v * 10).toInt() / 10f).toString().trimEnd('0').trimEnd('.').replace(".", ",")
-        else -> ((v * 100).toInt() / 100f).toString().replace(".", ",")
-    }
+// Короткая подпись значения над выбранным/тапнутым столбцом (без единиц, компактно).
+// Общая для DetailBars и YearBarsChart — оба показывают число прямо над столбцом.
+private fun formatBarValueLabel(v: Float): String = when {
+    v >= 100 -> v.toInt().toString()
+    v >= 10 -> ((v * 10).toInt() / 10f).toString().trimEnd('0').trimEnd('.').replace(".", ",")
+    else -> ((v * 100).toInt() / 100f).toString().replace(".", ",")
 }
 
 // ── Шторка выбора периода-эталона ────────────────────────────────────
