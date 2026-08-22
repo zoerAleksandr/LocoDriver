@@ -776,6 +776,32 @@ private fun LocomotiveBlock(loco: Locomotive, dateAndTimeConverter: DateAndTimeC
             )
         }
 
+        // Время: приёмка (начало → конец → выход на КП) и сдача (заход на КП →
+        // начало → конец) — те же поля, что в шторке времени FormLocoScreen.
+        val acceptanceStops = buildList {
+            loco.timeStartOfAcceptance?.let { add("начало" to it) }
+            loco.timeEndOfAcceptance?.let { add("конец" to it) }
+            loco.timeBarrierOut?.let { add("КП" to it) }
+        }
+        val deliveryStops = buildList {
+            loco.timeBarrierIn?.let { add("КП" to it) }
+            loco.timeStartOfDelivery?.let { add("начало" to it) }
+            loco.timeEndOfDelivery?.let { add("конец" to it) }
+        }
+        if (acceptanceStops.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            LocoTimeStopsRow(title = "Приёмка", stops = acceptanceStops, dateAndTimeConverter = dateAndTimeConverter)
+        }
+        if (deliveryStops.isNotEmpty()) {
+            Spacer(Modifier.height(if (acceptanceStops.isNotEmpty()) 10.dp else 12.dp))
+            LocoTimeStopsRow(title = "Сдача", stops = deliveryStops, dateAndTimeConverter = dateAndTimeConverter)
+        }
+        // Доп. отступ перед секциями — время и секции визуально разные группы,
+        // одного 12dp (общего для всех Spacer'ов внутри блока) между ними мало.
+        if (acceptanceStops.isNotEmpty() || deliveryStops.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+        }
+
         when (loco.type) {
             LocoType.ELECTRIC -> {
                 loco.electricSectionList.forEachIndexed { index, section ->
@@ -869,6 +895,26 @@ private fun LocomotiveBlock(loco: Locomotive, dateAndTimeConverter: DateAndTimeC
     }
 }
 
+/** Строка «Приёмка»/«Сдача»: заголовок + ряд плашек (начало/конец/КП — что сохранено). */
+@Composable
+private fun LocoTimeStopsRow(
+    title: String,
+    stops: List<Pair<String, Long>>,
+    dateAndTimeConverter: DateAndTimeConverter?,
+) {
+    LocoSubLabel(title)
+    Spacer(Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        stops.forEach { (caption, time) ->
+            CounterPill(
+                modifier = Modifier.weight(1f),
+                label = caption,
+                value = dateAndTimeConverter?.getTime(time),
+            )
+        }
+    }
+}
+
 @Composable
 private fun ConsumptionBlock(
     title: String,
@@ -882,7 +928,7 @@ private fun ConsumptionBlock(
     val text = MaterialTheme.colorScheme.primary
     val textMuted = text.copy(alpha = 0.6f)
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(text = title, style = MaterialTheme.typography.bodyMedium, color = textMuted)
+        Text(text = title, style = MaterialTheme.typography.labelMedium, color = textMuted)
         Spacer(Modifier.weight(1f))
         if (total != null) {
             Text(
@@ -958,8 +1004,19 @@ private fun CounterPill(
 
 @Composable
 private fun SectionLabel(index: Int) {
+    LocoSubLabel("Секция ${index + 1}")
+}
+
+/**
+ * Подзаголовок группы внутри карточки локомотива («Приёмка», «Сдача», «Секция N») —
+ * единый стиль для всех подзаголовков этого уровня иерархии: капс, разрядка,
+ * приглушённый цвет. Отличается от заголовков полей («Расход», «Экипировка»),
+ * которые стоят в одной строке со значением и остаются `bodyMedium`.
+ */
+@Composable
+private fun LocoSubLabel(text: String) {
     Text(
-        text = "СЕКЦИЯ ${index + 1}",
+        text = text.uppercase(),
         style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
     )
@@ -974,7 +1031,7 @@ private fun SummaryLine(title: String, value: String) {
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.labelMedium,
             color = text.copy(alpha = 0.6f),
         )
         Spacer(Modifier.weight(1f))
