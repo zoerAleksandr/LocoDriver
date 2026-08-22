@@ -13,6 +13,7 @@ import androidx.glance.GlanceTheme
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.GlanceAppWidget
@@ -66,9 +67,10 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Развёрнутый виджет (4×4): блок нормы за месяц + текущий маршрут с быстрой
- * записью прибытия/отправления, либо (без активного маршрута) — состояние отдыха
- * и кнопка добавления маршрута, как на главном экране.
+ * Развёрнутый виджет (5×2 по умолчанию, растягивается по высоте до 4 ячеек):
+ * блок нормы за месяц + текущий маршрут с быстрой записью прибытия/отправления,
+ * либо (без активного маршрута) — состояние отдыха и кнопка добавления маршрута,
+ * как на главном экране.
  * Дизайн — design/src/widgets.jsx. Тема адаптивная (values / values-night).
  */
 class LocoDriverWidget : GlanceAppWidget() {
@@ -169,6 +171,19 @@ class LocoDriverWidget : GlanceAppWidget() {
      */
     @Composable
     private fun RouteSection(context: Context, prefs: Preferences) {
+        val routeId = prefs[WKeys.CURRENT_ROUTE_ID] ?: ""
+        // Клик по блоку «ТЕКУЩИЙ МАРШРУТ» (хедер/явка) — переход сразу на
+        // экран этого маршрута, а не просто открытие приложения на HomeScreen.
+        val openRouteMod = GlanceModifier.fillMaxWidth().wrapContentHeight().let {
+            if (routeId.isNotEmpty()) {
+                it.clickable(
+                    actionRunCallback<OpenCurrentRouteActionCallback>(
+                        actionParametersOf(CurrentRouteIdKey to routeId)
+                    )
+                )
+            } else it
+        }
+
         val hasTrain = prefs[WKeys.CURRENT_HAS_TRAIN] ?: true
         if (!hasTrain) {
             val rv = WidgetRender.buildUpcoming(
@@ -179,7 +194,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                 from = "", to = "", known = false,
                 caption = "ТЕКУЩИЙ МАРШРУТ",
             )
-            AndroidRemoteViews(rv, GlanceModifier.fillMaxWidth().wrapContentHeight())
+            AndroidRemoteViews(rv, openRouteMod)
             return
         }
 
@@ -191,7 +206,11 @@ class LocoDriverWidget : GlanceAppWidget() {
                 routeNumber = prefs[WKeys.ROUTE_NUMBER] ?: "",
                 from = prefs[WKeys.STATION_FROM] ?: "",
                 to = prefs[WKeys.STATION_TO] ?: "",
-                trainLine = prefs[WKeys.TRAIN_LINE] ?: "",
+                // Строка «В пути с»/«Стоянка с» дублирует время, уже показанное
+                // на соседней кнопке записи — скрываем её, когда кнопки видны.
+                // Когда кнопок нет (плечо закрыто), это единственный источник
+                // времени последнего события — оставляем.
+                trainLine = if (showButtons) "" else prefs[WKeys.TRAIN_LINE] ?: "",
                 // Строка «ТЕКУЩИЙ МАРШРУТ»+номер скрыта, когда под хедером
                 // ещё покажутся кнопки — освобождает высоту под них.
                 showCaption = !showButtons,
@@ -199,7 +218,7 @@ class LocoDriverWidget : GlanceAppWidget() {
         }
         AndroidRemoteViews(
             remoteViews = headerRv,
-            modifier = GlanceModifier.fillMaxWidth().wrapContentHeight()
+            modifier = openRouteMod
         )
 
         if (!showButtons) return
@@ -305,6 +324,7 @@ class LocoDriverWidget : GlanceAppWidget() {
             currentHasTrain: Boolean,
             currentReportTime: String,
             currentReportDate: String,
+            currentRouteId: String,
             upTime: String, upDate: String, upNumber: String,
             upFrom: String, upTo: String,
             restShortDur: String, restShortEnd: String,
@@ -335,6 +355,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                         this[WKeys.CURRENT_HAS_TRAIN] = currentHasTrain
                         this[WKeys.CURRENT_REPORT_TIME] = currentReportTime
                         this[WKeys.CURRENT_REPORT_DATE] = currentReportDate
+                        this[WKeys.CURRENT_ROUTE_ID] = currentRouteId
                         this[WKeys.UP_TIME] = upTime
                         this[WKeys.UP_DATE] = upDate
                         this[WKeys.UP_NUMBER] = upNumber
@@ -540,6 +561,7 @@ object WidgetDataLoader : KoinComponent {
             currentHasTrain = hasTrainWithStations,
             currentReportTime = currentReportTime,
             currentReportDate = currentReportDate,
+            currentRouteId = currentRoute?.basicData?.id ?: "",
             upTime = upTime, upDate = upDate, upNumber = upNumber,
             upFrom = upFrom, upTo = upTo,
             restShortDur = restShortDur, restShortEnd = restShortEnd,
@@ -547,8 +569,36 @@ object WidgetDataLoader : KoinComponent {
             hrDur = hrDur, hrEnd = hrEnd,
         )
 
-        // Update small widget (только блок нормы)
-        LocoDriverSmallWidget.updateAllSmallWidgets(context = context, data = norm)
+        // Update small widget: блок нормы + цель кнопки перехода (видна при
+        // растягивании по ширине) — поезд, если есть, иначе маршрут, иначе
+        // форма создания нового маршрута.
+        val smallTargetKind: String
+        val smallTargetTrainId: String
+        val smallTargetBasicId: String
+        when {
+            lastTrain != null -> {
+                smallTargetKind = "train"
+                smallTargetTrainId = lastTrain.trainId
+                smallTargetBasicId = currentRoute!!.basicData.id
+            }
+            currentRoute != null -> {
+                smallTargetKind = "route"
+                smallTargetTrainId = ""
+                smallTargetBasicId = currentRoute.basicData.id
+            }
+            else -> {
+                smallTargetKind = "new"
+                smallTargetTrainId = ""
+                smallTargetBasicId = ""
+            }
+        }
+        LocoDriverSmallWidget.updateAllSmallWidgets(
+            context = context,
+            data = norm,
+            targetKind = smallTargetKind,
+            targetTrainId = smallTargetTrainId,
+            targetBasicId = smallTargetBasicId,
+        )
     }
 
     /** Button info: train number, status text, status time (raw HH:MM). */
@@ -686,12 +736,12 @@ object WidgetDataLoader : KoinComponent {
         val stations = train.stations
         if (stations.isEmpty()) return false
 
-        val hasServicePhase = train.servicePhase != null
-        val endIdx = if (hasServicePhase && stations.size >= 2)
-            stations.lastIndex - 1 else stations.lastIndex
-        if (endIdx < 0) return false
-
-        return stations[endIdx].timeArrival == null
+        // Проверяем именно последнюю станцию — конечную станцию плеча. Индекс
+        // "предпоследней" здесь не годится: при вставке промежуточной остановки
+        // кнопкой записи (см. GoActionCallback.executeGoClicked) станций
+        // становится больше двух, и lastIndex-1 начинает указывать на уже
+        // заполненную промежуточную станцию, а не на пустую конечную.
+        return stations.last().timeArrival == null
     }
 
     /** Determine if next action is departure (same logic as HomeViewModel). */
@@ -803,6 +853,29 @@ class GoActionCallback : ActionCallback, KoinComponent {
         // Refresh all widget data (norm остаётся прежней — пересчёт быстрый и без гонки,
         // т.к. запись коснулась только станций текущего рейса).
         WidgetDataLoader.loadAndPush(context)
+    }
+}
+
+private val CurrentRouteIdKey = ActionParameters.Key<String>("current_route_id")
+
+/**
+ * ActionCallback for tapping the «ТЕКУЩИЙ МАРШРУТ» block (явка / хедер) —
+ * opens MainActivity straight on the FormRoute screen for that route, instead
+ * of just opening the app on HomeScreen.
+ */
+class OpenCurrentRouteActionCallback : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters
+    ) {
+        val routeId = parameters[CurrentRouteIdKey]
+        if (routeId.isNullOrEmpty()) return
+        val intent = Intent(context, MainActivity::class.java).apply {
+            putExtra("widget_route_id", routeId)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        context.startActivity(intent)
     }
 }
 

@@ -52,6 +52,7 @@ import com.z_company.loco_driver.ui.theme.LocoDriverTheme
 import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.component.BottomNavigationBar
 import com.z_company.route.navigation.FormRoute
+import com.z_company.route.navigation.FormTrain
 import com.z_company.route.navigation.HomeFeature
 import com.z_company.route.navigation.HomeRoute
 import com.z_company.route.navigation.ProfileRoute
@@ -84,7 +85,9 @@ fun LocoDriverApp(
     pendingNavigateProfile: Boolean = false,
     onNavigatedProfile: () -> Unit = {},
     pendingOpenFormWithId: String? = null,
-    onFormOpenedWithId: () -> Unit = {}
+    onFormOpenedWithId: () -> Unit = {},
+    pendingOpenTrainWithId: Pair<String, String>? = null,
+    onTrainOpenedWithId: () -> Unit = {}
 ) {
     val themeManager: ThemeManager = koinInject()
     val themeMode by themeManager.themeMode.collectAsState()
@@ -175,7 +178,8 @@ fun LocoDriverApp(
             }
         }
 
-        // Открытие FormRoute по публичной ссылке locodriver://share/{id}
+        // Открытие FormRoute по публичной ссылке locodriver://share/{id},
+        // либо переход из малого виджета на текущий маршрут
         LaunchedEffect(pendingOpenFormWithId) {
             val id = pendingOpenFormWithId
             if (!id.isNullOrBlank()) {
@@ -183,6 +187,18 @@ fun LocoDriverApp(
                     launchSingleTop = true
                 }
                 onFormOpenedWithId()
+            }
+        }
+
+        // Навигация из малого виджета (растянут по ширине) → раздел поезда
+        LaunchedEffect(pendingOpenTrainWithId) {
+            val pair = pendingOpenTrainWithId
+            if (pair != null) {
+                val (trainId, basicId) = pair
+                navController.navigate(FormTrain.buildDetailsRoute(trainId, basicId)) {
+                    launchSingleTop = true
+                }
+                onTrainOpenedWithId()
             }
         }
 
