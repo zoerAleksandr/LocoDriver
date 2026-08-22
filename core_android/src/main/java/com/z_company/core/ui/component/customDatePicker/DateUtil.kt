@@ -76,7 +76,14 @@ fun LocalDate.Companion.MAX() = LocalDate(
     dayOfMonth = 31,
 )
 
-fun LocalDate.withDayOfMonth(dayOfMonth: Int) = LocalDate(this.year, this.month, dayOfMonth)
+// Найдено через Sentry: DateTimeException "Invalid date 'SEPTEMBER 31'" в WheelDatePicker
+// (год/месяц/день — независимые колёса). withMonth уже клэмпил day к длине месяца,
+// а withDayOfMonth/withYear — нет, из-за чего гонка между колёсами могла собрать
+// невалидную дату (например 31 сентября после смены месяца). Клэмпим везде.
+fun LocalDate.withDayOfMonth(dayOfMonth: Int): LocalDate {
+    val length = this.monthNumber.monthLength(isLeapYear(this.year))
+    return LocalDate(this.year, this.month, dayOfMonth.coerceAtMost(length))
+}
 
 fun LocalDate.withMonth(month: Int): LocalDate {
     val length = month.monthLength(isLeapYear(this.year))
@@ -87,10 +94,15 @@ fun LocalDate.withMonth(month: Int): LocalDate {
     }
 }
 
-fun LocalDate.withYear(year: Int) = LocalDate(year, this.month, this.dayOfMonth)
+fun LocalDate.withYear(year: Int): LocalDate {
+    val length = this.monthNumber.monthLength(isLeapYear(year))
+    return LocalDate(year, this.month, this.dayOfMonth.coerceAtMost(length))
+}
 
-fun LocalDateTime.withDayOfMonth(dayOfMonth: Int) =
-    LocalDateTime(this.year, this.month, dayOfMonth, this.hour, this.minute, this.second)
+fun LocalDateTime.withDayOfMonth(dayOfMonth: Int): LocalDateTime {
+    val length = this.monthNumber.monthLength(isLeapYear(this.year))
+    return LocalDateTime(this.year, this.month, dayOfMonth.coerceAtMost(length), this.hour, this.minute, this.second)
+}
 
 fun LocalDateTime.withMonth(month: Int): LocalDateTime {
     val length = month.monthLength(isLeapYear(this.year))
@@ -101,8 +113,10 @@ fun LocalDateTime.withMonth(month: Int): LocalDateTime {
     }
 }
 
-fun LocalDateTime.withYear(year: Int) =
-    LocalDateTime(year, this.month, this.dayOfMonth, this.hour, this.minute, this.second)
+fun LocalDateTime.withYear(year: Int): LocalDateTime {
+    val length = this.monthNumber.monthLength(isLeapYear(year))
+    return LocalDateTime(year, this.month, this.dayOfMonth.coerceAtMost(length), this.hour, this.minute, this.second)
+}
 
 fun LocalDateTime.withHour(hour: Int) =
     LocalDateTime(this.year, this.month, this.dayOfMonth, hour, this.minute, this.second)
