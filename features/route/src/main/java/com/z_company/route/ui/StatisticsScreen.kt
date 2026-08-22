@@ -74,6 +74,8 @@ import com.z_company.route.viewmodel.StatTab
 import com.z_company.route.viewmodel.StatTopDirection
 import com.z_company.route.viewmodel.StatYearRow
 import com.z_company.route.viewmodel.StatisticsUiState
+import kotlin.math.round
+import kotlin.math.roundToInt
 
 // ════════════════════════════════════════════════════════════════════
 // Экран «Статистика» — рендер по референсу (концепт B, см. design/
@@ -1197,10 +1199,14 @@ private fun DetailBars(bars: List<StatDetailBar>, selected: Int, onSelect: (Int)
 
 // Короткая подпись значения над выбранным/тапнутым столбцом (без единиц, компактно).
 // Общая для DetailBars и YearBarsChart — оба показывают число прямо над столбцом.
+// Округляем (не усекаем!): усечение (v.toInt()) всегда занижает значение — например,
+// 213,9 превращалось бы в «213», теряя почти час. При усечении сумма подписей по
+// всем месяцам систематически меньше точного годового итога (который считается
+// отдельно, из миллисекунд, без этой потери) — пользователь видел это как расхождение.
 private fun formatBarValueLabel(v: Float): String = when {
-    v >= 100 -> v.toInt().toString()
-    v >= 10 -> ((v * 10).toInt() / 10f).toString().trimEnd('0').trimEnd('.').replace(".", ",")
-    else -> ((v * 100).toInt() / 100f).toString().replace(".", ",")
+    v >= 100 -> v.roundToInt().toString()
+    v >= 10 -> (round(v * 10) / 10f).toString().trimEnd('0').trimEnd('.').replace(".", ",")
+    else -> (round(v * 100) / 100f).toString().replace(".", ",")
 }
 
 // ── Шторка выбора периода-эталона ────────────────────────────────────
