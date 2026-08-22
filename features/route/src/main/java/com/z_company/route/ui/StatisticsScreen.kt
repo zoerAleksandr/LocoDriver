@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -759,7 +760,12 @@ private fun YearBarsChart(bars: List<StatMonthBar>, compare: Boolean) {
                 val active = i == selected
                 Column(
                     modifier = Modifier.weight(1f).height(150.dp)
-                        .clickable { selected = if (selected == i) null else i },
+                        // Без ripple: это не кнопка-переход, а лёгкая подсказка —
+                        // моргающий круг на тонком столбце выглядит как баг.
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { selected = if (selected == i) null else i },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom,
                 ) {
@@ -1146,7 +1152,13 @@ private fun DetailBars(bars: List<StatDetailBar>, selected: Int, onSelect: (Int)
         bars.forEachIndexed { i, b ->
             val active = i == selected
             Column(
-                modifier = Modifier.weight(1f).height(180.dp).clip(RoundedCornerShape(6.dp)).clickable { onSelect(i) },
+                modifier = Modifier.weight(1f).height(180.dp).clip(RoundedCornerShape(6.dp))
+                    // Без ripple: это не переход, а лёгкая подсказка — моргающий
+                    // круг на тонком столбце выглядит как баг.
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { onSelect(i) },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Bottom,
             ) {
@@ -1160,8 +1172,11 @@ private fun DetailBars(bars: List<StatDetailBar>, selected: Int, onSelect: (Int)
                                 modifier = Modifier.padding(bottom = 4.dp),
                             )
                         }
+                        // Ширина столбца фиксированная (14dp), как на вкладках «Год» и
+                        // «Месяц» — раньше неактивные столбцы сужались до 10dp, из-за
+                        // чего график «прыгал» при выборе месяца.
                         Box(
-                            Modifier.width(if (active) 14.dp else 10.dp)
+                            Modifier.width(14.dp)
                                 .height((150.dp * (b.value / max)).coerceAtLeast(3.dp))
                                 .clip(RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp))
                                 .background(if (active) accent else accent.copy(alpha = 0.18f))
