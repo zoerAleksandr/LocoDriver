@@ -13,6 +13,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.TrainAssist
+import com.z_company.domain.entities.route.TrainDataVersion
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -533,24 +534,126 @@ class TrainFormViewModel(
     }
 
     fun setWeight(weight: String) {
-        currentTrain = currentTrain?.copy(
-            weight = weight.ifBlank { null }
-        )
+        currentTrain?.let { train ->
+            val value = weight.ifBlank { null }
+            currentTrain = train.copy(
+                weight = value,
+                dataVersions = train.dataVersions.updateLast { it.copy(weight = value) }
+            )
+        }
         changesHave()
     }
 
     fun setAxle(axle: String) {
-        currentTrain = currentTrain?.copy(
-            axle = axle.ifBlank { null }
-        )
+        currentTrain?.let { train ->
+            val value = axle.ifBlank { null }
+            currentTrain = train.copy(
+                axle = value,
+                dataVersions = train.dataVersions.updateLast { it.copy(axle = value) }
+            )
+        }
         changesHave()
     }
 
     fun setConditionalLength(length: String) {
-        currentTrain = currentTrain?.copy(
-            conditionalLength = length.ifBlank { null }
-        )
+        currentTrain?.let { train ->
+            val value = length.ifBlank { null }
+            currentTrain = train.copy(
+                conditionalLength = value,
+                dataVersions = train.dataVersions.updateLast { it.copy(conditionalLength = value) }
+            )
+        }
         changesHave()
+    }
+
+    fun addTrainDataVersion(
+        stationId: String,
+        stationName: String?,
+        weight: String,
+        axle: String,
+        conditionalLength: String
+    ) {
+        currentTrain?.let { train ->
+            val versions = train.dataVersions.toMutableList()
+            if (versions.isEmpty()) {
+                versions += TrainDataVersion(
+                    weight = train.weight,
+                    axle = train.axle,
+                    conditionalLength = train.conditionalLength
+                )
+            }
+            val newVersion = TrainDataVersion(
+                stationId = stationId,
+                stationName = stationName?.ifBlank { null },
+                weight = weight.ifBlank { null },
+                axle = axle.ifBlank { null },
+                conditionalLength = conditionalLength.ifBlank { null },
+                changedAt = System.currentTimeMillis()
+            )
+            val existingIndex = versions.indexOfFirst { it.stationId == stationId }
+            if (existingIndex >= 0) {
+                versions[existingIndex] = newVersion.copy(
+                    changedAt = versions[existingIndex].changedAt.takeIf { it != 0L }
+                        ?: newVersion.changedAt
+                )
+            } else {
+                versions += newVersion
+            }
+            val latest = versions.last()
+            currentTrain = train.copy(
+                weight = latest.weight,
+                axle = latest.axle,
+                conditionalLength = latest.conditionalLength,
+                dataVersions = versions
+            )
+            changesHave()
+        }
+    }
+
+    fun updateTrainDataVersion(
+        index: Int,
+        weight: String,
+        axle: String,
+        conditionalLength: String
+    ) {
+        currentTrain?.let { train ->
+            if (index !in train.dataVersions.indices) return
+            val versions = train.dataVersions.toMutableList()
+            versions[index] = versions[index].copy(
+                weight = weight.ifBlank { null },
+                axle = axle.ifBlank { null },
+                conditionalLength = conditionalLength.ifBlank { null }
+            )
+            val latest = versions.last()
+            currentTrain = train.copy(
+                weight = latest.weight,
+                axle = latest.axle,
+                conditionalLength = latest.conditionalLength,
+                dataVersions = versions
+            )
+            changesHave()
+        }
+    }
+
+    fun deleteTrainDataVersion(index: Int) {
+        currentTrain?.let { train ->
+            if (index !in train.dataVersions.indices) return
+            val versions = train.dataVersions.toMutableList().apply { removeAt(index) }
+            val latest = versions.lastOrNull()
+            currentTrain = train.copy(
+                weight = latest?.weight ?: train.weight,
+                axle = latest?.axle ?: train.axle,
+                conditionalLength = latest?.conditionalLength ?: train.conditionalLength,
+                dataVersions = versions
+            )
+            changesHave()
+        }
+    }
+
+    private fun List<TrainDataVersion>.updateLast(
+        transform: (TrainDataVersion) -> TrainDataVersion
+    ): List<TrainDataVersion> = if (isEmpty()) this else toMutableList().also {
+        it[lastIndex] = transform(it[lastIndex])
     }
 
     // --- Pusher (Толкач) ---
@@ -874,10 +977,17 @@ class TrainFormViewModel(
         _uiState.update { it.copy(editingStationIndex = null) }
     }
 
-    fun saveStationFromSheet(index: Int, name: String?, arrival: Long?, departure: Long?, trackNumber: String?) {
+    fun saveStationFromSheet(
+        index: Int,
+        name: String?,
+        arrival: Long?,
+        departure: Long?,
+        trackNumber: String?,
+        newStationId: String? = null
+    ) {
         if (index == -1) {
             val newStation = StationFormState(
-                id = Station().stationId,
+                id = newStationId ?: Station().stationId,
                 station = StationField(data = name, type = StationDataType.NAME),
                 arrival = StationFieldDate(data = arrival, type = StationDataType.ARRIVAL),
                 departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE),

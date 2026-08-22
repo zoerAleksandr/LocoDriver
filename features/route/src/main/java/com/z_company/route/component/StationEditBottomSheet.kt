@@ -69,6 +69,10 @@ fun StationEditBottomSheet(
     menuList: List<String>,
     onFilterMenu: (String) -> Unit,
     onDeleteStationName: (String) -> Unit,
+    trainWeight: String?,
+    trainAxle: String?,
+    trainConditionalLength: String?,
+    onTrainDataChange: ((stationName: String?, weight: String, axle: String, conditionalLength: String) -> Unit)?,
     onSave: (name: String?, arrival: Long?, departure: Long?, trackNumber: String?) -> Unit,
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
@@ -103,6 +107,12 @@ fun StationEditBottomSheet(
     var showArrivalPicker by remember { mutableStateOf(false) }
     var showDeparturePicker by remember { mutableStateOf(false) }
     var isDropdownExpanded by remember { mutableStateOf(false) }
+    var showTrainDataEditor by remember { mutableStateOf(false) }
+    var localWeight by remember(trainWeight) { mutableStateOf(trainWeight ?: "") }
+    var localAxle by remember(trainAxle) { mutableStateOf(trainAxle ?: "") }
+    var localConditionalLength by remember(trainConditionalLength) {
+        mutableStateOf(trainConditionalLength.orEmpty().withoutZeroFraction())
+    }
 
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -327,6 +337,56 @@ fun StationEditBottomSheet(
                 onNow = { localDeparture = nowTruncatedToMinutes() },
             )
 
+            if (onTrainDataChange != null) {
+                Spacer(modifier = Modifier.height(20.dp))
+                Button(
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = Shapes.medium,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceBright,
+                        contentColor = MaterialTheme.colorScheme.tertiary
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp),
+                    onClick = { showTrainDataEditor = !showTrainDataEditor }
+                ) {
+                    Text(
+                        text = if (showTrainDataEditor) "Скрыть данные поезда" else "Изменить данные поезда",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                if (showTrainDataEditor) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TrainDataInput("Вес, т", localWeight, Modifier.weight(1f)) { localWeight = it }
+                        TrainDataInput("Оси", localAxle, Modifier.weight(1f)) { localAxle = it }
+                        TrainDataInput("У.Д.", localConditionalLength, Modifier.weight(1f)) {
+                            localConditionalLength = it
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = Shapes.medium,
+                        onClick = {
+                            onTrainDataChange(
+                                localName.text.ifBlank { null },
+                                localWeight,
+                                localAxle,
+                                localConditionalLength
+                            )
+                            showTrainDataEditor = false
+                        }
+                    ) {
+                        Text("Сохранить новые данные", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+
             // ── Разделитель ──
             Box(
                 modifier = Modifier
@@ -407,6 +467,49 @@ fun StationEditBottomSheet(
             onDismiss = { showDeparturePicker = false },
             startDateTime = localDeparture ?: nowTruncatedToMinutes(),
             timeZoneStr = displayTz
+        )
+    }
+}
+
+private fun String.withoutZeroFraction(): String {
+    val separatorIndex = indexOfLast { it == '.' || it == ',' }
+    if (separatorIndex < 0) return this
+    return if (substring(separatorIndex + 1).isNotEmpty() &&
+        substring(separatorIndex + 1).all { it == '0' }
+    ) substring(0, separatorIndex) else this
+}
+
+@Composable
+private fun TrainDataInput(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    onValueChange: (String) -> Unit
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceBright)
+            .padding(horizontal = 12.dp, vertical = 9.dp)
+    ) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        BasicTextField(
+            value = value,
+            onValueChange = { if (it.all { char -> char.isDigit() || char == '.' || char == ',' }) onValueChange(it) },
+            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                color = MaterialTheme.colorScheme.primary,
+                fontFamily = com.z_company.core.ui.theme.MonoFont,
+                fontWeight = FontWeight.SemiBold
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+            singleLine = true,
+            decorationBox = { inner ->
+                Box {
+                    if (value.isBlank()) Text("—", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    inner()
+                }
+            }
         )
     }
 }

@@ -4,11 +4,13 @@ import com.zcompany.datalocal.route.db.Train as TrainRow
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.TrainAssist
+import com.z_company.domain.entities.route.TrainDataVersion
 import com.z_company.domain.entities.setting.ServicePhase
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 
 private val json = Json { ignoreUnknownKeys = true; isLenient = true; encodeDefaults = true }
 
@@ -47,11 +49,17 @@ private data class StationRow(
 
 internal object TrainMapper {
 
-    fun encodeStations(stations: List<Station>): String {
+    @Serializable
+    private data class StationsStorage(
+        val stations: List<Station> = emptyList(),
+        val trainDataVersions: List<TrainDataVersion> = emptyList()
+    )
+
+    fun encodeStations(stations: List<Station>, trainDataVersions: List<TrainDataVersion>): String {
         val indexed = stations.mapIndexed { index, station ->
             station.copy(orderIndex = index)
         }
-        return json.encodeToString(indexed)
+        return json.encodeToString(StationsStorage(indexed, trainDataVersions))
     }
 
     fun encodeServicePhase(phase: ServicePhase?): String? =
@@ -65,7 +73,10 @@ internal object TrainMapper {
 
     private fun decodeStations(value: String): MutableList<Station> =
         runCatching {
-            json.decodeFromString<List<StationRow>>(value)
+            val stationJson = if (value.trimStart().startsWith("{")) {
+                json.parseToJsonElement(value).jsonObject["stations"]?.toString() ?: "[]"
+            } else value
+            json.decodeFromString<List<StationRow>>(stationJson)
                 .map { it.toStation() }
                 .sortedBy { it.orderIndex }
                 .toMutableList()
@@ -73,6 +84,11 @@ internal object TrainMapper {
             println("TrainMapper: Failed to decode stations: ${e.message}, raw=$value")
             mutableListOf()
         }
+
+    private fun decodeTrainDataVersions(value: String): List<TrainDataVersion> =
+        if (!value.trimStart().startsWith("{")) emptyList() else runCatching {
+            json.decodeFromString<StationsStorage>(value).trainDataVersions
+        }.getOrElse { emptyList() }
 
     private fun decodeServicePhase(value: String?): ServicePhase? =
         value?.let {
@@ -102,6 +118,7 @@ internal object TrainMapper {
         servicePhase = decodeServicePhase(row.servicePhase),
         pusher = decodeTrainAssist(row.pusher),
         doubleTraction = decodeTrainAssist(row.doubleTraction),
-        doubledTrain = decodeTrainAssist(row.doubledTrain)
+        doubledTrain = decodeTrainAssist(row.doubledTrain),
+        dataVersions = decodeTrainDataVersions(row.stations)
     )
 }

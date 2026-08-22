@@ -5,6 +5,16 @@ import com.z_company.domain.util.generateId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+@Serializable
+data class TrainDataVersion(
+    val stationId: String? = null,
+    val stationName: String? = null,
+    val weight: String? = null,
+    val axle: String? = null,
+    val conditionalLength: String? = null,
+    val changedAt: Long = 0L
+)
+
 /**
  * Вспомогательные данные для толкача / двойной тяги / сдвоенного поезда.
  */
@@ -31,7 +41,9 @@ data class Train(
     var servicePhase: ServicePhase? = null,
     var pusher: TrainAssist? = null,            // Толкач
     var doubleTraction: TrainAssist? = null,    // Двойная тяга
-    var doubledTrain: TrainAssist? = null       // Сдвоенный поезд
+    var doubledTrain: TrainAssist? = null,      // Сдвоенный поезд
+    /** История изменения состава; опциональное поле обратносуместимого API. */
+    var dataVersions: List<TrainDataVersion> = emptyList()
 )
 
 @Serializable

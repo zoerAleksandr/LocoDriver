@@ -116,6 +116,7 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.TrainAssist
+import com.z_company.domain.entities.route.TrainDataVersion
 import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.route.component.AppBottomSheet
@@ -125,6 +126,7 @@ import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.ShoulderEditBottomSheet
 import com.z_company.route.component.StationEditBottomSheet
 import com.z_company.route.component.TrainStationTimeline
+import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.component.computeRouteSummary
 import com.z_company.route.component.toTimelineItems
 import com.z_company.route.extention.isScrollInInitialState
@@ -181,6 +183,7 @@ fun FormTrainScreen(
     val primaryColor = MaterialTheme.colorScheme.primary
     val noValueColor = primaryColor.copy(alpha = 0.5f)
     var showSettingsSheet by remember { mutableStateOf(false) }
+    var showTrainDataHistory by remember { mutableStateOf(false) }
     // Сигнал закрытия свайп-раскрытой строки станции (при отмене подтверждения)
     var closeSwipeSignal by remember { mutableStateOf(0) }
 
@@ -278,6 +281,7 @@ fun FormTrainScreen(
             ) {
                 stationListState[editingIndex]
             } else null
+            val editingStationId = editingStation?.id ?: remember(editingIndex) { com.z_company.domain.util.generateId() }
 
             StationEditBottomSheet(
                 stationFormState = editingStation,
@@ -289,8 +293,32 @@ fun FormTrainScreen(
                     )
                 },
                 onDeleteStationName = { viewModel.removeStationName(it) },
+                trainWeight = currentTrain?.dataVersions
+                    ?.firstOrNull { it.stationId == editingStation?.id }?.weight
+                    ?: currentTrain?.weight,
+                trainAxle = currentTrain?.dataVersions
+                    ?.firstOrNull { it.stationId == editingStation?.id }?.axle
+                    ?: currentTrain?.axle,
+                trainConditionalLength = currentTrain?.dataVersions
+                    ?.firstOrNull { it.stationId == editingStation?.id }?.conditionalLength
+                    ?: currentTrain?.conditionalLength,
+                onTrainDataChange = if (
+                    editingIndex > 0 || (editingIndex == -1 && !stationListState.isNullOrEmpty())
+                ) {
+                    { stationName, weight, axle, conditionalLength ->
+                        viewModel.addTrainDataVersion(
+                            stationId = editingStationId,
+                            stationName = stationName,
+                            weight = weight,
+                            axle = axle,
+                            conditionalLength = conditionalLength
+                        )
+                    }
+                } else null,
                 onSave = { name, arrival, departure, trackNumber ->
-                    viewModel.saveStationFromSheet(editingIndex, name, arrival, departure, trackNumber)
+                    viewModel.saveStationFromSheet(
+                        editingIndex, name, arrival, departure, trackNumber, editingStationId
+                    )
                 },
                 onDelete = if (editingIndex >= 0) {
                     { viewModel.requestDeleteStation(editingIndex) }
@@ -298,6 +326,45 @@ fun FormTrainScreen(
                 onDismiss = { viewModel.stopEditingStation() },
                 dateAndTimeConverter = dateAndTimeConverter
             )
+        }
+
+        if (showTrainDataHistory) {
+            ModalBottomSheet(
+                onDismissRequest = { showTrainDataHistory = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = MaterialTheme.colorScheme.background
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp)
+                        .padding(bottom = 40.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        "История данных поезда",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    currentTrain?.dataVersions.orEmpty().forEachIndexed { index, version ->
+                        TrainDataVersionEditor(
+                            index = index,
+                            version = version,
+                            onSave = { weight, axle, conditionalLength ->
+                                viewModel.updateTrainDataVersion(
+                                    index = index,
+                                    weight = weight,
+                                    axle = axle,
+                                    conditionalLength = conditionalLength
+                                )
+                            },
+                            onDelete = { viewModel.deleteTrainDataVersion(index) }
+                        )
+                    }
+                }
+            }
         }
 
         // Подтверждение удаления станции — ОТДЕЛЬНЫЙ sheetState, чтобы не конфликтовать
@@ -1416,6 +1483,19 @@ fun FormTrainScreen(
                                 )
                             }
                         }
+                        if (train.dataVersions.size > 1) {
+                            TextButton(
+                                modifier = Modifier.padding(top = 4.dp),
+                                onClick = { showTrainDataHistory = true }
+                            ) {
+                                Text(
+                                    "Данные менялись · ${train.dataVersions.size} ${versionWord(train.dataVersions.size)}",
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                     item {
                         val phase = selectedServicePhase
@@ -1817,6 +1897,115 @@ fun FormTrainScreen(
             }
         }
     }
+}
+
+@Composable
+private fun TrainDataVersionEditor(
+    index: Int,
+    version: TrainDataVersion,
+    onSave: (weight: String, axle: String, conditionalLength: String) -> Unit,
+    onDelete: () -> Unit
+) {
+    var weight by remember(version.weight) { mutableStateOf(version.weight ?: "") }
+    var axle by remember(version.axle) { mutableStateOf(version.axle ?: "") }
+    var conditionalLength by remember(version.conditionalLength) {
+        mutableStateOf(version.conditionalLength.orEmpty().withoutZeroFraction())
+    }
+
+    SwipeToRevealDelete(
+        modifier = Modifier.fillMaxWidth(),
+        onDeleteClick = onDelete,
+        compact = true,
+        backgroundVerticalPadding = 0.dp,
+        itemKey = "${version.stationId}-${version.changedAt}-$index"
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(Shapes.medium)
+                .background(MaterialTheme.colorScheme.secondary)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                if (index == 0 && version.stationId == null) "Исходные данные"
+                else version.stationName?.let { "Станция $it" } ?: "Станция не указана",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            VersionDataField("Вес, т", weight, Modifier.weight(1f)) { weight = it }
+            VersionDataField("Оси", axle, Modifier.weight(1f)) { axle = it }
+            VersionDataField("У.Д.", conditionalLength, Modifier.weight(1f)) {
+                conditionalLength = it
+            }
+        }
+        Button(
+            modifier = Modifier.fillMaxWidth().height(44.dp),
+            shape = Shapes.medium,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceBright,
+                contentColor = MaterialTheme.colorScheme.tertiary
+            ),
+            elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp),
+            onClick = { onSave(weight, axle, conditionalLength) }
+        ) {
+            Text("Сохранить", fontWeight = FontWeight.SemiBold)
+        }
+        }
+    }
+}
+
+private fun String.withoutZeroFraction(): String {
+    val separatorIndex = indexOfLast { it == '.' || it == ',' }
+    if (separatorIndex < 0) return this
+    return if (substring(separatorIndex + 1).isNotEmpty() &&
+        substring(separatorIndex + 1).all { it == '0' }
+    ) substring(0, separatorIndex) else this
+}
+
+@Composable
+private fun VersionDataField(
+    label: String,
+    value: String,
+    modifier: Modifier,
+    onValueChange: (String) -> Unit
+) {
+    Column(modifier = modifier) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
+        )
+        OutlinedTextFieldApp(
+            modifier = Modifier.fillMaxWidth(),
+            value = value,
+            onValueChange = { newValue ->
+                if (newValue.all { it.isDigit() || it == '.' || it == ',' }) onValueChange(newValue)
+            },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                fontFamily = com.z_company.core.ui.theme.MonoFont,
+                fontWeight = FontWeight.SemiBold
+            ),
+            singleLine = true,
+            fieldElevation = 0.dp,
+            colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+            colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 9.dp)
+        )
+    }
+}
+
+private fun versionWord(count: Int): String = when {
+    count % 100 in 11..14 -> "версий"
+    count % 10 == 1 -> "версия"
+    count % 10 in 2..4 -> "версии"
+    else -> "версий"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
