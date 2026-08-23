@@ -1,0 +1,3 @@
+-- Миграция 5: переключатель «Показывать оплаты недоработки» в начислениях.
+-- INTEGER 0/1, как остальные булевы флаги в проекте (см. BasicData.isDeleted).
+ALTER TABLE SalarySetting ADD COLUMN showUnderworkPayments INTEGER NOT NULL DEFAULT 1;

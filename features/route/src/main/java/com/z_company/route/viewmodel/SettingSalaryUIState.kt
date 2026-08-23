@@ -53,5 +53,6 @@ data class SettingSalaryUIState(
     val isErrorInputWelfarePercent: Boolean = false,
     val alimonyPercentState: ResultState<String> = ResultState.Loading(),
     val isErrorInputAlimonyPercent: Boolean = false,
+    val showUnderworkPayments: Boolean = true,
     val isShowDialogChangeTariffRate: Boolean = false,
 )
