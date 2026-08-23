@@ -604,18 +604,21 @@ class SyncManager(
                 when (loadState) {
                     is ResultState.Success -> {
                         val routes = loadState.data
+                        val localRoutesById = routeUseCase.listRouteWithDeleting()
+                            .associateBy { it.basicData.id }
                         // Маршруты, помеченные локально как удалённые (isDeleted = true),
                         // не перезаписываем данными с сервера — сервер мог ещё не получить
                         // команду DELETE (сеть, тайм-аут). Следующий syncToRemote
                         // повторит удаление.
-                        val localDeletedIds = routeUseCase.listRouteWithDeleting()
+                        val localDeletedIds = localRoutesById.values
                             .filter { it.basicData.isDeleted }
                             .map { it.basicData.id }
                             .toSet()
                         var savedCount = 0
                         for (route in routes) {
                             if (route.basicData.id in localDeletedIds) continue
-                            val r = route.copy(
+                            val orderedRoute = route.preserveSectionOrderFrom(localRoutesById[route.basicData.id])
+                            val r = orderedRoute.copy(
                                 basicData = route.basicData.copy(isSynchronized = true)
                             )
                             routeUseCase.saveRouteAfterLoading(r)
@@ -923,12 +926,12 @@ class SyncManager(
             when {
                 local == null -> {
                     // Новый маршрут с другого устройства.
-                    saveDownloadedRoute(server); result.routesDownloaded++
+                    saveDownloadedRoute(server, local); result.routesDownloaded++
                 }
                 local.basicData.isSynchronized -> {
                     // Локально не менялся: берём серверный, если он свежее.
                     if (server.basicData.updatedAt > local.basicData.updatedAt) {
-                        saveDownloadedRoute(server); result.routesDownloaded++
+                        saveDownloadedRoute(server, local); result.routesDownloaded++
                     }
                 }
                 else -> {
@@ -980,8 +983,9 @@ class SyncManager(
     }.flowOn(Dispatchers.Default).withSyncDeadline()
 
     /** Сохранить маршрут, пришедший с сервера (пометив синхронизированным). */
-    private suspend fun saveDownloadedRoute(server: Route) {
-        val r = server.copy(
+    private suspend fun saveDownloadedRoute(server: Route, local: Route? = null) {
+        val orderedServer = server.preserveSectionOrderFrom(local)
+        val r = orderedServer.copy(
             basicData = server.basicData.copy(
                 isSynchronized = true,
                 // Локальный маркер того, что маршрут уже существовал в облаке.
