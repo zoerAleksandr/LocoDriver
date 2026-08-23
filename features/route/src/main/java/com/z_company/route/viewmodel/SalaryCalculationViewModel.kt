@@ -139,12 +139,18 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             allRoutes.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
         }
         val effectiveNormaHours = computeEffectiveNormaHours(currentMonthOfYear)
+        val annualOvertimeBeforeMonth = computeAnnualOvertimeBeforeMonth(
+            userSettings = userSettings,
+            salarySetting = salarySetting,
+            selectedMonth = currentMonthOfYear,
+        )
         run {
             val salaryCalculationHelper = SalaryCalculationHelper(
                 userSettings = userSettings,
                 salarySetting = salarySetting,
                 allRoutes = routeList,
-                effectiveNormaHoursForUnderwork = effectiveNormaHours
+                effectiveNormaHoursForUnderwork = effectiveNormaHours,
+                annualOvertimeBeforePeriod = annualOvertimeBeforeMonth,
             )
             job?.cancel()
             // Параллельный вызов методов с ожиданием завершения
@@ -439,6 +445,39 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
             }
         }
+    }
+
+    /**
+     * Для месяцев с 09.2026 суммирует фактическую переработку всех предыдущих
+     * месяцев этого года. Каждый месяц использует свою норму и свои release-дни;
+     * командировочные маршруты входят в фактическое время.
+     */
+    private suspend fun computeAnnualOvertimeBeforeMonth(
+        userSettings: UserSettings,
+        salarySetting: SalarySetting,
+        selectedMonth: MonthOfYear,
+    ): Long {
+        if (!isFederalLaw144Effective(selectedMonth.year, selectedMonth.month)) return 0L
+
+        val previousMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
+            .filter { it.year == selectedMonth.year && it.month < selectedMonth.month }
+            .distinctBy { it.month }
+            .sortedBy { it.month }
+
+        var annualOvertime = 0L
+        previousMonths.forEach { month ->
+            val routesState = routeUseCase.listRoutesByMonth(month, userSettings.timeZone)
+                .first { it is ResultState.Success || it is ResultState.Error }
+            val routes = (routesState as? ResultState.Success)?.data.orEmpty()
+            val settingsForMonth = userSettings.copy(selectMonthOfYear = month)
+            val helper = SalaryCalculationHelper(
+                userSettings = settingsForMonth,
+                salarySetting = salarySetting,
+                allRoutes = routes,
+            )
+            annualOvertime += helper.getTimeOvertimeFlow().first()
+        }
+        return annualOvertime
     }
 
     // Метод для установки заголовочных данных (месяц, норма часов, общее время работы, тариф).

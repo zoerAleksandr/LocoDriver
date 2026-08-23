@@ -96,6 +96,7 @@ class NormaUseCase(
         val releaseDayNumbers = releaseDays
             .filter {
                 it.releaseType != ReleaseType.DayOff &&
+                    it.releaseType != ReleaseType.BusinessTrip &&
                     it.releaseType != ReleaseType.TechnicalStudy
             }
             .map { it.dayOfMonth }
@@ -111,6 +112,7 @@ class NormaUseCase(
             val isNormReducingRelease =
                 (day.isReleaseDay &&
                     day.releaseType != ReleaseType.DayOff &&
+                    day.releaseType != ReleaseType.BusinessTrip &&
                     day.releaseType != ReleaseType.TechnicalStudy) ||
                     day.dayOfMonth in releaseDayNumbers
             if (!isNormReducingRelease) {

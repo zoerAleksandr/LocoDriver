@@ -46,6 +46,37 @@ data class LinearMileageAccrual(
     val money: Double,
 )
 
+private const val HOUR_IN_MILLIS = 3_600_000L
+private const val TWO_HOURS_IN_MILLIS = 2 * HOUR_IN_MILLIS
+private const val ANNUAL_OVERTIME_THRESHOLD_IN_MILLIS = 120 * HOUR_IN_MILLIS
+
+internal fun isFederalLaw144Effective(year: Int, month: Int): Boolean =
+    year > 2026 || (year == 2026 && month >= 8)
+
+/**
+ * Часы сверхурочной работы, к которым применяется доплата 0,5.
+ * Для локомотивных бригад агрегатное правило «первые 2 ч на поездку»
+ * совпадает с отраслевой методикой, действовавшей до ФЗ №144-ФЗ. Годовой порог
+ * 120 ч здесь не применяется: функция получает данные только одного месяца.
+ */
+internal fun calculateHalfRateOvertime(
+    overtime: Long,
+    shiftCount: Int,
+    year: Int,
+    month: Int,
+    annualOvertimeBeforePeriod: Long = 0L,
+): Long {
+    if (overtime <= 0L || shiftCount <= 0) return 0L
+    val firstTwoHoursPerShift = shiftCount.toLong() * TWO_HOURS_IN_MILLIS
+    if (!isFederalLaw144Effective(year, month)) {
+        return minOf(overtime, firstTwoHoursPerShift)
+    }
+    val hoursBeforeDoubleOnly = (
+            ANNUAL_OVERTIME_THRESHOLD_IN_MILLIS - annualOvertimeBeforePeriod
+            ).coerceAtLeast(0L)
+    return minOf(overtime, firstTwoHoursPerShift, hoursBeforeDoubleOnly)
+}
+
 class SalaryCalculationHelper(
     private val userSettings: UserSettings,
     private val salarySetting: SalarySetting,
@@ -54,7 +85,11 @@ class SalaryCalculationHelper(
     // дату для текущего месяца, полная — для завершённого. 0 → недоработка не
     // считается (расчёт одного маршрута / будущий месяц).
     private val effectiveNormaHoursForUnderwork: Int = 0,
+    // Сумма сверхурочных с января до начала расчётного месяца.
+    // Используется только после вступления ФЗ №144-ФЗ.
+    private val annualOvertimeBeforePeriod: Long = 0L,
 ) {
+    private val allRoutes: List<Route> = allRoutes
     val currentMonthOfYear = userSettings.selectMonthOfYear
     val dateSetTariffRate = currentMonthOfYear.dateSetTariffRate
     private val timeCalculationContext = TimeCalculationContext.from(userSettings)
@@ -86,8 +121,9 @@ class SalaryCalculationHelper(
 
     private val businessTripRoutes: List<Route> = allRoutes.filter { it.startsInBusinessTrip() }
 
-    // Все обычные расчёты (тариф, надбавки, сверхурочные, отработанное время)
-    // работают ТОЛЬКО с этим списком — без маршрутов командировки.
+    // Обычные тарифы и надбавки считаются только по маршрутам вне
+    // командировки. Для нормы, недоработки и сверхурочных используется
+    // allRoutes: командировочные часы тоже закрывают норму.
     private val routeList: List<Route> = allRoutes.filterNot { it.startsInBusinessTrip() }
 
     fun getWorkTimeAtTariffFlow(): Flow<Long> {
@@ -950,8 +986,8 @@ class SalaryCalculationHelper(
     fun getTimeOvertimeFlow(): Flow<Long> {
         return flow {
             val personalNormaHoursInLong = getPersonalNormaInLong()
-            val totalWorkTime = getTotalWorkTime().first()
-            val paymentHolidayHours = getHolidayTime(routeList)
+            val totalWorkTime = getTotalWorkTime(allRoutes).first()
+            val paymentHolidayHours = getHolidayTime(allRoutes)
             val overtime = getOvertime(
                 totalWorkTime = totalWorkTime,
                 personalNormaHoursInLong = personalNormaHoursInLong,
@@ -963,17 +999,9 @@ class SalaryCalculationHelper(
 
     fun getMoneyOvertimeFlow(): Flow<Double> {
         return flow {
-            val baseMoneyForOvertime = getBasicMoneyForOvertimeCalculation().first()
-            val totalWorkTime = getTotalWorkTime().first()
-            val personalNormaHoursInLong = getPersonalNormaInLong()
-            val paymentHolidayHours = getHolidayTime(routeList)
-            val overTime = getOvertime(totalWorkTime = totalWorkTime, holidayTime = paymentHolidayHours, personalNormaHoursInLong = personalNormaHoursInLong)
-            val overtimeMoneyOfOneHour = if (totalWorkTime == 0L) {
-                0.0
-            } else {
-                baseMoneyForOvertime / totalWorkTime
-            }
-            val result = overTime.times(overtimeMoneyOfOneHour)
+            val overTime = getTimeOvertimeFlow().first()
+            val overtimeMoneyPerMillis = getOvertimeMoneyPerMillis()
+            val result = overTime.times(overtimeMoneyPerMillis)
             emit(result)
         }
     }
@@ -981,13 +1009,13 @@ class SalaryCalculationHelper(
     fun getTimeSurchargeAtOvertime05Flow(): Flow<Long> {
         return flow {
             val overtime = getTimeOvertimeFlow().first()
-            val routeCount = routeList.size
-            val twoHourInMillis = 7_200_000L
-            val time = if (routeCount != 0 && overtime / routeCount < twoHourInMillis) {
-                overtime
-            } else {
-                routeCount.toLong() * twoHourInMillis
-            }
+            val time = calculateHalfRateOvertime(
+                overtime = overtime,
+                shiftCount = allRoutes.size,
+                year = currentMonthOfYear.year,
+                month = currentMonthOfYear.month,
+                annualOvertimeBeforePeriod = annualOvertimeBeforePeriod,
+            )
             emit(time)
         }
     }
@@ -995,7 +1023,17 @@ class SalaryCalculationHelper(
     fun getMoneySurchargeOvertime05Flow(): Flow<Double> {
         return flow {
             val time = getTimeSurchargeAtOvertime05Flow().first()
-            val money = time.times(currentMonthOfYear.tariffRate * 0.5) / 3_600_000.toDouble()
+            // С 01.09.2024 база сверхурочных включает компенсационные и
+            // стимулирующие выплаты (ФЗ №91-ФЗ), поэтому и 0,5 считаем
+            // от полной часовой базы, а не только от тарифа.
+            val expandedBaseEffective = currentMonthOfYear.year > 2024 ||
+                    (currentMonthOfYear.year == 2024 && currentMonthOfYear.month >= 8)
+            val moneyPerMillis = if (expandedBaseEffective) {
+                getOvertimeMoneyPerMillis()
+            } else {
+                currentMonthOfYear.tariffRate / HOUR_IN_MILLIS.toDouble()
+            }
+            val money = time.times(moneyPerMillis * 0.5)
             emit(money)
         }
     }
@@ -1013,15 +1051,9 @@ class SalaryCalculationHelper(
 
     fun getMoneySurchargeOvertimeFlow(): Flow<Double> {
         return flow {
-            val baseMoneyForOvertime = getBasicMoneyForOvertimeCalculation().first()
-            val totalWorkTime = getTotalWorkTime().first()
             val surchargeAtOvertimeHour = getTimeSurchargeAtOvertimeFlow().first()
-            val overtimeMoneyOfOneHour = if (totalWorkTime == 0L) {
-                0.0
-            } else {
-                baseMoneyForOvertime / totalWorkTime
-            }
-            val money = surchargeAtOvertimeHour.times(overtimeMoneyOfOneHour)
+            val overtimeMoneyPerMillis = getOvertimeMoneyPerMillis()
+            val money = surchargeAtOvertimeHour.times(overtimeMoneyPerMillis)
             emit(money)
         }
     }
@@ -1086,7 +1118,7 @@ class SalaryCalculationHelper(
             emit(0L)
             return@flow
         }
-        val worked = getTotalWorkTimeWithCommute().first()
+        val worked = getTotalWorkTimeWithCommute(allRoutes).first()
         // Техзанятия норму не уменьшают, но оплачиваются отдельной строкой по
         // среднему часу — то есть эти часы норму уже «закрывают». Без их учёта
         // те же часы попали бы ещё и в недоработку → двойная оплата по среднему.
@@ -1562,6 +1594,26 @@ class SalaryCalculationHelper(
         }
     }
 
+    /**
+     * Полная база сверхурочных в рублях на миллисекунду: тариф плюс все рассчитанные
+     * компенсационные/стимулирующие надбавки на час. Выплату по тарифу
+     * вычитаем из базы перед делением, чтобы не потерять тариф, когда все
+     * обычные часы месяца уже попали в переработку. При полной командировке берём
+     * заданный средний час: он не даёт обнулить оплату переработки.
+     */
+    private suspend fun getOvertimeMoneyPerMillis(): Double {
+        val regularWorkTime = getTotalWorkTime(routeList).first()
+        if (regularWorkTime <= 0L) {
+            return maxOf(currentMonthOfYear.tariffRate, salarySetting.averagePaymentHour) /
+                    HOUR_IN_MILLIS.toDouble()
+        }
+        val basicMoney = getBasicMoneyForOvertimeCalculation().first()
+        val tariffMoney = getMoneyAtWorkTimeAtTariff().first()
+        val surchargeMoney = (basicMoney - tariffMoney).coerceAtLeast(0.0)
+        return currentMonthOfYear.tariffRate / HOUR_IN_MILLIS.toDouble() +
+                surchargeMoney / regularWorkTime
+    }
+
     // База рабочего времени для ДЕНЕГ: «чистая» работа без проезда пассажиром до явки
     // (getWorkTime теперь включает этот проезд, поэтому вычитаем его обратно). Так
     // процентные надбавки и переработка считаются только от фактической работы, а
@@ -1574,7 +1626,7 @@ class SalaryCalculationHelper(
 
     // Полное отработанное время С проездом пассажиром до явки — для ОТОБРАЖЕНИЯ
     // (экран «Зарплата»), чтобы совпадало с главным экраном и карточкой маршрута.
-    fun getTotalWorkTimeWithCommute(routes: List<Route> = routeList) = flow {
+    fun getTotalWorkTimeWithCommute(routes: List<Route> = allRoutes) = flow {
         emit(routes.getWorkTime(currentMonthOfYear, timeCalculationContext))
     }
 

@@ -154,9 +154,10 @@ class AbsenceViewModel : ViewModel(), KoinComponent {
     }
 
     private fun hoursForDay(tag: TagForDay, type: ReleaseType): Int =
-        // Командировка — рабочий период, часы норма-отдыха не начисляем (оплата
-        // идёт по фактическим маршрутам через средний час).
-        if (type == ReleaseType.BusinessTrip || type == ReleaseType.TechnicalStudy) 0
+        // В карточке командировки показываем часы по рабочим дням
+        // производственного календаря. Это справочное значение:
+        // оплата командировочных маршрутов идёт отдельно по среднему часу.
+        if (type == ReleaseType.TechnicalStudy) 0
         else if (type == ReleaseType.ChildCare) when (tag) {
             TagForDay.WORKING_DAY -> 8
             TagForDay.SHORTENED_DAY -> 7

@@ -742,11 +742,9 @@ class CalendarViewModel : ViewModel(), KoinComponent {
 
     private fun releaseHoursForDay(type: ReleaseType, tag: TagForDay): Int =
         // «Выходной» — не норма-часы, а ×2 тариф при работе; часы не показываем.
-        // «Командировка» — оплата по фактическим маршрутам (средний час), норма-
-        // часы отдыха не показываем.
-        if (type == ReleaseType.DayOff || type == ReleaseType.BusinessTrip ||
-            type == ReleaseType.TechnicalStudy
-        ) {
+        // Для командировки показываем справочные часы по рабочим дням,
+        // хотя оплачиваются маршруты отдельно по среднему часу.
+        if (type == ReleaseType.DayOff || type == ReleaseType.TechnicalStudy) {
             // Техзанятия — часы задаёт пользователь (Day.hours), норма-часы не считаем.
             0
         } else if (type == ReleaseType.ChildCare) {

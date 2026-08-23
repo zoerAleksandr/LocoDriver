@@ -22,6 +22,9 @@ object UtilForMonthOfYear {
     private fun Day.reducesNorma(): Boolean =
         isReleaseDay &&
             releaseType != ReleaseType.DayOff &&
+            // Командировка — рабочий период: её оплата вынесена в
+            // отдельную строку, но месячную норму её дни не уменьшают.
+            releaseType != ReleaseType.BusinessTrip &&
             // «Технические занятия» оплачиваются отдельно по среднему часу и на
             // норму не влияют (решение пользователя): норма остаётся полной.
             releaseType != ReleaseType.TechnicalStudy
