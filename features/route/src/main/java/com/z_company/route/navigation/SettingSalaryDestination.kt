@@ -77,6 +77,8 @@ fun SettingSalaryDestination(
         alimonyPercentState = uiState.alimonyPercentState,
         setAlimonyPercent = viewModel::setAlimonyPercent,
         isErrorInputAlimonyPercent = uiState.isErrorInputAlimonyPercent,
+        showUnderworkPayments = uiState.showUnderworkPayments,
+        setShowUnderworkPayments = viewModel::setShowUnderworkPayments,
         onServicePhaseDismissed = viewModel::deleteSurchargeExtendedServicePhase,
         isShowDialogChangeTariffRate = uiState.isShowDialogChangeTariffRate,
         onHideDialogChangeTariffRate = viewModel::hideDialogTariffRate,

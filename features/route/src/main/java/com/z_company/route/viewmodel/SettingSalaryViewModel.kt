@@ -79,7 +79,8 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     unionistsRetentionState = ResultState.Success(value?.unionistsRetention.str()),
                     otherRetention = ResultState.Success(value?.otherRetention.str()),
                     welfarePercentState = ResultState.Success(value?.welfarePercent.str()),
-                    alimonyPercentState = ResultState.Success(value?.alimonyPercent.str())
+                    alimonyPercentState = ResultState.Success(value?.alimonyPercent.str()),
+                    showUnderworkPayments = value?.showUnderworkPayments ?: true
                 )
             }
         }
@@ -770,6 +771,16 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 alimonyPercentState = ResultState.Success(value),
                 isErrorInputAlimonyPercent = isErrorInputDouble(value)
             )
+        }
+        scheduleAutoSave()
+    }
+
+    fun setShowUnderworkPayments(value: Boolean) {
+        currentSalarySetting = currentSalarySetting?.copy(
+            showUnderworkPayments = value
+        )
+        _uiState.update {
+            it.copy(showUnderworkPayments = value)
         }
         scheduleAutoSave()
     }

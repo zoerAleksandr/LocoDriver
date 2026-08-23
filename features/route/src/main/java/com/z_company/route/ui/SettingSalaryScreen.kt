@@ -31,6 +31,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -140,6 +141,8 @@ fun SettingSalaryScreen(
     alimonyPercentState: ResultState<String>,
     setAlimonyPercent: (String) -> Unit,
     isErrorInputAlimonyPercent: Boolean,
+    showUnderworkPayments: Boolean,
+    setShowUnderworkPayments: (Boolean) -> Unit,
     onServicePhaseDismissed: (Int) -> Unit,
     isShowDialogChangeTariffRate: Boolean,
     onHideDialogChangeTariffRate: () -> Unit,
@@ -580,6 +583,16 @@ fun SettingSalaryScreen(
             }
 
             item {
+                PayCard {
+                    PayToggleSlot(
+                        label = "Показывать оплату недоработки",
+                        checked = showUnderworkPayments,
+                        onCheckedChange = setShowUnderworkPayments,
+                    )
+                }
+            }
+
+            item {
                 Text(
                     "Удержания",
                     overflow = TextOverflow.Visible,
@@ -678,6 +691,37 @@ private fun PayFieldSlot(
         }
         Spacer(Modifier.height(8.dp))
         input()
+    }
+}
+
+// Слот-переключатель: лейбл слева, Switch справа, вся строка кликабельна (как
+// тумблеры видимости в форме маршрута — см. FormScreen).
+@Composable
+private fun PayToggleSlot(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            modifier = Modifier.weight(1f),
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
     }
 }
 

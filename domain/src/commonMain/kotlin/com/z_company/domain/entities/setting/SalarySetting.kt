@@ -31,7 +31,11 @@ data class SalarySetting(
     val welfarePercent: Double = 0.0,
     // Алименты — удержание от чистой суммы к выдаче (после НДФЛ, Профсоюза,
     // Прочих удержаний и Благосостояния).
-    val alimonyPercent: Double = 0.0
+    val alimonyPercent: Double = 0.0,
+    // Показывать в начислениях строку «Оплата недоработки» (доплата по среднему
+    // часу за часы ниже индивидуальной нормы). Выключено — строка не считается
+    // и не отображается на экране «Расчёт зарплаты».
+    val showUnderworkPayments: Boolean = true
 )
 
 @Serializable

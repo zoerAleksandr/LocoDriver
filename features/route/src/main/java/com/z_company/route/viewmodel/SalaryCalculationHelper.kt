@@ -1082,7 +1082,7 @@ class SalaryCalculationHelper(
     // текущего месяца) или полная (для завершённого). Отработанное берём с
     // проездом до явки — как отображается на экране.
     fun getUnderworkTimeFlow(): Flow<Long> = flow {
-        if (effectiveNormaHoursForUnderwork <= 0) {
+        if (!salarySetting.showUnderworkPayments || effectiveNormaHoursForUnderwork <= 0) {
             emit(0L)
             return@flow
         }
