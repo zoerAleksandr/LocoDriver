@@ -332,6 +332,9 @@ fun TimeBottomSheet(
         askingEmptyHint = false
         delAnchor = field
         appliedHandToHand = normHandToHand
+        // Норма «КП → начало сдачи» не задана — не подставляем вычисленное
+        // значение в поле «Заход на КП», оставляем прочерк.
+        val barrierNormSet = selectedStation?.barrierToStartMin != null
         val barrierMin = selectedStation?.barrierToStartMin ?: 0
         val durMin = deliveryMin ?: 0
         val workEndMin = selectedStation?.endToWorkEndMin ?: 0
@@ -351,7 +354,7 @@ fun TimeBottomSheet(
                 endTime = newEnd
                 handleCalculatedWorkEnd(newEnd + workEndMin * 60_000L)
                 // Backward
-                barrierIn = anchor - barrierMin * 60_000L
+                barrierIn = if (barrierNormSet) anchor - barrierMin * 60_000L else null
             }
             DeliveryAnchorField.END_TIME -> {
                 val anchor = endTime ?: return
@@ -360,7 +363,7 @@ fun TimeBottomSheet(
                 // Backward
                 val newStart = anchor - durMin * 60_000L
                 startTime = newStart
-                barrierIn = newStart - barrierMin * 60_000L
+                barrierIn = if (barrierNormSet) newStart - barrierMin * 60_000L else null
             }
             DeliveryAnchorField.WORK_END -> {
                 // Backward from workEnd (use as source — don't update route)
@@ -369,7 +372,7 @@ fun TimeBottomSheet(
                 val newStart = newEnd - durMin * 60_000L
                 endTime = newEnd
                 startTime = newStart
-                barrierIn = newStart - barrierMin * 60_000L
+                barrierIn = if (barrierNormSet) newStart - barrierMin * 60_000L else null
                 workEnd = ew
                 workEndAccepted = false  // source — don't sync to route
             }
@@ -387,6 +390,9 @@ fun TimeBottomSheet(
         appliedHandToHand = normHandToHand
         val appearMin = selectedStation?.appearanceToStartMin ?: 0
         val durMin = acceptanceMin ?: 0
+        // Норма «окончание приёмки → КП» не задана — не подставляем
+        // вычисленное значение в поле «Выход на КП», оставляем прочерк.
+        val barrierNormSet = selectedStation?.endToBarrierMin != null
         val barrierMin = selectedStation?.endToBarrierMin ?: 0
         when (field) {
             AcceptanceAnchorField.START_WORK -> {
@@ -395,18 +401,18 @@ fun TimeBottomSheet(
                 val newEnd = newStart + durMin * 60_000L
                 startTime = newStart
                 endTime = newEnd
-                barrierOut = newEnd + barrierMin * 60_000L
+                barrierOut = if (barrierNormSet) newEnd + barrierMin * 60_000L else null
             }
             AcceptanceAnchorField.START_TIME -> {
                 val anchor = startTime ?: return
                 val newEnd = anchor + durMin * 60_000L
                 endTime = newEnd
-                barrierOut = newEnd + barrierMin * 60_000L
+                barrierOut = if (barrierNormSet) newEnd + barrierMin * 60_000L else null
                 // Явку не трогаем.
             }
             AcceptanceAnchorField.END_TIME -> {
                 val anchor = endTime ?: return
-                barrierOut = anchor + barrierMin * 60_000L
+                barrierOut = if (barrierNormSet) anchor + barrierMin * 60_000L else null
                 startTime = anchor - durMin * 60_000L
                 // Явку не трогаем.
             }
