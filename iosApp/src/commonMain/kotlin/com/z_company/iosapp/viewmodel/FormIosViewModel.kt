@@ -3,6 +3,7 @@ package com.z_company.iosapp.viewmodel
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.use_cases.RouteUseCase
+import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +22,7 @@ import androidx.lifecycle.viewModelScope
  */
 class FormIosViewModel(
     private val routeUseCase: RouteUseCase,
+    private val settingsUseCase: SettingsUseCase,
 ) : ViewModel() {
 
     private val _route = MutableStateFlow<Route?>(null)
@@ -90,8 +92,17 @@ class FormIosViewModel(
     /** Устанавливает время начала работы (миллисекунды UTC). Null — сбрасывает значение. */
     fun setTimeStartWork(ms: Long?) {
         val current = _route.value ?: return
+        val start = ms?.let { it - it % 60_000L }
+        val settings = settingsUseCase.getUserSetting()
         _route.value = current.copy(
-            basicData = current.basicData.copy(timeStartWork = ms)
+            basicData = current.basicData.copy(
+                timeStartWork = start,
+                timeEndWork = if (start != null && settings.usingDefaultWorkTime) {
+                    start + settings.defaultWorkTime
+                } else {
+                    current.basicData.timeEndWork
+                }
+            )
         )
     }
 

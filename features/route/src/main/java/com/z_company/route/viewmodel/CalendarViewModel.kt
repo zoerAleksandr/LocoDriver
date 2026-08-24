@@ -193,6 +193,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
             timeOptions = times.map { TimeOption(it, ConverterLongToTime.getTimeInStringFormat(it).trim()) },
             activeTime = times.firstOrNull(),
             plannedDays = emptyMap(),
+            suggestedWorkDuration = userSettings?.defaultWorkTime ?: 43_200_000L,
         )
     }
 
@@ -245,7 +246,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
     }
 
     /** Создать черновики маршрутов по запланированным дням и остаться на календаре. */
-    fun createPlannedRoutes() {
+    fun createPlannedRoutes(workDuration: Long?) {
         val plan = _routePlan.value
         val m = currentMonth ?: return
         val conv = converter ?: return
@@ -271,7 +272,12 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                     val hour = ConverterLongToTime.getHour(time)
                     val minute = ConverterLongToTime.getRemainingMinuteFromHour(time)
                     val start = conv.toEpochMillis(m.year, m.month, day, hour, minute)
-                    val route = Route(basicData = BasicData(timeStartWork = start))
+                    val route = Route(
+                        basicData = BasicData(
+                            timeStartWork = start,
+                            timeEndWork = workDuration?.let(start::plus),
+                        )
+                    )
                     val res = routeUseCase.saveRoute(route)
                         .first { it is ResultState.Success || it is ResultState.Error }
                     if (res is ResultState.Success) created++
@@ -890,4 +896,6 @@ data class RoutePlanState(
     // Отмеченные дни → время явки на этот день (зафиксировано в момент
     // отметки). Разные дни могут иметь разное время.
     val plannedDays: Map<Int, Long> = emptyMap(),
+    // Начальное значение диалога продолжительности перед созданием маршрутов.
+    val suggestedWorkDuration: Long = 43_200_000L,
 )

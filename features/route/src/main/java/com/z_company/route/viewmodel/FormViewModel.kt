@@ -900,8 +900,23 @@ class FormViewModel(
     }
 
     fun setTimeStartWork(time: Long?) {
-        _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeStartWork = time.truncateToMinute())) }
+        val start = time.truncateToMinute()
+        _currentRoute.update { route ->
+            route?.copy(
+                basicData = route.basicData.copy(
+                    timeStartWork = start,
+                    timeEndWork = if (start != null && usingDefaultWorkTime) {
+                        start + (defaultWorkTime ?: 0L)
+                    } else {
+                        route.basicData.timeEndWork
+                    }
+                )
+            )
+        }
         changesHave()
+        if (start != null && usingDefaultWorkTime) {
+            checkWorkTimeExceeds12h()
+        }
     }
 
     /**

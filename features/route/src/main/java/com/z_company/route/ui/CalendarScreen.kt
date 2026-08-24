@@ -26,6 +26,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
@@ -59,9 +61,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,6 +79,7 @@ import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.PullToSyncContainer
 import com.z_company.route.component.ItemHomeScreen
+import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.RouteQuickViewSheet
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.domain.entities.ReleaseType
@@ -202,7 +208,7 @@ fun CalendarScreen(
     onPickTime: (Long) -> Unit,
     onAddCustomTime: (Int, Int) -> Unit,
     onToggleDay: (Int) -> Unit,
-    onCreateRoutes: () -> Unit,
+    onCreateRoutes: (Long?) -> Unit,
     onAddAbsence: (Int) -> Unit,
     onAddDayoff: (Int) -> Unit,
     onAddTechnicalStudy: (Int, Double) -> Unit,
@@ -235,6 +241,7 @@ fun CalendarScreen(
     var expanded by remember { mutableStateOf(true) }
     var showAddSheet by remember { mutableStateOf(false) }
     var showCustomTime by remember { mutableStateOf(false) }
+    var showWorkDurationPrompt by remember { mutableStateOf(false) }
     // Диалог техзанятий: (день, начальные часы) или null. Начальные часы > 0 —
     // режим редактирования существующей записи.
     var techStudyEdit by remember { mutableStateOf<Pair<Int, Double>?>(null) }
@@ -249,7 +256,11 @@ fun CalendarScreen(
 
     Scaffold(
         containerColor = cs.background,
-        bottomBar = { if (planning) CreateRoutesBar(plan = plan, onCreate = onCreateRoutes) },
+        bottomBar = {
+            if (planning) {
+                CreateRoutesBar(plan = plan, onCreate = { showWorkDurationPrompt = true })
+            }
+        },
     ) { padding ->
         if (state.isLoading && state.year == 0) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -531,6 +542,15 @@ fun CalendarScreen(
         )
     }
 
+    if (showWorkDurationPrompt) {
+        WorkDurationBottomSheet(
+            initialDuration = plan.suggestedWorkDuration,
+            onConfirm = { duration -> onCreateRoutes(duration) },
+            onWithoutEnd = { onCreateRoutes(null) },
+            onDismiss = { showWorkDurationPrompt = false },
+        )
+    }
+
     // ── Быстрый просмотр маршрута при LongClick (как на Главном/Все маршруты) ──
     // Спецификация: route-quick-view-android.md + SCREEN_SPECS.md.
     routeForQuickView?.let { route ->
@@ -645,7 +665,9 @@ private fun TimePickerDialog(
     initialMinute: Int,
     onConfirm: (Int, Int) -> Unit,
     onDismiss: () -> Unit,
+    onDismissButton: () -> Unit = onDismiss,
     confirmLabel: String = "Создать",
+    dismissLabel: String = "Отмена",
 ) {
     val timeState = rememberTimePickerState(
         initialHour = initialHour, initialMinute = initialMinute, is24Hour = true
@@ -656,13 +678,123 @@ private fun TimePickerDialog(
         confirmButton = {
             TextButton(onClick = { onConfirm(timeState.hour, timeState.minute) }) { Text(confirmLabel) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        dismissButton = { TextButton(onClick = onDismissButton) { Text(dismissLabel) } },
         title = { Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
         text = {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 TimePicker(state = timeState)
             }
         },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WorkDurationBottomSheet(
+    initialDuration: Long,
+    onConfirm: (Long) -> Unit,
+    onWithoutEnd: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val initialMinutes = (initialDuration / 60_000L).coerceAtLeast(0L)
+    var hours by remember(initialDuration) { mutableStateOf((initialMinutes / 60L).toString()) }
+    var minutes by remember(initialDuration) { mutableStateOf((initialMinutes % 60L).toString()) }
+    val focusManager = LocalFocusManager.current
+    val hoursValue = hours.toIntOrNull() ?: 0
+    val minutesValue = minutes.toIntOrNull() ?: 0
+    val duration = (hoursValue * 60L + minutesValue) * 60_000L
+    val isValid = hoursValue in 0..99 && minutesValue in 0..59 && duration > 0L
+
+    AppBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        headerContent = {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "Указать продолжительность работы?",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "Окончание рассчитается от времени явки",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        },
+        contentAfterHeader = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 20.dp, end = 16.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                DurationNumberField(
+                    value = hours,
+                    onValueChange = { value -> hours = value.filter(Char::isDigit).take(2) },
+                    label = "Часы",
+                    suffix = "ч",
+                    imeAction = ImeAction.Next,
+                    modifier = Modifier.weight(1f),
+                )
+                DurationNumberField(
+                    value = minutes,
+                    onValueChange = { value -> minutes = value.filter(Char::isDigit).take(2) },
+                    label = "Минуты",
+                    suffix = "мин",
+                    imeAction = ImeAction.Done,
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    isError = minutesValue !in 0..59,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        },
+        actions = listOf(
+            BottomSheetAction(text = "Указать", enabled = isValid) { onConfirm(duration) },
+            BottomSheetAction(text = "Без окончания") { onWithoutEnd() },
+        ),
+    )
+}
+
+@Composable
+private fun DurationNumberField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    suffix: String,
+    imeAction: ImeAction,
+    modifier: Modifier = Modifier,
+    isError: Boolean = false,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+) {
+    OutlinedTextFieldApp(
+        modifier = modifier.height(60.dp),
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        suffix = { Text(suffix, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+        textStyle = MaterialTheme.typography.headlineSmall.copy(
+            fontFamily = MonoFont,
+            fontWeight = FontWeight.Bold,
+            fontSize = 24.sp,
+        ),
+        singleLine = true,
+        isError = isError,
+        shape = RoundedCornerShape(12.dp),
+        fieldElevation = 0.dp,
+        colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
+        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Number,
+            imeAction = imeAction,
+        ),
+        keyboardActions = keyboardActions,
     )
 }
 

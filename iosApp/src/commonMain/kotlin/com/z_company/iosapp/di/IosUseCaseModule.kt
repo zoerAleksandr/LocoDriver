@@ -110,7 +110,7 @@ val iosUseCaseModule = module {
     // ── ViewModels (single — живут на протяжении жизни приложения) ────────
     single { HomeIosViewModel(get(), get()) }
     single { SettingsIosViewModel(get()) }
-    single { FormIosViewModel(get()) }
+    single { FormIosViewModel(get(), get()) }
     single { SalaryCalculationIosViewModel(get(), get()) }
     single { LocoFormIosViewModel(get()) }
     single { TrainFormIosViewModel(get()) }
