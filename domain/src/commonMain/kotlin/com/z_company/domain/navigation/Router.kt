@@ -16,10 +16,11 @@ interface Router {
     fun showSettings()
     fun showSettingsRoute() { showSettings() }
     fun showSettingsRouteForm() { showSettings() }
-    fun showSettingsLoco() { showSettings() }
+    fun showSettingsLoco(seriesName: String? = null) { showSettings() }
     fun showSettingsRest() { showSettings() }
     fun showSettingsSeriesList() { showSettings() }
     fun showSettingsSeriesEditor(seriesId: String) { showSettingsSeriesList() }
+    fun showCreateSettingsSeriesEditor(name: String) { showSettingsSeriesList() }
     fun showSettingsStationList() { showSettings() }
     fun showSettingsStationEditor(stationId: String) { showSettingsStationList() }
     fun showPartnersManage() { showSettings() }

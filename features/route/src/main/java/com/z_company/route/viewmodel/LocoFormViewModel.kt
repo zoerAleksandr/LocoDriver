@@ -9,11 +9,14 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.entities.norma_time.SectionNumberingType
+import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.SectionDiesel
 import com.z_company.domain.entities.route.SectionElectric
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -30,6 +33,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
@@ -45,6 +49,7 @@ class LocoFormViewModel(
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val routeUseCase: RouteUseCase by inject()
+    private val locomotiveSeriesRepository: LocomotiveSeriesRepository by inject()
 
     private val _uiState = MutableStateFlow(LocoFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -96,7 +101,41 @@ class LocoFormViewModel(
     private val _settings = MutableStateFlow<UserSettings?>(null)
     val settings = _settings.asStateFlow()
 
+    private val _sectionNumberingType = MutableStateFlow(SectionNumberingType.NUMERIC)
+    val sectionNumberingType = _sectionNumberingType.asStateFlow()
+
     init {
+        viewModelScope.launch {
+            combine(_currentLoco, locomotiveSeriesRepository.getAllFlow()) { loco, series ->
+                series.find { it.name.equals(loco?.series?.trim(), ignoreCase = true) }
+                    ?.sectionNumberingType
+                    ?: SectionNumberingType.NUMERIC
+            }.collect { _sectionNumberingType.value = it }
+        }
+        // Справочник серий — источник для автодополнения. Раньше в выпадающем
+        // списке были только legacy-имена из UserSettings, поэтому серии,
+        // пришедшие из синхронизации (например тепловоз), не показывались.
+        viewModelScope.launch {
+            locomotiveSeriesRepository.getAllFlow().collect { records ->
+                val names = records.map { it.name.trim() }.filter { it.isNotBlank() }
+                val known = seriesList.value.map { it.trim().lowercase() }.toSet()
+                val missing = names.filter { it.lowercase() !in known }.distinct()
+                if (missing.isNotEmpty()) {
+                    _seriesList.update { list -> list.addAllOrSkip(missing.toMutableStateList()); list }
+                    settingsUseCase.setLocomotiveSeriesList(missing)
+                }
+                val expected = seriesList.value
+                if (expected.any { candidate ->
+                        mutableSeriesList.none { it.equals(candidate, ignoreCase = true) }
+                    }
+                ) {
+                    // Пересобираем SnapshotStateList целиком: некоторые старые
+                    // экраны держат ссылку на него и не реагировали на addAll.
+                    mutableSeriesList.clear()
+                    mutableSeriesList.addAll(expected)
+                }
+            }
+        }
         viewModelScope.launch {
             val isKiloMode = sharedPreferenceStorage.isInputDieselInKilo()
             val savedTime = sharedPreferenceStorage.isLocoSectionTimeExpanded()
@@ -347,6 +386,49 @@ class LocoFormViewModel(
     fun setSeries(series: String) {
         _currentLoco.update { it?.copy(series = series) }
         changesHave()
+    }
+
+    /** Выбор готовой серии применяет и сохранённый в справочнике вид тяги. */
+    fun selectSeries(series: String) {
+        val selected = locomotiveSeriesRepository.getAll()
+            .find { it.name.equals(series.trim(), ignoreCase = true) }
+        _currentLoco.update { loco ->
+            loco?.copy(series = series, type = selected?.type ?: loco.type)
+        }
+        selected?.type?.let { type ->
+            when (type) {
+                LocoType.DIESEL -> if (_dieselSectionListState.value.isEmpty()) addingSectionDiesel()
+                LocoType.ELECTRIC -> if (_electricSectionListState.value.isEmpty()) addingSectionElectric()
+            }
+        }
+        changesHave()
+    }
+
+    /** Переключает подписи всех секций и сразу сохраняет выбор для текущей серии. */
+    fun toggleSectionNumberingType() {
+        val seriesName = _currentLoco.value?.series?.trim().orEmpty()
+        if (seriesName.isBlank()) return
+        val next = when (_sectionNumberingType.value) {
+            SectionNumberingType.NUMERIC -> SectionNumberingType.LETTERS
+            SectionNumberingType.LETTERS -> SectionNumberingType.NUMERIC
+        }
+        _sectionNumberingType.value = next
+        viewModelScope.launch {
+            val all = locomotiveSeriesRepository.getAll().toMutableList()
+            val index = all.indexOfFirst { it.name.equals(seriesName, ignoreCase = true) }
+            if (index < 0) {
+                all.add(
+                    LocomotiveSeries(
+                        name = seriesName,
+                        type = _currentLoco.value?.type ?: LocoType.ELECTRIC,
+                        sectionNumberingType = next,
+                    )
+                )
+            } else {
+                all[index] = all[index].copy(sectionNumberingType = next)
+            }
+            locomotiveSeriesRepository.replaceAll(all).collect {}
+        }
     }
 
     fun changeLocoType(locoType: LocoType) {
@@ -1253,6 +1335,12 @@ class LocoFormViewModel(
     fun removeSeries(series: String) {
         viewModelScope.launch {
             dropDownSeriesList.remove(series)
+            _seriesList.update { list ->
+                list.removeAll { it.equals(series, ignoreCase = true) }
+                list
+            }
+            // Удаляем только предложение автодополнения. Запись справочника
+            // (LocomotiveSeries) остаётся, чтобы не потерять нормы/нумерацию.
             settingsUseCase.removeLocomotiveSeries(series)
             changesHave()
         }

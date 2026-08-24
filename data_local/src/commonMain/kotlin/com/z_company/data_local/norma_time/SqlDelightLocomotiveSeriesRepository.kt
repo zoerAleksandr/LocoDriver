@@ -6,6 +6,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.ResultState.Companion.flowRequest
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.SectionNumberingType
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +38,7 @@ class SqlDelightLocomotiveSeriesRepository : LocomotiveSeriesRepository, KoinCom
                 deliveryDurationMin = s.deliveryDurationMin?.toLong(),
                 acceptanceHandToHandMin = s.acceptanceHandToHandMin?.toLong(),
                 deliveryHandToHandMin = s.deliveryHandToHandMin?.toLong(),
+                sectionNumberingType = s.sectionNumberingType.name,
                 updatedAt = s.updatedAt
             )
         }
@@ -51,6 +53,9 @@ class SqlDelightLocomotiveSeriesRepository : LocomotiveSeriesRepository, KoinCom
             deliveryDurationMin = deliveryDurationMin?.toInt(),
             acceptanceHandToHandMin = acceptanceHandToHandMin?.toInt(),
             deliveryHandToHandMin = deliveryHandToHandMin?.toInt(),
+            sectionNumberingType = SectionNumberingType.entries.find {
+                it.name == sectionNumberingType
+            } ?: SectionNumberingType.NUMERIC,
             updatedAt = updatedAt
         )
 }

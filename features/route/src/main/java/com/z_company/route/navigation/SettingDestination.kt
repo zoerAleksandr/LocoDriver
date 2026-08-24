@@ -71,5 +71,7 @@ fun SettingDestination(
         onPullRefresh = { pullToSyncViewModel.refresh() },
         pullSyncMessage = pullToSyncState.message,
         onPullSyncMessageShown = pullToSyncViewModel::consumeMessage,
+        onEditSeries = router::showSettingsSeriesEditor,
+        onCreateSeries = router::showCreateSettingsSeriesEditor,
     )
 }

@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.route.LocoType
+import com.z_company.domain.entities.norma_time.SectionNumberingType
 import com.z_company.route.R
 import com.z_company.route.component.AppInputBottomSheet
 import com.z_company.route.viewmodel.SeriesEditorViewModel
@@ -102,6 +103,7 @@ fun SettingsSeriesEditorContent(
     LaunchedEffect(
         state.name,
         state.type,
+        state.sectionNumberingType,
         state.acceptanceDurationMin,
         state.deliveryDurationMin,
         state.acceptanceHandToHandMin,
@@ -229,6 +231,32 @@ fun SettingsSeriesEditorContent(
             )
         }
 
+        Text(
+            text = "НОМЕР СЕКЦИИ",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+            modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(Shapes.medium)
+                .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+        ) {
+            SectionNumberingChoice(
+                label = "1 / 2 / 3",
+                selected = state.sectionNumberingType == SectionNumberingType.NUMERIC,
+                onClick = { viewModel.setSectionNumberingType(SectionNumberingType.NUMERIC) },
+                modifier = Modifier.weight(1f),
+            )
+            SectionNumberingChoice(
+                label = "А / Б / В",
+                selected = state.sectionNumberingType == SectionNumberingType.LETTERS,
+                onClick = { viewModel.setSectionNumberingType(SectionNumberingType.LETTERS) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+
         // ПРИЁМКА
         Text(
             text = "ПРИЁМКА",
@@ -330,4 +358,24 @@ fun SettingsSeriesEditorContent(
             )
         }
     }
+}
+
+@Composable
+private fun SectionNumberingChoice(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.bodyLarge,
+        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        color = if (selected) MaterialTheme.colorScheme.tertiary
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 15.dp),
+    )
 }

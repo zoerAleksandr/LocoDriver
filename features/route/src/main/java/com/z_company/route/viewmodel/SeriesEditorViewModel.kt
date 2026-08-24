@@ -5,6 +5,7 @@ package com.z_company.route.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.SectionNumberingType
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -25,6 +26,7 @@ data class SeriesEditorState(
     val seriesId: String? = null,
     val name: String = "",
     val type: LocoType = LocoType.ELECTRIC,
+    val sectionNumberingType: SectionNumberingType = SectionNumberingType.NUMERIC,
     // «После отстоя без бригады» (вариант по умолчанию)
     val acceptanceDurationMin: Int? = null,
     val deliveryDurationMin: Int? = null,
@@ -69,6 +71,7 @@ class SeriesEditorViewModel(
                             seriesId = s.seriesId,
                             name = s.name,
                             type = s.type,
+                            sectionNumberingType = s.sectionNumberingType,
                             // 0 из старых данных трактуем как «не задано» (прочерк).
                             acceptanceDurationMin = s.acceptanceDurationMin?.takeIf { it > 0 },
                             deliveryDurationMin = s.deliveryDurationMin?.takeIf { it > 0 },
@@ -83,6 +86,10 @@ class SeriesEditorViewModel(
 
     fun setName(value: String) = _state.update { it.copy(name = value) }
     fun setType(value: LocoType) = _state.update { it.copy(type = value) }
+    fun setSectionNumberingType(value: SectionNumberingType) {
+        _state.update { it.copy(sectionNumberingType = value) }
+        save()
+    }
 
     private fun SeriesEditorState.withValue(field: SeriesNormField, value: Int?): SeriesEditorState =
         when (field) {
@@ -141,7 +148,8 @@ class SeriesEditorViewModel(
         val s = _state.value
         if (s.name.isBlank()) return
         val hasNorm = s.acceptanceDurationMin != null || s.deliveryDurationMin != null ||
-            s.acceptanceHandToHandMin != null || s.deliveryHandToHandMin != null
+            s.acceptanceHandToHandMin != null || s.deliveryHandToHandMin != null ||
+            s.sectionNumberingType != SectionNumberingType.NUMERIC
         val all = repository.getAll().toMutableList()
         val idx = all.indexOfFirst { it.seriesId == persistentId }
         // Не создаём новую запись без норм: иначе «старая» серия (только имя в
@@ -156,6 +164,7 @@ class SeriesEditorViewModel(
             deliveryDurationMin = s.deliveryDurationMin,
             acceptanceHandToHandMin = s.acceptanceHandToHandMin,
             deliveryHandToHandMin = s.deliveryHandToHandMin,
+            sectionNumberingType = s.sectionNumberingType,
         )
         if (idx >= 0) all[idx] = updated else all.add(updated)
         repository.replaceAll(all).collect {}

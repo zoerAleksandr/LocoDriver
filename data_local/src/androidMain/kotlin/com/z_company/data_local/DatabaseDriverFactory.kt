@@ -59,6 +59,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "ReleaseDay" to "hours",
             "LocomotiveSeries" to "acceptanceHandToHandMin",
             "LocomotiveSeries" to "deliveryHandToHandMin",
+            "LocomotiveSeries" to "sectionNumberingType",
             primaryTable = "UserSettings")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
@@ -122,6 +123,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
                     deliveryDurationMin INTEGER,
                     acceptanceHandToHandMin INTEGER,
                     deliveryHandToHandMin INTEGER,
+                    sectionNumberingType TEXT NOT NULL DEFAULT 'NUMERIC',
                     updatedAt INTEGER NOT NULL
                 )
             """.trimIndent())
@@ -315,6 +317,9 @@ actual class DatabaseDriverFactory(private val context: Context) {
 
             "LocomotiveSeries.acceptanceHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
             "LocomotiveSeries.deliveryHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
+            "LocomotiveSeries.sectionNumberingType" to ColumnSpec(
+                "TEXT", false, "'NUMERIC'"
+            ),
             // Settings — MonthOfYear
             "MonthOfYear.tariffRate" to ColumnSpec("REAL", false, "0.0"),
             "MonthOfYear.dateSetTariffRate" to ColumnSpec("TEXT", true, "NULL"),

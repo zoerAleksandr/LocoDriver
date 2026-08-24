@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
@@ -87,6 +88,8 @@ import com.z_company.route.viewmodel.DieselSectionType
 @Composable
 fun DieselSectionItem(
     index: Int,
+    sectionLabel: String = (index + 1).toString(),
+    onSectionLabelClick: () -> Unit = {},
     item: DieselSectionFormState,
     onFuelAcceptedChanged: (Int, String?) -> Unit,
     onFuelDeliveredChanged: (Int, String?) -> Unit,
@@ -392,13 +395,14 @@ fun DieselSectionItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .noRippleEffect(onSectionLabelClick)
                     .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text = "Секция ${index + 1}",
+                    text = "Секция $sectionLabel",
                     style = hintStyle,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
                 )
 
                 // Пилюля коэффициента секции

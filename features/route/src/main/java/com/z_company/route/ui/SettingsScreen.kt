@@ -90,6 +90,7 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
+import android.net.Uri
 
 enum class SettingsSubScreen(val title: String, val depth: Int) {
     HUB("Настройки", 0),
@@ -165,6 +166,8 @@ fun SettingsScreen(
     onPullRefresh: () -> Unit = {},
     pullSyncMessage: String? = null,
     onPullSyncMessageShown: () -> Unit = {},
+    onEditSeries: (String) -> Unit = {},
+    onCreateSeries: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -174,6 +177,7 @@ fun SettingsScreen(
         val screen: SettingsSubScreen,
         val stationId: String?,
         val seriesId: String?,
+        val seriesName: String? = null,
     )
     val initState = remember(initialSubScreen) {
         when {
@@ -181,6 +185,20 @@ fun SettingsScreen(
                 InitState(SettingsSubScreen.STATION_EDITOR, initialSubScreen.removePrefix("STATION_EDITOR_"), null)
             initialSubScreen?.startsWith("SERIES_EDITOR_") == true ->
                 InitState(SettingsSubScreen.SERIES_EDITOR, null, initialSubScreen.removePrefix("SERIES_EDITOR_"))
+            initialSubScreen?.startsWith("SERIES_NEW_") == true ->
+                InitState(
+                    SettingsSubScreen.SERIES_EDITOR,
+                    null,
+                    null,
+                    Uri.decode(initialSubScreen.removePrefix("SERIES_NEW_")),
+                )
+            initialSubScreen?.startsWith("LOCOMOTIVE_SERIES_") == true ->
+                InitState(
+                    SettingsSubScreen.LOCOMOTIVE,
+                    null,
+                    null,
+                    Uri.decode(initialSubScreen.removePrefix("LOCOMOTIVE_SERIES_")),
+                )
             else -> when (initialSubScreen) {
                 "ROUTE" -> InitState(SettingsSubScreen.ROUTE, null, null)
                 "ROUTE_FORM" -> InitState(SettingsSubScreen.ROUTE_FORM, null, null)
@@ -201,7 +219,7 @@ fun SettingsScreen(
     var selectedPartnerId by remember { mutableStateOf<String?>(null) }
     // Название «старой» серии (из locomotiveSeriesList, без норм), открываемой
     // в редакторе для добавления норм приёмки/сдачи. null — обычная новая серия.
-    var prefillSeriesName by remember { mutableStateOf<String?>(null) }
+    var prefillSeriesName by remember { mutableStateOf(initState.seriesName) }
     // То же для «старой» станции (из stationList, без норм).
     var prefillStationName by remember { mutableStateOf<String?>(null) }
 
@@ -278,7 +296,7 @@ fun SettingsScreen(
                     )
                 )
             } else {
-                TopAppBar(
+                CenterAlignedTopAppBar(
                     navigationIcon = {
                         val isEditor = currentSubScreen == SettingsSubScreen.STATION_EDITOR ||
                             currentSubScreen == SettingsSubScreen.SERIES_EDITOR
@@ -500,12 +518,19 @@ fun SettingsScreen(
                         }
 
                         SettingsSubScreen.LOCOMOTIVE -> {
+                            val records = seriesListViewModel?.seriesFlow
+                                ?.collectAsState(initial = emptyList())?.value
+                                ?: emptyList()
                             SettingsLocoContent(
                                 currentSettings = settings,
                                 changeShowLocoHeating = changeShowLocoHeating,
                                 changeShowLocoAuxiliary = changeShowLocoAuxiliary,
                                 changeShowOtherCurrent = changeShowOtherCurrent,
                                 setDefaultLocoType = viewModel::setDefaultLocoType,
+                                selectedSeriesName = initState.seriesName,
+                                series = records,
+                                onEditSeries = { onEditSeries(it) },
+                                onCreateSeries = { onCreateSeries(it) },
                             )
                         }
 

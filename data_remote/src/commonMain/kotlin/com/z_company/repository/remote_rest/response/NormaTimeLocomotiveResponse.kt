@@ -1,6 +1,7 @@
 package com.z_company.repository.remote_rest.response
 
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.SectionNumberingType
 import com.z_company.domain.entities.route.LocoType
 import kotlinx.serialization.Serializable
 
@@ -14,6 +15,7 @@ data class NormaTimeLocomotiveResponse(
     val deliveryDurationMin: Int? = null,
     val acceptanceHandToHandMin: Int? = null,
     val deliveryHandToHandMin: Int? = null,
+    val sectionNumberingType: SectionNumberingType = SectionNumberingType.NUMERIC,
     val updatedAt: Double
 ) {
     fun toDomain(): LocomotiveSeries = LocomotiveSeries(
@@ -24,6 +26,7 @@ data class NormaTimeLocomotiveResponse(
         deliveryDurationMin = deliveryDurationMin,
         acceptanceHandToHandMin = acceptanceHandToHandMin,
         deliveryHandToHandMin = deliveryHandToHandMin,
+        sectionNumberingType = sectionNumberingType,
         updatedAt = updatedAt.toLong()
     )
 
@@ -37,6 +40,7 @@ data class NormaTimeLocomotiveResponse(
                 deliveryDurationMin = series.deliveryDurationMin,
                 acceptanceHandToHandMin = series.acceptanceHandToHandMin,
                 deliveryHandToHandMin = series.deliveryHandToHandMin,
+                sectionNumberingType = series.sectionNumberingType,
                 updatedAt = series.updatedAt.toDouble()
             )
     }

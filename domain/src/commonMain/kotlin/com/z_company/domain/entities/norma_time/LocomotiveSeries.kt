@@ -7,6 +7,11 @@ import com.z_company.domain.util.generateId
 import kotlin.time.Clock
 import kotlinx.serialization.Serializable
 
+enum class SectionNumberingType {
+    NUMERIC,
+    LETTERS,
+}
+
 @Serializable
 data class LocomotiveSeries(
     val seriesId: String = generateId(),
@@ -18,5 +23,6 @@ data class LocomotiveSeries(
     // Нормы «Из рук в руки» (передача локомотива без отстоя).
     val acceptanceHandToHandMin: Int? = null,
     val deliveryHandToHandMin: Int? = null,
+    val sectionNumberingType: SectionNumberingType = SectionNumberingType.NUMERIC,
     val updatedAt: Long = Clock.System.now().toEpochMilliseconds()
 )

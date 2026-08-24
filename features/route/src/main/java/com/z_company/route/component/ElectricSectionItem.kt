@@ -66,6 +66,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun ElectricSectionItem(
     index: Int,
+    sectionLabel: String = (index + 1).toString(),
+    onSectionLabelClick: () -> Unit = {},
     item: ElectricSectionFormState,
     onDeleteItem: (ElectricSectionFormState) -> Unit,
     onEnergyAcceptedChanged: (Int, String?) -> Unit,
@@ -159,13 +161,14 @@ fun ElectricSectionItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .noRippleEffect(onSectionLabelClick)
                     .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Секция ${index + 1}",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600)
+                    text = "Секция $sectionLabel",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
                 )
             }
             // РАСХОД — лейбл + Принял → Сдал

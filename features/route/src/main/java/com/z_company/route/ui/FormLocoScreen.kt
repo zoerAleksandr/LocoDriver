@@ -89,6 +89,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.component.CustomDivider
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.route.LocoType
+import com.z_company.domain.entities.norma_time.SectionNumberingType
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.util.CalculationEnergy
 import com.z_company.route.component.BottomShadow
@@ -138,6 +139,7 @@ fun FormLocoScreen(
     resetSaveState: () -> Unit,
     onNumberChanged: (String) -> Unit,
     onSeriesChanged: (String) -> Unit,
+    onSeriesSelected: (String) -> Unit = onSeriesChanged,
     onChangedTypeLoco: (LocoType) -> Unit,
     onStartAcceptedTimeChanged: (Long?) -> Unit,
     onEndAcceptedTimeChanged: (Long?) -> Unit,
@@ -170,6 +172,12 @@ fun FormLocoScreen(
     onEditStation: ((String) -> Unit)? = null,
     onEditSeries: ((String) -> Unit)? = null,
 ) {
+    val sectionNumberingType by viewModel.sectionNumberingType.collectAsState()
+    val sectionLetters = listOf("А", "Б", "В", "Г", "Д", "Е", "Ж", "З")
+    fun sectionLabel(index: Int): String = when (sectionNumberingType) {
+        SectionNumberingType.NUMERIC -> (index + 1).toString()
+        SectionNumberingType.LETTERS -> sectionLetters.getOrElse(index) { (index + 1).toString() }
+    }
     val displayTz = dateAndTimeConverter?.timeZoneText ?: "GMT+3"
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -552,7 +560,7 @@ fun FormLocoScreen(
                                             expanded = isExpandedMenu,
                                             stations = dropDownSeriesMenuList,
                                             onSelect = { selectionSeries ->
-                                                onSeriesChanged(selectionSeries)
+                                                onSeriesSelected(selectionSeries)
                                                 onExpandedMenuChange(false)
                                                 seriesName = seriesName.copy(
                                                     text = selectionSeries,
@@ -752,6 +760,8 @@ fun FormLocoScreen(
                                     DieselSectionItem(
                                         item = item,
                                         index = index,
+                                        sectionLabel = sectionLabel(index),
+                                        onSectionLabelClick = viewModel::toggleSectionNumberingType,
                                         onFuelAcceptedChanged = onFuelAcceptedChanged,
                                         onFuelDeliveredChanged = onFuelDeliveredChanged,
                                         onDeleteItem = onDeleteSectionDiesel,
@@ -780,6 +790,8 @@ fun FormLocoScreen(
                                 ) { index, item ->
                                     ElectricSectionItem(
                                         index = index,
+                                        sectionLabel = sectionLabel(index),
+                                        onSectionLabelClick = viewModel::toggleSectionNumberingType,
                                         item = item,
                                         onDeleteItem = onDeleteSectionElectric,
                                         onEnergyAcceptedChanged = viewModel::setEnergyAccepted,

@@ -1,6 +1,7 @@
 package com.z_company.loco_driver.ui.navigation
 
 import androidx.navigation.NavHostController
+import android.net.Uri
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.OtherWork
@@ -206,8 +207,11 @@ class RouterImpl(
         requireNavController().navigate(SettingsScreenRoute.buildRoute("ROUTE_FORM"))
     }
 
-    override fun showSettingsLoco() {
-        requireNavController().navigate(SettingsScreenRoute.buildRoute("LOCOMOTIVE"))
+    override fun showSettingsLoco(seriesName: String?) {
+        val subScreen = seriesName?.trim()?.takeIf { it.isNotBlank() }?.let {
+            "LOCOMOTIVE_SERIES_${Uri.encode(it)}"
+        } ?: "LOCOMOTIVE"
+        requireNavController().navigate(SettingsScreenRoute.buildRoute(subScreen))
     }
 
     override fun showSettingsRest() {
@@ -220,6 +224,12 @@ class RouterImpl(
 
     override fun showSettingsSeriesEditor(seriesId: String) {
         requireNavController().navigate(SettingsScreenRoute.buildRoute("SERIES_EDITOR_$seriesId"))
+    }
+
+    override fun showCreateSettingsSeriesEditor(name: String) {
+        requireNavController().navigate(
+            SettingsScreenRoute.buildRoute("SERIES_NEW_${Uri.encode(name.trim())}")
+        )
     }
 
     override fun showSettingsStationList() {

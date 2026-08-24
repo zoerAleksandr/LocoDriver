@@ -1,0 +1,3 @@
+-- Миграция 19: локальный тип отображения номеров секций серии локомотива.
+-- В серверный контракт не входит; существующие серии остаются с 1/2/3.
+ALTER TABLE LocomotiveSeries ADD COLUMN sectionNumberingType TEXT NOT NULL DEFAULT 'NUMERIC';
