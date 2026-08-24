@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -217,6 +218,10 @@ fun SettingsScreen(
     var selectedSeriesId by remember { mutableStateOf(initState.seriesId) }
     var selectedStationId by remember { mutableStateOf(initState.stationId) }
     var selectedPartnerId by remember { mutableStateOf<String?>(null) }
+    // A new editor must get a fresh ViewModel (and therefore a fresh persistentId)
+    // every time. A constant "new" key would reuse the previous new partner and
+    // overwrite it until SettingsScreen's ViewModelStore is destroyed.
+    var partnerEditorSession by remember { mutableIntStateOf(0) }
     // Название «старой» серии (из locomotiveSeriesList, без норм), открываемой
     // в редакторе для добавления норм приёмки/сдачи. null — обычная новая серия.
     var prefillSeriesName by remember { mutableStateOf(initState.seriesName) }
@@ -227,6 +232,7 @@ fun SettingsScreen(
     // могли сохранить (commit) станцию/серию перед уходом с экрана.
     var activeStationEditor by remember { mutableStateOf<StationNormEditorViewModel?>(null) }
     var activeSeriesEditor by remember { mutableStateOf<SeriesEditorViewModel?>(null) }
+    var activePartnerEditor by remember { mutableStateOf<PartnerEditorViewModel?>(null) }
 
     // Если пользователь попал сразу на под-экран (через deep link из FormLocoScreen
     // и т.п.) — back должен возвращать по backstack, а не в HUB настроек.
@@ -252,8 +258,10 @@ fun SettingsScreen(
                 activeStationEditor?.commit()
                 if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.STATION_LIST
             }
-            SettingsSubScreen.PARTNER_EDITOR ->
+            SettingsSubScreen.PARTNER_EDITOR -> {
+                activePartnerEditor?.save()
                 currentSubScreen = SettingsSubScreen.PARTNER_LIST
+            }
             else -> {
                 if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
             }
@@ -325,8 +333,10 @@ fun SettingsScreen(
                         } else if (currentSubScreen != SettingsSubScreen.HUB) {
                             IconButton(onClick = {
                                 when (currentSubScreen) {
-                                    SettingsSubScreen.PARTNER_EDITOR ->
+                                    SettingsSubScreen.PARTNER_EDITOR -> {
+                                        activePartnerEditor?.save()
                                         currentSubScreen = SettingsSubScreen.PARTNER_LIST
+                                    }
                                     else -> if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
                                 }
                             }) {
@@ -612,6 +622,7 @@ fun SettingsScreen(
                                     viewModel = vm,
                                     onOpenEditor = { id ->
                                         selectedPartnerId = id
+                                        partnerEditorSession++
                                         currentSubScreen = SettingsSubScreen.PARTNER_EDITOR
                                     }
                                 )
@@ -620,9 +631,10 @@ fun SettingsScreen(
 
                         SettingsSubScreen.PARTNER_EDITOR -> {
                             val editorVm = koinViewModel<PartnerEditorViewModel>(
-                                key = "partner_editor_${selectedPartnerId ?: "new"}",
+                                key = "partner_editor_${selectedPartnerId ?: "new"}_$partnerEditorSession",
                                 parameters = { parametersOf(selectedPartnerId) }
                             )
+                            LaunchedEffect(editorVm) { activePartnerEditor = editorVm }
                             SettingsPartnerEditorContent(
                                 viewModel = editorVm,
                                 onDone = { currentSubScreen = SettingsSubScreen.PARTNER_LIST }
