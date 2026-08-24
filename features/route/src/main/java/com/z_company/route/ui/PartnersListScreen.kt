@@ -53,6 +53,8 @@ import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.ui.partner.PartnerAvatar
+import com.z_company.route.ui.partner.PartnerSearchField
+import com.z_company.route.ui.partner.filterPartners
 
 enum class PartnerListMode { MANAGE, SELECT }
 
@@ -71,6 +73,8 @@ fun PartnersListScreen(
 ) {
     var partnerForRemove by remember { mutableStateOf<Partner?>(null) }
     var swipeCloseSignal by remember { mutableStateOf(0) }
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredPartners = filterPartners(partners, searchQuery)
     val confirmSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     partnerForRemove?.let { partner ->
@@ -191,18 +195,30 @@ fun PartnersListScreen(
             }
         }
     ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+        Column(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+            if (partners.isNotEmpty()) {
+                PartnerSearchField(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                )
+            }
             if (partners.isEmpty()) {
                 PartnersEmptyState()
+            } else if (filteredPartners.isEmpty()) {
+                PartnersSearchEmptyState(searchQuery)
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     item {
                         Text(
-                            text = "ВСЕ НАПАРНИКИ · ${partners.size}",
+                            text = if (searchQuery.isBlank()) {
+                                "ВСЕ НАПАРНИКИ · ${partners.size}"
+                            } else {
+                                "НАЙДЕНО · ${filteredPartners.size}"
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                             modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
@@ -215,7 +231,7 @@ fun PartnersListScreen(
                                 .clip(Shapes.medium)
                                 .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
                         ) {
-                            partners.forEachIndexed { idx, p ->
+                            filteredPartners.forEachIndexed { idx, p ->
                                 SwipeToRevealDelete(
                                     itemKey = p.partnerId,
                                     closeSignal = swipeCloseSignal,
@@ -230,7 +246,7 @@ fun PartnersListScreen(
                                         onEdit = { onEdit(p) },
                                     )
                                 }
-                                if (idx < partners.lastIndex) {
+                                if (idx < filteredPartners.lastIndex) {
                                     HorizontalDivider(modifier = Modifier.padding(start = 62.dp))
                                 }
                             }
@@ -239,6 +255,21 @@ fun PartnersListScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PartnersSearchEmptyState(query: String) {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "По запросу «${query.trim()}» ничего не найдено",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 

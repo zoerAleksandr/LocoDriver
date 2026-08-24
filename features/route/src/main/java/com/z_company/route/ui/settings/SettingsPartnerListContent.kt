@@ -43,6 +43,8 @@ import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.ui.partner.PartnerAvatar
+import com.z_company.route.ui.partner.PartnerSearchField
+import com.z_company.route.ui.partner.filterPartners
 import com.z_company.route.viewmodel.PartnerListViewModel
 
 /**
@@ -58,6 +60,8 @@ fun SettingsPartnerListContent(
     onOpenEditor: (String?) -> Unit,
 ) {
     val partners by viewModel.partnersFlow.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredPartners = filterPartners(partners, searchQuery)
 
     var partnerForRemove by remember { mutableStateOf<Partner?>(null) }
     var swipeCloseSignal by remember { mutableStateOf(0) }
@@ -105,11 +109,25 @@ fun SettingsPartnerListContent(
             .padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
+        if (partners.isNotEmpty()) {
+            PartnerSearchField(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                horizontalPadding = 0.dp,
+            )
+        }
+
         if (partners.isEmpty()) {
             PartnersEmptyState()
+        } else if (filteredPartners.isEmpty()) {
+            PartnersSearchEmptyState(searchQuery)
         } else {
             Text(
-                text = "ВСЕ НАПАРНИКИ · ${partners.size}",
+                text = if (searchQuery.isBlank()) {
+                    "ВСЕ НАПАРНИКИ · ${partners.size}"
+                } else {
+                    "НАЙДЕНО · ${filteredPartners.size}"
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                 modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp)
@@ -120,7 +138,7 @@ fun SettingsPartnerListContent(
                     .clip(Shapes.medium)
                     .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
             ) {
-                partners.forEachIndexed { idx, p ->
+                filteredPartners.forEachIndexed { idx, p ->
                     SwipeToRevealDelete(
                         itemKey = p.partnerId,
                         closeSignal = swipeCloseSignal,
@@ -133,7 +151,7 @@ fun SettingsPartnerListContent(
                             onEdit = { onOpenEditor(p.partnerId) },
                         )
                     }
-                    if (idx < partners.lastIndex) {
+                    if (idx < filteredPartners.lastIndex) {
                         HorizontalDivider(modifier = Modifier.padding(start = 62.dp))
                     }
                 }
@@ -166,6 +184,19 @@ fun SettingsPartnerListContent(
             )
         }
     }
+}
+
+@Composable
+private fun PartnersSearchEmptyState(query: String) {
+    Text(
+        text = "По запросу «${query.trim()}» ничего не найдено",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 40.dp),
+    )
 }
 
 @Composable
