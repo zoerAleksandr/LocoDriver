@@ -707,7 +707,8 @@ class FormViewModel(
 
     /**
      * Предупреждение «вторая ночь подряд»: текущий маршрут захватывает ночное
-     * окно, и предыдущий по времени маршрут (в пределах ~36 ч) — тоже.
+     * окно, и предыдущий по времени маршрут (в пределах ~36 ч) — тоже,
+     * если между маршрутами не было домашнего отдыха.
      */
     private suspend fun computeNightWarn(route: Route, settings: UserSettings) {
         val start = route.basicData.timeStartWork
@@ -774,7 +775,13 @@ class FormViewModel(
         val prevStart = prev?.basicData?.timeStartWork
         val prevEnd = prev?.basicData?.timeEndWork
         val consecutiveLimit = 36L * 3_600_000L
-        if (prev == null || prevStart == null || prevEnd == null || start - prevEnd > consecutiveLimit) {
+        if (
+            prev == null ||
+            prevStart == null ||
+            prevEnd == null ||
+            !prev.basicData.restPointOfTurnover ||
+            start - prevEnd > consecutiveLimit
+        ) {
             _nightWarnState.value = null
             return
         }
