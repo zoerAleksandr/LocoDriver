@@ -3,6 +3,7 @@ package com.z_company.repository.remote_rest
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
+import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.norma_time.StationNorm
 import com.z_company.domain.entities.partner.Partner
@@ -32,6 +33,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.request.parameter
@@ -169,6 +171,20 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
 
     override suspend fun getReleaseDays(token: String): List<ReleaseDay> =
         client.get("v1/release_days/") {
+            header("Authorization", token)
+        }.body()
+
+    override suspend fun saveWorkScheduleProfile(
+        token: String,
+        body: WorkScheduleProfile,
+    ): WorkScheduleProfile = client.put("v1/work_schedule/") {
+        contentType(ContentType.Application.Json)
+        header("Authorization", token)
+        setBody(body)
+    }.body()
+
+    override suspend fun getWorkScheduleProfile(token: String): WorkScheduleProfile =
+        client.get("v1/work_schedule/") {
             header("Authorization", token)
         }.body()
 

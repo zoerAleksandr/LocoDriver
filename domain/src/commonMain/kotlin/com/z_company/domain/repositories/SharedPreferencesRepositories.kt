@@ -1,6 +1,8 @@
 package com.z_company.domain.repositories
 
 import com.z_company.domain.entities.SchedulePattern
+import com.z_company.domain.entities.WorkScheduleProfile
+import kotlinx.coroutines.flow.StateFlow
 
 interface SharedPreferencesRepositories {
     fun setLastSyncTimestamp(time: Long)
@@ -24,6 +26,11 @@ interface SharedPreferencesRepositories {
      */
     fun getSchedulePatterns(): List<SchedulePattern>?
     fun setSchedulePatterns(patterns: List<SchedulePattern>)
+
+    /** Индивидуальная продолжительность дней недели; хранится только локально. */
+    fun getWorkScheduleProfile(): WorkScheduleProfile
+    fun getWorkScheduleProfileFlow(): StateFlow<WorkScheduleProfile>
+    fun setWorkScheduleProfile(profile: WorkScheduleProfile)
 
     fun getOPKeyRobokassa(): String?
     fun setOPKeyRobokassa(opKey: String?)

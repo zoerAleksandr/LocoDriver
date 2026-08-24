@@ -18,6 +18,7 @@ import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.LocoType
+import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.NormaUseCase
@@ -199,6 +200,22 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         loadMonthList()
         loadPurchasesInfo()
         observeNorma()
+        observeWorkScheduleProfile()
+    }
+
+    private fun observeWorkScheduleProfile() {
+        sharedPreferenceStorage.getWorkScheduleProfileFlow()
+            .onEach { profile ->
+                _uiState.update { it.copy(workScheduleProfile = profile) }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    fun setWorkScheduleProfile(profile: WorkScheduleProfile) {
+        sharedPreferenceStorage.setWorkScheduleProfile(
+            profile.copy(updatedAt = Clock.System.now().toEpochMilliseconds())
+        )
+        autoPushSettings()
     }
 
     fun resetSaveState() {

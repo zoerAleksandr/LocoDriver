@@ -470,6 +470,8 @@ fun SettingsScreen(
                                 regionLoadingState = settingsUiState.regionLoadingState,
                                 onDismissRegionDialog = viewModel::clearRegionLoadingState,
                                 normaHours = settingsUiState.normaHours,
+                                workScheduleProfile = settingsUiState.workScheduleProfile,
+                                setWorkScheduleProfile = viewModel::setWorkScheduleProfile,
                             )
                         }
 

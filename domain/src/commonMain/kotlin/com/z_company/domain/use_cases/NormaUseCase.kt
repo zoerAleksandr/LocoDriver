@@ -4,8 +4,11 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.TagForDay
+import com.z_company.domain.entities.WorkScheduleProfile
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.datetime.LocalDate
 
 /**
  * Единая точка расчёта нормы часов.
@@ -22,6 +25,7 @@ import kotlinx.coroutines.flow.combine
 class NormaUseCase(
     private val calendarUseCase: CalendarUseCase,
     private val releaseDayUseCase: ReleaseDayUseCase,
+    private val sharedPreferences: SharedPreferencesRepositories,
 ) {
 
     /**
@@ -34,9 +38,10 @@ class NormaUseCase(
     fun normaHoursFlow(year: Int, month: Int): Flow<Int> =
         combine(
             calendarUseCase.loadFlowMonthOfYearListState(),
-            releaseDayUseCase.getByYearMonthFlow(year, month)
-        ) { months, releaseDays ->
-            calculate(months, releaseDays, year, month)
+            releaseDayUseCase.getByYearMonthFlow(year, month),
+            sharedPreferences.getWorkScheduleProfileFlow(),
+        ) { months, releaseDays, profile ->
+            calculate(months, releaseDays, year, month, profile = profile)
         }
 
     /**
@@ -51,9 +56,10 @@ class NormaUseCase(
     fun normaHoursToDateFlow(year: Int, month: Int, upToDayInclusive: Int): Flow<Int> =
         combine(
             calendarUseCase.loadFlowMonthOfYearListState(),
-            releaseDayUseCase.getByYearMonthFlow(year, month)
-        ) { months, releaseDays ->
-            calculate(months, releaseDays, year, month, upToDayInclusive)
+            releaseDayUseCase.getByYearMonthFlow(year, month),
+            sharedPreferences.getWorkScheduleProfileFlow(),
+        ) { months, releaseDays, profile ->
+            calculate(months, releaseDays, year, month, upToDayInclusive, profile)
         }
 
     /**
@@ -66,17 +72,24 @@ class NormaUseCase(
         val allMonths = calendarUseCase.loadMonthOfYearList()
         val releaseDays = releaseDayUseCase.getAll()
             .filter { it.year == year && it.month == month }
-        return calculate(allMonths, releaseDays, year, month)
+        return calculate(
+            allMonths,
+            releaseDays,
+            year,
+            month,
+            profile = sharedPreferences.getWorkScheduleProfile(),
+        )
     }
 
     // ─── Внутренний расчёт ───────────────────────────────────────────────────
 
-    private fun calculate(
+    internal fun calculate(
         months: List<MonthOfYear>,
         releaseDays: List<ReleaseDay>,
         year: Int,
         month: Int,
         upToDayInclusive: Int = Int.MAX_VALUE,
+        profile: WorkScheduleProfile = WorkScheduleProfile.standard(),
     ): Int {
         // Среди дублей MonthOfYear берём с наибольшим числом дней —
         // та же логика дедупликации, что в SettingsViewModel.
@@ -116,12 +129,8 @@ class NormaUseCase(
                     day.releaseType != ReleaseType.TechnicalStudy) ||
                     day.dayOfMonth in releaseDayNumbers
             if (!isNormReducingRelease) {
-                norma += when (day.tag) {
-                    TagForDay.WORKING_DAY   -> 8
-                    TagForDay.SHORTENED_DAY -> 7
-                    TagForDay.NON_WORKING_DAY -> 0
-                    TagForDay.HOLIDAY       -> 0
-                }
+                val date = LocalDate(year, month + 1, day.dayOfMonth)
+                norma += profile.effectiveHours(date, day.tag)
             }
         }
         return norma

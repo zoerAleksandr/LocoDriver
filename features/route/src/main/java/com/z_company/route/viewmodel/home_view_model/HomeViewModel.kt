@@ -763,7 +763,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     dayOffHours = ResultState.Loading()
                 )
             }
-            val dayOffHours = currentMonthOfYear.getDayoffHours()
+            val dayOffHours = currentMonthOfYear.getDayoffHours(
+                sharedPreferenceStorage.getWorkScheduleProfile()
+            )
             _uiState.update {
                 it.copy(
                     dayOffHours = ResultState.Success(dayOffHours)
@@ -958,7 +960,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
         val salaryCalculationHelper = SalaryCalculationHelper(
             userSettings = userSettings,
             salarySetting = salarySetting,
-            allRoutes = filteredRouteList
+            allRoutes = filteredRouteList,
+            workScheduleProfile = sharedPreferenceStorage.getWorkScheduleProfile(),
         )
 
         viewModelScope.launch(Dispatchers.Default) {

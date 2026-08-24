@@ -11,6 +11,7 @@ import com.z_company.core.util.TimeManager
 import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.TagForDay
+import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.viewmodel.SalaryCalculationUIState
@@ -254,7 +255,8 @@ class PdfGenerator(private val context: Context) {
         salaryState: SalaryCalculationUIState?,
         monthLabel: String,
         sections: PdfSections,
-        calendarDays: List<Day> = emptyList()
+        calendarDays: List<Day> = emptyList(),
+        workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
     ): File {
         // Удаляем старые PDF-файлы из кеша
         context.cacheDir.listFiles { f -> f.name.startsWith("Машинист_") && f.name.endsWith(".pdf") }
@@ -269,7 +271,7 @@ class PdfGenerator(private val context: Context) {
         }
         if (sections.includeSchedule) {
             pm.newPage()
-            drawSchedule(pm, routes, monthLabel, calendarDays)
+            drawSchedule(pm, routes, monthLabel, calendarDays, workScheduleProfile)
         }
         if (sections.includeSalary) {
             pm.newPage()
@@ -719,7 +721,13 @@ class PdfGenerator(private val context: Context) {
         return if (bTo > bFrom) bTo - bFrom else 0L
     }
 
-    private fun drawSchedule(pm: PageManager, routes: List<Route>, monthLabel: String, calendarDays: List<Day> = emptyList()) {
+    private fun drawSchedule(
+        pm: PageManager,
+        routes: List<Route>,
+        monthLabel: String,
+        calendarDays: List<Day> = emptyList(),
+        workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
+    ) {
         pm.text("График за $monthLabel", paintTitle)
         pm.y += 2f
         pm.separator()
@@ -1000,11 +1008,10 @@ class PdfGenerator(private val context: Context) {
 
         // Норма на месяц из календарных данных
         val standardNormaHours = calendarDays.sumOf { day ->
-            when (day.tag) {
-                TagForDay.WORKING_DAY -> 8
-                TagForDay.SHORTENED_DAY -> 7
-                else -> 0
-            }
+            workScheduleProfile.effectiveHours(
+                kotlinx.datetime.LocalDate(year, month + 1, day.dayOfMonth),
+                day.tag,
+            )
         }
         // Норму уменьшают не все отвлечения: «Выходной» — перенос выходного дня,
         // а «Технические занятия» оплачиваются отдельно по среднему часу
@@ -1014,11 +1021,10 @@ class PdfGenerator(private val context: Context) {
                 it.releaseType != ReleaseType.DayOff &&
                 it.releaseType != ReleaseType.TechnicalStudy
         }.sumOf { day ->
-            when (day.tag) {
-                TagForDay.WORKING_DAY -> 8
-                TagForDay.SHORTENED_DAY -> 7
-                else -> 0
-            }
+            workScheduleProfile.effectiveHours(
+                kotlinx.datetime.LocalDate(year, month + 1, day.dayOfMonth),
+                day.tag,
+            )
         }
         val personalNormaHours = standardNormaHours - detachmentHours
 

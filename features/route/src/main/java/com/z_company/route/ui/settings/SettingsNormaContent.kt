@@ -54,6 +54,8 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
+import com.z_company.domain.entities.WorkScheduleMode
+import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.setting.CrossMonthTimezone
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.route.component.AnimationDialog
@@ -61,6 +63,7 @@ import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.viewmodel.CountryLoadingState
 import com.z_company.route.viewmodel.RegionLoadingState
 import com.z_company.route.viewmodel.TimeZoneRussia
+import kotlinx.datetime.DayOfWeek
 
 /**
  * Спиннер с гарантированной анимацией — на чистом Canvas + infiniteRepeatable.
@@ -120,6 +123,8 @@ fun SettingsNormaContent(
      * Если null — отображаем значение из selectMonthOfYear как fallback.
      */
     normaHours: Int? = null,
+    workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
+    setWorkScheduleProfile: (WorkScheduleProfile) -> Unit = {},
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
     val styleHint = MaterialTheme.typography.bodyMedium
@@ -372,6 +377,56 @@ fun SettingsNormaContent(
         }
         SettingsSectionNote("Месячная норма рабочего времени. По ней считается переработка и недоработка.")
 
+        // ── Индивидуальная рабочая неделя ──
+        SettingsGroupHeader("РАБОЧАЯ НЕДЕЛЯ", top = 20.dp, startPad = 4.dp)
+        SettingsCard {
+            listOf(
+                WorkScheduleMode.STANDARD to "Стандартная · 8 ч, Пн–Пт",
+                WorkScheduleMode.SIX_DAY_7_5 to "Шестидневная · 7 ч + Сб 5 ч",
+                WorkScheduleMode.CUSTOM to "Своя настройка",
+            ).forEachIndexed { index, (mode, label) ->
+                if (index > 0) SettingsCardSep()
+                Text(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val profile = when (mode) {
+                                WorkScheduleMode.STANDARD -> WorkScheduleProfile.standard()
+                                WorkScheduleMode.SIX_DAY_7_5 -> WorkScheduleProfile.sixDaySevenFive()
+                                WorkScheduleMode.CUSTOM -> workScheduleProfile.copy(mode = WorkScheduleMode.CUSTOM)
+                            }
+                            setWorkScheduleProfile(profile)
+                        }
+                        .padding(horizontal = 18.dp, vertical = 13.dp),
+                    text = if (workScheduleProfile.mode == mode) "✓  $label" else label,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = if (workScheduleProfile.mode == mode) FontWeight.SemiBold else FontWeight.Normal
+                    ),
+                    color = if (workScheduleProfile.mode == mode) {
+                        MaterialTheme.colorScheme.tertiary
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                )
+            }
+
+            if (workScheduleProfile.mode == WorkScheduleMode.CUSTOM) {
+                DayOfWeek.entries.forEach { day ->
+                    SettingsCardSep()
+                    WorkDayHoursRow(
+                        day = day,
+                        hours = workScheduleProfile.hoursFor(day),
+                        onChange = { hours ->
+                            setWorkScheduleProfile(workScheduleProfile.withHours(day, hours))
+                        },
+                    )
+                }
+            }
+        }
+        SettingsSectionNote(
+            "Используется для нормы месяца и часов отпуска, больничного и других отвлечений. Праздники остаются нерабочими."
+        )
+
         // ── Страна ──
         SettingsGroupHeader("СТРАНА", top = 20.dp, startPad = 4.dp)
         val countryEmoji = when (currentSettings.country) {
@@ -504,6 +559,64 @@ fun SettingsNormaContent(
                 },
             )
             null -> {}
+        }
+    }
+}
+
+@Composable
+private fun WorkDayHoursRow(
+    day: DayOfWeek,
+    hours: Int,
+    onChange: (Int) -> Unit,
+) {
+    val label = when (day) {
+        DayOfWeek.MONDAY -> "Понедельник"
+        DayOfWeek.TUESDAY -> "Вторник"
+        DayOfWeek.WEDNESDAY -> "Среда"
+        DayOfWeek.THURSDAY -> "Четверг"
+        DayOfWeek.FRIDAY -> "Пятница"
+        DayOfWeek.SATURDAY -> "Суббота"
+        DayOfWeek.SUNDAY -> "Воскресенье"
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                modifier = Modifier
+                    .clickable(enabled = hours > 0) { onChange(hours - 1) }
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+                text = "−",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+            Text(
+                modifier = Modifier.width(44.dp),
+                text = "$hours ч",
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = MonoFont,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                modifier = Modifier
+                    .clickable(enabled = hours < 24) { onChange(hours + 1) }
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+                text = "+",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
         }
     }
 }

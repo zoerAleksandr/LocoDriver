@@ -1,6 +1,9 @@
 package com.z_company.iosapp.repository
 
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.entities.WorkScheduleProfile
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * iOS stub-реализация SharedPreferencesRepositories.
@@ -13,6 +16,12 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
  * TODO: заменить хранение на NSUserDefaults через expect/actual, если потребуется.
  */
 class IosSharedPreferencesRepository : SharedPreferencesRepositories {
+    private val workScheduleProfileState = MutableStateFlow(WorkScheduleProfile.standard())
+    override fun getWorkScheduleProfile(): WorkScheduleProfile = workScheduleProfileState.value
+    override fun getWorkScheduleProfileFlow(): StateFlow<WorkScheduleProfile> = workScheduleProfileState
+    override fun setWorkScheduleProfile(profile: WorkScheduleProfile) {
+        workScheduleProfileState.value = profile
+    }
     // Хранится в памяти; при перезапуске приложения будет сброшено.
     // Для продакшена следует использовать NSUserDefaults.
     private var lastSyncTimestamp: Long = 0L

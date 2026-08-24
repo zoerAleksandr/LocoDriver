@@ -4,9 +4,12 @@ import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import com.z_company.domain.entities.SchedulePattern
+import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.component.KoinComponent
 
 private val DEFAULT_COEFFICIENTS = listOf("0.84", "0.85", "0.86", "0.87", "0.88")
@@ -62,6 +65,26 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
             Context.MODE_PRIVATE
         )
     private val editor = sharedpref.edit()
+    private val workScheduleProfileState = MutableStateFlow(readWorkScheduleProfile())
+
+    private fun readWorkScheduleProfile(): WorkScheduleProfile {
+        val value = sharedpref.getString(WORK_SCHEDULE_PROFILE_KEY, null)
+            ?: return WorkScheduleProfile.standard()
+        return runCatching {
+            schedulePatternsJson.decodeFromString<WorkScheduleProfile>(value)
+        }.getOrElse { WorkScheduleProfile.standard() }
+    }
+
+    override fun getWorkScheduleProfile(): WorkScheduleProfile = workScheduleProfileState.value
+
+    override fun getWorkScheduleProfileFlow(): StateFlow<WorkScheduleProfile> = workScheduleProfileState
+
+    override fun setWorkScheduleProfile(profile: WorkScheduleProfile) {
+        sharedpref.edit()
+            .putString(WORK_SCHEDULE_PROFILE_KEY, schedulePatternsJson.encodeToString(profile))
+            .commit()
+        workScheduleProfileState.value = profile
+    }
 
     override fun setLastSyncTimestamp(time: Long) {
         editor.putLong(TOKEN_LAST_SYNC_TIME, time).apply()
@@ -426,6 +449,7 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         const val SCHEDULE_PATTERNS_KEY = "SCHEDULE_PATTERNS"
         const val LAST_SEEN_ANNOUNCEMENT_NUMBER = "LAST_SEEN_ANNOUNCEMENT_NUMBER"
         const val TOKEN_THEME_MODE = "TOKEN_THEME_MODE"
+        const val WORK_SCHEDULE_PROFILE_KEY = "WORK_SCHEDULE_PROFILE"
         val schedulePatternsJson = Json { ignoreUnknownKeys = true }
     }
 }

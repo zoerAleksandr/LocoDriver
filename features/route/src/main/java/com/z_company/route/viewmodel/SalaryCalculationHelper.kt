@@ -3,6 +3,7 @@ package com.z_company.route.viewmodel
 import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursExcludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursIncludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHoursInPeriod
@@ -88,6 +89,7 @@ class SalaryCalculationHelper(
     // Сумма сверхурочных с января до начала расчётного месяца.
     // Используется только после вступления ФЗ №144-ФЗ.
     private val annualOvertimeBeforePeriod: Long = 0L,
+    private val workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
 ) {
     private val allRoutes: List<Route> = allRoutes
     val currentMonthOfYear = userSettings.selectMonthOfYear
@@ -1092,7 +1094,7 @@ class SalaryCalculationHelper(
 
     fun getDayOffHoursFlow(): Flow<Long> {
         return flow {
-            val hours = currentMonthOfYear.getDayoffHoursIncludingWeekends()
+            val hours = currentMonthOfYear.getDayoffHoursIncludingWeekends(workScheduleProfile)
             val hoursInLong: Long = hours.times(3_600_000).toLong()
             emit(hoursInLong)
         }
@@ -1646,7 +1648,7 @@ class SalaryCalculationHelper(
             0L
         }
     private fun getPersonalNormaInLong(): Int {
-        return userSettings.selectMonthOfYear.getPersonalNormaHours() * 3_600_000
+        return userSettings.selectMonthOfYear.getPersonalNormaHours(workScheduleProfile) * 3_600_000
     }
 
     private fun getPersonalNormaHoursToPeriod(period: Pair<Int, Int>): Int {

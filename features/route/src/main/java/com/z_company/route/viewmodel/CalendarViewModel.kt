@@ -625,7 +625,11 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                 ) rj++
                 val endDay = sortedRel[rj]
                 val periodHours = (startDay..endDay).sumOf { d ->
-                    releaseHoursForDay(type, tagByDay[d] ?: TagForDay.WORKING_DAY)
+                    releaseHoursForDay(
+                        type,
+                        kotlinx.datetime.LocalDate(month.year, month.month + 1, d),
+                        tagByDay[d] ?: TagForDay.WORKING_DAY,
+                    )
                 }
                 // Для техзанятий — часы задаёт пользователь (Day.hours), а не тег дня.
                 val isTech = type == ReleaseType.TechnicalStudy
@@ -635,7 +639,11 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                     absenceByDay[d] = AbsenceInfo(
                         type = type,
                         label = type.text,
-                        hoursPerDay = releaseHoursForDay(type, tagByDay[d] ?: TagForDay.WORKING_DAY),
+                        hoursPerDay = releaseHoursForDay(
+                            type,
+                            kotlinx.datetime.LocalDate(month.year, month.month + 1, d),
+                            tagByDay[d] ?: TagForDay.WORKING_DAY,
+                        ),
                         periodStart = startDay,
                         periodEnd = endDay,
                         periodDays = endDay - startDay + 1,
@@ -746,7 +754,11 @@ class CalendarViewModel : ViewModel(), KoinComponent {
     // ── helpers ──────────────────────────────────────────────────
     private fun two(v: Int): String = if (v < 10) "0$v" else v.toString()
 
-    private fun releaseHoursForDay(type: ReleaseType, tag: TagForDay): Int =
+    private fun releaseHoursForDay(
+        type: ReleaseType,
+        date: kotlinx.datetime.LocalDate,
+        tag: TagForDay,
+    ): Int =
         // «Выходной» — не норма-часы, а ×2 тариф при работе; часы не показываем.
         // Для командировки показываем справочные часы по рабочим дням,
         // хотя оплачиваются маршруты отдельно по среднему часу.
@@ -760,14 +772,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                 TagForDay.NON_WORKING_DAY -> 8
                 TagForDay.HOLIDAY -> 8
             }
-        } else {
-            when (tag) {
-                TagForDay.WORKING_DAY -> 8
-                TagForDay.SHORTENED_DAY -> 7
-                TagForDay.NON_WORKING_DAY -> 0
-                TagForDay.HOLIDAY -> 0
-            }
-        }
+        } else sharedPrefs.getWorkScheduleProfile().effectiveHours(date, tag)
 
     private fun todayIfCurrentMonth(month: MonthOfYear, conv: DateAndTimeConverter): Int? {
         val now = System.currentTimeMillis()

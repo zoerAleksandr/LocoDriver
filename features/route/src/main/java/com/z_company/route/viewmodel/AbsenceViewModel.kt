@@ -147,13 +147,13 @@ class AbsenceViewModel : ViewModel(), KoinComponent {
         var total = 0
         var d = lo
         while (d <= hi) {
-            total += hoursForDay(tagFor(d), type)
+            total += hoursForDay(d, tagFor(d), type)
             d = d.plus(1, DateTimeUnit.DAY)
         }
         return total
     }
 
-    private fun hoursForDay(tag: TagForDay, type: ReleaseType): Int =
+    private fun hoursForDay(date: LocalDate, tag: TagForDay, type: ReleaseType): Int =
         // В карточке командировки показываем часы по рабочим дням
         // производственного календаря. Это справочное значение:
         // оплата командировочных маршрутов идёт отдельно по среднему часу.
@@ -163,12 +163,7 @@ class AbsenceViewModel : ViewModel(), KoinComponent {
             TagForDay.SHORTENED_DAY -> 7
             TagForDay.NON_WORKING_DAY -> 8
             TagForDay.HOLIDAY -> 8
-        } else when (tag) {
-            TagForDay.WORKING_DAY -> 8
-            TagForDay.SHORTENED_DAY -> 7
-            TagForDay.NON_WORKING_DAY -> 0
-            TagForDay.HOLIDAY -> 0
-        }
+        } else sharedPrefs.getWorkScheduleProfile().effectiveHours(date, tag)
 
     fun toggleTypePicker() = _uiState.update { it.copy(typePickerOpen = !it.typePickerOpen) }
 

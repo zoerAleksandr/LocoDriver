@@ -29,39 +29,44 @@ object UtilForMonthOfYear {
             // норму не влияют (решение пользователя): норма остаётся полной.
             releaseType != ReleaseType.TechnicalStudy
 
-    fun MonthOfYear.getPersonalNormaHours(): Int {
+    // Оставляем безаргументную перегрузку: Android-виджет и старые уже
+    // скомпилированные модули вызывают именно JVM-сигнатуру
+    // getPersonalNormaHours(MonthOfYear). Значение по умолчанию у параметра
+    // не создаёт совместимую JVM-перегрузку.
+    fun MonthOfYear.getPersonalNormaHours(): Int =
+        getPersonalNormaHours(WorkScheduleProfile.standard())
+
+    fun MonthOfYear.getPersonalNormaHours(profile: WorkScheduleProfile): Int {
         var normaOfMonth = 0
         this.days.forEach { day ->
             if (!day.reducesNorma()) {
-                normaOfMonth += when (day.tag) {
-                    TagForDay.WORKING_DAY -> 8
-                    TagForDay.SHORTENED_DAY -> 7
-                    TagForDay.NON_WORKING_DAY -> 0
-                    TagForDay.HOLIDAY -> 0
-                }
+                val date = LocalDate(year, month + 1, day.dayOfMonth)
+                normaOfMonth += profile.effectiveHours(date, day.tag)
             }
         }
         return normaOfMonth
     }
 
-    fun MonthOfYear.getDayoffHours(): Int {
+    fun MonthOfYear.getDayoffHours(): Int =
+        getDayoffHours(WorkScheduleProfile.standard())
+
+    fun MonthOfYear.getDayoffHours(profile: WorkScheduleProfile): Int {
         var totalRelease = 0
         this.days.forEach { day ->
             // «Технические занятия» не входят в общий счётчик часов отвлечений —
             // у них собственные часы и отдельная оплата по среднему.
             if (day.isReleaseDay && day.releaseType != ReleaseType.TechnicalStudy) {
-                totalRelease += when (day.tag) {
-                    TagForDay.WORKING_DAY -> 8
-                    TagForDay.SHORTENED_DAY -> 7
-                    TagForDay.NON_WORKING_DAY -> 0
-                    TagForDay.HOLIDAY -> 0
-                }
+                val date = LocalDate(year, month + 1, day.dayOfMonth)
+                totalRelease += profile.effectiveHours(date, day.tag)
             }
         }
         return totalRelease
     }
 
-    fun MonthOfYear.getDayoffHoursIncludingWeekends(): Int {
+    fun MonthOfYear.getDayoffHoursIncludingWeekends(): Int =
+        getDayoffHoursIncludingWeekends(WorkScheduleProfile.standard())
+
+    fun MonthOfYear.getDayoffHoursIncludingWeekends(profile: WorkScheduleProfile): Int {
         var totalRelease = 0
         this.days.forEach { day ->
             // «Командировка» оплачивается отдельно (по среднему за отработанные
@@ -76,12 +81,8 @@ object UtilForMonthOfYear {
                 // введённым часам, а не через общий пул «оплата по среднему».
                 day.releaseType != ReleaseType.TechnicalStudy
             ) {
-                totalRelease += when (day.tag) {
-                    TagForDay.WORKING_DAY -> 8
-                    TagForDay.SHORTENED_DAY -> 7
-                    TagForDay.NON_WORKING_DAY -> 0
-                    TagForDay.HOLIDAY -> 0
-                }
+                val date = LocalDate(year, month + 1, day.dayOfMonth)
+                totalRelease += profile.effectiveHours(date, day.tag)
             }
         }
         return totalRelease
@@ -115,15 +116,14 @@ object UtilForMonthOfYear {
         return totalRelease
     }
 
-    fun MonthOfYear.getStandardNormaHours(): Int {
+    fun MonthOfYear.getStandardNormaHours(): Int =
+        getStandardNormaHours(WorkScheduleProfile.standard())
+
+    fun MonthOfYear.getStandardNormaHours(profile: WorkScheduleProfile): Int {
         var normaOfMonth = 0
         this.days.forEach { day ->
-            normaOfMonth += when (day.tag) {
-                TagForDay.WORKING_DAY -> 8
-                TagForDay.SHORTENED_DAY -> 7
-                TagForDay.NON_WORKING_DAY -> 0
-                TagForDay.HOLIDAY -> 0
-            }
+            val date = LocalDate(year, month + 1, day.dayOfMonth)
+            normaOfMonth += profile.effectiveHours(date, day.tag)
         }
         return normaOfMonth
     }

@@ -43,6 +43,7 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -53,6 +54,7 @@ import kotlin.math.roundToInt
  */
 @OptIn(kotlin.time.ExperimentalTime::class, FlowPreview::class)
 class StatisticsViewModel : ViewModel(), KoinComponent {
+    private val sharedPreferences: SharedPreferencesRepositories by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
@@ -369,7 +371,11 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
                     0.0
                 } else try {
                     SalaryCalculationHelper(
-                        s.copy(selectMonthOfYear = month), salarySetting!!, routes, effectiveNorma
+                        s.copy(selectMonthOfYear = month),
+                        salarySetting!!,
+                        routes,
+                        effectiveNorma,
+                        workScheduleProfile = sharedPreferences.getWorkScheduleProfile(),
                     ).getMoneyToBeCredited().first()
                 } catch (_: Exception) { 0.0 }
                 val (v, u) = StatFormat.money(rub, moneyCurrency()); Triple(rub.toFloat(), v, u)
@@ -485,6 +491,7 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
                         salarySetting = salarySetting!!,
                         allRoutes = emptyList(),
                         effectiveNormaHoursForUnderwork = effectiveNorma,
+                        workScheduleProfile = sharedPreferences.getWorkScheduleProfile(),
                     ).getMoneyToBeCredited().first()
                 } catch (_: Exception) { 0.0 }
             } else 0.0
@@ -497,7 +504,9 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
         // Переработка = отработано − полная норма месяца, не ниже нуля: считаем
         // только переработку, а не недоработку (недоработка одного месяца не
         // должна «съедать» переработку другого при суммировании за год).
-        val overtime = (worked - month.getPersonalNormaHours() * 3_600_000L).coerceAtLeast(0L)
+        val overtime = (
+            worked - month.getPersonalNormaHours(sharedPreferences.getWorkScheduleProfile()) * 3_600_000L
+        ).coerceAtLeast(0L)
         val night = try { routes.getNightTime(s) } catch (_: Exception) { 0L }
         val passenger = routes.getPassengerTime(month, ctx)
         // Пробег/грузооборот/время в пути — по месяцу явки (переходные не задваиваем).
@@ -512,6 +521,7 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
                 salarySetting = salarySetting!!,
                 allRoutes = routes,
                 effectiveNormaHoursForUnderwork = effectiveNorma,
+                workScheduleProfile = sharedPreferences.getWorkScheduleProfile(),
             ).getMoneyToBeCredited().first()
         } catch (_: Exception) { 0.0 }
         return Raw(worked, overtime, earnings, night, passenger,

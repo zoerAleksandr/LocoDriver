@@ -88,6 +88,27 @@ class SyncManager(
 
     private val syncMutex = Mutex()
 
+    /** LWW-синхронизация отдельного персонального профиля рабочей недели. */
+    private suspend fun syncWorkScheduleProfile(bearerToken: String): Boolean {
+        val remote = (settingManager.getWorkScheduleProfileFromRemote(bearerToken)
+            .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)
+            ?.data ?: return false
+        val local = sharedPrefs.getWorkScheduleProfile()
+
+        if (local.updatedAt > remote.updatedAt ||
+            (local.updatedAt == remote.updatedAt && local != remote && local.mode != com.z_company.domain.entities.WorkScheduleMode.STANDARD)
+        ) {
+            val saved = (settingManager.saveWorkScheduleProfileInRemote(local, bearerToken)
+                .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)
+                ?.data ?: return false
+            // Сервер может сохранить более свежую версию другого устройства.
+            if (saved.updatedAt >= local.updatedAt) sharedPrefs.setWorkScheduleProfile(saved)
+        } else if (remote.updatedAt >= local.updatedAt) {
+            sharedPrefs.setWorkScheduleProfile(remote)
+        }
+        return true
+    }
+
     private fun <T> Flow<ResultState<T>>.withSyncDeadline(): Flow<ResultState<T>> = channelFlow {
         try {
             withTimeout(SYNC_OPERATION_TIMEOUT_MILLIS) {
@@ -230,6 +251,9 @@ class SyncManager(
                     return@collect
                 }
             }
+
+        // 3.1. Индивидуальный график — отдельный LWW-ресурс, не часть UserSettings.
+        syncWorkScheduleProfile(bearerToken)
 
         // 3.5. Синхронизация норм времени (серии локомотивов и станции).
         // Full replace: если есть локальные данные — POST на сервер.
@@ -745,6 +769,9 @@ class SyncManager(
             emit(ResultState.Success(result.copy()))
         }
 
+        // 1.1.1 Отдельный профиль рабочей недели — LWW по client updatedAt.
+        if (!syncWorkScheduleProfile(bearerToken)) settingsUploadSucceeded = false
+
         // 1.2 SalarySetting — push (если менялось локально), затем pull (сервер → локально).
         if (settingsPending) {
             val localSalary = salarySettingUseCase.salarySettingFlow().first()
@@ -1074,6 +1101,16 @@ class SyncManager(
         settingManager.saveReleaseDaysInRemote(localReleaseDays, bearerToken)
             .catch { allOk = false }.collect { if (it is ResultState.Error) allOk = false }
 
+        val localWorkSchedule = sharedPrefs.getWorkScheduleProfile()
+        settingManager.saveWorkScheduleProfileInRemote(localWorkSchedule, bearerToken)
+            .catch { allOk = false }
+            .collect { state ->
+                if (state is ResultState.Success && state.data.updatedAt >= localWorkSchedule.updatedAt) {
+                    sharedPrefs.setWorkScheduleProfile(state.data)
+                }
+                if (state is ResultState.Error) allOk = false
+            }
+
         val localLocoSeries = locomotiveSeriesRepository.getAll()
         if (localLocoSeries.isNotEmpty()) {
             settingManager.saveNormaTimeLocomotivesInRemote(localLocoSeries, bearerToken)
@@ -1191,6 +1228,8 @@ class SyncManager(
                     return@collect
                 }
             }
+
+        syncWorkScheduleProfile(bearerToken)
 
         // 3.5. Синхронизация норм времени (серии локомотивов и станции).
         val localLocoSeriesFirst = locomotiveSeriesRepository.getAll()

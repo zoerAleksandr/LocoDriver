@@ -8,6 +8,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.User
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.entities.WorkScheduleProfile
 
 sealed class CountryLoadingState {
     data class Loading(val countryName: String) : CountryLoadingState()
@@ -59,4 +60,5 @@ data class SettingsUiState(
      * null = ещё не загружена.
      */
     val normaHours: Int? = null,
+    val workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
 )

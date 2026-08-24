@@ -151,6 +151,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                 allRoutes = routeList,
                 effectiveNormaHoursForUnderwork = effectiveNormaHours,
                 annualOvertimeBeforePeriod = annualOvertimeBeforeMonth,
+                workScheduleProfile = sharedPreferenceStorage.getWorkScheduleProfile(),
             )
             job?.cancel()
             // Параллельный вызов методов с ожиданием завершения
@@ -474,6 +475,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                 userSettings = settingsForMonth,
                 salarySetting = salarySetting,
                 allRoutes = routes,
+                workScheduleProfile = sharedPreferenceStorage.getWorkScheduleProfile(),
             )
             annualOvertime += helper.getTimeOvertimeFlow().first()
         }

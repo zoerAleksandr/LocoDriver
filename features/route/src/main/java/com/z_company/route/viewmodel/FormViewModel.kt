@@ -256,7 +256,8 @@ class FormViewModel(
                     val salaryCalculationHelper = SalaryCalculationHelper(
                         userSettings = settings,
                         salarySetting = salSetting,
-                        allRoutes = routeList
+                        allRoutes = routeList,
+                        workScheduleProfile = sharedPreferenceStorage.getWorkScheduleProfile(),
                     )
                     coroutineScope {
                         launch { calculateSalary(salaryCalculationHelper, route, settings) }

@@ -3,6 +3,7 @@ package com.z_company.repository.remote_rest
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
+import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.norma_time.StationNorm
 import com.z_company.domain.entities.partner.Partner
@@ -72,6 +73,12 @@ interface RemoteRestApi {
 
     /** Получить список дней отвлечений с сервера */
     suspend fun getReleaseDays(token: String): List<ReleaseDay>
+
+    // --- WorkScheduleProfile (персональный график, отдельный безопасный ресурс) ---
+
+    suspend fun saveWorkScheduleProfile(token: String, body: WorkScheduleProfile): WorkScheduleProfile
+
+    suspend fun getWorkScheduleProfile(token: String): WorkScheduleProfile
 
     // --- NormaTime (нормы времени приёмки/сдачи) ---
 

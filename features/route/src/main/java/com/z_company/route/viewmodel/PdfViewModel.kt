@@ -12,6 +12,7 @@ import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.util.PdfGenerator
 import com.z_company.route.util.PdfSections
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,7 @@ import org.koin.core.component.inject
 class PdfViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
 
     private val salaryViewModel: SalaryCalculationViewModel by inject()
+    private val sharedPreferences: SharedPreferencesRepositories by inject()
 
     private val _pdfReady = MutableSharedFlow<Uri>()
     val pdfReady = _pdfReady.asSharedFlow()
@@ -80,7 +82,8 @@ class PdfViewModel(application: Application) : AndroidViewModel(application), Ko
                     salaryState = salaryState,
                     monthLabel = effectiveMonthLabel,
                     sections = sections,
-                    calendarDays = calendarDays.ifEmpty { latestCalendarDays }
+                    calendarDays = calendarDays.ifEmpty { latestCalendarDays },
+                    workScheduleProfile = sharedPreferences.getWorkScheduleProfile(),
                 )
                 // Authority must match the one declared in AndroidManifest.xml
                 val authority = "${getApplication<Application>().packageName}.fileprovider"
