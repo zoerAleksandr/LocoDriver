@@ -1,11 +1,17 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,6 +44,10 @@ fun AppAlertDialog(
     // остаётся в рамках «без полей ввода».
     content: (@Composable () -> Unit)? = null,
 ) {
+    // Текст/контент ограничен по высоте и скроллится: при длинном списке (как в
+    // подтверждении массового удаления маршрутов) или увеличенном системном
+    // шрифте контент не должен обрезаться или выталкивать кнопки за экран.
+    val bodyMaxHeight = (LocalConfiguration.current.screenHeightDp * 0.4f).dp
     AlertDialog(
         onDismissRequest = onDismissRequest,
         shape = RoundedCornerShape(28.dp),
@@ -48,9 +58,26 @@ fun AppAlertDialog(
             Text(text = title, fontSize = 22.sp, fontWeight = FontWeight.W600)
         },
         text = when {
-            content != null -> content
+            content != null -> {
+                {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = bodyMaxHeight)
+                            .verticalScroll(rememberScrollState())
+                    ) { content() }
+                }
+            }
             text != null -> {
-                { Text(text = text, fontSize = 14.sp, lineHeight = 20.sp) }
+                {
+                    Text(
+                        text = text,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        modifier = Modifier
+                            .heightIn(max = bodyMaxHeight)
+                            .verticalScroll(rememberScrollState())
+                    )
+                }
             }
             else -> null
         },
