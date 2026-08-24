@@ -45,6 +45,7 @@ class PullToSyncViewModel : ViewModel(), KoinComponent {
             _uiState.update { it.copy(isRefreshing = true, message = null) }
             var completed = false
             var failureMessage: String? = null
+            var pendingDeletionCount = 0
             try {
                 if (!routeActionsHelper.hasActiveSubscription()) {
                     showMessage("Синхронизация доступна по подписке")
@@ -65,16 +66,23 @@ class PullToSyncViewModel : ViewModel(), KoinComponent {
                                 state.entity.throwable,
                             )
                         }
-                        is ResultState.Success -> completed = state.data.routesDone
+                        is ResultState.Success -> {
+                            completed = state.data.routesDone
+                            pendingDeletionCount = state.data.pendingDeletionRouteIds.size
+                        }
                         is ResultState.Loading -> Unit
                     }
                 }
 
                 showMessage(
-                    failureMessage ?: if (completed) {
-                        "Синхронизация завершена"
-                    } else {
+                    failureMessage ?: if (!completed) {
                         "Синхронизация не выполнена: сервер не завершил обработку данных"
+                    } else if (pendingDeletionCount > 0) {
+                        // Значительный объём удалений SyncManager не применяет молча —
+                        // подтверждение только в Профиле (ProfileViewModel.confirmPendingRouteDeletions).
+                        "На сервере пропало маршрутов: $pendingDeletionCount. Подтвердите удаление в Профиле."
+                    } else {
+                        "Синхронизация завершена"
                     }
                 )
             } catch (t: CancellationException) {

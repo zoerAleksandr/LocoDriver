@@ -162,15 +162,27 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
             _uiState.update { it.copy(isBackgroundSyncing = true) }
             try {
                 var failureMessage: String? = null
+                var pendingDeletionCount = 0
                 syncManager.syncBidirectional("Bearer $token").collect { state ->
-                    if (state is ResultState.Error) {
-                        failureMessage = NetworkErrorMapper.syncFailureMessage(
-                            state.entity.message,
-                            state.entity.throwable,
-                        )
+                    when (state) {
+                        is ResultState.Error -> {
+                            failureMessage = NetworkErrorMapper.syncFailureMessage(
+                                state.entity.message,
+                                state.entity.throwable,
+                            )
+                        }
+                        is ResultState.Success -> {
+                            pendingDeletionCount = state.data.pendingDeletionRouteIds.size
+                        }
+                        else -> {}
                     }
                 }
-                failureMessage?.let { snackbarManager.show(it) }
+                // Тихий фоновый sync не удаляет маршруты сам, если это значительный объём —
+                // просто подсказываем, где подтвердить (см. ProfileViewModel.confirmPendingRouteDeletions).
+                val message = failureMessage ?: if (pendingDeletionCount > 0) {
+                    "На сервере пропало маршрутов: $pendingDeletionCount. Подтвердите удаление в Профиле."
+                } else null
+                message?.let { snackbarManager.show(it) }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {

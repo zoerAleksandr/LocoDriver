@@ -64,7 +64,12 @@ data class SyncBidirectionalResult(
     var routesDone: Boolean = false,   // этап маршрутов завершён (для прогресса в UI)
     var timestamp: Long? = null,
     var routeWarnings: List<String> = emptyList(),
-    var routeErrors: List<String> = emptyList()
+    var routeErrors: List<String> = emptyList(),
+    // Маршруты, которые пропали с сервера, но НЕ удалены локально автоматически,
+    // т.к. их доля/количество сочли значительным (см. SyncManager.isSignificantRouteDeletion).
+    // UI должен спросить подтверждение и вызвать applyPendingRouteDeletions(pendingDeletionRouteIds).
+    var pendingDeletionRouteIds: List<String> = emptyList(),
+    var pendingDeletionLabels: List<String> = emptyList()
 )
 
 /**
@@ -946,6 +951,11 @@ class SyncManager(
         }
 
         // 2.4 Локальные маршруты, которых нет на сервере.
+        // Кандидаты на удаление сначала собираем, не удаляя сразу: если их доля
+        // окажется подозрительно большой (см. isSignificantRouteDeletion), это может
+        // быть не «удалили на другом устройстве», а пустой/усечённый ответ сервера
+        // из-за бага или сбоя — тогда лучше спросить пользователя, чем стереть историю.
+        val deletionCandidates = mutableListOf<Route>()
         for (local in localAll) {
             if (local.basicData.isDeleted) continue
             val id = local.basicData.id
@@ -953,14 +963,31 @@ class SyncManager(
             val wasEverUploaded = local.basicData.isSynchronized ||
                 !local.basicData.remoteRouteId.isNullOrBlank()
             if (wasEverUploaded) {
-                // Уже существовал в облаке и пропал с сервера → удалён на другом
-                // устройстве. Удаление побеждает даже более позднюю локальную
-                // правку: маршрут не должен самопроизвольно воскресать.
-                routeUseCase.removeRoute(local).collect {}
-                result.routesDeletedLocal++
+                // Уже существовал в облаке и пропал с сервера → похоже на удаление
+                // на другом устройстве. Финальное решение — ниже, после оценки объёма.
+                deletionCandidates.add(local)
             } else {
                 // Новый/правленый локально, ещё не выгружен → push.
                 pushRoute(local, bearerToken, allWarnings, allErrors)?.let { if (it) result.routesUploaded++ }
+            }
+        }
+
+        val totalSyncedLocal = localAll.count {
+            !it.basicData.isDeleted &&
+                (it.basicData.isSynchronized || !it.basicData.remoteRouteId.isNullOrBlank())
+        }
+        if (deletionCandidates.isNotEmpty() &&
+            isSignificantRouteDeletion(deletionCandidates.size, totalSyncedLocal)
+        ) {
+            // Удаление побеждает даже более позднюю локальную правку в обычном случае,
+            // но не когда объём подозрительно большой — тут решение за пользователем.
+            result.pendingDeletionRouteIds = deletionCandidates.map { it.basicData.id }
+            result.pendingDeletionLabels = deletionCandidates.map { routeLabel(it) }
+        } else {
+            for (local in deletionCandidates) {
+                // Маршрут не должен самопроизвольно воскресать — удаление побеждает.
+                routeUseCase.removeRoute(local).collect {}
+                result.routesDeletedLocal++
             }
         }
 
@@ -981,6 +1008,37 @@ class SyncManager(
             endSync()
         }
     }.flowOn(Dispatchers.Default).withSyncDeadline()
+
+    /**
+     * «Значительное» удаление — либо абсолютно большое количество маршрутов, либо
+     * заметная доля от всех ранее синхронизированных локальных маршрутов. Порог
+     * специально не реагирует на удаление 1 маршрута с другого устройства — это
+     * нормальный частый сценарий, спрашивать подтверждение на него было бы шумно.
+     */
+    private fun isSignificantRouteDeletion(deletionCount: Int, totalSyncedLocal: Int): Boolean {
+        if (deletionCount >= SIGNIFICANT_DELETION_MIN_COUNT) return true
+        if (deletionCount < 2) return false
+        val ratio = deletionCount.toDouble() / totalSyncedLocal.coerceAtLeast(1)
+        return ratio >= SIGNIFICANT_DELETION_MIN_RATIO
+    }
+
+    /**
+     * Применяет удаление маршрутов, отложенное в syncBidirectional из-за того, что оно
+     * было признано значительным (см. [SyncBidirectionalResult.pendingDeletionRouteIds]).
+     * Вызывается ТОЛЬКО после явного подтверждения пользователем в UI. Ничего не шлёт
+     * на сервер — маршруты там уже отсутствуют, только чистит локальную БД.
+     */
+    fun applyPendingRouteDeletions(routeIds: List<String>): Flow<ResultState<Int>> = flow {
+        emit(ResultState.Loading())
+        val localById = routeUseCase.listRouteWithDeleting().associateBy { it.basicData.id }
+        var deletedCount = 0
+        for (id in routeIds) {
+            val local = localById[id] ?: continue
+            routeUseCase.removeRoute(local).collect {}
+            deletedCount++
+        }
+        emit(ResultState.Success(deletedCount))
+    }.flowOn(Dispatchers.Default)
 
     /** Сохранить маршрут, пришедший с сервера (пометив синхронизированным). */
     private suspend fun saveDownloadedRoute(server: Route, local: Route? = null) {
@@ -1265,6 +1323,10 @@ class SyncManager(
     companion object {
         const val AUTOMATIC_SYNC_COOLDOWN_MILLIS: Long = 5 * 60 * 1000L
         const val SYNC_OPERATION_TIMEOUT_MILLIS: Long = 25_000L
+
+        // Пороги "значительного" удаления маршрутов при синхронизации — см. isSignificantRouteDeletion.
+        private const val SIGNIFICANT_DELETION_MIN_COUNT = 3
+        private const val SIGNIFICANT_DELETION_MIN_RATIO = 0.5
 
         /**
          * Формирует человекочитаемую метку маршрута: "Маршрут dd.MM.yy" + optional " №123"
