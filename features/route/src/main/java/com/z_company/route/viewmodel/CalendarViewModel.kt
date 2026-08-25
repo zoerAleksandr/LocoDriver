@@ -185,14 +185,21 @@ class CalendarViewModel : ViewModel(), KoinComponent {
     }
 
     // ── Планирование маршрутов ───────────────────────────────────
-    /** Войти в режим планирования: время явки из настроек + пустой выбор дней. */
-    fun enterRoutePlan() {
+    /** Войти в режим планирования и сразу сохранить выбранный в календаре день. */
+    fun enterRoutePlan(initialDay: Int) {
         val times = userSettings?.standardTimesStartWork.orEmpty()
+        val initialTime = times.firstOrNull()
+        val absence = _uiState.value.absenceByDay[initialDay]
+        val canPlanInitialDay = absence == null || absence.type == ReleaseType.DayOff
         _routePlan.value = RoutePlanState(
             active = true,
             timeOptions = times.map { TimeOption(it, ConverterLongToTime.getTimeInStringFormat(it).trim()) },
-            activeTime = times.firstOrNull(),
-            plannedDays = emptyMap(),
+            activeTime = initialTime,
+            plannedDays = if (initialTime != null && canPlanInitialDay) {
+                mapOf(initialDay to initialTime)
+            } else {
+                emptyMap()
+            },
             suggestedWorkDuration = userSettings?.defaultWorkTime ?: 43_200_000L,
         )
     }

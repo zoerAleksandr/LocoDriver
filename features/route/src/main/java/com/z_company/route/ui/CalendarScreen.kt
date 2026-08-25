@@ -203,7 +203,7 @@ fun CalendarScreen(
     onShiftMonth: (Int) -> Unit,
     onFillMonth: () -> Unit,
     onTripClick: (String) -> Unit,
-    onEnterRoutePlan: () -> Unit,
+    onEnterRoutePlan: (Int) -> Unit,
     onExitRoutePlan: () -> Unit,
     onPickTime: (Long) -> Unit,
     onAddCustomTime: (Int, Int) -> Unit,
@@ -512,7 +512,7 @@ fun CalendarScreen(
         ) {
             AddEventSheet(
                 dayLabel = "$selectedDay ${monthGenitive(state.month)}",
-                onRoute = { showAddSheet = false; onEnterRoutePlan() },
+                onRoute = { showAddSheet = false; onEnterRoutePlan(selectedDay) },
                 onAbsence = { showAddSheet = false; onAddAbsence(selectedDay) },
                 onDayoff = { showAddSheet = false; onAddDayoff(selectedDay) },
                 onTechnicalStudy = { showAddSheet = false; techStudyEdit = selectedDay to 2.0 },
@@ -697,13 +697,17 @@ private fun WorkDurationBottomSheet(
     onDismiss: () -> Unit,
 ) {
     val initialMinutes = (initialDuration / 60_000L).coerceAtLeast(0L)
-    var hours by remember(initialDuration) { mutableStateOf((initialMinutes / 60L).toString()) }
-    var minutes by remember(initialDuration) { mutableStateOf((initialMinutes % 60L).toString()) }
+    var durationText by remember(initialDuration) {
+        mutableStateOf(
+            "%02d:%02d".format(initialMinutes / 60L, initialMinutes % 60L)
+        )
+    }
     val focusManager = LocalFocusManager.current
-    val hoursValue = hours.toIntOrNull() ?: 0
-    val minutesValue = minutes.toIntOrNull() ?: 0
+    val durationDigits = durationText.filter(Char::isDigit)
+    val hoursValue = durationDigits.take(2).toIntOrNull() ?: 0
+    val minutesValue = durationDigits.drop(2).take(2).toIntOrNull() ?: 0
     val duration = (hoursValue * 60L + minutesValue) * 60_000L
-    val isValid = hoursValue in 0..99 && minutesValue in 0..59 && duration > 0L
+    val isValid = durationDigits.length == 4 && minutesValue in 0..59 && duration > 0L
 
     AppBottomSheet(
         onDismissRequest = onDismiss,
@@ -729,29 +733,23 @@ private fun WorkDurationBottomSheet(
             }
         },
         contentAfterHeader = {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, top = 20.dp, end = 16.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(start = 16.dp, top = 20.dp, end = 16.dp, bottom = 20.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                DurationNumberField(
-                    value = hours,
-                    onValueChange = { value -> hours = value.filter(Char::isDigit).take(2) },
-                    label = "Часы",
-                    suffix = "ч",
-                    imeAction = ImeAction.Next,
-                    modifier = Modifier.weight(1f),
-                )
-                DurationNumberField(
-                    value = minutes,
-                    onValueChange = { value -> minutes = value.filter(Char::isDigit).take(2) },
-                    label = "Минуты",
-                    suffix = "мин",
-                    imeAction = ImeAction.Done,
+                DurationInputField(
+                    value = durationText,
+                    onValueChange = { value ->
+                        val digits = value.filter(Char::isDigit).take(4)
+                        durationText = when {
+                            digits.length <= 2 -> digits
+                            else -> "${digits.take(2)}:${digits.drop(2)}"
+                        }
+                    },
                     keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                    isError = minutesValue !in 0..59,
-                    modifier = Modifier.weight(1f),
+                    isError = durationDigits.length == 4 && minutesValue !in 0..59,
                 )
             }
         },
@@ -763,26 +761,28 @@ private fun WorkDurationBottomSheet(
 }
 
 @Composable
-private fun DurationNumberField(
+private fun DurationInputField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String,
-    suffix: String,
-    imeAction: ImeAction,
-    modifier: Modifier = Modifier,
     isError: Boolean = false,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
 ) {
     OutlinedTextFieldApp(
-        modifier = modifier.height(60.dp),
+        modifier = Modifier.width(180.dp).height(60.dp),
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
-        suffix = { Text(suffix, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+        placeholder = {
+            Text(
+                text = "ЧЧ:ММ",
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+            )
+        },
         textStyle = MaterialTheme.typography.headlineSmall.copy(
             fontFamily = MonoFont,
             fontWeight = FontWeight.Bold,
             fontSize = 24.sp,
+            textAlign = TextAlign.Center,
         ),
         singleLine = true,
         isError = isError,
@@ -792,7 +792,7 @@ private fun DurationNumberField(
         colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.Number,
-            imeAction = imeAction,
+            imeAction = ImeAction.Done,
         ),
         keyboardActions = keyboardActions,
     )
