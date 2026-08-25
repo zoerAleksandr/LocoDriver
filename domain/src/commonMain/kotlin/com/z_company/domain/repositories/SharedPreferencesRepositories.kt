@@ -2,6 +2,7 @@ package com.z_company.domain.repositories
 
 import com.z_company.domain.entities.SchedulePattern
 import com.z_company.domain.entities.WorkScheduleProfile
+import com.z_company.domain.entities.norma_time.SectionNumberingType
 import kotlinx.coroutines.flow.StateFlow
 
 interface SharedPreferencesRepositories {
@@ -89,6 +90,11 @@ interface SharedPreferencesRepositories {
     fun setShowOtherCurrent(value: Boolean)
     fun isLocoSectionNormaExpanded(): Boolean
     fun setLocoSectionNormaExpanded(value: Boolean)
+
+    /** Тип подписи секций для новой формы локомотива без выбранной серии. */
+    fun getDefaultLocoSectionNumberingType(): SectionNumberingType
+    fun setDefaultLocoSectionNumberingType(value: SectionNumberingType)
+
     fun isPassenger12hDontAskAgain(): Boolean
     fun setPassenger12hDontAskAgain(value: Boolean)
 

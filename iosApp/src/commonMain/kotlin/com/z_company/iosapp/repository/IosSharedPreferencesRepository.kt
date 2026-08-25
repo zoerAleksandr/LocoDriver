@@ -2,6 +2,7 @@ package com.z_company.iosapp.repository
 
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.entities.WorkScheduleProfile
+import com.z_company.domain.entities.norma_time.SectionNumberingType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -52,6 +53,7 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var showLocoNorma: Boolean = false
     private var showOtherCurrent: Boolean = false
     private var locoSectionNormaExpanded: Boolean = false
+    private var defaultLocoSectionNumberingType = SectionNumberingType.NUMERIC
     private var passenger12hDontAskAgain: Boolean = false
     private var passenger12hAutoAccepted: Boolean = false
     private var timePickerKeyboardInput: Boolean = false
@@ -125,6 +127,10 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setShowOtherCurrent(value: Boolean) { showOtherCurrent = value }
     override fun isLocoSectionNormaExpanded(): Boolean = locoSectionNormaExpanded
     override fun setLocoSectionNormaExpanded(value: Boolean) { locoSectionNormaExpanded = value }
+    override fun getDefaultLocoSectionNumberingType(): SectionNumberingType = defaultLocoSectionNumberingType
+    override fun setDefaultLocoSectionNumberingType(value: SectionNumberingType) {
+        defaultLocoSectionNumberingType = value
+    }
     override fun isPassenger12hDontAskAgain(): Boolean = passenger12hDontAskAgain
     override fun setPassenger12hDontAskAgain(value: Boolean) { passenger12hDontAskAgain = value }
 

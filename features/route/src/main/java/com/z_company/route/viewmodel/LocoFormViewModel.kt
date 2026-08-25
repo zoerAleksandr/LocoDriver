@@ -10,7 +10,6 @@ import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.norma_time.SectionNumberingType
-import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.SectionDiesel
@@ -33,7 +32,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
@@ -103,15 +101,10 @@ class LocoFormViewModel(
 
     private val _sectionNumberingType = MutableStateFlow(SectionNumberingType.NUMERIC)
     val sectionNumberingType = _sectionNumberingType.asStateFlow()
+    private var shouldSaveSectionNumberingForSeries = false
 
     init {
-        viewModelScope.launch {
-            combine(_currentLoco, locomotiveSeriesRepository.getAllFlow()) { loco, series ->
-                series.find { it.name.equals(loco?.series?.trim(), ignoreCase = true) }
-                    ?.sectionNumberingType
-                    ?: SectionNumberingType.NUMERIC
-            }.collect { _sectionNumberingType.value = it }
-        }
+        _sectionNumberingType.value = sharedPreferenceStorage.getDefaultLocoSectionNumberingType()
         // Справочник серий — источник для автодополнения. Раньше в выпадающем
         // списке были только legacy-имена из UserSettings, поэтому серии,
         // пришедшие из синхронизации (например тепловоз), не показывались.
@@ -239,6 +232,10 @@ class LocoFormViewModel(
             if (result is ResultState.Success) {
                 result.data?.let { loco ->
                     _currentLoco.value = loco
+                    locomotiveSeriesRepository.getAll()
+                        .find { it.name.equals(loco.series?.trim(), ignoreCase = true) }
+                        ?.sectionNumberingType
+                        ?.let { _sectionNumberingType.value = it }
                     setSectionData(loco)
                 }
             }
@@ -392,6 +389,8 @@ class LocoFormViewModel(
     fun selectSeries(series: String) {
         val selected = locomotiveSeriesRepository.getAll()
             .find { it.name.equals(series.trim(), ignoreCase = true) }
+        selected?.sectionNumberingType?.let { _sectionNumberingType.value = it }
+        shouldSaveSectionNumberingForSeries = false
         _currentLoco.update { loco ->
             loco?.copy(series = series, type = selected?.type ?: loco.type)
         }
@@ -404,31 +403,42 @@ class LocoFormViewModel(
         changesHave()
     }
 
-    /** Переключает подписи всех секций и сразу сохраняет выбор для текущей серии. */
+    /** Переключает подписи всех секций и запоминает выбор для следующих локомотивов. */
     fun toggleSectionNumberingType() {
         val seriesName = _currentLoco.value?.series?.trim().orEmpty()
-        if (seriesName.isBlank()) return
         val next = when (_sectionNumberingType.value) {
             SectionNumberingType.NUMERIC -> SectionNumberingType.LETTERS
             SectionNumberingType.LETTERS -> SectionNumberingType.NUMERIC
         }
         _sectionNumberingType.value = next
+        sharedPreferenceStorage.setDefaultLocoSectionNumberingType(next)
+        shouldSaveSectionNumberingForSeries = true
         viewModelScope.launch {
             val all = locomotiveSeriesRepository.getAll().toMutableList()
             val index = all.indexOfFirst { it.name.equals(seriesName, ignoreCase = true) }
-            if (index < 0) {
-                all.add(
-                    LocomotiveSeries(
-                        name = seriesName,
-                        type = _currentLoco.value?.type ?: LocoType.ELECTRIC,
-                        sectionNumberingType = next,
-                    )
-                )
-            } else {
+            if (index >= 0) {
                 all[index] = all[index].copy(sectionNumberingType = next)
+                locomotiveSeriesRepository.replaceAll(all).collect {}
+                shouldSaveSectionNumberingForSeries = false
+                changesHave()
             }
-            locomotiveSeriesRepository.replaceAll(all).collect {}
         }
+    }
+
+    private suspend fun saveSectionNumberingForExistingSeries(seriesName: String?) {
+        if (!shouldSaveSectionNumberingForSeries) return
+        val normalizedName = seriesName?.trim().orEmpty()
+        if (normalizedName.isNotBlank()) {
+            val all = locomotiveSeriesRepository.getAll().toMutableList()
+            val index = all.indexOfFirst { it.name.equals(normalizedName, ignoreCase = true) }
+            if (index >= 0) {
+                all[index] = all[index].copy(sectionNumberingType = _sectionNumberingType.value)
+                locomotiveSeriesRepository.replaceAll(all).collect {}
+            }
+        }
+        // Незнакомую серию не добавляем в справочник. После сохранения локомотива
+        // её выбранный тип остаётся только значением по умолчанию.
+        shouldSaveSectionNumberingForSeries = false
     }
 
     fun changeLocoType(locoType: LocoType) {
@@ -1380,6 +1390,7 @@ class LocoFormViewModel(
                 updatedLoco.series?.let { series ->
                     settingsUseCase.setLocomotiveSeries(series)
                 }
+                saveSectionNumberingForExistingSeries(updatedLoco.series)
                 locomotiveUseCase.saveLocomotive(updatedLoco).collect { result ->
                     Log.d("zzz", "save loco result $result")
                     _uiState.update { it.copy(saveLocoState = result) }
@@ -1477,6 +1488,7 @@ class LocoFormViewModel(
                 updatedLoco.series?.let { series ->
                     settingsUseCase.setLocomotiveSeries(series)
                 }
+                saveSectionNumberingForExistingSeries(updatedLoco.series)
                 locomotiveUseCase.saveLocomotive(updatedLoco).collect {}
             }
         }

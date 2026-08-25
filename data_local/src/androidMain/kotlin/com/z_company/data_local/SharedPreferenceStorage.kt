@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.z_company.domain.entities.SchedulePattern
 import com.z_company.domain.entities.WorkScheduleProfile
+import com.z_company.domain.entities.norma_time.SectionNumberingType
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -48,6 +49,7 @@ private const val TOKEN_SHOW_LOCO_STATISTICS = "TOKEN_SHOW_LOCO_STATISTICS"
 private const val TOKEN_SHOW_LOCO_NORMA = "TOKEN_SHOW_LOCO_NORMA"
 private const val TOKEN_SHOW_OTHER_CURRENT = "TOKEN_SHOW_OTHER_CURRENT"
 private const val TOKEN_LOCO_SECTION_NORMA = "TOKEN_LOCO_SECTION_NORMA"
+private const val TOKEN_DEFAULT_LOCO_SECTION_NUMBERING = "TOKEN_DEFAULT_LOCO_SECTION_NUMBERING"
 private const val TOKEN_PASSENGER_12H_DONT_ASK = "TOKEN_PASSENGER_12H_DONT_ASK"
 private const val TOKEN_LOCO_NORM_HAND_TO_HAND = "TOKEN_LOCO_NORM_HAND_TO_HAND"
 private const val TOKEN_PASSENGER_12H_ACCEPTED = "TOKEN_PASSENGER_12H_ACCEPTED"
@@ -301,6 +303,15 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun setLocoSectionNormaExpanded(value: Boolean) {
         editor.putBoolean(TOKEN_LOCO_SECTION_NORMA, value).apply()
+    }
+
+    override fun getDefaultLocoSectionNumberingType(): SectionNumberingType =
+        sharedpref.getString(TOKEN_DEFAULT_LOCO_SECTION_NUMBERING, null)
+            ?.let { value -> SectionNumberingType.entries.find { it.name == value } }
+            ?: SectionNumberingType.NUMERIC
+
+    override fun setDefaultLocoSectionNumberingType(value: SectionNumberingType) {
+        editor.putString(TOKEN_DEFAULT_LOCO_SECTION_NUMBERING, value.name).apply()
     }
 
     override fun isPassenger12hDontAskAgain(): Boolean =
