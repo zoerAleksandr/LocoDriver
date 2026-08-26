@@ -173,32 +173,33 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun checkForChangesTariffRate() {
-        initialValueTariffRate?.let { initValue ->
-            currentMonthOfYear?.let { month ->
-                if (initValue != month.tariffRate) {
-                    _uiState.update {
-                        it.copy(
-                            isShowDialogChangeTariffRate = true
-                        )
-                    }
-                }
-            }
+    fun showDialogTariffRate() {
+        _uiState.update {
+            it.copy(isShowDialogChangeTariffRate = true)
         }
     }
 
-    fun saveSettingAndOnlyMonthTariffRate() {
+    fun saveSettingAndOnlyMonthTariffRate(onSaved: () -> Unit = {}) {
         viewModelScope.launch {
             changeTariffRateInOnlyInOneMonthOfYear()
+            markTariffRateSaved()
             saveSetting(updateMonthOfYear = true)
+            onSaved()
         }
     }
 
-    fun saveSettingAndTariffRateCurrentAndNextMonth() {
+    fun saveSettingAndTariffRateCurrentAndNextMonth(onSaved: () -> Unit = {}) {
         viewModelScope.launch {
             changeTariffRateCurrentAndNextMonths()
+            markTariffRateSaved()
             saveSetting(updateMonthOfYear = true)
+            onSaved()
         }
+    }
+
+    private fun markTariffRateSaved() {
+        initialValueTariffRate = currentMonthOfYear?.tariffRate
+        _uiState.update { it.copy(isShowDialogChangeTariffRate = false) }
     }
 
     private suspend fun changeTariffRateInOnlyInOneMonthOfYear() {

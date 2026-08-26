@@ -17,7 +17,7 @@ fun SettingSalaryDestination(
 
     SettingSalaryScreen(
         onBack = router::back,
-        onSaveClick = viewModel::checkForChangesTariffRate,
+        onTariffDateClick = viewModel::showDialogTariffRate,
         saveSettingState = uiState.saveSettingState,
         uiState = uiState,
         resetSaveState = viewModel::resetSaveState,
@@ -82,8 +82,10 @@ fun SettingSalaryDestination(
         onServicePhaseDismissed = viewModel::deleteSurchargeExtendedServicePhase,
         isShowDialogChangeTariffRate = uiState.isShowDialogChangeTariffRate,
         onHideDialogChangeTariffRate = viewModel::hideDialogTariffRate,
-        saveOnlyMonthTariffRate = viewModel::saveSettingAndOnlyMonthTariffRate,
-        saveTariffRateCurrentAndNextMonth = viewModel::saveSettingAndTariffRateCurrentAndNextMonth,
+        saveOnlyMonthTariffRate = { viewModel.saveSettingAndOnlyMonthTariffRate(router::back) },
+        saveTariffRateCurrentAndNextMonth = {
+            viewModel.saveSettingAndTariffRateCurrentAndNextMonth(router::back)
+        },
         setOtherSurcharge = viewModel::setOtherSurcharge,
         currentMonthOfYear = uiState.currentMonthOfYear,
         setDateNewTariffRate = viewModel::setDateSetTariffRate

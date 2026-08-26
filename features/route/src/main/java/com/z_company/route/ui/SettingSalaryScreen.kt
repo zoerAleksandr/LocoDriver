@@ -81,7 +81,7 @@ import java.util.Calendar
 @Composable
 fun SettingSalaryScreen(
     onBack: () -> Unit,
-    onSaveClick: () -> Unit,
+    onTariffDateClick: () -> Unit,
     isEnableSaveButton: Boolean,
     uiState: SettingSalaryUIState,
     saveSettingState: ResultState<Unit>?,
@@ -401,7 +401,7 @@ fun SettingSalaryScreen(
                         label = "Тарифная ставка",
                         action = {
                             Row(
-                                modifier = Modifier.clickable { isShowSetDateTariffRateDialog = true },
+                                modifier = Modifier.clickable(onClick = onTariffDateClick),
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text("на $dateSetTariffRate", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
@@ -420,7 +420,7 @@ fun SettingSalaryScreen(
                             label = "Тарифная ставка",
                             action = {
                                 Row(
-                                    modifier = Modifier.clickable { isShowSetDateTariffRateDialog = true },
+                                    modifier = Modifier.clickable(onClick = onTariffDateClick),
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text("до $dateSetTariffRate", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
