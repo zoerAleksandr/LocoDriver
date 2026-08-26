@@ -14,6 +14,7 @@ import com.z_company.domain.use_cases.NormaUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.currencySymbol
 import com.z_company.domain.util.str
 import kotlinx.coroutines.CoroutineScope
@@ -80,7 +81,10 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                 }.flatMapLatest { (userRes, salaryRes) ->
                     // Реактивная подписка на маршруты: при добавлении/удалении маршрута
                     // автоматически пересчитывается зарплата без смены настроек.
-                    routeUseCase.listRoutesByMonth(userRes.selectMonthOfYear, userRes.timeZone)
+                    routeUseCase.listRoutesByMonth(
+                        userRes.selectMonthOfYear,
+                        TimeCalculationContext.from(userRes)
+                    )
                         .filter { it is ResultState.Success }
                         .map { Triple(userRes, salaryRes, (it as ResultState.Success).data) }
                 }.collectLatest { (userRes, salaryRes, routes) ->
@@ -467,7 +471,10 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
         var annualOvertime = 0L
         previousMonths.forEach { month ->
-            val routesState = routeUseCase.listRoutesByMonth(month, userSettings.timeZone)
+            val routesState = routeUseCase.listRoutesByMonth(
+                month,
+                TimeCalculationContext.from(userSettings)
+            )
                 .first { it is ResultState.Success || it is ResultState.Error }
             val routes = (routesState as? ResultState.Success)?.data.orEmpty()
             val settingsForMonth = userSettings.copy(selectMonthOfYear = month)
