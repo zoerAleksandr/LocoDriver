@@ -238,6 +238,7 @@ fun HomeRestBlock(
 
     val total = (state.fullRestEnd - state.restStart).toFloat().coerceAtLeast(1f)
     val progress = ((now - state.restStart) / total).coerceIn(0f, 1f)
+    val minFraction = state.minRestEnd?.let { ((it - state.restStart) / total).coerceIn(0f, 1f) }
 
     Column(modifier = modifier.fillMaxWidth()) {
         RestGroupHeader("ДОМАШНИЙ ОТДЫХ")
@@ -255,7 +256,7 @@ fun HomeRestBlock(
                 Spacer(modifier = Modifier.height(20.dp))
                 RestProgressBar(
                     progress = progress,
-                    dotFraction = null,
+                    dotFraction = minFraction,
                     dotColor = warningColor,
                     endDotColor = warningColor,
                 )

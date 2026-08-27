@@ -91,6 +91,7 @@ fun RouteQuickViewSheet(
     dateAndTimeConverter: DateAndTimeConverter?,
     minTimeRest: Long?,
     homeRest: Long?,
+    minHomeRest: Long? = null,
     actualRestDuration: Long?,
     actualRestUntil: Long?,
     onDismiss: () -> Unit,
@@ -142,6 +143,7 @@ fun RouteQuickViewSheet(
                     dateAndTimeConverter = dateAndTimeConverter,
                     minTimeRest = minTimeRest,
                     homeRest = homeRest,
+                    minHomeRest = minHomeRest,
                     actualRestDuration = actualRestDuration,
                     actualRestUntil = actualRestUntil,
                 )
@@ -391,6 +393,7 @@ private fun QuickViewContent(
     dateAndTimeConverter: DateAndTimeConverter?,
     minTimeRest: Long?,
     homeRest: Long?,
+    minHomeRest: Long? = null,
     actualRestDuration: Long?,
     actualRestUntil: Long?,
 ) {
@@ -463,6 +466,15 @@ private fun QuickViewContent(
                 item {
                     SectionHeader("Домашний отдых")
                     QvCard {
+                        if (minHomeRest != null) {
+                            RestContentRow(
+                                title = "Минимальный отдых",
+                                until = dateAndTimeConverter?.getDateMiniAndTime(minHomeRest),
+                                duration = durationText(minHomeRest, endWork),
+                                durationColor = MaterialTheme.colorScheme.primary,
+                            )
+                            QvDivider()
+                        }
                         if (homeRest != null) {
                             RestContentRow(
                                 title = "Полный отдых",

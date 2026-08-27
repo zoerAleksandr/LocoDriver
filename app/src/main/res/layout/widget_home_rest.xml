@@ -83,5 +83,14 @@
                 android:maxLines="1"
                 android:ellipsize="end" />
         </LinearLayout>
+        <TextView
+            android:id="@+id/hr_min_end"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Минимальный отдых до 16.07 · 12:45"
+            android:textColor="@color/widget_text_muted"
+            android:textSize="12sp"
+            android:gravity="end" />
     </LinearLayout>
 </LinearLayout>

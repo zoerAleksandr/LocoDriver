@@ -568,6 +568,7 @@ fun CalendarScreen(
             dateAndTimeConverter = dateAndTimeConverter,
             minTimeRest = state.minTimeRest,
             homeRest = previewRouteState.homeRest,
+            minHomeRest = previewRouteState.minHomeRest,
             actualRestDuration = previewRouteState.actualRestDuration,
             actualRestUntil = previewRouteState.actualRestUntil,
             onDismiss = { routeForQuickView = null },

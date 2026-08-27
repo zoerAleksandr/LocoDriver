@@ -612,6 +612,7 @@ fun AllRouteScreen(
                     dateAndTimeConverter = viewModel.dateAndTimeConverter,
                     minTimeRest = viewModel.minTimeRest,
                     homeRest = previewRouteState.homeRest,
+                    minHomeRest = previewRouteState.minHomeRest,
                     actualRestDuration = previewRouteState.actualRestDuration,
                     actualRestUntil = previewRouteState.actualRestUntil,
                     onDismiss = { showContextDialog = false },

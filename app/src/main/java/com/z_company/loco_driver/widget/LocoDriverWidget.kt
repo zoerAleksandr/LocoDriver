@@ -292,6 +292,7 @@ class LocoDriverWidget : GlanceAppWidget() {
             context = context,
             dur = prefs[WKeys.HR_DUR] ?: "",
             end = prefs[WKeys.HR_END] ?: "",
+            minEnd = prefs[WKeys.HR_MIN_END] ?: "",
         )
         AndroidRemoteViews(rv, GlanceModifier.fillMaxWidth().wrapContentHeight())
 
@@ -329,7 +330,7 @@ class LocoDriverWidget : GlanceAppWidget() {
             upFrom: String, upTo: String,
             restShortDur: String, restShortEnd: String,
             restFullDur: String, restFullEnd: String,
-            hrDur: String, hrEnd: String,
+            hrDur: String, hrEnd: String, hrMinEnd: String,
         ) {
             val manager = GlanceAppWidgetManager(context)
             val glanceIds = manager.getGlanceIds(LocoDriverWidget::class.java)
@@ -367,6 +368,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                         this[WKeys.REST_FULL_END] = restFullEnd
                         this[WKeys.HR_DUR] = hrDur
                         this[WKeys.HR_END] = hrEnd
+                        this[WKeys.HR_MIN_END] = hrMinEnd
                     }
                 }
                 LocoDriverWidget().update(context, glanceId)
@@ -509,7 +511,7 @@ object WidgetDataLoader : KoinComponent {
         var upFrom = ""; var upTo = ""
         var restShortDur = ""; var restShortEnd = ""
         var restFullDur = ""; var restFullEnd = ""
-        var hrDur = ""; var hrEnd = ""
+        var hrDur = ""; var hrEnd = ""; var hrMinEnd = ""
 
         if (hasCurrentRoute) {
             state = "current"
@@ -541,7 +543,7 @@ object WidgetDataLoader : KoinComponent {
                 // Домашний отдых — когда следующего маршрута нет.
                 rh != null -> {
                     state = "home_rest"
-                    hrDur = rh.hrDur; hrEnd = rh.hrEnd
+                    hrDur = rh.hrDur; hrEnd = rh.hrEnd; hrMinEnd = rh.hrMinEnd
                 }
                 else -> state = "none"
             }
@@ -566,7 +568,7 @@ object WidgetDataLoader : KoinComponent {
             upFrom = upFrom, upTo = upTo,
             restShortDur = restShortDur, restShortEnd = restShortEnd,
             restFullDur = restFullDur, restFullEnd = restFullEnd,
-            hrDur = hrDur, hrEnd = hrEnd,
+            hrDur = hrDur, hrEnd = hrEnd, hrMinEnd = hrMinEnd,
         )
 
         // Update small widget: блок нормы + цель кнопки перехода (видна при
@@ -648,7 +650,7 @@ object WidgetDataLoader : KoinComponent {
         val isPO: Boolean,
         val shortDur: String = "", val shortEnd: String = "",
         val fullDur: String = "", val fullEnd: String = "",
-        val hrDur: String = "", val hrEnd: String = "",
+        val hrDur: String = "", val hrEnd: String = "", val hrMinEnd: String = "",
     )
 
     /**
@@ -721,6 +723,7 @@ object WidgetDataLoader : KoinComponent {
                 isPO = false,
                 hrDur = ConverterLongToTime.getTimeInStringFormat(duration),
                 hrEnd = dtc.getDateMiniAndTime(endRestTime),
+                hrMinEnd = "до ${dtc.getDateMiniAndTime(endWork + userSettings.minTimeHomeRest)}",
             )
         }
     }

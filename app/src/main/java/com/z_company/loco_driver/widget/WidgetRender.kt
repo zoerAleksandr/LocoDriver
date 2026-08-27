@@ -78,6 +78,7 @@ object WKeys {
     // home_rest — домашний отдых
     val HR_DUR = stringPreferencesKey("w_hr_dur")         // "16ч 15м"
     val HR_END = stringPreferencesKey("w_hr_end")         // "16.07 · 18:45"
+    val HR_MIN_END = stringPreferencesKey("w_hr_min_end") // "16.07 · 12:45"
 
     // ─── Малый виджет: кнопка перехода при растягивании по ширине ───
     // "train" (есть поезд) | "route" (есть маршрут без поезда) | "new" (маршрута нет).
@@ -334,10 +335,11 @@ object WidgetRender {
     }
 
     /** Состояние «Домашний отдых» (widget_home_rest). Кнопка — в Glance. */
-    fun buildHomeRest(context: Context, dur: String, end: String): RemoteViews {
+    fun buildHomeRest(context: Context, dur: String, end: String, minEnd: String): RemoteViews {
         val rv = RemoteViews(context.packageName, R.layout.widget_home_rest)
         bindMonoBitmap(context, rv, R.id.hr_duration, dur, 26f, R.color.widget_text)
         rv.setTextViewText(R.id.hr_end, end)
+        rv.setTextViewText(R.id.hr_min_end, minEnd)
         return rv
     }
 
