@@ -1859,6 +1859,7 @@ fun ItemNotes(
 fun InfoRestOfHomeOfTime(
     restDuration: Long?,
     timeEndHomeRest: Long?,
+    timeEndMinHomeRest: Long? = null,
     onSettingClick: () -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
@@ -1895,6 +1896,13 @@ fun InfoRestOfHomeOfTime(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
+                timeEndMinHomeRest?.let {
+                    Text(
+                        text = "Минимальный отдых до ${dateAndTimeConverter?.getDateAndTime(it) ?: ""}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
 
                 Text(
                     text = "\nформула расчета\n(время рабочее * 2,6) - время отдыха в ПО",
@@ -2676,12 +2684,25 @@ private fun RestBottomSheet(
         } else {
             val dur = dialogRestUiState.homeRestDuration
             val end = dialogRestUiState.timeEndHomeRest
+            val minEnd = dialogRestUiState.timeEndMinHomeRest
             if (dur == null || end == null) {
                 RestUnavailableCard(
                     "Невозможно рассчитать время отдыха.\nПроверьте начало и окончание работы во всей цепочке маршрутов."
                 )
             } else {
                 FormMCard {
+                    minEnd?.let {
+                        RestItem(
+                            title = "Минимальный отдых",
+                            duration = ConverterLongToTime.formatDurationFromMillis(it - (end - dur)),
+                            until = dateAndTimeConverter?.getDateMiniAndTime(it) ?: ""
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
                     RestItem(
                         title = "Полный отдых",
                         duration = ConverterLongToTime.formatDurationFromMillis(dur),

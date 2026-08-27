@@ -812,8 +812,9 @@ class FormViewModel(
             if (result is ResultState.Success) {
                 _dialogRestUiState.update {
                     it.copy(
-                        homeRestDuration = result.data?.first ?: 0L,
-                        timeEndHomeRest = result.data?.second
+                        homeRestDuration = result.data?.duration ?: 0L,
+                        timeEndHomeRest = result.data?.endTime,
+                        timeEndMinHomeRest = result.data?.minEndTime
                     )
                 }
             }

@@ -23,6 +23,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
 
+data class HomeRestCalculation(
+    val duration: Long,
+    val endTime: Long,
+    val minEndTime: Long,
+)
+
 class RouteActionsHelper() : KoinComponent {
 
     companion object {
@@ -216,7 +222,7 @@ class RouteActionsHelper() : KoinComponent {
      *   }
      * }
      */
-    fun calculationHomeRest(route: Route?): Flow<ResultState<Pair<Long, Long>?>> = flow {
+    fun calculationHomeRest(route: Route?): Flow<ResultState<HomeRestCalculation?>> = flow {
         emit(ResultState.Loading())
         try {
             if (route == null) {
@@ -322,9 +328,10 @@ class RouteActionsHelper() : KoinComponent {
             val rawDuration = (sumWork.toDouble() * 2.6).toLong()
             val duration = maxOf(rawDuration - sumRest, minTimeHomeRest)
 
+            val minEndTime = route.basicData.timeEndWork!! + minTimeHomeRest
             val endTime = route.basicData.timeEndWork!! + duration
 
-            emit(ResultState.Success(Pair(duration, endTime)))
+            emit(ResultState.Success(HomeRestCalculation(duration, endTime, minEndTime)))
         } catch (c: kotlin.coroutines.cancellation.CancellationException) {
             // Отмена коллектора (collectLatest / .first()) бросает CancellationException
             // (в т.ч. AbortFlowException) через emit — её нельзя глотать и переэмитить,
