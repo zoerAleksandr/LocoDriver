@@ -414,7 +414,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             routeHelper.calculationHomeRest(route).collect { result ->
                 if (result is ResultState.Success) {
-                    _previewRouteUiState.update { it.copy(homeRest = result.data?.second) }
+                    _previewRouteUiState.update { it.copy(homeRest = result.data?.endTime, minHomeRest = result.data?.minEndTime) }
                 }
             }
         }

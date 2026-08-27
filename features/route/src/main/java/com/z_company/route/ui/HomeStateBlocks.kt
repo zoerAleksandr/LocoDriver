@@ -226,7 +226,7 @@ fun RestPointOfTurnoverBlock(
     }
 }
 
-/** Блок «Домашний отдых»: одна граница (полный отдых). */
+/** Блок «Домашний отдых»: минимальная и расчётная границы отдыха. */
 @Composable
 fun HomeRestBlock(
     state: RestBlockState,
@@ -269,6 +269,10 @@ fun HomeRestBlock(
 
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                state.minRestEnd?.let { minEnd ->
+                    RestRow("Минимальный отдых", minEnd, now, dateAndTimeConverter)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
                 RestRow("Полный отдых", state.fullRestEnd, now, dateAndTimeConverter)
             }
         }

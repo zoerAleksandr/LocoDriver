@@ -122,6 +122,7 @@ data class RestBlockState(
     val restStart: Long,
     val shortRestEnd: Long?,
     val fullRestEnd: Long,
+    val minRestEnd: Long? = null,
 )
 
 class HomeViewModel : ViewModel(), KoinComponent {
@@ -526,7 +527,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
         } else {
             val homeResult = routeHelper.calculationHomeRest(previous)
                 .first { it is ResultState.Success || it is ResultState.Error }
-            val fullEnd = (homeResult as? ResultState.Success)?.data?.second
+            val homeCalculation = (homeResult as? ResultState.Success)?.data
+            val fullEnd = homeCalculation?.endTime
             boundary = fullEnd
             if (fullEnd == null || now >= fullEnd) null
             else RestBlockState(
@@ -534,6 +536,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 restStart = restStart,
                 shortRestEnd = null,
                 fullRestEnd = fullEnd,
+                minRestEnd = homeCalculation?.minEndTime,
             )
         }
 
@@ -1601,7 +1604,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     is ResultState.Success -> {
                         _previewRouteUiState.update {
                             it.copy(
-                                homeRest = result.data?.second
+                                homeRest = result.data?.endTime,
+                                minHomeRest = result.data?.minEndTime
                             )
                         }
                     }

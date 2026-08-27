@@ -572,7 +572,8 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                     is ResultState.Success -> {
                         _previewRouteUiState.update {
                             it.copy(
-                                homeRest = result.data?.second
+                                homeRest = result.data?.endTime,
+                                minHomeRest = result.data?.minEndTime
                             )
                         }
                     }
