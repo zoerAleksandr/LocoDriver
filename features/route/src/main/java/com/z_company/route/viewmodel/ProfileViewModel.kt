@@ -95,7 +95,10 @@ data class ProfileUiState(
     // (см. SyncManager.isSignificantRouteDeletion) — ждут явного подтверждения
     // пользователя перед тем, как их удалят локально.
     val pendingRouteDeletionIds: List<String> = emptyList(),
-    val pendingRouteDeletionLabels: List<String> = emptyList()
+    val pendingRouteDeletionLabels: List<String> = emptyList(),
+    // Текст об ошибке привязки VK ID (409 и т.п.) — показывается в snackbar
+    // и сбрасывается через clearVkLinkMessage().
+    val vkLinkMessage: String? = null
 )
 
 // Описание: Определяет тип синхронизации (загрузка на сервер или с сервера) для выбора правильного progress map в UI.
@@ -812,7 +815,12 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun authWithVKID(vkid: String) {
+    /**
+     * @param vkAccessToken токен из VKID SDK. Уходит ровно в один сетевой
+     *   запрос: не сохраняем его ни в SecureTokenStorage, ни в логи/Sentry.
+     *   Локально по-прежнему храним только vk id — как признак «VK привязан».
+     */
+    fun authWithVKID(vkid: String, vkAccessToken: String) {
         loginJob?.cancel()
         val handler = CoroutineExceptionHandler { _, throwable ->
             // VK SDK может бросить при отмене капчи во время OAuth
@@ -820,7 +828,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         }
         loginJob = viewModelScope.launch(handler) {
             try {
-                authManager.authWithVKID(vkid).collect { state ->
+                authManager.authWithVKID(vkid, vkAccessToken).collect { state ->
                     if (state is AuthState.Success) {
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
@@ -884,11 +892,11 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun registeredUserByVKID(vkid: String, email: String) {
+    fun registeredUserByVKID(vkid: String, vkAccessToken: String, email: String) {
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
             // Пояснение: Запускаем корутину для collect Flow (Flow холодный, стартует здесь).
-            authManager.registerByVKID(vkid, email)
+            authManager.registerByVKID(vkid, vkAccessToken, email)
                 .collect { state ->  // Collect эмитит значения из Flow
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken
@@ -1035,25 +1043,38 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    // Для чего: Вызывается из OneTap в профиле, когда VK не привязан. Предполагаем, что AuthManager имеет метод attachVKID (аналогичный registerByVKID, но для привязки). После успеха сохраняем VK ID и обновляем данные.
-    fun attachVKID(vkid: String) {
+    /**
+     * Привязка VK к текущему аккаунту (OneTap в профиле, когда VK не привязан).
+     *
+     * @param vkAccessToken токен из VKID SDK — по нему сервер сам определяет
+     *   vk_id. Не сохраняем: локально по-прежнему храним только vk id.
+     *
+     * Ошибку (в т.ч. 409 «VK уже привязан к другому аккаунту») кладём в
+     * [ProfileUiState.vkLinkMessage], чтобы UI показал текст, а не молчал.
+     */
+    fun attachVKID(vkid: String, vkAccessToken: String) {
         viewModelScope.launch {
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val fullToken = "Bearer $token"
             authManager.attachVKID(
                 fullToken,
-                vkid
-            )  // Предполагаем, что этот метод добавлен в AuthManager и возвращает Flow<RegistrationState>
-                .collect { state ->
+                vkid,
+                vkAccessToken
+            ).collect { state ->
                     if (state is GetUserProfileState.Success) {
                         secureTokenStorage.saveVkId(vkid)
                         refresh()  // Обновляем, чтобы Flow VK ID эмитнул и загрузил данные
                     } else if (state is GetUserProfileState.Error) {
-                        // Можно добавить обработку ошибки, например, в uiState
                         Log.e("ProfileViewModel", "Ошибка привязки VK: ${state.message}")
+                        _uiState.update { it.copy(vkLinkMessage = state.message) }
                     }
                 }
         }
+    }
+
+    /** Сброс сообщения о привязке VK после показа в snackbar. */
+    fun clearVkLinkMessage() {
+        _uiState.update { it.copy(vkLinkMessage = null) }
     }
 
     fun vkIdRefreshToken() {
@@ -1413,11 +1434,11 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    fun registeredUserByVKIDForMigration(vkid: String, email: String) {
+    fun registeredUserByVKIDForMigration(vkid: String, vkAccessToken: String, email: String) {
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
             // Пояснение: Запускаем корутину для collect Flow (Flow холодный, стартует здесь).
-            authManager.registerByVKID(vkid, email)
+            authManager.registerByVKID(vkid, vkAccessToken, email)
                 .collect { state ->  // Collect эмитит значения из Flow
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken

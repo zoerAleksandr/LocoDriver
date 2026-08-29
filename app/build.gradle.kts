@@ -54,6 +54,13 @@ android {
             name = "SENTRY_DSN",
             value = "\"${properties.getProperty("SENTRY_DSN", "")}\""
         )
+        // client_id приложения VK ID: уходит на сервер в vkClientId, чтобы он
+        // проверял VK access token у нужного приложения.
+        buildConfigField(
+            type = "String",
+            name = "VKID_CLIENT_ID",
+            value = "\"${properties.getProperty("VKIDClientID", "")}\""
+        )
     }
 
 

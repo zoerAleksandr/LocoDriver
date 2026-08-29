@@ -62,6 +62,7 @@ import com.z_company.core.util.isVpnActive
 import com.z_company.core.util.vpnAwareErrorMessage
 import com.z_company.core.util.VPN_ERROR_HINT
 import com.z_company.repository.remote_rest.AuthState
+import com.z_company.repository.remote_rest.VkAuthError
 import com.z_company.route.R
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
@@ -302,6 +303,18 @@ fun ProfileScreen(
                 duration = SnackbarDuration.Long
             )
             viewModel.resetRegisteredState() // Сброс состояния после показа ошибки
+        }
+    }
+
+    // Для чего: Чтобы ошибка привязки VK ID (например, 409 — VK уже привязан
+    // к другому аккаунту) доходила до пользователя, а не только до лога.
+    LaunchedEffect(uiState.vkLinkMessage) {
+        uiState.vkLinkMessage?.let { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Long
+            )
+            viewModel.clearVkLinkMessage()
         }
     }
 
@@ -614,6 +627,7 @@ fun ProfileScreen(
                                         val email = accessToken.userData.email ?: ""
                                         viewModel.registeredUserByVKIDForMigration(
                                             vkid = vkId,
+                                            vkAccessToken = accessToken.token,
                                             email = email
                                         )
                                     },
@@ -861,7 +875,12 @@ fun ProfileScreen(
                                                 )
                                                 OneTap(
                                                     modifier = Modifier.fillMaxWidth(),
-                                                    onAuth = { _, accessToken -> viewModel.attachVKID(accessToken.userID.toString()) },
+                                                    onAuth = { _, accessToken ->
+                                                        viewModel.attachVKID(
+                                                            vkid = accessToken.userID.toString(),
+                                                            vkAccessToken = accessToken.token
+                                                        )
+                                                    },
                                                     onFail = { _, f -> scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") } },
                                                     signInAnotherAccountButtonEnabled = true,
                                                 )
@@ -906,7 +925,16 @@ fun ProfileScreen(
                                                     modifier = Modifier.fillMaxWidth(),
                                                     onAuth = { _, accessToken ->
                                                         val vkId = accessToken.userID.toString()
-                                                        if (isVkLinkedOnServer) viewModel.onVkAuthForLinkedAccount(vkId) else viewModel.attachVKID(vkId)
+                                                        if (isVkLinkedOnServer) {
+                                                            // Аккаунт уже привязан на сервере — сетевого запроса нет,
+                                                            // только локальный признак, токен не нужен.
+                                                            viewModel.onVkAuthForLinkedAccount(vkId)
+                                                        } else {
+                                                            viewModel.attachVKID(
+                                                                vkid = vkId,
+                                                                vkAccessToken = accessToken.token
+                                                            )
+                                                        }
                                                     },
                                                     onFail = { _, f -> scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") } },
                                                     signInAnotherAccountButtonEnabled = true,
@@ -1136,6 +1164,15 @@ fun ProfileScreen(
                         var passwordVisible by remember { mutableStateOf(false) }
                         var login by remember { mutableStateOf(!viewModel.isFirstAppEntry.value) }
 
+                        // Вход по VK на аккаунте, к которому VK не привязан: сервер
+                        // отвечает 404 vk_user_not_found. Переключаем тумблер на
+                        // «Регистрация», чтобы человек не упирался в ошибку входа.
+                        LaunchedEffect(authUiState) {
+                            if ((authUiState as? AuthState.Error)?.vkError == VkAuthError.UserNotFound) {
+                                login = false
+                            }
+                        }
+
                         val paddingBetweenView = 12.dp
                         val dataStyle = MaterialTheme.typography.bodyLarge
                         val hintStyle = MaterialTheme.typography.bodyMedium
@@ -1200,10 +1237,14 @@ fun ProfileScreen(
                                     .fillMaxWidth(),
                                 onAuth = { _, accessToken ->
                                     if (login) {
-                                        viewModel.authWithVKID(accessToken.userID.toString())
+                                        viewModel.authWithVKID(
+                                            vkid = accessToken.userID.toString(),
+                                            vkAccessToken = accessToken.token
+                                        )
                                     } else {
                                         viewModel.registeredUserByVKID(
                                             vkid = accessToken.userID.toString(),
+                                            vkAccessToken = accessToken.token,
                                             email = accessToken.userData.email ?: ""
                                         )
                                     }
