@@ -21,6 +21,7 @@ class PayrollPaymentCatalogTest {
     @Test
     fun `confirmed codes from supplied payroll sheets are preserved`() {
         assertEquals("004L", PayrollPaymentCatalog[SalaryPaymentId.TARIFF].codeLabel)
+        assertEquals("048A", PayrollPaymentCatalog[SalaryPaymentId.UNDERWORK].codeLabel)
         assertEquals("023L", PayrollPaymentCatalog[SalaryPaymentId.NIGHT].codeLabel)
         assertEquals("018L", PayrollPaymentCatalog[SalaryPaymentId.PASSENGER].codeLabel)
         assertEquals("052L", PayrollPaymentCatalog[SalaryPaymentId.RESERVE].codeLabel)
@@ -29,8 +30,9 @@ class PayrollPaymentCatalogTest {
         assertEquals("073L", PayrollPaymentCatalog[SalaryPaymentId.OVERTIME_HALF].codeLabel)
         assertEquals("073M", PayrollPaymentCatalog[SalaryPaymentId.OVERTIME_FULL].codeLabel)
         assertEquals("151L/151P", PayrollPaymentCatalog[SalaryPaymentId.EXTENDED_SERVICE].codeLabel)
-        assertEquals("152P", PayrollPaymentCatalog[SalaryPaymentId.HEAVY_TRAIN].codeLabel)
-        assertEquals("152P", PayrollPaymentCatalog[SalaryPaymentId.LONG_TRAIN].codeLabel)
+        assertEquals("152L/152P", PayrollPaymentCatalog[SalaryPaymentId.HEAVY_TRAIN].codeLabel)
+        assertEquals("152L/152P", PayrollPaymentCatalog[SalaryPaymentId.LONG_TRAIN].codeLabel)
+        assertEquals("158L", PayrollPaymentCatalog[SalaryPaymentId.DOUBLED_TRAIN].codeLabel)
         assertEquals("153L", PayrollPaymentCatalog[SalaryPaymentId.ONE_PERSON_FREIGHT].codeLabel)
         assertEquals("153L", PayrollPaymentCatalog[SalaryPaymentId.ONE_PERSON_PASSENGER].codeLabel)
         assertEquals("030A/030B", PayrollPaymentCatalog[SalaryPaymentId.AVERAGE].codeLabel)
