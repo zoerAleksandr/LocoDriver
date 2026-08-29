@@ -45,6 +45,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.vk.id.onetap.compose.onetap.OneTap
@@ -98,10 +99,10 @@ private fun ProfileGroupLabel(text: String) {
 }
 
 @Composable
-private fun ProfileAvatarPlaceholder() {
+private fun ProfileAvatarPlaceholder(size: Dp = 84.dp) {
     Box(
         modifier = Modifier
-            .size(84.dp)
+            .size(size)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceBright),
         contentAlignment = Alignment.Center,
@@ -109,7 +110,7 @@ private fun ProfileAvatarPlaceholder() {
         Icon(
             painterResource(R.drawable.person_24px),
             contentDescription = null,
-            modifier = Modifier.size(44.dp),
+            modifier = Modifier.size(size * 0.52f),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -957,7 +958,7 @@ fun ProfileScreen(
                                         .fillMaxWidth()
                                         .shadow(1.dp, Shapes.medium)
                                         .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-                                        .padding(vertical = 20.dp, horizontal = 18.dp),
+                                        .padding(vertical = 14.dp, horizontal = 16.dp),
                                 ) {
                                     Column(
                                         modifier = Modifier.fillMaxWidth(),
@@ -991,29 +992,64 @@ fun ProfileScreen(
                                             val serverVkId = (uiState.userDetailsState as? ResultState.Success)?.data?.vkId
                                             val isVkLinkedOnServer = !serverVkId.isNullOrEmpty()
                                             if (vkUser != null) {
-                                                if (vkUser.photoUrl != null) {
-                                                    AsyncImage(
-                                                        model = vkUser.photoUrl,
-                                                        contentDescription = null,
-                                                        contentScale = ContentScale.Crop,
-                                                        modifier = Modifier
-                                                            .size(84.dp)
-                                                            .clip(CircleShape),
-                                                    )
-                                                } else {
-                                                    ProfileAvatarPlaceholder()
-                                                }
-                                                Text(
-                                                    text = vkUser.name,
-                                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                )
+                                                // Вход выполнен — подпись «Вход через VK ID» не нужна,
+                                                // полезнее видеть сам номер. Отвязка уезжает вправо,
+                                                // чтобы не разрывать карточку по вертикали.
                                                 Row(
+                                                    modifier = Modifier.fillMaxWidth(),
                                                     verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                                                 ) {
-                                                    VkBadge()
-                                                    Text("Вход через VK ID", style = styleHint, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    if (vkUser.photoUrl != null) {
+                                                        AsyncImage(
+                                                            model = vkUser.photoUrl,
+                                                            contentDescription = null,
+                                                            contentScale = ContentScale.Crop,
+                                                            modifier = Modifier
+                                                                .size(52.dp)
+                                                                .clip(CircleShape),
+                                                        )
+                                                    } else {
+                                                        ProfileAvatarPlaceholder(size = 52.dp)
+                                                    }
+                                                    Column(
+                                                        modifier = Modifier.weight(1f),
+                                                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                                                    ) {
+                                                        Text(
+                                                            text = vkUser.name,
+                                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                        )
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                        ) {
+                                                            VkBadge()
+                                                            Text(
+                                                                text = serverVkId.orEmpty(),
+                                                                fontFamily = MonoFont,
+                                                                fontSize = 13.sp,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis,
+                                                            )
+                                                        }
+                                                    }
+                                                    if (isVkLinkedOnServer) {
+                                                        Text(
+                                                            text = "Отвязать",
+                                                            style = styleHint,
+                                                            color = MaterialTheme.colorScheme.error,
+                                                            maxLines = 1,
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(10.dp))
+                                                                .clickable { showUnlinkVkDialog = true }
+                                                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                                        )
+                                                    }
                                                 }
                                             } else {
                                                 ProfileAvatarPlaceholder()
@@ -1044,10 +1080,14 @@ fun ProfileScreen(
                                             }
                                         }
                                         // Отвязка доступна и без активной сессии VK SDK: смотрим на
-                                        // признак с сервера, а не на то, отдал ли VK профиль.
+                                        // признак с сервера, а не на то, отдал ли VK профиль. Когда
+                                        // профиль VK загружен, отвязка живёт в самой строке — здесь
+                                        // остаётся только запасной вариант.
                                         val vkLinkedOnServer =
                                             !(uiState.userDetailsState as? ResultState.Success)?.data?.vkId.isNullOrEmpty()
-                                        if (vkLinkedOnServer) {
+                                        val vkProfileShown =
+                                            (uiState.vkUserState as? ResultState.Success)?.data != null
+                                        if (vkLinkedOnServer && !vkProfileShown) {
                                             Text(
                                                 text = "Отвязать VK ID",
                                                 style = styleHint,
