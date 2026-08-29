@@ -163,6 +163,39 @@ private fun SyncCloudButton(
     }
 }
 
+// Заголовок блока VK, когда вход через VK не выполнен: та же компактная
+// строка, что и у привязанного состояния, — аватар 52dp и текст рядом,
+// а не столбик по центру во весь экран. Сама кнопка OneTap идёт ниже:
+// она брендированная и должна оставаться во всю ширину.
+@Composable
+private fun VkNotLinkedHeader(linkedOnServer: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        ProfileAvatarPlaceholder(size = 52.dp)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                text = if (linkedOnServer) "VK ID привязан" else "VK ID не привязан",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = if (linkedOnServer) "Войдите, чтобы подтянуть фото и имя"
+                       else "Подтянем фото и имя автоматически",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @SuppressLint("CoroutineCreationDuringComposition")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -969,12 +1002,9 @@ fun ProfileScreen(
                                             resultState = uiState.vkUserState,
                                             loadingContent = { CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp) },
                                             errorContent = {
-                                                ProfileAvatarPlaceholder()
-                                                Text(
-                                                    "Войдите через VK ID — подтянем фото и имя автоматически",
-                                                    style = styleHint,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    textAlign = TextAlign.Center,
+                                                VkNotLinkedHeader(
+                                                    linkedOnServer = !(uiState.userDetailsState as? ResultState.Success)
+                                                        ?.data?.vkId.isNullOrEmpty()
                                                 )
                                                 OneTap(
                                                     modifier = Modifier.fillMaxWidth(),
@@ -1052,13 +1082,7 @@ fun ProfileScreen(
                                                     }
                                                 }
                                             } else {
-                                                ProfileAvatarPlaceholder()
-                                                Text(
-                                                    "Войдите через VK ID — подтянем фото и имя автоматически",
-                                                    style = styleHint,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    textAlign = TextAlign.Center,
-                                                )
+                                                VkNotLinkedHeader(linkedOnServer = isVkLinkedOnServer)
                                                 OneTap(
                                                     modifier = Modifier.fillMaxWidth(),
                                                     onAuth = { _, accessToken ->
