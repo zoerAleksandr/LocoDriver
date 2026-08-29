@@ -80,7 +80,7 @@ object PayrollPaymentCatalog {
         accrual(SalaryPaymentId.ONE_PERSON_FREIGHT, "153L", "ДоплМашЛокомРабБезПомощн", "В одно лицо (грузовые)"),
         accrual(SalaryPaymentId.ONE_PERSON_PASSENGER, "153L", "ДоплМашЛокомРабБезПомощн", "В одно лицо (пассажирские)"),
         accrual(SalaryPaymentId.HARMFULNESS, "057L", "ДоплМастСпСлРабВредПылЛБ", "Вредность"),
-        accrual(SalaryPaymentId.DISTRICT, emptyList(), "Районный коэффициент", "Районный коэффициент"),
+        accrual(SalaryPaymentId.DISTRICT, "026A", "РайонныйКоэффициентРФ", "Районный коэффициент"),
         accrual(SalaryPaymentId.NORDIC, "027A", "СевернаяНадбавкРабКрСевер", "Северная надбавка"),
         accrual(SalaryPaymentId.OTHER_SURCHARGE, emptyList(), "Прочие доплаты и надбавки", "Прочие надбавки"),
         accrual(SalaryPaymentId.EXCESS_REST, emptyList(), "Оплата переотдыха", "Переотдых"),

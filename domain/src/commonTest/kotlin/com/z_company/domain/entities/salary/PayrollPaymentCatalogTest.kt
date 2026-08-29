@@ -35,6 +35,7 @@ class PayrollPaymentCatalogTest {
         assertEquals("030A/030B", PayrollPaymentCatalog[SalaryPaymentId.AVERAGE].codeLabel)
         assertEquals("030A/030B", PayrollPaymentCatalog[SalaryPaymentId.BUSINESS_TRIP].codeLabel)
         assertEquals("027A", PayrollPaymentCatalog[SalaryPaymentId.NORDIC].codeLabel)
+        assertEquals("026A", PayrollPaymentCatalog[SalaryPaymentId.DISTRICT].codeLabel)
         assertEquals("883A", PayrollPaymentCatalog[SalaryPaymentId.NDFL].codeLabel)
         assertEquals("902A", PayrollPaymentCatalog[SalaryPaymentId.UNION].codeLabel)
         assertEquals("932A", PayrollPaymentCatalog[SalaryPaymentId.WELFARE].codeLabel)
@@ -53,7 +54,7 @@ class PayrollPaymentCatalogTest {
 
     @Test
     fun `unknown or depot-specific code is shown explicitly`() {
-        assertEquals("—", PayrollPaymentCatalog[SalaryPaymentId.DISTRICT].codeLabel)
-        assertTrue(PayrollPaymentCatalog[SalaryPaymentId.DISTRICT].codes.isEmpty())
+        assertEquals("—", PayrollPaymentCatalog[SalaryPaymentId.OTHER_SURCHARGE].codeLabel)
+        assertTrue(PayrollPaymentCatalog[SalaryPaymentId.OTHER_SURCHARGE].codes.isEmpty())
     }
 }
