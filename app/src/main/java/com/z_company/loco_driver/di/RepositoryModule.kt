@@ -11,6 +11,7 @@ import com.z_company.data_local.setting.DataStoreRepository
 import com.z_company.data_local.calendar.SqlDelightCalendarRepository
 import com.z_company.data_local.route.SqlDelightHistoryResponseRepository
 import com.z_company.data_local.route.SqlDelightRouteRepository
+import com.z_company.data_local.route.SqlDelightDiagnosticRepository
 import com.z_company.data_local.setting.SqlDelightSalarySettingRepository
 import com.z_company.data_local.setting.SqlDelightSettingRepository
 import com.z_company.domain.repositories.CalendarStorage
@@ -18,6 +19,7 @@ import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.ProductionCalendarRepository
 import com.z_company.domain.repositories.ReleaseDayRepository
 import com.z_company.domain.repositories.RouteRepository
+import com.z_company.domain.repositories.DiagnosticRepository
 import com.z_company.domain.repositories.CalendarRepositories
 import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.domain.repositories.SalarySettingRepository
@@ -53,6 +55,7 @@ val repositoryModule = module {
     single<ISnackbarManager> { SnackbarManagerImpl() }
 
     single<RouteRepository> { SqlDelightRouteRepository() }
+    single<DiagnosticRepository> { SqlDelightDiagnosticRepository() }
 
     single<CalendarRepositories> { SqlDelightCalendarRepository() }
 

@@ -334,46 +334,6 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    /**
-     * Пользователь подтвердил в диалоге, что маршруты из [ProfileUiState.pendingRouteDeletionIds]
-     * действительно нужно удалить локально (они уже отсутствуют на сервере).
-     */
-    fun confirmPendingRouteDeletions() {
-        val ids = _uiState.value.pendingRouteDeletionIds
-        if (ids.isEmpty()) return
-        viewModelScope.launch(Dispatchers.IO) {
-            syncManager.applyPendingRouteDeletions(ids).collect { state ->
-                when (state) {
-                    is ResultState.Success -> {
-                        _uiState.update {
-                            it.copy(pendingRouteDeletionIds = emptyList(), pendingRouteDeletionLabels = emptyList())
-                        }
-                        snackbarManager.show("Удалено маршрутов: ${state.data}")
-                        refresh()
-                    }
-                    is ResultState.Error -> {
-                        snackbarManager.show(
-                            "Не удалось удалить маршруты: ${state.entity.message ?: NetworkErrorMapper.humanMessage(state.entity.throwable)}"
-                        )
-                    }
-                    is ResultState.Loading -> {}
-                }
-            }
-        }
-    }
-
-    /**
-     * Пользователь отказался удалять — маршруты остаются локально как есть.
-     * При следующей синхронизации SyncManager снова предложит то же самое (если
-     * сервер по-прежнему их не отдаёт), пока пользователь не подтвердит удаление
-     * или маршруты не появятся на сервере вновь.
-     */
-    fun dismissPendingRouteDeletions() {
-        _uiState.update {
-            it.copy(pendingRouteDeletionIds = emptyList(), pendingRouteDeletionLabels = emptyList())
-        }
-    }
-
     private fun parseSyncStep(message: String): String? = when {
         message.contains("UserSettings") -> "UserSettings"
         message.contains("SalarySetting") -> "SalarySettings"

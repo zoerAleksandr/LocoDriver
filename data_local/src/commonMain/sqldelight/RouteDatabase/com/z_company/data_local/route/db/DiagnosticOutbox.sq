@@ -1,0 +1,33 @@
+CREATE TABLE IF NOT EXISTS DiagnosticOutbox (
+    eventId TEXT NOT NULL PRIMARY KEY,
+    createdAt INTEGER NOT NULL,
+    attemptCount INTEGER NOT NULL DEFAULT 0,
+    nextAttemptAt INTEGER NOT NULL,
+    lastErrorCode TEXT,
+    FOREIGN KEY (eventId) REFERENCES RouteEvent(eventId) ON DELETE CASCADE
+);
+
+getReadyBatch:
+SELECT RouteEvent.*
+FROM DiagnosticOutbox
+JOIN RouteEvent ON RouteEvent.eventId = DiagnosticOutbox.eventId
+WHERE DiagnosticOutbox.nextAttemptAt <= :now
+ORDER BY DiagnosticOutbox.createdAt ASC
+LIMIT :limit;
+
+enqueue:
+INSERT OR IGNORE INTO DiagnosticOutbox(eventId, createdAt, attemptCount, nextAttemptAt, lastErrorCode)
+VALUES (:eventId, :createdAt, 0, :createdAt, NULL);
+
+scheduleRetry:
+UPDATE DiagnosticOutbox
+SET attemptCount = attemptCount + 1,
+    nextAttemptAt = :nextAttemptAt,
+    lastErrorCode = :lastErrorCode
+WHERE eventId = :eventId;
+
+deleteUploaded:
+DELETE FROM DiagnosticOutbox WHERE eventId = :eventId;
+
+countPending:
+SELECT count(*) FROM DiagnosticOutbox;

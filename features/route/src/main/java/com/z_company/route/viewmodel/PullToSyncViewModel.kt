@@ -78,9 +78,8 @@ class PullToSyncViewModel : ViewModel(), KoinComponent {
                     failureMessage ?: if (!completed) {
                         "Синхронизация не выполнена: сервер не завершил обработку данных"
                     } else if (pendingDeletionCount > 0) {
-                        // Значительный объём удалений SyncManager не применяет молча —
-                        // подтверждение только в Профиле (ProfileViewModel.confirmPendingRouteDeletions).
-                        "На сервере пропало маршрутов: $pendingDeletionCount. Подтвердите удаление в Профиле."
+                        // Значительный объём удалений помещён в локальную корзину.
+                        "На сервере пропало маршрутов: $pendingDeletionCount. Проверьте корзину в Настройках."
                     } else {
                         "Синхронизация завершена"
                     }

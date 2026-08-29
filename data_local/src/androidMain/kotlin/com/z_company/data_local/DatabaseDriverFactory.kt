@@ -11,11 +11,20 @@ import com.z_company.data_local.route.db.RouteDatabase
 import com.z_company.data_local.route.searchdb.SearchResponseDatabase
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
+import java.io.File
 
 actual class DatabaseDriverFactory(private val context: Context) {
     actual fun createRouteDriver(): SqlDriver {
-        migrateRouteDbIfNeeded()
-        return createDriver(RouteDatabase.Schema, "Route.db")
+        val backup = prepareRouteBackupIfNeeded()
+        return try {
+            migrateRouteDbIfNeeded()
+            validateMigratedRouteDb(backup)
+            recordMigrationSuccess(backup)
+            createDriver(RouteDatabase.Schema, "Route.db")
+        } catch (error: Throwable) {
+            if (backup != null) restoreRouteBackup(backup)
+            throw error
+        }
     }
 
     actual fun createSettingsDriver(): SqlDriver {
@@ -292,6 +301,14 @@ actual class DatabaseDriverFactory(private val context: Context) {
     )
 
     companion object {
+        private val ROUTE_CHILD_TABLES = listOf(
+            "Locomotive",
+            "Train",
+            "Passenger",
+            "OtherWork",
+            "RoutePartner",
+            "Photo",
+        )
         private val COLUMN_SPECS = mapOf(
             // Settings — все новые столбцы (миграции 1.sqm … 10.sqm)
             "UserSettings.isShowBreak" to ColumnSpec("INTEGER", false, "1"),
@@ -331,6 +348,10 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "BasicData.timeStartBreak" to ColumnSpec("INTEGER", true, "NULL"),
             "BasicData.timeStartWorkBeforeArrival" to ColumnSpec("INTEGER", true, "NULL"),
             "BasicData.timeEndBreak" to ColumnSpec("INTEGER", true, "NULL"),
+            "BasicData.deletedAt" to ColumnSpec("INTEGER", true, "NULL"),
+            "BasicData.deletionReason" to ColumnSpec("TEXT", true, "NULL"),
+            "BasicData.remoteDeletionPending" to ColumnSpec("INTEGER", false, "0"),
+            "BasicData.remoteDeletedAt" to ColumnSpec("INTEGER", true, "NULL"),
             // Route — Locomotive
             "Locomotive.auxiliaryCounterAccepted" to ColumnSpec("TEXT", true, "NULL"),
             "Locomotive.auxiliaryCounterDelivery" to ColumnSpec("TEXT", true, "NULL"),
@@ -393,6 +414,200 @@ actual class DatabaseDriverFactory(private val context: Context) {
             }
         }
     )
+
+    private data class RouteBackup(
+        val file: File,
+        val snapshot: RouteDbSnapshot,
+        val sourceVersion: Int,
+    )
+
+    private data class RouteDbSnapshot(
+        val routeIds: Set<String>,
+        val unsynchronizedCount: Long,
+        val childCounts: Map<String, Long>,
+        val orphanCount: Long,
+    ) {
+        val routeCount: Long get() = routeIds.size.toLong()
+    }
+
+    /** Создаёт и проверяет backup до любого изменения существующей Route.db. */
+    private fun prepareRouteBackupIfNeeded(): RouteBackup? {
+        val dbFile = context.getDatabasePath("Route.db")
+        if (!dbFile.exists()) return null
+        val targetVersion = RouteDatabase.Schema.version.toInt()
+        var sourceVersion = 0
+        var snapshot = RouteDbSnapshot(emptySet(), 0L, emptyMap(), 0L)
+        val sourceDb = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
+        try {
+            sourceVersion = sourceDb.version
+            val requiresStructuralRepair =
+                !hasColumn(sourceDb, "BasicData", "remoteDeletionPending") ||
+                    !hasTable(sourceDb, "RouteEvent") ||
+                    !hasTable(sourceDb, "DiagnosticOutbox")
+            if (sourceVersion >= targetVersion && !requiresStructuralRepair) return null
+            sourceDb.rawQuery("PRAGMA wal_checkpoint(FULL)", null).use { it.moveToFirst() }
+            snapshot = routeSnapshot(sourceDb)
+        } finally {
+            sourceDb.close()
+        }
+
+        val backupDir = File(context.filesDir, "data_safety").apply { mkdirs() }
+        require(backupDir.isDirectory) { "Cannot create Route.db backup directory" }
+        val temp = File(backupDir, "Route.pre_migration.tmp")
+        val backupFile = File(backupDir, "Route.pre_migration.db")
+        dbFile.copyTo(temp, overwrite = true)
+        validateBackupFile(temp, snapshot)
+        if (backupFile.exists() && !backupFile.delete()) {
+            throw IllegalStateException("Cannot replace previous Route.db backup")
+        }
+        require(temp.renameTo(backupFile)) { "Cannot finalize Route.db backup" }
+        return RouteBackup(backupFile, snapshot, sourceVersion)
+    }
+
+    private fun validateBackupFile(file: File, expectedSnapshot: RouteDbSnapshot) {
+        val backupDb = SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY)
+        try {
+            val integrity = backupDb.rawQuery("PRAGMA quick_check", null).use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else "missing_result"
+            }
+            require(integrity.equals("ok", ignoreCase = true)) { "Route.db backup integrity check failed" }
+            require(routeSnapshot(backupDb) == expectedSnapshot) { "Route.db backup snapshot mismatch" }
+        } finally {
+            backupDb.close()
+        }
+    }
+
+    private fun validateMigratedRouteDb(backup: RouteBackup?) {
+        if (backup == null) return
+        val dbFile = context.getDatabasePath("Route.db")
+        val migrated = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READONLY)
+        try {
+            require(migrated.version == RouteDatabase.Schema.version.toInt()) {
+                "Route.db target version was not applied"
+            }
+            require(hasColumn(migrated, "BasicData", "remoteDeletionPending")) {
+                "Route.db trash migration is incomplete"
+            }
+            require(hasTable(migrated, "RouteEvent") && hasTable(migrated, "DiagnosticOutbox")) {
+                "Route.db diagnostic tables are missing"
+            }
+            val migratedSnapshot = routeSnapshot(migrated)
+            require(migratedSnapshot.routeIds == backup.snapshot.routeIds) {
+                "Route.db route identifiers changed during migration"
+            }
+            require(migratedSnapshot.unsynchronizedCount == backup.snapshot.unsynchronizedCount) {
+                "Route.db unsynchronized route count changed during migration"
+            }
+            require(migratedSnapshot.childCounts == backup.snapshot.childCounts) {
+                "Route.db child row counts changed during migration"
+            }
+            require(migratedSnapshot.orphanCount <= backup.snapshot.orphanCount) {
+                "Route.db orphan child count increased during migration"
+            }
+        } finally {
+            migrated.close()
+        }
+    }
+
+    private fun restoreRouteBackup(backup: RouteBackup) {
+        val dbFile = context.getDatabasePath("Route.db")
+        val backupDir = backup.file.parentFile ?: context.filesDir
+        if (dbFile.exists()) {
+            dbFile.copyTo(
+                File(backupDir, "Route.failed_migration_${System.currentTimeMillis()}.db"),
+                overwrite = true,
+            )
+        }
+        File(dbFile.path + "-wal").delete()
+        File(dbFile.path + "-shm").delete()
+        backup.file.copyTo(dbFile, overwrite = true)
+        context.getSharedPreferences("data_safety_status", Context.MODE_PRIVATE)
+            .edit()
+            .putString("last_migration_status", "ROLLED_BACK")
+            .putInt("last_migration_from", backup.sourceVersion)
+            .putInt("last_migration_to", RouteDatabase.Schema.version.toInt())
+            .apply()
+    }
+
+    private fun recordMigrationSuccess(backup: RouteBackup?) {
+        if (backup == null) return
+        val dbFile = context.getDatabasePath("Route.db")
+        val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
+        try {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS MigrationStatus (
+                    singletonId INTEGER NOT NULL PRIMARY KEY CHECK (singletonId = 1),
+                    status TEXT NOT NULL,
+                    fromVersion INTEGER NOT NULL,
+                    toVersion INTEGER NOT NULL,
+                    routesBefore INTEGER NOT NULL,
+                    routesAfter INTEGER NOT NULL,
+                    backupCreated INTEGER NOT NULL,
+                    errorCode TEXT,
+                    updatedAt INTEGER NOT NULL
+                )
+            """.trimIndent())
+            db.execSQL(
+                """INSERT OR REPLACE INTO MigrationStatus(
+                    singletonId, status, fromVersion, toVersion, routesBefore, routesAfter,
+                    backupCreated, errorCode, updatedAt
+                ) VALUES (1, ?, ?, ?, ?, ?, 1, NULL, ?)""".trimIndent(),
+                arrayOf<Any>(
+                    "SUCCEEDED",
+                    backup.sourceVersion,
+                    RouteDatabase.Schema.version.toInt(),
+                    backup.snapshot.routeCount,
+                    countRows(db, "BasicData"),
+                    System.currentTimeMillis(),
+                ),
+            )
+        } finally {
+            db.close()
+        }
+        context.getSharedPreferences("data_safety_status", Context.MODE_PRIVATE)
+            .edit()
+            .putString("last_migration_status", "SUCCEEDED")
+            .putInt("last_migration_from", backup.sourceVersion)
+            .putInt("last_migration_to", RouteDatabase.Schema.version.toInt())
+            .apply()
+    }
+
+    private fun countRows(db: SQLiteDatabase, table: String): Long {
+        if (!hasTable(db, table)) return 0L
+        return db.rawQuery("SELECT count(*) FROM $table", null).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getLong(0) else 0L
+        }
+    }
+
+    private fun routeSnapshot(db: SQLiteDatabase): RouteDbSnapshot {
+        val routeIds = if (hasTable(db, "BasicData")) {
+            db.rawQuery("SELECT id FROM BasicData", null).use { cursor ->
+                buildSet { while (cursor.moveToNext()) add(cursor.getString(0)) }
+            }
+        } else emptySet()
+        val unsynchronizedCount =
+            if (hasTable(db, "BasicData") && hasColumn(db, "BasicData", "isSynchronized")) {
+                db.rawQuery(
+                    "SELECT count(*) FROM BasicData WHERE isSynchronized = 0",
+                    null,
+                ).use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else 0L }
+            } else 0L
+        return RouteDbSnapshot(
+            routeIds = routeIds,
+            unsynchronizedCount = unsynchronizedCount,
+            childCounts = ROUTE_CHILD_TABLES.associateWith { countRows(db, it) },
+            orphanCount = countOrphans(db),
+        )
+    }
+
+    private fun countOrphans(db: SQLiteDatabase): Long = ROUTE_CHILD_TABLES.sumOf { table ->
+        if (!hasTable(db, table) || !hasColumn(db, table, "basicId")) 0L
+        else db.rawQuery(
+            "SELECT count(*) FROM $table child LEFT JOIN BasicData parent " +
+                "ON parent.id = child.basicId WHERE parent.id IS NULL",
+            null,
+        ).use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else 0L }
+    }
 
     /**
      * Route.db: пересоздаёт Train и Locomotive при миграции с Room (v14+),
@@ -608,12 +823,64 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_RoutePartner_basicId ON RoutePartner(basicId)")
             }
 
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS DiagnosticInstallation (
+                    singletonId INTEGER NOT NULL PRIMARY KEY CHECK (singletonId = 1),
+                    installationId TEXT NOT NULL,
+                    createdAt INTEGER NOT NULL
+                )
+            """.trimIndent())
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS RouteEvent (
+                    eventId TEXT NOT NULL PRIMARY KEY,
+                    installationId TEXT NOT NULL,
+                    routeIdHash TEXT,
+                    eventType TEXT NOT NULL,
+                    reasonCode TEXT,
+                    createdAt INTEGER NOT NULL,
+                    appVersion TEXT,
+                    appBuild INTEGER,
+                    dbVersion INTEGER,
+                    detailsJson TEXT,
+                    uploadedAt INTEGER
+                )
+            """.trimIndent())
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_RouteEvent_createdAt ON RouteEvent(createdAt)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_RouteEvent_uploadedAt ON RouteEvent(uploadedAt)")
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS DiagnosticOutbox (
+                    eventId TEXT NOT NULL PRIMARY KEY,
+                    createdAt INTEGER NOT NULL,
+                    attemptCount INTEGER NOT NULL DEFAULT 0,
+                    nextAttemptAt INTEGER NOT NULL,
+                    lastErrorCode TEXT,
+                    FOREIGN KEY (eventId) REFERENCES RouteEvent(eventId) ON DELETE CASCADE
+                )
+            """.trimIndent())
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS MigrationStatus (
+                    singletonId INTEGER NOT NULL PRIMARY KEY CHECK (singletonId = 1),
+                    status TEXT NOT NULL,
+                    fromVersion INTEGER NOT NULL,
+                    toVersion INTEGER NOT NULL,
+                    routesBefore INTEGER NOT NULL,
+                    routesAfter INTEGER NOT NULL,
+                    backupCreated INTEGER NOT NULL,
+                    errorCode TEXT,
+                    updatedAt INTEGER NOT NULL
+                )
+            """.trimIndent())
+
             // Добавляем недостающие столбцы (для случаев когда таблицы не пересоздавались).
             // hasTable-проверка: если таблица отсутствует — пропускаем, не кидаем исключение.
             val routeChecks = arrayOf(
                 "BasicData" to "timeStartBreak",
                 "BasicData" to "timeEndBreak",
                 "BasicData" to "timeStartWorkBeforeArrival",
+                "BasicData" to "deletedAt",
+                "BasicData" to "deletionReason",
+                "BasicData" to "remoteDeletionPending",
+                "BasicData" to "remoteDeletedAt",
                 "Locomotive" to "auxiliaryCounterAccepted",
                 "Locomotive" to "auxiliaryCounterDelivery",
                 "Locomotive" to "timeBarrierOut",

@@ -290,7 +290,9 @@ class SyncManager(
 
         // 4. Удаление маршрутов, помеченных isDeleted = true
         val allRoutesWithDeleted = routeUseCase.listRouteWithDeleting()
-        val deletedRoutes = allRoutesWithDeleted.filter { it.basicData.isDeleted }
+        val deletedRoutes = allRoutesWithDeleted.filter {
+            it.basicData.isDeleted && !it.basicData.remoteDeletionPending
+        }
         for (route in deletedRoutes) {
             val routeId = route.basicData.id
             val label = routeLabel(route)
@@ -306,7 +308,12 @@ class SyncManager(
                 routesManager.deleteRouteInRemote(routeId, bearerToken)
                     .collect { deleteResult ->
                         if (deleteResult is ResultState.Success) {
-                            routeUseCase.removeRoute(route).collect {}
+                            // Серверная копия удалена, но локальная запись должна
+                            // оставаться в корзине до истечения retention-периода.
+                            routeUseCase.acknowledgeRemoteDeletion(
+                                routeId,
+                                Clock.System.now().toEpochMilliseconds()
+                            ).collect {}
                         } else if (deleteResult is ResultState.Error) {
                             val msg = deleteResult.entity.message
                                 ?: deleteResult.entity.throwable?.message ?: "Ошибка"
@@ -903,12 +910,14 @@ class SyncManager(
         // 2.2 Удаления, сделанные локально → удалить на сервере, затем жёстко локально.
         // (Раньше блок был мёртв из-за guard'а remoteRouteId, который нигде не заполнялся,
         //  поэтому удаления не доходили до сервера.)
-        for (route in localAll.filter { it.basicData.isDeleted }) {
+        for (route in localAll.filter {
+            it.basicData.isDeleted && !it.basicData.remoteDeletionPending
+        }) {
             val routeId = route.basicData.id
             val label = routeLabel(route)
             if (routeId !in serverById) {
                 // Сервер уже не знает о маршруте — просто убираем локально.
-                routeUseCase.removeRoute(route).collect {}
+                routeUseCase.markAsRemoved(route).collect {}
                 result.routesDeletedLocal++
                 continue
             }
@@ -917,7 +926,10 @@ class SyncManager(
                 routesManager.deleteRouteInRemote(routeId, bearerToken).collect { del ->
                     when (del) {
                         is ResultState.Success -> {
-                            routeUseCase.removeRoute(route).collect {}
+                            routeUseCase.acknowledgeRemoteDeletion(
+                                routeId,
+                                Clock.System.now().toEpochMilliseconds()
+                            ).collect {}
                             result.routesDeletedRemote++
                             handled = true
                         }
@@ -925,7 +937,10 @@ class SyncManager(
                             val msg = del.entity.message ?: del.entity.throwable?.message ?: "Ошибка"
                             // 404 — на сервере уже нет: считаем удаление успешным.
                             if (msg.contains("404") || msg.contains("not found", ignoreCase = true)) {
-                                routeUseCase.removeRoute(route).collect {}
+                                routeUseCase.acknowledgeRemoteDeletion(
+                                    routeId,
+                                    Clock.System.now().toEpochMilliseconds()
+                                ).collect {}
                                 result.routesDeletedRemote++
                             } else {
                                 allErrors.add("[$routeId] Удаление $label: $msg")
@@ -1006,14 +1021,17 @@ class SyncManager(
         if (deletionCandidates.isNotEmpty() &&
             isSignificantRouteDeletion(deletionCandidates.size, totalSyncedLocal)
         ) {
-            // Удаление побеждает даже более позднюю локальную правку в обычном случае,
-            // но не когда объём подозрительно большой — тут решение за пользователем.
+            // Сразу сохраняем полные локальные копии в корзине, но не считаем
+            // серверное удаление подтверждённым до действия пользователя.
+            for (local in deletionCandidates) {
+                routeUseCase.markAsPendingRemoteDeletion(local).collect {}
+            }
             result.pendingDeletionRouteIds = deletionCandidates.map { it.basicData.id }
             result.pendingDeletionLabels = deletionCandidates.map { routeLabel(it) }
         } else {
             for (local in deletionCandidates) {
                 // Маршрут не должен самопроизвольно воскресать — удаление побеждает.
-                routeUseCase.removeRoute(local).collect {}
+                routeUseCase.markAsRemoved(local).collect {}
                 result.routesDeletedLocal++
             }
         }
@@ -1061,7 +1079,7 @@ class SyncManager(
         var deletedCount = 0
         for (id in routeIds) {
             val local = localById[id] ?: continue
-            routeUseCase.removeRoute(local).collect {}
+            routeUseCase.markAsRemoved(local).collect {}
             deletedCount++
         }
         emit(ResultState.Success(deletedCount))

@@ -35,6 +35,7 @@ class MigrateTimestampsTest {
 
         // Остальные методы не используются в тестах
         override fun loadRoutesWithDeleting(): List<Route> = emptyList()
+        override fun loadTrash(): List<Route> = emptyList()
         override fun loadRoute(routeId: String): Flow<ResultState<Route?>> = flow { emit(ResultState.Success(null)) }
         override fun loadLoco(locoId: String): Flow<ResultState<Locomotive?>> = flow { emit(ResultState.Success(null)) }
         override fun loadLocoListByBasicId(basicId: String): List<Locomotive> = emptyList()
@@ -47,12 +48,16 @@ class MigrateTimestampsTest {
         override fun loadPhoto(photoId: String): Flow<ResultState<Photo?>> = flow { emit(ResultState.Success(null)) }
         override fun loadPhotosByRoute(basicId: String): Flow<ResultState<List<Photo>>> = flow { emit(ResultState.Success(emptyList())) }
         override fun remove(route: Route): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
+        override fun purgeRoute(route: Route, reason: PhysicalDeletionReason): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun removeLoco(locomotive: Locomotive): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun removeTrain(train: Train): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun removePassenger(passenger: Passenger): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun removeOtherWork(otherWork: com.z_company.domain.entities.route.OtherWork): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun removePhoto(photo: Photo): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun markAsRemoved(route: Route): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
+        override fun markAsPendingRemoteDeletion(route: Route): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
+        override fun restoreFromTrash(routeId: String): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
+        override fun acknowledgeRemoteDeletion(routeId: String, deletedAt: Long): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun saveLocomotive(locomotive: Locomotive): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun saveTrain(train: Train): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun updateTrain(train: Train): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
@@ -70,7 +75,6 @@ class MigrateTimestampsTest {
         override fun setRemoteObjectIdPassenger(passengerId: String, objectId: String): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun setRemoteObjectIdOtherWork(otherWorkId: String, objectId: String): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun setRemoteObjectIdPhoto(photoId: String, objectId: String): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
-        override fun clearRepository(): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun setFavoriteRoute(routeId: String, isFavorite: Boolean): Flow<ResultState<Boolean>> = flow { emit(ResultState.Success(isFavorite)) }
         override fun markUnsynchronized(basicId: String): Flow<ResultState<Unit>> = flow { emit(ResultState.Success(Unit)) }
         override fun loadPartner(routePartnerId: String): Flow<ResultState<RoutePartner?>> = flow { emit(ResultState.Success(null)) }

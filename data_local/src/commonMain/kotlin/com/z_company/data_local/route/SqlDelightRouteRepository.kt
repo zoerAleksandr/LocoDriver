@@ -23,6 +23,8 @@ import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Photo
+import com.z_company.domain.entities.route.PhysicalDeletionReason
+import com.z_company.domain.entities.route.TrashPurgePolicy
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.RoutePartner
 import com.z_company.domain.entities.route.Train
@@ -42,6 +44,36 @@ import org.koin.core.component.inject
 
 class SqlDelightRouteRepository : RouteRepository, KoinComponent {
     private val db: RouteDatabase by inject()
+
+    private fun installationId(): String {
+        db.diagnosticInstallationQueries.getInstallationId().executeAsOneOrNull()?.let { return it }
+        val generated = generateId()
+        db.diagnosticInstallationQueries.insertInstallation(
+            installationId = generated,
+            createdAt = Clock.System.now().toEpochMilliseconds(),
+        )
+        return db.diagnosticInstallationQueries.getInstallationId().executeAsOne()
+    }
+
+    /** Route id намеренно не пишется, пока не подключён локально солёный hash. */
+    private fun recordRouteEvent(eventType: String, reasonCode: String? = null) {
+        val eventId = generateId()
+        val createdAt = Clock.System.now().toEpochMilliseconds()
+        db.routeEventQueries.insertEvent(
+            eventId = eventId,
+            installationId = installationId(),
+            routeIdHash = null,
+            eventType = eventType,
+            reasonCode = reasonCode,
+            createdAt = createdAt,
+            appVersion = null,
+            appBuild = null,
+            dbVersion = RouteDatabase.Schema.version,
+            detailsJson = null,
+            uploadedAt = null,
+        )
+        db.diagnosticOutboxQueries.enqueue(eventId = eventId, createdAt = createdAt)
+    }
 
     private fun assembleRoute(basicData: com.zcompany.datalocal.route.db.BasicData): Route {
         val locomotives = db.locomotiveQueries.getByBasicId(basicData.id).executeAsList()
@@ -91,6 +123,10 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
             isSynchronized = if (updatedBasic.isSynchronized) 1L else 0L,
             remoteObjectId = updatedBasic.remoteObjectId,
             isDeleted = if (updatedBasic.isDeleted) 1L else 0L,
+            deletedAt = updatedBasic.deletedAt,
+            deletionReason = updatedBasic.deletionReason,
+            remoteDeletionPending = if (updatedBasic.remoteDeletionPending) 1L else 0L,
+            remoteDeletedAt = updatedBasic.remoteDeletedAt,
             updatedAt = BasicDataMapper.encodeUpdatedAt(updatedBasic.updatedAt),
             number = updatedBasic.number,
             timeStartWork = updatedBasic.timeStartWork,
@@ -282,6 +318,10 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
 
     override fun loadRoutesWithDeleting(): List<Route> {
         return db.basicDataQueries.getAllWithDeleted().executeAsList().map { assembleRoute(it) }
+    }
+
+    override fun loadTrash(): List<Route> {
+        return db.basicDataQueries.getTrash().executeAsList().map { assembleRoute(it) }
     }
 
     override fun loadRoute(routeId: String): Flow<ResultState<Route?>> {
@@ -565,10 +605,37 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
     }
 
     override fun remove(route: Route): Flow<ResultState<Unit>> {
+        return markAsRemoved(route)
+    }
+
+    override fun purgeRoute(route: Route, reason: PhysicalDeletionReason): Flow<ResultState<Unit>> {
         return flow {
             emit(ResultState.Loading())
-            db.basicDataQueries.delete(route.basicData.id)
-            emit(ResultState.Success(Unit))
+            val isTrashPurge = reason == PhysicalDeletionReason.TRASH_RETENTION_EXPIRED ||
+                reason == PhysicalDeletionReason.USER_EMPTIED_TRASH ||
+                reason == PhysicalDeletionReason.DIAGNOSTIC_ROLLBACK_CLEANUP
+            val isManualPurge = reason == PhysicalDeletionReason.USER_EMPTIED_TRASH
+            require(!isManualPurge || TrashPurgePolicy.canPurgeManually(route)) {
+                "Physical deletion would lose a pending server tombstone"
+            }
+            require(!isTrashPurge || (route.basicData.isDeleted && !route.basicData.remoteDeletionPending)) {
+                "Physical deletion is forbidden for an active or pending route"
+            }
+            require(
+                reason != PhysicalDeletionReason.SHARED_PREVIEW_DISCARDED ||
+                    route.basicData.remoteRouteId.isNullOrBlank()
+            ) { "A server-backed route cannot be discarded as a shared preview" }
+            try {
+                db.transaction {
+                    recordRouteEvent("ROUTE_PURGE_REQUESTED", reason.name)
+                    db.basicDataQueries.delete(route.basicData.id)
+                    recordRouteEvent("ROUTE_PURGED", reason.name)
+                }
+                emit(ResultState.Success(Unit))
+            } catch (e: Throwable) {
+                runCatching { recordRouteEvent("ROUTE_PURGE_FAILED", reason.name) }
+                throw e
+            }
         }.catch { e ->
             emit(ResultState.Error(ErrorEntity(e)))
         }.flowOn(Dispatchers.Default)
@@ -599,8 +666,57 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
     }
 
     override fun markAsRemoved(route: Route): Flow<ResultState<Unit>> {
-        val updated = route.copy(basicData = route.basicData.copy(isDeleted = true))
-        return saveRoute(updated)
+        val updated = route.copy(basicData = route.basicData.copy(
+            isDeleted = true,
+            deletedAt = Clock.System.now().toEpochMilliseconds(),
+            deletionReason = "USER_REQUESTED",
+            remoteDeletionPending = false
+        ))
+        return flowRequest {
+            db.transaction {
+                saveRouteInternal(updated)
+                recordRouteEvent("ROUTE_MOVED_TO_TRASH", "USER_REQUESTED")
+            }
+        }
+    }
+
+    override fun markAsPendingRemoteDeletion(route: Route): Flow<ResultState<Unit>> {
+        val updated = route.copy(basicData = route.basicData.copy(
+            isDeleted = true,
+            deletedAt = route.basicData.deletedAt ?: Clock.System.now().toEpochMilliseconds(),
+            deletionReason = "REMOTE_SYNC_DELETE",
+            remoteDeletionPending = true,
+        ))
+        return flowRequest {
+            db.transaction {
+                saveRouteInternal(updated)
+                recordRouteEvent("MASS_DELETION_PENDING", "REMOTE_SYNC_DELETE")
+            }
+        }
+    }
+
+    override fun restoreFromTrash(routeId: String): Flow<ResultState<Unit>> {
+        return flowRequest {
+            db.transaction {
+                db.basicDataQueries.restoreFromTrash(
+                    updatedAt = BasicDataMapper.encodeUpdatedAt(Clock.System.now().toEpochMilliseconds()),
+                    id = routeId
+                )
+                recordRouteEvent("ROUTE_RESTORED")
+            }
+        }
+    }
+
+    override fun acknowledgeRemoteDeletion(routeId: String, deletedAt: Long): Flow<ResultState<Unit>> {
+        return flowRequest {
+            db.transaction {
+                db.basicDataQueries.acknowledgeRemoteDeletion(
+                    remoteDeletedAt = deletedAt,
+                    id = routeId
+                )
+                recordRouteEvent("REMOTE_DELETION_CONFIRMED")
+            }
+        }
     }
 
     override fun setSynchronizedRoute(basicId: String): Flow<ResultState<Unit>> {
@@ -609,10 +725,6 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
 
     override fun markUnsynchronized(basicId: String): Flow<ResultState<Unit>> {
         return flowRequest { markUnsynchronizedAndTouch(basicId) }
-    }
-
-    override fun clearRepository(): Flow<ResultState<Unit>> {
-        return flowRequest { db.basicDataQueries.deleteAll() }
     }
 
     override fun setFavoriteRoute(basicId: String, isFavorite: Boolean): Flow<ResultState<Boolean>> {
