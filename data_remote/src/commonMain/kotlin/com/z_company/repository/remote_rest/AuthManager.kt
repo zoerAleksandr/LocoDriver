@@ -164,10 +164,19 @@ class AuthManager(
     }
 
 
+    /**
+     * Отвязка VK от аккаунта.
+     *
+     * `PATCH /v1/auth/vkId/remove` отдаёт SuccessResponse, а не пользователя,
+     * поэтому обновлённый профиль дочитываем отдельным запросом. Раньше клиент
+     * пытался разобрать ответ как UserResponse, падал на этом и всегда уходил
+     * в Error: сервер отвязывал VK, а локальный vk_id так и оставался.
+     */
     fun removeVKID(token: String): Flow<GetUserProfileState> = flow {
         emit(GetUserProfileState.Loading)
         try {
-            val body = remoteRestApi.removeVKID(token = token)
+            remoteRestApi.removeVKID(token = token)
+            val body = remoteRestApi.getUserProfile(token = token)
             emit(
                 GetUserProfileState.Success(
                     user = body.user,
@@ -186,6 +195,9 @@ class AuthManager(
      * @param vkId легаси-поле `token`, оставлено ради ещё не обновлённого прода.
      * @param vkAccessToken токен из VKID SDK: именно из него новый сервер
      *   берёт vk_id. Нигде не сохраняется.
+     *
+     * Ответ сервера — SuccessResponse, а не пользователь, поэтому профиль
+     * дочитываем отдельным запросом (см. [removeVKID]).
      */
     fun attachVKID(
         bearerToken: String,
@@ -199,7 +211,8 @@ class AuthManager(
                 vkAccessToken = vkAccessToken,
                 vkClientId = vkClientId,
             )
-            val body = remoteRestApi.attachVKID(token = bearerToken, data = addVKIDRequest)
+            remoteRestApi.attachVKID(token = bearerToken, data = addVKIDRequest)
+            val body = remoteRestApi.getUserProfile(token = bearerToken)
             emit(
                 GetUserProfileState.Success(
                     user = body.user,

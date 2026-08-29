@@ -40,7 +40,12 @@ interface RemoteRestApi {
 
     suspend fun getUserProfile(token: String): UserResponse
 
-    suspend fun removeVKID(token: String): UserResponse
+    /**
+     * Отвязать VK. Сервер отвечает SuccessResponse
+     * (`{"status_code":200,"content":"..."}`), а не пользователем, — тело
+     * не разбираем, свежий профиль берём отдельным getUserProfile.
+     */
+    suspend fun removeVKID(token: String)
 
     suspend fun saveRoute(token: String, data: Route): SaveRouteResponse
 
@@ -48,7 +53,8 @@ interface RemoteRestApi {
 
     suspend fun deleteRoute(token: String, routeId: String)
 
-    suspend fun attachVKID(token: String, data: AddVKIDRequest): UserResponse
+    /** Привязать VK. Ответ — SuccessResponse, см. [removeVKID]. */
+    suspend fun attachVKID(token: String, data: AddVKIDRequest)
 
     suspend fun saveUserSetting(token: String, body: UserSettings)
 

@@ -70,10 +70,11 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             header("Authorization", token)
         }.body()
 
-    override suspend fun removeVKID(token: String): UserResponse =
+    override suspend fun removeVKID(token: String) {
         client.patch("v1/auth/vkId/remove") {
             header("Authorization", token)
-        }.body()
+        }.bodyAsText()
+    }
 
     override suspend fun saveRoute(token: String, data: Route): SaveRouteResponse {
         val responseText = client.post("v1/route/") {
@@ -99,12 +100,13 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
         }
     }
 
-    override suspend fun attachVKID(token: String, data: AddVKIDRequest): UserResponse =
+    override suspend fun attachVKID(token: String, data: AddVKIDRequest) {
         client.patch("v1/auth/vkId/add") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
             setBody(data)
-        }.body()
+        }.bodyAsText()
+    }
 
     override suspend fun saveUserSetting(token: String, body: UserSettings) {
         client.post("v1/user_settings/") {
