@@ -186,12 +186,15 @@ private fun VkNotLinkedHeader(linkedOnServer: Boolean) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = if (linkedOnServer) "Войдите, чтобы подтянуть фото и имя"
-                       else "Подтянем фото и имя автоматически",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // Подпись нужна только во втором случае: привязка есть, а сессии
+            // SDK нет — иначе непонятно, зачем кнопка под уже привязанным VK.
+            if (linkedOnServer) {
+                Text(
+                    text = "Войдите в VK, чтобы показать профиль",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
