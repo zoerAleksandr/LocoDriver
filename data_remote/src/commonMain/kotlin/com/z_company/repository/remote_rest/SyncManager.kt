@@ -987,32 +987,34 @@ class SyncManager(
             if (local.basicData.isDeleted) continue
             val id = local.basicData.id
             if (id in serverById) continue
-            val wasEverUploaded = local.basicData.isSynchronized ||
-                !local.basicData.remoteRouteId.isNullOrBlank()
-            if (wasEverUploaded) {
-                // Уже существовал в облаке и пропал с сервера → похоже на удаление
-                // на другом устройстве. Финальное решение — ниже, после оценки объёма.
+            if (canDeleteLocalRouteMissingFromServer(local)) {
+                // Только подтверждённо синхронизированный маршрут можно считать
+                // удалённым на другом устройстве. Наличие remoteRouteId недостаточно:
+                // маршрут мог быть изменён локально после последней синхронизации.
+                // Такой маршрут нельзя удалять при неполном ответе сервера — его
+                // нужно повторно выгрузить.
                 deletionCandidates.add(local)
             } else {
-                // Новый/правленый локально, ещё не выгружен → push.
+                // Несинхронизированный маршрут (в том числе ранее облачный, но
+                // изменённый локально) никогда не удаляем из-за отсутствия в ответе
+                // сервера — повторно выгружаем его.
                 pushRoute(local, bearerToken, allWarnings, allErrors)?.let { if (it) result.routesUploaded++ }
             }
         }
 
         val totalSyncedLocal = localAll.count {
-            !it.basicData.isDeleted &&
-                (it.basicData.isSynchronized || !it.basicData.remoteRouteId.isNullOrBlank())
+            !it.basicData.isDeleted && it.basicData.isSynchronized
         }
         if (deletionCandidates.isNotEmpty() &&
             isSignificantRouteDeletion(deletionCandidates.size, totalSyncedLocal)
         ) {
-            // Удаление побеждает даже более позднюю локальную правку в обычном случае,
-            // но не когда объём подозрительно большой — тут решение за пользователем.
+            // Dirty-маршруты сюда не попадают; для подозрительно большого объёма
+            // clean-маршрутов решение всё равно оставляем пользователю.
             result.pendingDeletionRouteIds = deletionCandidates.map { it.basicData.id }
             result.pendingDeletionLabels = deletionCandidates.map { routeLabel(it) }
         } else {
             for (local in deletionCandidates) {
-                // Маршрут не должен самопроизвольно воскресать — удаление побеждает.
+                // Только clean-маршрут может подтвердить удаление на другом устройстве.
                 routeUseCase.removeRoute(local).collect {}
                 result.routesDeletedLocal++
             }
@@ -1061,6 +1063,10 @@ class SyncManager(
         var deletedCount = 0
         for (id in routeIds) {
             val local = localById[id] ?: continue
+            // Защита от устаревшего/неполного списка pending-удалений и от гонки
+            // с локальным редактированием: несинхронизированные маршруты нельзя
+            // удалять автоматически ни при каких обстоятельствах.
+            if (!canDeleteLocalRouteMissingFromServer(local)) continue
             routeUseCase.removeRoute(local).collect {}
             deletedCount++
         }
@@ -1383,3 +1389,7 @@ class SyncManager(
         }
     }
 }
+
+/** Серверное отсутствие может удалять только clean-маршрут. */
+internal fun canDeleteLocalRouteMissingFromServer(local: Route): Boolean =
+    !local.basicData.isDeleted && local.basicData.isSynchronized

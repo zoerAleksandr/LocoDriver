@@ -447,7 +447,7 @@ fun HomeScreen(
                 dateAndTimeConverter = dateAndTimeConverter,
                 minTimeRest = minTimeRest,
                 homeRest = homeRestValue,
-                minHomeRest = previewRouteState.minHomeRest,
+                minHomeRest = minTimeRest,
                 actualRestDuration = actualRestDuration,
                 actualRestUntil = actualRestUntil,
                 onDismiss = { showContextDialog = false },

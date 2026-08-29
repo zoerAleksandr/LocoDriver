@@ -8,7 +8,18 @@ fun String.splitBySpaceAndComma(): List<String> {
 }
 
 fun String.toDoubleOrZero(): Double {
-    return this.toDoubleOrNull() ?: 0.0
+    return toFiniteDoubleOrNull() ?: 0.0
+}
+
+fun String.toFiniteDoubleOrNull(): Double? {
+    val normalized = filterNot(Char::isWhitespace).replace(',', '.')
+    return normalized.toDoubleOrNull()?.takeIf(Double::isFinite)
+}
+
+fun String.toExactIntOrNull(): Int? {
+    val value = toFiniteDoubleOrNull() ?: return null
+    if (value % 1.0 != 0.0 || value < Int.MIN_VALUE || value > Int.MAX_VALUE) return null
+    return value.toInt()
 }
 
 fun String?.toIntOrZero(): Int {
@@ -16,5 +27,8 @@ fun String?.toIntOrZero(): Int {
     // Сначала пробуем как Int ("114"), потом как Double ("114.0", "57.5") с округлением вниз.
     // Сервер хранит conditionalLength/weight/distance как Float и отдаёт с ".0",
     // что ломает прямой Int.parse. Этот fallback решает проблему на стороне клиента.
-    return this.toIntOrNull() ?: this.toDoubleOrNull()?.toInt() ?: 0
+    val normalized = filterNot(Char::isWhitespace).replace(',', '.')
+    val value = normalized.toDoubleOrNull()?.takeIf(Double::isFinite) ?: return 0
+    if (value < Int.MIN_VALUE || value > Int.MAX_VALUE) return 0
+    return value.toInt()
 }

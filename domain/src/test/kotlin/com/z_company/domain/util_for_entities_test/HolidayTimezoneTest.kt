@@ -36,11 +36,18 @@ class HolidayTimezoneTest {
             .toEpochMilliseconds()
     }
 
-    private fun routeOf(startWork: Long, endWork: Long): Route {
+    private fun routeOf(
+        startWork: Long,
+        endWork: Long,
+        breakStart: Long? = null,
+        breakEnd: Long? = null,
+    ): Route {
         return Route(
             basicData = BasicData(
                 timeStartWork = startWork,
-                timeEndWork = endWork
+                timeEndWork = endWork,
+                timeStartBreak = breakStart,
+                timeEndBreak = breakEnd,
             )
         )
     }
@@ -97,6 +104,18 @@ class HolidayTimezoneTest {
         )
         val result = listOf(route).getWorkingTimeOnAHoliday(januaryWithHoliday(), offsetMoscow).first()
         assertEquals(6 * oneHourMs, result)
+    }
+
+    @Test
+    fun moscow_holidayTime_excludesBreakOnlyInsideHolidayOverlap() = runTest {
+        val route = routeOf(
+            startWork = mskMillis(2025, 1, 1, 22, 0),
+            endWork = mskMillis(2025, 1, 2, 6, 0),
+            breakStart = mskMillis(2025, 1, 1, 23, 0),
+            breakEnd = mskMillis(2025, 1, 2, 1, 0),
+        )
+        val result = listOf(route).getWorkingTimeOnAHoliday(januaryWithHoliday(), offsetMoscow).first()
+        assertEquals(oneHourMs, result)
     }
 
     @Test

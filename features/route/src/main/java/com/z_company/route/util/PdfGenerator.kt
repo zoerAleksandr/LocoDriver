@@ -15,6 +15,8 @@ import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.viewmodel.SalaryCalculationUIState
+import com.z_company.domain.entities.salary.PayrollPaymentCatalog
+import com.z_company.domain.entities.salary.SalaryPaymentId
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Calendar
@@ -178,9 +180,10 @@ class PdfGenerator(private val context: Context) {
         y += rowH
     }
 
-    /** Salary table: 4 columns */
+    /** Salary table: code, name, hours, percent, amount. */
     private val sColW = floatArrayOf(
-        contentWidth * 0.50f, contentWidth * 0.16f, contentWidth * 0.14f, contentWidth * 0.20f
+        contentWidth * 0.11f, contentWidth * 0.39f, contentWidth * 0.15f,
+        contentWidth * 0.14f, contentWidth * 0.21f
     )
 
     private fun PageManager.salaryRow(desc: String, hours: String, pct: String, amount: String, bold: Boolean = false) {
@@ -192,8 +195,14 @@ class PdfGenerator(private val context: Context) {
         val p = if (bold) paintBodyBold else paintBody
         sColW.forEachIndexed { i, w ->
             canvas.drawRect(x, top, x + w, bot, paintTableBorder)
-            val txt = when (i) { 0 -> desc; 1 -> hours; 2 -> pct; else -> amount }
-            val tx = if (i == 0) x + 3f else x + w - p.measureText(txt) - 3f
+            val txt = when (i) {
+                0 -> payrollCodeForAccrual(desc)
+                1 -> desc
+                2 -> hours
+                3 -> pct
+                else -> amount
+            }
+            val tx = if (i == 1) x + 3f else x + w - p.measureText(txt) - 3f
             canvas.drawText(txt, tx, y, p)
             x += w
         }
@@ -205,9 +214,9 @@ class PdfGenerator(private val context: Context) {
         salaryRow("Вид выплаты", "Часы", "%", "Сумма", bold = true)
     }
 
-    /** Таблица удержаний: 3 колонки (без Часы) */
+    /** Таблица удержаний: code, name, percent, amount. */
     private val rColW = floatArrayOf(
-        contentWidth * 0.66f, contentWidth * 0.14f, contentWidth * 0.20f
+        contentWidth * 0.11f, contentWidth * 0.55f, contentWidth * 0.14f, contentWidth * 0.20f
     )
 
     private fun PageManager.retentionRow(desc: String, pct: String, amount: String, bold: Boolean = false) {
@@ -217,15 +226,60 @@ class PdfGenerator(private val context: Context) {
         if (bold) canvas.drawRect(ml, top, ml + contentWidth, bot, paintSectionFill)
         var x = ml
         val p = if (bold) paintBodyBold else paintBody
-        val texts = arrayOf(desc, pct, amount)
+        val texts = arrayOf(payrollCodeForDeduction(desc), desc, pct, amount)
         rColW.forEachIndexed { i, w ->
             canvas.drawRect(x, top, x + w, bot, paintTableBorder)
             val txt = texts[i]
-            val tx = if (i == 0) x + 3f else x + w - p.measureText(txt) - 3f
+            val tx = if (i == 1) x + 3f else x + w - p.measureText(txt) - 3f
             canvas.drawText(txt, tx, y, p)
             x += w
         }
         y += rowH
+    }
+
+    private fun payrollCode(id: SalaryPaymentId): String = PayrollPaymentCatalog[id].codeLabel
+
+    private fun payrollCodeForAccrual(description: String): String = when {
+        description == "Вид выплаты" -> "Код"
+        description.startsWith("Итого") -> ""
+        description.startsWith("Оплата по тарифу") -> payrollCode(SalaryPaymentId.TARIFF)
+        description.startsWith("Ночные") -> payrollCode(SalaryPaymentId.NIGHT)
+        description.startsWith("Пассажиром") -> payrollCode(SalaryPaymentId.PASSENGER)
+        description.startsWith("Резервом") -> payrollCode(SalaryPaymentId.RESERVE)
+        description.startsWith("Праздничные") -> payrollCode(SalaryPaymentId.HOLIDAY)
+        description.startsWith("По среднему") -> payrollCode(SalaryPaymentId.AVERAGE)
+        description.startsWith("По уходу") -> payrollCode(SalaryPaymentId.DISABLED_CHILD_CARE)
+        description.startsWith("Командировка") -> payrollCode(SalaryPaymentId.BUSINESS_TRIP)
+        description.startsWith("Технические") -> payrollCode(SalaryPaymentId.TECHNICAL_STUDY)
+        description.startsWith("Зональная") -> payrollCode(SalaryPaymentId.ZONAL)
+        description.startsWith("Надбавка за класс") -> payrollCode(SalaryPaymentId.QUALIFICATION_CLASS)
+        description.startsWith("Пробег") -> payrollCode(SalaryPaymentId.LINEAR_MILEAGE)
+        description.startsWith("В одно лицо (груз") -> payrollCode(SalaryPaymentId.ONE_PERSON_FREIGHT)
+        description.startsWith("В одно лицо (пас") -> payrollCode(SalaryPaymentId.ONE_PERSON_PASSENGER)
+        description.startsWith("Вредность") -> payrollCode(SalaryPaymentId.HARMFULNESS)
+        description.startsWith("Районный") -> payrollCode(SalaryPaymentId.DISTRICT)
+        description.startsWith("Северная") -> payrollCode(SalaryPaymentId.NORDIC)
+        description.startsWith("Удлинённое") -> payrollCode(SalaryPaymentId.EXTENDED_SERVICE)
+        description.startsWith("Тяжёлые") -> payrollCode(SalaryPaymentId.HEAVY_TRAIN)
+        description.startsWith("Длинносост") -> payrollCode(SalaryPaymentId.LONG_TRAIN)
+        description.startsWith("Доплата за ПДМ") -> payrollCode(SalaryPaymentId.HEAVY_LONG_DISTANCE)
+        description.startsWith("Сдвоенные") -> payrollCode(SalaryPaymentId.DOUBLED_TRAIN)
+        description == "Сверхурочные" -> payrollCode(SalaryPaymentId.OVERTIME_BASE)
+        description.contains("сверхурочные (50%)") -> payrollCode(SalaryPaymentId.OVERTIME_HALF)
+        description.contains("сверхурочные (100%)") -> payrollCode(SalaryPaymentId.OVERTIME_FULL)
+        description.startsWith("Переотдых") -> payrollCode(SalaryPaymentId.EXCESS_REST)
+        description.startsWith("Прочие") -> payrollCode(SalaryPaymentId.OTHER_SURCHARGE)
+        else -> "—"
+    }
+
+    private fun payrollCodeForDeduction(description: String): String = when {
+        description.startsWith("НДФЛ") -> payrollCode(SalaryPaymentId.NDFL)
+        description.startsWith("Профсоюз") -> payrollCode(SalaryPaymentId.UNION)
+        description.startsWith("Благосостояние") -> payrollCode(SalaryPaymentId.WELFARE)
+        description.startsWith("Алименты") -> payrollCode(SalaryPaymentId.ALIMONY)
+        description.startsWith("Прочие") -> payrollCode(SalaryPaymentId.OTHER_DEDUCTION)
+        description.startsWith("Всего") -> ""
+        else -> "Код"
     }
 
     private fun PageManager.retentionHeader() {

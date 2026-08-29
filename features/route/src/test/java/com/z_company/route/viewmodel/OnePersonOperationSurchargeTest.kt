@@ -6,6 +6,7 @@ import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
@@ -35,8 +36,13 @@ class OnePersonOperationSurchargeTest {
     private val oneHourMs = 3_600_000L
 
     private fun createHelper(routes: List<Route>): SalaryCalculationHelper {
-        val days = (1..30).map { Day(dayOfMonth = it, tag = TagForDay.WORKING_DAY) }
-        val monthOfYear = MonthOfYear(tariffRate = tariffRate, days = days)
+        val days = (1..31).map { Day(dayOfMonth = it, tag = TagForDay.WORKING_DAY) }
+        val monthOfYear = MonthOfYear(
+            year = 1970,
+            month = 0,
+            tariffRate = tariffRate,
+            days = days,
+        )
         val userSettings = UserSettings(selectMonthOfYear = monthOfYear)
         val salarySetting = SalarySetting()
         return SalaryCalculationHelper(
@@ -147,6 +153,43 @@ class OnePersonOperationSurchargeTest {
         val helper = createHelper(listOf(route))
         val result = helper.getTimeOnePersonOperationFlow(listOf(route)).first()
         assertEquals(0L, result)
+    }
+
+    @Test
+    fun onePersonWithoutTrainUsesFreightRate() = runTest {
+        val route = oneOpRoute(
+            workDurationMs = 5 * oneHourMs,
+            trainNumber = null,
+        )
+        val helper = createHelper(listOf(route))
+
+        assertEquals(5 * oneHourMs, helper.getTimeOnePersonOperationFlow().first())
+        assertEquals(200.0, helper.getMoneyOnePersonOperationFlow().first(), 0.01)
+        assertEquals(0L, helper.getTimeOnePersonOperationPassengerTrainFlow().first())
+    }
+
+    @Test
+    fun mixedRoute_separatesFreightAndPassengerTrainIntervals() = runTest {
+        val route = Route(
+            basicData = BasicData(
+                isOnePersonOperation = true,
+                timeStartWork = 0L,
+                timeEndWork = 10 * oneHourMs,
+            ),
+            trains = mutableListOf(
+                Train(
+                    number = "2503",
+                    stations = mutableListOf(Station(timeDeparture = 0L, timeArrival = 4 * oneHourMs)),
+                ),
+                Train(
+                    number = "100",
+                    stations = mutableListOf(Station(timeDeparture = 4 * oneHourMs, timeArrival = 10 * oneHourMs)),
+                ),
+            ),
+        )
+        val helper = createHelper(listOf(route))
+        assertEquals(4 * oneHourMs, helper.getTimeOnePersonOperationFlow(listOf(route)).first())
+        assertEquals(6 * oneHourMs, helper.getTimeOnePersonOperationPassengerTrainFlow(listOf(route)).first())
     }
 
     // --- Несколько маршрутов ---
@@ -273,7 +316,8 @@ class OnePersonOperationSurchargeTest {
 
     @Test
     fun multiplePassengersInOneRoute_sumSubtracted() = runTest {
-        // 10 часов работы, 2 пассажирских сегмента по 1 часу → (10 - 2) = 8 часов
+        // Два одинаковых пассажирских интервала покрывают один и тот же час:
+        // пересечение исключается один раз, поэтому 10 - 1 = 9 часов.
         val route = Route(
             basicData = BasicData(
                 isOnePersonOperation = true,
@@ -288,6 +332,6 @@ class OnePersonOperationSurchargeTest {
         )
         val helper = createHelper(listOf(route))
         val result = helper.getTimeOnePersonOperationFlow(listOf(route)).first()
-        assertEquals(8 * oneHourMs, result)
+        assertEquals(9 * oneHourMs, result)
     }
 }

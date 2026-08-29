@@ -3,6 +3,7 @@ package com.z_company.domain.util_for_entities_test
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyLongDistanceTrain
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -10,8 +11,13 @@ import kotlin.test.assertEquals
 class HeavyLongDistanceTrainSurchargeTest {
     private val hour = 3_600_000L
 
-    private fun route(weight: String?, axle: String?): Route = Route(
-        basicData = BasicData(timeStartWork = 0L, timeEndWork = 10 * hour),
+    private fun route(weight: String?, axle: String?, breakHours: Long = 0L): Route = Route(
+        basicData = BasicData(
+            timeStartWork = 0L,
+            timeEndWork = 10 * hour,
+            timeStartBreak = 4 * hour,
+            timeEndBreak = (4 + breakHours) * hour,
+        ),
         trains = mutableListOf(Train(weight = weight, axle = axle))
     )
 
@@ -35,5 +41,27 @@ class HeavyLongDistanceTrainSurchargeTest {
     fun `does not accrue for missing or invalid train data`() {
         assertEquals(0L, route(null, "350").getTimeInHeavyLongDistanceTrain())
         assertEquals(0L, route("7000", "invalid").getTimeInHeavyLongDistanceTrain())
+    }
+
+    @Test
+    fun `accrual uses matching train interval and subtracts break`() {
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = 0L,
+                timeEndWork = 10 * hour,
+                timeStartBreak = 3 * hour,
+                timeEndBreak = 4 * hour,
+            ),
+            trains = mutableListOf(
+                Train(
+                    weight = "7000",
+                    axle = "350",
+                    stations = mutableListOf(Station(timeDeparture = hour, timeArrival = 6 * hour)),
+                ),
+                Train(weight = "5000", axle = "400"),
+            ),
+        )
+
+        assertEquals(4 * hour, route.getTimeInHeavyLongDistanceTrain())
     }
 }

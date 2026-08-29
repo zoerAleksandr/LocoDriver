@@ -71,6 +71,8 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.MonthFullText.getMonthFullText
+import com.z_company.domain.entities.salary.PayrollPaymentCatalog
+import com.z_company.domain.entities.salary.SalaryPaymentId
 import com.z_company.domain.util.str2decimalSign
 import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.component.ChipApp
@@ -776,6 +778,7 @@ private fun AccrualsCard(
     convertTimeToStringFormat: (Long?) -> String,
 ) {
     val columns = listOf(
+        PayColumn("КОД", ColType.VALUE),
         PayColumn("ВИД ВЫПЛАТЫ", ColType.NAME),
         PayColumn("ЧАСЫ", ColType.VALUE),
         PayColumn("%", ColType.VALUE),
@@ -783,6 +786,7 @@ private fun AccrualsCard(
     )
     val rows = buildAccrualRows(uiState).map { row ->
         listOf(
+            CellVal(PayrollPaymentCatalog[row.paymentId].codeLabel, faint = PayrollPaymentCatalog[row.paymentId].codes.isEmpty()),
             CellVal(row.title),
             CellVal(row.hours?.let { convertTimeToStringFormat(it) } ?: "—", faint = row.hours == null),
             CellVal(row.percent?.let { formatPercent(it) } ?: "—", faint = row.percent == null),
@@ -805,17 +809,23 @@ private fun AccrualsCard(
 @Composable
 private fun DeductionsCard(uiState: SalaryCalculationUIState) {
     val columns = listOf(
+        PayColumn("КОД", ColType.VALUE),
         PayColumn("ВИД УДЕРЖАНИЯ", ColType.NAME),
         PayColumn("СУММА", ColType.MONEY),
     )
     val rows = listOfNotNull(
-        uiState.retentionNdfl?.takeIf { it > 0 }?.let { "НДФЛ (13 %)" to it },
-        uiState.unionistsRetention?.takeIf { it > 0 }?.let { "Профсоюз" to it },
-        uiState.otherRetention?.takeIf { it > 0 }?.let { "Прочие удержания" to it },
-        uiState.welfareRetention?.takeIf { it > 0 }?.let { "Благосостояние" to it },
-        uiState.alimonyRetention?.takeIf { it > 0 }?.let { "Алименты" to it },
-    ).map { (name, amount) ->
-        listOf(CellVal(name), CellVal(formatMoney(amount)))
+        uiState.retentionNdfl?.takeIf { it > 0 }?.let { Triple(SalaryPaymentId.NDFL, "НДФЛ (13 %)", it) },
+        uiState.unionistsRetention?.takeIf { it > 0 }?.let { Triple(SalaryPaymentId.UNION, "Профсоюз", it) },
+        uiState.otherRetention?.takeIf { it > 0 }?.let { Triple(SalaryPaymentId.OTHER_DEDUCTION, "Прочие удержания", it) },
+        uiState.welfareRetention?.takeIf { it > 0 }?.let { Triple(SalaryPaymentId.WELFARE, "Благосостояние", it) },
+        uiState.alimonyRetention?.takeIf { it > 0 }?.let { Triple(SalaryPaymentId.ALIMONY, "Алименты", it) },
+    ).map { (paymentId, name, amount) ->
+        val payment = PayrollPaymentCatalog[paymentId]
+        listOf(
+            CellVal(payment.codeLabel, faint = payment.codes.isEmpty()),
+            CellVal(name),
+            CellVal(formatMoney(amount)),
+        )
     }
 
     PayCard {
@@ -930,6 +940,7 @@ private fun TariffWarningCard() {
 // Формирование строк начислений (только ненулевые суммы)
 // ===========================================
 private data class AccrualRow(
+    val paymentId: SalaryPaymentId,
     val title: String,
     val hours: Long?,
     val percent: Double?,
@@ -944,78 +955,78 @@ private fun formatMoney(value: Double?): String = (value ?: 0.0).str2decimalSign
 
 private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow> = listOfNotNull(
     // Основные выплаты
-    AccrualRow("Оплата по тарифу", uiState.paymentAtTariffHours, null, uiState.paymentAtTariffMoney),
+    AccrualRow(SalaryPaymentId.TARIFF, "Оплата по тарифу", uiState.paymentAtTariffHours, null, uiState.paymentAtTariffMoney),
     AccrualRow(
-        "Ночные часы",
+        SalaryPaymentId.NIGHT, "Ночные часы",
         uiState.paymentNightTimeHours,
         uiState.paymentNightTimePercent,
         uiState.paymentNightTimeMoney
     ),
-    AccrualRow("Пассажиром", uiState.paymentAtPassengerHours, null, uiState.paymentAtPassengerMoney),
+    AccrualRow(SalaryPaymentId.PASSENGER, "Пассажиром", uiState.paymentAtPassengerHours, null, uiState.paymentAtPassengerMoney),
     AccrualRow(
-        "Резервом",
+        SalaryPaymentId.RESERVE, "Резервом",
         uiState.paymentAtSingleLocomotiveHours,
         null,
         uiState.paymentAtSingleLocomotiveMoney
     ),
-    AccrualRow("Праздничные", uiState.paymentHolidayHours, null, uiState.paymentHolidayMoney),
-    AccrualRow("Оплата по среднему", uiState.averagePaymentHours, null, uiState.averagePaymentMoney),
+    AccrualRow(SalaryPaymentId.HOLIDAY, "Праздничные", uiState.paymentHolidayHours, null, uiState.paymentHolidayMoney),
+    AccrualRow(SalaryPaymentId.AVERAGE, "Оплата по среднему", uiState.averagePaymentHours, null, uiState.averagePaymentMoney),
     uiState.underworkMoney?.takeIf { it > 0 }?.let {
-        AccrualRow("Оплата недоработки", uiState.underworkHours, null, it)
+        AccrualRow(SalaryPaymentId.UNDERWORK, "Оплата недоработки", uiState.underworkHours, null, it)
     },
     AccrualRow(
-        "По уходу за ребенком-инвалидом",
+        SalaryPaymentId.DISABLED_CHILD_CARE, "По уходу за ребенком-инвалидом",
         uiState.caringForDisableChildrenHours,
         null,
         uiState.caringForDisableChildrenMoney
     ),
     uiState.businessTripHours?.takeIf { it > 0 }?.let {
-        AccrualRow("Командировка (по среднему)", it, null, uiState.businessTripMoney)
+        AccrualRow(SalaryPaymentId.BUSINESS_TRIP, "Командировка (по среднему)", it, null, uiState.businessTripMoney)
     },
     uiState.technicalStudyHours?.takeIf { it > 0 }?.let {
-        AccrualRow("Технические занятия", it, null, uiState.technicalStudyMoney)
+        AccrualRow(SalaryPaymentId.TECHNICAL_STUDY, "Технические занятия", it, null, uiState.technicalStudyMoney)
     },
 
     // Надбавки
     uiState.zonalSurchargePercent?.let {
-        AccrualRow("Зональная надбавка", null, it, uiState.zonalSurchargeMoney)
+        AccrualRow(SalaryPaymentId.ZONAL, "Зональная надбавка", null, it, uiState.zonalSurchargeMoney)
     },
     uiState.surchargeQualificationClassPercent?.let {
-        AccrualRow("Надбавка за класс квалификации", null, it, uiState.surchargeQualificationClassMoney)
+        AccrualRow(SalaryPaymentId.QUALIFICATION_CLASS, "Надбавка за класс квалификации", null, it, uiState.surchargeQualificationClassMoney)
     },
     *uiState.linearMileageAccruals.map { accrual ->
         AccrualRow(
-            "Доплата за пробег: ${accrual.phaseName} (${formatMoney(accrual.rate)} ₽/км)",
+            SalaryPaymentId.LINEAR_MILEAGE, "Доплата за пробег: ${accrual.phaseName} (${formatMoney(accrual.rate)} ₽/км)",
             null,
             null,
             accrual.money,
         )
     }.toTypedArray(),
     uiState.onePersonOperationPercent?.let {
-        AccrualRow("В одно лицо (грузовые)", uiState.onePersonOperationHours, it, uiState.onePersonOperationMoney)
+        AccrualRow(SalaryPaymentId.ONE_PERSON_FREIGHT, "В одно лицо (грузовые)", uiState.onePersonOperationHours, it, uiState.onePersonOperationMoney)
     },
     uiState.onePersonOperationPassengerTrainPercent?.let {
         AccrualRow(
-            "В одно лицо (пассажирские)",
+            SalaryPaymentId.ONE_PERSON_PASSENGER, "В одно лицо (пассажирские)",
             uiState.onePersonOperationPassengerTrainHours,
             it,
             uiState.onePersonOperationPassengerTrainMoney
         )
     },
     uiState.harmfulnessSurchargePercent?.let {
-        AccrualRow("Вредность", null, it, uiState.harmfulnessSurchargeMoney)
+        AccrualRow(SalaryPaymentId.HARMFULNESS, "Вредность", null, it, uiState.harmfulnessSurchargeMoney)
     },
     uiState.districtSurchargeCoefficient?.let {
-        AccrualRow("Районный коэффициент", null, it, uiState.districtSurchargeMoney)
+        AccrualRow(SalaryPaymentId.DISTRICT, "Районный коэффициент", null, it, uiState.districtSurchargeMoney)
     },
     uiState.nordicSurchargePercent?.let {
-        AccrualRow("Северная надбавка", null, it, uiState.nordicSurchargeMoney)
+        AccrualRow(SalaryPaymentId.NORDIC, "Северная надбавка", null, it, uiState.nordicSurchargeMoney)
     },
     uiState.otherSurchargePercent?.let {
-        AccrualRow("Прочие надбавки", null, it, uiState.otherSurchargeMoney)
+        AccrualRow(SalaryPaymentId.OTHER_SURCHARGE, "Прочие надбавки", null, it, uiState.otherSurchargeMoney)
     },
     uiState.restInExcessOfTheNormMoney?.takeIf { it > 0 }?.let {
-        AccrualRow("Переотдых", uiState.restInExcessOfTheNormTime, null, it)
+        AccrualRow(SalaryPaymentId.EXCESS_REST, "Переотдых", uiState.restInExcessOfTheNormTime, null, it)
     },
 
     // Списки надбавок
@@ -1027,7 +1038,7 @@ private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow
         val money = uiState.surchargeExtendedServicePhaseMoney.getOrNull(i) ?: 0.0
         if (money > 0) {
             AccrualRow(
-                "Удлиненное плечо (${uiState.surchargeExtendedServicePhasePercent[i] ?: ""}%)",
+                SalaryPaymentId.EXTENDED_SERVICE, "Удлиненное плечо (${uiState.surchargeExtendedServicePhasePercent[i] ?: ""}%)",
                 uiState.surchargeExtendedServicePhaseHour.getOrNull(i),
                 uiState.surchargeExtendedServicePhasePercent.getOrNull(i)?.toDoubleOrNull(),
                 money
@@ -1043,7 +1054,7 @@ private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow
         val money = uiState.surchargeHeavyTransMoney.getOrNull(i) ?: 0.0
         if (money > 0) {
             AccrualRow(
-                "Тяжелые поезда (${uiState.surchargeHeavyTransPercent[i] ?: ""}%)",
+                SalaryPaymentId.HEAVY_TRAIN, "Тяжелые поезда (${uiState.surchargeHeavyTransPercent[i] ?: ""}%)",
                 uiState.surchargeHeavyTransHour.getOrNull(i),
                 uiState.surchargeHeavyTransPercent.getOrNull(i)?.toDoubleOrNull(),
                 money
@@ -1059,7 +1070,7 @@ private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow
         val money = uiState.surchargeLongTrainMoney.getOrNull(i) ?: 0.0
         if (money > 0) {
             AccrualRow(
-                "Длинносост. (${uiState.surchargeLongTrainPercent[i] ?: ""}%)",
+                SalaryPaymentId.LONG_TRAIN, "Длинносост. (${uiState.surchargeLongTrainPercent[i] ?: ""}%)",
                 uiState.surchargeLongTrainHour.getOrNull(i),
                 uiState.surchargeLongTrainPercent.getOrNull(i)?.toDoubleOrNull(),
                 money
@@ -1069,7 +1080,7 @@ private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow
 
     uiState.surchargeHeavyLongDistanceTrainsMoney?.takeIf { it > 0 }?.let {
         AccrualRow(
-            "Доплата за ПДМ (6000 т. и 350 осей)",
+            SalaryPaymentId.HEAVY_LONG_DISTANCE, "Доплата за ПДМ (6000 т. и 350 осей)",
             uiState.surchargeHeavyLongDistanceTrainsHours,
             uiState.surchargeHeavyLongDistanceTrainsPercent,
             it
@@ -1077,18 +1088,18 @@ private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow
     },
 
     uiState.surchargeDoubledTrainFirstMoney?.takeIf { it > 0 }?.let {
-        AccrualRow("Сдвоенные поезда (30%)", uiState.surchargeDoubledTrainFirstHours, 30.0, it)
+        AccrualRow(SalaryPaymentId.DOUBLED_TRAIN, "Сдвоенные поезда (30%)", uiState.surchargeDoubledTrainFirstHours, 30.0, it)
     },
     uiState.surchargeDoubledTrainSecondMoney?.takeIf { it > 0 }?.let {
-        AccrualRow("Сдвоенные поезда (15%)", uiState.surchargeDoubledTrainSecondHours, 15.0, it)
+        AccrualRow(SalaryPaymentId.DOUBLED_TRAIN, "Сдвоенные поезда (15%)", uiState.surchargeDoubledTrainSecondHours, 15.0, it)
     },
 
     // Сверхурочные
-    AccrualRow("Сверхурочные часы", uiState.paymentAtOvertimeHours, null, uiState.paymentAtOvertimeMoney),
+    AccrualRow(SalaryPaymentId.OVERTIME_BASE, "Сверхурочные часы", uiState.paymentAtOvertimeHours, null, uiState.paymentAtOvertimeMoney),
     uiState.surchargeAtOvertime05Money?.takeIf { it > 0 }?.let {
-        AccrualRow("Доплата за сверхурочные (50%)", uiState.surchargeAtOvertime05Hours, 50.0, it)
+        AccrualRow(SalaryPaymentId.OVERTIME_HALF, "Доплата за сверхурочные (50%)", uiState.surchargeAtOvertime05Hours, 50.0, it)
     },
     uiState.surchargeAtOvertimeMoney?.takeIf { it > 0 }?.let {
-        AccrualRow("Доплата за сверхурочные (100%)", uiState.surchargeAtOvertimeHours, 100.0, it)
+        AccrualRow(SalaryPaymentId.OVERTIME_FULL, "Доплата за сверхурочные (100%)", uiState.surchargeAtOvertimeHours, 100.0, it)
     },
 ).filter { it.money != null && it.money > 0 }
