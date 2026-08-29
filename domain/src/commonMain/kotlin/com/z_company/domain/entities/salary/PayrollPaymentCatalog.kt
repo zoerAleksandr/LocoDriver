@@ -91,7 +91,7 @@ object PayrollPaymentCatalog {
         accrual(SalaryPaymentId.DOUBLED_TRAIN, emptyList(), "Доплата за сдвоенные поезда", "Сдвоенные поезда"),
         accrual(SalaryPaymentId.OVERTIME_BASE, "072L", "ОплРабСверхУрочВр_ЛБ_004L", "Сверхурочные часы"),
         accrual(SalaryPaymentId.OVERTIME_HALF, "073L", "ДоплСверхУрочнВр0,5разме", "Доплата за сверхурочные (50%)"),
-        accrual(SalaryPaymentId.OVERTIME_FULL, emptyList(), "Доплата за последующие часы сверхурочной работы", "Доплата за сверхурочные (100%)"),
+        accrual(SalaryPaymentId.OVERTIME_FULL, "073M", "ДоплСверхУрочнВр1,00разм", "Доплата за сверхурочные (100%)"),
         deduction(SalaryPaymentId.NDFL, "883A", "НалогНаДохФизЛицаУдер13", "НДФЛ"),
         deduction(SalaryPaymentId.UNION, "902A", "ПрофсоюзПервыйКредитор", "Профсоюз"),
         PayrollPaymentDefinition(

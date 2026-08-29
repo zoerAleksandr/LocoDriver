@@ -27,6 +27,7 @@ class PayrollPaymentCatalogTest {
         assertEquals("035L/076L", PayrollPaymentCatalog[SalaryPaymentId.HOLIDAY].codeLabel)
         assertEquals("072L", PayrollPaymentCatalog[SalaryPaymentId.OVERTIME_BASE].codeLabel)
         assertEquals("073L", PayrollPaymentCatalog[SalaryPaymentId.OVERTIME_HALF].codeLabel)
+        assertEquals("073M", PayrollPaymentCatalog[SalaryPaymentId.OVERTIME_FULL].codeLabel)
         assertEquals("151L/151P", PayrollPaymentCatalog[SalaryPaymentId.EXTENDED_SERVICE].codeLabel)
         assertEquals("152P", PayrollPaymentCatalog[SalaryPaymentId.HEAVY_TRAIN].codeLabel)
         assertEquals("152P", PayrollPaymentCatalog[SalaryPaymentId.LONG_TRAIN].codeLabel)
