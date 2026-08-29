@@ -1014,12 +1014,23 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    /**
+     * Отвязка VK от аккаунта: снимаем привязку на сервере, чистим локальный
+     * признак и завершаем сессию VK SDK, чтобы OneTap в следующий раз спросил
+     * аккаунт заново.
+     *
+     * Ошибку кладём в [ProfileUiState.vkLinkMessage] — молчаливый провал здесь
+     * особенно вреден: человек считает, что VK отвязан, хотя он на месте.
+     */
     fun removeUsersVKID() {
         viewModelScope.launch {
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             val fullToken = "Bearer $token"
             authManager.removeVKID(fullToken).collect { state ->
-                if (state is GetUserProfileState.Success) {  // Предполагаем, что removeVKID возвращает аналогичный state
+                if (state is GetUserProfileState.Error) {
+                    _uiState.update { it.copy(vkLinkMessage = state.message) }
+                }
+                if (state is GetUserProfileState.Success) {
                     secureTokenStorage.saveVkId("")  // Очистка VK ID
                     VKID.instance.logout(
                         callback = object : VKIDLogoutCallback {
@@ -1036,6 +1047,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                             }
                         }
                     )
+                    refresh()  // Шапка профиля должна вернуться к «Войдите через VK ID»
                 }
             }
         }

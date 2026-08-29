@@ -306,6 +306,46 @@ fun ProfileScreen(
         }
     }
 
+    // Шторка добавления почты и диалог отвязки VK — объявлены здесь, потому что
+    // используются и в диалогах ниже, и в шапке профиля.
+    var showAddEmailDialog by remember { mutableStateOf(false) }
+    var showUnlinkVkDialog by remember { mutableStateOf(false) }
+
+    // Отвязка VK. Для аккаунта без почты это равносильно потере доступа:
+    // регистрация через VK создаёт пользователя с пустым паролем, и войти
+    // после отвязки будет нечем — поэтому сначала предлагаем добавить почту.
+    if (showUnlinkVkDialog) {
+        val accountEmail = (uiState.userDetailsState as? ResultState.Success)?.data?.email.orEmpty()
+        if (accountEmail.isBlank()) {
+            AppAlertDialog(
+                onDismissRequest = { showUnlinkVkDialog = false },
+                title = "Сначала добавьте почту",
+                text = "Аккаунт заведён через VK ID, пароля у него нет — после отвязки " +
+                        "войти будет нечем. Добавьте почту и пароль, тогда VK можно будет отвязать.",
+                confirmText = "Добавить почту",
+                onConfirm = {
+                    showUnlinkVkDialog = false
+                    showAddEmailDialog = true
+                },
+                dismissText = "Отмена",
+            )
+        } else {
+            AppAlertDialog(
+                onDismissRequest = { showUnlinkVkDialog = false },
+                title = "Отвязать VK ID?",
+                text = "Вход через VK перестанет работать. Останется вход по почте " +
+                        "$accountEmail и паролю, а привязать VK можно будет снова.",
+                confirmText = "Отвязать",
+                isDestructive = true,
+                onConfirm = {
+                    showUnlinkVkDialog = false
+                    viewModel.removeUsersVKID()
+                },
+                dismissText = "Отмена",
+            )
+        }
+    }
+
     // Вход по VK, а аккаунта с этим VK ещё нет (404 vk_user_not_found).
     // Предлагаем создать его тем же нажатием: почта и пароль не нужны —
     // почту можно добавить позже в профиле.
@@ -387,7 +427,7 @@ fun ProfileScreen(
     }
 
     var showEditEmailDialog by remember { mutableStateOf(false) }
-    var showAddEmailDialog by remember { mutableStateOf(false) }
+
 
     if (showEditEmailDialog) {
         // Состояние из ViewModel
@@ -1002,6 +1042,21 @@ fun ProfileScreen(
                                                     signInAnotherAccountButtonEnabled = true,
                                                 )
                                             }
+                                        }
+                                        // Отвязка доступна и без активной сессии VK SDK: смотрим на
+                                        // признак с сервера, а не на то, отдал ли VK профиль.
+                                        val vkLinkedOnServer =
+                                            !(uiState.userDetailsState as? ResultState.Success)?.data?.vkId.isNullOrEmpty()
+                                        if (vkLinkedOnServer) {
+                                            Text(
+                                                text = "Отвязать VK ID",
+                                                style = styleHint,
+                                                color = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .clickable { showUnlinkVkDialog = true }
+                                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                            )
                                         }
                                     }
                                 }
