@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.route.component.AppAlertDialog
+import com.z_company.route.component.AppEmailPasswordBottomSheet
 import com.z_company.route.component.AppInputBottomSheet
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.SwitchApp
@@ -386,6 +387,7 @@ fun ProfileScreen(
     }
 
     var showEditEmailDialog by remember { mutableStateOf(false) }
+    var showAddEmailDialog by remember { mutableStateOf(false) }
 
     if (showEditEmailDialog) {
         // Состояние из ViewModel
@@ -436,6 +438,52 @@ fun ProfileScreen(
             errorText = errorMessage,
             isLoading = updateEmailState is ResultState.Loading,
             onValueChange = { errorMessage = null },
+        )
+    }
+
+    // Аккаунт заведён через VK ID: почты и пароля нет, войти можно только
+    // через VK. Здесь их добавляют, чтобы доступ не держался на одной привязке.
+    if (showAddEmailDialog) {
+        val addEmailState = uiState.addEmailState
+        var addEmailError by remember { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(Unit) {
+            viewModel.resetAddEmailState()
+            addEmailError = null
+        }
+
+        LaunchedEffect(addEmailState) {
+            when (addEmailState) {
+                is ResultState.Success -> {
+                    addEmailError = null
+                    viewModel.resetAddEmailState()
+                    showAddEmailDialog = false
+                    snackbarHostState.showSnackbar("Почта добавлена — теперь можно входить и по паролю")
+                }
+
+                is ResultState.Error -> {
+                    addEmailError = addEmailState.entity.message
+                    viewModel.resetAddEmailState()
+                }
+
+                else -> {}
+            }
+        }
+
+        AppEmailPasswordBottomSheet(
+            onDismissRequest = {
+                showAddEmailDialog = false
+                viewModel.resetAddEmailState()
+            },
+            title = "Добавить почту",
+            hint = "Сейчас в аккаунт можно войти только через VK ID. " +
+                    "Почта с паролем — второй способ входа на случай, если привязка VK отвалится.",
+            onConfirm = { email, password -> viewModel.addEmail(email, password) },
+            confirmText = "Добавить",
+            isEmailValid = { it.isEmailValid() },
+            minPasswordLength = MIN_LENGTH_PASSWORD,
+            errorText = addEmailError,
+            isLoading = addEmailState is ResultState.Loading,
         )
     }
 
@@ -989,16 +1037,45 @@ fun ProfileScreen(
                                                 ) {
                                                     Icon(painterResource(R.drawable.ic_mail_24), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.tertiary)
                                                 }
-                                                Text(
-                                                    text = it.email,
-                                                    style = styleData,
-                                                    color = primaryColor,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.weight(1f),
-                                                )
-                                                IconButton(onClick = { showEditEmailDialog = true }) {
-                                                    Icon(painterResource(com.z_company.core.R.drawable.ic_edit), contentDescription = "Изменить почту", tint = MaterialTheme.colorScheme.tertiary)
+                                                // Аккаунт, заведённый через VK ID: почты и пароля нет,
+                                                // войти можно только через VK. Предлагаем добавить их,
+                                                // чтобы доступ не зависел от одной привязки.
+                                                val hasEmail = it.email.isNotBlank()
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = if (hasEmail) it.email else "Почта не добавлена",
+                                                        style = styleData,
+                                                        color = if (hasEmail) primaryColor
+                                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                    if (!hasEmail) {
+                                                        Text(
+                                                            text = "Вход только через VK ID",
+                                                            style = styleHint,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        )
+                                                    }
+                                                }
+                                                if (hasEmail) {
+                                                    IconButton(onClick = { showEditEmailDialog = true }) {
+                                                        Icon(painterResource(com.z_company.core.R.drawable.ic_edit), contentDescription = "Изменить почту", tint = MaterialTheme.colorScheme.tertiary)
+                                                    }
+                                                } else {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(12.dp))
+                                                            .background(MaterialTheme.colorScheme.surfaceBright)
+                                                            .clickable { showAddEmailDialog = true }
+                                                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                                                    ) {
+                                                        Text(
+                                                            text = "Добавить",
+                                                            style = styleData,
+                                                            color = MaterialTheme.colorScheme.tertiary,
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }

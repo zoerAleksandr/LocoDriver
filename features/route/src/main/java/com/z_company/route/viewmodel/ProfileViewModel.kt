@@ -79,6 +79,8 @@ data class ProfileUiState(
     val vkUserState: ResultState<VkUserInfo?> = ResultState.Loading(),
     val downloadRouteProgress: Pair<Int, Int>? = null,
     val updateEmailState: ResultState<Unit>? = null,
+    // Привязка почты с паролем к аккаунту, заведённому через VK (email/add).
+    val addEmailState: ResultState<Unit>? = null,
     val syncUploadProgress: Map<String, SyncStepState> = emptyMap(),  // Прогресс для upload (ключ - этап, значение - состояние)
     val syncDownloadProgress: Map<String, SyncStepState> = emptyMap(),  // Прогресс для download
     val syncProgress: Map<String, SyncStepState> = emptyMap(),  // Прогресс единой двусторонней синхронизации
@@ -765,6 +767,49 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     // Для чего: Сбрасывает состояние updateEmailState в null после обработки Success/Error, чтобы избежать повторных LaunchedEffect в UI.
     fun resetUpdateEmailState() {
         _uiState.update { it.copy(updateEmailState = null) }
+    }
+
+    /**
+     * Привязка почты и пароля к аккаунту, заведённому через VK.
+     * У таких аккаунтов пароль пустой, и VK — единственный способ войти:
+     * отвалится привязка VK — доступ потерян. После успеха профиль
+     * перечитывается, чтобы в UI появилась почта.
+     */
+    fun addEmail(newEmail: String, password: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(addEmailState = ResultState.Loading()) }
+            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+            val fullToken = "Bearer $token"
+            authManager.addEmail(
+                token = fullToken,
+                email = newEmail,
+                password = password
+            ).collect { state ->
+                when (state) {
+                    is ResponseState.Success -> {
+                        _uiState.update { it.copy(addEmailState = ResultState.Success(Unit)) }
+                        getUserInfo()
+                    }
+
+                    is ResponseState.Error -> {
+                        _uiState.update {
+                            it.copy(
+                                addEmailState = ResultState.Error(
+                                    ErrorEntity(message = state.errorMessage)
+                                )
+                            )
+                        }
+                    }
+
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    /** Сброс состояния привязки почты после показа результата в UI. */
+    fun resetAddEmailState() {
+        _uiState.update { it.copy(addEmailState = null) }
     }
 
     fun resetUploadState() = _uiState.update { it.copy(uploadState = null) }

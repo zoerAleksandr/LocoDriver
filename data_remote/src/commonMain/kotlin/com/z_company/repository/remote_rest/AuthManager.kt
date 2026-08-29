@@ -1,6 +1,7 @@
 package com.z_company.repository.remote_rest
 
 import com.z_company.domain.entities.route.Route
+import com.z_company.repository.remote_rest.request.AddEmailRequest
 import com.z_company.repository.remote_rest.request.AddVKIDRequest
 import com.z_company.repository.remote_rest.request.AuthRequest
 import com.z_company.repository.remote_rest.request.RegisteredRequestByEmail
@@ -274,6 +275,36 @@ class AuthManager(
         }
     }
 
+    /**
+     * Привязка почты и пароля к аккаунту, у которого их ещё нет
+     * (`PATCH /v1/auth/email/add`). Нужна аккаунтам, заведённым через VK:
+     * пароль у них — пустая строка, и VK остаётся единственным способом
+     * войти. Если почта уже привязана, сервер отвечает 200 и ничего не
+     * меняет — менять её нужно через [updateEmail].
+     */
+    fun addEmail(token: String, email: String, password: String): Flow<ResponseState> = flow {
+        emit(ResponseState.Loading)
+        try {
+            val request = AddEmailRequest(email = email, password = password)
+            remoteRestApi.addEmailToUser(token = token, body = request)
+            emit(ResponseState.Success)
+        } catch (e: ClientRequestException) {
+            emit(
+                ResponseState.Error(
+                    addEmailErrorMessage(e.response.status.value, detailOf(e.response))
+                )
+            )
+        } catch (e: ServerResponseException) {
+            emit(
+                ResponseState.Error(
+                    addEmailErrorMessage(e.response.status.value, detailOf(e.response))
+                )
+            )
+        } catch (e: Exception) {
+            emit(ResponseState.Error("Ошибка: ${e.message}"))
+        }
+    }
+
     fun updateEmail(token: String, email: String): Flow<ResponseState> = flow {
         emit(ResponseState.Loading)
         delay(2000L)
@@ -326,6 +357,20 @@ internal fun vkAuthError(statusCode: Int, detail: String?): AuthState.Error = wh
     )
 
     else -> AuthState.Error("Ошибка: $statusCode")
+}
+
+/**
+ * Текст для пользователя по ответу `PATCH /v1/auth/email/add`.
+ * 400 — сервер не принял пароль, 409 — почта занята другим аккаунтом.
+ */
+internal fun addEmailErrorMessage(statusCode: Int, detail: String?): String = when {
+    statusCode == 400 -> "Не удалось сохранить пароль. Проверьте, что он заполнен."
+    statusCode == 409 -> "Эта почта уже занята другим аккаунтом «Машиниста»."
+    statusCode == 401 || statusCode == 403 -> "Сессия устарела. Войдите в аккаунт заново."
+    statusCode == 404 -> "Аккаунт не найден."
+    statusCode >= 500 -> "Сервер временно недоступен. Попробуйте позже."
+    detail != null -> detail
+    else -> "Не удалось привязать почту. Ошибка $statusCode."
 }
 
 /** Текст для пользователя по ответу `PATCH /v1/auth/vkId/add`. */
