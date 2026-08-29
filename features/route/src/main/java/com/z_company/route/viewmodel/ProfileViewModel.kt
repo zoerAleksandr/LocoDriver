@@ -42,6 +42,7 @@ import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.repository.remote_rest.UserRemote
+import com.z_company.repository.remote_rest.VkAuthError
 import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
@@ -98,7 +99,11 @@ data class ProfileUiState(
     val pendingRouteDeletionLabels: List<String> = emptyList(),
     // Текст об ошибке привязки VK ID (409 и т.п.) — показывается в snackbar
     // и сбрасывается через clearVkLinkMessage().
-    val vkLinkMessage: String? = null
+    val vkLinkMessage: String? = null,
+    // Вход по VK, а аккаунта с этим VK нет: предлагаем создать его одним
+    // подтверждением. Почта и пароль не спрашиваются — почту можно добавить
+    // позже в профиле.
+    val vkRegistrationOffer: Boolean = false
 )
 
 // Описание: Определяет тип синхронизации (загрузка на сервер или с сервера) для выбора правильного progress map в UI.
@@ -819,8 +824,13 @@ class ProfileViewModel : ViewModel(), KoinComponent {
      * @param vkAccessToken токен из VKID SDK. Уходит ровно в один сетевой
      *   запрос: не сохраняем его ни в SecureTokenStorage, ни в логи/Sentry.
      *   Локально по-прежнему храним только vk id — как признак «VK привязан».
+     * @param email почта из данных VK. Нужна не для входа, а на случай
+     *   [VkAuthError.UserNotFound]: тогда из неё соберётся регистрация.
+     *
+     * Если аккаунта с этим VK нет, ошибка в UI не уходит — вместо неё
+     * поднимается [ProfileUiState.vkRegistrationOffer] («создать аккаунт?»).
      */
-    fun authWithVKID(vkid: String, vkAccessToken: String) {
+    fun authWithVKID(vkid: String, vkAccessToken: String, email: String) {
         loginJob?.cancel()
         val handler = CoroutineExceptionHandler { _, throwable ->
             // VK SDK может бросить при отмене капчи во время OAuth
@@ -839,12 +849,56 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                             syncManager.syncFromRemote("Bearer $token").collect {}
                         }
                     }
-                    _authUiState.value = state
+                    if (state is AuthState.Error && state.vkError == VkAuthError.UserNotFound) {
+                        // Аккаунта с этим VK нет. Не показываем ошибку входа —
+                        // держим токен в памяти VM и предлагаем регистрацию.
+                        pendingVkRegistration =
+                            PendingVkRegistration(vkid, vkAccessToken, email)
+                        _uiState.update { it.copy(vkRegistrationOffer = true) }
+                        _authUiState.value = AuthState.Initial
+                    } else {
+                        _authUiState.value = state
+                    }
                 }
             } catch (e: Exception) {
                 Sentry.captureMessage("authWithVKID exception: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Данные для регистрации по VK, отложенные до подтверждения пользователем.
+     * Живут только в памяти ViewModel и стираются сразу после ответа сервера
+     * или отказа — access token не должен пережить флоу.
+     */
+    private data class PendingVkRegistration(
+        val vkid: String,
+        val vkAccessToken: String,
+        val email: String
+    )
+
+    private var pendingVkRegistration: PendingVkRegistration? = null
+
+    /**
+     * Согласие на создание аккаунта по VK. Почта берётся из данных VK (может
+     * быть пустой), пароль не задаётся — его и почту пользователь при желании
+     * добавит в профиле.
+     */
+    fun confirmVkRegistration() {
+        val pending = pendingVkRegistration ?: return
+        pendingVkRegistration = null
+        _uiState.update { it.copy(vkRegistrationOffer = false) }
+        registeredUserByVKID(
+            vkid = pending.vkid,
+            vkAccessToken = pending.vkAccessToken,
+            email = pending.email
+        )
+    }
+
+    /** Отказ от регистрации: забываем access token вместе с остальными данными. */
+    fun dismissVkRegistration() {
+        pendingVkRegistration = null
+        _uiState.update { it.copy(vkRegistrationOffer = false) }
     }
 
     // Чтобы сбросить _authUiState в Initial после показа ошибки в Snackbar в ProfileScreen, чтобы избежать повторных отображений.

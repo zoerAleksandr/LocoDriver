@@ -62,7 +62,6 @@ import com.z_company.core.util.isVpnActive
 import com.z_company.core.util.vpnAwareErrorMessage
 import com.z_company.core.util.VPN_ERROR_HINT
 import com.z_company.repository.remote_rest.AuthState
-import com.z_company.repository.remote_rest.VkAuthError
 import com.z_company.route.R
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
@@ -304,6 +303,21 @@ fun ProfileScreen(
             )
             viewModel.resetRegisteredState() // Сброс состояния после показа ошибки
         }
+    }
+
+    // Вход по VK, а аккаунта с этим VK ещё нет (404 vk_user_not_found).
+    // Предлагаем создать его тем же нажатием: почта и пароль не нужны —
+    // почту можно добавить позже в профиле.
+    if (uiState.vkRegistrationOffer) {
+        AppAlertDialog(
+            onDismissRequest = { viewModel.dismissVkRegistration() },
+            title = "Аккаунта с этим VK нет",
+            text = "Создать новый аккаунт «Машинист» и войти через VK ID? " +
+                    "Почту и пароль можно будет добавить позже в профиле.",
+            confirmText = "Создать",
+            onConfirm = { viewModel.confirmVkRegistration() },
+            dismissText = "Отмена",
+        )
     }
 
     // Для чего: Чтобы ошибка привязки VK ID (например, 409 — VK уже привязан
@@ -1164,15 +1178,6 @@ fun ProfileScreen(
                         var passwordVisible by remember { mutableStateOf(false) }
                         var login by remember { mutableStateOf(!viewModel.isFirstAppEntry.value) }
 
-                        // Вход по VK на аккаунте, к которому VK не привязан: сервер
-                        // отвечает 404 vk_user_not_found. Переключаем тумблер на
-                        // «Регистрация», чтобы человек не упирался в ошибку входа.
-                        LaunchedEffect(authUiState) {
-                            if ((authUiState as? AuthState.Error)?.vkError == VkAuthError.UserNotFound) {
-                                login = false
-                            }
-                        }
-
                         val paddingBetweenView = 12.dp
                         val dataStyle = MaterialTheme.typography.bodyLarge
                         val hintStyle = MaterialTheme.typography.bodyMedium
@@ -1239,7 +1244,8 @@ fun ProfileScreen(
                                     if (login) {
                                         viewModel.authWithVKID(
                                             vkid = accessToken.userID.toString(),
-                                            vkAccessToken = accessToken.token
+                                            vkAccessToken = accessToken.token,
+                                            email = accessToken.userData.email ?: ""
                                         )
                                     } else {
                                         viewModel.registeredUserByVKID(
