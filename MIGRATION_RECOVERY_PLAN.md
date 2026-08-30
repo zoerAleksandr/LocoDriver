@@ -1,6 +1,7 @@
 # План безопасного обновления и восстановления данных Android
 
-Статус: проектирование, реализация не начата  
+Статус: этапы 0–1 в реализации; локальный bootstrap, candidate-миграция и
+fixtures Room v1–v12 реализованы и проверены на Android 16  
 Ветка клиента: `codex/data-safety-diagnostics`  
 Ветка сервера: `codex/data-safety-diagnostics-server`  
 Область первой реализации: Android; iOS не затрагивается
