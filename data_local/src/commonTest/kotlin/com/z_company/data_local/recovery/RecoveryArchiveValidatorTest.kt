@@ -75,6 +75,27 @@ class RecoveryArchiveValidatorTest {
         assertTrue(RecoveryArchiveJson.encodeManifest(decoded).contains("archiveFormatVersion"))
     }
 
+    @Test
+    fun oversizedManifestIsRejectedBeforeDecoding() {
+        val oversized = " ".repeat(RecoveryArchiveContract.MAX_MANIFEST_BYTES + 1)
+
+        assertValidationCode(RecoveryArchiveValidationCode.MANIFEST_TOO_LARGE) {
+            RecoveryArchiveJson.decodeManifest(oversized)
+        }
+    }
+
+    @Test
+    fun excessiveSectionCountIsRejected() {
+        val base = validManifest()
+        val extra = (0..RecoveryArchiveContract.MAX_SECTIONS).map { index ->
+            RecoveryArchiveSection("future-$index.bin", 0L, HASH)
+        }
+
+        assertValidationCode(RecoveryArchiveValidationCode.TOO_MANY_SECTIONS) {
+            RecoveryArchiveValidator.validateManifest(base.copy(sections = base.sections + extra))
+        }
+    }
+
     private fun assertValidationCode(
         expected: RecoveryArchiveValidationCode,
         block: () -> Unit,

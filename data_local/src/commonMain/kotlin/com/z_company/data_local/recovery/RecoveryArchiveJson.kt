@@ -15,5 +15,11 @@ object RecoveryArchiveJson {
         json.encodeToString(manifest)
 
     fun decodeManifest(value: String): RecoveryArchiveManifest =
-        json.decodeFromString(value)
+        if (value.encodeToByteArray().size <= RecoveryArchiveContract.MAX_MANIFEST_BYTES) {
+            json.decodeFromString(value)
+        } else {
+            throw RecoveryArchiveValidationException(
+                RecoveryArchiveValidationCode.MANIFEST_TOO_LARGE
+            )
+        }
 }

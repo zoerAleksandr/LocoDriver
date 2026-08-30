@@ -16,6 +16,14 @@ object RecoveryArchiveValidator {
             manifest.installationId.isNotBlank() && manifest.installationId.length <= 128,
             RecoveryArchiveValidationCode.INVALID_INSTALLATION_ID,
         )
+        requireValid(
+            manifest.accountIdHash == null || manifest.accountIdHash.length <= 128,
+            RecoveryArchiveValidationCode.INVALID_ACCOUNT_HASH,
+        )
+        requireValid(
+            manifest.sections.size <= RecoveryArchiveContract.MAX_SECTIONS,
+            RecoveryArchiveValidationCode.TOO_MANY_SECTIONS,
+        )
 
         val names = mutableSetOf<String>()
         manifest.sections.forEach { section ->

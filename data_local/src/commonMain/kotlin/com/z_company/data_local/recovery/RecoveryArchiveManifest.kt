@@ -31,6 +31,9 @@ enum class RecoveryArchiveValidationCode {
     INVALID_APP_BUILD,
     INVALID_CREATED_AT,
     INVALID_INSTALLATION_ID,
+    INVALID_ACCOUNT_HASH,
+    TOO_MANY_SECTIONS,
+    MANIFEST_TOO_LARGE,
     INVALID_SECTION_NAME,
     DUPLICATE_SECTION,
     MISSING_REQUIRED_SECTION,
@@ -45,6 +48,8 @@ class RecoveryArchiveValidationException(
 
 object RecoveryArchiveContract {
     const val CURRENT_FORMAT_VERSION: Int = 1
+    const val MAX_MANIFEST_BYTES: Int = 64 * 1024
+    const val MAX_SECTIONS: Int = 32
 
     val REQUIRED_SECTIONS: Set<String> = setOf(
         "routes.ndjson",
