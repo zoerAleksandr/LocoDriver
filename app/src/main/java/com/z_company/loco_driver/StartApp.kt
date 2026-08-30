@@ -65,6 +65,13 @@ class StartApp : Application() {
             .setConstraints(constraints)
             .build()
 
+        val periodicDiagnosticsRequest = PeriodicWorkRequestBuilder<DiagnosticWorker>(
+            repeatInterval = 12,
+            repeatIntervalTimeUnit = TimeUnit.HOURS,
+        )
+            .setConstraints(constraints)
+            .build()
+
         // UPDATE (вместо KEEP): обновляет параметры задачи при каждом запуске приложения.
         // Это позволяет применять изменения конфигурации (интервал, constraints) после
         // обновления приложения без переустановки. Расписание при этом сохраняется.
@@ -75,6 +82,12 @@ class StartApp : Application() {
                 OneTimeWorkRequestBuilder<DiagnosticWorker>()
                     .setConstraints(constraints)
                     .build(),
+            )
+        WorkManager.getInstance(this)
+            .enqueueUniquePeriodicWork(
+                "diagnostics_upload_periodic",
+                ExistingPeriodicWorkPolicy.UPDATE,
+                periodicDiagnosticsRequest,
             )
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
