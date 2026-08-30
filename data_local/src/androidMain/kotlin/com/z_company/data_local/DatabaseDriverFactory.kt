@@ -32,6 +32,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
     private fun createRouteDriverLocked(): SqlDriver {
         var backup: RouteBackup? = null
         return try {
+            cleanupDisposableMigrationFiles()
             val interruptedSourceVersion = recoverInterruptedMigrationAttempt()
             backup = prepareRouteBackupIfNeeded()
             val preparedBackup = backup
@@ -106,16 +107,24 @@ actual class DatabaseDriverFactory(private val context: Context) {
         if (stage in TERMINAL_MIGRATION_STAGES) return null
         val sourceVersion = preferences.getInt(KEY_MIGRATION_FROM, -1).takeIf { it >= 0 }
 
-        val dbFile = context.getDatabasePath("Route.db")
-        val candidate = File(dbFile.parentFile, "Route.candidate.db")
-        candidate.delete()
-        File(candidate.path + "-wal").delete()
-        File(candidate.path + "-shm").delete()
         preferences.edit()
             .putString(KEY_MIGRATION_STAGE, "INTERRUPTED")
             .putLong(KEY_MIGRATION_UPDATED_AT, System.currentTimeMillis())
             .commit()
         return sourceVersion
+    }
+
+    private fun cleanupDisposableMigrationFiles() {
+        val dbFile = context.getDatabasePath("Route.db")
+        listOf(
+            File(dbFile.parentFile, "Route.candidate.db"),
+            File(dbFile.parentFile, "Route.restore.tmp"),
+            File(context.filesDir, "data_safety/Route.pre_migration.tmp"),
+        ).forEach { file ->
+            file.delete()
+            File(file.path + "-wal").delete()
+            File(file.path + "-shm").delete()
+        }
     }
 
     private fun recordMigrationStage(stage: String, sourceVersion: Int) {
@@ -607,10 +616,9 @@ actual class DatabaseDriverFactory(private val context: Context) {
         val backupFile = File(backupDir, "Route.pre_migration.db")
         dbFile.copyTo(temp, overwrite = true)
         validateBackupFile(temp, snapshot)
-        if (backupFile.exists() && !backupFile.delete()) {
-            throw IllegalStateException("Cannot replace previous Route.db backup")
-        }
-        require(temp.renameTo(backupFile)) { "Cannot finalize Route.db backup" }
+        // rename(2) replaces the previous backup atomically. A process death before
+        // this instruction leaves the old backup intact; after it, the new one is complete.
+        Os.rename(temp.path, backupFile.path)
         return RouteBackup(backupFile, snapshot, sourceVersion)
     }
 
@@ -668,7 +676,16 @@ actual class DatabaseDriverFactory(private val context: Context) {
         }
         File(dbFile.path + "-wal").delete()
         File(dbFile.path + "-shm").delete()
-        backup.file.copyTo(dbFile, overwrite = true)
+        val restoreTemp = File(dbFile.parentFile, "Route.restore.tmp")
+        try {
+            backup.file.copyTo(restoreTemp, overwrite = true)
+            validateBackupFile(restoreTemp, backup.snapshot)
+            // Never copy directly over Route.db: interruption during copy must leave
+            // either the complete current DB or the complete validated backup.
+            Os.rename(restoreTemp.path, dbFile.path)
+        } finally {
+            restoreTemp.delete()
+        }
         context.getSharedPreferences("data_safety_status", Context.MODE_PRIVATE)
             .edit()
             .putString("last_migration_status", "ROLLED_BACK")

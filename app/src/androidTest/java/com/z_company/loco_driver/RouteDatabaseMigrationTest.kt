@@ -105,6 +105,17 @@ class RouteDatabaseMigrationTest {
             assertTrue(hasTable(migrated, "RouteEvent"))
             assertTrue(hasTable(migrated, "DiagnosticOutbox"))
         }
+        val backupFile = File(isolatedContext.filesDir, "data_safety/Route.pre_migration.db")
+        assertTrue("Room v$version backup is missing", backupFile.isFile)
+        SQLiteDatabase.openDatabase(
+            backupFile.path,
+            null,
+            SQLiteDatabase.OPEN_READONLY,
+        ).use { backup ->
+            assertEquals("Room v$version backup version", version, backup.version)
+            assertEquals("Room v$version backup routes", before, routeIds(backup))
+            assertEquals("Room v$version backup children", childrenBefore, childCounts(backup))
+        }
     }
 
     @Test
