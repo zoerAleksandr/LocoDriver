@@ -152,6 +152,15 @@ class SalaryCalculationHelper(
                 businessTripDays.contains(date.dayOfMonth)
     }
 
+    @OptIn(kotlin.time.ExperimentalTime::class)
+    private fun Route.startsInSelectedMonth(): Boolean {
+        val startMs = basicData.timeStartWork ?: return false
+        val date = Instant.fromEpochMilliseconds(startMs)
+            .toLocalDateTime(timeCalculationContext.crossMonthTZ).date
+        return date.year == currentMonthOfYear.year &&
+                date.monthNumber == currentMonthOfYear.month + 1
+    }
+
     private val businessTripRoutes: List<Route> = allRoutes.filter { it.startsInBusinessTrip() }
 
     // Обычные тарифы и надбавки считаются только по маршрутам вне
@@ -1061,7 +1070,7 @@ class SalaryCalculationHelper(
     fun getLinearMileageAccrualsFlow(): Flow<List<LinearMileageAccrual>> = flow {
         val distancesByPhase = linkedMapOf<String, Double>()
         val phasesById = linkedMapOf<String, com.z_company.domain.entities.setting.ServicePhase>()
-        routeList.forEach { route ->
+        routeList.filter { it.startsInSelectedMonth() }.forEach { route ->
             route.trains.forEach { train ->
                 val savedPhase = train.servicePhase ?: return@forEach
                 val currentPhase = userSettings.servicePhases.firstOrNull { it.id == savedPhase.id }
