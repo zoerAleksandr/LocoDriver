@@ -1,6 +1,7 @@
 package com.z_company.work_manager
 
 import android.content.Context
+import android.os.Build
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.z_company.domain.repositories.DiagnosticRepository
@@ -30,9 +31,9 @@ class DiagnosticWorker(appContext: Context, workerParams: WorkerParameters) :
                     diagnosticCode = summary.diagnosticCode,
                     appVersion = first.appVersion ?: "unknown",
                     appBuild = first.appBuild ?: 0,
-                    androidVersion = "android",
-                    deviceManufacturer = "unknown",
-                    deviceModel = "unknown",
+                    androidVersion = Build.VERSION.RELEASE.ifBlank { Build.VERSION.SDK_INT.toString() },
+                    deviceManufacturer = Build.MANUFACTURER.take(128),
+                    deviceModel = Build.MODEL.take(128),
                     dbVersion = summary.dbVersion,
                     migrationStatus = summary.migrationStatus,
                     events = batch.map(DiagnosticPayloadMapper::event),
