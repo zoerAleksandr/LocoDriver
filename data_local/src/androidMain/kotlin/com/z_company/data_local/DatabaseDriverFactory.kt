@@ -5,6 +5,7 @@ import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import android.os.StatFs
 import android.system.Os
+import android.system.OsConstants
 import androidx.sqlite.db.SupportSQLiteDatabase
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
@@ -79,6 +80,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             recordMigrationStage("CANDIDATE_MIGRATING", backup.sourceVersion)
             migrateRouteDbIfNeeded(candidate)
             validateMigratedRouteDb(backup, candidate)
+            syncFile(candidate)
             recordMigrationStage("CANDIDATE_VALIDATED", backup.sourceVersion)
 
             // rename(2) replaces a file atomically on the same filesystem. The live
@@ -87,6 +89,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             File(dbFile.path + "-shm").delete()
             recordMigrationStage("SWAPPING", backup.sourceVersion)
             Os.rename(candidate.path, dbFile.path)
+            syncDirectory(dbFile.parentFile)
             recordMigrationStage("SWAPPED", backup.sourceVersion)
         } finally {
             candidate.delete()
@@ -150,6 +153,26 @@ actual class DatabaseDriverFactory(private val context: Context) {
 
     private fun migrationPreferences() =
         context.getSharedPreferences("data_safety_status", Context.MODE_PRIVATE)
+
+    private fun syncFile(file: File) {
+        RandomAccessFile(file, "rw").use { randomAccessFile ->
+            randomAccessFile.fd.sync()
+        }
+    }
+
+    private fun syncDirectory(directory: File?) {
+        requireNotNull(directory) { "Route.db directory is missing" }
+        val descriptor = Os.open(
+            directory.path,
+            OsConstants.O_RDONLY,
+            0,
+        )
+        try {
+            Os.fsync(descriptor)
+        } finally {
+            Os.close(descriptor)
+        }
+    }
 
     actual fun createSettingsDriver(): SqlDriver {
         // Проверяем ВСЕ новые столбцы из всех миграций (1.sqm … 12.sqm).
@@ -616,9 +639,11 @@ actual class DatabaseDriverFactory(private val context: Context) {
         val backupFile = File(backupDir, "Route.pre_migration.db")
         dbFile.copyTo(temp, overwrite = true)
         validateBackupFile(temp, snapshot)
+        syncFile(temp)
         // rename(2) replaces the previous backup atomically. A process death before
         // this instruction leaves the old backup intact; after it, the new one is complete.
         Os.rename(temp.path, backupFile.path)
+        syncDirectory(backupFile.parentFile)
         return RouteBackup(backupFile, snapshot, sourceVersion)
     }
 
@@ -680,9 +705,11 @@ actual class DatabaseDriverFactory(private val context: Context) {
         try {
             backup.file.copyTo(restoreTemp, overwrite = true)
             validateBackupFile(restoreTemp, backup.snapshot)
+            syncFile(restoreTemp)
             // Never copy directly over Route.db: interruption during copy must leave
             // either the complete current DB or the complete validated backup.
             Os.rename(restoreTemp.path, dbFile.path)
+            syncDirectory(dbFile.parentFile)
         } finally {
             restoreTemp.delete()
         }
