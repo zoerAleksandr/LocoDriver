@@ -50,6 +50,37 @@ class RouteDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun failedCandidateNeverReplacesSourceDatabase() {
+        createFromRoomSchema(version = 12)
+        openDatabase().use { source ->
+            source.execSQL("DROP TABLE Train")
+            source.execSQL(
+                """CREATE TABLE Train (
+                    trainId TEXT NOT NULL PRIMARY KEY,
+                    basicId TEXT NOT NULL,
+                    remoteObjectId TEXT NOT NULL
+                )""".trimIndent()
+            )
+            source.execSQL(
+                "INSERT INTO Train(trainId, basicId, remoteObjectId) VALUES (?, ?, ?)",
+                arrayOf<Any>("fixture-train", "fixture-route", "legacy-object"),
+            )
+        }
+
+        val failed = runCatching {
+            DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
+        }.isFailure
+
+        assertTrue(failed)
+        openDatabase().use { sourceAfterFailure ->
+            assertEquals(setOf("fixture-route"), routeIds(sourceAfterFailure))
+            assertTrue(hasColumn(sourceAfterFailure, "Train", "remoteObjectId"))
+            assertFalse(hasTable(sourceAfterFailure, "RouteEvent"))
+        }
+        assertFalse(isolatedContext.getDatabasePath("Route.candidate.db").exists())
+    }
+
     private fun createFromRoomSchema(version: Int) {
         val schemaPath = "com.z_company.data_local.route.data_base.RouteDB/$version.json"
         val schema = isolatedContext.assets.open(schemaPath).bufferedReader()
