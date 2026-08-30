@@ -14,8 +14,6 @@ import com.z_company.domain.entities.route.UtilsForEntities.getNewRoutesToDayRan
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTimeOutsideWork
 import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveTime
-import com.z_company.domain.entities.route.UtilsForEntities.getTimeInHeavyTrain
-import com.z_company.domain.entities.route.UtilsForEntities.getTimeInLongTrain
 import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
 import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTotalOverRestTime
@@ -26,6 +24,7 @@ import com.z_company.domain.util.NightWindow
 import com.z_company.domain.util.TariffChange
 import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.buildSalarySegments
+import com.z_company.domain.util.buildTieredTrainSurchargeSegments
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toExactIntOrNull
 import com.z_company.domain.util.toDoubleOrZero
@@ -174,6 +173,40 @@ class SalaryCalculationHelper(
                 offsetFromMoscowMillis = userSettings.timeZone,
             ),
         )
+    }
+
+    @OptIn(kotlin.time.ExperimentalTime::class)
+    private fun tieredTrainSurchargeSegments(
+        routes: List<Route>,
+        thresholds: List<Int>,
+        condition: AccrualCondition,
+        valueOf: (com.z_company.domain.entities.route.Train) -> Int?,
+    ): List<List<com.z_company.domain.util.SalarySegment>> {
+        val result = MutableList(thresholds.size) {
+            mutableListOf<com.z_company.domain.util.SalarySegment>()
+        }
+        routes.forEach { route ->
+            val tariffChange = dateSetTariffRate
+            val initialRate = tariffChange?.oldRate ?: currentMonthOfYear.tariffRate
+            val changes = tariffChange?.let {
+                val effectiveAt = LocalDate(
+                    year = currentMonthOfYear.year,
+                    month = currentMonthOfYear.month + 1,
+                    day = it.dateNewRate,
+                ).atStartOfDayIn(timeCalculationContext.crossMonthTZ).toEpochMilliseconds()
+                listOf(TariffChange(effectiveAt, currentMonthOfYear.tariffRate))
+            }.orEmpty()
+            route.buildTieredTrainSurchargeSegments(
+                monthOfYear = currentMonthOfYear,
+                context = timeCalculationContext,
+                initialTariffRatePerHour = initialRate,
+                thresholds = thresholds,
+                condition = condition,
+                tariffChanges = changes,
+                valueOf = valueOf,
+            ).forEachIndexed { index, segments -> result[index].addAll(segments) }
+        }
+        return result
     }
 
     fun getWorkTimeAtTariffFlow(): Flow<Long> {
@@ -627,90 +660,38 @@ class SalaryCalculationHelper(
         }
     }
 
-    fun getTimeListSurchargeHeavyTrainsFlow(routes: List<Route> = routeList): Flow<List<Long>> {
-        return channelFlow {
-            val surchargeListSorted = validHeavyTrainSurcharges(salarySetting.surchargeHeavyTrainsList)
-            val timeList: MutableList<Long> = mutableListOf()
-            surchargeListSorted.forEachIndexed { index, _ ->
-                var totalTimeHeavyTrain = 0L
-                routes.forEach { route ->
-                    totalTimeHeavyTrain += route.getTimeInHeavyTrain(
-                        surchargeListSorted.map { it.weight.toIntOrZero() },
-                        index
-                    )
-                }
-                timeList.add(totalTimeHeavyTrain)
-            }
-            trySend(timeList)
-            awaitClose()
-        }
+    fun getTimeListSurchargeHeavyTrainsFlow(routes: List<Route> = routeList): Flow<List<Long>> = flow {
+        val surcharges = validHeavyTrainSurcharges(salarySetting.surchargeHeavyTrainsList)
+        val thresholds = surcharges.mapNotNull { it.weight.toExactIntOrNull() }
+        emit(tieredTrainSurchargeSegments(
+            routes = routes,
+            thresholds = thresholds,
+            condition = AccrualCondition.HEAVY_TRAIN,
+            valueOf = { it.weight?.toExactIntOrNull() },
+        ).map { segments ->
+            segments.filter { AccrualCondition.PASSENGER !in it.conditions }
+                .sumOf { it.interval.durationMillis }
+        })
     }
 
-    fun getTotalTimeHeavyTrainsFlow(routes: List<Route> = routeList): Flow<Long> {
-        return channelFlow {
-            val surchargeListSorted = validHeavyTrainSurcharges(salarySetting.surchargeHeavyTrainsList)
-            val numCats = surchargeListSorted.size
-            var totalHeavyTime = 0L
-            routes.forEach { route ->
-                var selectedTime = 0L
-                for (index in numCats - 1 downTo 0) {
-                    val time = route.getTimeInHeavyTrain(
-                        surchargeListSorted.map { it.weight.toIntOrZero() },
-                        index
-                    )
-                    if (time > 0) {
-                        selectedTime = time
-                        break
-                    }
-                }
-                totalHeavyTime += selectedTime
-            }
-            val totalWorkTime = getTotalWorkTime(routes).first()
-            totalHeavyTime = minOf(totalHeavyTime, totalWorkTime)
-            trySend(totalHeavyTime)
-            awaitClose()
-        }
+    fun getTotalTimeHeavyTrainsFlow(routes: List<Route> = routeList): Flow<Long> = flow {
+        emit(getTimeListSurchargeHeavyTrainsFlow(routes).first().sum())
     }
 
-    fun getMoneyListSurchargeExtendedHeavyTrainsFlow(): Flow<List<Double>> {
-        return channelFlow {
-            val percentList = getPercentListSurchargeExtendedHeavyTrainsFlow().first()
-            val moneyList: MutableList<Double> = mutableListOf()
-
-            if (dateSetTariffRate == null) {
-                getTimeListSurchargeHeavyTrainsFlow().collect { timeList ->
-                    timeList.forEachIndexed { index, timeInHeavyTrains ->
-                        val money =
-                            timeInHeavyTrains
-                                .times(currentMonthOfYear.tariffRate * (percentList[index].toDoubleOrZero() / 100)) / 3_600_000.toDouble()
-                        moneyList.add(money)
-                    }
-                    trySend(moneyList)
-                }
-            } else {
-                val pairRoutes = getTwoRouteList(routeList).first()
-                val firstRoutes = pairRoutes.first
-                val secondRoutes = pairRoutes.second
-                combine(
-                    getTimeListSurchargeHeavyTrainsFlow(firstRoutes),
-                    getTimeListSurchargeHeavyTrainsFlow(secondRoutes),
-                ) { firstTimeList, secondTimeList ->
-                    firstTimeList.forEachIndexed { index, timeInHeavyTrains ->
-                        val money =
-                            timeInHeavyTrains.times(dateSetTariffRate.oldRate * (percentList[index].toDoubleOrZero() / 100)) / 3_600_000.toDouble()
-                        moneyList.add(money)
-                    }
-                    secondTimeList.forEachIndexed { index, timeInHeavyTrains ->
-                        val money =
-                            timeInHeavyTrains.times(currentMonthOfYear.tariffRate * (percentList[index].toDoubleOrZero() / 100)) / 3_600_000.toDouble()
-                        val summaryMoney = money + moneyList[index]
-                        moneyList[index] = summaryMoney
-                    }
-                    trySend(moneyList)
-                }.collect {}
-            }
-            awaitClose()
-        }
+    fun getMoneyListSurchargeExtendedHeavyTrainsFlow(): Flow<List<Double>> = flow {
+        val surcharges = validHeavyTrainSurcharges(salarySetting.surchargeHeavyTrainsList)
+        val thresholds = surcharges.mapNotNull { it.weight.toExactIntOrNull() }
+        val segmentsByTier = tieredTrainSurchargeSegments(
+            routes = routeList,
+            thresholds = thresholds,
+            condition = AccrualCondition.HEAVY_TRAIN,
+            valueOf = { it.weight?.toExactIntOrNull() },
+        )
+        emit(segmentsByTier.mapIndexed { index, segments ->
+            val percent = surcharges[index].percentSurcharge.toDoubleOrZero() / 100
+            segments.filter { AccrualCondition.PASSENGER !in it.conditions }
+                .sumOf { it.tariffMoney * percent }
+        })
     }
 
     fun getPercentListSurchargeLongTrainsFlow(): Flow<List<String>> {
@@ -722,90 +703,38 @@ class SalaryCalculationHelper(
         }
     }
 
-    fun getTimeListSurchargeLongTrainsFlow(routes: List<Route> = routeList): Flow<List<Long>> {
-        return channelFlow {
-            val surchargeListSorted = validLongTrainSurcharges(salarySetting.surchargeLongTrainsList)
-            val timeList: MutableList<Long> = mutableListOf()
-            surchargeListSorted.forEachIndexed { index, _ ->
-                var totalTimeLongTrain = 0L
-                routes.forEach { route ->
-                    totalTimeLongTrain += route.getTimeInLongTrain(
-                        surchargeListSorted.map { it.conditionalLength.toIntOrZero() },
-                        index
-                    )
-                }
-                timeList.add(totalTimeLongTrain)
-            }
-            trySend(timeList)
-            awaitClose()
-        }
+    fun getTimeListSurchargeLongTrainsFlow(routes: List<Route> = routeList): Flow<List<Long>> = flow {
+        val surcharges = validLongTrainSurcharges(salarySetting.surchargeLongTrainsList)
+        val thresholds = surcharges.mapNotNull { it.conditionalLength.toExactIntOrNull() }
+        emit(tieredTrainSurchargeSegments(
+            routes = routes,
+            thresholds = thresholds,
+            condition = AccrualCondition.LONG_TRAIN,
+            valueOf = { it.conditionalLength?.toExactIntOrNull() },
+        ).map { segments ->
+            segments.filter { AccrualCondition.PASSENGER !in it.conditions }
+                .sumOf { it.interval.durationMillis }
+        })
     }
 
-    fun getTotalTimeLongTrainsFlow(routes: List<Route> = routeList): Flow<Long> {
-        return channelFlow {
-            val surchargeListSorted = validLongTrainSurcharges(salarySetting.surchargeLongTrainsList)
-            val numCats = surchargeListSorted.size
-            var totalLongTime = 0L
-            routes.forEach { route ->
-                var selectedTime = 0L
-                for (index in numCats - 1 downTo 0) {
-                    val time = route.getTimeInLongTrain(
-                        surchargeListSorted.map { it.conditionalLength.toIntOrZero() },
-                        index
-                    )
-                    if (time > 0) {
-                        selectedTime = time
-                        break
-                    }
-                }
-                totalLongTime += selectedTime
-            }
-            val totalWorkTime = getTotalWorkTime(routes).first()
-            totalLongTime = minOf(totalLongTime, totalWorkTime)
-            trySend(totalLongTime)
-            awaitClose()
-        }
+    fun getTotalTimeLongTrainsFlow(routes: List<Route> = routeList): Flow<Long> = flow {
+        emit(getTimeListSurchargeLongTrainsFlow(routes).first().sum())
     }
 
-    fun getMoneyListSurchargeLongTrainsFlow(): Flow<List<Double>> {
-        return channelFlow {
-            val percentList = getPercentListSurchargeLongTrainsFlow().first()
-            val moneyList: MutableList<Double> = mutableListOf()
-
-            if (dateSetTariffRate == null) {
-                getTimeListSurchargeLongTrainsFlow().collect { timeList ->
-                    timeList.forEachIndexed { index, timeInLongTrains ->
-                        val money =
-                            timeInLongTrains
-                                .times(currentMonthOfYear.tariffRate * (percentList[index].toDoubleOrZero() / 100)) / 3_600_000.toDouble()
-                        moneyList.add(money)
-                    }
-                    trySend(moneyList)
-                }
-            } else {
-                val pairRoutes = getTwoRouteList(routeList).first()
-                val firstRoutes = pairRoutes.first
-                val secondRoutes = pairRoutes.second
-                combine(
-                    getTimeListSurchargeLongTrainsFlow(firstRoutes),
-                    getTimeListSurchargeLongTrainsFlow(secondRoutes),
-                ) { firstTimeList, secondTimeList ->
-                    firstTimeList.forEachIndexed { index, timeInLongTrains ->
-                        val money =
-                            timeInLongTrains.times(dateSetTariffRate.oldRate * (percentList[index].toDoubleOrZero() / 100)) / 3_600_000.toDouble()
-                        moneyList.add(money)
-                    }
-                    secondTimeList.forEachIndexed { index, timeInLongTrains ->
-                        val money =
-                            timeInLongTrains.times(currentMonthOfYear.tariffRate * (percentList[index].toDoubleOrZero() / 100)) / 3_600_000.toDouble()
-                        val summaryMoney = money + moneyList[index]
-                        moneyList[index] = summaryMoney
-                    }
-                    trySend(moneyList)
-                }.collect {}
-            }
-            awaitClose()
-        }
+    fun getMoneyListSurchargeLongTrainsFlow(): Flow<List<Double>> = flow {
+        val surcharges = validLongTrainSurcharges(salarySetting.surchargeLongTrainsList)
+        val thresholds = surcharges.mapNotNull { it.conditionalLength.toExactIntOrNull() }
+        val segmentsByTier = tieredTrainSurchargeSegments(
+            routes = routeList,
+            thresholds = thresholds,
+            condition = AccrualCondition.LONG_TRAIN,
+            valueOf = { it.conditionalLength?.toExactIntOrNull() },
+        )
+        emit(segmentsByTier.mapIndexed { index, segments ->
+            val percent = surcharges[index].percentSurcharge.toDoubleOrZero() / 100
+            segments.filter { AccrualCondition.PASSENGER !in it.conditions }
+                .sumOf { it.tariffMoney * percent }
+        })
     }
 
     fun getTimeHeavyLongDistanceTrainsFlow(routes: List<Route> = routeList): Flow<Long> = flow {

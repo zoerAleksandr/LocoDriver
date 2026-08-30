@@ -4,6 +4,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.clipToMonth
 import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
 import kotlinx.datetime.DateTimeUnit
@@ -114,6 +115,68 @@ fun Route.buildSalarySegments(
         tariffChanges = tariffChanges,
         conditionIntervals = conditions,
     )
+}
+
+/**
+ * Строит непересекающиеся сегменты поездной доплаты по настраиваемым порогам.
+ * Если интервалы поездов разных диапазонов пересекаются, в каждый момент
+ * применяется только диапазон с наибольшим подходящим порогом.
+ */
+fun Route.buildTieredTrainSurchargeSegments(
+    monthOfYear: MonthOfYear,
+    context: TimeCalculationContext,
+    initialTariffRatePerHour: Double,
+    thresholds: List<Int>,
+    condition: AccrualCondition,
+    tariffChanges: Iterable<TariffChange> = emptyList(),
+    valueOf: (Train) -> Int?,
+): List<List<SalarySegment>> {
+    require(thresholds.all { it > 0 }) { "Train surcharge thresholds must be positive" }
+    require(thresholds.zipWithNext().all { (first, second) -> first < second }) {
+        "Train surcharge thresholds must be unique and strictly increasing"
+    }
+    if (thresholds.isEmpty()) return emptyList()
+
+    val workInterval = clipToMonth(monthOfYear, context)
+        ?.let { (start, end) -> TimeInterval(start, end) }
+        ?: return List(thresholds.size) { emptyList() }
+    val baseSegments = buildSalarySegments(
+        monthOfYear = monthOfYear,
+        context = context,
+        initialTariffRatePerHour = initialTariffRatePerHour,
+        tariffChanges = tariffChanges,
+    )
+    val intervalsByTier = thresholds.indices.map { index ->
+        val lower = thresholds[index]
+        val upper = thresholds.getOrNull(index + 1)
+        trainIntervals(workInterval) { train ->
+            val value = valueOf(train) ?: return@trainIntervals false
+            value >= lower && (upper == null || value < upper)
+        }
+    }
+    val selectedByTier = MutableList(thresholds.size) { emptyList<TimeInterval>() }
+    var intervalsClaimedByHigherTiers = emptyList<TimeInterval>()
+    for (index in thresholds.indices.reversed()) {
+        val selected = intervalsByTier[index]
+            .flatMap { it.subtractAll(intervalsClaimedByHigherTiers) }
+            .mergeTimeIntervals()
+        selectedByTier[index] = selected
+        intervalsClaimedByHigherTiers =
+            (intervalsClaimedByHigherTiers + selected).mergeTimeIntervals()
+    }
+
+    return selectedByTier.map { activeIntervals ->
+        baseSegments.flatMap { segment ->
+            activeIntervals.mapNotNull { active ->
+                segment.interval.intersect(active)?.let { intersection ->
+                    segment.copy(
+                        interval = intersection,
+                        conditions = segment.conditions + condition,
+                    )
+                }
+            }
+        }
+    }
 }
 
 private fun Route.trainIntervals(

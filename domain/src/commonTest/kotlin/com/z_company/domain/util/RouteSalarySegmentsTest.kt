@@ -8,6 +8,7 @@ import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -127,5 +128,93 @@ class RouteSalarySegmentsTest {
             .filter { AccrualCondition.ONE_PERSON_FREIGHT in it.conditions }
             .sumOf { it.interval.durationMillis })
         assertTrue(segments.none { AccrualCondition.ONE_PERSON_PASSENGER in it.conditions })
+    }
+
+    @Test
+    fun tieredTrainSurchargeUsesActualIntervalsBreakAndHighestOverlappingTier() {
+        val start = instant(month = 1, day = 10, hour = 8)
+        fun train(weight: String, fromHour: Int, toHour: Int) = Train(
+            weight = weight,
+            stations = mutableListOf(
+                Station(timeDeparture = start + fromHour * hour),
+                Station(timeArrival = start + toHour * hour),
+            ),
+        )
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = start,
+                timeEndWork = start + 8 * hour,
+                timeStartBreak = start + 3 * hour,
+                timeEndBreak = start + 4 * hour,
+            ),
+            trains = mutableListOf(
+                train(weight = "6000", fromHour = 1, toHour = 5),
+                train(weight = "10000", fromHour = 2, toHour = 6),
+            ),
+        )
+
+        val tiers = route.buildTieredTrainSurchargeSegments(
+            monthOfYear = MonthOfYear(year = 2025, month = 0),
+            context = context,
+            initialTariffRatePerHour = 100.0,
+            thresholds = listOf(6000, 10000),
+            condition = AccrualCondition.HEAVY_TRAIN,
+            valueOf = { it.weight?.toIntOrNull() },
+        )
+
+        assertEquals(hour, tiers[0].sumOf { it.interval.durationMillis })
+        assertEquals(3 * hour, tiers[1].sumOf { it.interval.durationMillis })
+        assertEquals(4 * hour, tiers.flatten().sumOf { it.interval.durationMillis })
+    }
+
+    @Test
+    fun tieredTrainSurchargeKeepsTariffOfEachTrainSegment() {
+        val start = instant(month = 1, day = 10, hour = 8)
+        val route = Route(
+            basicData = BasicData(timeStartWork = start, timeEndWork = start + 6 * hour),
+            trains = mutableListOf(
+                Train(
+                    weight = "6000",
+                    stations = mutableListOf(
+                        Station(timeDeparture = start + hour),
+                        Station(timeArrival = start + 5 * hour),
+                    ),
+                ),
+            ),
+        )
+
+        val tier = route.buildTieredTrainSurchargeSegments(
+            monthOfYear = MonthOfYear(year = 2025, month = 0),
+            context = context,
+            initialTariffRatePerHour = 100.0,
+            thresholds = listOf(6000),
+            condition = AccrualCondition.HEAVY_TRAIN,
+            tariffChanges = listOf(TariffChange(start + 3 * hour, 200.0)),
+            valueOf = { it.weight?.toIntOrNull() },
+        ).single()
+
+        assertEquals(4 * hour, tier.sumOf { it.interval.durationMillis })
+        assertEquals(600.0, tier.sumOf(SalarySegment::tariffMoney), 0.001)
+    }
+
+    @Test
+    fun tieredTrainSurchargeRejectsAmbiguousThresholdOrder() {
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = instant(month = 1, day = 10, hour = 8),
+                timeEndWork = instant(month = 1, day = 10, hour = 9),
+            ),
+        )
+
+        kotlin.test.assertFailsWith<IllegalArgumentException> {
+            route.buildTieredTrainSurchargeSegments(
+                monthOfYear = MonthOfYear(year = 2025, month = 0),
+                context = context,
+                initialTariffRatePerHour = 100.0,
+                thresholds = listOf(10000, 6000),
+                condition = AccrualCondition.HEAVY_TRAIN,
+                valueOf = { it.weight?.toIntOrNull() },
+            )
+        }
     }
 }
