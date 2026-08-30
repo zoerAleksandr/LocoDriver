@@ -255,6 +255,53 @@ class RouteDatabaseMigrationTest {
         assertFalse(isolatedContext.getDatabasePath("Route.candidate.db").exists())
     }
 
+    @Test
+    fun largeRoomDatabasePreservesRoutesAndEveryChildCount() {
+        createFromRoomSchema(version = 12, populate = false)
+        openDatabase().use { source ->
+            source.beginTransaction()
+            try {
+                repeat(LARGE_FIXTURE_ROUTE_COUNT) { index ->
+                    val routeId = "large-fixture-route-$index"
+                    insertRequiredRow(source, "BasicData", routeId)
+                    FIXTURE_CHILD_TABLES.forEach { table ->
+                        insertRequiredRow(source, table, routeId)
+                    }
+                }
+                source.setTransactionSuccessful()
+            } finally {
+                source.endTransaction()
+            }
+        }
+        val idsBefore = openDatabase().use(::routeIds)
+        val childrenBefore = openDatabase().use(::childCounts)
+
+        DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
+
+        openDatabase().use { migrated ->
+            assertEquals(LARGE_FIXTURE_ROUTE_COUNT, routeIds(migrated).size)
+            assertEquals(idsBefore, routeIds(migrated))
+            assertEquals(childrenBefore, childCounts(migrated))
+        }
+    }
+
+    @Test
+    fun preExistingOrphanDoesNotBlockMigrationOrIncreaseOrphanCount() {
+        createFromRoomSchema(version = 12)
+        openDatabase().use { source ->
+            source.execSQL("UPDATE Train SET basicId = ?", arrayOf<Any>("missing-route"))
+            assertEquals(1L, orphanCount(source))
+        }
+
+        DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
+
+        openDatabase().use { migrated ->
+            assertEquals(setOf("fixture-route"), routeIds(migrated))
+            assertEquals(1L, orphanCount(migrated))
+            assertEquals(1L, childCounts(migrated).getValue("Train"))
+        }
+    }
+
     private fun createFromRoomSchema(version: Int, populate: Boolean = true) {
         val schemaPath = "com.z_company.data_local.route.data_base.RouteDB/$version.json"
         val schema = schemaContext.assets.open(schemaPath).bufferedReader()
@@ -315,7 +362,7 @@ class RouteDatabaseMigrationTest {
                 "id" -> routeId
                 "basicId" -> routeId
                 else -> when {
-                    name.endsWith("Id") -> "fixture-${name.lowercase()}"
+                    name.endsWith("Id") -> "fixture-$routeId-${name.lowercase()}"
                     name == "updatedAt" && type.contains("TEXT") -> "2026-01-01T00:00:00Z"
                     type.contains("INT") -> 0L
                     type.contains("REAL") || type.contains("FLOA") || type.contains("DOUB") -> 0.0
@@ -337,6 +384,14 @@ class RouteDatabaseMigrationTest {
             if (!hasTable(db, table)) 0L else db.rawQuery("SELECT count(*) FROM `$table`", null)
                 .use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else 0L }
         }
+
+    private fun orphanCount(db: SQLiteDatabase): Long = FIXTURE_CHILD_TABLES.sumOf { table ->
+        if (!hasTable(db, table)) 0L else db.rawQuery(
+            "SELECT count(*) FROM `$table` child LEFT JOIN BasicData parent " +
+                "ON parent.id = child.basicId WHERE parent.id IS NULL",
+            null,
+        ).use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else 0L }
+    }
 
     private fun hasTable(db: SQLiteDatabase, table: String): Boolean =
         db.rawQuery(
@@ -375,6 +430,7 @@ class RouteDatabaseMigrationTest {
         const val DATABASE_NAME = "Route.db"
         val ARCHIVED_ROOM_VERSIONS = 1..12
         val FIXTURE_CHILD_TABLES = listOf("Locomotive", "Train", "Passenger", "Photo")
+        const val LARGE_FIXTURE_ROUTE_COUNT = 500
     }
 
     private class FixtureContext(base: Context) : ContextWrapper(base) {
