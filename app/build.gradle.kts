@@ -55,6 +55,9 @@ android {
             value = "\"${properties.getProperty("SENTRY_DSN", "")}\""
         )
     }
+    sourceSets.getByName("androidTest").assets.srcDir(
+        project(":data_local").file("schemas")
+    )
 
 
     buildTypes {
@@ -171,6 +174,8 @@ dependencies {
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     "baselineProfile"(project(":baselineprofile"))
     testImplementation(TestLibs.kotlin_test)
+    androidTestImplementation(TestLibs.ext_junit)
+    androidTestImplementation(TestLibs.test_runner)
 }
 configurations.all {
     exclude (group = "com.squareup.okhttp3", module = "okhttp-bom")
