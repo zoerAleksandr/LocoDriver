@@ -14,7 +14,6 @@ import com.z_company.domain.entities.route.UtilsForEntities.getNewRoutesToDayRan
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTimeOutsideWork
 import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveTime
-import com.z_company.domain.entities.route.UtilsForEntities.getTimeInServicePhase
 import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTotalOverRestTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
@@ -28,6 +27,7 @@ import com.z_company.domain.util.buildTieredTrainSurchargeSegments
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toExactIntOrNull
 import com.z_company.domain.util.toDoubleOrZero
+import com.z_company.domain.util.toFiniteDoubleOrNull
 import com.z_company.domain.util.toIntOrZero
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -65,6 +65,15 @@ internal fun validLongTrainSurcharges(
     surcharges: List<com.z_company.domain.entities.setting.SurchargeLongTrains>,
 ) = surcharges.mapNotNull { surcharge ->
     surcharge.conditionalLength.toExactIntOrNull()?.takeIf { it > 0 }?.let { it to surcharge }
+}.groupBy { it.first }
+    .map { (threshold, duplicates) -> threshold to duplicates.last().second }
+    .sortedBy { it.first }
+    .map { it.second }
+
+internal fun validExtendedServicePhaseSurcharges(
+    surcharges: List<com.z_company.domain.entities.setting.SurchargeExtendedServicePhase>,
+) = surcharges.mapNotNull { surcharge ->
+    surcharge.distance.toExactIntOrNull()?.takeIf { it > 0 }?.let { it to surcharge }
 }.groupBy { it.first }
     .map { (threshold, duplicates) -> threshold to duplicates.last().second }
     .sortedBy { it.first }
@@ -205,6 +214,29 @@ class SalaryCalculationHelper(
                 tariffChanges = changes,
                 valueOf = valueOf,
             ).forEachIndexed { index, segments -> result[index].addAll(segments) }
+        }
+        return result
+    }
+
+    private fun extendedServicePhaseSegments(
+        routes: List<Route>,
+        surcharges: List<com.z_company.domain.entities.setting.SurchargeExtendedServicePhase>,
+    ): List<List<com.z_company.domain.util.SalarySegment>> {
+        val thresholds = surcharges.mapNotNull { it.distance.toExactIntOrNull() }
+        val result = MutableList(thresholds.size) {
+            mutableListOf<com.z_company.domain.util.SalarySegment>()
+        }
+        routes.forEach { route ->
+            val routeDistance = route.trains.sumOf { train ->
+                train.distance?.toFiniteDoubleOrNull()?.takeIf { it > 0.0 } ?: 0.0
+            }
+            val tierIndex = thresholds.indexOfLast { threshold -> routeDistance >= threshold }
+            if (tierIndex >= 0) {
+                result[tierIndex].addAll(
+                    salarySegments(listOf(route))
+                        .filter { AccrualCondition.PASSENGER !in it.conditions },
+                )
+            }
         }
         return result
     }
@@ -464,64 +496,24 @@ class SalaryCalculationHelper(
         }
     }
 
-    fun getTimeListSurchargeServicePhaseFlow(routes: List<Route> = routeList): Flow<List<Long>> {
-        return channelFlow {
-            val phaseList =
-                salarySetting.surchargeExtendedServicePhaseList
-                    .filter { it.distance.toIntOrNull()?.let { d -> d > 0 } == true }
-                    .sortedBy { it.distance.toIntOrNull() ?: 0 }
-
-            val timeList: MutableList<Long> = mutableListOf()
-            phaseList.forEachIndexed { index, _ ->
-                var totalTimeInServicePhase = 0L
-                routes.forEach { route ->
-                    val timeInRoute = route.getTimeInServicePhase(
-                        phaseList.map { it.distance.toIntOrNull() ?: 0 },
-                        index
-                    )
-                    totalTimeInServicePhase += timeInRoute
-                }
-                timeList.add(totalTimeInServicePhase)
-            }
-            trySend(timeList)
-            awaitClose()
-        }
+    fun getTimeListSurchargeServicePhaseFlow(routes: List<Route> = routeList): Flow<List<Long>> = flow {
+        val surcharges = validExtendedServicePhaseSurcharges(
+            salarySetting.surchargeExtendedServicePhaseList,
+        )
+        emit(extendedServicePhaseSegments(routes, surcharges).map { segments ->
+            segments.sumOf { it.interval.durationMillis }
+        })
     }
 
-    fun getTotalTimeSurchargeServicePhaseFlow(routes: List<Route> = routeList): Flow<Long> {
-        return channelFlow {
-            val phaseList = salarySetting.surchargeExtendedServicePhaseList
-                .filter { it.distance.toIntOrNull()?.let { d -> d > 0 } == true }
-                .sortedBy { it.distance.toIntOrNull() ?: 0 }
-            val numCats = phaseList.size
-            var totalServicePhaseTime = 0L
-            routes.forEach { route ->
-                var selectedTime = 0L
-                for (index in numCats - 1 downTo 0) {
-                    val time = route.getTimeInServicePhase(
-                        phaseList.map { it.distance.toIntOrNull() ?: 0 },
-                        index
-                    )
-                    if (time > 0) {
-                        selectedTime = time
-                        break
-                    }
-                }
-                totalServicePhaseTime += selectedTime
-            }
-            val totalWorkTime = getTotalWorkTime(routes).first()
-            totalServicePhaseTime = minOf(totalServicePhaseTime, totalWorkTime)
-            trySend(totalServicePhaseTime)
-            awaitClose()
-        }
+    fun getTotalTimeSurchargeServicePhaseFlow(routes: List<Route> = routeList): Flow<Long> = flow {
+        emit(getTimeListSurchargeServicePhaseFlow(routes).first().sum())
     }
 
     fun getPercentListSurchargeExtendedServicePhaseFlow(): Flow<List<String>> {
         return flow {
-            val phaseList =
-                salarySetting.surchargeExtendedServicePhaseList
-                    .filter { it.distance.toIntOrNull()?.let { d -> d > 0 } == true }
-                    .sortedBy { it.distance.toIntOrNull() ?: 0 }
+            val phaseList = validExtendedServicePhaseSurcharges(
+                salarySetting.surchargeExtendedServicePhaseList,
+            )
             val percentList = phaseList.map {
                 it.percentSurcharge
             }
@@ -529,45 +521,15 @@ class SalaryCalculationHelper(
         }
     }
 
-    fun getMoneyListSurchargeExtendedServicePhaseFlow(): Flow<List<Double>> {
-        return channelFlow {
-            val percentList = getPercentListSurchargeExtendedServicePhaseFlow().first()
-            val moneyList: MutableList<Double> = mutableListOf()
-
-            if (dateSetTariffRate == null) {
-                getTimeListSurchargeServicePhaseFlow().collect { timeList ->
-                    timeList.forEachIndexed { index, timeInServicePhase ->
-                        val money =
-                            timeInServicePhase
-                                .times(currentMonthOfYear.tariffRate * (percentList[index].toDoubleOrZero() / 100)) / 3_600_000.toDouble()
-                        moneyList.add(money)
-                    }
-                    trySend(moneyList)
-                }
-            } else {
-                val pairRoutes = getTwoRouteList(routeList).first()
-                val firstRoutes = pairRoutes.first
-                val secondRoutes = pairRoutes.second
-                combine(
-                    getTimeListSurchargeServicePhaseFlow(firstRoutes),
-                    getTimeListSurchargeServicePhaseFlow(secondRoutes),
-                ) { firstTimeList, secondTimeList ->
-                    firstTimeList.forEachIndexed { index, timeInServicePhase ->
-                        val money =
-                            timeInServicePhase.times(dateSetTariffRate.oldRate * (percentList[index].toDoubleOrZero() / 100)) / 3_600_000.toDouble()
-                        moneyList.add(money)
-                    }
-                    secondTimeList.forEachIndexed { index, timeInServicePhase ->
-                        val money =
-                            timeInServicePhase.times(currentMonthOfYear.tariffRate * (percentList[index].toDoubleOrZero() / 100)) / 3_600_000.toDouble()
-                        val summaryMoney = money + moneyList[index]
-                        moneyList[index] = summaryMoney
-                    }
-                    trySend(moneyList)
-                }.collect {}
-            }
-            awaitClose()
-        }
+    fun getMoneyListSurchargeExtendedServicePhaseFlow(): Flow<List<Double>> = flow {
+        val surcharges = validExtendedServicePhaseSurcharges(
+            salarySetting.surchargeExtendedServicePhaseList,
+        )
+        val segmentsByTier = extendedServicePhaseSegments(routeList, surcharges)
+        emit(segmentsByTier.mapIndexed { index, segments ->
+            val percent = surcharges[index].percentSurcharge.toDoubleOrZero() / 100
+            segments.sumOf { it.tariffMoney * percent }
+        })
     }
 
     fun getPercentOnePersonOperationPassengerTrainFlow(): Flow<Double> {

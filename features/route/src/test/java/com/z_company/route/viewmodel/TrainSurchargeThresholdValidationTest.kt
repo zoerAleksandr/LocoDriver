@@ -2,6 +2,7 @@ package com.z_company.route.viewmodel
 
 import com.z_company.domain.entities.setting.SurchargeHeavyTrains
 import com.z_company.domain.entities.setting.SurchargeLongTrains
+import com.z_company.domain.entities.setting.SurchargeExtendedServicePhase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -75,5 +76,22 @@ class TrainSurchargeThresholdValidationTest {
 
         assertEquals(1, result.size)
         assertEquals("8", result.single().percentSurcharge)
+    }
+
+    @Test
+    fun servicePhaseThresholdsAreNumericAndDuplicateUsesLastConfiguredRange() {
+        val result = validExtendedServicePhaseSurcharges(
+            listOf(
+                SurchargeExtendedServicePhase(distance = "1 000", percentSurcharge = "10"),
+                SurchargeExtendedServicePhase(distance = "250", percentSurcharge = "5"),
+                SurchargeExtendedServicePhase(distance = "250,0", percentSurcharge = "7"),
+                SurchargeExtendedServicePhase(distance = "250,5", percentSurcharge = "99"),
+                SurchargeExtendedServicePhase(distance = "NaN", percentSurcharge = "99"),
+                SurchargeExtendedServicePhase(distance = "-1", percentSurcharge = "99"),
+            ),
+        )
+
+        assertEquals(listOf("250,0", "1 000"), result.map { it.distance })
+        assertEquals(listOf("7", "10"), result.map { it.percentSurcharge })
     }
 }
