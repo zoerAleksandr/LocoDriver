@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.z_company.data_local.DatabaseDriverFactory
+import com.z_company.data_local.RouteMigrationAlreadyRunningException
 import com.z_company.data_local.RouteDatabaseProfileDetector
 import com.z_company.data_local.route.db.RouteDatabase
 import org.json.JSONObject
@@ -18,6 +19,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.io.RandomAccessFile
 
 @RunWith(AndroidJUnit4::class)
 class RouteDatabaseMigrationTest {
@@ -156,6 +158,28 @@ class RouteDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun concurrentMigrationCannotTouchSourceDatabase() {
+        createFromRoomSchema(version = 12)
+        val sourceIds = openDatabase().use(::routeIds)
+        val lockFile = File(isolatedContext.filesDir, "data_safety/Route.migration.lock")
+            .apply { parentFile?.mkdirs() }
+
+        RandomAccessFile(lockFile, "rw").channel.use { channel ->
+            channel.lock().use {
+                val error = runCatching {
+                    DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
+                }.exceptionOrNull()
+                assertTrue(error is RouteMigrationAlreadyRunningException)
+            }
+        }
+
+        openDatabase().use { source ->
+            assertEquals(12, source.version)
+            assertEquals(sourceIds, routeIds(source))
+        }
+    }
+
     private fun createFromRoomSchema(version: Int) {
         val schemaPath = "com.z_company.data_local.route.data_base.RouteDB/$version.json"
         val schema = schemaContext.assets.open(schemaPath).bufferedReader()
@@ -202,7 +226,7 @@ class RouteDatabaseMigrationTest {
         }
         val names = columns.joinToString(", ") { "`${it.first}`" }
         val placeholders = columns.joinToString(", ") { "?" }
-        val values = columns.map { (name, type) ->
+        val values = columns.map<Pair<String, String>, Any> { (name, type) ->
             when (name) {
                 "id" -> "fixture-route"
                 "updatedAt" -> "2026-01-01T00:00:00Z"

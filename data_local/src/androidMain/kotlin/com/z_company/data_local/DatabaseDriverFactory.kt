@@ -2,6 +2,7 @@ package com.z_company.data_local
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.os.StatFs
 import android.system.Os
 import androidx.sqlite.db.SupportSQLiteDatabase
 import app.cash.sqldelight.db.QueryResult
@@ -13,9 +14,21 @@ import com.z_company.data_local.route.searchdb.SearchResponseDatabase
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
 import java.io.File
+import java.io.RandomAccessFile
+import java.nio.channels.OverlappingFileLockException
+
+class RouteMigrationLowStorageException(requiredBytes: Long, availableBytes: Long) :
+    IllegalStateException("Route migration needs $requiredBytes bytes; $availableBytes available")
+
+class RouteMigrationAlreadyRunningException :
+    IllegalStateException("Another Route.db migration is already running")
 
 actual class DatabaseDriverFactory(private val context: Context) {
-    actual fun createRouteDriver(): SqlDriver {
+    actual fun createRouteDriver(): SqlDriver = withRouteMigrationLock {
+        createRouteDriverLocked()
+    }
+
+    private fun createRouteDriverLocked(): SqlDriver {
         val interruptedSourceVersion = recoverInterruptedMigrationAttempt()
         val backup = prepareRouteBackupIfNeeded()
         return try {
@@ -32,6 +45,20 @@ actual class DatabaseDriverFactory(private val context: Context) {
             if (backup != null) restoreRouteBackup(backup)
             recordMigrationFailure(backup, error)
             throw error
+        }
+    }
+
+    private fun <T> withRouteMigrationLock(block: () -> T): T {
+        val lockDir = File(context.filesDir, "data_safety").apply { mkdirs() }
+        check(lockDir.isDirectory) { "Cannot create Route.db migration lock directory" }
+        val lockFile = File(lockDir, "Route.migration.lock")
+        return RandomAccessFile(lockFile, "rw").channel.use { channel ->
+            val lock = try {
+                channel.tryLock()
+            } catch (_: OverlappingFileLockException) {
+                null
+            } ?: throw RouteMigrationAlreadyRunningException()
+            lock.use { block() }
         }
     }
 
@@ -541,6 +568,12 @@ actual class DatabaseDriverFactory(private val context: Context) {
             snapshot = routeSnapshot(sourceDb)
         } finally {
             sourceDb.close()
+        }
+
+        val availableBytes = StatFs(dbFile.parentFile?.path ?: context.filesDir.path).availableBytes
+        val requiredBytes = RouteMigrationStoragePolicy.requiredAvailableBytes(dbFile.length())
+        if (availableBytes < requiredBytes) {
+            throw RouteMigrationLowStorageException(requiredBytes, availableBytes)
         }
 
         val backupDir = File(context.filesDir, "data_safety").apply { mkdirs() }
