@@ -144,4 +144,74 @@ class OvertimePaymentCompositionTest {
         assertEquals(200.0, helper.getMoneySurchargeOvertime05Flow().first(), 0.001)
         assertEquals(400.0, helper.getMoneySurchargeOvertimeFlow().first(), 0.001)
     }
+
+    @Test
+    fun overRestCrossingTariffBoundaryUsesRateOfEachRestSegment() = runTest {
+        val firstRoute = Route(
+            basicData = BasicData(
+                timeStartWork = instant(day = 10, hour = 15),
+                timeEndWork = instant(day = 10, hour = 19),
+                restPointOfTurnover = true,
+            ),
+        )
+        val secondRoute = Route(
+            basicData = BasicData(
+                timeStartWork = instant(day = 11, hour = 1),
+                timeEndWork = instant(day = 11, hour = 5),
+            ),
+        )
+        val helper = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2025,
+                    month = 0,
+                    tariffRate = 200.0,
+                    dateSetTariffRate = DateSetTariffRate(dateNewRate = 11, oldRate = 100.0),
+                    days = emptyList(),
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(),
+            allRoutes = listOf(firstRoute, secondRoute),
+        )
+
+        assertEquals(2 * hour, helper.getOverRestTimeFlow().first())
+        assertEquals((100.0 + 200.0) * (2.0 / 3.0), helper.getMoneyOverRestFlow().first(), 0.001)
+    }
+
+    @Test
+    fun overRestCrossingMonthIsClippedBySelectedMonthTimezone() = runTest {
+        val zone = TimeZone.of("GMT+3")
+        fun at(month: Int, day: Int, hour: Int): Long =
+            LocalDateTime(2025, month, day, hour, 0).toInstant(zone).toEpochMilliseconds()
+        val firstRoute = Route(
+            basicData = BasicData(
+                timeStartWork = at(month = 1, day = 31, hour = 15),
+                timeEndWork = at(month = 1, day = 31, hour = 19),
+                restPointOfTurnover = true,
+            ),
+        )
+        val secondRoute = Route(
+            basicData = BasicData(
+                timeStartWork = at(month = 2, day = 1, hour = 1),
+                timeEndWork = at(month = 2, day = 1, hour = 5),
+            ),
+        )
+        val helper = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2025,
+                    month = 0,
+                    tariffRate = 100.0,
+                    days = emptyList(),
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(),
+            allRoutes = listOf(firstRoute, secondRoute),
+        )
+
+        assertEquals(hour, helper.getOverRestTimeFlow().first())
+        assertEquals(100.0 * (2.0 / 3.0), helper.getMoneyOverRestFlow().first(), 0.001)
+    }
 }

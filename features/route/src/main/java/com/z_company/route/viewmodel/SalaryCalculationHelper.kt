@@ -14,14 +14,15 @@ import com.z_company.domain.entities.route.UtilsForEntities.getNewRoutesToDayRan
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTimeOutsideWork
 import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveTime
-import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
-import com.z_company.domain.entities.route.UtilsForEntities.getTotalOverRestTime
+import com.z_company.domain.entities.route.UtilsForEntities.getOverRestInterval
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTravelTime
 import com.z_company.domain.util.AccrualCondition
 import com.z_company.domain.util.NightWindow
 import com.z_company.domain.util.TariffChange
 import com.z_company.domain.util.TimeCalculationContext
+import com.z_company.domain.util.TimeInterval
+import com.z_company.domain.util.applyTariffChanges
 import com.z_company.domain.util.buildSalarySegments
 import com.z_company.domain.util.buildTieredTrainSurchargeSegments
 import com.z_company.domain.util.sum
@@ -36,8 +37,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.datetime.Instant
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
 data class LinearMileageAccrual(
@@ -1230,16 +1233,45 @@ class SalaryCalculationHelper(
         }
     }
 
-    fun getOverRestTimeFlow(): Flow<Long> = flow {
+    @OptIn(kotlin.time.ExperimentalTime::class)
+    private fun overRestSalarySegments(): List<com.z_company.domain.util.SalarySegment> {
         val minTimeRest = userSettings.minTimeRestPointOfTurnover
-        emit(routeList.getTotalOverRestTime(minTimeRest))
+        val monthStart = LocalDate(
+            currentMonthOfYear.year,
+            currentMonthOfYear.month + 1,
+            1,
+        ).atStartOfDayIn(timeCalculationContext.crossMonthTZ).toEpochMilliseconds()
+        val nextMonthStart = LocalDate(
+            currentMonthOfYear.year,
+            currentMonthOfYear.month + 1,
+            1,
+        ).plus(1, DateTimeUnit.MONTH)
+            .atStartOfDayIn(timeCalculationContext.crossMonthTZ).toEpochMilliseconds()
+        val monthInterval = TimeInterval(monthStart, nextMonthStart)
+        val tariffChange = dateSetTariffRate
+        val initialRate = tariffChange?.oldRate ?: currentMonthOfYear.tariffRate
+        val changes = tariffChange?.let {
+            val effectiveAt = LocalDate(
+                currentMonthOfYear.year,
+                currentMonthOfYear.month + 1,
+                it.dateNewRate,
+            ).atStartOfDayIn(timeCalculationContext.crossMonthTZ).toEpochMilliseconds()
+            listOf(TariffChange(effectiveAt, currentMonthOfYear.tariffRate))
+        }.orEmpty()
+
+        val sorted = routeList.sortedBy { it.basicData.timeStartWork }
+        return sorted.mapIndexedNotNull { index, route ->
+            route.getOverRestInterval(sorted.getOrNull(index + 1), minTimeRest)
+                ?.intersect(monthInterval)
+        }.flatMap { interval -> interval.applyTariffChanges(initialRate, changes) }
+    }
+
+    fun getOverRestTimeFlow(): Flow<Long> = flow {
+        emit(overRestSalarySegments().sumOf { it.interval.durationMillis })
     }
 
     fun getMoneyOverRestFlow(): Flow<Double> = flow {
-        val time = getOverRestTimeFlow().first()
-        val tariffRate = currentMonthOfYear.tariffRate
-        val money = time.times(tariffRate * (2.0 / 3.0)) / 3_600_000.toDouble()
-        emit(money)
+        emit(overRestSalarySegments().sumOf { it.tariffMoney * (2.0 / 3.0) })
     }
 
     private fun getBasicMoney(): Flow<Double> {

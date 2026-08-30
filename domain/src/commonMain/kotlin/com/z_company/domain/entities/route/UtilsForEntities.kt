@@ -11,6 +11,7 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getTimeInCurrentMonth
 import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.TimeCalculationContext
+import com.z_company.domain.util.TimeInterval
 import com.z_company.domain.util.div
 import com.z_company.domain.util.getTimeZone
 import com.z_company.domain.util.lessThan
@@ -1469,13 +1470,16 @@ object UtilsForEntities {
     }
 
     fun Route.getOverRestTime(nextRoute: Route?, minTimeRest: Long): Long {
-        if (!this.basicData.restPointOfTurnover) return 0L
-        val endWork = this.basicData.timeEndWork ?: return 0L
-        val nextStart = nextRoute?.basicData?.timeStartWork ?: return 0L
-        val workTime = this.getWorkTime() ?: return 0L
-        val fullRestDuration = maxOf(workTime, minTimeRest)
-        val actualRest = nextStart - endWork
-        return if (actualRest > fullRestDuration) actualRest - fullRestDuration else 0L
+        return getOverRestInterval(nextRoute, minTimeRest)?.durationMillis ?: 0L
+    }
+
+    fun Route.getOverRestInterval(nextRoute: Route?, minTimeRest: Long): TimeInterval? {
+        if (!basicData.restPointOfTurnover) return null
+        val endWork = basicData.timeEndWork ?: return null
+        val nextStart = nextRoute?.basicData?.timeStartWork ?: return null
+        val workTime = getWorkTime() ?: return null
+        val payableStart = endWork + maxOf(workTime, minTimeRest)
+        return if (nextStart > payableStart) TimeInterval(payableStart, nextStart) else null
     }
 
     fun List<Route>.getTotalOverRestTime(minTimeRest: Long): Long {
