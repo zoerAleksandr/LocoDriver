@@ -59,6 +59,7 @@ class RouteDatabaseMigrationTest {
     private fun migrateRoomFixture(version: Int) {
         createFromRoomSchema(version)
         val before = openDatabase().use { db -> routeIds(db) }
+        val childrenBefore = openDatabase().use(::childCounts)
         val roomProfile = RouteDatabaseProfileDetector().detect(
             isolatedContext.getDatabasePath(DATABASE_NAME)
         )
@@ -79,6 +80,7 @@ class RouteDatabaseMigrationTest {
         openDatabase().use { migrated ->
             assertEquals("Room v$version", RouteDatabase.Schema.version.toInt(), migrated.version)
             assertEquals("Room v$version", before, routeIds(migrated))
+            assertEquals("Room v$version child rows", childrenBefore, childCounts(migrated))
             assertTrue(hasColumn(migrated, "BasicData", "remoteDeletionPending"))
             assertFalse(hasColumn(migrated, "Train", "remoteObjectId"))
             assertFalse(hasColumn(migrated, "Locomotive", "removeObjectId"))
@@ -202,14 +204,17 @@ class RouteDatabaseMigrationTest {
                 }
             }
             db.version = version
-            insertRequiredBasicDataRow(db)
+            insertRequiredRow(db, "BasicData")
+            FIXTURE_CHILD_TABLES.filter { hasTable(db, it) }.forEach { table ->
+                insertRequiredRow(db, table)
+            }
         } finally {
             db.close()
         }
     }
 
-    private fun insertRequiredBasicDataRow(db: SQLiteDatabase) {
-        val columns = db.rawQuery("PRAGMA table_info(`BasicData`)", null).use { cursor ->
+    private fun insertRequiredRow(db: SQLiteDatabase, table: String) {
+        val columns = db.rawQuery("PRAGMA table_info(`$table`)", null).use { cursor ->
             val nameIndex = cursor.getColumnIndexOrThrow("name")
             val typeIndex = cursor.getColumnIndexOrThrow("type")
             val notNullIndex = cursor.getColumnIndexOrThrow("notnull")
@@ -229,20 +234,29 @@ class RouteDatabaseMigrationTest {
         val values = columns.map<Pair<String, String>, Any> { (name, type) ->
             when (name) {
                 "id" -> "fixture-route"
-                "updatedAt" -> "2026-01-01T00:00:00Z"
+                "basicId" -> "fixture-route"
                 else -> when {
+                    name.endsWith("Id") -> "fixture-${name.lowercase()}"
+                    name == "updatedAt" && type.contains("TEXT") -> "2026-01-01T00:00:00Z"
                     type.contains("INT") -> 0L
                     type.contains("REAL") || type.contains("FLOA") || type.contains("DOUB") -> 0.0
+                    name.endsWith("List") || name == "stations" -> "[]"
                     else -> ""
                 }
             }
         }.toTypedArray()
-        db.execSQL("INSERT INTO BasicData($names) VALUES ($placeholders)", values)
+        db.execSQL("INSERT INTO `$table`($names) VALUES ($placeholders)", values)
     }
 
     private fun routeIds(db: SQLiteDatabase): Set<String> =
         db.rawQuery("SELECT id FROM BasicData", null).use { cursor ->
             buildSet { while (cursor.moveToNext()) add(cursor.getString(0)) }
+        }
+
+    private fun childCounts(db: SQLiteDatabase): Map<String, Long> =
+        FIXTURE_CHILD_TABLES.associateWith { table ->
+            if (!hasTable(db, table)) 0L else db.rawQuery("SELECT count(*) FROM `$table`", null)
+                .use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else 0L }
         }
 
     private fun hasTable(db: SQLiteDatabase, table: String): Boolean =
@@ -281,6 +295,7 @@ class RouteDatabaseMigrationTest {
     private companion object {
         const val DATABASE_NAME = "Route.db"
         val ARCHIVED_ROOM_VERSIONS = 1..12
+        val FIXTURE_CHILD_TABLES = listOf("Locomotive", "Train", "Passenger", "Photo")
     }
 
     private class FixtureContext(base: Context) : ContextWrapper(base) {
