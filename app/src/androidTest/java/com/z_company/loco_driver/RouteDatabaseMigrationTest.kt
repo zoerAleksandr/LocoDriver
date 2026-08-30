@@ -43,32 +43,40 @@ class RouteDatabaseMigrationTest {
     }
 
     @Test
-    fun roomV12FixtureMigratesWithoutChangingRouteIdentity() {
-        createFromRoomSchema(version = 12)
+    fun everyArchivedRoomFixtureMigratesWithoutChangingRouteIdentity() {
+        for (version in ARCHIVED_ROOM_VERSIONS) {
+            deleteFixtureDatabase()
+            try {
+                migrateRoomFixture(version)
+            } catch (error: Throwable) {
+                throw AssertionError("Room v$version migration failed", error)
+            }
+        }
+    }
+
+    private fun migrateRoomFixture(version: Int) {
+        createFromRoomSchema(version)
         val before = openDatabase().use { db -> routeIds(db) }
         val roomProfile = RouteDatabaseProfileDetector().detect(
             isolatedContext.getDatabasePath(DATABASE_NAME)
         )
-        assertTrue(roomProfile.isRecognized)
-        assertTrue(roomProfile.hasLegacyRoomTrain)
-        assertTrue(roomProfile.hasLegacyRoomLocomotive)
-        assertFalse(roomProfile.hasTrashFields)
+        assertTrue("Room v$version profile is not recognized: $roomProfile", roomProfile.isRecognized)
 
         DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
 
         val migratedProfile = RouteDatabaseProfileDetector().detect(
             isolatedContext.getDatabasePath(DATABASE_NAME)
         )
-        assertTrue("Unexpected migrated profile: $migratedProfile", migratedProfile.isRecognized)
-        assertEquals(RouteDatabase.Schema.version.toInt(), migratedProfile.userVersion)
+        assertTrue("Unexpected profile after Room v$version: $migratedProfile", migratedProfile.isRecognized)
+        assertEquals("Room v$version", RouteDatabase.Schema.version.toInt(), migratedProfile.userVersion)
         assertFalse(migratedProfile.hasLegacyRoomTrain)
         assertFalse(migratedProfile.hasLegacyRoomLocomotive)
         assertTrue(migratedProfile.hasTrashFields)
         assertTrue(migratedProfile.hasDiagnosticTables)
 
         openDatabase().use { migrated ->
-            assertEquals(RouteDatabase.Schema.version.toInt(), migrated.version)
-            assertEquals(before, routeIds(migrated))
+            assertEquals("Room v$version", RouteDatabase.Schema.version.toInt(), migrated.version)
+            assertEquals("Room v$version", before, routeIds(migrated))
             assertTrue(hasColumn(migrated, "BasicData", "remoteDeletionPending"))
             assertFalse(hasColumn(migrated, "Train", "remoteObjectId"))
             assertFalse(hasColumn(migrated, "Locomotive", "removeObjectId"))
@@ -130,22 +138,42 @@ class RouteDatabaseMigrationTest {
                 }
             }
             db.version = version
-            db.execSQL(
-                """INSERT INTO BasicData(
-                    id, isSynchronizedRoute, remoteRouteId, isOnePersonOperation,
-                    isSynchronized, remoteObjectId, isDeleted, updatedAt, number,
-                    timeStartWork, timeEndWork, restPointOfTurnover, notes, isFavorite
-                ) VALUES (?, 0, NULL, 0, 0, NULL, 0, ?, ?, ?, NULL, 0, NULL, 0)""".trimIndent(),
-                arrayOf<Any>(
-                    "fixture-route",
-                    "2026-01-01T00:00:00Z",
-                    "42",
-                    1_767_225_600_000L,
-                ),
-            )
+            insertRequiredBasicDataRow(db)
         } finally {
             db.close()
         }
+    }
+
+    private fun insertRequiredBasicDataRow(db: SQLiteDatabase) {
+        val columns = db.rawQuery("PRAGMA table_info(`BasicData`)", null).use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow("name")
+            val typeIndex = cursor.getColumnIndexOrThrow("type")
+            val notNullIndex = cursor.getColumnIndexOrThrow("notnull")
+            val defaultIndex = cursor.getColumnIndexOrThrow("dflt_value")
+            val primaryKeyIndex = cursor.getColumnIndexOrThrow("pk")
+            buildList {
+                while (cursor.moveToNext()) {
+                    val isRequired = cursor.getInt(notNullIndex) == 1 || cursor.getInt(primaryKeyIndex) == 1
+                    if (isRequired && cursor.isNull(defaultIndex)) {
+                        add(cursor.getString(nameIndex) to cursor.getString(typeIndex).uppercase())
+                    }
+                }
+            }
+        }
+        val names = columns.joinToString(", ") { "`${it.first}`" }
+        val placeholders = columns.joinToString(", ") { "?" }
+        val values = columns.map { (name, type) ->
+            when (name) {
+                "id" -> "fixture-route"
+                "updatedAt" -> "2026-01-01T00:00:00Z"
+                else -> when {
+                    type.contains("INT") -> 0L
+                    type.contains("REAL") || type.contains("FLOA") || type.contains("DOUB") -> 0.0
+                    else -> ""
+                }
+            }
+        }.toTypedArray()
+        db.execSQL("INSERT INTO BasicData($names) VALUES ($placeholders)", values)
     }
 
     private fun routeIds(db: SQLiteDatabase): Set<String> =
@@ -185,6 +213,7 @@ class RouteDatabaseMigrationTest {
 
     private companion object {
         const val DATABASE_NAME = "Route.db"
+        val ARCHIVED_ROOM_VERSIONS = 1..12
     }
 
     private class FixtureContext(base: Context) : ContextWrapper(base) {

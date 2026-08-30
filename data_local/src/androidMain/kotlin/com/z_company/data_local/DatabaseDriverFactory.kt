@@ -650,6 +650,9 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 // Добавляем недостающие колонки в старую таблицу ПЕРЕД копированием
                 val trainNewColumns = arrayOf(
                     "additionalNumbers" to "TEXT DEFAULT NULL",
+                    // Room v1 predates distance; an empty string is the current
+                    // domain default and preserves the legacy string contract.
+                    "distance" to "TEXT NOT NULL DEFAULT ''",
                     "servicePhase" to "TEXT DEFAULT NULL",
                     "pusher" to "TEXT DEFAULT NULL",
                     "doubleTraction" to "TEXT DEFAULT NULL",
