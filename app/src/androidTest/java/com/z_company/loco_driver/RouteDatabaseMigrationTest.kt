@@ -56,6 +56,23 @@ class RouteDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun everyArchivedEmptyRoomFixtureMigrates() {
+        for (version in ARCHIVED_ROOM_VERSIONS) {
+            deleteFixtureDatabase()
+            try {
+                createFromRoomSchema(version, populate = false)
+                DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
+                openDatabase().use { migrated ->
+                    assertEquals("Empty Room v$version", RouteDatabase.Schema.version.toInt(), migrated.version)
+                    assertTrue("Empty Room v$version gained routes", routeIds(migrated).isEmpty())
+                }
+            } catch (error: Throwable) {
+                throw AssertionError("Empty Room v$version migration failed", error)
+            }
+        }
+    }
+
     private fun migrateRoomFixture(version: Int) {
         createFromRoomSchema(version)
         val before = openDatabase().use { db -> routeIds(db) }
@@ -215,7 +232,7 @@ class RouteDatabaseMigrationTest {
         walSnapshot.delete()
     }
 
-    private fun createFromRoomSchema(version: Int) {
+    private fun createFromRoomSchema(version: Int, populate: Boolean = true) {
         val schemaPath = "com.z_company.data_local.route.data_base.RouteDB/$version.json"
         val schema = schemaContext.assets.open(schemaPath).bufferedReader()
             .use { JSONObject(it.readText()) }
@@ -237,9 +254,11 @@ class RouteDatabaseMigrationTest {
                 }
             }
             db.version = version
-            insertRequiredRow(db, "BasicData")
-            FIXTURE_CHILD_TABLES.filter { hasTable(db, it) }.forEach { table ->
-                insertRequiredRow(db, table)
+            if (populate) {
+                insertRequiredRow(db, "BasicData")
+                FIXTURE_CHILD_TABLES.filter { hasTable(db, it) }.forEach { table ->
+                    insertRequiredRow(db, table)
+                }
             }
         } finally {
             db.close()
