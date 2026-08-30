@@ -175,6 +175,7 @@ fun HomeScreen(
     passengerTimeState: ResultState<Long>?,
     totalTimeWithHoliday: ResultState<Long>?,
     toBeCredited: ResultState<Double>? = null,
+    currency: String = "₽",
     onSalaryClick: () -> Unit = {},
     calculationHomeRest: (Route?) -> Unit,
     homeRestValue: Long?,
@@ -934,6 +935,29 @@ fun HomeScreen(
                                     time = viewModel.convertTimeToStringFormat(time),
                                     breakdownText = breakdown,
                                     chipText = chipText,
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "К ВЫДАЧЕ",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            when (val paymentState = toBeCredited) {
+                                is ResultState.Success -> Text(
+                                    text = paymentState.data.toMoneyString(currency),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                is ResultState.Error -> Text(
+                                    text = "—",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                else -> Text(
+                                    text = "считаем деньги",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                             Spacer(modifier = Modifier.height(16.dp))
