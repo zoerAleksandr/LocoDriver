@@ -2,6 +2,7 @@ package com.z_company.data_local
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.system.Os
 import androidx.sqlite.db.SupportSQLiteDatabase
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
@@ -17,13 +18,36 @@ actual class DatabaseDriverFactory(private val context: Context) {
     actual fun createRouteDriver(): SqlDriver {
         val backup = prepareRouteBackupIfNeeded()
         return try {
-            migrateRouteDbIfNeeded()
-            validateMigratedRouteDb(backup)
+            if (backup != null) migrateCandidateAndSwap(backup)
             recordMigrationSuccess(backup)
             createDriver(RouteDatabase.Schema, "Route.db")
         } catch (error: Throwable) {
             if (backup != null) restoreRouteBackup(backup)
             throw error
+        }
+    }
+
+    /** Migrates a disposable copy and replaces Route.db only after validation. */
+    private fun migrateCandidateAndSwap(backup: RouteBackup) {
+        val dbFile = context.getDatabasePath("Route.db")
+        val candidate = File(dbFile.parentFile, "Route.candidate.db")
+        File(candidate.path + "-wal").delete()
+        File(candidate.path + "-shm").delete()
+        backup.file.copyTo(candidate, overwrite = true)
+
+        try {
+            migrateRouteDbIfNeeded(candidate)
+            validateMigratedRouteDb(backup, candidate)
+
+            // rename(2) replaces a file atomically on the same filesystem. The live
+            // database is therefore always either the complete source or candidate.
+            File(dbFile.path + "-wal").delete()
+            File(dbFile.path + "-shm").delete()
+            Os.rename(candidate.path, dbFile.path)
+        } finally {
+            candidate.delete()
+            File(candidate.path + "-wal").delete()
+            File(candidate.path + "-shm").delete()
         }
     }
 
@@ -477,9 +501,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
         }
     }
 
-    private fun validateMigratedRouteDb(backup: RouteBackup?) {
-        if (backup == null) return
-        val dbFile = context.getDatabasePath("Route.db")
+    private fun validateMigratedRouteDb(backup: RouteBackup, dbFile: File) {
         val migrated = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READONLY)
         try {
             require(migrated.version == RouteDatabase.Schema.version.toInt()) {
@@ -613,13 +635,13 @@ actual class DatabaseDriverFactory(private val context: Context) {
      * Route.db: пересоздаёт Train и Locomotive при миграции с Room (v14+),
      * добавляет недостающие столбцы, выставляет целевую версию.
      */
-    private fun migrateRouteDbIfNeeded() {
-        val dbFile = context.getDatabasePath("Route.db")
-        if (!dbFile.exists()) return
-
+    private fun migrateRouteDbIfNeeded(dbFile: File) {
         val targetVersion = RouteDatabase.Schema.version.toInt()
         val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
         try {
+            // Candidate must be self-contained before the atomic rename. In WAL mode
+            // committed pages could otherwise remain in a sidecar file.
+            db.rawQuery("PRAGMA journal_mode=DELETE", null).use { it.moveToFirst() }
             // Room → SQLDelight: пересоздаём таблицы с несовместимой схемой
             val needsTrainRecreate = hasColumn(db, "Train", "remoteObjectId")
             val needsLocoRecreate = hasColumn(db, "Locomotive", "removeObjectId")
