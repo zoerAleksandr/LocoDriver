@@ -17,10 +17,13 @@ import org.koin.core.context.startKoin
 import java.util.Locale
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.z_company.work_manager.SyncWorker
+import com.z_company.work_manager.DiagnosticWorker
 import java.util.concurrent.TimeUnit
 
 class StartApp : Application() {
@@ -65,6 +68,14 @@ class StartApp : Application() {
         // UPDATE (вместо KEEP): обновляет параметры задачи при каждом запуске приложения.
         // Это позволяет применять изменения конфигурации (интервал, constraints) после
         // обновления приложения без переустановки. Расписание при этом сохраняется.
+        WorkManager.getInstance(this)
+            .enqueueUniqueWork(
+                "diagnostics_upload_now",
+                ExistingWorkPolicy.KEEP,
+                OneTimeWorkRequestBuilder<DiagnosticWorker>()
+                    .setConstraints(constraints)
+                    .build(),
+            )
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
                 "sync_work",
