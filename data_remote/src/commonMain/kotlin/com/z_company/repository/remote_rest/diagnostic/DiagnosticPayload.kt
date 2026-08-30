@@ -12,6 +12,8 @@ data class DiagnosticEventsRequest(
     val androidVersion: String,
     val deviceManufacturer: String,
     val deviceModel: String,
+    val dbVersion: Long? = null,
+    val migrationStatus: String? = null,
     val events: List<DiagnosticEventRequest>,
 )
 

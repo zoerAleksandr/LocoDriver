@@ -14,6 +14,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.z_company.core.ResultState
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.repositories.DiagnosticRepository
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.repository.SecureTokenStorage
@@ -25,6 +26,9 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import com.z_company.repository.remote_rest.RemoteRestClient
+import com.z_company.repository.remote_rest.diagnostic.DiagnosticPayloadMapper
+import com.z_company.repository.remote_rest.diagnostic.DiagnosticEventsRequest
 
 class SyncWorker(
     val appContext: Context,
@@ -36,10 +40,12 @@ class SyncWorker(
     private val settingsUseCase: SettingsUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
+    private val diagnosticRepository: DiagnosticRepository by inject()
 
     override suspend fun doWork(): Result {
         return withContext(Dispatchers.IO) {
             try {
+                uploadDiagnostics()
                 val userSettings = settingsUseCase.getUserSettingFlow().first()
                 if (userSettings.subscriptionPeriod < Clock.System.now().toEpochMilliseconds()) {
                     return@withContext Result.success()
@@ -73,6 +79,35 @@ class SyncWorker(
                 Result.success()
             } catch (e: Exception) {
                 Result.retry()
+            }
+        }
+    }
+
+    private suspend fun uploadDiagnostics() {
+        val now = Clock.System.now().toEpochMilliseconds()
+        val batch = diagnosticRepository.getReadyBatch(now)
+        if (batch.isEmpty()) return
+        val summary = diagnosticRepository.getSummary()
+        val first = batch.first()
+        try {
+            RemoteRestClient.remoteRestApi.sendDiagnosticEvents(
+                DiagnosticEventsRequest(
+                    installationId = first.installationId,
+                    diagnosticCode = summary.diagnosticCode,
+                    appVersion = first.appVersion ?: "unknown",
+                    appBuild = first.appBuild ?: 0,
+                    androidVersion = "android",
+                    deviceManufacturer = "unknown",
+                    deviceModel = "unknown",
+                    dbVersion = summary.dbVersion,
+                    migrationStatus = summary.migrationStatus,
+                    events = batch.map(DiagnosticPayloadMapper::event),
+                )
+            )
+            diagnosticRepository.markUploaded(batch.map { it.eventId }, now)
+        } catch (error: Exception) {
+            batch.forEach { event ->
+                diagnosticRepository.scheduleRetry(event.eventId, 0, now, error::class.simpleName)
             }
         }
     }
