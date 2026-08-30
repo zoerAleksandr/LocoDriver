@@ -1,6 +1,8 @@
 package com.z_company.loco_driver
 
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.SharedPreferences
 import android.database.sqlite.SQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -15,16 +17,23 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class RouteDatabaseMigrationTest {
-    /** Test-APK context: never points at the installed LocoDriver app data. */
+    /** Fixture context redirects every mutable migration artifact away from the app database. */
     private lateinit var isolatedContext: Context
+    private lateinit var schemaContext: Context
 
     @Before
     fun setUp() {
-        isolatedContext = InstrumentationRegistry.getInstrumentation().context
-        check(isolatedContext.packageName.endsWith(".test"))
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        schemaContext = instrumentation.context
+        isolatedContext = FixtureContext(instrumentation.targetContext)
+        check(
+            isolatedContext.getDatabasePath(DATABASE_NAME).canonicalPath !=
+                instrumentation.targetContext.getDatabasePath(DATABASE_NAME).canonicalPath
+        )
         deleteFixtureDatabase()
     }
 
@@ -50,7 +59,8 @@ class RouteDatabaseMigrationTest {
         val migratedProfile = RouteDatabaseProfileDetector().detect(
             isolatedContext.getDatabasePath(DATABASE_NAME)
         )
-        assertTrue(migratedProfile.isRecognized)
+        assertTrue("Unexpected migrated profile: $migratedProfile", migratedProfile.isRecognized)
+        assertEquals(RouteDatabase.Schema.version.toInt(), migratedProfile.userVersion)
         assertFalse(migratedProfile.hasLegacyRoomTrain)
         assertFalse(migratedProfile.hasLegacyRoomLocomotive)
         assertTrue(migratedProfile.hasTrashFields)
@@ -100,7 +110,7 @@ class RouteDatabaseMigrationTest {
 
     private fun createFromRoomSchema(version: Int) {
         val schemaPath = "com.z_company.data_local.route.data_base.RouteDB/$version.json"
-        val schema = isolatedContext.assets.open(schemaPath).bufferedReader()
+        val schema = schemaContext.assets.open(schemaPath).bufferedReader()
             .use { JSONObject(it.readText()) }
         val database = schema.getJSONObject("database")
         val db = openDatabase()
@@ -156,13 +166,15 @@ class RouteDatabaseMigrationTest {
                 .any { it == column }
         }
 
-    private fun openDatabase(): SQLiteDatabase = SQLiteDatabase.openOrCreateDatabase(
-        isolatedContext.getDatabasePath(DATABASE_NAME),
-        null,
-    )
+    private fun openDatabase(): SQLiteDatabase {
+        return SQLiteDatabase.openOrCreateDatabase(
+            isolatedContext.getDatabasePath(DATABASE_NAME),
+            null,
+        )
+    }
 
     private fun deleteFixtureDatabase() {
-        check(isolatedContext.packageName.endsWith(".test"))
+        check((isolatedContext as FixtureContext).isFixturePath(DATABASE_NAME))
         isolatedContext.deleteDatabase(DATABASE_NAME)
         isolatedContext.filesDir.resolve("data_safety").deleteRecursively()
         isolatedContext.getSharedPreferences("data_safety_status", Context.MODE_PRIVATE)
@@ -173,5 +185,29 @@ class RouteDatabaseMigrationTest {
 
     private companion object {
         const val DATABASE_NAME = "Route.db"
+    }
+
+    private class FixtureContext(base: Context) : ContextWrapper(base) {
+        private val fixtureRoot: File = File(base.cacheDir, "route_migration_fixture")
+            .apply { check(isDirectory || mkdirs()) }
+        private val fixtureFiles: File = File(fixtureRoot, "files").apply { mkdirs() }
+
+        override fun getDatabasePath(name: String): File = File(fixtureRoot, name)
+
+        override fun getFilesDir(): File = fixtureFiles
+
+        override fun getSharedPreferences(name: String, mode: Int): SharedPreferences =
+            baseContext.getSharedPreferences("route_fixture_$name", mode)
+
+        override fun deleteDatabase(name: String): Boolean {
+            val database = getDatabasePath(name)
+            val deleted = !database.exists() || database.delete()
+            File(database.path + "-wal").delete()
+            File(database.path + "-shm").delete()
+            return deleted
+        }
+
+        fun isFixturePath(name: String): Boolean =
+            getDatabasePath(name).canonicalPath.startsWith(fixtureRoot.canonicalPath + File.separator)
     }
 }

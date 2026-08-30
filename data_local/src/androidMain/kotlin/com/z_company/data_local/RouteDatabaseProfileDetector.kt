@@ -1,6 +1,7 @@
 package com.z_company.data_local
 
 import android.database.sqlite.SQLiteDatabase
+import com.z_company.data_local.route.db.RouteDatabase
 import java.io.File
 
 data class RouteDatabaseProfile(
@@ -20,7 +21,7 @@ data class RouteDatabaseProfile(
 
     companion object {
         private const val MIN_RECOGNIZED_VERSION = 1
-        private const val MAX_RECOGNIZED_VERSION = 12
+        private val MAX_RECOGNIZED_VERSION = RouteDatabase.Schema.version.toInt()
     }
 }
 
