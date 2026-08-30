@@ -1,6 +1,7 @@
 package com.z_company.repository.remote_rest
 
 import com.z_company.domain.entities.route.Route
+import com.z_company.repository.remote_rest.request.AddEmailRequest
 import com.z_company.repository.remote_rest.request.AddVKIDRequest
 import com.z_company.repository.remote_rest.request.AuthRequest
 import com.z_company.repository.remote_rest.request.RegisteredRequestByEmail
@@ -8,10 +9,15 @@ import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.ServerResponseException
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Менеджер аутентификации.
@@ -19,7 +25,13 @@ import kotlinx.coroutines.flow.flow
  */
 class AuthManager(
     private val remoteRestApi: RemoteRestApi,
-    private val apiForSendEmail: ApiForSendEmail
+    private val apiForSendEmail: ApiForSendEmail,
+    /**
+     * client_id приложения из secret.properties (`VKIDClientID`).
+     * Нужен серверу, чтобы проверить VK access token у нужного приложения;
+     * без него сервер переберёт allowlist — сработает, но лишним запросом к VK.
+     */
+    private val vkClientId: String? = null
 ) {
 
     fun registerByEmail(
@@ -49,8 +61,16 @@ class AuthManager(
         }
     }
 
+    /**
+     * Регистрация через VK ID.
+     *
+     * @param vkId легаси-id, уходит в `login` и `vkId`; новый сервер берёт
+     *   vk_id из ответа VK на [vkAccessToken], а присланный id игнорирует.
+     * @param vkAccessToken токен из VKID SDK. Нигде не сохраняется.
+     */
     fun registerByVKID(
         vkId: String,
+        vkAccessToken: String,
         email: String
     ): Flow<RegistrationState> = flow {
         emit(RegistrationState.Loading)
@@ -59,7 +79,9 @@ class AuthManager(
                 login = vkId,
                 vkId = vkId,
                 password = "",
-                email = email
+                email = email,
+                vkAccessToken = vkAccessToken,
+                vkClientId = vkClientId
             )
             val body = remoteRestApi.registerUserByVKID(request)
             emit(
@@ -103,13 +125,27 @@ class AuthManager(
         }
     }
 
-    fun authWithVKID(vkId: String): Flow<AuthState> = flow {
+    /**
+     * Вход по VK ID.
+     *
+     * @param vkId легаси-идентификатор, уходит в `auth_param`. Новый сервер
+     *   его игнорирует, но старый прод (бэкенд выкатывается уже после
+     *   публикации 3.0.4) авторизует именно по нему.
+     * @param vkAccessToken токен из VKID SDK — единственное, чему верит сервер
+     *   с проверкой. Нигде не сохраняется, в логи и Sentry не попадает.
+     *
+     * Ошибки разложены по [VkAuthError]: «аккаунта нет» — это отдельное
+     * состояние (флоу регистрации), а не «неверная почта или пароль».
+     */
+    fun authWithVKID(vkId: String, vkAccessToken: String): Flow<AuthState> = flow {
         emit(AuthState.Loading)
         try {
             val authRequest = AuthRequest(
                 auth_param = vkId,
                 password = "",
                 methodAuth = "vkId",
+                vkAccessToken = vkAccessToken,
+                vkClientId = vkClientId,
             )
             val body = remoteRestApi.authWithEmail(authRequest)
             emit(
@@ -119,20 +155,28 @@ class AuthManager(
                 )
             )
         } catch (e: ClientRequestException) {
-            val text = when (e.response.status.value) {
-                401 -> "Неверная почта или пароль"
-                else -> "Ошибка: ${e.response.status.value} - ${e.message}"
-            }
-            emit(AuthState.Error(text))
+            emit(vkAuthError(e.response.status.value, detailOf(e.response)))
+        } catch (e: ServerResponseException) {
+            emit(vkAuthError(e.response.status.value, detailOf(e.response)))
         } catch (e: Exception) {
             emit(AuthState.Error("Ошибка: ${e.message}"))
         }
     }
 
+
+    /**
+     * Отвязка VK от аккаунта.
+     *
+     * `PATCH /v1/auth/vkId/remove` отдаёт SuccessResponse, а не пользователя,
+     * поэтому обновлённый профиль дочитываем отдельным запросом. Раньше клиент
+     * пытался разобрать ответ как UserResponse, падал на этом и всегда уходил
+     * в Error: сервер отвязывал VK, а локальный vk_id так и оставался.
+     */
     fun removeVKID(token: String): Flow<GetUserProfileState> = flow {
         emit(GetUserProfileState.Loading)
         try {
-            val body = remoteRestApi.removeVKID(token = token)
+            remoteRestApi.removeVKID(token = token)
+            val body = remoteRestApi.getUserProfile(token = token)
             emit(
                 GetUserProfileState.Success(
                     user = body.user,
@@ -145,21 +189,56 @@ class AuthManager(
         }
     }
 
-    fun attachVKID(bearerToken: String, vkId: String): Flow<GetUserProfileState> = flow {
+    /**
+     * Привязка VK ID к текущему аккаунту.
+     *
+     * @param vkId легаси-поле `token`, оставлено ради ещё не обновлённого прода.
+     * @param vkAccessToken токен из VKID SDK: именно из него новый сервер
+     *   берёт vk_id. Нигде не сохраняется.
+     *
+     * Ответ сервера — SuccessResponse, а не пользователь, поэтому профиль
+     * дочитываем отдельным запросом (см. [removeVKID]).
+     */
+    fun attachVKID(
+        bearerToken: String,
+        vkId: String,
+        vkAccessToken: String
+    ): Flow<GetUserProfileState> = flow {
         emit(GetUserProfileState.Loading)
         try {
-            val addVKIDRequest = AddVKIDRequest(token = vkId)
-            val body = remoteRestApi.attachVKID(token = bearerToken, data = addVKIDRequest)
+            val addVKIDRequest = AddVKIDRequest(
+                token = vkId,
+                vkAccessToken = vkAccessToken,
+                vkClientId = vkClientId,
+            )
+            remoteRestApi.attachVKID(token = bearerToken, data = addVKIDRequest)
+            val body = remoteRestApi.getUserProfile(token = bearerToken)
             emit(
                 GetUserProfileState.Success(
                     user = body.user,
                 )
             )
         } catch (e: ClientRequestException) {
-            emit(GetUserProfileState.Error("Ошибка: ${e.message}", code = e.response.status.value))
+            val code = e.response.status.value
+            emit(GetUserProfileState.Error(attachErrorMessage(code, detailOf(e.response)), code = code))
+        } catch (e: ServerResponseException) {
+            val code = e.response.status.value
+            emit(GetUserProfileState.Error(attachErrorMessage(code, detailOf(e.response)), code = code))
         } catch (e: Exception) {
             emit(GetUserProfileState.Error("Ошибка: ${e.message}"))
         }
+    }
+
+    /**
+     * Достаёт строковый `detail` из тела ошибки FastAPI.
+     * null — тела нет, оно не JSON или detail не строка (422-валидация).
+     */
+    private suspend fun detailOf(response: HttpResponse): String? = try {
+        val body = response.bodyAsText()
+        if (body.isBlank()) null
+        else errorJson.parseToJsonElement(body).jsonObject["detail"]?.jsonPrimitive?.content
+    } catch (_: Exception) {
+        null
     }
 
     fun getUserProfile(token: String): Flow<GetUserProfileState> = flow {
@@ -209,6 +288,36 @@ class AuthManager(
         }
     }
 
+    /**
+     * Привязка почты и пароля к аккаунту, у которого их ещё нет
+     * (`PATCH /v1/auth/email/add`). Нужна аккаунтам, заведённым через VK:
+     * пароль у них — пустая строка, и VK остаётся единственным способом
+     * войти. Если почта уже привязана, сервер отвечает 200 и ничего не
+     * меняет — менять её нужно через [updateEmail].
+     */
+    fun addEmail(token: String, email: String, password: String): Flow<ResponseState> = flow {
+        emit(ResponseState.Loading)
+        try {
+            val request = AddEmailRequest(email = email, password = password)
+            remoteRestApi.addEmailToUser(token = token, body = request)
+            emit(ResponseState.Success)
+        } catch (e: ClientRequestException) {
+            emit(
+                ResponseState.Error(
+                    addEmailErrorMessage(e.response.status.value, detailOf(e.response))
+                )
+            )
+        } catch (e: ServerResponseException) {
+            emit(
+                ResponseState.Error(
+                    addEmailErrorMessage(e.response.status.value, detailOf(e.response))
+                )
+            )
+        } catch (e: Exception) {
+            emit(ResponseState.Error("Ошибка: ${e.message}"))
+        }
+    }
+
     fun updateEmail(token: String, email: String): Flow<ResponseState> = flow {
         emit(ResponseState.Loading)
         delay(2000L)
@@ -222,13 +331,103 @@ class AuthManager(
             emit(ResponseState.Error("Ошибка: ${e.message}"))
         }
     }
+
+    private companion object {
+        val errorJson = Json { ignoreUnknownKeys = true; isLenient = true }
+    }
+}
+
+// Коды `detail` из ответов бэкенда с проверкой VK-токена
+// (см. таблицу в VKID_AUTH_3.0.4_TASK.md).
+internal const val VK_DETAIL_TOKEN_INVALID = "vk_token_invalid"
+internal const val VK_DETAIL_TOKEN_REQUIRED = "vk_access_token_required"
+internal const val VK_DETAIL_USER_NOT_FOUND = "vk_user_not_found"
+internal const val VK_DETAIL_UNAVAILABLE = "vk_unavailable"
+internal const val VK_DETAIL_ALREADY_LINKED = "vk_id_already_linked"
+
+/** Раскладывает ответ `POST /v1/auth` c `methodAuth = "vkId"` по состояниям UI. */
+internal fun vkAuthError(statusCode: Int, detail: String?): AuthState.Error = when {
+    detail == VK_DETAIL_TOKEN_INVALID -> AuthState.Error(
+        "Не удалось подтвердить вход через VK ID. Попробуйте ещё раз.",
+        VkAuthError.TokenInvalid
+    )
+
+    detail == VK_DETAIL_TOKEN_REQUIRED -> AuthState.Error(
+        "Обновите приложение: этот способ входа через VK ID больше не поддерживается.",
+        VkAuthError.ClientOutdated
+    )
+
+    detail == VK_DETAIL_UNAVAILABLE || statusCode == 503 -> AuthState.Error(
+        "VK ID временно недоступен, попробуйте позже.",
+        VkAuthError.VkUnavailable
+    )
+
+    // 404 — сервер с проверкой токена; 401 без известного detail — ещё не
+    // обновлённый прод, где «аккаунта с таким VK нет» приходило как 401.
+    detail == VK_DETAIL_USER_NOT_FOUND || statusCode == 404 || statusCode == 401 -> AuthState.Error(
+        "Аккаунта с этим VK ID нет. Зарегистрируйтесь.",
+        VkAuthError.UserNotFound
+    )
+
+    else -> AuthState.Error("Ошибка: $statusCode")
+}
+
+/**
+ * Текст для пользователя по ответу `PATCH /v1/auth/email/add`.
+ * 400 — сервер не принял пароль, 409 — почта занята другим аккаунтом.
+ */
+internal fun addEmailErrorMessage(statusCode: Int, detail: String?): String = when {
+    statusCode == 400 -> "Не удалось сохранить пароль. Проверьте, что он заполнен."
+    statusCode == 409 -> "Эта почта уже занята другим аккаунтом «Машиниста»."
+    statusCode == 401 || statusCode == 403 -> "Сессия устарела. Войдите в аккаунт заново."
+    statusCode == 404 -> "Аккаунт не найден."
+    statusCode >= 500 -> "Сервер временно недоступен. Попробуйте позже."
+    detail != null -> detail
+    else -> "Не удалось привязать почту. Ошибка $statusCode."
+}
+
+/** Текст для пользователя по ответу `PATCH /v1/auth/vkId/add`. */
+internal fun attachErrorMessage(statusCode: Int, detail: String?): String = when {
+    detail == VK_DETAIL_ALREADY_LINKED || statusCode == 409 ->
+        "Этот VK ID уже привязан к другому аккаунту «Машиниста»."
+
+    detail == VK_DETAIL_TOKEN_INVALID ->
+        "Не удалось подтвердить вход через VK ID. Попробуйте ещё раз."
+
+    detail == VK_DETAIL_TOKEN_REQUIRED ->
+        "Обновите приложение: привязка VK ID изменилась."
+
+    detail == VK_DETAIL_UNAVAILABLE || statusCode == 503 ->
+        "VK ID временно недоступен, попробуйте позже."
+
+    else -> "Не удалось привязать VK ID (ошибка $statusCode)."
 }
 
 sealed class AuthState {
     object Initial : AuthState()
     object Loading : AuthState()
     data class Success(val accessToken: String, val tokenType: String? = null) : AuthState()
-    data class Error(val errorMessage: String) : AuthState()
+
+    /**
+     * [vkError] заполняется только для входа через VK ID — по нему UI решает,
+     * показать повтор, предложить регистрацию или попросить обновить приложение.
+     */
+    data class Error(val errorMessage: String, val vkError: VkAuthError? = null) : AuthState()
+}
+
+/** Разбор ошибок входа через VK ID (см. таблицу кодов в VKID_AUTH_3.0.4_TASK.md). */
+enum class VkAuthError {
+    /** 401 vk_token_invalid — VK не подтвердил токен. */
+    TokenInvalid,
+
+    /** 401 vk_access_token_required — на сервере выключен переходный флаг. */
+    ClientOutdated,
+
+    /** 404 vk_user_not_found — аккаунта с этим VK нет, нужна регистрация. */
+    UserNotFound,
+
+    /** 503 vk_unavailable — VK ID временно недоступен. */
+    VkUnavailable
 }
 
 sealed class RegistrationState {

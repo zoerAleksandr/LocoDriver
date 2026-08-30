@@ -45,6 +45,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.vk.id.onetap.compose.onetap.OneTap
@@ -70,6 +71,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.route.component.AppAlertDialog
+import com.z_company.route.component.AppEmailPasswordBottomSheet
 import com.z_company.route.component.AppInputBottomSheet
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.SwitchApp
@@ -97,10 +99,10 @@ private fun ProfileGroupLabel(text: String) {
 }
 
 @Composable
-private fun ProfileAvatarPlaceholder() {
+private fun ProfileAvatarPlaceholder(size: Dp = 84.dp) {
     Box(
         modifier = Modifier
-            .size(84.dp)
+            .size(size)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceBright),
         contentAlignment = Alignment.Center,
@@ -108,7 +110,7 @@ private fun ProfileAvatarPlaceholder() {
         Icon(
             painterResource(R.drawable.person_24px),
             contentDescription = null,
-            modifier = Modifier.size(44.dp),
+            modifier = Modifier.size(size * 0.52f),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -158,6 +160,42 @@ private fun SyncCloudButton(
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.primary,
         )
+    }
+}
+
+// Заголовок блока VK, когда вход через VK не выполнен: та же компактная
+// строка, что и у привязанного состояния, — аватар 52dp и текст рядом,
+// а не столбик по центру во весь экран. Сама кнопка OneTap идёт ниже:
+// она брендированная и должна оставаться во всю ширину.
+@Composable
+private fun VkNotLinkedHeader(linkedOnServer: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        ProfileAvatarPlaceholder(size = 52.dp)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                text = if (linkedOnServer) "VK ID привязан" else "VK ID не привязан",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // Подпись нужна только во втором случае: привязка есть, а сессии
+            // SDK нет — иначе непонятно, зачем кнопка под уже привязанным VK.
+            if (linkedOnServer) {
+                Text(
+                    text = "Войдите в VK, чтобы показать профиль",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -305,6 +343,73 @@ fun ProfileScreen(
         }
     }
 
+    // Шторка добавления почты и диалог отвязки VK — объявлены здесь, потому что
+    // используются и в диалогах ниже, и в шапке профиля.
+    var showAddEmailDialog by remember { mutableStateOf(false) }
+    var showUnlinkVkDialog by remember { mutableStateOf(false) }
+
+    // Отвязка VK. Для аккаунта без почты это равносильно потере доступа:
+    // регистрация через VK создаёт пользователя с пустым паролем, и войти
+    // после отвязки будет нечем — поэтому сначала предлагаем добавить почту.
+    if (showUnlinkVkDialog) {
+        val accountEmail = (uiState.userDetailsState as? ResultState.Success)?.data?.email.orEmpty()
+        if (accountEmail.isBlank()) {
+            AppAlertDialog(
+                onDismissRequest = { showUnlinkVkDialog = false },
+                title = "Сначала добавьте почту",
+                text = "Аккаунт заведён через VK ID, пароля у него нет — после отвязки " +
+                        "войти будет нечем. Добавьте почту и пароль, тогда VK можно будет отвязать.",
+                confirmText = "Добавить почту",
+                onConfirm = {
+                    showUnlinkVkDialog = false
+                    showAddEmailDialog = true
+                },
+                dismissText = "Отмена",
+            )
+        } else {
+            AppAlertDialog(
+                onDismissRequest = { showUnlinkVkDialog = false },
+                title = "Отвязать VK ID?",
+                text = "Вход через VK перестанет работать. Останется вход по почте " +
+                        "$accountEmail и паролю, а привязать VK можно будет снова.",
+                confirmText = "Отвязать",
+                isDestructive = true,
+                onConfirm = {
+                    showUnlinkVkDialog = false
+                    viewModel.removeUsersVKID()
+                },
+                dismissText = "Отмена",
+            )
+        }
+    }
+
+    // Вход по VK, а аккаунта с этим VK ещё нет (404 vk_user_not_found).
+    // Предлагаем создать его тем же нажатием: почта и пароль не нужны —
+    // почту можно добавить позже в профиле.
+    if (uiState.vkRegistrationOffer) {
+        AppAlertDialog(
+            onDismissRequest = { viewModel.dismissVkRegistration() },
+            title = "Аккаунта с этим VK нет",
+            text = "Создать новый аккаунт «Машинист» и войти через VK ID? " +
+                    "Почту и пароль можно будет добавить позже в профиле.",
+            confirmText = "Создать",
+            onConfirm = { viewModel.confirmVkRegistration() },
+            dismissText = "Отмена",
+        )
+    }
+
+    // Для чего: Чтобы ошибка привязки VK ID (например, 409 — VK уже привязан
+    // к другому аккаунту) доходила до пользователя, а не только до лога.
+    LaunchedEffect(uiState.vkLinkMessage) {
+        uiState.vkLinkMessage?.let { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Long
+            )
+            viewModel.clearVkLinkMessage()
+        }
+    }
+
     // Snackbar на ошибки/успех загрузки-выгрузки
     LaunchedEffect(uiState.uploadState) {
         uiState.uploadState?.let { state ->
@@ -360,6 +465,7 @@ fun ProfileScreen(
 
     var showEditEmailDialog by remember { mutableStateOf(false) }
 
+
     if (showEditEmailDialog) {
         // Состояние из ViewModel
         val updateEmailState by viewModel.uiState
@@ -409,6 +515,52 @@ fun ProfileScreen(
             errorText = errorMessage,
             isLoading = updateEmailState is ResultState.Loading,
             onValueChange = { errorMessage = null },
+        )
+    }
+
+    // Аккаунт заведён через VK ID: почты и пароля нет, войти можно только
+    // через VK. Здесь их добавляют, чтобы доступ не держался на одной привязке.
+    if (showAddEmailDialog) {
+        val addEmailState = uiState.addEmailState
+        var addEmailError by remember { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(Unit) {
+            viewModel.resetAddEmailState()
+            addEmailError = null
+        }
+
+        LaunchedEffect(addEmailState) {
+            when (addEmailState) {
+                is ResultState.Success -> {
+                    addEmailError = null
+                    viewModel.resetAddEmailState()
+                    showAddEmailDialog = false
+                    snackbarHostState.showSnackbar("Почта добавлена — теперь можно входить и по паролю")
+                }
+
+                is ResultState.Error -> {
+                    addEmailError = addEmailState.entity.message
+                    viewModel.resetAddEmailState()
+                }
+
+                else -> {}
+            }
+        }
+
+        AppEmailPasswordBottomSheet(
+            onDismissRequest = {
+                showAddEmailDialog = false
+                viewModel.resetAddEmailState()
+            },
+            title = "Добавить почту",
+            hint = "Сейчас в аккаунт можно войти только через VK ID. " +
+                    "Почта с паролем — второй способ входа на случай, если привязка VK отвалится.",
+            onConfirm = { email, password -> viewModel.addEmail(email, password) },
+            confirmText = "Добавить",
+            isEmailValid = { it.isEmailValid() },
+            minPasswordLength = MIN_LENGTH_PASSWORD,
+            errorText = addEmailError,
+            isLoading = addEmailState is ResultState.Loading,
         )
     }
 
@@ -614,6 +766,7 @@ fun ProfileScreen(
                                         val email = accessToken.userData.email ?: ""
                                         viewModel.registeredUserByVKIDForMigration(
                                             vkid = vkId,
+                                            vkAccessToken = accessToken.token,
                                             email = email
                                         )
                                     },
@@ -841,7 +994,7 @@ fun ProfileScreen(
                                         .fillMaxWidth()
                                         .shadow(1.dp, Shapes.medium)
                                         .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-                                        .padding(vertical = 20.dp, horizontal = 18.dp),
+                                        .padding(vertical = 14.dp, horizontal = 16.dp),
                                 ) {
                                     Column(
                                         modifier = Modifier.fillMaxWidth(),
@@ -852,16 +1005,18 @@ fun ProfileScreen(
                                             resultState = uiState.vkUserState,
                                             loadingContent = { CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp) },
                                             errorContent = {
-                                                ProfileAvatarPlaceholder()
-                                                Text(
-                                                    "Войдите через VK ID — подтянем фото и имя автоматически",
-                                                    style = styleHint,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    textAlign = TextAlign.Center,
+                                                VkNotLinkedHeader(
+                                                    linkedOnServer = !(uiState.userDetailsState as? ResultState.Success)
+                                                        ?.data?.vkId.isNullOrEmpty()
                                                 )
                                                 OneTap(
                                                     modifier = Modifier.fillMaxWidth(),
-                                                    onAuth = { _, accessToken -> viewModel.attachVKID(accessToken.userID.toString()) },
+                                                    onAuth = { _, accessToken ->
+                                                        viewModel.attachVKID(
+                                                            vkid = accessToken.userID.toString(),
+                                                            vkAccessToken = accessToken.token
+                                                        )
+                                                    },
                                                     onFail = { _, f -> scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") } },
                                                     signInAnotherAccountButtonEnabled = true,
                                                 )
@@ -870,48 +1025,105 @@ fun ProfileScreen(
                                             val serverVkId = (uiState.userDetailsState as? ResultState.Success)?.data?.vkId
                                             val isVkLinkedOnServer = !serverVkId.isNullOrEmpty()
                                             if (vkUser != null) {
-                                                if (vkUser.photoUrl != null) {
-                                                    AsyncImage(
-                                                        model = vkUser.photoUrl,
-                                                        contentDescription = null,
-                                                        contentScale = ContentScale.Crop,
-                                                        modifier = Modifier
-                                                            .size(84.dp)
-                                                            .clip(CircleShape),
-                                                    )
-                                                } else {
-                                                    ProfileAvatarPlaceholder()
-                                                }
-                                                Text(
-                                                    text = vkUser.name,
-                                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                )
+                                                // Вход выполнен — подпись «Вход через VK ID» не нужна,
+                                                // полезнее видеть сам номер. Отвязка уезжает вправо,
+                                                // чтобы не разрывать карточку по вертикали.
                                                 Row(
+                                                    modifier = Modifier.fillMaxWidth(),
                                                     verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                                                 ) {
-                                                    VkBadge()
-                                                    Text("Вход через VK ID", style = styleHint, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    if (vkUser.photoUrl != null) {
+                                                        AsyncImage(
+                                                            model = vkUser.photoUrl,
+                                                            contentDescription = null,
+                                                            contentScale = ContentScale.Crop,
+                                                            modifier = Modifier
+                                                                .size(52.dp)
+                                                                .clip(CircleShape),
+                                                        )
+                                                    } else {
+                                                        ProfileAvatarPlaceholder(size = 52.dp)
+                                                    }
+                                                    Column(
+                                                        modifier = Modifier.weight(1f),
+                                                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                                                    ) {
+                                                        Text(
+                                                            text = vkUser.name,
+                                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                        )
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                        ) {
+                                                            VkBadge()
+                                                            Text(
+                                                                text = serverVkId.orEmpty(),
+                                                                fontFamily = MonoFont,
+                                                                fontSize = 13.sp,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis,
+                                                            )
+                                                        }
+                                                    }
+                                                    if (isVkLinkedOnServer) {
+                                                        Text(
+                                                            text = "Отвязать",
+                                                            style = styleHint,
+                                                            color = MaterialTheme.colorScheme.error,
+                                                            maxLines = 1,
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(10.dp))
+                                                                .clickable { showUnlinkVkDialog = true }
+                                                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                                                        )
+                                                    }
                                                 }
                                             } else {
-                                                ProfileAvatarPlaceholder()
-                                                Text(
-                                                    "Войдите через VK ID — подтянем фото и имя автоматически",
-                                                    style = styleHint,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    textAlign = TextAlign.Center,
-                                                )
+                                                VkNotLinkedHeader(linkedOnServer = isVkLinkedOnServer)
                                                 OneTap(
                                                     modifier = Modifier.fillMaxWidth(),
                                                     onAuth = { _, accessToken ->
                                                         val vkId = accessToken.userID.toString()
-                                                        if (isVkLinkedOnServer) viewModel.onVkAuthForLinkedAccount(vkId) else viewModel.attachVKID(vkId)
+                                                        if (isVkLinkedOnServer) {
+                                                            // Аккаунт уже привязан на сервере — сетевого запроса нет,
+                                                            // только локальный признак, токен не нужен.
+                                                            viewModel.onVkAuthForLinkedAccount(vkId)
+                                                        } else {
+                                                            viewModel.attachVKID(
+                                                                vkid = vkId,
+                                                                vkAccessToken = accessToken.token
+                                                            )
+                                                        }
                                                     },
                                                     onFail = { _, f -> scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") } },
                                                     signInAnotherAccountButtonEnabled = true,
                                                 )
                                             }
+                                        }
+                                        // Отвязка доступна и без активной сессии VK SDK: смотрим на
+                                        // признак с сервера, а не на то, отдал ли VK профиль. Когда
+                                        // профиль VK загружен, отвязка живёт в самой строке — здесь
+                                        // остаётся только запасной вариант.
+                                        val vkLinkedOnServer =
+                                            !(uiState.userDetailsState as? ResultState.Success)?.data?.vkId.isNullOrEmpty()
+                                        val vkProfileShown =
+                                            (uiState.vkUserState as? ResultState.Success)?.data != null
+                                        if (vkLinkedOnServer && !vkProfileShown) {
+                                            Text(
+                                                text = "Отвязать VK ID",
+                                                style = styleHint,
+                                                color = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .clickable { showUnlinkVkDialog = true }
+                                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                            )
                                         }
                                     }
                                 }
@@ -947,16 +1159,45 @@ fun ProfileScreen(
                                                 ) {
                                                     Icon(painterResource(R.drawable.ic_mail_24), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.tertiary)
                                                 }
-                                                Text(
-                                                    text = it.email,
-                                                    style = styleData,
-                                                    color = primaryColor,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.weight(1f),
-                                                )
-                                                IconButton(onClick = { showEditEmailDialog = true }) {
-                                                    Icon(painterResource(com.z_company.core.R.drawable.ic_edit), contentDescription = "Изменить почту", tint = MaterialTheme.colorScheme.tertiary)
+                                                // Аккаунт, заведённый через VK ID: почты и пароля нет,
+                                                // войти можно только через VK. Предлагаем добавить их,
+                                                // чтобы доступ не зависел от одной привязки.
+                                                val hasEmail = it.email.isNotBlank()
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = if (hasEmail) it.email else "Почта не добавлена",
+                                                        style = styleData,
+                                                        color = if (hasEmail) primaryColor
+                                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                    if (!hasEmail) {
+                                                        Text(
+                                                            text = "Вход только через VK ID",
+                                                            style = styleHint,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        )
+                                                    }
+                                                }
+                                                if (hasEmail) {
+                                                    IconButton(onClick = { showEditEmailDialog = true }) {
+                                                        Icon(painterResource(com.z_company.core.R.drawable.ic_edit), contentDescription = "Изменить почту", tint = MaterialTheme.colorScheme.tertiary)
+                                                    }
+                                                } else {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(12.dp))
+                                                            .background(MaterialTheme.colorScheme.surfaceBright)
+                                                            .clickable { showAddEmailDialog = true }
+                                                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                                                    ) {
+                                                        Text(
+                                                            text = "Добавить",
+                                                            style = styleData,
+                                                            color = MaterialTheme.colorScheme.tertiary,
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -1200,10 +1441,15 @@ fun ProfileScreen(
                                     .fillMaxWidth(),
                                 onAuth = { _, accessToken ->
                                     if (login) {
-                                        viewModel.authWithVKID(accessToken.userID.toString())
+                                        viewModel.authWithVKID(
+                                            vkid = accessToken.userID.toString(),
+                                            vkAccessToken = accessToken.token,
+                                            email = accessToken.userData.email ?: ""
+                                        )
                                     } else {
                                         viewModel.registeredUserByVKID(
                                             vkid = accessToken.userID.toString(),
+                                            vkAccessToken = accessToken.token,
                                             email = accessToken.userData.email ?: ""
                                         )
                                     }

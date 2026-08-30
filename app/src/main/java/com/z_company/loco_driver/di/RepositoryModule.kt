@@ -29,6 +29,7 @@ import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.snackbar.SnackbarManagerImpl
 import com.z_company.core.theme.ThemeManager
 import com.z_company.loco_driver.ui.theme.ThemeManagerImpl
+import com.z_company.loco_driver.BuildConfig
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.ShareManager
 import com.z_company.repository.remote_rest.ApiForSendEmail
@@ -92,7 +93,15 @@ val repositoryModule = module {
     // Managers теперь классы с DI (Шаг 2: object → class)
     single<AnnouncementRepository> { RemoteAnnouncementRepository(api = get()) }
 
-    single { AuthManager(remoteRestApi = get(), apiForSendEmail = get()) }
+    single {
+        AuthManager(
+            remoteRestApi = get(),
+            apiForSendEmail = get(),
+            // client_id из secret.properties (VKIDClientID) — с ним сервер
+            // проверяет VK access token у нужного приложения.
+            vkClientId = BuildConfig.VKID_CLIENT_ID.takeIf { it.isNotBlank() }
+        )
+    }
     single { RoutesManager(remoteRestApi = get()) }
     single { SettingManager(remoteRestApi = get()) }
     single { ShareRouteManager(remoteRestApi = get()) }

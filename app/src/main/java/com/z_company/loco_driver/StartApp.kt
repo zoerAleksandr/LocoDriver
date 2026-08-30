@@ -1,6 +1,7 @@
 package com.z_company.loco_driver
 
 import android.app.Application
+import android.util.Log
 import com.my.tracker.MyTracker
 import com.my.tracker.MyTrackerConfig.LocationTrackingMode
 import com.z_company.core.initSentry
@@ -12,6 +13,7 @@ import com.z_company.loco_driver.di.resourcesModule
 import com.z_company.loco_driver.di.updateModule
 import com.z_company.loco_driver.di.useCaseModule
 import com.z_company.loco_driver.di.viewModelModule
+import com.z_company.repository.remote_rest.RemoteRestClient
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import java.util.Locale
@@ -27,6 +29,13 @@ class StartApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // До первого сетевого запроса: в debug адрес API подменяется на
+        // локальный бэкенд (BuildConfig.API_BASE_URL), в release строка пустая
+        // и остаётся прод.
+        RemoteRestClient.useBaseUrl(BuildConfig.API_BASE_URL)
+        if (BuildConfig.DEBUG) {
+            Log.i("StartApp", "API: ${RemoteRestClient.BASE_URL}")
+        }
         initSentry(BuildConfig.SENTRY_DSN)
         VKID.init(this)
         VKID.instance.setLocale(Locale("ru"))

@@ -68,6 +68,7 @@ fun HomeDestination(
         singleLocomotiveTimeState = uiState.singleLocomotiveTimeState,
         calculationHomeRest = homeViewModel::calculationHomeRest,
         homeRestValue = previewRouteUiState.homeRest,
+        minHomeRestValue = previewRouteUiState.minHomeRest,
         calculationActualRest = homeViewModel::calculationActualRest,
         actualRestDuration = previewRouteUiState.actualRestDuration,
         actualRestUntil = previewRouteUiState.actualRestUntil,

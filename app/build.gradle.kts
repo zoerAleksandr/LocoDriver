@@ -54,10 +54,31 @@ android {
             name = "SENTRY_DSN",
             value = "\"${properties.getProperty("SENTRY_DSN", "")}\""
         )
+        // client_id приложения VK ID: уходит на сервер в vkClientId, чтобы он
+        // проверял VK access token у нужного приложения.
+        buildConfigField(
+            type = "String",
+            name = "VKID_CLIENT_ID",
+            value = "\"${properties.getProperty("VKIDClientID", "")}\""
+        )
+        // Адрес бэкенда. Пустая строка — прод-адрес, зашитый в RemoteRestClient.
+        // Подменяется только в debug (см. buildTypes ниже).
+        buildConfigField(type = "String", name = "API_BASE_URL", value = "\"\"")
     }
 
 
     buildTypes {
+        // Debug ходит на локальный бэкенд: правки авторизации нужно проверять
+        // против ветки сервера, а не против прода. Адрес по умолчанию —
+        // хост машины разработчика с точки зрения эмулятора; для устройства в
+        // одной сети пропишите DEBUG_API_URL в secret.properties (например,
+        // http://192.168.1.10:8766/), а чтобы debug снова смотрел на прод —
+        // http://87.228.110.32:8766/.
+        getByName("debug") {
+            val debugApiUrl: String =
+                properties.getProperty("DEBUG_API_URL") ?: "http://10.0.2.2:8766/"
+            buildConfigField(type = "String", name = "API_BASE_URL", value = "\"$debugApiUrl\"")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
