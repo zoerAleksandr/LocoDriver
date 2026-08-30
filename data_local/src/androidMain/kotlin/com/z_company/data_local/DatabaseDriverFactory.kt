@@ -431,6 +431,13 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "RoutePartner",
             "Photo",
         )
+        private val CORE_ROUTE_TABLES = listOf(
+            "BasicData",
+            "Locomotive",
+            "Train",
+            "Passenger",
+            "Photo",
+        )
         private val COLUMN_SPECS = mapOf(
             // Settings — все новые столбцы (миграции 1.sqm … 10.sqm)
             "UserSettings.isShowBreak" to ColumnSpec("INTEGER", false, "1"),
@@ -574,6 +581,9 @@ actual class DatabaseDriverFactory(private val context: Context) {
         val sourceDb = openRouteDatabase(dbFile, SQLiteDatabase.OPEN_READWRITE)
         try {
             sourceVersion = sourceDb.version
+            require(CORE_ROUTE_TABLES.all { hasTable(sourceDb, it) }) {
+                "Route.db is missing a required table"
+            }
             val requiresStructuralRepair =
                 !hasColumn(sourceDb, "BasicData", "remoteDeletionPending") ||
                     !hasTable(sourceDb, "RouteEvent") ||

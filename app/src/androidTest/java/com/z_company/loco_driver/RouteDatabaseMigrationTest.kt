@@ -302,6 +302,93 @@ class RouteDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun failedBuildDoesNotRetryUntilUserExplicitlyAllowsIt() {
+        createFromRoomSchema(version = 12)
+        openDatabase().use { source ->
+            source.execSQL("DROP TABLE Train")
+            source.execSQL(
+                """CREATE TABLE Train (
+                    trainId TEXT NOT NULL PRIMARY KEY,
+                    basicId TEXT NOT NULL,
+                    remoteObjectId TEXT NOT NULL
+                )""".trimIndent()
+            )
+            source.execSQL(
+                "INSERT INTO Train(trainId, basicId, remoteObjectId) VALUES (?, ?, ?)",
+                arrayOf<Any>("fixture-train", "fixture-route", "legacy-object"),
+            )
+        }
+        val bootstrap = MigrationRecoveryBootstrap(isolatedContext, appBuild = 9_999)
+
+        assertEquals(MigrationBootstrapState.RECOVERY_REQUIRED, bootstrap.prepare())
+
+        // A fixed source represents data restored by support or a corrected build.
+        // The same build must still wait for the explicit recovery action.
+        isolatedContext.deleteDatabase(DATABASE_NAME)
+        createFromRoomSchema(version = 12)
+        assertEquals(MigrationBootstrapState.RECOVERY_REQUIRED, bootstrap.prepare())
+        openDatabase().use { untouched -> assertEquals(12, untouched.version) }
+
+        assertEquals(
+            MigrationBootstrapState.READY,
+            bootstrap.prepare(allowRetry = true),
+        )
+        openDatabase().use { migrated ->
+            assertEquals(RouteDatabase.Schema.version.toInt(), migrated.version)
+            assertEquals(setOf("fixture-route"), routeIds(migrated))
+        }
+    }
+
+    @Test
+    fun newerBuildGetsOneAutomaticRetryAfterPreviousBuildFailed() {
+        createFromRoomSchema(version = 12)
+        openDatabase().use { source ->
+            source.execSQL("DROP TABLE Train")
+            source.execSQL(
+                """CREATE TABLE Train (
+                    trainId TEXT NOT NULL PRIMARY KEY,
+                    basicId TEXT NOT NULL,
+                    remoteObjectId TEXT NOT NULL
+                )""".trimIndent()
+            )
+            source.execSQL(
+                "INSERT INTO Train(trainId, basicId, remoteObjectId) VALUES (?, ?, ?)",
+                arrayOf<Any>("fixture-train", "fixture-route", "legacy-object"),
+            )
+        }
+        val failedBuild = MigrationRecoveryBootstrap(isolatedContext, appBuild = 9_999)
+        assertEquals(MigrationBootstrapState.RECOVERY_REQUIRED, failedBuild.prepare())
+
+        isolatedContext.deleteDatabase(DATABASE_NAME)
+        createFromRoomSchema(version = 12)
+        val fixedBuild = MigrationRecoveryBootstrap(isolatedContext, appBuild = 10_000)
+
+        assertEquals(MigrationBootstrapState.READY, fixedBuild.prepare())
+        openDatabase().use { migrated ->
+            assertEquals(RouteDatabase.Schema.version.toInt(), migrated.version)
+            assertEquals(setOf("fixture-route"), routeIds(migrated))
+        }
+    }
+
+    @Test
+    fun missingRequiredTableCannotBeAcceptedAsSuccessfulMigration() {
+        createFromRoomSchema(version = 12)
+        openDatabase().use { source -> source.execSQL("DROP TABLE Train") }
+
+        val error = runCatching {
+            DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
+        }.exceptionOrNull()
+
+        assertTrue(error != null)
+        openDatabase().use { source ->
+            assertEquals(12, source.version)
+            assertEquals(setOf("fixture-route"), routeIds(source))
+            assertFalse(hasTable(source, "Train"))
+        }
+        assertEquals("FAILED", migrationPreferences().getString("migration_stage", null))
+    }
+
     private fun createFromRoomSchema(version: Int, populate: Boolean = true) {
         val schemaPath = "com.z_company.data_local.route.data_base.RouteDB/$version.json"
         val schema = schemaContext.assets.open(schemaPath).bufferedReader()
@@ -418,6 +505,10 @@ class RouteDatabaseMigrationTest {
         isolatedContext.deleteDatabase(DATABASE_NAME)
         isolatedContext.filesDir.resolve("data_safety").deleteRecursively()
         isolatedContext.getSharedPreferences("data_safety_status", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+        isolatedContext.getSharedPreferences("migration_recovery_bootstrap", Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
