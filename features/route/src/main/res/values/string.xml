@@ -60,10 +60,13 @@
     <string name="available_for_free_route">Бесплатно доступно 20 маршрутов. </string>
     <string name="subscription_period_has_expired">Cрок подписки истек</string>
 
-    // лицензионное соглашение
-    <string name="url_to_license_agreement">https://disk.yandex.ru/i/gTAxov93J0PZRQ</string>
-    // пользовательское соглашение (оферта)
-    <string name="url_to_user_agreement">https://disk.yandex.ru/i/QY8ToIfC9sS9Ow</string>
+    // Юридические документы. Все на своём домене locodriver.ru (репозиторий
+    // locodriver-site): эквайер забраковал прежние ссылки — соглашение лежало
+    // на Яндекс.Диске, а вместо политики ПДн стояла ссылка на текст закона.
+    // Пользовательское соглашение — правила использования приложения
+    <string name="url_to_license_agreement">https://locodriver.ru/license.html</string>
+    // Публичная оферта на «Машинист Pro»: стоимость, оплата, возврат средств
+    <string name="url_to_user_agreement">https://locodriver.ru/offer.html</string>
     // Политика обработки персональных данных
-    <string name="url_to_personal_data_processing_policy">https://www.consultant.ru/cons/cgi/online.cgi?req=doc&amp;base=LAW&amp;n=499769&amp;dst=100001#uhadW7VIGL823YPg</string>
+    <string name="url_to_personal_data_processing_policy">https://locodriver.ru/privacy.html</string>
 </resources>
