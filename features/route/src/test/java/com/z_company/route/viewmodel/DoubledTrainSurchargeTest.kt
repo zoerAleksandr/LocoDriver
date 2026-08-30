@@ -4,6 +4,7 @@ import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.route.BasicData
+import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
@@ -158,5 +159,25 @@ class DoubledTrainSurchargeTest {
         assertEquals(7_200_000L, time) // интервалы 0..1ч и 0..2ч объединяются
         val money = helper.getMoneyDoubledTrainFirstSurchargeFlow(listOf(route)).first()
         assertEquals(60.0, money, 0.01) // 2 часа * 100 * 0.30 = 60
+    }
+
+    @Test
+    fun passengerAndBreakInsideDoubledTrainAreExcluded() = runTest {
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = 0L,
+                timeEndWork = 2 * 3_600_000L,
+                timeStartBreak = 30 * 60_000L,
+                timeEndBreak = 60 * 60_000L,
+            ),
+            trains = mutableListOf(trainWithDoubled(isFirst = true, travelTimeMs = 2 * 3_600_000L)),
+            passengers = mutableListOf(
+                Passenger(timeDeparture = 0L, timeArrival = 30 * 60_000L),
+            ),
+        )
+        val helper = createHelper(listOf(route))
+
+        assertEquals(3_600_000L, helper.getTimeDoubledTrainFirstSurchargeFlow().first())
+        assertEquals(30.0, helper.getMoneyDoubledTrainFirstSurchargeFlow().first(), 0.01)
     }
 }

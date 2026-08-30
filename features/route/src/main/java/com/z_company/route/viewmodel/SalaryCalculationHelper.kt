@@ -1014,7 +1014,10 @@ class SalaryCalculationHelper(
     fun getTimeDoubledTrainFirstSurchargeFlow(routes: List<Route> = routeList): Flow<Long> {
         return flow {
             emit(salarySegments(routes)
-                .filter { AccrualCondition.DOUBLED_TRAIN_FIRST in it.conditions }
+                .filter {
+                    AccrualCondition.DOUBLED_TRAIN_FIRST in it.conditions &&
+                            AccrualCondition.PASSENGER !in it.conditions
+                }
                 .sumOf { it.interval.durationMillis })
         }
     }
@@ -1022,7 +1025,10 @@ class SalaryCalculationHelper(
     fun getTimeDoubledTrainSecondSurchargeFlow(routes: List<Route> = routeList): Flow<Long> {
         return flow {
             emit(salarySegments(routes)
-                .filter { AccrualCondition.DOUBLED_TRAIN_SECOND in it.conditions }
+                .filter {
+                    AccrualCondition.DOUBLED_TRAIN_SECOND in it.conditions &&
+                            AccrualCondition.PASSENGER !in it.conditions
+                }
                 .sumOf { it.interval.durationMillis })
         }
     }
@@ -1030,7 +1036,10 @@ class SalaryCalculationHelper(
     fun getMoneyDoubledTrainFirstSurchargeFlow(routes: List<Route> = routeList): Flow<Double> {
         return flow {
             emit(salarySegments(routes)
-                .filter { AccrualCondition.DOUBLED_TRAIN_FIRST in it.conditions }
+                .filter {
+                    AccrualCondition.DOUBLED_TRAIN_FIRST in it.conditions &&
+                            AccrualCondition.PASSENGER !in it.conditions
+                }
                 .sumOf { it.tariffMoney * 0.30 })
         }
     }
@@ -1038,7 +1047,10 @@ class SalaryCalculationHelper(
     fun getMoneyDoubledTrainSecondSurchargeFlow(routes: List<Route> = routeList): Flow<Double> {
         return flow {
             emit(salarySegments(routes)
-                .filter { AccrualCondition.DOUBLED_TRAIN_SECOND in it.conditions }
+                .filter {
+                    AccrualCondition.DOUBLED_TRAIN_SECOND in it.conditions &&
+                            AccrualCondition.PASSENGER !in it.conditions
+                }
                 .sumOf { it.tariffMoney * 0.15 })
         }
     }
