@@ -182,6 +182,39 @@ class RouteDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun committedWalRouteIsIncludedInBackupAndMigration() {
+        createFromRoomSchema(version = 12)
+        val dbFile = isolatedContext.getDatabasePath(DATABASE_NAME)
+        val walSnapshot = File(isolatedContext.cacheDir, "fixture-wal-snapshot")
+        val mainSnapshot = File(isolatedContext.cacheDir, "fixture-main-snapshot")
+
+        openDatabase().use { source ->
+            source.rawQuery("PRAGMA journal_mode=WAL", null).use { it.moveToFirst() }
+            source.rawQuery("PRAGMA wal_autocheckpoint=0", null).use { it.moveToFirst() }
+            insertRequiredRow(source, "BasicData", routeId = "fixture-wal-route")
+            dbFile.copyTo(mainSnapshot, overwrite = true)
+            val liveWal = File(dbFile.path + "-wal")
+            assertTrue("Fixture WAL was not created", liveWal.length() > 0L)
+            liveWal.copyTo(walSnapshot, overwrite = true)
+        }
+
+        isolatedContext.deleteDatabase(DATABASE_NAME)
+        mainSnapshot.copyTo(dbFile, overwrite = true)
+        walSnapshot.copyTo(File(dbFile.path + "-wal"), overwrite = true)
+
+        DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
+
+        openDatabase().use { migrated ->
+            assertEquals(
+                setOf("fixture-route", "fixture-wal-route"),
+                routeIds(migrated),
+            )
+        }
+        mainSnapshot.delete()
+        walSnapshot.delete()
+    }
+
     private fun createFromRoomSchema(version: Int) {
         val schemaPath = "com.z_company.data_local.route.data_base.RouteDB/$version.json"
         val schema = schemaContext.assets.open(schemaPath).bufferedReader()
@@ -213,7 +246,11 @@ class RouteDatabaseMigrationTest {
         }
     }
 
-    private fun insertRequiredRow(db: SQLiteDatabase, table: String) {
+    private fun insertRequiredRow(
+        db: SQLiteDatabase,
+        table: String,
+        routeId: String = "fixture-route",
+    ) {
         val columns = db.rawQuery("PRAGMA table_info(`$table`)", null).use { cursor ->
             val nameIndex = cursor.getColumnIndexOrThrow("name")
             val typeIndex = cursor.getColumnIndexOrThrow("type")
@@ -233,8 +270,8 @@ class RouteDatabaseMigrationTest {
         val placeholders = columns.joinToString(", ") { "?" }
         val values = columns.map<Pair<String, String>, Any> { (name, type) ->
             when (name) {
-                "id" -> "fixture-route"
-                "basicId" -> "fixture-route"
+                "id" -> routeId
+                "basicId" -> routeId
                 else -> when {
                     name.endsWith("Id") -> "fixture-${name.lowercase()}"
                     name == "updatedAt" && type.contains("TEXT") -> "2026-01-01T00:00:00Z"
