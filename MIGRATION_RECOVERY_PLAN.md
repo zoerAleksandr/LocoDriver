@@ -417,6 +417,12 @@ Manifest ограничен 64 КиБ и 32 секциями до импорта
 ограничены. SHA-256 реализован в общем KMP-коде и проверен стандартными тестовыми
 векторами, поэтому Android и iOS вычисляют одинаковые digest без `java.*` в
 `commonMain`.
+Реализован первый Android exporter `routes.ndjson`: он открывает старую `Route.db`
+только read-only с недеструктивным corruption handler, выдаёт по одной строке на
+маршрут в стабильном порядке и включает строки `BasicData`, `Locomotive`, `Train`,
+`Passenger`, `OtherWork`, `RoutePartner`, `Photo` по allow-list. SQLite BLOB в v1
+отклоняется явно. Секция пишется во временный файл, синхронизируется и атомарно
+заменяет предыдущую; потоковый digest совпадает с общей KMP SHA-256 реализацией.
 
 ### Этап 3. Сервер snapshots
 

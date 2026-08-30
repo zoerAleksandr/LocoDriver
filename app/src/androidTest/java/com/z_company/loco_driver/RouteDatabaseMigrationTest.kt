@@ -9,6 +9,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.z_company.data_local.DatabaseDriverFactory
 import com.z_company.data_local.RouteMigrationAlreadyRunningException
 import com.z_company.data_local.RouteDatabaseProfileDetector
+import com.z_company.data_local.recovery.AndroidRouteRecoveryExporter
+import com.z_company.data_local.recovery.RecoveryRouteRecordJson
+import com.z_company.data_local.recovery.RecoverySha256
 import com.z_company.data_local.route.db.RouteDatabase
 import org.json.JSONObject
 import org.junit.After
@@ -400,6 +403,32 @@ class RouteDatabaseMigrationTest {
         assertEquals("FAILED", migrationPreferences().getString("migration_stage", null))
     }
 
+    @Test
+    fun roomRouteExportsToDeterministicNdjsonWithoutChangingSource() {
+        createFromRoomSchema(version = 12)
+        val destination = File(isolatedContext.filesDir, "recovery/routes.ndjson")
+
+        val section = AndroidRouteRecoveryExporter().export(
+            isolatedContext.getDatabasePath(DATABASE_NAME),
+            destination,
+        )
+
+        assertEquals(1L, section.itemCount)
+        assertEquals(RecoverySha256.digestHex(destination.readBytes()), section.sha256)
+        val lines = destination.readLines().filter { it.isNotBlank() }
+        assertEquals(1, lines.size)
+        val record = RecoveryRouteRecordJson.decode(lines.single())
+        assertEquals("fixture-route", record.routeId)
+        assertEquals(1, record.tables.getValue("BasicData").size)
+        FIXTURE_CHILD_TABLES.forEach { table ->
+            assertEquals("Exported $table count", 1, record.tables.getValue(table).size)
+        }
+        openDatabase().use { source ->
+            assertEquals(12, source.version)
+            assertEquals(setOf("fixture-route"), routeIds(source))
+        }
+    }
+
     private fun createFromRoomSchema(version: Int, populate: Boolean = true) {
         val schemaPath = "com.z_company.data_local.route.data_base.RouteDB/$version.json"
         val schema = schemaContext.assets.open(schemaPath).bufferedReader()
@@ -515,6 +544,7 @@ class RouteDatabaseMigrationTest {
         check((isolatedContext as FixtureContext).isFixturePath(DATABASE_NAME))
         isolatedContext.deleteDatabase(DATABASE_NAME)
         isolatedContext.filesDir.resolve("data_safety").deleteRecursively()
+        isolatedContext.filesDir.resolve("recovery").deleteRecursively()
         isolatedContext.getSharedPreferences("data_safety_status", Context.MODE_PRIVATE)
             .edit()
             .clear()
