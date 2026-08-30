@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.z_company.data_local.DatabaseDriverFactory
+import com.z_company.data_local.RouteDatabaseProfileDetector
 import com.z_company.data_local.route.db.RouteDatabase
 import org.json.JSONObject
 import org.junit.After
@@ -36,8 +37,24 @@ class RouteDatabaseMigrationTest {
     fun roomV12FixtureMigratesWithoutChangingRouteIdentity() {
         createFromRoomSchema(version = 12)
         val before = openDatabase().use { db -> routeIds(db) }
+        val roomProfile = RouteDatabaseProfileDetector().detect(
+            isolatedContext.getDatabasePath(DATABASE_NAME)
+        )
+        assertTrue(roomProfile.isRecognized)
+        assertTrue(roomProfile.hasLegacyRoomTrain)
+        assertTrue(roomProfile.hasLegacyRoomLocomotive)
+        assertFalse(roomProfile.hasTrashFields)
 
         DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
+
+        val migratedProfile = RouteDatabaseProfileDetector().detect(
+            isolatedContext.getDatabasePath(DATABASE_NAME)
+        )
+        assertTrue(migratedProfile.isRecognized)
+        assertFalse(migratedProfile.hasLegacyRoomTrain)
+        assertFalse(migratedProfile.hasLegacyRoomLocomotive)
+        assertTrue(migratedProfile.hasTrashFields)
+        assertTrue(migratedProfile.hasDiagnosticTables)
 
         openDatabase().use { migrated ->
             assertEquals(RouteDatabase.Schema.version.toInt(), migrated.version)
