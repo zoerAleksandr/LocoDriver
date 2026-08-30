@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS DiagnosticOutbox (
 );
 
 getReadyBatch:
-SELECT RouteEvent.*
+SELECT DiagnosticOutbox.attemptCount, RouteEvent.*
 FROM DiagnosticOutbox
 JOIN RouteEvent ON RouteEvent.eventId = DiagnosticOutbox.eventId
 WHERE DiagnosticOutbox.nextAttemptAt <= :now

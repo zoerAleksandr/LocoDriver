@@ -10,6 +10,7 @@ data class DiagnosticOutboxEvent(
     val appBuild: Long?,
     val dbVersion: Long?,
     val detailsJson: String?,
+    val attemptCount: Long,
 )
 
 object DiagnosticOutboxPolicy {

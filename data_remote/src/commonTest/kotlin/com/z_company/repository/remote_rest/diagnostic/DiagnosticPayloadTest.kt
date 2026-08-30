@@ -21,6 +21,7 @@ class DiagnosticPayloadTest {
                 appBuild = 1,
                 dbVersion = 13,
                 detailsJson = "{\"routeId\":\"secret\",\"email\":\"secret@example.test\"}",
+                attemptCount = 0,
             )
         )
         val json = Json.encodeToString(mapped)

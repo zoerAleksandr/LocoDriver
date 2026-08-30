@@ -52,6 +52,7 @@ class SqlDelightDiagnosticRepository : DiagnosticRepository, KoinComponent {
                 appBuild = row.appBuild,
                 dbVersion = row.dbVersion,
                 detailsJson = row.detailsJson,
+                attemptCount = row.attemptCount,
             )
         }
 

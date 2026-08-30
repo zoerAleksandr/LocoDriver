@@ -107,7 +107,7 @@ class SyncWorker(
             diagnosticRepository.markUploaded(batch.map { it.eventId }, now)
         } catch (error: Exception) {
             batch.forEach { event ->
-                diagnosticRepository.scheduleRetry(event.eventId, 0, now, error::class.simpleName)
+                diagnosticRepository.scheduleRetry(event.eventId, event.attemptCount, now, error::class.simpleName)
             }
         }
     }
