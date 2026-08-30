@@ -1,7 +1,8 @@
 # План безопасного обновления и восстановления данных Android
 
-Статус: этапы 0–1 в реализации; локальный bootstrap, durable migration marker,
-candidate-миграция и fixtures Room v1–v12 реализованы и проверены на Android 16
+Статус: этапы 0–1 реализованы и тестируются; этап 2 начат с versioned manifest;
+локальный bootstrap, durable migration marker, candidate-миграция и fixtures
+Room v1–v12 реализованы и проверены на Android 16
 Ветка клиента: `codex/data-safety-diagnostics`  
 Ветка сервера: `codex/data-safety-diagnostics-server`  
 Область первой реализации: Android; iOS не затрагивается
@@ -406,6 +407,12 @@ Bootstrap integration-тест подтверждает: после ошибки
 - импортировать в свежую текущую БД;
 - добавить checksums, count/ID validation и conflict policy;
 - добавить ручной SAF export/import.
+
+Начато: зафиксирован сериализуемый `archiveFormatVersion=1` и пять обязательных
+секций. Общий KMP-валидатор проверяет версию, метаданные, безопасные имена без путей,
+уникальность и наличие секций, неотрицательные counts, формат SHA-256 и совпадение
+фактических digest/count. Неизвестные безопасно названные дополнительные секции не
+мешают forward compatibility, но importer будет читать только известную allow-list.
 
 ### Этап 3. Сервер snapshots
 
