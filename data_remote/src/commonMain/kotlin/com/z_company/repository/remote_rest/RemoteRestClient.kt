@@ -79,7 +79,10 @@ object RemoteRestClient {
             json(appJson)
         }
         install(Logging) {
-            level = LogLevel.BODY
+            // Полные JSON-тела маршрутов бывают большими. Их форматирование и печать
+            // отнимают CPU/память во время синхронизации и особенно заметны на слабой
+            // мобильной сети. Заодно BODY мог содержать пользовательские данные.
+            level = LogLevel.NONE
         }
         install(HttpRedirect) {
             allowHttpsDowngrade = false

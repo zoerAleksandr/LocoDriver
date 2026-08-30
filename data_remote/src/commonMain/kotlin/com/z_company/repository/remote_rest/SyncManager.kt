@@ -1360,6 +1360,8 @@ class SyncManager(
     }.flowOn(Dispatchers.Default).withSyncDeadline()
 
     companion object {
+        /** Даём экрану завершить первый кадр и локальные расчёты до тихой синхронизации. */
+        const val BACKGROUND_SYNC_START_DELAY_MILLIS: Long = 1_500L
         const val AUTOMATIC_SYNC_COOLDOWN_MILLIS: Long = 5 * 60 * 1000L
         const val SYNC_OPERATION_TIMEOUT_MILLIS: Long = 25_000L
 
