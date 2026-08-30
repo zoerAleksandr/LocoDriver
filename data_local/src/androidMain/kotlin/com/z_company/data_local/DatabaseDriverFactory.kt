@@ -1,6 +1,7 @@
 package com.z_company.data_local
 
 import android.content.Context
+import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import android.os.StatFs
 import android.system.Os
@@ -29,20 +30,22 @@ actual class DatabaseDriverFactory(private val context: Context) {
     }
 
     private fun createRouteDriverLocked(): SqlDriver {
-        val interruptedSourceVersion = recoverInterruptedMigrationAttempt()
-        val backup = prepareRouteBackupIfNeeded()
+        var backup: RouteBackup? = null
         return try {
-            if (backup != null) {
-                recordMigrationStage("BACKUP_READY", backup.sourceVersion)
-                migrateCandidateAndSwap(backup)
+            val interruptedSourceVersion = recoverInterruptedMigrationAttempt()
+            backup = prepareRouteBackupIfNeeded()
+            val preparedBackup = backup
+            if (preparedBackup != null) {
+                recordMigrationStage("BACKUP_READY", preparedBackup.sourceVersion)
+                migrateCandidateAndSwap(preparedBackup)
             }
-            recordMigrationSuccess(backup)
+            recordMigrationSuccess(preparedBackup)
             createDriver(RouteDatabase.Schema, "Route.db").also {
-                val sourceVersion = backup?.sourceVersion ?: interruptedSourceVersion
+                val sourceVersion = preparedBackup?.sourceVersion ?: interruptedSourceVersion
                 if (sourceVersion != null) recordMigrationStage("SUCCEEDED", sourceVersion)
             }
         } catch (error: Throwable) {
-            if (backup != null) restoreRouteBackup(backup)
+            backup?.let(::restoreRouteBackup)
             recordMigrationFailure(backup, error)
             throw error
         }
@@ -517,6 +520,18 @@ actual class DatabaseDriverFactory(private val context: Context) {
         }
     }
 
+    /** Android's default corruption handler deletes the database; recovery must preserve it. */
+    private fun openRouteDatabase(file: File, flags: Int): SQLiteDatabase =
+        SQLiteDatabase.openDatabase(
+            file.path,
+            null,
+            flags,
+            DatabaseErrorHandler {
+                // Deliberately do nothing. SQLite still reports the failure, while the
+                // original bytes remain available for recovery or support export.
+            },
+        )
+
     /**
      * Общий драйвер — при даунгрейде просто пропускает (лишние столбцы безвредны).
      */
@@ -556,7 +571,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
         val targetVersion = RouteDatabase.Schema.version.toInt()
         var sourceVersion = 0
         var snapshot = RouteDbSnapshot(emptySet(), 0L, emptyMap(), 0L)
-        val sourceDb = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
+        val sourceDb = openRouteDatabase(dbFile, SQLiteDatabase.OPEN_READWRITE)
         try {
             sourceVersion = sourceDb.version
             val requiresStructuralRepair =
@@ -590,7 +605,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
     }
 
     private fun validateBackupFile(file: File, expectedSnapshot: RouteDbSnapshot) {
-        val backupDb = SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY)
+        val backupDb = openRouteDatabase(file, SQLiteDatabase.OPEN_READONLY)
         try {
             val integrity = backupDb.rawQuery("PRAGMA quick_check", null).use { cursor ->
                 if (cursor.moveToFirst()) cursor.getString(0) else "missing_result"
@@ -603,7 +618,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
     }
 
     private fun validateMigratedRouteDb(backup: RouteBackup, dbFile: File) {
-        val migrated = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READONLY)
+        val migrated = openRouteDatabase(dbFile, SQLiteDatabase.OPEN_READONLY)
         try {
             require(migrated.version == RouteDatabase.Schema.version.toInt()) {
                 "Route.db target version was not applied"
@@ -655,7 +670,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
     private fun recordMigrationSuccess(backup: RouteBackup?) {
         if (backup == null) return
         val dbFile = context.getDatabasePath("Route.db")
-        val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
+        val db = openRouteDatabase(dbFile, SQLiteDatabase.OPEN_READWRITE)
         try {
             db.execSQL("""
                 CREATE TABLE IF NOT EXISTS MigrationStatus (
@@ -738,7 +753,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
      */
     private fun migrateRouteDbIfNeeded(dbFile: File) {
         val targetVersion = RouteDatabase.Schema.version.toInt()
-        val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
+        val db = openRouteDatabase(dbFile, SQLiteDatabase.OPEN_READWRITE)
         try {
             // Candidate must be self-contained before the atomic rename. In WAL mode
             // committed pages could otherwise remain in a sidecar file.

@@ -12,6 +12,7 @@ import com.z_company.data_local.RouteDatabaseProfileDetector
 import com.z_company.data_local.route.db.RouteDatabase
 import org.json.JSONObject
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -230,6 +231,28 @@ class RouteDatabaseMigrationTest {
         }
         mainSnapshot.delete()
         walSnapshot.delete()
+    }
+
+    @Test
+    fun corruptedSourceAndExistingBackupAreNeverOverwritten() {
+        createFromRoomSchema(version = 12)
+        val dbFile = isolatedContext.getDatabasePath(DATABASE_NAME)
+        val backupDir = File(isolatedContext.filesDir, "data_safety").apply { mkdirs() }
+        val existingBackup = File(backupDir, "Route.pre_migration.db")
+        dbFile.copyTo(existingBackup, overwrite = true)
+        val backupBytes = existingBackup.readBytes()
+        val corruptedBytes = ByteArray(4_096) { index -> (index % 251).toByte() }
+        dbFile.writeBytes(corruptedBytes)
+
+        val error = runCatching {
+            DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
+        }.exceptionOrNull()
+
+        assertTrue(error != null)
+        assertArrayEquals(corruptedBytes, dbFile.readBytes())
+        assertArrayEquals(backupBytes, existingBackup.readBytes())
+        assertEquals("FAILED", migrationPreferences().getString("migration_stage", null))
+        assertFalse(isolatedContext.getDatabasePath("Route.candidate.db").exists())
     }
 
     private fun createFromRoomSchema(version: Int, populate: Boolean = true) {
