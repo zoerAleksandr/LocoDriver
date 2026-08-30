@@ -25,8 +25,16 @@ import androidx.work.WorkManager
 import com.z_company.work_manager.SyncWorker
 import com.z_company.work_manager.DiagnosticWorker
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 class StartApp : Application() {
+
+    private val mainGraphStarted = AtomicBoolean(false)
+    private lateinit var migrationBootstrap: MigrationRecoveryBootstrap
+
+    @Volatile
+    internal var migrationBootstrapState: MigrationBootstrapState = MigrationBootstrapState.READY
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -38,6 +46,24 @@ class StartApp : Application() {
         MyTracker.setDebugMode(true)
         MyTracker.initTracker(getString(R.string.my_tracer_sdk_key), this)
 
+        migrationBootstrap = MigrationRecoveryBootstrap(this, BuildConfig.VERSION_CODE)
+        migrationBootstrapState = migrationBootstrap.prepare()
+        if (migrationBootstrapState != MigrationBootstrapState.READY) return
+
+        startMainGraphAndWorkers()
+    }
+
+    fun retryRouteMigration(): Boolean {
+        migrationBootstrapState = migrationBootstrap.prepare(allowRetry = true)
+        if (migrationBootstrapState != MigrationBootstrapState.READY) return false
+        startMainGraphAndWorkers()
+        return true
+    }
+
+    fun migrationErrorCode(): String? = migrationBootstrap.errorCode()
+
+    private fun startMainGraphAndWorkers() {
+        if (!mainGraphStarted.compareAndSet(false, true)) return
         startKoin {
             androidContext(this@StartApp)
             modules(

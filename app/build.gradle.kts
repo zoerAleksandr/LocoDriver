@@ -170,6 +170,7 @@ dependencies {
     // ART использует его для AOT-компиляции при установке
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     "baselineProfile"(project(":baselineprofile"))
+    testImplementation(TestLibs.kotlin_test)
 }
 configurations.all {
     exclude (group = "com.squareup.okhttp3", module = "okhttp-bom")
