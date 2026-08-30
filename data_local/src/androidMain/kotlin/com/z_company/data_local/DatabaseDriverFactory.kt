@@ -16,13 +16,21 @@ import java.io.File
 
 actual class DatabaseDriverFactory(private val context: Context) {
     actual fun createRouteDriver(): SqlDriver {
+        val interruptedSourceVersion = recoverInterruptedMigrationAttempt()
         val backup = prepareRouteBackupIfNeeded()
         return try {
-            if (backup != null) migrateCandidateAndSwap(backup)
+            if (backup != null) {
+                recordMigrationStage("BACKUP_READY", backup.sourceVersion)
+                migrateCandidateAndSwap(backup)
+            }
             recordMigrationSuccess(backup)
-            createDriver(RouteDatabase.Schema, "Route.db")
+            createDriver(RouteDatabase.Schema, "Route.db").also {
+                val sourceVersion = backup?.sourceVersion ?: interruptedSourceVersion
+                if (sourceVersion != null) recordMigrationStage("SUCCEEDED", sourceVersion)
+            }
         } catch (error: Throwable) {
             if (backup != null) restoreRouteBackup(backup)
+            recordMigrationFailure(backup, error)
             throw error
         }
     }
@@ -33,23 +41,76 @@ actual class DatabaseDriverFactory(private val context: Context) {
         val candidate = File(dbFile.parentFile, "Route.candidate.db")
         File(candidate.path + "-wal").delete()
         File(candidate.path + "-shm").delete()
+        recordMigrationStage("CANDIDATE_COPYING", backup.sourceVersion)
         backup.file.copyTo(candidate, overwrite = true)
 
         try {
+            recordMigrationStage("CANDIDATE_MIGRATING", backup.sourceVersion)
             migrateRouteDbIfNeeded(candidate)
             validateMigratedRouteDb(backup, candidate)
+            recordMigrationStage("CANDIDATE_VALIDATED", backup.sourceVersion)
 
             // rename(2) replaces a file atomically on the same filesystem. The live
             // database is therefore always either the complete source or candidate.
             File(dbFile.path + "-wal").delete()
             File(dbFile.path + "-shm").delete()
+            recordMigrationStage("SWAPPING", backup.sourceVersion)
             Os.rename(candidate.path, dbFile.path)
+            recordMigrationStage("SWAPPED", backup.sourceVersion)
         } finally {
             candidate.delete()
             File(candidate.path + "-wal").delete()
             File(candidate.path + "-shm").delete()
         }
     }
+
+    /**
+     * A process can disappear between any two migration instructions. The live DB is
+     * still authoritative because only a validated candidate is atomically renamed.
+     * On the next start, discard only disposable candidate artifacts and retry from
+     * the untouched live DB (or accept it if the rename had already completed).
+     */
+    private fun recoverInterruptedMigrationAttempt(): Int? {
+        val preferences = migrationPreferences()
+        val stage = preferences.getString(KEY_MIGRATION_STAGE, null) ?: return null
+        if (stage in TERMINAL_MIGRATION_STAGES) return null
+        val sourceVersion = preferences.getInt(KEY_MIGRATION_FROM, -1).takeIf { it >= 0 }
+
+        val dbFile = context.getDatabasePath("Route.db")
+        val candidate = File(dbFile.parentFile, "Route.candidate.db")
+        candidate.delete()
+        File(candidate.path + "-wal").delete()
+        File(candidate.path + "-shm").delete()
+        preferences.edit()
+            .putString(KEY_MIGRATION_STAGE, "INTERRUPTED")
+            .putLong(KEY_MIGRATION_UPDATED_AT, System.currentTimeMillis())
+            .commit()
+        return sourceVersion
+    }
+
+    private fun recordMigrationStage(stage: String, sourceVersion: Int) {
+        check(
+            migrationPreferences().edit()
+                .putString(KEY_MIGRATION_STAGE, stage)
+                .putInt(KEY_MIGRATION_FROM, sourceVersion)
+                .putInt(KEY_MIGRATION_TO, RouteDatabase.Schema.version.toInt())
+                .putLong(KEY_MIGRATION_UPDATED_AT, System.currentTimeMillis())
+                .commit()
+        ) { "Cannot persist Route.db migration stage" }
+    }
+
+    private fun recordMigrationFailure(backup: RouteBackup?, error: Throwable) {
+        migrationPreferences().edit()
+            .putString(KEY_MIGRATION_STAGE, "FAILED")
+            .putInt(KEY_MIGRATION_FROM, backup?.sourceVersion ?: -1)
+            .putInt(KEY_MIGRATION_TO, RouteDatabase.Schema.version.toInt())
+            .putString(KEY_MIGRATION_ERROR, error::class.simpleName ?: "MigrationError")
+            .putLong(KEY_MIGRATION_UPDATED_AT, System.currentTimeMillis())
+            .commit()
+    }
+
+    private fun migrationPreferences() =
+        context.getSharedPreferences("data_safety_status", Context.MODE_PRIVATE)
 
     actual fun createSettingsDriver(): SqlDriver {
         // Проверяем ВСЕ новые столбцы из всех миграций (1.sqm … 12.sqm).
@@ -325,6 +386,13 @@ actual class DatabaseDriverFactory(private val context: Context) {
     )
 
     companion object {
+        private const val KEY_MIGRATION_STAGE = "migration_stage"
+        private const val KEY_MIGRATION_FROM = "migration_from"
+        private const val KEY_MIGRATION_TO = "migration_to"
+        private const val KEY_MIGRATION_ERROR = "migration_error"
+        private const val KEY_MIGRATION_UPDATED_AT = "migration_updated_at"
+        private val TERMINAL_MIGRATION_STAGES = setOf("SUCCEEDED", "FAILED")
+
         private val ROUTE_CHILD_TABLES = listOf(
             "Locomotive",
             "Train",

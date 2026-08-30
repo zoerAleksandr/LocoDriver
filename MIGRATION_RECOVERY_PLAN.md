@@ -1,7 +1,7 @@
 # План безопасного обновления и восстановления данных Android
 
-Статус: этапы 0–1 в реализации; локальный bootstrap, candidate-миграция и
-fixtures Room v1–v12 реализованы и проверены на Android 16  
+Статус: этапы 0–1 в реализации; локальный bootstrap, durable migration marker,
+candidate-миграция и fixtures Room v1–v12 реализованы и проверены на Android 16
 Ветка клиента: `codex/data-safety-diagnostics`  
 Ветка сервера: `codex/data-safety-diagnostics-server`  
 Область первой реализации: Android; iOS не затрагивается
@@ -363,6 +363,13 @@ POST   /v1/recovery/snapshots/{snapshotId}/restored
 - реализовать независимый RecoveryActivity;
 - заблокировать автоматический retry известной упавшей миграции;
 - оставить существующую БД и backup неизменными при любой ошибке.
+
+Реализовано: durable marker записывает стадии `BACKUP_READY`,
+`CANDIDATE_COPYING`, `CANDIDATE_MIGRATING`, `CANDIDATE_VALIDATED`, `SWAPPING`,
+`SWAPPED`, `SUCCEEDED` и `FAILED` синхронным `commit()`. При перезапуске после
+нетерминальной стадии удаляются только disposable candidate-файлы. Исходная БД
+мигрируется заново либо уже атомарно установленная и валидная текущая БД принимается
+без повторного изменения.
 
 ### Этап 2. Логический exporter/importer
 

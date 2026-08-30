@@ -114,6 +114,46 @@ class RouteDatabaseMigrationTest {
             assertFalse(hasTable(sourceAfterFailure, "RouteEvent"))
         }
         assertFalse(isolatedContext.getDatabasePath("Route.candidate.db").exists())
+        assertEquals("FAILED", migrationPreferences().getString("migration_stage", null))
+    }
+
+    @Test
+    fun interruptedCandidateIsDiscardedAndMigrationRestartsFromSource() {
+        createFromRoomSchema(version = 12)
+        val sourceIds = openDatabase().use(::routeIds)
+        val staleCandidate = isolatedContext.getDatabasePath("Route.candidate.db")
+        staleCandidate.writeText("incomplete candidate")
+        migrationPreferences().edit()
+            .putString("migration_stage", "CANDIDATE_MIGRATING")
+            .commit()
+
+        DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
+
+        assertFalse(staleCandidate.exists())
+        assertEquals("SUCCEEDED", migrationPreferences().getString("migration_stage", null))
+        openDatabase().use { migrated ->
+            assertEquals(RouteDatabase.Schema.version.toInt(), migrated.version)
+            assertEquals(sourceIds, routeIds(migrated))
+        }
+    }
+
+    @Test
+    fun interruptionAfterAtomicSwapAcceptsValidatedCurrentDatabase() {
+        createFromRoomSchema(version = 12)
+        DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
+        val migratedIds = openDatabase().use(::routeIds)
+        migrationPreferences().edit()
+            .putString("migration_stage", "SWAPPED")
+            .putInt("migration_from", 12)
+            .commit()
+
+        DatabaseDriverFactory(isolatedContext).createRouteDriver().close()
+
+        assertEquals("SUCCEEDED", migrationPreferences().getString("migration_stage", null))
+        openDatabase().use { current ->
+            assertEquals(RouteDatabase.Schema.version.toInt(), current.version)
+            assertEquals(migratedIds, routeIds(current))
+        }
     }
 
     private fun createFromRoomSchema(version: Int) {
@@ -210,6 +250,9 @@ class RouteDatabaseMigrationTest {
             .clear()
             .commit()
     }
+
+    private fun migrationPreferences(): SharedPreferences =
+        isolatedContext.getSharedPreferences("data_safety_status", Context.MODE_PRIVATE)
 
     private companion object {
         const val DATABASE_NAME = "Route.db"
