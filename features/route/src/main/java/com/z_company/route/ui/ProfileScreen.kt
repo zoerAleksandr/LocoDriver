@@ -1436,50 +1436,6 @@ fun ProfileScreen(
                                 },
                             )
 
-                            OneTap(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                onAuth = { _, accessToken ->
-                                    if (login) {
-                                        viewModel.authWithVKID(
-                                            vkid = accessToken.userID.toString(),
-                                            vkAccessToken = accessToken.token,
-                                            email = accessToken.userData.email ?: ""
-                                        )
-                                    } else {
-                                        viewModel.registeredUserByVKID(
-                                            vkid = accessToken.userID.toString(),
-                                            vkAccessToken = accessToken.token,
-                                            email = accessToken.userData.email ?: ""
-                                        )
-                                    }
-                                },
-                                onFail = { oneTapAuth, vkIdAuthFail ->
-                                    Log.d("zzz", "onFail login $oneTapAuth ${vkIdAuthFail.description}")
-                                },
-                                signInAnotherAccountButtonEnabled = true,
-                            )
-
-
-                            Spacer(
-                                modifier = Modifier
-                                    .height(12.dp)
-                            )
-                            Text(
-                                modifier = Modifier
-                                    .fillMaxWidth(),
-                                textAlign = TextAlign.Center,
-                                text = "или",
-                                style = styleHint
-                            )
-
-
-                            Spacer(
-                                modifier = Modifier
-                                    .height(12.dp)
-                            )
-
-
                             OutlinedTextFieldApp(
                                 value = email,
                                 onValueChange = { email = it },
@@ -1693,6 +1649,84 @@ fun ProfileScreen(
                                     }
 
                                 }
+                            }
+
+                            // Вход через VK ID — альтернативный способ, он не
+                            // относится к переключателю «Вход/Регистрация»,
+                            // поэтому стоит под формой, за разделителем.
+                            Spacer(modifier = Modifier.height(paddingBetweenView * 2))
+
+                            Text(
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center,
+                                text = "или",
+                                style = styleHint
+                            )
+
+                            Spacer(modifier = Modifier.height(paddingBetweenView))
+
+                            OneTap(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                onAuth = { _, accessToken ->
+                                    if (login) {
+                                        viewModel.authWithVKID(
+                                            vkid = accessToken.userID.toString(),
+                                            vkAccessToken = accessToken.token,
+                                            email = accessToken.userData.email ?: ""
+                                        )
+                                    } else {
+                                        viewModel.registeredUserByVKID(
+                                            vkid = accessToken.userID.toString(),
+                                            vkAccessToken = accessToken.token,
+                                            email = accessToken.userData.email ?: ""
+                                        )
+                                    }
+                                },
+                                onFail = { oneTapAuth, vkIdAuthFail ->
+                                    Log.d("zzz", "onFail login $oneTapAuth ${vkIdAuthFail.description}")
+                                },
+                                signInAnotherAccountButtonEnabled = true,
+                            )
+
+                            // Кнопка VK минует чекбоксы формы, поэтому согласие
+                            // с документами оформлено текстом под ней.
+                            val licenseUrl = stringResource(id = R.string.url_to_license_agreement)
+                            val policyUrl =
+                                stringResource(id = R.string.url_to_personal_data_processing_policy)
+                            val vkLegalText =
+                                "Если аккаунта ещё нет, он будет создан автоматически. " +
+                                        "Продолжая, вы принимаете Лицензионное соглашение " +
+                                        "и политику обработки персональных данных."
+                            val licenseStart = vkLegalText.indexOf("Лицензионное")
+                            val licenseEnd = licenseStart + "Лицензионное соглашение".length
+                            val policyStart = vkLegalText.indexOf("политику")
+                            val policyEnd = vkLegalText.length - 1
+                            val vkLegalAnnotated = buildAnnotatedString {
+                                append(vkLegalText)
+                                val linkStyle = SpanStyle(
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    textDecoration = TextDecoration.Underline
+                                )
+                                addStyle(style = linkStyle, start = licenseStart, end = licenseEnd)
+                                addStyle(style = linkStyle, start = policyStart, end = policyEnd)
+                            }
+                            ClickableText(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = paddingBetweenView),
+                                text = vkLegalAnnotated,
+                                style = hintStyle.copy(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center
+                                )
+                            ) { offset ->
+                                val url = when (offset) {
+                                    in licenseStart until licenseEnd -> licenseUrl
+                                    in policyStart until policyEnd -> policyUrl
+                                    else -> null
+                                }
+                                url?.let { ctx.startActivity(Intent(Intent.ACTION_VIEW, it.toUri())) }
                             }
                         }
                     }
