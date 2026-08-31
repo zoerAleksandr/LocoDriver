@@ -1642,6 +1642,11 @@ STATION_LIST/SERIES_EDITOR_{id}/STATION_EDITOR_{id}).
   (`forgotRequest`/`forgotResetState`); привязка VK ID к существующему аккаунту
   (`attachVKID`, `onVkAuthForLinkedAccount`), отвязка (`removeUsersVKID`); обновление
   VK-токена (`vkIdRefreshToken`); выход (`logOut`).
+- После успешного входа по email или VK Android дожидается отдельной загрузки
+  серверного `UserSettings.subscriptionPeriod` и сохраняет срок локально до
+  запуска обновления профиля и полной синхронизации. Ошибка этого шага не
+  отменяет вход, но показывается пользователю; полная синхронизация остаётся
+  дополнительной попыткой обновления.
 - **VK ID подтверждается access-токеном (с версии 3.0.4).** Личность пользователя
   выводит сервер: клиент шлёт `vkAccessToken` (`accessToken.token` из VKID SDK)
   и `vkClientId` (`BuildConfig.VKID_CLIENT_ID` из `secret.properties`), сервер

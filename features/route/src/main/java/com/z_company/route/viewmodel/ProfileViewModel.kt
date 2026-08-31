@@ -856,6 +856,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     if (token.isNotEmpty()) {
                         secureTokenStorage.saveAuthToken(token)  // Сохранение зашифрованного токена
                         _isLoggedIn.value = true  // Обновляем состояние логина после успеха
+                        restoreSubscriptionAfterLogin(token)
                         refresh()  // Перезагружаем данные после входа
                         syncManager.syncFromRemote("Bearer $token").collect {}
                     }
@@ -890,6 +891,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                             secureTokenStorage.saveAuthToken(token)
                             secureTokenStorage.saveVkId(vkid)
                             _isLoggedIn.value = true
+                            restoreSubscriptionAfterLogin(token)
                             refresh()
                             syncManager.syncFromRemote("Bearer $token").collect {}
                         }
@@ -923,6 +925,21 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     )
 
     private var pendingVkRegistration: PendingVkRegistration? = null
+
+    /**
+     * Срок подписки должен обновиться как обязательная часть успешного входа,
+     * а не побочный эффект последующего refresh/full sync. Полная синхронизация
+     * может занять до 25 секунд или завершиться частично, при этом вход уже
+     * считается успешным и локальное значение иначе осталось бы равным 0.
+     */
+    private suspend fun restoreSubscriptionAfterLogin(token: String) {
+        when (subscriptionHelper.restorePurchases(token = token)) {
+            is ResultState.Error -> snackbarManager.show(
+                "Вход выполнен, но данные подписки не загрузились"
+            )
+            else -> Unit
+        }
+    }
 
     /**
      * Согласие на создание аккаунта по VK. Почта берётся из данных VK (может
