@@ -909,12 +909,36 @@ fun HomeScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp),
                         ) {
-                            Text(
-                                text = "ОТРАБОТАНО",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 4.dp),
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "ОТРАБОТАНО",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                when (val paymentState = toBeCredited) {
+                                    is ResultState.Success -> Text(
+                                        text = paymentState.data.toMoneyString(currency),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    is ResultState.Error -> Text(
+                                        text = "—",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    else -> Text(
+                                        text = "считаем деньги",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
                             AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
                                 val chipText: String? = currentMonthOfYear?.let { month ->
                                     val normaHoursInMonth = normaHours ?: month.getPersonalNormaHours()
@@ -936,29 +960,6 @@ fun HomeScreen(
                                     breakdownText = breakdown,
                                     chipText = chipText,
                                 )
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                when (val paymentState = toBeCredited) {
-                                    is ResultState.Success -> Text(
-                                        text = paymentState.data.toMoneyString(currency),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.align(Alignment.CenterEnd),
-                                    )
-                                    is ResultState.Error -> Text(
-                                        text = "—",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.align(Alignment.CenterEnd),
-                                    )
-                                    else -> Text(
-                                        text = "считаем деньги",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.align(Alignment.CenterEnd),
-                                    )
-                                }
                             }
                             Spacer(modifier = Modifier.height(16.dp))
                         }
