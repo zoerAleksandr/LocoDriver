@@ -8,6 +8,29 @@ import kotlin.test.assertEquals
 
 class TrainSurchargeThresholdValidationTest {
     @Test
+    fun invalidAndNegativePercentsAreExcludedFromAllTierLists() {
+        assertEquals(
+            emptyList(),
+            validHeavyTrainSurcharges(listOf(
+                SurchargeHeavyTrains(weight = "100", percentSurcharge = "-1"),
+                SurchargeHeavyTrains(weight = "200", percentSurcharge = "NaN"),
+            )),
+        )
+        assertEquals(
+            emptyList(),
+            validLongTrainSurcharges(listOf(
+                SurchargeLongTrains(conditionalLength = "50", percentSurcharge = "Infinity"),
+            )),
+        )
+        assertEquals(
+            emptyList(),
+            validExtendedServicePhaseSurcharges(listOf(
+                SurchargeExtendedServicePhase(distance = "250", percentSurcharge = "text"),
+            )),
+        )
+    }
+
+    @Test
     fun heavyThresholdsAreSortedNumericallyAndInvalidValuesAreExcluded() {
         val result = validHeavyTrainSurcharges(
             listOf(

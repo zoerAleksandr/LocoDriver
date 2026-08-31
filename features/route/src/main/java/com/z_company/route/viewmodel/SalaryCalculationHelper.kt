@@ -32,6 +32,7 @@ import com.z_company.domain.util.toExactIntOrNull
 import com.z_company.domain.util.toDoubleOrZero
 import com.z_company.domain.util.toFiniteDoubleOrNull
 import com.z_company.domain.util.toIntOrZero
+import com.z_company.domain.util.toNonNegativeFiniteDoubleOrNull
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -60,6 +61,7 @@ private const val ANNUAL_OVERTIME_THRESHOLD_IN_MILLIS = 120 * HOUR_IN_MILLIS
 internal fun validHeavyTrainSurcharges(
     surcharges: List<com.z_company.domain.entities.setting.SurchargeHeavyTrains>,
 ) = surcharges.mapNotNull { surcharge ->
+    surcharge.percentSurcharge.toNonNegativeFiniteDoubleOrNull() ?: return@mapNotNull null
     surcharge.weight.toExactIntOrNull()?.takeIf { it > 0 }?.let { it to surcharge }
 }.groupBy { it.first }
     .map { (threshold, duplicates) -> threshold to duplicates.last().second }
@@ -69,6 +71,7 @@ internal fun validHeavyTrainSurcharges(
 internal fun validLongTrainSurcharges(
     surcharges: List<com.z_company.domain.entities.setting.SurchargeLongTrains>,
 ) = surcharges.mapNotNull { surcharge ->
+    surcharge.percentSurcharge.toNonNegativeFiniteDoubleOrNull() ?: return@mapNotNull null
     surcharge.conditionalLength.toExactIntOrNull()?.takeIf { it > 0 }?.let { it to surcharge }
 }.groupBy { it.first }
     .map { (threshold, duplicates) -> threshold to duplicates.last().second }
@@ -78,6 +81,7 @@ internal fun validLongTrainSurcharges(
 internal fun validExtendedServicePhaseSurcharges(
     surcharges: List<com.z_company.domain.entities.setting.SurchargeExtendedServicePhase>,
 ) = surcharges.mapNotNull { surcharge ->
+    surcharge.percentSurcharge.toNonNegativeFiniteDoubleOrNull() ?: return@mapNotNull null
     surcharge.distance.toExactIntOrNull()?.takeIf { it > 0 }?.let { it to surcharge }
 }.groupBy { it.first }
     .map { (threshold, duplicates) -> threshold to duplicates.last().second }

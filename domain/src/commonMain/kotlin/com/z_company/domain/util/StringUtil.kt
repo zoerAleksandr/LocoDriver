@@ -16,6 +16,12 @@ fun String.toFiniteDoubleOrNull(): Double? {
     return normalized.toDoubleOrNull()?.takeIf(Double::isFinite)
 }
 
+/** Денежное/процентное значение настройки: пустое поле означает 0. */
+fun String.toNonNegativeFiniteDoubleOrNull(): Double? {
+    if (isBlank()) return 0.0
+    return toFiniteDoubleOrNull()?.takeIf { it >= 0.0 }
+}
+
 fun String.toExactIntOrNull(): Int? {
     val value = toFiniteDoubleOrNull() ?: return null
     if (value % 1.0 != 0.0 || value < Int.MIN_VALUE || value > Int.MAX_VALUE) return null

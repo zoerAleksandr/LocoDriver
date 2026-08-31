@@ -20,6 +20,15 @@ class StringNumberParsingTest {
     }
 
     @Test
+    fun salaryValueRejectsNegativeAndNonFiniteButTreatsBlankAsZero() {
+        assertEquals(0.0, "".toNonNegativeFiniteDoubleOrNull())
+        assertEquals(12.5, "12,5".toNonNegativeFiniteDoubleOrNull())
+        listOf("-1", "NaN", "Infinity", "-Infinity", "text").forEach { value ->
+            assertNull(value.toNonNegativeFiniteDoubleOrNull(), value)
+        }
+    }
+
+    @Test
     fun exactIntegerAcceptsServerDecimalFormButRejectsFractionAndOverflow() {
         assertEquals(6_000, "6 000,0".toExactIntOrNull())
         assertEquals(57, "57.0".toExactIntOrNull())
