@@ -109,5 +109,6 @@ class BusinessTripBoundaryCalculationTest {
         assertTrue(calculation.isEntirelyBusinessTrip())
         assertEquals(4 * hour, calculation.getBusinessTripTimeFlow().first())
         assertEquals(0L, calculation.getTotalWorkTime().first())
+        assertEquals(800.0, calculation.getMoneyTotalChargedFlow().first(), 0.001)
     }
 }
