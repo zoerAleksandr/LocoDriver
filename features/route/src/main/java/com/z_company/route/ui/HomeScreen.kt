@@ -1849,14 +1849,16 @@ private fun StackedTile(
     Box(
         modifier = modifier.size(tileSize + stackOffset),
     ) {
-        // Нижняя (фоновая) карточка — выглядывает справа-СВЕРХУ на stackOffset.
+        // Нижняя (фоновая) карточка — выглядывает СПРАВА на stackOffset, вровень
+        // по вертикали с верхней (обе bottom-aligned в общем боксе), чтобы плитка
+        // не была выше соседних («НА РАБОТЕ», «ПОЕЗД» без стопки).
         // Обводка + более тёмный фон, чтобы выглядывающий край читался как
         // отдельная карточка, а не как продолжение верхней.
         if (hasStack) {
             Card(
                 modifier = Modifier
                     .size(tileSize)
-                    .align(Alignment.TopEnd)
+                    .align(Alignment.BottomEnd)
                     .border(
                         width = 1.dp,
                         color = c.outline,
@@ -2623,56 +2625,6 @@ fun DetailTrainCard(
                                     }
                                 }
                             }
-                            Spacer(modifier = Modifier.height(7.dp))
-                            AsyncDataValue(onePersonOperationTime) { onePersonOperationTime ->
-                                onePersonOperationTime?.let {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                                    ) {
-                                        val onePersonOperationTimeText =
-                                            convertTimeToString(onePersonOperationTime)
-                                        val percent =
-                                            ((onePersonOperationTime * 100).toFloat() / (totalTimeWithHoliday).toFloat()) / 100f
-                                        val percentOnePerson =
-                                            (onePersonOperationTime.toFloat() / safeTotal.toFloat()).coerceIn(
-                                                0f,
-                                                1f
-                                            )
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = "Одно лицо",
-                                                maxLines = 1,
-                                                modifier = Modifier.weight(1f),
-                                                overflow = TextOverflow.Ellipsis,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            Text(
-                                                text = onePersonOperationTimeText,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                        LinearProgressIndicator(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(4.dp),
-                                            trackColor = MaterialTheme.colorScheme.outlineVariant,
-                                            color = MaterialTheme.colorScheme.tertiary,
-                                            gapSize = 4.dp,
-                                            drawStopIndicator = {},
-                                            progress = { percentOnePerson },
-                                        )
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(7.dp))
                         }
                     }
                 }
