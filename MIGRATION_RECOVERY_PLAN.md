@@ -485,6 +485,16 @@ busy/uncheckpointed frames и удерживает блокировку во в�
 пользователе БД, нехватке места или corruption операция завершается ошибкой и
 удаляет только temporary snapshot. На устройстве проверены committed WAL-данные,
 полная сборка из трёх frozen snapshots и сохранность повреждённого источника.
+Coordinator подключён к `MigrationRecoveryBootstrap` до создания Koin-графа и до
+первого мигрирующего драйвера. Он запускается только когда профиль `Route.db`
+требует миграции/структурного ремонта, атомарно публикует raw snapshots и затем
+пытается собрать logical archive. Ошибка raw snapshot блокирует миграцию; ошибка
+logical archive при уже сохранённых raw snapshots записывается техническим кодом,
+но не уничтожает копии и не блокирует исправление БД. Если Settings/Salary ещё не
+созданы, сохраняется Route snapshot и фиксируется `MISSING_OPTIONAL_DB`. Повторный
+bootstrap того же build/source переиспользует уже опубликованные snapshots вместо
+перезаписи. End-to-end тесты подтверждают состояния `ARCHIVE_READY` и
+`RAW_SNAPSHOTS_READY`, а исходные Room-БД остаются прежних версий.
 
 ### Этап 3. Сервер snapshots
 

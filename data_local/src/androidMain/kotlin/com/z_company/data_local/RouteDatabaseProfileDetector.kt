@@ -1,5 +1,6 @@
 package com.z_company.data_local
 
+import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import com.z_company.data_local.route.db.RouteDatabase
 import java.io.File
@@ -33,6 +34,7 @@ class RouteDatabaseProfileDetector {
             databaseFile.path,
             null,
             SQLiteDatabase.OPEN_READONLY,
+            DatabaseErrorHandler { },
         )
         return try {
             RouteDatabaseProfile(
