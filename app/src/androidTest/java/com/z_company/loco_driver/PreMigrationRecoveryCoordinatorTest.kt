@@ -97,6 +97,31 @@ class PreMigrationRecoveryCoordinatorTest {
         assertEquals(12, version(ROUTE_DATABASE))
     }
 
+    @Test
+    fun corruptedPublishedArchiveIsQuarantinedAndRebuiltFromVerifiedSnapshots() {
+        createRoomDatabase(ROUTE_SCHEMA, ROUTE_DATABASE, 12)
+        createRoomDatabase(SETTINGS_SCHEMA, SETTINGS_DATABASE, 14)
+        createRoomDatabase(SALARY_SCHEMA, SALARY_DATABASE, 7)
+        val coordinator = AndroidPreMigrationRecoveryCoordinator(fixtureContext, 9_004)
+        val first = coordinator.prepareIfNeeded()
+        val archiveDirectory = requireNotNull(first.archiveDirectory)
+        File(archiveDirectory, "routes.ndjson").appendText("corrupt")
+
+        val second = coordinator.prepareIfNeeded()
+
+        assertEquals(PreMigrationRecoveryState.ARCHIVE_READY, second.state)
+        assertTrue(second.archiveDirectory?.resolve("manifest.json")?.isFile == true)
+        assertTrue(
+            archiveDirectory.parentFile?.listFiles()?.any {
+                it.name.startsWith(archiveDirectory.name + ".invalid-")
+            } == true
+        )
+        assertEquals(first.rawSnapshotDirectory, second.rawSnapshotDirectory)
+        assertEquals(12, version(ROUTE_DATABASE))
+        assertEquals(14, version(SETTINGS_DATABASE))
+        assertEquals(7, version(SALARY_DATABASE))
+    }
+
     private fun createRoomDatabase(schemaRoot: String, name: String, version: Int) {
         val schema = schemaContext.assets.open("$schemaRoot/$version.json").bufferedReader()
             .use { JSONObject(it.readText()) }

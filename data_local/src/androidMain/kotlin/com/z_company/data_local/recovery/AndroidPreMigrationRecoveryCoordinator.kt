@@ -61,7 +61,7 @@ class AndroidPreMigrationRecoveryCoordinator(
         }
 
         val archive = File(root, "archive-$appBuild-${profile.userVersion}")
-        if (archive.isDirectory) {
+        if (isValidArchive(archive, profile.userVersion)) {
             recordStatus(PreMigrationRecoveryState.ARCHIVE_READY, null)
             return PreMigrationRecoveryResult(
                 PreMigrationRecoveryState.ARCHIVE_READY,
@@ -69,6 +69,7 @@ class AndroidPreMigrationRecoveryCoordinator(
                 archive,
             )
         }
+        if (archive.exists()) quarantineInvalidDirectory(archive)
         return try {
             AndroidRecoveryArchiveAssembler().assemble(
                 routeSnapshot = File(rawDirectory, ROUTE_SNAPSHOT),
@@ -170,6 +171,17 @@ class AndroidPreMigrationRecoveryCoordinator(
     }
 
     private fun quarantineInvalidRawDirectory(directory: File) {
+        quarantineInvalidDirectory(directory)
+    }
+
+    private fun isValidArchive(directory: File, sourceVersion: Int): Boolean = runCatching {
+        val manifest = AndroidRecoveryArchiveInspector().inspect(directory)
+        require(manifest.appBuild == appBuild)
+        require(manifest.sourceDbVersion == sourceVersion)
+        require(manifest.installationId == installationId())
+    }.isSuccess
+
+    private fun quarantineInvalidDirectory(directory: File) {
         val quarantine = File(
             directory.parentFile,
             directory.name + ".invalid-" + System.currentTimeMillis(),
