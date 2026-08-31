@@ -50,6 +50,7 @@ class OvertimePaymentCompositionTest {
             salarySetting = SalarySetting(
                 onePersonOperationPercent = 40.0,
                 zonalSurcharge = 0.0,
+                harmfulnessPercent = 0.0,
             ),
             allRoutes = listOf(route),
         )
@@ -102,7 +103,7 @@ class OvertimePaymentCompositionTest {
                 ),
                 timeZone = 0L,
             ),
-            salarySetting = SalarySetting(zonalSurcharge = 0.0),
+            salarySetting = SalarySetting(zonalSurcharge = 0.0, harmfulnessPercent = 0.0),
             allRoutes = listOf(route(day = 5), route(day = 20)),
         )
 
@@ -135,7 +136,7 @@ class OvertimePaymentCompositionTest {
                 ),
                 timeZone = 0L,
             ),
-            salarySetting = SalarySetting(zonalSurcharge = 0.0),
+            salarySetting = SalarySetting(zonalSurcharge = 0.0, harmfulnessPercent = 0.0),
             allRoutes = listOf(firstRoute, secondRoute),
         )
 

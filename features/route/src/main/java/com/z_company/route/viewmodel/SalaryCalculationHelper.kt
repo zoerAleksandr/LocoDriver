@@ -13,6 +13,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getNewRoutesToDayRange
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTimeOutsideWork
+import com.z_company.domain.entities.route.UtilsForEntities.getPassengerOutsideWorkIntervals
 import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveTime
 import com.z_company.domain.entities.route.UtilsForEntities.getOverRestInterval
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
@@ -477,19 +478,23 @@ class SalaryCalculationHelper(
     // отдельно по тарифу (без процентных надбавок), т.к. это проезд, а не работа.
     // При этом время входит в getWorkTime (месяц/норма/карточка), но НЕ в базу для
     // денег — база (getTotalWorkTime) вычитает это время обратно.
+    @OptIn(kotlin.time.ExperimentalTime::class)
     fun getMoneyAtPassengerOutsideWorkFlow(): Flow<Double> {
-        return channelFlow {
-            if (dateSetTariffRate == null) {
-                val time = routeList.getPassengerTimeOutsideWork(currentMonthOfYear, timeCalculationContext)
-                trySend(time.times(currentMonthOfYear.tariffRate) / 3_600_000.toDouble())
-            } else {
-                val pairRoutes = getTwoRouteList(routeList).first()
-                val firstTime = pairRoutes.first.getPassengerTimeOutsideWork(currentMonthOfYear, timeCalculationContext)
-                val secondTime = pairRoutes.second.getPassengerTimeOutsideWork(currentMonthOfYear, timeCalculationContext)
-                val money = (firstTime.times(dateSetTariffRate.oldRate) + secondTime.times(currentMonthOfYear.tariffRate)) / 3_600_000.toDouble()
-                trySend(money)
-            }
-            awaitClose()
+        return flow {
+            val initialRate = dateSetTariffRate?.oldRate ?: currentMonthOfYear.tariffRate
+            val changes = dateSetTariffRate?.let { change ->
+                val effectiveAt = LocalDate(
+                    currentMonthOfYear.year,
+                    currentMonthOfYear.month + 1,
+                    change.dateNewRate,
+                ).atStartOfDayIn(timeCalculationContext.crossMonthTZ).toEpochMilliseconds()
+                listOf(TariffChange(effectiveAt, currentMonthOfYear.tariffRate))
+            }.orEmpty()
+            val money = routeList
+                .getPassengerOutsideWorkIntervals(currentMonthOfYear, timeCalculationContext)
+                .flatMap { it.applyTariffChanges(initialRate, changes) }
+                .sumOf { it.tariffMoney }
+            emit(money)
         }
     }
 
@@ -623,14 +628,21 @@ class SalaryCalculationHelper(
 
     fun getTimeHarmfulnessFlow(routes: List<Route> = routeList): Flow<Long> {
         return flow {
-            emit(basicSurchargeSegments(routes).sumOf { it.interval.durationMillis })
+            val insideAndWorking = salarySegments(routes).sumOf { it.interval.durationMillis }
+            val passengerBeforeWork = routes.getPassengerTimeOutsideWork(
+                currentMonthOfYear,
+                timeCalculationContext,
+            )
+            emit(insideAndWorking + passengerBeforeWork)
         }
     }
 
     fun getMoneyHarmfulnessFlow(): Flow<Double> {
         return flow {
             val percent = getPercentHarmfulnessFlow().first()
-            emit(basicSurchargeSegments().sumOf { it.tariffMoney * percent / 100 })
+            val insideAndWorking = salarySegments().sumOf { it.tariffMoney }
+            val passengerBeforeWork = getMoneyAtPassengerOutsideWorkFlow().first()
+            emit((insideAndWorking + passengerBeforeWork) * percent / 100)
         }
     }
 
@@ -752,14 +764,21 @@ class SalaryCalculationHelper(
 
     fun getTimeZonalSurchargeFlow(routes: List<Route> = routeList): Flow<Long> {
         return flow {
-            emit(basicSurchargeSegments(routes).sumOf { it.interval.durationMillis })
+            val insideAndWorking = salarySegments(routes).sumOf { it.interval.durationMillis }
+            val passengerBeforeWork = routes.getPassengerTimeOutsideWork(
+                currentMonthOfYear,
+                timeCalculationContext,
+            )
+            emit(insideAndWorking + passengerBeforeWork)
         }
     }
 
     fun getMoneyZonalSurchargeFlow(): Flow<Double> {
         return flow {
             val percent = getPercentZonalSurchargeFlow().first()
-            emit(basicSurchargeSegments().sumOf { it.tariffMoney * percent / 100 })
+            val insideAndWorking = salarySegments().sumOf { it.tariffMoney }
+            val passengerBeforeWork = getMoneyAtPassengerOutsideWorkFlow().first()
+            emit((insideAndWorking + passengerBeforeWork) * percent / 100)
         }
     }
 

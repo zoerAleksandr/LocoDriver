@@ -848,14 +848,20 @@ object UtilsForEntities {
     fun List<Route>.getPassengerTimeOutsideWork(
         monthOfYear: MonthOfYear,
         context: TimeCalculationContext
-    ): Long {
+    ): Long = getPassengerOutsideWorkIntervals(monthOfYear, context)
+        .sumOf { it.durationMillis }
+
+    fun List<Route>.getPassengerOutsideWorkIntervals(
+        monthOfYear: MonthOfYear,
+        context: TimeCalculationContext,
+    ): List<TimeInterval> {
         val monthStart = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
             .atStartOfDayIn(context.crossMonthTZ).toEpochMilliseconds()
         val monthEnd = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
             .plus(1, DateTimeUnit.MONTH)
             .atStartOfDayIn(context.crossMonthTZ).toEpochMilliseconds()
         val monthInterval = TimeInterval(monthStart, monthEnd)
-        return sumOf { route ->
+        return flatMap { route ->
             val workInterval = route.basicData.timeStartWork?.let { start ->
                 route.basicData.timeEndWork?.takeIf { it > start }?.let { end ->
                     TimeInterval(start, end)
@@ -873,7 +879,7 @@ object UtilsForEntities {
                 .flatMap { interval -> interval.subtractAll(listOfNotNull(workInterval)).asSequence() }
                 .toList()
                 .mergeTimeIntervals()
-                .sumOf { it.durationMillis }
+                .toList()
         }
     }
 

@@ -47,7 +47,7 @@ class BaseSurchargeSegmentIntegrationTest {
     }
 
     @Test
-    fun harmfulnessAndQualificationUsePayableNonPassengerTariffSegments() = runTest {
+    fun harmfulnessAndZonalIncludePassengerButOtherSurchargesDoNot() = runTest {
         val route = Route(
             basicData = BasicData(
                 timeStartWork = instant(day = 10, hour = 22),
@@ -64,10 +64,54 @@ class BaseSurchargeSegmentIntegrationTest {
         )
         val helper = helper(route)
 
-        assertEquals(3 * hour, helper.getTimeHarmfulnessFlow().first())
-        assertEquals(60.0, helper.getMoneyHarmfulnessFlow().first(), 0.001)
+        assertEquals(4 * hour, helper.getTimeHarmfulnessFlow().first())
+        assertEquals(84.0, helper.getMoneyHarmfulnessFlow().first(), 0.001)
         assertEquals(50.0, helper.getMoneyAtQualificationClassFlow().first(), 0.001)
-        assertEquals(125.0, helper.getMoneyZonalSurchargeFlow().first(), 0.001)
+        assertEquals(175.0, helper.getMoneyZonalSurchargeFlow().first(), 0.001)
         assertEquals(40.0, helper.getMoneyOtherSurchargeFlow().first(), 0.001)
+    }
+
+    @Test
+    fun harmfulnessAndZonalIncludePassengerBeforeArrivalBasedWorkStart() = runTest {
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = instant(day = 10, hour = 12),
+                timeEndWork = instant(day = 10, hour = 14),
+            ),
+            passengers = mutableListOf(
+                Passenger(
+                    timeDeparture = instant(day = 10, hour = 10),
+                    timeArrival = instant(day = 10, hour = 12),
+                    isWorkStartByArrival = true,
+                ),
+            ),
+        )
+        val helper = helper(route)
+
+        assertEquals(4 * hour, helper.getTimeHarmfulnessFlow().first())
+        assertEquals(48.0, helper.getMoneyHarmfulnessFlow().first(), 0.001)
+        assertEquals(100.0, helper.getMoneyZonalSurchargeFlow().first(), 0.001)
+    }
+
+    @Test
+    fun passengerBeforeWorkUsesTariffOfEachSideOfChangeBoundary() = runTest {
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = instant(day = 11, hour = 1),
+                timeEndWork = instant(day = 11, hour = 2),
+            ),
+            passengers = mutableListOf(
+                Passenger(
+                    timeDeparture = instant(day = 10, hour = 23),
+                    timeArrival = instant(day = 11, hour = 1),
+                    isWorkStartByArrival = true,
+                ),
+            ),
+        )
+        val helper = helper(route)
+
+        assertEquals(300.0, helper.getMoneyAtPassengerOutsideWorkFlow().first(), 0.001)
+        assertEquals(60.0, helper.getMoneyHarmfulnessFlow().first(), 0.001)
+        assertEquals(125.0, helper.getMoneyZonalSurchargeFlow().first(), 0.001)
     }
 }
