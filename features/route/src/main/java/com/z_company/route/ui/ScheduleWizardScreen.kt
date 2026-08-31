@@ -413,7 +413,7 @@ private fun Step1(
     onDeclineContinuePrevious: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
-    if (state.canContinuePrevious) {
+    if (state.showContinuePreviousSheet) {
         AppBottomSheet(
             // Сброс флага обязателен: без него шторка остаётся в композиции
             // и её scrim перехватывает нажатия по всему экрану мастера.
@@ -424,6 +424,37 @@ private fun Step1(
             cancelText = "Выбрать заново",
         )
     }
+
+    // Отклонённая шторка не должна закрывать доступ к продолжению — оставляем
+    // кнопку на шаге выбора графика, пока прошлый месяц заполнен мастером.
+    if (state.canContinuePrevious) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .border(1.dp, cs.primary.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                .clickable { onContinuePrevious() }
+                .padding(vertical = 14.dp, horizontal = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "Продолжить график прошлого месяца",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.W600,
+                    color = cs.primary,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Цикл продолжится с той же фазы, с 1 числа",
+                    fontSize = 12.sp,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+    }
+
     SectionLabel("Варианты графика")
     // Плитки паттернов из хранилища + плитка-конструктор «Свой».
     val tiles = state.patterns.map { it to false } + (customPattern() to true)
