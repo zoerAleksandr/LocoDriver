@@ -1,6 +1,7 @@
 package com.z_company.route.viewmodel
 
 import com.z_company.domain.entities.Day
+import com.z_company.domain.entities.DateSetTariffRate
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.route.BasicData
@@ -20,9 +21,19 @@ class DoubledTrainSurchargeTest {
 
     private val tariffRate = 100.0 // 100 руб/час для простоты расчётов
 
-    private fun createHelper(routes: List<Route>): SalaryCalculationHelper {
+    private fun createHelper(
+        routes: List<Route>,
+        tariffRate: Double = this.tariffRate,
+        dateSetTariffRate: DateSetTariffRate? = null,
+    ): SalaryCalculationHelper {
         val days = (1..31).map { Day(dayOfMonth = it, tag = TagForDay.WORKING_DAY) }
-        val monthOfYear = MonthOfYear(year = 1970, month = 0, tariffRate = tariffRate, days = days)
+        val monthOfYear = MonthOfYear(
+            year = 1970,
+            month = 0,
+            tariffRate = tariffRate,
+            dateSetTariffRate = dateSetTariffRate,
+            days = days,
+        )
         val userSettings = UserSettings(selectMonthOfYear = monthOfYear)
         val salarySetting = SalarySetting()
         return SalaryCalculationHelper(
@@ -179,5 +190,57 @@ class DoubledTrainSurchargeTest {
 
         assertEquals(3_600_000L, helper.getTimeDoubledTrainFirstSurchargeFlow().first())
         assertEquals(30.0, helper.getMoneyDoubledTrainFirstSurchargeFlow().first(), 0.01)
+    }
+
+    @Test
+    fun doubledTrainCrossingTariffBoundaryUsesBothRates() = runTest {
+        val hour = 3_600_000L
+        // Границы тарифа/месяца считаются по Москве (UTC+3).
+        val boundary = 21 * hour // 02.01.1970 00:00 GMT+3
+        val train = Train(
+            doubledTrain = TrainAssist(isFirst = true),
+            stations = mutableListOf(
+                Station(timeDeparture = boundary - hour),
+                Station(timeArrival = boundary + hour),
+            ),
+        )
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = boundary - hour,
+                timeEndWork = boundary + hour,
+            ),
+            trains = mutableListOf(train),
+        )
+        val helper = createHelper(
+            routes = listOf(route),
+            tariffRate = 200.0,
+            dateSetTariffRate = DateSetTariffRate(dateNewRate = 2, oldRate = 100.0),
+        )
+
+        assertEquals(90.0, helper.getMoneyDoubledTrainFirstSurchargeFlow().first(), 0.01)
+    }
+
+    @Test
+    fun doubledTrainCrossingMonthEndPaysOnlySelectedMonthPart() = runTest {
+        val hour = 3_600_000L
+        val februaryStart = (31 * 24 - 3) * hour // 01.02.1970 00:00 GMT+3
+        val train = Train(
+            doubledTrain = TrainAssist(isFirst = false),
+            stations = mutableListOf(
+                Station(timeDeparture = februaryStart - hour),
+                Station(timeArrival = februaryStart + hour),
+            ),
+        )
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = februaryStart - hour,
+                timeEndWork = februaryStart + hour,
+            ),
+            trains = mutableListOf(train),
+        )
+        val helper = createHelper(listOf(route))
+
+        assertEquals(hour, helper.getTimeDoubledTrainSecondSurchargeFlow().first())
+        assertEquals(15.0, helper.getMoneyDoubledTrainSecondSurchargeFlow().first(), 0.01)
     }
 }
