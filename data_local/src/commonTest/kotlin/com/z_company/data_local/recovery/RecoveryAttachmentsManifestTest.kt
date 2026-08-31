@@ -51,4 +51,29 @@ class RecoveryAttachmentsManifestTest {
             RecoveryAttachmentsManifestJson.isSafeRemoteUrl("https://token@host/image"),
         )
     }
+
+    @Test
+    fun embeddedAttachmentMetadataRoundTrips() {
+        val source = RecoveryAttachmentsManifestV1(
+            1,
+            emptyList(),
+            listOf(
+                RecoveryEmbeddedAttachmentV1(
+                    "photo-1",
+                    "route-1",
+                    "base64",
+                    5L,
+                    "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+                    1L,
+                )
+            ),
+        )
+
+        assertEquals(
+            source,
+            RecoveryAttachmentsManifestJson.decodeAndValidate(
+                RecoveryAttachmentsManifestJson.encode(source)
+            ),
+        )
+    }
 }

@@ -7,6 +7,7 @@ import kotlinx.serialization.json.Json
 data class RecoveryAttachmentsManifestV1(
     val sectionFormatVersion: Int,
     val attachments: List<RecoveryRemoteAttachmentV1>,
+    val embeddedAttachments: List<RecoveryEmbeddedAttachmentV1> = emptyList(),
 )
 
 @Serializable
@@ -18,6 +19,16 @@ data class RecoveryRemoteAttachmentV1(
     val createdAt: Long,
 )
 
+@Serializable
+data class RecoveryEmbeddedAttachmentV1(
+    val photoId: String,
+    val routeId: String,
+    val encoding: String,
+    val sizeBytes: Long,
+    val sha256: String,
+    val createdAt: Long,
+)
+
 enum class RecoveryAttachmentsValidationCode {
     SECTION_TOO_LARGE,
     UNSUPPORTED_FORMAT,
@@ -25,6 +36,7 @@ enum class RecoveryAttachmentsValidationCode {
     INVALID_ID,
     DUPLICATE_PHOTO_ID,
     UNSAFE_REMOTE_URL,
+    INVALID_EMBEDDED_METADATA,
 }
 
 class RecoveryAttachmentsValidationException(
@@ -56,7 +68,7 @@ object RecoveryAttachmentsManifestJson {
         if (manifest.sectionFormatVersion != CURRENT_FORMAT_VERSION) fail(
             RecoveryAttachmentsValidationCode.UNSUPPORTED_FORMAT
         )
-        if (manifest.attachments.size > MAX_ATTACHMENTS) fail(
+        if (manifest.attachments.size + manifest.embeddedAttachments.size > MAX_ATTACHMENTS) fail(
             RecoveryAttachmentsValidationCode.TOO_MANY_ATTACHMENTS
         )
         val ids = mutableSetOf<String>()
@@ -70,6 +82,19 @@ object RecoveryAttachmentsManifestJson {
             if (!isSafeRemoteUrl(attachment.url)) fail(
                 RecoveryAttachmentsValidationCode.UNSAFE_REMOTE_URL
             )
+        }
+        manifest.embeddedAttachments.forEach { attachment ->
+            if (!ID.matches(attachment.photoId) || !ID.matches(attachment.routeId)) fail(
+                RecoveryAttachmentsValidationCode.INVALID_ID
+            )
+            if (!ids.add(attachment.photoId)) fail(
+                RecoveryAttachmentsValidationCode.DUPLICATE_PHOTO_ID
+            )
+            if (
+                attachment.encoding != "base64" ||
+                attachment.sizeBytes !in 1..MAX_EMBEDDED_ATTACHMENT_BYTES ||
+                !SHA256.matches(attachment.sha256)
+            ) fail(RecoveryAttachmentsValidationCode.INVALID_EMBEDDED_METADATA)
         }
         return manifest
     }
@@ -90,6 +115,8 @@ object RecoveryAttachmentsManifestJson {
         throw RecoveryAttachmentsValidationException(code)
 
     private val ID = Regex("[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
+    private val SHA256 = Regex("[a-fA-F0-9]{64}")
+    const val MAX_EMBEDDED_ATTACHMENT_BYTES: Long = 20L * 1024L * 1024L
 }
 
 class LocalRecoveryAttachmentRequiresContentException(val photoId: String) :

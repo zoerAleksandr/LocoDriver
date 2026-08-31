@@ -71,7 +71,7 @@ class AndroidRecoveryArchiveInspector {
             "Recovery attachments section exceeds size limit"
         }
         return RecoveryAttachmentsManifestJson.decodeAndValidate(file.readText())
-            .attachments.size.toLong()
+            .let { it.attachments.size.toLong() + it.embeddedAttachments.size.toLong() }
     }
 
     private fun readBoundedLines(file: File, consume: (String) -> Unit) {

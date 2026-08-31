@@ -598,6 +598,34 @@ class RouteDatabaseMigrationTest {
     }
 
     @Test
+    fun legacyBase64PhotoProducesVerifiedEmbeddedAttachmentMetadata() {
+        createFromRoomSchema(version = 12)
+        openDatabase().use { source ->
+            source.execSQL(
+                "UPDATE Photo SET url = ?, dateOfCreate = ?",
+                arrayOf<Any>("aGVsbG8=", 123L),
+            )
+        }
+        val destination = File(isolatedContext.filesDir, "recovery/attachments-manifest.json")
+
+        val exported = AndroidAttachmentsManifestExporter().export(
+            isolatedContext.getDatabasePath(DATABASE_NAME),
+            destination,
+        )
+
+        val manifest = RecoveryAttachmentsManifestJson.decodeAndValidate(destination.readText())
+        assertEquals(1L, exported.itemCount)
+        assertEquals(0, manifest.attachments.size)
+        assertEquals(1, manifest.embeddedAttachments.size)
+        assertEquals(5L, manifest.embeddedAttachments.single().sizeBytes)
+        assertEquals(
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+            manifest.embeddedAttachments.single().sha256,
+        )
+        openDatabase().use { source -> assertEquals(12, source.version) }
+    }
+
+    @Test
     fun orphanedRowsCannotProduceSilentlyIncompleteRecoveryExport() {
         createFromRoomSchema(version = 12)
         openDatabase().use { source ->

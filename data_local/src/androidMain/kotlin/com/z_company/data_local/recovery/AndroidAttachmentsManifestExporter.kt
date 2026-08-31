@@ -4,6 +4,7 @@ import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import android.system.Os
 import android.system.OsConstants
+import android.util.Base64
 import java.io.File
 import java.io.FileOutputStream
 
@@ -17,7 +18,7 @@ class AndroidAttachmentsManifestExporter {
         val database = openReadOnlyPreservingCorruption(sourceRouteDatabase)
         try {
             require(hasTable(database, "Photo")) { "Route recovery source has no Photo table" }
-            val attachments = database.rawQuery(
+            val rows = database.rawQuery(
                 "SELECT photoId, basicId, remoteObjectId, url, dateOfCreate " +
                     "FROM Photo ORDER BY photoId",
                 null,
@@ -26,24 +27,35 @@ class AndroidAttachmentsManifestExporter {
                     while (cursor.moveToNext()) {
                         val photoId = cursor.getString(0)
                         val url = cursor.getString(3)
-                        if (!RecoveryAttachmentsManifestJson.isSafeRemoteUrl(url)) {
-                            throw LocalRecoveryAttachmentRequiresContentException(photoId)
-                        }
-                        add(
-                            RecoveryRemoteAttachmentV1(
-                                photoId = photoId,
-                                routeId = cursor.getString(1),
-                                remoteObjectId = if (cursor.isNull(2)) null else cursor.getString(2),
-                                url = url,
-                                createdAt = cursor.getLong(4),
-                            )
-                        )
+                        add(PhotoRow(photoId, cursor.getString(1), if (cursor.isNull(2)) null else cursor.getString(2), url, cursor.getLong(4)))
                     }
                 }
+            }
+            val attachments = rows.mapNotNull { row ->
+                if (RecoveryAttachmentsManifestJson.isSafeRemoteUrl(row.url)) {
+                    RecoveryRemoteAttachmentV1(row.photoId, row.routeId, row.remoteObjectId, row.url, row.createdAt)
+                } else null
+            }
+            val embedded = rows.mapNotNull { row ->
+                if (RecoveryAttachmentsManifestJson.isSafeRemoteUrl(row.url)) return@mapNotNull null
+                val bytes = decodeLegacyBase64(row.url)
+                    ?: throw LocalRecoveryAttachmentRequiresContentException(row.photoId)
+                require(bytes.isNotEmpty() && bytes.size <= RecoveryAttachmentsManifestJson.MAX_EMBEDDED_ATTACHMENT_BYTES) {
+                    "Embedded recovery attachment exceeds size limit"
+                }
+                RecoveryEmbeddedAttachmentV1(
+                    row.photoId,
+                    row.routeId,
+                    "base64",
+                    bytes.size.toLong(),
+                    RecoverySha256.digestHex(bytes),
+                    row.createdAt,
+                )
             }
             val manifest = RecoveryAttachmentsManifestV1(
                 RecoveryAttachmentsManifestJson.CURRENT_FORMAT_VERSION,
                 attachments,
+                embedded,
             )
             val bytes = RecoveryAttachmentsManifestJson.encode(manifest).encodeToByteArray()
             require(bytes.size <= RecoveryAttachmentsManifestJson.MAX_SECTION_BYTES) {
@@ -56,11 +68,20 @@ class AndroidAttachmentsManifestExporter {
             val sha256 = RecoverySha256.digestHex(bytes)
             Os.rename(temporary.path, destination.path)
             syncDirectory(directory)
-            return ExportedRecoverySection(destination, attachments.size.toLong(), sha256)
+            return ExportedRecoverySection(destination, rows.size.toLong(), sha256)
         } finally {
             database.close()
             temporary.delete()
         }
+    }
+
+    private fun decodeLegacyBase64(value: String): ByteArray? {
+        if (
+            value.length !in 4..MAX_BASE64_CHARACTERS ||
+            value.length % 4 != 0 ||
+            !BASE64.matches(value)
+        ) return null
+        return runCatching { Base64.decode(value, Base64.NO_WRAP) }.getOrNull()
     }
 
     private fun hasTable(database: SQLiteDatabase, table: String): Boolean =
@@ -84,5 +105,18 @@ class AndroidAttachmentsManifestExporter {
         } finally {
             Os.close(descriptor)
         }
+    }
+
+    private data class PhotoRow(
+        val photoId: String,
+        val routeId: String,
+        val remoteObjectId: String?,
+        val url: String,
+        val createdAt: Long,
+    )
+
+    private companion object {
+        val BASE64 = Regex("[A-Za-z0-9+/]+={0,2}")
+        const val MAX_BASE64_CHARACTERS = 27_962_032
     }
 }
