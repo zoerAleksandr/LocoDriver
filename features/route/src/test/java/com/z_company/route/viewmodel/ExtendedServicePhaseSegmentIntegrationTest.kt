@@ -82,4 +82,17 @@ class ExtendedServicePhaseSegmentIntegrationTest {
         assertEquals(listOf(0L), helper.getTimeListSurchargeServicePhaseFlow().first())
         assertEquals(listOf(0.0), helper.getMoneyListSurchargeExtendedServicePhaseFlow().first())
     }
+
+    @Test
+    fun extendedPhaseSurchargeEntersTotalChargedExactlyOnce() = runTest {
+        val eligible = helper(totalDistance = 270)
+        val belowThreshold = helper(totalDistance = 249)
+
+        assertEquals(
+            50.0,
+            eligible.getMoneyTotalChargedFlow().first() -
+                    belowThreshold.getMoneyTotalChargedFlow().first(),
+            0.001,
+        )
+    }
 }

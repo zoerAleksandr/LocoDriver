@@ -75,6 +75,7 @@ class LinearMileageCalculationTest {
         assertEquals(441.0, accruals.first { it.phaseId == "A" }.money, 0.001)
         assertEquals(150.0, accruals.first { it.phaseId == "B" }.money, 0.001)
         assertEquals(591.0, calculation.getMoneyLinearMileageFlow().first(), 0.001)
+        assertEquals(591.0, calculation.getMoneyTotalChargedFlow().first(), 0.001)
     }
 
     @Test
