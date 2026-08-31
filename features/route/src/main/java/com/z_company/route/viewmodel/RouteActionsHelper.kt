@@ -124,6 +124,65 @@ class RouteActionsHelper() : KoinComponent {
     }
 
     /**
+     * Результат проверки перед созданием **пачки** маршрутов (Календарь,
+     * мастер «Заполнить месяц»).
+     *
+     * [newRouteClick] отвечает на вопрос «можно ли создать ещё один маршрут» и
+     * для пачки не годится: с нулём маршрутов он разрешает создание, а дальше
+     * цикл сохраняет хоть 30 штук и бесплатный лимит обходится целиком.
+     */
+    sealed class BatchRoutesResult {
+        /**
+         * Пачку можно создавать. [freeRoutesLeftAfter] — сколько бесплатных
+         * маршрутов останется после создания; `null`, если подписка активна
+         * (лимита нет).
+         */
+        data class Allowed(val freeRoutesLeftAfter: Int?) : BatchRoutesResult()
+
+        /** Бесплатного лимита не хватает: запрошено [requested], свободно [remaining]. */
+        data class LimitExceeded(val requested: Int, val remaining: Int) : BatchRoutesResult()
+
+        data class Error(val throwable: Throwable?) : BatchRoutesResult()
+    }
+
+    /**
+     * Сколько маршрутов ещё можно создать бесплатно.
+     * `null` — подписка активна, лимита нет.
+     *
+     * Критерий подписки тот же, что в [newRouteClick] (с грейс-периодом), чтобы
+     * пачка и ручное создание вели себя одинаково.
+     */
+    suspend fun freeRoutesLeft(): Int? {
+        val setting = settingsUseCase.getUserSettingFlow().first()
+        val time = setting.subscriptionPeriod
+        val gracePeriod = 24 * 3_600_000 // 1 day in ms
+        val subscriptionActive =
+            time != 0L && time + gracePeriod >= Calendar.getInstance().timeInMillis
+        if (subscriptionActive) return null
+        val routesSize = freeRoutesUsedCount()
+        return (FREE_ROUTES_LIMIT - routesSize).coerceAtLeast(0)
+    }
+
+    /**
+     * Можно ли создать [count] маршрутов разом. Без подписки пачка создаётся
+     * только целиком и только если помещается в остаток бесплатного лимита —
+     * частичное создание дало бы пользователю неполный график без объяснений.
+     */
+    suspend fun canCreateRoutes(count: Int): BatchRoutesResult {
+        return try {
+            val left = freeRoutesLeft()
+                ?: return BatchRoutesResult.Allowed(freeRoutesLeftAfter = null)
+            if (count <= left) {
+                BatchRoutesResult.Allowed(freeRoutesLeftAfter = left - count)
+            } else {
+                BatchRoutesResult.LimitExceeded(requested = count, remaining = left)
+            }
+        } catch (t: Throwable) {
+            BatchRoutesResult.Error(t)
+        }
+    }
+
+    /**
      * Есть ли действующая авторизация — сохранён непустой bearer-токен.
      *
      * Нужна перед переходом на экран покупок: подписка живёт на сервере и

@@ -30,6 +30,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -37,6 +40,8 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +58,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.flowWithLifecycle
+import com.z_company.core.ui.snackbar.ISnackbarManager
+import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -171,6 +181,9 @@ fun ScheduleWizardScreen(
     onSetNightStart: (Int, Int) -> Unit,
     onSetNightEnd: (Int, Int) -> Unit,
     onSetFirstDay: (Int) -> Unit,
+    onShiftMonth: (Int) -> Unit,
+    onContinuePrevious: () -> Unit,
+    onDeclineContinuePrevious: () -> Unit,
     onGoToStep: (Int) -> Unit,
     onApply: () -> Unit,
     onOpenTypePicker: (Int) -> Unit,
@@ -178,13 +191,47 @@ fun ScheduleWizardScreen(
     onSetCycleDayType: (Int, ShiftKind) -> Unit,
     onAddCycleDay: () -> Unit,
     onRemoveCycleDay: (Int) -> Unit,
+    onDismissSubscriptionLimit: () -> Unit = {},
+    onPurchasesClick: () -> Unit = {},
 ) {
     val cs = MaterialTheme.colorScheme
     var timePickerFor by remember { mutableStateOf<String?>(null) }
     var patternToDelete by remember { mutableStateOf<SchedulePattern?>(null) }
 
+    // Свой SnackbarHost — иначе сообщения мастера («создано черновиков»,
+    // ошибки) всплывали только после возврата на Главный экран.
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarManager: ISnackbarManager = koinInject()
+    val snackbarScope = rememberCoroutineScope()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(Unit) {
+        snackbarManager.events
+            .flowWithLifecycle(lifecycle)
+            .collect { event ->
+                val result = snackbarHostState.showSnackbar(
+                    message = event.message,
+                    actionLabel = event.actionLabel,
+                    duration = event.duration,
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    event.onAction?.let { action ->
+                        snackbarScope.launch { runCatching { action() } }
+                    }
+                }
+            }
+    }
+
+    state.subscriptionLimit?.let { limit ->
+        SubscriptionLimitDialog(
+            limit = limit,
+            onDismiss = onDismissSubscriptionLimit,
+            onPurchases = { onDismissSubscriptionLimit(); onPurchasesClick() },
+        )
+    }
+
     Scaffold(
         containerColor = cs.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             Column(modifier = Modifier.background(cs.background)) {
                 Row(
@@ -287,9 +334,11 @@ fun ScheduleWizardScreen(
                     onSetCycleDayType = onSetCycleDayType,
                     onAddCycleDay = onAddCycleDay,
                     onRemoveCycleDay = onRemoveCycleDay,
+                    onContinuePrevious = onContinuePrevious,
+                    onDeclineContinuePrevious = onDeclineContinuePrevious,
                 )
             } else {
-                Step2(state, onSetFirstDay)
+                Step2(state, onSetFirstDay, onShiftMonth)
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -348,7 +397,7 @@ fun ScheduleWizardScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun Step1(
     state: WizardUiState,
@@ -360,8 +409,21 @@ private fun Step1(
     onSetCycleDayType: (Int, ShiftKind) -> Unit,
     onAddCycleDay: () -> Unit,
     onRemoveCycleDay: (Int) -> Unit,
+    onContinuePrevious: () -> Unit,
+    onDeclineContinuePrevious: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
+    if (state.canContinuePrevious) {
+        AppBottomSheet(
+            // Сброс флага обязателен: без него шторка остаётся в композиции
+            // и её scrim перехватывает нажатия по всему экрану мастера.
+            onDismissRequest = onDeclineContinuePrevious,
+            sheetState = rememberModalBottomSheetState(),
+            title = "Продолжить график прошлого месяца?",
+            actions = listOf(BottomSheetAction(text = "Продолжить") { onContinuePrevious() }),
+            cancelText = "Выбрать заново",
+        )
+    }
     SectionLabel("Варианты графика")
     // Плитки паттернов из хранилища + плитка-конструктор «Свой».
     val tiles = state.patterns.map { it to false } + (customPattern() to true)
@@ -791,9 +853,15 @@ private fun plural(n: Int, one: String, few: String, many: String): String {
 }
 
 @Composable
-private fun Step2(state: WizardUiState, onSetFirstDay: (Int) -> Unit) {
+private fun Step2(state: WizardUiState, onSetFirstDay: (Int) -> Unit, onShiftMonth: (Int) -> Unit) {
     val cs = MaterialTheme.colorScheme
-    SectionLabel("Первый день цикла")
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        SectionLabel("Первый день цикла")
+        Row {
+            TextButton(onClick = { onShiftMonth(-1) }) { Text("‹") }
+            TextButton(onClick = { onShiftMonth(1) }) { Text("›") }
+        }
+    }
     Text(
         "Число месяца, с которого начинается ваш цикл смен.",
         fontSize = 12.5.sp,

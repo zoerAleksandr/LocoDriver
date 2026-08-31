@@ -442,6 +442,9 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
             .commit()
     }
 
+    override fun getLastScheduleMonth(): String? = sharedpref.getString("last_schedule_month", null)
+    override fun setLastScheduleMonth(value: String) { editor.putString("last_schedule_month", value).apply() }
+
     override fun getLastSeenAnnouncementNumber(): Int =
         sharedpref.getInt(LAST_SEEN_ANNOUNCEMENT_NUMBER, -1)
 

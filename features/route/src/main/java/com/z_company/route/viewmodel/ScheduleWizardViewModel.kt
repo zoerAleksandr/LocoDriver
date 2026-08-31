@@ -13,6 +13,7 @@ import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
+import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +43,7 @@ const val CUSTOM_PATTERN_ID = "custom"
 class ScheduleWizardViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
+    private val calendarUseCase: CalendarUseCase by inject()
     private val routeHelper: RouteActionsHelper by inject()
     private val snackbarManager: ISnackbarManager by inject()
     private val prefs: SharedPreferencesRepositories by inject()
@@ -66,6 +68,8 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
                     prefs.setSchedulePatterns(it)
                 }
                 val selectedId = patterns.firstOrNull()?.id ?: CUSTOM_PATTERN_ID
+                val previous = prefs.getLastScheduleMonth()?.split('|')
+                val canContinue = previous?.getOrNull(0) != null && previous[0] != "${m.year}-${m.month}"
 
                 _uiState.update {
                     it.copy(
@@ -75,6 +79,7 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
                         daysInMonth = daysInMonth,
                         patterns = patterns,
                         selectedId = selectedId,
+                        canContinuePrevious = canContinue,
                         preview = buildPreview(selectedId, patterns, it.firstDay, daysInMonth, it.customCycle),
                     )
                 }
@@ -153,9 +158,39 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
         it.copy(firstDay = day, preview = buildPreview(it.selectedId, it.patterns, day, it.daysInMonth, it.customCycle))
     }
 
+    fun continuePreviousSchedule() = _uiState.update {
+        it.copy(continuePrevious = true, canContinuePrevious = false, step = 2,
+            preview = buildPreview(it.selectedId, it.patterns, 1, it.daysInMonth, it.customCycle))
+    }
+
+    /**
+     * «Выбрать заново» / закрытие шторки «Продолжить график прошлого месяца?».
+     *
+     * Видимость шторки завязана на [WizardUiState.canContinuePrevious], поэтому
+     * без сброса флага она оставалась в композиции: визуально уезжала, но её
+     * scrim продолжал перехватывать все нажатия и экран мастера намертво зависал.
+     */
+    fun declineContinuePrevious() = _uiState.update { it.copy(canContinuePrevious = false) }
+
+    fun shiftMonth(delta: Int) {
+        viewModelScope.launch {
+            val current = month ?: return@launch
+            val months = calendarMonths()
+            val index = months.indexOfFirst { it.year == current.year && it.month == current.month }
+            val next = months.getOrNull(index + delta) ?: return@launch
+            month = next
+            val days = LocalDate.of(next.year, next.month + 1, 1).lengthOfMonth()
+            _uiState.update { s -> s.copy(year = next.year, month = next.month, monthName = monthName(next.month), daysInMonth = days,
+                firstDay = s.firstDay.coerceAtMost(days), preview = buildPreview(s.selectedId, s.patterns, s.firstDay.coerceAtMost(days), days, s.customCycle)) }
+        }
+    }
+
+    private suspend fun calendarMonths(): List<MonthOfYear> =
+        settingsUseCase.getUserSettingFlow().first().let { calendarUseCase.loadFlowMonthOfYearListState().first() }
+
     fun goToStep(step: Int) = _uiState.update { it.copy(step = step) }
 
-    fun resetNeedSubscription() = _uiState.update { it.copy(needSubscription = false) }
+    fun dismissSubscriptionLimit() = _uiState.update { it.copy(subscriptionLimit = null) }
 
     /** Раскладывает выбранный паттерн на месяц и создаёт черновики на рабочие дни. */
     fun apply() {
@@ -175,25 +210,21 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
         _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
             try {
-                // Гейт подписки — та же логика, что при создании маршрута вручную.
-                when (routeHelper.newRouteClick()) {
-                    is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
-                        snackbarManager.show("Заполнение месяца доступно по подписке")
-                        _uiState.update { it.copy(isSaving = false, needSubscription = true) }
-                        return@launch
-                    }
-                    is RouteActionsHelper.NewRouteResult.Error -> {
-                        snackbarManager.show("Не удалось проверить подписку")
-                        _uiState.update { it.copy(isSaving = false) }
-                        return@launch
-                    }
-                    else -> { /* можно создавать */ }
-                }
-
-                var created = 0
+                // Сначала раскладываем месяц в список маршрутов, и только потом
+                // проверяем лимит: гейт должен знать размер пачки. Со старой
+                // проверкой «можно ли ещё один маршрут» мастер создавал без
+                // подписки сколько угодно — лимит обходился целиком.
+                val planned = mutableListOf<Route>()
                 for (day in 1..state.daysInMonth) {
                     if (day < state.firstDay) continue
-                    val kind = cycle[(day - state.firstDay) % cycle.size]
+                    val offset = if (state.continuePrevious) {
+                        val previous = prefs.getLastScheduleMonth()?.split('|')
+                        val first = previous?.getOrNull(2)?.toIntOrNull() ?: 1
+                        val ym = previous?.getOrNull(0)?.split('-')
+                        val days = ym?.let { LocalDate.of(it[0].toInt(), it[1].toInt() + 1, 1).lengthOfMonth() } ?: 0
+                        (days - first + 1).coerceAtLeast(0)
+                    } else 0
+                    val kind = cycle[(offset + day - state.firstDay) % cycle.size]
                     val (sh, sm, dur) = when (kind) {
                         ShiftKind.DAY -> Triple(dsh, dsm, dayDur)
                         ShiftKind.NIGHT -> Triple(nsh, nsm, nightDur)
@@ -206,9 +237,35 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
                     // стеку из сохранённого instant через TimeCalculationContext.
                     val startMillis = conv.toEpochMillis(m.year, m.month, day, sh, sm)
                     val endMillis = startMillis + dur * 60_000L
-                    val route = Route(
+                    planned += Route(
                         basicData = BasicData(timeStartWork = startMillis, timeEndWork = endMillis)
                     )
+                }
+
+                // Гейт на всю пачку — та же проверка, что в Календаре.
+                when (val gate = routeHelper.canCreateRoutes(planned.size)) {
+                    is RouteActionsHelper.BatchRoutesResult.LimitExceeded -> {
+                        _uiState.update {
+                            it.copy(
+                                isSaving = false,
+                                subscriptionLimit = SubscriptionLimitState(
+                                    requested = gate.requested,
+                                    remaining = gate.remaining,
+                                ),
+                            )
+                        }
+                        return@launch
+                    }
+                    is RouteActionsHelper.BatchRoutesResult.Error -> {
+                        snackbarManager.show("Не удалось проверить подписку")
+                        _uiState.update { it.copy(isSaving = false) }
+                        return@launch
+                    }
+                    is RouteActionsHelper.BatchRoutesResult.Allowed -> { /* можно создавать */ }
+                }
+
+                var created = 0
+                for (route in planned) {
                     val res = routeUseCase.saveRoute(route)
                         .first { it is ResultState.Success || it is ResultState.Error }
                     if (res is ResultState.Success) created++
@@ -218,10 +275,16 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
                 if (state.selectedId == CUSTOM_PATTERN_ID) {
                     saveCustomAsPattern(state.customCycle)
                 }
+                prefs.setLastScheduleMonth("${m.year}-${m.month}|${state.selectedId}|${state.firstDay}")
 
+                val left = routeHelper.freeRoutesLeft()
                 snackbarManager.show(
-                    if (created > 0) "Создано черновиков маршрутов: $created"
-                    else "Не создано ни одного маршрута"
+                    when {
+                        created == 0 -> "Не создано ни одного маршрута"
+                        left == null -> "Создано черновиков маршрутов: $created"
+                        else -> "Создано черновиков маршрутов: $created. " +
+                            "Осталось бесплатных: $left из ${RouteActionsHelper.FREE_ROUTES_LIMIT}"
+                    }
                 )
                 _uiState.update { it.copy(isSaving = false, done = true) }
             } catch (t: Throwable) {
@@ -329,6 +392,8 @@ data class WizardUiState(
     val nightStartText: String = "20:00",
     val nightEndText: String = "08:00",
     val firstDay: Int = 1,
+    val canContinuePrevious: Boolean = false,
+    val continuePrevious: Boolean = false,
     val year: Int = 0,
     val month: Int = 0,
     val monthName: String = "",
@@ -337,7 +402,8 @@ data class WizardUiState(
     val customCycle: List<ShiftKind> = listOf(ShiftKind.DAY, ShiftKind.NIGHT, ShiftKind.OFF, ShiftKind.OFF),
     val isSaving: Boolean = false,
     val done: Boolean = false,
-    val needSubscription: Boolean = false,
+    /** Пачка не помещается в бесплатный лимит — показать диалог о подписке. */
+    val subscriptionLimit: SubscriptionLimitState? = null,
 ) {
     /** Типы смен выбранного паттерна (для показа карточек времени и предпросмотра). */
     val selectedCycleKinds: List<ShiftKind>

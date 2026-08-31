@@ -36,6 +36,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -88,6 +91,14 @@ import com.z_company.route.viewmodel.AbsenceInfo
 import com.z_company.route.viewmodel.CalendarUiState
 import com.z_company.route.viewmodel.PreviewRouteUiState
 import com.z_company.route.viewmodel.RoutePlanState
+import com.z_company.route.viewmodel.DuplicatePlannedRouteState
+import com.z_company.route.viewmodel.SubscriptionLimitState
+import com.z_company.core.ui.snackbar.ISnackbarManager
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.flowWithLifecycle
+import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import com.z_company.route.viewmodel.TripInfo
 import java.time.LocalDate
 import kotlin.math.cos
@@ -230,9 +241,21 @@ fun CalendarScreen(
     onPullRefresh: () -> Unit = {},
     pullSyncMessage: String? = null,
     onPullSyncMessageShown: () -> Unit = {},
+    duplicatePlannedRoute: DuplicatePlannedRouteState? = null,
+    onDismissDuplicatePlannedRoute: () -> Unit = {},
+    onReplaceDuplicatePlannedRoute: (DuplicatePlannedRouteState) -> Unit = {},
+    onKeepDuplicatePlannedRoute: (DuplicatePlannedRouteState) -> Unit = {},
+    subscriptionLimit: SubscriptionLimitState? = null,
+    onDismissSubscriptionLimit: () -> Unit = {},
+    onPurchasesClick: () -> Unit = {},
 ) {
     val cs = MaterialTheme.colorScheme
-    var selectedDay by remember { mutableIntStateOf(state.today ?: 1) }
+    val daysInDisplayedMonth = remember(state.year, state.month) {
+        if (state.year > 0) LocalDate.of(state.year, state.month + 1, 1).lengthOfMonth() else 1
+    }
+    var selectedDay by remember(state.year, state.month) {
+        mutableIntStateOf((state.today ?: 1).coerceAtMost(daysInDisplayedMonth))
+    }
     // Маршрут, открытый в быстром просмотре, и id для подтверждения копии.
     var routeForQuickView by remember { mutableStateOf<Route?>(null) }
     var copyRouteId by remember { mutableStateOf<String?>(null) }
@@ -249,13 +272,33 @@ fun CalendarScreen(
     val planning = plan.active
     val monthExpanded = expanded || planning // в режиме планирования — всегда месяц
 
-    // Сброс выбранного дня при смене месяца
-    LaunchedEffect(state.month, state.year) {
-        selectedDay = state.today ?: 1
+    // Свой SnackbarHost: без него сообщения Календаря (создано черновиков,
+    // остаток бесплатного лимита, ошибки) висели в общем канале и всплывали
+    // только при возврате на Главный экран.
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarManager: ISnackbarManager = koinInject()
+    val snackbarScope = rememberCoroutineScope()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(Unit) {
+        snackbarManager.events
+            .flowWithLifecycle(lifecycle)
+            .collect { event ->
+                val result = snackbarHostState.showSnackbar(
+                    message = event.message,
+                    actionLabel = event.actionLabel,
+                    duration = event.duration,
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    event.onAction?.let { action ->
+                        snackbarScope.launch { runCatching { action() } }
+                    }
+                }
+            }
     }
 
     Scaffold(
         containerColor = cs.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             if (planning) {
                 CreateRoutesBar(plan = plan, onCreate = { showWorkDurationPrompt = true })
@@ -518,6 +561,27 @@ fun CalendarScreen(
                 onTechnicalStudy = { showAddSheet = false; techStudyEdit = selectedDay to 2.0 },
             )
         }
+    }
+
+    subscriptionLimit?.let { limit ->
+        SubscriptionLimitDialog(
+            limit = limit,
+            onDismiss = onDismissSubscriptionLimit,
+            onPurchases = { onDismissSubscriptionLimit(); onPurchasesClick() },
+        )
+    }
+
+    duplicatePlannedRoute?.let { duplicate ->
+        val duplicateSheetState = rememberModalBottomSheetState()
+        AppBottomSheet(
+            onDismissRequest = onDismissDuplicatePlannedRoute,
+            sheetState = duplicateSheetState,
+            title = "Маршрут с такой явкой уже сохранён.",
+            actions = listOf(
+                BottomSheetAction(text = "Заменить") { onReplaceDuplicatePlannedRoute(duplicate) },
+                BottomSheetAction(text = "Оставить оба") { onKeepDuplicatePlannedRoute(duplicate) },
+            ),
+        )
     }
 
     techStudyEdit?.let { (day, initialHours) ->

@@ -23,14 +23,9 @@ fun ScheduleWizardDestination(
         if (state.done) router.back()
     }
 
-    // Нужна подписка — открыть экран покупок.
+    // Не хватает бесплатного лимита — экран показывает диалог, отсюда только
+    // переход на покупки (через гейт авторизации).
     val showPurchases = rememberShowPurchasesScreen(router)
-    LaunchedEffect(state.needSubscription, showPurchases) {
-        if (state.needSubscription) {
-            viewModel.resetNeedSubscription()
-            showPurchases()
-        }
-    }
 
     ScheduleWizardScreen(
         state = state,
@@ -42,6 +37,9 @@ fun ScheduleWizardDestination(
         onSetNightStart = viewModel::setNightStart,
         onSetNightEnd = viewModel::setNightEnd,
         onSetFirstDay = viewModel::setFirstDay,
+        onShiftMonth = viewModel::shiftMonth,
+        onContinuePrevious = viewModel::continuePreviousSchedule,
+        onDeclineContinuePrevious = viewModel::declineContinuePrevious,
         onGoToStep = viewModel::goToStep,
         onApply = viewModel::apply,
         onOpenTypePicker = viewModel::openTypePicker,
@@ -49,5 +47,7 @@ fun ScheduleWizardDestination(
         onSetCycleDayType = viewModel::setCycleDayType,
         onAddCycleDay = viewModel::addCycleDay,
         onRemoveCycleDay = viewModel::removeCycleDay,
+        onDismissSubscriptionLimit = viewModel::dismissSubscriptionLimit,
+        onPurchasesClick = showPurchases,
     )
 }
