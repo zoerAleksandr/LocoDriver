@@ -75,6 +75,14 @@ fun Route.buildSalarySegments(
     } else emptyList()
     val doubledFirstIntervals = trainIntervals(workInterval) { it.doubledTrain?.isFirst == true }
     val doubledSecondIntervals = trainIntervals(workInterval) { it.doubledTrain?.isFirst == false }
+    val reserveIntervals = trainIntervals(workInterval) { train ->
+        when (train.number?.toIntOrNull()) {
+            in 4001..4148, in 4151..4188, in 4191..4198, in 4201..4228,
+            in 4231..4258, in 4261..4298, in 4301..4398, in 4401..4698,
+            in 4701..4778, in 4801..4898 -> true
+            else -> false
+        }
+    }
     val heavyLongDistanceIntervals = trainIntervals(workInterval) { train ->
         (train.weight?.trim()?.replace(',', '.')?.toDoubleOrNull() ?: 0.0) > 6000.0 &&
                 (train.axle?.trim()?.replace(',', '.')?.toDoubleOrNull()
@@ -104,6 +112,7 @@ fun Route.buildSalarySegments(
         if (allDoubledIntervals.isNotEmpty()) {
             put(AccrualCondition.DOUBLED_TRAIN, allDoubledIntervals)
         }
+        if (reserveIntervals.isNotEmpty()) put(AccrualCondition.RESERVE, reserveIntervals)
         if (heavyLongDistanceIntervals.isNotEmpty()) {
             put(AccrualCondition.HEAVY_LONG_DISTANCE_TRAIN, heavyLongDistanceIntervals)
         }

@@ -17,6 +17,8 @@ import com.z_company.domain.util.getTimeZone
 import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
+import com.z_company.domain.util.mergeTimeIntervals
+import com.z_company.domain.util.subtractAll
 import com.z_company.domain.util.plus
 import com.z_company.domain.util.toIntOrZero
 import kotlinx.coroutines.flow.Flow
@@ -847,23 +849,32 @@ object UtilsForEntities {
         monthOfYear: MonthOfYear,
         context: TimeCalculationContext
     ): Long {
-        var passengerTime = 0L
-        this.forEach { route ->
-            route.passengers.forEach { passenger ->
-                if (passenger.isWorkStartByArrival) {
-                    val start = passenger.timeDeparture
-                    val end = passenger.timeArrival
-                    if (start != null && end != null) {
-                        passengerTime += if (passenger.isTransition(context.crossMonthTZ)) {
-                            monthOfYear.getTimeInCurrentMonth(start, end, context)
-                        } else {
-                            end.floorToMinute() - start.floorToMinute()
-                        }
-                    }
+        val monthStart = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
+            .atStartOfDayIn(context.crossMonthTZ).toEpochMilliseconds()
+        val monthEnd = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
+            .plus(1, DateTimeUnit.MONTH)
+            .atStartOfDayIn(context.crossMonthTZ).toEpochMilliseconds()
+        val monthInterval = TimeInterval(monthStart, monthEnd)
+        return sumOf { route ->
+            val workInterval = route.basicData.timeStartWork?.let { start ->
+                route.basicData.timeEndWork?.takeIf { it > start }?.let { end ->
+                    TimeInterval(start, end)
                 }
             }
+            route.passengers.asSequence()
+                .filter { it.isWorkStartByArrival }
+                .mapNotNull { passenger ->
+                    val start = passenger.timeDeparture ?: return@mapNotNull null
+                    val end = passenger.timeArrival ?: return@mapNotNull null
+                    if (end <= start) return@mapNotNull null
+                    TimeInterval(start.floorToMinute(), end.floorToMinute())
+                        .intersect(monthInterval)
+                }
+                .flatMap { interval -> interval.subtractAll(listOfNotNull(workInterval)).asSequence() }
+                .toList()
+                .mergeTimeIntervals()
+                .sumOf { it.durationMillis }
         }
-        return passengerTime
     }
 
     fun List<Route>.getPassengerTimeOutsideWork(

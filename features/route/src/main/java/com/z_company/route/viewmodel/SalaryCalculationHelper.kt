@@ -436,36 +436,24 @@ class SalaryCalculationHelper(
     }
 
     fun getSingleLocomotiveTimeFlow(routes: List<Route> = routeList): Flow<Long> {
-        return channelFlow {
-            val singleLocoTimeFollowing = getSingleLocomotiveTime(routes)
-            trySend(singleLocoTimeFollowing)
-            awaitClose()
+        return flow {
+            emit(salarySegments(routes)
+                .filter {
+                    AccrualCondition.RESERVE in it.conditions &&
+                            AccrualCondition.PASSENGER !in it.conditions
+                }
+                .sumOf { it.interval.durationMillis })
         }
     }
 
     fun getMoneyAtSingleLocomotiveFlow(): Flow<Double> {
-        return channelFlow {
-            if (dateSetTariffRate == null) {
-                getSingleLocomotiveTimeFlow().collect { time ->
-                    val money = time.times(currentMonthOfYear.tariffRate) / 3_600_000.toDouble()
-                    trySend(money)
+        return flow {
+            emit(salarySegments()
+                .filter {
+                    AccrualCondition.RESERVE in it.conditions &&
+                            AccrualCondition.PASSENGER !in it.conditions
                 }
-            } else {
-                val pairRoutes = getTwoRouteList(routeList).first()
-                val firstRoutes = pairRoutes.first
-                val secondRoutes = pairRoutes.second
-
-                combine(
-                    getSingleLocomotiveTimeFlow(firstRoutes),
-                    getSingleLocomotiveTimeFlow(secondRoutes)
-                ) { firstTime, secondTime ->
-                    val firstMoney = firstTime.times(dateSetTariffRate.oldRate)
-                    val secondMoney = secondTime.times(currentMonthOfYear.tariffRate)
-                    val result = (firstMoney + secondMoney) / 3_600_000.toDouble()
-                    trySend(result)
-                }.collect {}
-            }
-            awaitClose()
+                .sumOf { it.tariffMoney })
         }
     }
 
