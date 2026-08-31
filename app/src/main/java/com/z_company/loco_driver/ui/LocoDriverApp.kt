@@ -60,6 +60,7 @@ import com.z_company.route.navigation.SalaryCalculationRoute
 import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.UpdatePresentationBlockDestination
 import com.z_company.route.navigation.homeGraph
+import com.z_company.route.navigation.rememberShowPurchasesScreen
 import androidx.activity.ComponentActivity // Изменено: Уже был, но подтверждено — нужен для доступа к window.
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -101,6 +102,9 @@ fun LocoDriverApp(
         val scope = rememberCoroutineScope()
         val routeHelper: RouteActionsHelper = koinInject()
 
+        // Переход на покупки — только для авторизованных (иначе в Профиль).
+        val showPurchasesScreen = rememberShowPurchasesScreen(appState.router)
+
         // Диалоги проверки подписки (показываются до навигации на FormScreen)
         var showNeedSubscribeDialog by remember { mutableStateOf(false) }
         var showAlertSubscribeDialog by remember { mutableStateOf(false) }
@@ -113,7 +117,7 @@ fun LocoDriverApp(
                 confirmText = "Оформить подписку",
                 onConfirm = {
                     showNeedSubscribeDialog = false
-                    appState.router.showPurchasesScreen()
+                    showPurchasesScreen()
                 },
                 dismissText = "Отмена",
                 onDismiss = { showNeedSubscribeDialog = false }
@@ -135,7 +139,7 @@ fun LocoDriverApp(
                 dismissText = "Оформить подписку",
                 onDismiss = {
                     showAlertSubscribeDialog = false
-                    appState.router.showPurchasesScreen()
+                    showPurchasesScreen()
                 }
             )
         }

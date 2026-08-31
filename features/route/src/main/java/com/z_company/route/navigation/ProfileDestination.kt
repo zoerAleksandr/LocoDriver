@@ -16,9 +16,10 @@ fun ProfileDestination(
     val viewModel: ProfileViewModel = viewModel()
     val pullToSyncViewModel: PullToSyncViewModel = viewModel()
     val pullToSyncState by pullToSyncViewModel.uiState.collectAsState()
+    val showPurchasesScreen = rememberShowPurchasesScreen(router)
     ProfileScreen(
         viewModel = viewModel,
-        onBillingClick = router::showPurchasesScreen,
+        onBillingClick = showPurchasesScreen,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh(viewModel::refresh) },
         pullSyncMessage = pullToSyncState.message,

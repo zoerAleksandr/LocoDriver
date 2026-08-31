@@ -33,10 +33,12 @@ fun AllRouteScreenDestination(
         }
     }
 
-    LaunchedEffect(Unit) {
+    val showPurchases = rememberShowPurchasesScreen(router)
+
+    LaunchedEffect(showPurchases) {
         viewModel.purchasesEvent.collect { event ->
             when (event) {
-                is StartPurchasesEvent.ShowPurchasesScreen -> router.showPurchasesScreen()
+                is StartPurchasesEvent.ShowPurchasesScreen -> showPurchases()
                 is StartPurchasesEvent.Error -> {}
             }
         }
@@ -47,7 +49,7 @@ fun AllRouteScreenDestination(
         onRouteClick = { router.showRouteForm(it) },
         setSortOption = viewModel::setSort,
         showFormScreen = router::showRouteForm,
-        showPurchasesScreen = router::showPurchasesScreen,
+        showPurchasesScreen = showPurchases,
         onBack = router::back,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh() },

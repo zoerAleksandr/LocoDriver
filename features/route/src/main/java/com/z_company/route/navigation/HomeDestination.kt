@@ -31,6 +31,8 @@ fun HomeDestination(
     val years by homeViewModel.yearList.collectAsState()
 
     val context = LocalContext.current
+    // Покупки только для авторизованных — см. rememberShowPurchasesScreen.
+    val showPurchasesScreen = rememberShowPurchasesScreen(router)
     LaunchedEffect(Unit) {
         homeViewModel.syncOnScreenOpen()
     }
@@ -117,7 +119,7 @@ fun HomeDestination(
         hasActiveSubscription = uiState.hasActiveSubscription,
         subscriptionEndTime = uiState.subscriptionEndTime,
         freeRoutesUsedCount = uiState.freeRoutesUsedCount,
-        onPurchasesClick = router::showPurchasesScreen,
+        onPurchasesClick = showPurchasesScreen,
         onSyncClick = homeViewModel::manualSync,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh() },

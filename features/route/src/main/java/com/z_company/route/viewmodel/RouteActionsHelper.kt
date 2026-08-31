@@ -8,6 +8,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getLongDistanceTime
 import com.z_company.domain.entities.route.UtilsForEntities.timeFollowingSingleLocomotive
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
+import com.z_company.repository.SecureTokenStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
@@ -41,6 +42,7 @@ class RouteActionsHelper() : KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val secureTokenStorage: SecureTokenStorage by inject()
 
     // Result of newRouteClick decision — ViewModel will react accordingly
     sealed class NewRouteResult {
@@ -119,6 +121,20 @@ class RouteActionsHelper() : KoinComponent {
     suspend fun hasActiveSubscription(): Boolean {
         val setting = settingsUseCase.getUserSettingFlow().first()
         return setting.subscriptionPeriod > Calendar.getInstance().timeInMillis
+    }
+
+    /**
+     * Есть ли действующая авторизация — сохранён непустой bearer-токен.
+     *
+     * Нужна перед переходом на экран покупок: подписка живёт на сервере и
+     * привязывается к аккаунту. Без входа оплата пройдёт, но новый
+     * `subscriptionPeriod` некому синхронизировать в приложение — срок
+     * не обновится. Поэтому неавторизованного пользователя ведём в Профиль
+     * (см. `rememberShowPurchasesScreen`).
+     */
+    suspend fun isAuthorized(): Boolean {
+        val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+        return !token.isNullOrBlank()
     }
 
     /**

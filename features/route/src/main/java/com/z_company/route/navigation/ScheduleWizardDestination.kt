@@ -24,10 +24,11 @@ fun ScheduleWizardDestination(
     }
 
     // Нужна подписка — открыть экран покупок.
-    LaunchedEffect(state.needSubscription) {
+    val showPurchases = rememberShowPurchasesScreen(router)
+    LaunchedEffect(state.needSubscription, showPurchases) {
         if (state.needSubscription) {
             viewModel.resetNeedSubscription()
-            router.showPurchasesScreen()
+            showPurchases()
         }
     }
 
