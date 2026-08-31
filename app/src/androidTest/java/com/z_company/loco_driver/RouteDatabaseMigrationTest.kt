@@ -10,6 +10,8 @@ import com.z_company.data_local.DatabaseDriverFactory
 import com.z_company.data_local.RouteMigrationAlreadyRunningException
 import com.z_company.data_local.RouteDatabaseProfileDetector
 import com.z_company.data_local.recovery.AndroidRouteRecoveryExporter
+import com.z_company.data_local.recovery.AndroidRouteRecoveryImporter
+import com.z_company.data_local.recovery.RecoveryArchiveSectionDigest
 import com.z_company.data_local.recovery.RecoveryRouteRecordValidator
 import com.z_company.data_local.recovery.RecoverySha256
 import com.z_company.data_local.recovery.RouteRecoveryOrphansPresentException
@@ -31,11 +33,13 @@ class RouteDatabaseMigrationTest {
     /** Fixture context redirects every mutable migration artifact away from the app database. */
     private lateinit var isolatedContext: Context
     private lateinit var schemaContext: Context
+    private lateinit var recoveryContext: Context
 
     @Before
     fun setUp() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         schemaContext = instrumentation.context
+        recoveryContext = instrumentation.targetContext
         isolatedContext = FixtureContext(instrumentation.targetContext)
         check(
             isolatedContext.getDatabasePath(DATABASE_NAME).canonicalPath !=
@@ -458,6 +462,91 @@ class RouteDatabaseMigrationTest {
     }
 
     @Test
+    fun everyArchivedRoomFixtureRoundTripsIntoFreshCurrentDatabase() {
+        for (version in ARCHIVED_ROOM_VERSIONS) {
+            deleteFixtureDatabase()
+            recoveryContext.deleteDatabase(RECOVERY_IMPORT_DATABASE_NAME)
+            createFromRoomSchema(version = version)
+            val sourceIds = openDatabase().use(::routeIds)
+            val sourceChildren = openDatabase().use(::childCounts)
+            val destination = File(isolatedContext.filesDir, "recovery/routes-v$version.ndjson")
+            val exported = AndroidRouteRecoveryExporter().export(
+                isolatedContext.getDatabasePath(DATABASE_NAME),
+                destination,
+            )
+
+            val imported = AndroidRouteRecoveryImporter(recoveryContext).importToFreshDatabase(
+                routesSection = destination,
+                expected = RecoveryArchiveSectionDigest(exported.itemCount, exported.sha256),
+                databaseName = RECOVERY_IMPORT_DATABASE_NAME,
+            )
+
+            assertEquals("Room v$version import count", exported.itemCount, imported.routeCount)
+            SQLiteDatabase.openDatabase(
+                imported.databaseFile.path,
+                null,
+                SQLiteDatabase.OPEN_READONLY,
+            ).use { restored ->
+                assertEquals(
+                    "Room v$version imported schema",
+                    RouteDatabase.Schema.version.toInt(),
+                    restored.version,
+                )
+                assertEquals("Room v$version imported routes", sourceIds, routeIds(restored))
+                assertEquals("Room v$version imported children", sourceChildren, childCounts(restored))
+                assertEquals(0L, orphanCount(restored))
+            }
+            openDatabase().use { source ->
+                assertEquals("Room v$version source version changed", version, source.version)
+                assertEquals("Room v$version source routes changed", sourceIds, routeIds(source))
+            }
+        }
+    }
+
+    @Test
+    fun checksumMismatchCannotCreateRecoveryImportDatabase() {
+        createFromRoomSchema(version = 12)
+        val destination = File(isolatedContext.filesDir, "recovery/routes.ndjson")
+        val exported = AndroidRouteRecoveryExporter().export(
+            isolatedContext.getDatabasePath(DATABASE_NAME),
+            destination,
+        )
+
+        val error = runCatching {
+            AndroidRouteRecoveryImporter(recoveryContext).importToFreshDatabase(
+                destination,
+                RecoveryArchiveSectionDigest(exported.itemCount, "0".repeat(64)),
+                RECOVERY_IMPORT_DATABASE_NAME,
+            )
+        }.exceptionOrNull()
+
+        assertTrue(error is IllegalArgumentException)
+        assertFalse(recoveryContext.getDatabasePath(RECOVERY_IMPORT_DATABASE_NAME).exists())
+        openDatabase().use { source -> assertEquals(12, source.version) }
+    }
+
+    @Test
+    fun malformedRecoveryRecordDeletesDisposableImportDatabase() {
+        val destination = File(isolatedContext.filesDir, "recovery/routes.ndjson")
+            .apply {
+                parentFile?.mkdirs()
+                writeText("{not-json}\n")
+            }
+        val digest = RecoverySha256.digestHex(destination.readBytes())
+
+        val error = runCatching {
+            AndroidRouteRecoveryImporter(recoveryContext).importToFreshDatabase(
+                destination,
+                RecoveryArchiveSectionDigest(1L, digest),
+                RECOVERY_IMPORT_DATABASE_NAME,
+            )
+        }.exceptionOrNull()
+
+        assertTrue(error != null)
+        assertFalse(recoveryContext.getDatabasePath(RECOVERY_IMPORT_DATABASE_NAME).exists())
+    }
+
+    @Test
     fun orphanedRowsCannotProduceSilentlyIncompleteRecoveryExport() {
         createFromRoomSchema(version = 12)
         openDatabase().use { source ->
@@ -596,6 +685,9 @@ class RouteDatabaseMigrationTest {
     private fun deleteFixtureDatabase() {
         check((isolatedContext as FixtureContext).isFixturePath(DATABASE_NAME))
         isolatedContext.deleteDatabase(DATABASE_NAME)
+        if (::recoveryContext.isInitialized) {
+            recoveryContext.deleteDatabase(RECOVERY_IMPORT_DATABASE_NAME)
+        }
         isolatedContext.filesDir.resolve("data_safety").deleteRecursively()
         isolatedContext.filesDir.resolve("recovery").deleteRecursively()
         isolatedContext.getSharedPreferences("data_safety_status", Context.MODE_PRIVATE)
@@ -613,6 +705,7 @@ class RouteDatabaseMigrationTest {
 
     private companion object {
         const val DATABASE_NAME = "Route.db"
+        const val RECOVERY_IMPORT_DATABASE_NAME = "Route.recovery.fixture.import.db"
         val ARCHIVED_ROOM_VERSIONS = 1..12
         val FIXTURE_CHILD_TABLES = listOf("Locomotive", "Train", "Passenger", "Photo")
         const val LARGE_FIXTURE_ROUTE_COUNT = 500
@@ -624,6 +717,8 @@ class RouteDatabaseMigrationTest {
         private val fixtureFiles: File = File(fixtureRoot, "files").apply { mkdirs() }
 
         override fun getDatabasePath(name: String): File = File(fixtureRoot, name)
+
+        override fun getApplicationContext(): Context = this
 
         override fun getFilesDir(): File = fixtureFiles
 
