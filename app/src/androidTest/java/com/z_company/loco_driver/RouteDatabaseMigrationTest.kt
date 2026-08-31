@@ -10,7 +10,7 @@ import com.z_company.data_local.DatabaseDriverFactory
 import com.z_company.data_local.RouteMigrationAlreadyRunningException
 import com.z_company.data_local.RouteDatabaseProfileDetector
 import com.z_company.data_local.recovery.AndroidRouteRecoveryExporter
-import com.z_company.data_local.recovery.RecoveryRouteRecordJson
+import com.z_company.data_local.recovery.RecoveryRouteRecordValidator
 import com.z_company.data_local.recovery.RecoverySha256
 import com.z_company.data_local.recovery.RouteRecoveryOrphansPresentException
 import com.z_company.data_local.route.db.RouteDatabase
@@ -418,7 +418,7 @@ class RouteDatabaseMigrationTest {
         assertEquals(RecoverySha256.digestHex(destination.readBytes()), section.sha256)
         val lines = destination.readLines().filter { it.isNotBlank() }
         assertEquals(1, lines.size)
-        val record = RecoveryRouteRecordJson.decode(lines.single())
+        val record = RecoveryRouteRecordValidator.decodeAndValidate(lines.single())
         assertEquals("fixture-route", record.routeId)
         assertEquals(1, record.tables.getValue("BasicData").size)
         FIXTURE_CHILD_TABLES.forEach { table ->
@@ -448,7 +448,9 @@ class RouteDatabaseMigrationTest {
                 RecoverySha256.digestHex(destination.readBytes()),
                 section.sha256,
             )
-            val record = RecoveryRouteRecordJson.decode(destination.readLines().single())
+            val record = RecoveryRouteRecordValidator.decodeAndValidate(
+                destination.readLines().single()
+            )
             assertEquals("Room v$version route", "fixture-route", record.routeId)
             assertEquals("Room v$version tables", 5, record.tables.size)
             openDatabase().use { source -> assertEquals(version, source.version) }

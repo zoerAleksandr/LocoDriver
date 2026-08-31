@@ -16,6 +16,8 @@ data class RecoveryRowV1(
 )
 
 object RecoveryRouteRecordJson {
+    const val MAX_LINE_BYTES: Int = 2 * 1024 * 1024
+
     private val json = Json {
         encodeDefaults = true
         explicitNulls = true
@@ -25,6 +27,25 @@ object RecoveryRouteRecordJson {
     fun encode(record: RecoveryRouteRecordV1): String =
         json.encodeToString(RecoveryRouteRecordV1.serializer(), record)
 
-    fun decode(line: String): RecoveryRouteRecordV1 =
-        json.decodeFromString(RecoveryRouteRecordV1.serializer(), line)
+    fun decode(line: String): RecoveryRouteRecordV1 {
+        if (line.encodeToByteArray().size > MAX_LINE_BYTES) {
+            throw RecoveryRouteValidationException(RecoveryRouteValidationCode.LINE_TOO_LARGE)
+        }
+        return json.decodeFromString(RecoveryRouteRecordV1.serializer(), line)
+    }
 }
+
+enum class RecoveryRouteValidationCode {
+    LINE_TOO_LARGE,
+    INVALID_ROUTE_ID,
+    UNKNOWN_TABLE,
+    MISSING_REQUIRED_TABLE,
+    INVALID_ROW_COUNT,
+    INVALID_COLUMN_NAME,
+    ROUTE_ID_MISMATCH,
+    MISSING_PRIMARY_KEY,
+    DUPLICATE_PRIMARY_KEY,
+}
+
+class RecoveryRouteValidationException(val code: RecoveryRouteValidationCode) :
+    IllegalArgumentException(code.name)
