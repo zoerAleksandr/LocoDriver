@@ -1603,6 +1603,10 @@ STATION_LIST/SERIES_EDITOR_{id}/STATION_EDITOR_{id}).
   (`changeTimePickerStyle`), часовой пояс (`setTimeZone`), пояс переходных
   маршрутов (`setCrossMonthTimezone`: MOSCOW/LOCAL), ночные часы
   (`changeStart/EndNightTime`).
+  - `MOSCOW` обрезает переходящий маршрут календарным месяцем по МСК независимо
+    от местонахождения пользователя. Для работника во Владивостоке, ведущего
+    маршрут по МСК, интервал 31 января 23:00–1 февраля 01:00 делится по полуночи
+    МСК. `LOCAL` использует локальную календарную границу.
 - **Работа**: время по умолчанию (`changeDefaultWorkTime` + `usingDefaultWorkTime`),
   тип локо по умолчанию (`setDefaultLocoType`), учитывать будущие маршруты,
   показывать перерыв, поведение «пассажир >12ч» (`Passenger12hOption`).
