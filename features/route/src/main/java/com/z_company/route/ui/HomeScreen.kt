@@ -938,27 +938,27 @@ fun HomeScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = "К ВЫДАЧЕ",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            when (val paymentState = toBeCredited) {
-                                is ResultState.Success -> Text(
-                                    text = paymentState.data.toMoneyString(currency),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                                is ResultState.Error -> Text(
-                                    text = "—",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                else -> Text(
-                                    text = "считаем деньги",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                when (val paymentState = toBeCredited) {
+                                    is ResultState.Success -> Text(
+                                        text = paymentState.data.toMoneyString(currency),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.align(Alignment.CenterEnd),
+                                    )
+                                    is ResultState.Error -> Text(
+                                        text = "—",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.align(Alignment.CenterEnd),
+                                    )
+                                    else -> Text(
+                                        text = "считаем деньги",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.align(Alignment.CenterEnd),
+                                    )
+                                }
                             }
                             Spacer(modifier = Modifier.height(16.dp))
                         }
