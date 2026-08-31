@@ -111,4 +111,19 @@ class NightSegmentSalaryIntegrationTest {
         assertEquals(90 * 60_000L, helper.getHolidayTimeFlow().first())
         assertEquals(600.0, helper.getMoneyAtHolidayFlow().first(), 0.001)
     }
+
+    @Test
+    fun oneMinuteHolidayIsPaidWithoutRoundingToWholeHour() = runTest {
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = instant(day = 11, hour = 0),
+                timeEndWork = instant(day = 11, hour = 0) + 60_000L,
+            ),
+        )
+
+        val helper = helper(route, holidayDay = 11)
+
+        assertEquals(60_000L, helper.getHolidayTimeFlow().first())
+        assertEquals(200.0 * 2.0 / 60.0, helper.getMoneyAtHolidayFlow().first(), 0.001)
+    }
 }
