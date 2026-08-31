@@ -11,7 +11,10 @@ import com.z_company.data_local.RouteMigrationAlreadyRunningException
 import com.z_company.data_local.RouteDatabaseProfileDetector
 import com.z_company.data_local.recovery.AndroidRouteRecoveryExporter
 import com.z_company.data_local.recovery.AndroidRouteRecoveryImporter
+import com.z_company.data_local.recovery.AndroidAttachmentsManifestExporter
+import com.z_company.data_local.recovery.LocalRecoveryAttachmentRequiresContentException
 import com.z_company.data_local.recovery.RecoveryArchiveSectionDigest
+import com.z_company.data_local.recovery.RecoveryAttachmentsManifestJson
 import com.z_company.data_local.recovery.RecoveryRouteRecordValidator
 import com.z_company.data_local.recovery.RecoverySha256
 import com.z_company.data_local.recovery.RouteRecoveryOrphansPresentException
@@ -544,6 +547,54 @@ class RouteDatabaseMigrationTest {
 
         assertTrue(error != null)
         assertFalse(recoveryContext.getDatabasePath(RECOVERY_IMPORT_DATABASE_NAME).exists())
+    }
+
+    @Test
+    fun remotePhotoProducesValidatedAttachmentsManifestWithoutChangingSource() {
+        createFromRoomSchema(version = 12)
+        openDatabase().use { source ->
+            source.execSQL(
+                "UPDATE Photo SET url = ?, dateOfCreate = ?",
+                arrayOf<Any>("https://files.example.test/photo.jpg", 123L),
+            )
+        }
+        val destination = File(isolatedContext.filesDir, "recovery/attachments-manifest.json")
+
+        val exported = AndroidAttachmentsManifestExporter().export(
+            isolatedContext.getDatabasePath(DATABASE_NAME),
+            destination,
+        )
+
+        assertEquals(1L, exported.itemCount)
+        assertEquals(RecoverySha256.digestHex(destination.readBytes()), exported.sha256)
+        val manifest = RecoveryAttachmentsManifestJson.decodeAndValidate(destination.readText())
+        assertEquals(1, manifest.attachments.size)
+        assertEquals("fixture-route", manifest.attachments.single().routeId)
+        openDatabase().use { source -> assertEquals(12, source.version) }
+    }
+
+    @Test
+    fun localPhotoReferenceCannotProduceFalseCompleteAttachmentsManifest() {
+        createFromRoomSchema(version = 12)
+        openDatabase().use { source ->
+            source.execSQL(
+                "UPDATE Photo SET url = ?",
+                arrayOf<Any>("content://photos/local-image"),
+            )
+        }
+        val destination = File(isolatedContext.filesDir, "recovery/attachments-manifest.json")
+
+        val error = runCatching {
+            AndroidAttachmentsManifestExporter().export(
+                isolatedContext.getDatabasePath(DATABASE_NAME),
+                destination,
+            )
+        }.exceptionOrNull()
+
+        assertTrue(error is LocalRecoveryAttachmentRequiresContentException)
+        assertFalse(destination.exists())
+        assertFalse(File(destination.path + ".tmp").exists())
+        openDatabase().use { source -> assertEquals(12, source.version) }
     }
 
     @Test
