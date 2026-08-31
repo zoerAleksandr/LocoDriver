@@ -26,6 +26,7 @@ import com.z_company.domain.util.applyTariffChanges
 import com.z_company.domain.util.buildSalarySegments
 import com.z_company.domain.util.buildTieredTrainSurchargeSegments
 import com.z_company.domain.util.sum
+import com.z_company.domain.util.subtractAll
 import com.z_company.domain.util.toExactIntOrNull
 import com.z_company.domain.util.toDoubleOrZero
 import com.z_company.domain.util.toFiniteDoubleOrNull
@@ -132,24 +133,44 @@ class SalaryCalculationHelper(
     val lastDate = userSettings.selectMonthOfYear.days.lastOrNull()?.dayOfMonth ?: 28
 
     // ── Командировка ──────────────────────────────────────────────────
-    // Дни командировки (release-дни с типом BusinessTrip). Маршруты, начатые
-    // в эти дни, оплачиваются ТОЛЬКО по среднему часу — без надбавок. Поэтому
-    // они полностью исключаются из обычного расчёта (`routeList` ниже — уже без
-    // них) и обрабатываются отдельной строкой «Командировка (по среднему)».
+    // Дни командировки (release-дни с типом BusinessTrip). Переходящий маршрут
+    // делится по календарным границам: командировочная часть оплачивается только
+    // по среднему часу, оставшаяся — обычным расчётом.
     private val businessTripDays: Set<Int> = currentMonthOfYear.days
         .filter { it.isReleaseDay && it.releaseType == ReleaseType.BusinessTrip }
         .map { it.dayOfMonth }
         .toSet()
 
     @OptIn(kotlin.time.ExperimentalTime::class)
-    private fun Route.startsInBusinessTrip(): Boolean {
-        if (businessTripDays.isEmpty()) return false
-        val startMs = basicData.timeStartWork ?: return false
-        val date = Instant.fromEpochMilliseconds(startMs)
-            .toLocalDateTime(timeCalculationContext.localTZ).date
-        return date.year == currentMonthOfYear.year &&
-                date.monthNumber == currentMonthOfYear.month + 1 &&
-                businessTripDays.contains(date.dayOfMonth)
+    private fun businessTripIntervals(): List<TimeInterval> = businessTripDays.map { day ->
+        val date = LocalDate(currentMonthOfYear.year, currentMonthOfYear.month + 1, day)
+        TimeInterval(
+            date.atStartOfDayIn(timeCalculationContext.localTZ).toEpochMilliseconds(),
+            date.plus(1, DateTimeUnit.DAY)
+                .atStartOfDayIn(timeCalculationContext.localTZ).toEpochMilliseconds(),
+        )
+    }
+
+    private fun Route.fragments(businessTrip: Boolean): List<Route> {
+        val work = TimeInterval(
+            basicData.timeStartWork ?: return emptyList(),
+            basicData.timeEndWork ?: return emptyList(),
+        ).takeUnless(TimeInterval::isEmpty) ?: return emptyList()
+        val tripParts = businessTripIntervals().mapNotNull(work::intersect)
+        val intervals = if (businessTrip) tripParts else work.subtractAll(tripParts)
+        return intervals.map { interval ->
+            val clippedBreak = basicData.timeStartBreak?.let { breakStart ->
+                basicData.timeEndBreak?.takeIf { it > breakStart }?.let { breakEnd ->
+                    TimeInterval(breakStart, breakEnd).intersect(interval)
+                }
+            }
+            copy(basicData = basicData.copy(
+                timeStartWork = interval.startMillis,
+                timeEndWork = interval.endMillis,
+                timeStartBreak = clippedBreak?.startMillis,
+                timeEndBreak = clippedBreak?.endMillis,
+            ))
+        }
     }
 
     @OptIn(kotlin.time.ExperimentalTime::class)
@@ -161,12 +182,12 @@ class SalaryCalculationHelper(
                 date.monthNumber == currentMonthOfYear.month + 1
     }
 
-    private val businessTripRoutes: List<Route> = allRoutes.filter { it.startsInBusinessTrip() }
+    private val businessTripRoutes: List<Route> = allRoutes.flatMap { it.fragments(businessTrip = true) }
 
     // Обычные тарифы и надбавки считаются только по маршрутам вне
     // командировки. Для нормы, недоработки и сверхурочных используется
     // allRoutes: командировочные часы тоже закрывают норму.
-    private val routeList: List<Route> = allRoutes.filterNot { it.startsInBusinessTrip() }
+    private val routeList: List<Route> = allRoutes.flatMap { it.fragments(businessTrip = false) }
 
     @OptIn(kotlin.time.ExperimentalTime::class)
     private fun salarySegments(routes: List<Route> = routeList) = routes.flatMap { route ->
@@ -948,6 +969,11 @@ class SalaryCalculationHelper(
     // Для формы (один маршрут) означает, что этот маршрут — командировочный.
     fun hasBusinessTripRoutes(): Boolean = businessTripRoutes.isNotEmpty()
 
+    // Полное обнуление обычных строк допустимо только если после разрезания не
+    // осталось ни одного обычного оплачиваемого фрагмента.
+    fun isEntirelyBusinessTrip(): Boolean =
+        businessTripRoutes.isNotEmpty() && routeList.isEmpty()
+
     // Оплата маршрутов командировки — ТОЛЬКО по среднему часу, без надбавок.
     fun getMoneyBusinessTripFlow(): Flow<Double> {
         return flow {
@@ -1082,7 +1108,9 @@ class SalaryCalculationHelper(
     fun getLinearMileageAccrualsFlow(): Flow<List<LinearMileageAccrual>> = flow {
         val distancesByPhase = linkedMapOf<String, Double>()
         val phasesById = linkedMapOf<String, com.z_company.domain.entities.setting.ServicePhase>()
-        routeList.filter { it.startsInSelectedMonth() }.forEach { route ->
+        routeList.distinctBy { it.basicData.id }
+            .filter { it.startsInSelectedMonth() }
+            .forEach { route ->
             route.trains.forEach { train ->
                 val savedPhase = train.servicePhase ?: return@forEach
                 val currentPhase = userSettings.servicePhases.firstOrNull { it.id == savedPhase.id }
