@@ -14,6 +14,7 @@ data class FrozenDatabaseSnapshot(
     val file: File,
     val sourceVersion: Int,
     val tableRowCounts: Map<String, Long>,
+    val sha256: String,
 )
 
 class RecoverySnapshotBusyException :
@@ -73,10 +74,27 @@ class AndroidFrozenDatabaseSnapshotter {
                 destination,
                 expected.version,
                 expected.tableRowCounts,
+                expectedSha256,
             )
         } finally {
             database.close()
             temporary.delete()
+        }
+    }
+
+    fun inspect(snapshot: File): FrozenDatabaseSnapshot {
+        require(snapshot.isFile) { "Frozen database snapshot does not exist" }
+        val database = openPreservingCorruption(snapshot, SQLiteDatabase.OPEN_READONLY)
+        return try {
+            val fingerprint = fingerprint(database)
+            FrozenDatabaseSnapshot(
+                snapshot,
+                fingerprint.version,
+                fingerprint.tableRowCounts,
+                sha256(snapshot),
+            )
+        } finally {
+            database.close()
         }
     }
 

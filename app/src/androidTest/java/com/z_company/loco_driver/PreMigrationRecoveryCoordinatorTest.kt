@@ -8,6 +8,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.z_company.data_local.recovery.AndroidPreMigrationRecoveryCoordinator
 import com.z_company.data_local.recovery.PreMigrationRecoveryState
 import java.io.File
+import java.io.RandomAccessFile
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -67,6 +68,32 @@ class PreMigrationRecoveryCoordinatorTest {
         assertEquals("MISSING_OPTIONAL_DB", result.archiveErrorCode)
         assertTrue(result.rawSnapshotDirectory?.resolve("Route.snapshot.db")?.isFile == true)
         assertFalse(result.archiveDirectory?.exists() == true)
+        assertEquals(12, version(ROUTE_DATABASE))
+    }
+
+    @Test
+    fun corruptedPublishedRawSnapshotIsQuarantinedAndRegenerated() {
+        createRoomDatabase(ROUTE_SCHEMA, ROUTE_DATABASE, 12)
+        val coordinator = AndroidPreMigrationRecoveryCoordinator(fixtureContext, 9_003)
+        val first = coordinator.prepareIfNeeded()
+        val rawDirectory = requireNotNull(first.rawSnapshotDirectory)
+        val snapshot = File(rawDirectory, "Route.snapshot.db")
+        RandomAccessFile(snapshot, "rw").use { file ->
+            file.seek(100L)
+            val original = file.readByte()
+            file.seek(100L)
+            file.writeByte(original.toInt() xor 0xff)
+        }
+
+        val second = coordinator.prepareIfNeeded()
+
+        assertEquals(PreMigrationRecoveryState.RAW_SNAPSHOTS_READY, second.state)
+        assertTrue(second.rawSnapshotDirectory?.resolve("Route.snapshot.db")?.isFile == true)
+        assertTrue(
+            rawDirectory.parentFile?.listFiles()?.any {
+                it.name.startsWith(rawDirectory.name + ".invalid-")
+            } == true
+        )
         assertEquals(12, version(ROUTE_DATABASE))
     }
 

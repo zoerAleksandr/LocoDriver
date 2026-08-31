@@ -6,6 +6,7 @@ import android.system.OsConstants
 import com.z_company.data_local.RouteDatabaseProfileDetector
 import com.z_company.data_local.route.db.RouteDatabase
 import java.io.File
+import java.io.FileOutputStream
 import java.security.SecureRandom
 
 enum class PreMigrationRecoveryState {
@@ -45,7 +46,8 @@ class AndroidPreMigrationRecoveryCoordinator(
             if (salary.isFile) add(SALARY_SNAPSHOT)
         }
 
-        if (!isCompleteRawDirectory(rawDirectory, expectedSnapshots)) {
+        if (!isValidRawDirectory(rawDirectory, expectedSnapshots)) {
+            if (rawDirectory.exists()) quarantineInvalidRawDirectory(rawDirectory)
             createRawSnapshotsAtomically(route, settings, salary, rawDirectory)
         }
 
@@ -107,9 +109,31 @@ class AndroidPreMigrationRecoveryCoordinator(
         require(building.mkdir()) { "Cannot create raw snapshot staging directory" }
         try {
             val snapshotter = AndroidFrozenDatabaseSnapshotter()
-            snapshotter.snapshot(route, File(building, ROUTE_SNAPSHOT))
-            if (settings.isFile) snapshotter.snapshot(settings, File(building, SETTINGS_SNAPSHOT))
-            if (salary.isFile) snapshotter.snapshot(salary, File(building, SALARY_SNAPSHOT))
+            val snapshots = buildList {
+                add(snapshotter.snapshot(route, File(building, ROUTE_SNAPSHOT)))
+                if (settings.isFile) {
+                    add(snapshotter.snapshot(settings, File(building, SETTINGS_SNAPSHOT)))
+                }
+                if (salary.isFile) {
+                    add(snapshotter.snapshot(salary, File(building, SALARY_SNAPSHOT)))
+                }
+            }
+            val manifest = RecoveryRawSnapshotManifestV1(
+                RecoveryRawSnapshotManifestJson.FORMAT_VERSION,
+                snapshots.map { snapshot ->
+                    RecoveryRawSnapshotFileV1(
+                        snapshot.file.name,
+                        snapshot.file.length(),
+                        snapshot.sha256,
+                        snapshot.sourceVersion,
+                    )
+                },
+            )
+            val manifestBytes = RecoveryRawSnapshotManifestJson.encode(manifest).encodeToByteArray()
+            FileOutputStream(File(building, RAW_MANIFEST)).use { output ->
+                output.write(manifestBytes)
+                output.fd.sync()
+            }
             syncDirectory(building)
             require(!destination.exists()) { "Raw snapshot destination already exists" }
             Os.rename(building.path, destination.path)
@@ -127,8 +151,32 @@ class AndroidPreMigrationRecoveryCoordinator(
             !profile.hasTrashFields ||
             !profile.hasDiagnosticTables
 
-    private fun isCompleteRawDirectory(directory: File, names: List<String>): Boolean =
-        directory.isDirectory && names.all { File(directory, it).isFile }
+    private fun isValidRawDirectory(directory: File, names: List<String>): Boolean {
+        if (!directory.isDirectory) return false
+        return runCatching {
+            val manifestFile = File(directory, RAW_MANIFEST)
+            require(manifestFile.isFile && manifestFile.length() <= RecoveryRawSnapshotManifestJson.MAX_BYTES)
+            val manifest = RecoveryRawSnapshotManifestJson.decodeAndValidate(manifestFile.readText())
+            require(manifest.files.map { it.name }.toSet() == names.toSet())
+            val snapshotter = AndroidFrozenDatabaseSnapshotter()
+            manifest.files.forEach { expected ->
+                val file = File(directory, expected.name)
+                val actual = snapshotter.inspect(file)
+                require(file.length() == expected.sizeBytes)
+                require(actual.sourceVersion == expected.databaseVersion)
+                require(actual.sha256.equals(expected.sha256, ignoreCase = true))
+            }
+        }.isSuccess
+    }
+
+    private fun quarantineInvalidRawDirectory(directory: File) {
+        val quarantine = File(
+            directory.parentFile,
+            directory.name + ".invalid-" + System.currentTimeMillis(),
+        )
+        Os.rename(directory.path, quarantine.path)
+        syncDirectory(directory.parentFile)
+    }
 
     private fun installationId(): String {
         val preferences = context.getSharedPreferences(INSTALLATION_PREFERENCES, Context.MODE_PRIVATE)
@@ -166,6 +214,7 @@ class AndroidPreMigrationRecoveryCoordinator(
         const val ROUTE_SNAPSHOT = "Route.snapshot.db"
         const val SETTINGS_SNAPSHOT = "Settings.snapshot.db"
         const val SALARY_SNAPSHOT = "Salary.snapshot.db"
+        const val RAW_MANIFEST = "raw-manifest.json"
         const val RECOVERY_ROOT = "data_safety/recovery"
         const val INSTALLATION_PREFERENCES = "recovery_installation"
         const val KEY_INSTALLATION_ID = "installation_id"
