@@ -144,6 +144,8 @@ class OvertimePaymentCompositionTest {
         assertEquals(200.0 * (2.0 / 3.0), helper.getMoneyOverRestFlow().first(), 0.001)
         assertEquals(200.0, helper.getMoneySurchargeOvertime05Flow().first(), 0.001)
         assertEquals(400.0, helper.getMoneySurchargeOvertimeFlow().first(), 0.001)
+        // 800 тариф + 200 доплата 50% + 400 доплата 100% + 133,33 переотдых.
+        assertEquals(1_533.333, helper.getMoneyTotalChargedFlow().first(), 0.001)
     }
 
     @Test

@@ -23,7 +23,11 @@ class RegionalCoefficientCalculationTest {
         .toInstant(moscow)
         .toEpochMilliseconds()
 
-    private fun helper(district: Double, nordic: Double): SalaryCalculationHelper {
+    private fun helper(
+        district: Double,
+        nordic: Double,
+        averagePaymentHour: Double = 0.0,
+    ): SalaryCalculationHelper {
         val days = (1..31).map { day ->
             Day(dayOfMonth = day, tag = if (day == 1) TagForDay.HOLIDAY else TagForDay.WORKING_DAY)
         }
@@ -34,6 +38,7 @@ class RegionalCoefficientCalculationTest {
             salarySetting = SalarySetting(
                 districtCoefficient = district,
                 nordicPercent = nordic,
+                averagePaymentHour = averagePaymentHour,
                 zonalSurcharge = 0.0,
                 nightTimePercent = 0.0,
                 harmfulnessPercent = 0.0,
@@ -59,5 +64,26 @@ class RegionalCoefficientCalculationTest {
 
         assertEquals(0.0, helper.getMoneyDistrictSurcharge().first(), 0.01)
         assertEquals(0.0, helper.getMoneyNordicSurcharge().first(), 0.01)
+    }
+
+    @Test
+    fun averagePaymentIsNotCoefficientedAgain() = runTest {
+        val withoutAverage = helper(district = 10.0, nordic = 20.0)
+        val withAverage = helper(
+            district = 10.0,
+            nordic = 20.0,
+            averagePaymentHour = 10_000.0,
+        )
+
+        assertEquals(
+            withoutAverage.getMoneyDistrictSurcharge().first(),
+            withAverage.getMoneyDistrictSurcharge().first(),
+            0.01,
+        )
+        assertEquals(
+            withoutAverage.getMoneyNordicSurcharge().first(),
+            withAverage.getMoneyNordicSurcharge().first(),
+            0.01,
+        )
     }
 }

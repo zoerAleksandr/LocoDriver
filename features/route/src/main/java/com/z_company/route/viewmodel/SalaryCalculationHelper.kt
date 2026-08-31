@@ -895,7 +895,7 @@ class SalaryCalculationHelper(
 
     fun getMoneyDistrictSurcharge(): Flow<Double> {
         return flow {
-            val baseForCalculation = getBasicMoney().first() + getMoneyAtHolidayFlow().first()
+            val baseForCalculation = getRegionalCoefficientBaseMoney()
             val districtCoefficient = getPercentDistrictSurcharge().first()
             val money = baseForCalculation.times(districtCoefficient / 100)
             emit(money)
@@ -911,12 +911,21 @@ class SalaryCalculationHelper(
 
     fun getMoneyNordicSurcharge(): Flow<Double> {
         return flow {
-            val baseForCalculation = getBasicMoney().first() + getMoneyAtHolidayFlow().first()
+            val baseForCalculation = getRegionalCoefficientBaseMoney()
             val nordicCoefficient = getPercentNordicSurcharge().first()
             val money = baseForCalculation.times(nordicCoefficient / 100)
             emit(money)
         }
     }
+
+    /**
+     * Подтверждённая на текущем этапе база районного и северного коэффициентов:
+     * обычные тарифные начисления/надбавки, сверхурочные и праздничная оплата.
+     * Выплаты по среднему, линейный пробег и переотдых сюда намеренно не входят:
+     * для среднего коэффициенты уже учтены, для двух последних нужна местная норма.
+     */
+    private suspend fun getRegionalCoefficientBaseMoney(): Double =
+        getBasicMoney().first() + getMoneyAtHolidayFlow().first()
 
     fun getDayOffHoursFlow(): Flow<Long> {
         return flow {
@@ -1103,9 +1112,12 @@ class SalaryCalculationHelper(
             // (средний час их уже учитывает).
             val underworkMoney = getMoneyUnderworkFlow().first()
             val linearMileageMoney = getMoneyLinearMileageFlow().first()
+            // Переотдых показывается отдельной строкой и является самостоятельным
+            // начислением 2/3 тарифа, поэтому обязан входить в общий итог.
+            val overRestMoney = getMoneyOverRestFlow().first()
 
             val totalMoney =
-                baseMoney + holidayMoney + averageMoney + averageMoneyCaringForDisableChildren + businessTripMoney + technicalStudyMoney + nordicSurcharge + districtSurcharge + underworkMoney + linearMileageMoney
+                baseMoney + holidayMoney + averageMoney + averageMoneyCaringForDisableChildren + businessTripMoney + technicalStudyMoney + nordicSurcharge + districtSurcharge + underworkMoney + linearMileageMoney + overRestMoney
 
             emit(totalMoney)
         }
