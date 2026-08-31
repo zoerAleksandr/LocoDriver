@@ -23,6 +23,10 @@ class RegionalCoefficientCalculationTest {
         .toInstant(moscow)
         .toEpochMilliseconds()
 
+    private fun millis(day: Int, hour: Int): Long = LocalDateTime(2025, 1, day, hour, 0)
+        .toInstant(moscow)
+        .toEpochMilliseconds()
+
     private fun helper(
         district: Double,
         nordic: Double,
@@ -85,5 +89,40 @@ class RegionalCoefficientCalculationTest {
             withAverage.getMoneyNordicSurcharge().first(),
             0.01,
         )
+    }
+
+    @Test
+    fun manualNightHolidayAndTwoCoefficientsExample() = runTest {
+        val helper = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2025,
+                    month = 0,
+                    tariffRate = 100.0,
+                    days = (1..31).map { day ->
+                        Day(day, if (day == 2) TagForDay.HOLIDAY else TagForDay.WORKING_DAY)
+                    },
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(
+                nightTimePercent = 40.0,
+                districtCoefficient = 10.0,
+                nordicPercent = 20.0,
+                zonalSurcharge = 0.0,
+                harmfulnessPercent = 0.0,
+            ),
+            allRoutes = listOf(Route(basicData = BasicData(
+                timeStartWork = millis(day = 1, hour = 22),
+                timeEndWork = millis(day = 2, hour = 2),
+            ))),
+        )
+
+        assertEquals(200.0, helper.getMoneyAtWorkTimeAtTariff().first(), 0.001)
+        assertEquals(160.0, helper.getMoneyAtNightTimeFlow().first(), 0.001)
+        assertEquals(400.0, helper.getMoneyAtHolidayFlow().first(), 0.001)
+        assertEquals(76.0, helper.getMoneyDistrictSurcharge().first(), 0.001)
+        assertEquals(152.0, helper.getMoneyNordicSurcharge().first(), 0.001)
+        assertEquals(988.0, helper.getMoneyTotalChargedFlow().first(), 0.001)
     }
 }
