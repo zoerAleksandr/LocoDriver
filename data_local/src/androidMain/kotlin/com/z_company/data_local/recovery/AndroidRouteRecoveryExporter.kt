@@ -19,6 +19,9 @@ data class ExportedRecoverySection(
     val sha256: String,
 )
 
+class RouteRecoveryOrphansPresentException(val orphanCount: Long) :
+    IllegalStateException("Route recovery source contains orphan rows")
+
 class AndroidRouteRecoveryExporter {
     fun export(sourceDatabase: File, destination: File): ExportedRecoverySection {
         require(sourceDatabase.isFile) { "Route recovery source does not exist" }
@@ -37,6 +40,8 @@ class AndroidRouteRecoveryExporter {
             require(REQUIRED_TABLES.all { hasTable(database, it) }) {
                 "Route recovery source is missing a required table"
             }
+            val orphanCount = countOrphans(database)
+            if (orphanCount > 0L) throw RouteRecoveryOrphansPresentException(orphanCount)
             FileOutputStream(temporary).use { fileOutput ->
                 BufferedOutputStream(fileOutput).use { output ->
                     database.rawQuery("SELECT id FROM BasicData ORDER BY id", null).use { routes ->
@@ -151,6 +156,17 @@ class AndroidRouteRecoveryExporter {
             }
             false
         }
+
+    private fun countOrphans(database: SQLiteDatabase): Long =
+        TABLES.asSequence()
+            .filter { it.name != "BasicData" && hasTable(database, it.name) }
+            .sumOf { table ->
+                database.rawQuery(
+                    "SELECT count(*) FROM `${table.name}` child LEFT JOIN BasicData parent " +
+                        "ON parent.id = child.basicId WHERE parent.id IS NULL",
+                    null,
+                ).use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else 0L }
+            }
 
     private data class RouteTable(val name: String, val primaryKey: String)
 

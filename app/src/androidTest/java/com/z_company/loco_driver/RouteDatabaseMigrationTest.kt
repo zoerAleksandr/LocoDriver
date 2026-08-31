@@ -12,6 +12,7 @@ import com.z_company.data_local.RouteDatabaseProfileDetector
 import com.z_company.data_local.recovery.AndroidRouteRecoveryExporter
 import com.z_company.data_local.recovery.RecoveryRouteRecordJson
 import com.z_company.data_local.recovery.RecoverySha256
+import com.z_company.data_local.recovery.RouteRecoveryOrphansPresentException
 import com.z_company.data_local.route.db.RouteDatabase
 import org.json.JSONObject
 import org.junit.After
@@ -426,6 +427,56 @@ class RouteDatabaseMigrationTest {
         openDatabase().use { source ->
             assertEquals(12, source.version)
             assertEquals(setOf("fixture-route"), routeIds(source))
+        }
+    }
+
+    @Test
+    fun everyArchivedRoomFixtureExportsBeforeMigration() {
+        for (version in ARCHIVED_ROOM_VERSIONS) {
+            deleteFixtureDatabase()
+            createFromRoomSchema(version = version)
+            val destination = File(isolatedContext.filesDir, "recovery/routes-v$version.ndjson")
+
+            val section = AndroidRouteRecoveryExporter().export(
+                isolatedContext.getDatabasePath(DATABASE_NAME),
+                destination,
+            )
+
+            assertEquals("Room v$version export count", 1L, section.itemCount)
+            assertEquals(
+                "Room v$version export digest",
+                RecoverySha256.digestHex(destination.readBytes()),
+                section.sha256,
+            )
+            val record = RecoveryRouteRecordJson.decode(destination.readLines().single())
+            assertEquals("Room v$version route", "fixture-route", record.routeId)
+            assertEquals("Room v$version tables", 5, record.tables.size)
+            openDatabase().use { source -> assertEquals(version, source.version) }
+        }
+    }
+
+    @Test
+    fun orphanedRowsCannotProduceSilentlyIncompleteRecoveryExport() {
+        createFromRoomSchema(version = 12)
+        openDatabase().use { source ->
+            source.execSQL("UPDATE Train SET basicId = ?", arrayOf<Any>("missing-route"))
+        }
+        val destination = File(isolatedContext.filesDir, "recovery/routes.ndjson")
+
+        val error = runCatching {
+            AndroidRouteRecoveryExporter().export(
+                isolatedContext.getDatabasePath(DATABASE_NAME),
+                destination,
+            )
+        }.exceptionOrNull()
+
+        assertTrue(error is RouteRecoveryOrphansPresentException)
+        assertEquals(1L, (error as RouteRecoveryOrphansPresentException).orphanCount)
+        assertFalse(destination.exists())
+        assertFalse(File(destination.path + ".tmp").exists())
+        openDatabase().use { source ->
+            assertEquals(12, source.version)
+            assertEquals(1L, orphanCount(source))
         }
     }
 
