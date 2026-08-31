@@ -114,4 +114,31 @@ class BaseSurchargeSegmentIntegrationTest {
         assertEquals(60.0, helper.getMoneyHarmfulnessFlow().first(), 0.001)
         assertEquals(125.0, helper.getMoneyZonalSurchargeFlow().first(), 0.001)
     }
+
+    @Test
+    fun passengerBeforeWorkIsIncludedInTotalChargedWithItsApplicableSurcharges() = runTest {
+        fun route(passengers: MutableList<Passenger> = mutableListOf()) = Route(
+            basicData = BasicData(
+                timeStartWork = instant(day = 11, hour = 1),
+                timeEndWork = instant(day = 11, hour = 2),
+            ),
+            passengers = passengers,
+        )
+        val withoutPassenger = helper(route())
+        val withPassenger = helper(route(mutableListOf(
+            Passenger(
+                timeDeparture = instant(day = 10, hour = 23),
+                timeArrival = instant(day = 11, hour = 1),
+                isWorkStartByArrival = true,
+            ),
+        )))
+
+        // 300 тариф пассажиром + 36 вредность (12%) + 75 зональная (25%).
+        assertEquals(
+            411.0,
+            withPassenger.getMoneyTotalChargedFlow().first() -
+                    withoutPassenger.getMoneyTotalChargedFlow().first(),
+            0.001,
+        )
+    }
 }

@@ -554,11 +554,13 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
     // Метод для установки данных по пассажирским поездам (часы, сумма).
     private suspend fun setPassengerData(helper: SalaryCalculationHelper): PartialState {
-        val passengerTime = helper.getPassengerTimeFlow().first()
-        val money = helper.getMoneyAtPassengerFlow().first()
+        val passengerInsideTime = helper.getPassengerTimeFlow().first()
+        val passengerOutsideTime = helper.getPassengerOutsideWorkTimeFlow().first()
+        val money = helper.getMoneyAtPassengerFlow().first() +
+                helper.getMoneyAtPassengerOutsideWorkFlow().first()
 
         return PartialState(
-            paymentAtPassengerHours = passengerTime,
+            paymentAtPassengerHours = passengerInsideTime + passengerOutsideTime,
             paymentAtPassengerMoney = money
         )
     }

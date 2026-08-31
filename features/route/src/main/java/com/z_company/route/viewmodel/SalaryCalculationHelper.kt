@@ -498,6 +498,10 @@ class SalaryCalculationHelper(
         }
     }
 
+    fun getPassengerOutsideWorkTimeFlow(): Flow<Long> = flow {
+        emit(routeList.getPassengerTimeOutsideWork(currentMonthOfYear, timeCalculationContext))
+    }
+
     fun getHolidayTimeFlow(routes: List<Route> = routeList): Flow<Long> {
         return channelFlow {
             val time = getHolidayTime(routes)
@@ -1115,9 +1119,12 @@ class SalaryCalculationHelper(
             // Переотдых показывается отдельной строкой и является самостоятельным
             // начислением 2/3 тарифа, поэтому обязан входить в общий итог.
             val overRestMoney = getMoneyOverRestFlow().first()
+            // 018L до явки находится вне окна работы и потому не входит в
+            // getBasicMoney(), но остаётся самостоятельной тарифной выплатой.
+            val passengerOutsideWorkMoney = getMoneyAtPassengerOutsideWorkFlow().first()
 
             val totalMoney =
-                baseMoney + holidayMoney + averageMoney + averageMoneyCaringForDisableChildren + businessTripMoney + technicalStudyMoney + nordicSurcharge + districtSurcharge + underworkMoney + linearMileageMoney + overRestMoney
+                baseMoney + holidayMoney + averageMoney + averageMoneyCaringForDisableChildren + businessTripMoney + technicalStudyMoney + nordicSurcharge + districtSurcharge + underworkMoney + linearMileageMoney + overRestMoney + passengerOutsideWorkMoney
 
             emit(totalMoney)
         }
