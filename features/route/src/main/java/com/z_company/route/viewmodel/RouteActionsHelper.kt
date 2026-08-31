@@ -47,7 +47,8 @@ class RouteActionsHelper() : KoinComponent {
     // Result of newRouteClick decision — ViewModel will react accordingly
     sealed class NewRouteResult {
         object NeedSubscribeDialog : NewRouteResult()          // Show "need subscribe" dialog
-        object AlertSubscribeDialog : NewRouteResult()         // Show "alert subscribe" dialog
+        /** Лимит ещё не исчерпан: [freeRoutesLeft] маршрутов доступно бесплатно. */
+        data class AlertSubscribeDialog(val freeRoutesLeft: Int) : NewRouteResult()
         data class ShowNewRouteScreen(val basicId: String?, val isMakeCopy: Boolean) :
             NewRouteResult()
 
@@ -98,7 +99,9 @@ class RouteActionsHelper() : KoinComponent {
                 }
 
                 else -> {
-                    NewRouteResult.AlertSubscribeDialog
+                    NewRouteResult.AlertSubscribeDialog(
+                        freeRoutesLeft = (countFreeRoutes - routesSize).coerceAtLeast(0)
+                    )
                 }
             }
         } catch (t: Throwable) {

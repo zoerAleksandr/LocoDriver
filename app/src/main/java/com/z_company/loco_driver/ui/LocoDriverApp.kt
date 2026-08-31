@@ -108,11 +108,13 @@ fun LocoDriverApp(
         // Диалоги проверки подписки (показываются до навигации на FormScreen)
         var showNeedSubscribeDialog by remember { mutableStateOf(false) }
         var showAlertSubscribeDialog by remember { mutableStateOf(false) }
+        // Сколько маршрутов ещё можно создать бесплатно — для диалога пробного периода.
+        var freeRoutesLeft by remember { mutableStateOf(0) }
 
         if (showNeedSubscribeDialog) {
             AppAlertDialog(
                 onDismissRequest = { showNeedSubscribeDialog = false },
-                title = "Подписка завершена",
+                title = "Бесплатный лимит исчерпан",
                 text = "Для добавления новых маршрутов оформите подписку.",
                 confirmText = "Оформить подписку",
                 onConfirm = {
@@ -128,8 +130,10 @@ fun LocoDriverApp(
             AppAlertDialog(
                 onDismissRequest = { showAlertSubscribeDialog = false },
                 title = "Пробный период",
-                text = "Вам доступно 20 бесплатных маршрутов. Оформите подписку для неограниченного использования.",
-                confirmText = "Продолжить",
+                text = "Осталось бесплатных маршрутов: $freeRoutesLeft из " +
+                        "${RouteActionsHelper.FREE_ROUTES_LIMIT}. Оформите подписку для " +
+                        "неограниченного использования или продолжите бесплатно.",
+                confirmText = "Продолжить бесплатно",
                 onConfirm = {
                     showAlertSubscribeDialog = false
                     navController.navigate(FormRoute.buildDetailsRoute(null, false)) {
@@ -284,11 +288,12 @@ fun LocoDriverApp(
                                 navController = navController,
                                 onAddClick = {
                                     scope.launch {
-                                        when (routeHelper.newRouteClick()) {
+                                        when (val decision = routeHelper.newRouteClick()) {
                                             is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
                                                 showNeedSubscribeDialog = true
                                             }
                                             is RouteActionsHelper.NewRouteResult.AlertSubscribeDialog -> {
+                                                freeRoutesLeft = decision.freeRoutesLeft
                                                 showAlertSubscribeDialog = true
                                             }
                                             is RouteActionsHelper.NewRouteResult.ShowNewRouteScreen -> {
