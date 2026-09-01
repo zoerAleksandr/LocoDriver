@@ -27,11 +27,16 @@ class BusinessTripBoundaryCalculationTest {
     private fun instant(day: Int, hour: Int): Long =
         LocalDateTime(2025, 1, day, hour, 0).toInstant(moscow).toEpochMilliseconds()
 
-    private fun helper(route: Route, businessDays: Set<Int>): SalaryCalculationHelper {
+    private fun helper(
+        route: Route,
+        businessDays: Set<Int>,
+        effectiveNormaHours: Int = 0,
+        tagForDay: (Int) -> TagForDay = { TagForDay.WORKING_DAY },
+    ): SalaryCalculationHelper {
         val days = (1..31).map { day ->
             Day(
                 dayOfMonth = day,
-                tag = TagForDay.WORKING_DAY,
+                tag = tagForDay(day),
                 isReleaseDay = day in businessDays,
                 releaseType = ReleaseType.BusinessTrip.takeIf { day in businessDays },
             )
@@ -51,6 +56,7 @@ class BusinessTripBoundaryCalculationTest {
                 harmfulnessPercent = 10.0,
             ),
             allRoutes = listOf(route),
+            effectiveNormaHoursForUnderwork = effectiveNormaHours,
         )
     }
 
@@ -110,5 +116,46 @@ class BusinessTripBoundaryCalculationTest {
         assertEquals(4 * hour, calculation.getBusinessTripTimeFlow().first())
         assertEquals(0L, calculation.getTotalWorkTime().first())
         assertEquals(800.0, calculation.getMoneyTotalChargedFlow().first(), 0.001)
+    }
+
+    @Test
+    fun nightAndHolidayInsideBusinessTripAreNotPaidAgainAsRegularAccruals() = runTest {
+        val route = Route(basicData = BasicData(
+            timeStartWork = instant(day = 10, hour = 22),
+            timeEndWork = instant(day = 11, hour = 2),
+        ))
+        val calculation = helper(
+            route = route,
+            businessDays = setOf(10, 11),
+            tagForDay = { day ->
+                if (day == 10) TagForDay.HOLIDAY else TagForDay.WORKING_DAY
+            },
+        )
+
+        assertTrue(calculation.isEntirelyBusinessTrip())
+        assertEquals(4 * hour, calculation.getBusinessTripTimeFlow().first())
+        assertEquals(0L, calculation.getNightTimeFlow().first())
+        assertEquals(0L, calculation.getHolidayTimeFlow().first())
+        assertEquals(0.0, calculation.getMoneyAtNightTimeFlow().first(), 0.001)
+        assertEquals(0.0, calculation.getMoneyAtHolidayFlow().first(), 0.001)
+        assertEquals(800.0, calculation.getMoneyTotalChargedFlow().first(), 0.001)
+    }
+
+    @Test
+    fun workedBusinessTripHoursCloseUnderworkNormWithoutReducingMonthlyNorm() = runTest {
+        val route = Route(basicData = BasicData(
+            timeStartWork = instant(day = 10, hour = 8),
+            timeEndWork = instant(day = 10, hour = 12),
+        ))
+        val calculation = helper(
+            route = route,
+            businessDays = setOf(10),
+            effectiveNormaHours = 8,
+        )
+
+        assertEquals(4 * hour, calculation.getBusinessTripTimeFlow().first())
+        assertEquals(4 * hour, calculation.getUnderworkTimeFlow().first())
+        assertEquals(800.0, calculation.getMoneyBusinessTripFlow().first(), 0.001)
+        assertEquals(800.0, calculation.getMoneyUnderworkFlow().first(), 0.001)
     }
 }
