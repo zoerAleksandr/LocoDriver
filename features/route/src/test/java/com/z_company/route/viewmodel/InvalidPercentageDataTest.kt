@@ -100,4 +100,60 @@ class InvalidPercentageDataTest {
         assertEquals(150.0, helper.getMoneyAtQualificationClassFlow().first(), 0.001)
         assertTrue(helper.getMoneyTotalChargedFlow().first().isFinite())
     }
+
+    @Test
+    fun allMainTimeAndMoneyOutputsRemainNonNegativeAndFinite() = runTest {
+        val helper = helper(SalarySetting(
+            averagePaymentHour = Double.NaN,
+            nightTimePercent = Double.POSITIVE_INFINITY,
+            surchargeQualificationClass = -1.0,
+            onePersonOperationPercent = Double.NaN,
+            harmfulnessPercent = Double.NEGATIVE_INFINITY,
+            zonalSurcharge = -1.0,
+            districtCoefficient = Double.NaN,
+            nordicPercent = Double.POSITIVE_INFINITY,
+            otherSurcharge = -1.0,
+            ndfl = Double.NaN,
+            unionistsRetention = -1.0,
+            otherRetention = Double.POSITIVE_INFINITY,
+            welfarePercent = -1.0,
+            alimonyPercent = Double.NaN,
+        ))
+
+        val times = listOf(
+            helper.getTotalWorkTime().first(),
+            helper.getWorkTimeAtTariffFlow().first(),
+            helper.getNightTimeFlow().first(),
+            helper.getPassengerTimeFlow().first(),
+            helper.getPassengerOutsideWorkTimeFlow().first(),
+            helper.getHolidayTimeFlow().first(),
+            helper.getTimeHarmfulnessFlow().first(),
+            helper.getTimeZonalSurchargeFlow().first(),
+            helper.getTimeOvertimeFlow().first(),
+            helper.getTimeSurchargeAtOvertime05Flow().first(),
+            helper.getTimeSurchargeAtOvertimeFlow().first(),
+            helper.getUnderworkTimeFlow().first(),
+            helper.getBusinessTripTimeFlow().first(),
+            helper.getTechnicalStudyTimeFlow().first(),
+            helper.getOverRestTimeFlow().first(),
+        )
+        val money = listOf(
+            helper.getMoneyAtWorkTimeAtTariff().first(),
+            helper.getMoneyAtNightTimeFlow().first(),
+            helper.getMoneyHarmfulnessFlow().first(),
+            helper.getMoneyZonalSurchargeFlow().first(),
+            helper.getMoneyAtQualificationClassFlow().first(),
+            helper.getMoneyOvertimeFlow().first(),
+            helper.getMoneySurchargeOvertime05Flow().first(),
+            helper.getMoneySurchargeOvertimeFlow().first(),
+            helper.getMoneyDistrictSurcharge().first(),
+            helper.getMoneyNordicSurcharge().first(),
+            helper.getMoneyTotalChargedFlow().first(),
+            helper.getMoneyTotalRetentionFlow().first(),
+            helper.getMoneyToBeCredited().first(),
+        )
+
+        assertTrue(times.all { it >= 0L })
+        assertTrue(money.all { it.isFinite() })
+    }
 }
