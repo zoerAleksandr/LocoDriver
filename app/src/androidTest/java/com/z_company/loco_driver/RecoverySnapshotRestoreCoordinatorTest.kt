@@ -95,6 +95,75 @@ class RecoverySnapshotRestoreCoordinatorTest {
         )
     }
 
+    @Test
+    fun checksumMismatchNeverTouchesLiveDatabasesAndClearsDownloadedData() {
+        createAllLiveDatabases()
+        val downloaded = File(fixtureContext.cacheDir, "corrupted.bundle")
+            .apply { writeBytes("not-a-recovery-archive".encodeToByteArray()) }
+        val response = validResponse(
+            snapshotId = "snapshot-corrupted",
+            sizeBytes = downloaded.length(),
+            sha256 = "0".repeat(64),
+        )
+
+        val error = runCatching {
+            RecoverySnapshotRestoreCoordinator(
+                fixtureContext,
+                CopyingCloudClient(response, downloaded),
+            ).restoreLatest("test-token")
+        }.exceptionOrNull()
+
+        assertTrue(error is IllegalArgumentException)
+        assertAllLiveMarkersPresent()
+        assertFalse(File(fixtureContext.filesDir, "data_safety/recovery/cloud-restore-working").exists())
+        assertFalse(File(fixtureContext.filesDir, "data_safety/recovery/install-journal.json").exists())
+    }
+
+    @Test
+    fun unsafeSnapshotIdIsRejectedBeforeDownloadAndNeverTouchesLiveDatabases() {
+        createAllLiveDatabases()
+        val response = validResponse(snapshotId = "../../another-account")
+        val cloud = CopyingCloudClient(response, File(fixtureContext.cacheDir, "unused"))
+
+        val error = runCatching {
+            RecoverySnapshotRestoreCoordinator(fixtureContext, cloud)
+                .restoreLatest("test-token")
+        }.exceptionOrNull()
+
+        assertTrue(error is IllegalArgumentException)
+        assertEquals(null, cloud.downloadAuthorization)
+        assertAllLiveMarkersPresent()
+        assertFalse(File(fixtureContext.filesDir, "data_safety/recovery/cloud-restore-working").exists())
+    }
+
+    private fun createAllLiveDatabases() {
+        createLiveDatabase(ROUTE_SCHEMA, ROUTE_DATABASE, 12)
+        createLiveDatabase(SETTINGS_SCHEMA, SETTINGS_DATABASE, 14)
+        createLiveDatabase(SALARY_SCHEMA, SALARY_DATABASE, 7)
+    }
+
+    private fun assertAllLiveMarkersPresent() {
+        assertTrue(hasTable(ROUTE_DATABASE, OLD_ONLY_TABLE))
+        assertTrue(hasTable(SETTINGS_DATABASE, OLD_ONLY_TABLE))
+        assertTrue(hasTable(SALARY_DATABASE, OLD_ONLY_TABLE))
+    }
+
+    private fun validResponse(
+        snapshotId: String,
+        sizeBytes: Long = 1L,
+        sha256: String = "0".repeat(64),
+    ) = RecoverySnapshotResponse(
+        snapshotId = snapshotId,
+        status = "READY",
+        archiveFormatVersion = 1,
+        sourceDbVersion = 12,
+        appBuild = 9_999,
+        sizeBytes = sizeBytes,
+        sha256 = sha256,
+        createdAt = 1_800_000_000_000L,
+        completedAt = 1_800_000_000_001L,
+    )
+
     private fun createLiveDatabase(schemaRoot: String, name: String, version: Int) {
         val schema = schemaContext.assets.open("$schemaRoot/$version.json").bufferedReader()
             .use { JSONObject(it.readText()) }
