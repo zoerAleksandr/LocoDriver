@@ -32,4 +32,22 @@ class RecoverySnapshotContractTest {
     fun recoveryEndpointIsHttps() {
         assertTrue(RECOVERY_API_BASE_URL.startsWith("https://"))
     }
+
+    @Test
+    fun snapshotIdCannotEscapeRecoveryUrlPath() {
+        assertFails {
+            RecoverySnapshotContractValidator.validate(
+                RecoverySnapshotResponse(
+                    "../another-user",
+                    "READY",
+                    1,
+                    12,
+                    80,
+                    123,
+                    "a".repeat(64),
+                    1,
+                )
+            )
+        }
+    }
 }

@@ -11,9 +11,14 @@ import javax.net.ssl.HttpsURLConnection
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 
+interface RecoveryCloudClient {
+    fun latest(token: String): RecoverySnapshotResponse
+    fun download(token: String, snapshot: RecoverySnapshotResponse, destination: File): File
+}
+
 class AndroidRecoveryCloudClient(
     private val baseUrl: String = RECOVERY_API_BASE_URL,
-) {
+) : RecoveryCloudClient {
     init {
         require(baseUrl.startsWith("https://")) { "Recovery API requires HTTPS" }
     }
@@ -47,10 +52,10 @@ class AndroidRecoveryCloudClient(
         }
     }
 
-    fun latest(token: String): RecoverySnapshotResponse =
+    override fun latest(token: String): RecoverySnapshotResponse =
         jsonRequest("GET", "recovery/snapshots/latest", token, null)
 
-    fun download(
+    override fun download(
         token: String,
         snapshot: RecoverySnapshotResponse,
         destination: File,

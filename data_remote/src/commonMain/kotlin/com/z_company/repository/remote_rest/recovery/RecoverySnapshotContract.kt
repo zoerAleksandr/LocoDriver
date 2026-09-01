@@ -44,7 +44,7 @@ object RecoverySnapshotContractValidator {
     }
 
     fun validate(response: RecoverySnapshotResponse) {
-        require(response.snapshotId.length in 1..128)
+        require(id.matches(response.snapshotId))
         require(response.status in setOf("UPLOADING", "READY", "FAILED"))
         require(response.archiveFormatVersion in 1..16)
         require(response.sourceDbVersion in 1..10_000)
