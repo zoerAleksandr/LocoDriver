@@ -84,6 +84,14 @@ class ExtendedServicePhaseSegmentIntegrationTest {
     }
 
     @Test
+    fun routeExactlyAtExtendedPhaseThresholdIsEligible() = runTest {
+        val helper = helper(totalDistance = 250)
+
+        assertEquals(listOf(3 * hour), helper.getTimeListSurchargeServicePhaseFlow().first())
+        assertEquals(listOf(50.0), helper.getMoneyListSurchargeExtendedServicePhaseFlow().first())
+    }
+
+    @Test
     fun extendedPhaseSurchargeEntersTotalChargedExactlyOnce() = runTest {
         val eligible = helper(totalDistance = 270)
         val belowThreshold = helper(totalDistance = 249)

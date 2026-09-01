@@ -66,8 +66,10 @@ class TrainSurchargeThresholdValidationTest {
                 SurchargeHeavyTrains(weight = "6 000", percentSurcharge = "5"),
                 SurchargeHeavyTrains(weight = "10000,0", percentSurcharge = "10"),
                 SurchargeHeavyTrains(weight = "6000,5"),
+                SurchargeHeavyTrains(weight = ""),
                 SurchargeHeavyTrains(weight = "NaN"),
                 SurchargeHeavyTrains(weight = "Infinity"),
+                SurchargeHeavyTrains(weight = "999999999999999999999"),
             ),
         )
 

@@ -30,7 +30,15 @@ class TrainSurchargeSegmentIntegrationTest {
     private fun instant(day: Int, hour: Int, minute: Int = 0): Long =
         LocalDateTime(2025, 1, day, hour, minute).toInstant(moscow).toEpochMilliseconds()
 
-    private fun helper(train: Train): SalaryCalculationHelper {
+    private fun helper(
+        train: Train,
+        heavy: List<SurchargeHeavyTrains> = listOf(
+            SurchargeHeavyTrains(weight = "6000", percentSurcharge = "10"),
+        ),
+        long: List<SurchargeLongTrains> = listOf(
+            SurchargeLongTrains(conditionalLength = "80", percentSurcharge = "20"),
+        ),
+    ): SalaryCalculationHelper {
         val month = MonthOfYear(
             year = 2025,
             month = 0,
@@ -56,12 +64,8 @@ class TrainSurchargeSegmentIntegrationTest {
         return SalaryCalculationHelper(
             userSettings = UserSettings(selectMonthOfYear = month, timeZone = 0L),
             salarySetting = SalarySetting(
-                surchargeHeavyTrainsList = listOf(
-                    SurchargeHeavyTrains(weight = "6000", percentSurcharge = "10"),
-                ),
-                surchargeLongTrainsList = listOf(
-                    SurchargeLongTrains(conditionalLength = "80", percentSurcharge = "20"),
-                ),
+                surchargeHeavyTrainsList = heavy,
+                surchargeLongTrainsList = long,
             ),
             allRoutes = listOf(route),
         )
@@ -101,5 +105,31 @@ class TrainSurchargeSegmentIntegrationTest {
         assertEquals(listOf(0.0), helper.getMoneyListSurchargeExtendedHeavyTrainsFlow().first())
         assertEquals(listOf(0L), helper.getTimeListSurchargeLongTrainsFlow().first())
         assertEquals(listOf(0.0), helper.getMoneyListSurchargeLongTrainsFlow().first())
+    }
+
+    @Test
+    fun exactAndAdjacentHeavyThresholdsSelectOnlyHighestApplicableTier() = runTest {
+        val tiers = listOf(
+            SurchargeHeavyTrains(weight = "10000", percentSurcharge = "20"),
+            SurchargeHeavyTrains(weight = "6000", percentSurcharge = "10"),
+        )
+
+        suspend fun money(weight: String): List<Double> = helper(
+            train = Train(
+                weight = weight,
+                stations = mutableListOf(
+                    Station(timeDeparture = instant(day = 10, hour = 22, minute = 30)),
+                    Station(timeArrival = instant(day = 11, hour = 2, minute = 30)),
+                ),
+            ),
+            heavy = tiers,
+            long = emptyList(),
+        ).getMoneyListSurchargeExtendedHeavyTrainsFlow().first()
+
+        assertEquals(listOf(0.0, 0.0), money("5999"))
+        assertEquals(listOf(35.0, 0.0), money("6000"))
+        assertEquals(listOf(35.0, 0.0), money("9999"))
+        assertEquals(listOf(0.0, 70.0), money("10000"))
+        assertEquals(listOf(0.0, 70.0), money("10001"))
     }
 }
