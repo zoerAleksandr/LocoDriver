@@ -38,8 +38,6 @@ import com.z_company.route.util.ShareLinkData
 import com.z_company.route.viewmodel.home_view_model.OpenRouteFormEvent
 import kotlinx.datetime.LocalDate
 import com.z_company.domain.util.TimeCalculationContext
-import com.z_company.domain.util.displayTimeZone
-import kotlinx.datetime.TimeZone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -635,13 +633,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         }.getOrNull() ?: baseMonth
 
         withContext(Dispatchers.IO) {
-            // Календарная дата должна совпадать с вводом и отображением явки.
-            // Для РФ это МСК даже если настройки расчётов переходящих маршрутов
-            // используют локальный часовой пояс (например, Красноярск).
-            val calendarContext = context.copy(
-                crossMonthTZ = TimeZone.of(setting.displayTimeZone())
-            )
-            val result = routeUseCase.listRoutesByMonth(month, calendarContext)
+            val result = routeUseCase.listRoutesByMonth(month, context)
                 .first { it is ResultState.Success || it is ResultState.Error }
 
             val routes: List<Route> = when (result) {
