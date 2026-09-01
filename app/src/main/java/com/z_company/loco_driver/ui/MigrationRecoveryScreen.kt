@@ -21,8 +21,12 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun MigrationRecoveryScreen(
     isRetrying: Boolean,
+    isCloudRestoring: Boolean,
+    cloudRecoveryEnabled: Boolean,
+    cloudMessage: String?,
     errorCode: String?,
     onRetry: () -> Unit,
+    onCloudRestore: () -> Unit,
     onClose: () -> Unit,
 ) {
     MaterialTheme {
@@ -60,7 +64,7 @@ internal fun MigrationRecoveryScreen(
                 Spacer(Modifier.height(24.dp))
                 Button(
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isRetrying,
+                    enabled = !isRetrying && !isCloudRestoring,
                     onClick = onRetry,
                 ) {
                     if (isRetrying) {
@@ -72,10 +76,31 @@ internal fun MigrationRecoveryScreen(
                         Text("Восстановить приложение")
                     }
                 }
+                if (cloudRecoveryEnabled) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isRetrying && !isCloudRestoring,
+                        onClick = onCloudRestore,
+                    ) {
+                        if (isCloudRestoring) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.height(20.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Text("Восстановить резервную копию аккаунта")
+                        }
+                    }
+                    cloudMessage?.let { message ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(message, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isRetrying,
+                    enabled = !isRetrying && !isCloudRestoring,
                     onClick = onClose,
                 ) {
                     Text("Закрыть")

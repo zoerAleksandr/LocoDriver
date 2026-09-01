@@ -26,8 +26,19 @@ import androidx.work.WorkManager
 import com.z_company.work_manager.SyncWorker
 import com.z_company.work_manager.DiagnosticWorker
 import com.z_company.loco_driver.recovery.RecoverySnapshotUploadWorker
+import com.z_company.loco_driver.recovery.RecoverySnapshotRestoreCoordinator
+import com.z_company.repository.SecureTokenStorage
+import com.z_company.repository.remote_rest.recovery.RecoveryCloudHttpException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.flow.first
+
+internal sealed interface CloudRecoveryOutcome {
+    data object Success : CloudRecoveryOutcome
+    data object AuthorizationRequired : CloudRecoveryOutcome
+    data object SnapshotUnavailable : CloudRecoveryOutcome
+    data class Failed(val errorCode: String) : CloudRecoveryOutcome
+}
 
 class StartApp : Application() {
 
@@ -63,6 +74,34 @@ class StartApp : Application() {
     }
 
     fun migrationErrorCode(): String? = migrationBootstrap.errorCode()
+
+    internal fun cloudRecoveryEnabled(): Boolean = BuildConfig.RECOVERY_CLOUD_ENABLED
+
+    internal suspend fun restoreLatestCloudSnapshot(): CloudRecoveryOutcome {
+        if (!BuildConfig.RECOVERY_CLOUD_ENABLED) {
+            return CloudRecoveryOutcome.Failed("CLOUD_RECOVERY_DISABLED")
+        }
+        val token = SecureTokenStorage(this).getAuthBearerTokenFlow().first()
+        if (token.isNullOrBlank()) return CloudRecoveryOutcome.AuthorizationRequired
+        return try {
+            RecoverySnapshotRestoreCoordinator(this).restoreLatest(token)
+            migrationBootstrapState = migrationBootstrap.prepare(allowRetry = true)
+            if (migrationBootstrapState == MigrationBootstrapState.READY) {
+                startMainGraphAndWorkers()
+                CloudRecoveryOutcome.Success
+            } else {
+                CloudRecoveryOutcome.Failed(migrationErrorCode() ?: "RESTORED_DATABASE_REJECTED")
+            }
+        } catch (error: RecoveryCloudHttpException) {
+            when (error.statusCode) {
+                401, 403 -> CloudRecoveryOutcome.AuthorizationRequired
+                404 -> CloudRecoveryOutcome.SnapshotUnavailable
+                else -> CloudRecoveryOutcome.Failed("RECOVERY_HTTP_${error.statusCode}")
+            }
+        } catch (error: Exception) {
+            CloudRecoveryOutcome.Failed(error::class.simpleName ?: "CloudRecoveryError")
+        }
+    }
 
     private fun startMainGraphAndWorkers() {
         if (!mainGraphStarted.compareAndSet(false, true)) return
@@ -125,21 +164,26 @@ class StartApp : Application() {
                 ExistingPeriodicWorkPolicy.UPDATE,
                 periodicDiagnosticsRequest,
             )
-        WorkManager.getInstance(this)
-            .enqueueUniqueWork(
-                "recovery_snapshot_upload_now",
-                ExistingWorkPolicy.KEEP,
-                OneTimeWorkRequestBuilder<RecoverySnapshotUploadWorker>()
-                    .setConstraints(constraints)
-                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
-                    .build(),
-            )
-        WorkManager.getInstance(this)
-            .enqueueUniquePeriodicWork(
-                "recovery_snapshot_upload_periodic",
-                ExistingPeriodicWorkPolicy.UPDATE,
-                periodicRecoveryRequest,
-            )
+        if (BuildConfig.RECOVERY_CLOUD_ENABLED) {
+            WorkManager.getInstance(this)
+                .enqueueUniqueWork(
+                    "recovery_snapshot_upload_now",
+                    ExistingWorkPolicy.KEEP,
+                    OneTimeWorkRequestBuilder<RecoverySnapshotUploadWorker>()
+                        .setConstraints(constraints)
+                        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
+                        .build(),
+                )
+            WorkManager.getInstance(this)
+                .enqueueUniquePeriodicWork(
+                    "recovery_snapshot_upload_periodic",
+                    ExistingPeriodicWorkPolicy.UPDATE,
+                    periodicRecoveryRequest,
+                )
+        } else {
+            WorkManager.getInstance(this).cancelUniqueWork("recovery_snapshot_upload_now")
+            WorkManager.getInstance(this).cancelUniqueWork("recovery_snapshot_upload_periodic")
+        }
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
                 "sync_work",

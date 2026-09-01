@@ -200,8 +200,13 @@ class MainActivity : ComponentActivity(), KoinComponent {
     private fun showMigrationRecovery(startApp: StartApp) {
         setContent {
             var isRetrying by remember { mutableStateOf(false) }
+            var isCloudRestoring by remember { mutableStateOf(false) }
+            var cloudMessage by remember { mutableStateOf<String?>(null) }
             MigrationRecoveryScreen(
                 isRetrying = isRetrying,
+                isCloudRestoring = isCloudRestoring,
+                cloudRecoveryEnabled = startApp.cloudRecoveryEnabled(),
+                cloudMessage = cloudMessage,
                 errorCode = startApp.migrationErrorCode(),
                 onRetry = {
                     if (!isRetrying) {
@@ -211,6 +216,30 @@ class MainActivity : ComponentActivity(), KoinComponent {
                                 startApp.retryRouteMigration()
                             }
                             if (recovered) recreate() else isRetrying = false
+                        }
+                    }
+                },
+                onCloudRestore = {
+                    if (!isRetrying && !isCloudRestoring) {
+                        isCloudRestoring = true
+                        cloudMessage = null
+                        lifecycleScope.launch {
+                            when (val outcome = withContext(Dispatchers.IO) {
+                                startApp.restoreLatestCloudSnapshot()
+                            }) {
+                                CloudRecoveryOutcome.Success -> recreate()
+                                CloudRecoveryOutcome.AuthorizationRequired -> {
+                                    cloudMessage = "Для облачного восстановления нужно снова войти в аккаунт."
+                                }
+                                CloudRecoveryOutcome.SnapshotUnavailable -> {
+                                    cloudMessage = "Резервная копия аккаунта не найдена."
+                                }
+                                is CloudRecoveryOutcome.Failed -> {
+                                    cloudMessage = "Не удалось восстановить резервную копию. " +
+                                        "Код ошибки: ${outcome.errorCode}"
+                                }
+                            }
+                            isCloudRestoring = false
                         }
                     }
                 },

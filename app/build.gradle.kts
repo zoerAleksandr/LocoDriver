@@ -54,6 +54,11 @@ android {
             name = "SENTRY_DSN",
             value = "\"${properties.getProperty("SENTRY_DSN", "")}\""
         )
+        buildConfigField(
+            type = "boolean",
+            name = "RECOVERY_CLOUD_ENABLED",
+            value = properties.getProperty("RECOVERY_CLOUD_ENABLED", "false")
+        )
     }
     sourceSets.getByName("androidTest").assets.srcDir(
         project(":data_local").file("schemas")
