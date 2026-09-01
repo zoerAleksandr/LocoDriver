@@ -439,7 +439,7 @@ class SalaryCalculationHelper(
 
     fun getMoneyAtNightTimeFlow(): Flow<Double> {
         return flow {
-            val coefficient = salarySetting.nightTimePercent / 100
+            val coefficient = salarySetting.nightTimePercent.nonNegativeFiniteOrZero() / 100
             val money = salarySegments()
                 .filter { AccrualCondition.NIGHT in it.conditions }
                 .sumOf { it.tariffMoney * coefficient }
@@ -531,7 +531,8 @@ class SalaryCalculationHelper(
 
     fun getMoneyAtQualificationClassFlow(): Flow<Double> {
         return flow {
-            val surchargeQualificationClassPercent = salarySetting.surchargeQualificationClass
+            val surchargeQualificationClassPercent =
+                salarySetting.surchargeQualificationClass.nonNegativeFiniteOrZero()
             emit(basicSurchargeSegments()
                 .sumOf { it.tariffMoney * surchargeQualificationClassPercent / 100 })
         }
@@ -576,6 +577,7 @@ class SalaryCalculationHelper(
     fun getPercentOnePersonOperationPassengerTrainFlow(): Flow<Double> {
         return flow {
             val percent = salarySetting.onePersonOperationPassengerTrainPercent
+                .nonNegativeFiniteOrZero()
             emit(percent)
         }
     }
@@ -605,7 +607,7 @@ class SalaryCalculationHelper(
 
     fun getPercentOnePersonOperationFlow(): Flow<Double> {
         return flow {
-            val percent = salarySetting.onePersonOperationPercent
+            val percent = salarySetting.onePersonOperationPercent.nonNegativeFiniteOrZero()
             emit(percent)
         }
     }
@@ -636,7 +638,7 @@ class SalaryCalculationHelper(
 
     fun getPercentHarmfulnessFlow(): Flow<Double> {
         return flow {
-            val percent = salarySetting.harmfulnessPercent
+            val percent = salarySetting.harmfulnessPercent.nonNegativeFiniteOrZero()
             emit(percent)
         }
     }
@@ -757,11 +759,11 @@ class SalaryCalculationHelper(
     }
 
     fun getPercentHeavyLongDistanceTrainsFlow(): Flow<Double> = flow {
-        emit(salarySetting.surchargeHeavyLongDistanceTrains)
+        emit(salarySetting.surchargeHeavyLongDistanceTrains.nonNegativeFiniteOrZero())
     }
 
     fun getMoneyHeavyLongDistanceTrainsFlow(): Flow<Double> = flow {
-        val percent = salarySetting.surchargeHeavyLongDistanceTrains / 100
+        val percent = getPercentHeavyLongDistanceTrainsFlow().first() / 100
         emit(salarySegments()
             .filter {
                 AccrualCondition.HEAVY_LONG_DISTANCE_TRAIN in it.conditions &&
@@ -772,7 +774,7 @@ class SalaryCalculationHelper(
 
     fun getPercentZonalSurchargeFlow(): Flow<Double> {
         return flow {
-            val percent = salarySetting.zonalSurcharge
+            val percent = salarySetting.zonalSurcharge.nonNegativeFiniteOrZero()
             emit(percent)
         }
     }
@@ -903,7 +905,7 @@ class SalaryCalculationHelper(
 
     fun getPercentDistrictSurcharge(): Flow<Double> {
         return flow {
-            val percent = salarySetting.districtCoefficient
+            val percent = salarySetting.districtCoefficient.nonNegativeFiniteOrZero()
             emit(percent)
         }
     }
@@ -919,7 +921,7 @@ class SalaryCalculationHelper(
 
     fun getPercentNordicSurcharge(): Flow<Double> {
         return flow {
-            val percent = salarySetting.nordicPercent
+            val percent = salarySetting.nordicPercent.nonNegativeFiniteOrZero()
             emit(percent)
         }
     }
@@ -1052,7 +1054,7 @@ class SalaryCalculationHelper(
 
     fun getPercentOtherSurchargeFlow(): Flow<Double> {
         return flow {
-            val percent = salarySetting.otherSurcharge
+            val percent = salarySetting.otherSurcharge.nonNegativeFiniteOrZero()
             emit(percent)
         }
     }
@@ -1180,7 +1182,7 @@ class SalaryCalculationHelper(
 
     fun getPercentNDFLRetentionFlow(): Flow<Double> {
         return flow {
-            val percent = salarySetting.ndfl
+            val percent = salarySetting.ndfl.nonNegativeFiniteOrZero()
             emit(percent)
         }
     }
@@ -1198,7 +1200,7 @@ class SalaryCalculationHelper(
 
     fun getPercentUnionistsRetentionFlow(): Flow<Double> {
         return flow {
-            val percent = salarySetting.unionistsRetention
+            val percent = salarySetting.unionistsRetention.nonNegativeFiniteOrZero()
             emit(percent)
         }
     }
@@ -1214,7 +1216,7 @@ class SalaryCalculationHelper(
 
     fun getPercentOtherRetentionFlow(): Flow<Double> {
         return flow {
-            val percent = salarySetting.otherRetention
+            val percent = salarySetting.otherRetention.nonNegativeFiniteOrZero()
             emit(percent)
         }
     }
@@ -1230,7 +1232,7 @@ class SalaryCalculationHelper(
 
     fun getPercentWelfareRetentionFlow(): Flow<Double> {
         return flow {
-            val percent = salarySetting.welfarePercent
+            val percent = salarySetting.welfarePercent.nonNegativeFiniteOrZero()
             emit(percent)
         }
     }
@@ -1247,7 +1249,7 @@ class SalaryCalculationHelper(
 
     fun getPercentAlimonyRetentionFlow(): Flow<Double> {
         return flow {
-            val percent = salarySetting.alimonyPercent
+            val percent = salarySetting.alimonyPercent.nonNegativeFiniteOrZero()
             emit(percent)
         }
     }
