@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.z_company.data_local.recovery.AndroidRecoveryArchiveAssembler
 import com.z_company.data_local.recovery.AndroidRecoveryArchiveBundle
+import com.z_company.data_local.recovery.AndroidRecoveryCandidatePreparer
 import com.z_company.data_local.recovery.AndroidFrozenDatabaseSnapshotter
 import com.z_company.data_local.recovery.RecoveryArchiveJson
 import com.z_company.data_local.recovery.RecoveryArchiveMetadata
@@ -120,6 +121,13 @@ class RecoveryArchiveAssemblerTest {
         val rejectedDestination = File(context.cacheDir, "truncated-recovery-restored")
         assertTrue(runCatching { bundler.unpack(truncatedBundle, rejectedDestination) }.isFailure)
         assertFalse(rejectedDestination.exists())
+        val candidatePreparer = AndroidRecoveryCandidatePreparer(context)
+        val candidate = candidatePreparer.prepare(restored)
+        assertTrue(candidate.routeDatabase.isFile)
+        assertTrue(candidate.settingsDatabase.isFile)
+        assertTrue(candidate.salaryDatabase.isFile)
+        assertEquals(0L, candidate.routeCount)
+        candidatePreparer.clearCandidates()
     }
 
     @Test
@@ -208,6 +216,9 @@ class RecoveryArchiveAssemblerTest {
             context.deleteDatabase(SALARY_SOURCE)
             context.deleteDatabase(WAL_SOURCE)
             context.deleteDatabase(CORRUPT_SOURCE)
+            context.deleteDatabase(AndroidRecoveryCandidatePreparer.ROUTE_CANDIDATE)
+            context.deleteDatabase(AndroidRecoveryCandidatePreparer.SETTINGS_CANDIDATE)
+            context.deleteDatabase(AndroidRecoveryCandidatePreparer.SALARY_CANDIDATE)
         }
         if (::archive.isInitialized) {
             archive.deleteRecursively()
