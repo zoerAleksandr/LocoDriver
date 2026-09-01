@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.z_company.data_local.recovery.AndroidRecoveryArchiveAssembler
+import com.z_company.data_local.recovery.AndroidRecoveryArchiveBundle
 import com.z_company.data_local.recovery.AndroidFrozenDatabaseSnapshotter
 import com.z_company.data_local.recovery.RecoveryArchiveJson
 import com.z_company.data_local.recovery.RecoveryArchiveMetadata
@@ -102,6 +103,23 @@ class RecoveryArchiveAssemblerTest {
         RecoveryAttachmentsManifestJson.decodeAndValidate(
             File(archive, "attachments-manifest.json").readText()
         )
+
+        val bundle = File(context.cacheDir, "complete-recovery.bundle")
+        val restored = File(context.cacheDir, "complete-recovery-restored")
+        val bundler = AndroidRecoveryArchiveBundle()
+        bundler.pack(archive, bundle)
+        bundler.unpack(bundle, restored)
+        assertTrue(bundle.isFile)
+        assertEquals(
+            archive.listFiles()?.associate { it.name to it.readBytes().toList() },
+            restored.listFiles()?.associate { it.name to it.readBytes().toList() },
+        )
+        val truncatedBundle = File(context.cacheDir, "truncated-recovery.bundle")
+        val bytes = bundle.readBytes()
+        truncatedBundle.writeBytes(bytes.copyOf(bytes.size - 5))
+        val rejectedDestination = File(context.cacheDir, "truncated-recovery-restored")
+        assertTrue(runCatching { bundler.unpack(truncatedBundle, rejectedDestination) }.isFailure)
+        assertFalse(rejectedDestination.exists())
     }
 
     @Test
@@ -196,6 +214,13 @@ class RecoveryArchiveAssemblerTest {
             File(archive.parentFile, archive.name + ".building").deleteRecursively()
         }
         if (::frozenDirectory.isInitialized) frozenDirectory.deleteRecursively()
+        File(context.cacheDir, "complete-recovery.bundle").delete()
+        File(context.cacheDir, "complete-recovery.bundle.tmp").delete()
+        File(context.cacheDir, "complete-recovery-restored").deleteRecursively()
+        File(context.cacheDir, "complete-recovery-restored.building").deleteRecursively()
+        File(context.cacheDir, "truncated-recovery.bundle").delete()
+        File(context.cacheDir, "truncated-recovery-restored").deleteRecursively()
+        File(context.cacheDir, "truncated-recovery-restored.building").deleteRecursively()
     }
 
     private companion object {
