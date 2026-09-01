@@ -158,4 +158,47 @@ class BusinessTripBoundaryCalculationTest {
         assertEquals(800.0, calculation.getMoneyBusinessTripFlow().first(), 0.001)
         assertEquals(800.0, calculation.getMoneyUnderworkFlow().first(), 0.001)
     }
+
+    @Test
+    fun entirelyBusinessTripRouteStillParticipatesInOvertime() = runTest {
+        val route = Route(basicData = BasicData(
+            timeStartWork = instant(day = 10, hour = 8),
+            timeEndWork = instant(day = 10, hour = 12),
+        ))
+        val calculation = helper(
+            route = route,
+            businessDays = setOf(10),
+            tagForDay = { TagForDay.NON_WORKING_DAY },
+        )
+
+        assertTrue(calculation.isEntirelyBusinessTrip())
+        assertEquals(4 * hour, calculation.getBusinessTripTimeFlow().first())
+        assertEquals(4 * hour, calculation.getTimeOvertimeFlow().first())
+        assertEquals(2 * hour, calculation.getTimeSurchargeAtOvertime05Flow().first())
+        assertEquals(2 * hour, calculation.getTimeSurchargeAtOvertimeFlow().first())
+        assertEquals(800.0, calculation.getMoneyBusinessTripFlow().first(), 0.001)
+        assertEquals(0.0, calculation.getMoneyAtWorkTimeAtTariff().first(), 0.001)
+        assertEquals(400.0, calculation.getMoneyOvertimeFlow().first(), 0.001)
+    }
+
+    @Test
+    fun mixedRouteCountsBothRegularAndBusinessFragmentsInOvertime() = runTest {
+        val route = Route(basicData = BasicData(
+            timeStartWork = instant(day = 10, hour = 22),
+            timeEndWork = instant(day = 11, hour = 4),
+        ))
+        val calculation = helper(
+            route = route,
+            businessDays = setOf(11),
+            tagForDay = { TagForDay.NON_WORKING_DAY },
+        )
+
+        assertFalse(calculation.isEntirelyBusinessTrip())
+        assertEquals(2 * hour, calculation.getTotalWorkTime().first())
+        assertEquals(4 * hour, calculation.getBusinessTripTimeFlow().first())
+        assertEquals(6 * hour, calculation.getTimeOvertimeFlow().first())
+        assertEquals(800.0, calculation.getMoneyBusinessTripFlow().first(), 0.001)
+        assertEquals(0.0, calculation.getMoneyAtWorkTimeAtTariff().first(), 0.001)
+        assertEquals(600.0, calculation.getMoneyOvertimeFlow().first(), 0.001)
+    }
 }

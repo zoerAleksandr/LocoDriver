@@ -806,8 +806,12 @@ class SalaryCalculationHelper(
     fun getTimeOvertimeFlow(): Flow<Long> {
         return flow {
             val personalNormaHoursInLong = getPersonalNormaInLong()
-            val totalWorkTime = getTotalWorkTime(allRoutes).first()
-            val paymentHolidayHours = getHolidayTime(allRoutes)
+            val totalWorkTime = getTotalWorkTime(routeList).first() +
+                    getBusinessTripTimeFlow().first()
+            // Командировочный фрагмент оплачивается по среднему и не возвращается
+            // в обычную праздничную строку; праздник исключаем только из обычных
+            // фрагментов, где он действительно начислен отдельно.
+            val paymentHolidayHours = getHolidayTime(routeList)
             val overtime = getOvertime(
                 totalWorkTime = totalWorkTime,
                 personalNormaHoursInLong = personalNormaHoursInLong,
@@ -878,7 +882,14 @@ class SalaryCalculationHelper(
     private suspend fun allocateOvertimeByShift(overtime: Long): List<Long> {
         var remaining = overtime.coerceAtLeast(0L)
         val eligibleByShift = allRoutes.sortedBy { it.basicData.timeStartWork }.map { route ->
-            (getTotalWorkTime(listOf(route)).first() - getHolidayTime(listOf(route)))
+            val regularFragments = route.fragments(businessTrip = false)
+            val businessFragments = route.fragments(businessTrip = true)
+            val regularTime = getTotalWorkTime(regularFragments).first()
+            val businessTime = businessFragments.getWorkTime(
+                currentMonthOfYear,
+                timeCalculationContext,
+            )
+            (regularTime + businessTime - getHolidayTime(regularFragments))
                 .coerceAtLeast(0L)
         }
         val allocated = MutableList(eligibleByShift.size) { 0L }
