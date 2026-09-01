@@ -15,6 +15,34 @@ import org.koin.core.component.inject
 class SqlDelightDiagnosticRepository : DiagnosticRepository, KoinComponent {
     private val db: RouteDatabase by inject()
 
+    override fun enqueueTechnicalEvent(
+        eventType: String,
+        reasonCode: String?,
+        occurredAt: Long,
+        appVersion: String?,
+        appBuild: Long?,
+    ) {
+        require(eventType.matches(Regex("[A-Z_]{3,48}")))
+        require(reasonCode == null || reasonCode.matches(Regex("[A-Z0-9_]{3,64}")))
+        val eventId = generateId()
+        db.transaction {
+            db.routeEventQueries.insertEvent(
+                eventId = eventId,
+                installationId = installationId(),
+                routeIdHash = null,
+                eventType = eventType,
+                reasonCode = reasonCode,
+                createdAt = occurredAt,
+                appVersion = appVersion,
+                appBuild = appBuild,
+                dbVersion = RouteDatabase.Schema.version,
+                detailsJson = null,
+                uploadedAt = null,
+            )
+            db.diagnosticOutboxQueries.enqueue(eventId = eventId, createdAt = occurredAt)
+        }
+    }
+
     override fun getSummary(recentLimit: Long): DiagnosticSummary {
         val installationId = installationId()
         val migration = db.migrationStatusQueries.getStatus().executeAsOneOrNull()

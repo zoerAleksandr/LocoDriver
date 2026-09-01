@@ -54,10 +54,25 @@ class RecoverySnapshotUploadWorker(
             if (ready.status != "READY") return@withContext Result.retry()
             uploadPreferences().edit().putString(archive.name, ready.snapshotId).commit()
             bundle.delete()
+            RecoveryTelemetryQueue(applicationContext).record(
+                RecoveryTelemetryType.SNAPSHOT_UPLOAD_SUCCEEDED,
+            )
             Result.success()
         } catch (error: RecoveryCloudHttpException) {
+            RecoveryTelemetryQueue(applicationContext).record(
+                RecoveryTelemetryType.SNAPSHOT_UPLOAD_FAILED,
+                if (error.statusCode == 401 || error.statusCode == 403) {
+                    RecoveryTelemetryReason.AUTHORIZATION_REQUIRED
+                } else {
+                    RecoveryTelemetryReason.NETWORK_OR_SERVER
+                },
+            )
             if (error.statusCode == 401 || error.statusCode == 403) Result.success() else Result.retry()
         } catch (_: Throwable) {
+            RecoveryTelemetryQueue(applicationContext).record(
+                RecoveryTelemetryType.SNAPSHOT_UPLOAD_FAILED,
+                RecoveryTelemetryReason.UNKNOWN,
+            )
             Result.retry()
         }
     }

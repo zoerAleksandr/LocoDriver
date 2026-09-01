@@ -4,6 +4,9 @@ import android.content.Context
 import com.z_company.data_local.DatabaseDriverFactory
 import com.z_company.data_local.recovery.AndroidRecoveryDatabaseInstaller
 import com.z_company.data_local.recovery.AndroidPreMigrationRecoveryCoordinator
+import com.z_company.loco_driver.recovery.RecoveryTelemetryQueue
+import com.z_company.loco_driver.recovery.RecoveryTelemetryReason
+import com.z_company.loco_driver.recovery.RecoveryTelemetryType
 
 internal enum class MigrationBootstrapState {
     READY,
@@ -37,6 +40,14 @@ internal class MigrationRecoveryBootstrap(
             preferences.edit().clear().commit()
             MigrationBootstrapState.READY
         } catch (error: Throwable) {
+            RecoveryTelemetryQueue(context).record(
+                RecoveryTelemetryType.RECOVERY_MODE_ENTERED,
+                if (error::class.simpleName == "RouteMigrationLowStorageException") {
+                    RecoveryTelemetryReason.LOW_STORAGE
+                } else {
+                    RecoveryTelemetryReason.MIGRATION_FAILED
+                },
+            )
             preferences.edit()
                 .putInt(KEY_FAILED_BUILD, appBuild)
                 .putString(KEY_ERROR_CODE, error::class.simpleName ?: "MigrationError")
