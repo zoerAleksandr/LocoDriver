@@ -341,7 +341,8 @@ private fun StationRow(
     rowBackgroundColor: Color = Color.Unspecified,
     revealed: Boolean = false,
 ) {
-    val stopInfo = calculateStop(item)
+    // У конечной станции стоянка не имеет смысла: маршрут закончился.
+    val stopInfo = if (item.isFinalStation) null else calculateStop(item)
     val dotColor = if (isFirst || isLast) colors.firstLastDotColor else colors.dotColor
     val primaryColor = MaterialTheme.colorScheme.primary
 
@@ -440,11 +441,6 @@ private fun StationRow(
                     append(" ")
                     withStyle(SpanStyle(fontFamily = MonoFont)) {
                         append("${item.trackNumber} п.")
-                    }
-                }
-                if (item.isFinalStation) {
-                    withStyle(SpanStyle(fontFamily = MonoFont)) {
-                        append(" · конечная")
                     }
                 }
             }
@@ -588,7 +584,7 @@ private fun SegmentRow(
                 }
                 if (!hasAnyContent && onClick != null) {
                     Text(
-                        text = "Добавить путь / примечание",
+                        text = "перегон",
                         style = MaterialTheme.typography.labelSmall,
                         color = colors.segmentTextColor.copy(alpha = 0.5f),
                     )

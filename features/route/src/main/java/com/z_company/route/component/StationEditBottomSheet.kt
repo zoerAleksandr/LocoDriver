@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -276,29 +277,7 @@ fun StationEditBottomSheet(
                         .background(fieldColor)
                         .padding(horizontal = 12.dp, vertical = 9.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        FieldLabel("Путь", primaryColor)
-                        // Переключатель клавиатуры: обычно путь числовой, но
-                        // бывают номера вида «3Г» — переключение на буквенную.
-                        Box(
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clip(CircleShape)
-                                .clickable { trackKeyboardNumeric = !trackKeyboardNumeric },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (trackKeyboardNumeric) "Аб" else "123",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                fontWeight = FontWeight.Bold,
-                                color = primaryColor.copy(alpha = 0.6f)
-                            )
-                        }
-                    }
+                    FieldLabel("Путь", primaryColor)
                     BasicTextField(
                         modifier = Modifier.fillMaxWidth(),
                         value = localTrackNumber,
@@ -315,12 +294,9 @@ fun StationEditBottomSheet(
                         ),
                         cursorBrush = SolidColor(primaryColor),
                         singleLine = true,
+                        // Текстовая клавиатура: путь бывает буквенным («3Г»).
                         keyboardOptions = KeyboardOptions(
-                            keyboardType = if (trackKeyboardNumeric) {
-                                androidx.compose.ui.text.input.KeyboardType.Number
-                            } else {
-                                androidx.compose.ui.text.input.KeyboardType.Text
-                            },
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
                             imeAction = ImeAction.Done
                         ),
                         keyboardActions = KeyboardActions(
@@ -345,19 +321,19 @@ fun StationEditBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                StationFlagChip(
+                StationFlagCheckbox(
                     label = "Конечная",
                     checked = localIsFinal,
                     onCheckedChange = { localIsFinal = it },
                     modifier = Modifier.weight(1f)
                 )
-                StationFlagChip(
+                // Время отправления НЕ стираем при включении: пользователь может
+                // передумать и выключить флаг обратно. Отправление отбрасывается
+                // только при сохранении (см. saveAndDismiss).
+                StationFlagCheckbox(
                     label = "Проходная",
                     checked = localIsPassing,
-                    onCheckedChange = { checked ->
-                        localIsPassing = checked
-                        if (checked) localDeparture = null
-                    },
+                    onCheckedChange = { localIsPassing = it },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -396,7 +372,8 @@ fun StationEditBottomSheet(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // ── Бейдж стоянки (между прибытием и отправлением) ──
-                val stopMinutes = if (localArrival != null && localDeparture != null) {
+                // У конечной станции стоянку не показываем — маршрут закончился.
+                val stopMinutes = if (!localIsFinal && localArrival != null && localDeparture != null) {
                     val arr = localArrival!! - localArrival!! % 60_000L
                     val dep = localDeparture!! - localDeparture!! % 60_000L
                     val diff = dep - arr
@@ -572,6 +549,9 @@ fun SegmentEditBottomSheet(
     toStationName: String?,
     trackNumber: String?,
     notes: String?,
+    menuList: List<String>,
+    onFilterMenu: (String) -> Unit,
+    onDeleteStationName: (String) -> Unit,
     onSave: (fromName: String?, toName: String?, trackNumber: String?, notes: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -582,7 +562,7 @@ fun SegmentEditBottomSheet(
     var localTo by remember { mutableStateOf(TextFieldValue(toStationName ?: "")) }
     var localTrack by remember { mutableStateOf(TextFieldValue(trackNumber ?: "")) }
     var localNotes by remember { mutableStateOf(TextFieldValue(notes ?: "")) }
-    var trackKeyboardNumeric by remember { mutableStateOf(true) }
+    var expandedField by remember { mutableStateOf<String?>(null) }
 
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -649,10 +629,15 @@ fun SegmentEditBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                SegmentTextField(
+                SegmentStationField(
                     label = "От",
                     value = localFrom,
                     onValueChange = { localFrom = it },
+                    expanded = expandedField == "from",
+                    onExpandedChange = { expandedField = if (it) "from" else null },
+                    menuList = menuList,
+                    onFilterMenu = onFilterMenu,
+                    onDeleteStationName = onDeleteStationName,
                     modifier = Modifier.weight(1f),
                     fieldColor = fieldColor,
                     fieldShape = fieldShape,
@@ -660,12 +645,16 @@ fun SegmentEditBottomSheet(
                     hintColor = hintColor,
                     dataTextStyle = dataTextStyle,
                     hintStyle = hintStyle,
-                    focusManager = focusManager,
                 )
-                SegmentTextField(
+                SegmentStationField(
                     label = "До",
                     value = localTo,
                     onValueChange = { localTo = it },
+                    expanded = expandedField == "to",
+                    onExpandedChange = { expandedField = if (it) "to" else null },
+                    menuList = menuList,
+                    onFilterMenu = onFilterMenu,
+                    onDeleteStationName = onDeleteStationName,
                     modifier = Modifier.weight(1f),
                     fieldColor = fieldColor,
                     fieldShape = fieldShape,
@@ -673,7 +662,6 @@ fun SegmentEditBottomSheet(
                     hintColor = hintColor,
                     dataTextStyle = dataTextStyle,
                     hintStyle = hintStyle,
-                    focusManager = focusManager,
                 )
             }
 
@@ -687,27 +675,7 @@ fun SegmentEditBottomSheet(
                     .background(fieldColor)
                     .padding(horizontal = 14.dp, vertical = 9.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FieldLabel("Путь", primaryColor)
-                    Box(
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clip(CircleShape)
-                            .clickable { trackKeyboardNumeric = !trackKeyboardNumeric },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (trackKeyboardNumeric) "Аб" else "123",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                            fontWeight = FontWeight.Bold,
-                            color = primaryColor.copy(alpha = 0.6f)
-                        )
-                    }
-                }
+                FieldLabel("Путь", primaryColor)
                 BasicTextField(
                     modifier = Modifier.fillMaxWidth(),
                     value = localTrack,
@@ -720,11 +688,7 @@ fun SegmentEditBottomSheet(
                     cursorBrush = SolidColor(primaryColor),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = if (trackKeyboardNumeric) {
-                            androidx.compose.ui.text.input.KeyboardType.Number
-                        } else {
-                            androidx.compose.ui.text.input.KeyboardType.Text
-                        },
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
                         imeAction = ImeAction.Next
                     ),
                     decorationBox = { inner ->
@@ -760,7 +724,7 @@ fun SegmentEditBottomSheet(
                     decorationBox = { inner ->
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (localNotes.text.isEmpty()) {
-                                Text(text = "Например: смена бригады", style = hintStyle, color = hintColor)
+                                Text(text = "Например: по неправильному", style = hintStyle, color = hintColor)
                             }
                             inner()
                         }
@@ -789,11 +753,17 @@ fun SegmentEditBottomSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SegmentTextField(
+private fun SegmentStationField(
     label: String,
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    menuList: List<String>,
+    onFilterMenu: (String) -> Unit,
+    onDeleteStationName: (String) -> Unit,
     modifier: Modifier,
     fieldColor: Color,
     fieldShape: RoundedCornerShape,
@@ -801,32 +771,56 @@ private fun SegmentTextField(
     hintColor: Color,
     dataTextStyle: androidx.compose.ui.text.TextStyle,
     hintStyle: androidx.compose.ui.text.TextStyle,
-    focusManager: androidx.compose.ui.focus.FocusManager,
 ) {
-    Column(
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = onExpandedChange,
         modifier = modifier
-            .clip(fieldShape)
-            .background(fieldColor)
-            .padding(horizontal = 14.dp, vertical = 9.dp)
     ) {
-        FieldLabel(label, primaryColor)
-        BasicTextField(
-            modifier = Modifier.fillMaxWidth(),
-            value = value,
-            onValueChange = onValueChange,
-            textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium, color = primaryColor),
-            cursorBrush = SolidColor(primaryColor),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Next) }),
-            decorationBox = { inner ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (value.text.isEmpty()) {
-                        Text(text = "Станция", style = hintStyle, color = hintColor)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true)
+                .clip(fieldShape)
+                .background(fieldColor)
+                .padding(horizontal = 14.dp, vertical = 9.dp)
+        ) {
+            FieldLabel(label, primaryColor)
+            BasicTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = value,
+                onValueChange = { newValue ->
+                    onValueChange(newValue)
+                    onFilterMenu(newValue.text)
+                    onExpandedChange(newValue.text.isNotEmpty())
+                },
+                textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium, color = primaryColor),
+                cursorBrush = SolidColor(primaryColor),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (value.text.isEmpty()) {
+                            Text(text = "Станция", style = hintStyle, color = hintColor)
+                        }
+                        inner()
                     }
-                    inner()
                 }
-            }
+            )
+        }
+
+        StationDropdownMenu(
+            expanded = expanded,
+            stations = menuList,
+            onSelect = { stationName ->
+                onValueChange(
+                    value.copy(text = stationName, selection = TextRange(stationName.length))
+                )
+                onExpandedChange(false)
+            },
+            onDelete = onDeleteStationName,
+            onDismiss = { onExpandedChange(false) },
+            textStyle = dataTextStyle
         )
     }
 }
@@ -1062,51 +1056,23 @@ private fun StepButton(
 // ─── Флажок станции (Конечная / Проходная) ───────────────────────────────────
 
 @Composable
-private fun StationFlagChip(
+private fun StationFlagCheckbox(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val containerColor = if (checked) {
-        primaryColor.copy(alpha = 0.14f)
-    } else {
-        MaterialTheme.colorScheme.surfaceBright
-    }
     Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(containerColor)
-            .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 10.dp, vertical = 10.dp),
+        modifier = modifier.clickable { onCheckedChange(!checked) },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(16.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(if (checked) primaryColor else MaterialTheme.colorScheme.surface)
-                .border(width = 1.dp, color = primaryColor.copy(alpha = 0.4f), shape = RoundedCornerShape(4.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            if (checked) {
-                Icon(
-                    painter = painterResource(com.z_company.route.R.drawable.check_circle_24px),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(11.dp)
-                )
-            }
-        }
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = primaryColor,
+            color = MaterialTheme.colorScheme.primary,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

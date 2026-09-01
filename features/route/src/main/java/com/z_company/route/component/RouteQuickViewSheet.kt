@@ -1134,6 +1134,7 @@ private fun TrainBlock(train: Train, dateAndTimeConverter: DateAndTimeConverter?
         train.pusher?.let { AssistLine("Толкач", it) }
         train.doubleTraction?.let { AssistLine("Двойная тяга", it) }
         train.doubledTrain?.let { AssistLine("Сдвоенный", it) }
+        train.carInspector?.let { CarInspectorLine(it, dateAndTimeConverter) }
     }
 }
 
@@ -1192,7 +1193,8 @@ private fun StationRow(
                     if (!station.trackNumber.isNullOrBlank()) append("  ${station.trackNumber} п.")
                 },
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
-                color = text,
+                // Проходная станция — приглушённым цветом, как в таймлайне формы поезда.
+                color = if (station.isPassingStation) textMuted else text,
             )
             // Бейдж стоянки
             stopDuration(station)?.let { stopMs ->
@@ -1217,22 +1219,50 @@ private fun StationRow(
                     }
                 }
             }
+
+            // Данные перегона ПЕРЕД этой станцией (путь / примечание).
+            val segmentText = buildString {
+                station.segmentTrackNumber?.takeIf { it.isNotBlank() }?.let { append("путь $it") }
+                station.segmentNotes?.takeIf { it.isNotBlank() }?.let {
+                    if (isNotEmpty()) append(" · ")
+                    append(it)
+                }
+            }
+            if (segmentText.isNotEmpty() && !isFirst) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "перегон · $segmentText",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = textMuted,
+                )
+            }
         }
 
         Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(vertical = 6.dp)) {
-            station.timeArrival?.let {
-                Text(
-                    text = "приб ${dateAndTimeConverter?.getTime(it) ?: ""}",
-                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = MonoFont),
-                    color = text,
-                )
-            }
-            station.timeDeparture?.let {
-                Text(
-                    text = "отпр ${dateAndTimeConverter?.getTime(it) ?: ""}",
-                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = MonoFont),
-                    color = text,
-                )
+            if (station.isPassingStation) {
+                // Проходная — без остановки: только время проследования (timeArrival).
+                station.timeArrival?.let {
+                    Text(
+                        text = "просл ${dateAndTimeConverter?.getTime(it) ?: ""}",
+                        style = MaterialTheme.typography.labelMedium.copy(fontFamily = MonoFont),
+                        color = text,
+                    )
+                }
+            } else {
+                station.timeArrival?.let {
+                    Text(
+                        text = "приб ${dateAndTimeConverter?.getTime(it) ?: ""}",
+                        style = MaterialTheme.typography.labelMedium.copy(fontFamily = MonoFont),
+                        color = text,
+                    )
+                }
+                station.timeDeparture?.let {
+                    Text(
+                        text = "отпр ${dateAndTimeConverter?.getTime(it) ?: ""}",
+                        style = MaterialTheme.typography.labelMedium.copy(fontFamily = MonoFont),
+                        color = text,
+                    )
+                }
             }
         }
     }
@@ -1252,6 +1282,36 @@ private fun AssistLine(label: String, assist: TrainAssist) {
         if (info.isNotBlank()) {
             Text(text = info, style = MaterialTheme.typography.labelMedium.copy(fontFamily = MonoFont), color = text)
         }
+    }
+}
+
+@Composable
+private fun CarInspectorLine(
+    carInspector: com.z_company.domain.entities.route.CarInspector,
+    dateAndTimeConverter: DateAndTimeConverter?,
+) {
+    val text = MaterialTheme.colorScheme.primary
+    val textMuted = text.copy(alpha = 0.6f)
+    val info = buildString {
+        carInspector.fullName?.takeIf { it.isNotBlank() }?.let { append(it) }
+        carInspector.tabNumber?.takeIf { it.isNotBlank() }?.let {
+            if (isNotEmpty()) append(" · ")
+            append("таб. $it")
+        }
+        carInspector.couplingTime?.let {
+            if (isNotEmpty()) append(" · ")
+            append("прицепка ${dateAndTimeConverter?.getTime(it) ?: ""}")
+        }
+    }
+    if (info.isBlank()) return
+    Spacer(Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Вагонник:",
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
+            color = textMuted,
+        )
+        Text(text = info, style = MaterialTheme.typography.labelMedium, color = text)
     }
 }
 

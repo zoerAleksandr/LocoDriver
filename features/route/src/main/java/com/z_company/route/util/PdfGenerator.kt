@@ -350,6 +350,10 @@ class PdfGenerator(private val context: Context) {
         route.trains.forEach { train ->
             h += 4f + 14f
             h += (train.stations.size + 1) * 14f
+            // Дополнительная строка на каждый перегон с путём/примечанием.
+            h += train.stations.count {
+                !it.segmentTrackNumber.isNullOrBlank() || !it.segmentNotes.isNullOrBlank()
+            } * 14f
         }
         route.passengers.forEach { _ -> h += 4f + 14f * 3 }
         h += 8f
@@ -659,13 +663,32 @@ class PdfGenerator(private val context: Context) {
             if (train.stations.isNotEmpty()) {
                 pm.multiRow(listOf("Станция", "Прибытие", "Отправление"), wSt, paint = paintSmall, bold = true)
                 train.stations.forEach { station ->
+                    // Имя станции + номер пути и пометки «конечная»/«проходная»:
+                    // без пометки «проходная» прочерк в колонке «Отправление»
+                    // читался бы как незаполненные данные, а не как «без остановки».
+                    val nameCell = buildString {
+                        append(station.stationName ?: "—")
+                        station.trackNumber?.takeIf { it.isNotBlank() }?.let { append(" ($it п.)") }
+                        if (station.isPassingStation) append(" · проходная")
+                    }
                     pm.multiRow(
                         listOf(
-                            station.stationName ?: "—",
+                            nameCell,
                             fmtDT(station.timeArrival) ?: "—",
-                            fmtDT(station.timeDeparture) ?: "—"
+                            if (station.isPassingStation) "—" else fmtDT(station.timeDeparture) ?: "—"
                         ), wSt
                     )
+                    // Перегон ПЕРЕД этой станцией: путь / примечание.
+                    val segmentCell = buildString {
+                        station.segmentTrackNumber?.takeIf { it.isNotBlank() }?.let { append("путь $it") }
+                        station.segmentNotes?.takeIf { it.isNotBlank() }?.let {
+                            if (isNotEmpty()) append(" · ")
+                            append(it)
+                        }
+                    }
+                    if (segmentCell.isNotEmpty()) {
+                        pm.multiRow(listOf("    перегон · $segmentCell", "", ""), wSt)
+                    }
                 }
             }
         }

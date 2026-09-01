@@ -340,6 +340,11 @@ fun FormTrainScreen(
                 toStationName = toState?.station?.data,
                 trackNumber = toState?.segmentTrackNumber,
                 notes = toState?.segmentNotes,
+                menuList = menuList,
+                onFilterMenu = {
+                    viewModel.onChangedDropDownContent(editingSegmentAfterIndex, it)
+                },
+                onDeleteStationName = { viewModel.removeStationName(it) },
                 onSave = { fromName, toName, trackNumber, notes ->
                     viewModel.saveSegmentFromSheet(
                         editingSegmentAfterIndex, fromName, toName, trackNumber, notes
@@ -1681,7 +1686,12 @@ fun FormTrainScreen(
                     item {
                         val stopwatch = rememberStopwatchState(
                             stations = stationListState?.map {
-                                Triple(it.station.data, it.arrival.data, it.departure.data)
+                                StopwatchStation(
+                                    name = it.station.data,
+                                    arrival = it.arrival.data,
+                                    departure = it.departure.data,
+                                    isFinal = it.isFinalStation,
+                                )
                             } ?: emptyList(),
                             legArrivalStation = selectedServicePhase?.arrivalStation,
                         )
@@ -2728,6 +2738,20 @@ private fun DoubledTrainSection(
  * подпись, что именно показано.
  * Прибыв на конечную станцию выбранного плеча, стоянку не показываем (возвращаем null).
  */
+private data class StopwatchStation(
+    val name: String?,
+    val arrival: Long?,
+    val departure: Long?,
+    val isFinal: Boolean,
+)
+
+private data class StopwatchEvent(
+    val time: Long,
+    val isDeparture: Boolean,
+    val name: String?,
+    val isFinal: Boolean,
+)
+
 private data class StopwatchData(
     val timeText: String,
     val bg: Color,
@@ -2737,8 +2761,8 @@ private data class StopwatchData(
 
 @Composable
 private fun rememberStopwatchState(
-    // (имя станции, прибытие, отправление)
-    stations: List<Triple<String?, Long?, Long?>>,
+    // (имя станции, прибытие, отправление, отмечена ли станция конечной)
+    stations: List<StopwatchStation>,
     // Конечная станция выбранного плеча — прибыв на неё, время стоянки не показываем.
     legArrivalStation: String? = null,
 ): StopwatchData? {
@@ -2766,26 +2790,29 @@ private fun rememberStopwatchState(
     // События: (время, isDeparture, имя станции). При равном времени приоритет у отправления
     // (compareBy: false < true) → берём его, поэтому это «в пути», а не «стоянка».
     val events = buildList {
-        stations.forEach { (name, arrival, departure) ->
-            arrival?.let { add(Triple(it, false, name)) }
-            departure?.let { add(Triple(it, true, name)) }
+        stations.forEach { st ->
+            st.arrival?.let { add(StopwatchEvent(it, false, st.name, st.isFinal)) }
+            st.departure?.let { add(StopwatchEvent(it, true, st.name, st.isFinal)) }
         }
     }
     val last = events
-        .filter { it.first <= now }
-        .maxWithOrNull(compareBy({ it.first }, { it.second })) ?: return null
+        .filter { it.time <= now }
+        .maxWithOrNull(compareBy({ it.time }, { it.isDeparture })) ?: return null
 
-    val isMoving = last.second
+    val isMoving = last.isDeparture
+
+    // Станция явно отмечена конечной — маршрут закончился, стоянку не показываем.
+    if (!isMoving && last.isFinal) return null
 
     // Прибыли на конечную станцию плеча (последнее событие — прибытие на станцию,
     // совпадающую с конечной станцией выбранного плеча) → стоянку не показываем.
     if (!isMoving && !legArrivalStation.isNullOrBlank() &&
-        last.third?.trim().equals(legArrivalStation.trim(), ignoreCase = true)
+        last.name?.trim().equals(legArrivalStation.trim(), ignoreCase = true)
     ) {
         return null
     }
 
-    val totalSec = (now - last.first).coerceAtLeast(0L) / 1000
+    val totalSec = (now - last.time).coerceAtLeast(0L) / 1000
     val totalMin = totalSec / 60
     val totalHours = totalMin / 60
     val days = totalHours / 24
