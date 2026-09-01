@@ -102,6 +102,18 @@ class InvalidPercentageDataTest {
     }
 
     @Test
+    fun increasingPositiveQualificationPercentCannotDecreaseAccrual() = runTest {
+        suspend fun money(percent: Double) = helper(SalarySetting(
+            nightTimePercent = 0.0,
+            zonalSurcharge = 0.0,
+            surchargeQualificationClass = percent,
+        )).getMoneyAtQualificationClassFlow().first()
+
+        val values = listOf(money(0.0), money(10.0), money(100.0), money(150.0))
+        assertTrue(values.zipWithNext().all { (first, second) -> second >= first })
+    }
+
+    @Test
     fun allMainTimeAndMoneyOutputsRemainNonNegativeAndFinite() = runTest {
         val helper = helper(SalarySetting(
             averagePaymentHour = Double.NaN,

@@ -40,6 +40,14 @@ import org.koin.core.component.inject
 import java.util.Calendar
 import kotlin.String
 
+internal fun shouldShowAverageHourInfo(
+    underworkTime: Long,
+    averagePaymentHour: Double,
+    alreadyDismissed: Boolean,
+): Boolean = underworkTime > 0L &&
+        (!averagePaymentHour.isFinite() || averagePaymentHour <= 0.0) &&
+        !alreadyDismissed
+
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -774,13 +782,16 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     ): PartialState {
         val time = helper.getUnderworkTimeFlow().first()
         val money = helper.getMoneyUnderworkFlow().first()
-        val averageHourSet = salarySetting.averagePaymentHour > 0.0
         // Инфо-окно не показываем, если пользователь уже закрыл его через «Понятно».
         val alreadyDismissed = sharedPreferenceStorage.isUnderworkInfoDismissed()
         return PartialState(
             underworkTime = time,
             underworkMoney = money,
-            showSetAverageHourInfo = time > 0L && !averageHourSet && !alreadyDismissed
+            showSetAverageHourInfo = shouldShowAverageHourInfo(
+                underworkTime = time,
+                averagePaymentHour = salarySetting.averagePaymentHour,
+                alreadyDismissed = alreadyDismissed,
+            )
         )
     }
 
