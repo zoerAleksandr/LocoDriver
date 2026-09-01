@@ -5,6 +5,7 @@ package com.z_company.route.viewmodel
 import com.z_company.domain.entities.DateSetTariffRate
 import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Passenger
@@ -26,20 +27,41 @@ class NightSegmentSalaryIntegrationTest {
     private fun instant(day: Int, hour: Int): Long =
         LocalDateTime(2025, 1, day, hour, 0).toInstant(moscow).toEpochMilliseconds()
 
-    private fun helper(route: Route, holidayDay: Int? = null): SalaryCalculationHelper {
+    private fun helper(
+        route: Route,
+        holidayDay: Int? = null,
+        dayOffDay: Int? = null,
+        nonWorkingDay: Int? = null,
+        effectiveNormaHours: Int? = null,
+        zeroNormCalendar: Boolean = false,
+    ): SalaryCalculationHelper {
         val month = MonthOfYear(
             year = 2025,
             month = 0,
             tariffRate = 200.0,
             dateSetTariffRate = DateSetTariffRate(dateNewRate = 11, oldRate = 100.0),
             days = (1..31).map { day ->
-                Day(day, if (day == holidayDay) TagForDay.HOLIDAY else TagForDay.WORKING_DAY)
+                Day(
+                    dayOfMonth = day,
+                    tag = when (day) {
+                        holidayDay -> TagForDay.HOLIDAY
+                        nonWorkingDay -> TagForDay.NON_WORKING_DAY
+                        else -> if (zeroNormCalendar) {
+                            TagForDay.NON_WORKING_DAY
+                        } else {
+                            TagForDay.WORKING_DAY
+                        }
+                    },
+                    isReleaseDay = day == dayOffDay,
+                    releaseType = ReleaseType.DayOff.takeIf { day == dayOffDay },
+                )
             },
         )
         return SalaryCalculationHelper(
             userSettings = UserSettings(selectMonthOfYear = month, timeZone = 0L),
             salarySetting = SalarySetting(nightTimePercent = 40.0),
             allRoutes = listOf(route),
+            effectiveNormaHoursForUnderwork = effectiveNormaHours ?: 0,
         )
     }
 
@@ -125,5 +147,43 @@ class NightSegmentSalaryIntegrationTest {
 
         assertEquals(60_000L, helper.getHolidayTimeFlow().first())
         assertEquals(200.0 * 2.0 / 60.0, helper.getMoneyAtHolidayFlow().first(), 0.001)
+    }
+
+    @Test
+    fun explicitDayOffIsPaidAtDoubleTariffAndExcludedFromOvertime() = runTest {
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = instant(day = 10, hour = 8),
+                timeEndWork = instant(day = 10, hour = 12),
+            ),
+        )
+
+        val helper = helper(route, dayOffDay = 10, effectiveNormaHours = 0)
+
+        assertEquals(4 * hour, helper.getHolidayTimeFlow().first())
+        assertEquals(800.0, helper.getMoneyAtHolidayFlow().first(), 0.001)
+        assertEquals(0L, helper.getTimeOvertimeFlow().first())
+        assertEquals(0.0, helper.getMoneyOvertimeFlow().first(), 0.001)
+    }
+
+    @Test
+    fun calendarNonWorkingDayDoesNotBecomeHolidayWithoutExplicitDayOff() = runTest {
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = instant(day = 10, hour = 8),
+                timeEndWork = instant(day = 10, hour = 12),
+            ),
+        )
+
+        val helper = helper(
+            route,
+            nonWorkingDay = 10,
+            effectiveNormaHours = 0,
+            zeroNormCalendar = true,
+        )
+
+        assertEquals(0L, helper.getHolidayTimeFlow().first())
+        assertEquals(0.0, helper.getMoneyAtHolidayFlow().first(), 0.001)
+        assertEquals(4 * hour, helper.getTimeOvertimeFlow().first())
     }
 }
