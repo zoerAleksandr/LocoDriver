@@ -16,6 +16,7 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import java.util.Locale
 import androidx.work.Constraints
+import androidx.work.BackoffPolicy
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
@@ -24,6 +25,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.z_company.work_manager.SyncWorker
 import com.z_company.work_manager.DiagnosticWorker
+import com.z_company.loco_driver.recovery.RecoverySnapshotUploadWorker
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -98,6 +100,14 @@ class StartApp : Application() {
             .setConstraints(constraints)
             .build()
 
+        val periodicRecoveryRequest = PeriodicWorkRequestBuilder<RecoverySnapshotUploadWorker>(
+            repeatInterval = 12,
+            repeatIntervalTimeUnit = TimeUnit.HOURS,
+        )
+            .setConstraints(constraints)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
+            .build()
+
         // UPDATE (вместо KEEP): обновляет параметры задачи при каждом запуске приложения.
         // Это позволяет применять изменения конфигурации (интервал, constraints) после
         // обновления приложения без переустановки. Расписание при этом сохраняется.
@@ -114,6 +124,21 @@ class StartApp : Application() {
                 "diagnostics_upload_periodic",
                 ExistingPeriodicWorkPolicy.UPDATE,
                 periodicDiagnosticsRequest,
+            )
+        WorkManager.getInstance(this)
+            .enqueueUniqueWork(
+                "recovery_snapshot_upload_now",
+                ExistingWorkPolicy.KEEP,
+                OneTimeWorkRequestBuilder<RecoverySnapshotUploadWorker>()
+                    .setConstraints(constraints)
+                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
+                    .build(),
+            )
+        WorkManager.getInstance(this)
+            .enqueueUniquePeriodicWork(
+                "recovery_snapshot_upload_periodic",
+                ExistingPeriodicWorkPolicy.UPDATE,
+                periodicRecoveryRequest,
             )
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
