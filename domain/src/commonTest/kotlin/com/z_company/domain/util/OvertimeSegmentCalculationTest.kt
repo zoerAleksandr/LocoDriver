@@ -196,6 +196,20 @@ class OvertimeSegmentCalculationTest {
     }
 
     @Test
+    fun zeroToFourHoursInOneShiftAreSplitAtTwoHourBoundary() {
+        (0L..4L).forEach { overtimeHours ->
+            val result = calculateOvertimePremiumDurations(
+                overtimeByShiftMillis = listOf(overtimeHours * hour),
+                year = 2026,
+                zeroBasedMonth = 8,
+            )
+
+            assertEquals(minOf(overtimeHours, 2L) * hour, result.halfRateMillis)
+            assertEquals((overtimeHours - minOf(overtimeHours, 2L)) * hour, result.fullRateMillis)
+        }
+    }
+
+    @Test
     fun unevenShiftOvertimeIsNotReplacedByRouteCountApproximation() {
         val result = calculateOvertimePremiumDurations(
             overtimeByShiftMillis = listOf(hour, 4 * hour, 0L),
@@ -231,6 +245,34 @@ class OvertimeSegmentCalculationTest {
 
         assertEquals(0L, result.halfRateMillis)
         assertEquals(130 * hour, result.fullRateMillis)
+    }
+
+    @Test
+    fun annualBoundaryMatrixHasNoSecondHalfRateWindowAt240Hours() {
+        val expectedHalfRateHours = mapOf(119L to 1L, 120L to 0L, 121L to 0L, 239L to 0L, 240L to 0L)
+        expectedHalfRateHours.forEach { (alreadyWorked, expectedHalfRate) ->
+            val result = calculateOvertimePremiumDurations(
+                overtimeByShiftMillis = listOf(4 * hour),
+                year = 2026,
+                zeroBasedMonth = 8,
+                annualOvertimeBeforePeriodMillis = alreadyWorked * hour,
+            )
+            assertEquals(expectedHalfRate * hour, result.halfRateMillis)
+            assertEquals((4 - expectedHalfRate) * hour, result.fullRateMillis)
+        }
+    }
+
+    @Test
+    fun newCalendarYearStartsAnnualThresholdFromZero() {
+        val result = calculateOvertimePremiumDurations(
+            overtimeByShiftMillis = listOf(4 * hour),
+            year = 2027,
+            zeroBasedMonth = 0,
+            annualOvertimeBeforePeriodMillis = 0L,
+        )
+
+        assertEquals(2 * hour, result.halfRateMillis)
+        assertEquals(2 * hour, result.fullRateMillis)
     }
 
     @Test

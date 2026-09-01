@@ -80,6 +80,42 @@ class OvertimePaymentCompositionTest {
     }
 
     @Test
+    fun september2026UsesActualOvertimePerShiftInsteadOfRouteCount() = runTest {
+        fun at(day: Int, hour: Int): Long = LocalDateTime(2026, 9, day, hour, 0)
+            .toInstant(TimeZone.of("GMT+3"))
+            .toEpochMilliseconds()
+        val overtimeShift = Route(basicData = BasicData(
+            timeStartWork = at(1, 8),
+            timeEndWork = at(1, 12),
+        ))
+        val zeroDurationShift = Route(basicData = BasicData(
+            timeStartWork = at(2, 8),
+            timeEndWork = at(2, 8),
+        ))
+        val helper = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2026,
+                    month = 8,
+                    tariffRate = 100.0,
+                    days = emptyList(),
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(
+                nightTimePercent = 0.0,
+                zonalSurcharge = 0.0,
+                harmfulnessPercent = 0.0,
+            ),
+            allRoutes = listOf(overtimeShift, zeroDurationShift),
+        )
+
+        assertEquals(4 * hour, helper.getTimeOvertimeFlow().first())
+        assertEquals(2 * hour, helper.getTimeSurchargeAtOvertime05Flow().first())
+        assertEquals(2 * hour, helper.getTimeSurchargeAtOvertimeFlow().first())
+    }
+
+    @Test
     fun overtimeTariffPartUsesRateOfLaterPeriodWhereOvertimeOccurred() = runTest {
         fun route(day: Int) = Route(
             basicData = BasicData(

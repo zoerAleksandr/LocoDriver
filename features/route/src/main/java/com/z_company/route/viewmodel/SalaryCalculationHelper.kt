@@ -26,6 +26,7 @@ import com.z_company.domain.util.TimeInterval
 import com.z_company.domain.util.applyTariffChanges
 import com.z_company.domain.util.buildSalarySegments
 import com.z_company.domain.util.buildTieredTrainSurchargeSegments
+import com.z_company.domain.util.calculateOvertimePremiumDurations
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.subtractAll
 import com.z_company.domain.util.toExactIntOrNull
@@ -854,15 +855,36 @@ class SalaryCalculationHelper(
     fun getTimeSurchargeAtOvertime05Flow(): Flow<Long> {
         return flow {
             val overtime = getTimeOvertimeFlow().first()
-            val time = calculateHalfRateOvertime(
-                overtime = overtime,
-                shiftCount = allRoutes.size,
+            val overtimeByShift = allocateOvertimeByShift(overtime)
+            val time = calculateOvertimePremiumDurations(
+                overtimeByShiftMillis = overtimeByShift,
                 year = currentMonthOfYear.year,
-                month = currentMonthOfYear.month,
-                annualOvertimeBeforePeriod = annualOvertimeBeforePeriod,
-            )
+                zeroBasedMonth = currentMonthOfYear.month,
+                annualOvertimeBeforePeriodMillis = annualOvertimeBeforePeriod,
+            ).halfRateMillis
             emit(time)
         }
+    }
+
+    /**
+     * При суммированном учёте общая переработка относится к фактическому хвосту
+     * месяца. Распределяем её назад по сменам, чтобы после 01.09.2026 первые два
+     * часа определялись для каждой реально переработавшей смены, а не по общему
+     * количеству маршрутов месяца.
+     */
+    private suspend fun allocateOvertimeByShift(overtime: Long): List<Long> {
+        var remaining = overtime.coerceAtLeast(0L)
+        val eligibleByShift = allRoutes.sortedBy { it.basicData.timeStartWork }.map { route ->
+            (getTotalWorkTime(listOf(route)).first() - getHolidayTime(listOf(route)))
+                .coerceAtLeast(0L)
+        }
+        val allocated = MutableList(eligibleByShift.size) { 0L }
+        eligibleByShift.indices.reversed().forEach { index ->
+            val value = minOf(remaining, eligibleByShift[index])
+            allocated[index] = value
+            remaining -= value
+        }
+        return allocated
     }
 
     fun getMoneySurchargeOvertime05Flow(): Flow<Double> {
