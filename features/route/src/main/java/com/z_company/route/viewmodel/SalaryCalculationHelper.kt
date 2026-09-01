@@ -378,7 +378,7 @@ class SalaryCalculationHelper(
 
                 val firstRoutesTime = getWorkTimeInPeriodAtTariffFlow(
                     routeList = firstRoutes,
-                    period = Pair(firstDate, date)
+                    period = Pair(firstDate, date - 1)
                 ).first()
                 val firstRoutesMoney =
                     firstRoutesTime.times(oldTariffRate) / 3_600_000.toDouble()
@@ -1468,7 +1468,7 @@ class SalaryCalculationHelper(
     private fun getPersonalNormaHoursToPeriod(period: Pair<Int, Int>): Int {
         return userSettings.selectMonthOfYear.getPersonalNormaHoursInPeriod(
             period,
-            currentMonthOfYear
+            workScheduleProfile,
         ) * 3_600_000
     }
 

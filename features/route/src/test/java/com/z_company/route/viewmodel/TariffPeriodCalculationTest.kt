@@ -180,4 +180,5 @@ class TariffPeriodCalculationTest {
         assertEquals(800.0, before.getMoneyAtWorkTimeAtTariff().first(), 0.001)
         assertEquals(1_600.0, after.getMoneyAtWorkTimeAtTariff().first(), 0.001)
     }
+
 }
