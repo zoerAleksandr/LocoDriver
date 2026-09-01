@@ -46,7 +46,8 @@ fun calculateOvertimePremiumDurations(
     val candidateHalfRate = if (law144Effective) {
         overtimeByShift.sumOf { minOf(it, TWO_HOURS_MILLIS) }
     } else {
-        minOf(total, overtimeByShift.size.toLong() * TWO_HOURS_MILLIS)
+        val actualOvertimeShiftCount = overtimeByShift.count { it > 0L }
+        minOf(total, actualOvertimeShiftCount.toLong() * TWO_HOURS_MILLIS)
     }
     val halfRate = if (law144Effective) {
         minOf(

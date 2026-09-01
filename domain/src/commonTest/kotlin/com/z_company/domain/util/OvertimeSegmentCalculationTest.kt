@@ -276,15 +276,15 @@ class OvertimeSegmentCalculationTest {
     }
 
     @Test
-    fun beforeSeptember2026PreservesAggregateHistoricalRule() {
+    fun beforeSeptember2026DoesNotCountZeroOvertimeShift() {
         val result = calculateOvertimePremiumDurations(
             overtimeByShiftMillis = listOf(4 * hour, 0L),
             year = 2026,
             zeroBasedMonth = 7,
         )
 
-        assertEquals(4 * hour, result.halfRateMillis)
-        assertEquals(0L, result.fullRateMillis)
+        assertEquals(2 * hour, result.halfRateMillis)
+        assertEquals(2 * hour, result.fullRateMillis)
     }
 
     @Test

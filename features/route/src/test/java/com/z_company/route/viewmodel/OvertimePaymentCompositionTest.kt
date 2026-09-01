@@ -158,6 +158,50 @@ class OvertimePaymentCompositionTest {
     }
 
     @Test
+    fun addingZeroDurationRouteDoesNotChangeOvertimeMoney() = runTest {
+        val base = helper()
+        val sourceRoute = Route(
+            basicData = BasicData(
+                isOnePersonOperation = true,
+                timeStartWork = instant(8),
+                timeEndWork = instant(12),
+            ),
+            trains = mutableListOf(Train(number = "2503")),
+        )
+        val zeroRoute = Route(basicData = BasicData(
+            timeStartWork = instant(day = 6, hour = 8),
+            timeEndWork = instant(day = 6, hour = 8),
+        ))
+        val withZero = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2025,
+                    month = 0,
+                    tariffRate = 100.0,
+                    days = emptyList(),
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(
+                onePersonOperationPercent = 40.0,
+                zonalSurcharge = 0.0,
+                harmfulnessPercent = 0.0,
+            ),
+            allRoutes = listOf(sourceRoute, zeroRoute),
+        )
+
+        assertEquals(
+            base.getMoneyTotalChargedFlow().first(),
+            withZero.getMoneyTotalChargedFlow().first(),
+            0.001,
+        )
+        assertEquals(
+            base.getTimeSurchargeAtOvertime05Flow().first(),
+            withZero.getTimeSurchargeAtOvertime05Flow().first(),
+        )
+    }
+
+    @Test
     fun overtimeTariffPartUsesRateOfLaterPeriodWhereOvertimeOccurred() = runTest {
         fun route(day: Int) = Route(
             basicData = BasicData(
