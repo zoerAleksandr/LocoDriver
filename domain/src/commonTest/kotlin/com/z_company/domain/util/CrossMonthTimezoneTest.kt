@@ -100,4 +100,40 @@ class CrossMonthTimezoneTest {
         assertEquals(hour, february.second - february.first)
         assertEquals(hour, march.second - march.first)
     }
+
+    @Test
+    fun positiveWholeOffsetClipsAtItsOwnLocalMidnight() {
+        // Екатеринбург: UTC+5, в настройке хранится +2 часа относительно Москвы.
+        val yekaterinburg = TimeCalculationContext.from(UserSettings(
+            timeZone = 2 * hour,
+            crossMonthTimezone = CrossMonthTimezone.LOCAL,
+        ))
+        val route = Route(basicData = BasicData(
+            timeStartWork = utc(month = 1, day = 31, hour = 18),
+            timeEndWork = utc(month = 1, day = 31, hour = 20),
+        ))
+
+        val january = route.clipToMonth(MonthOfYear(year = 2025, month = 0), yekaterinburg)!!
+        val february = route.clipToMonth(MonthOfYear(year = 2025, month = 1), yekaterinburg)!!
+        assertEquals(hour, january.second - january.first)
+        assertEquals(hour, february.second - february.first)
+    }
+
+    @Test
+    fun negativeWholeOffsetClipsAtItsOwnLocalMidnight() {
+        // UTC-5: в настройке хранится -8 часов относительно Москвы.
+        val utcMinusFive = TimeCalculationContext.from(UserSettings(
+            timeZone = -8 * hour,
+            crossMonthTimezone = CrossMonthTimezone.LOCAL,
+        ))
+        val route = Route(basicData = BasicData(
+            timeStartWork = utc(month = 2, day = 1, hour = 4),
+            timeEndWork = utc(month = 2, day = 1, hour = 6),
+        ))
+
+        val january = route.clipToMonth(MonthOfYear(year = 2025, month = 0), utcMinusFive)!!
+        val february = route.clipToMonth(MonthOfYear(year = 2025, month = 1), utcMinusFive)!!
+        assertEquals(hour, january.second - january.first)
+        assertEquals(hour, february.second - february.first)
+    }
 }
