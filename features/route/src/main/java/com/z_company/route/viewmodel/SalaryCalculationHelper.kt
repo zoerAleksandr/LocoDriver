@@ -1145,6 +1145,7 @@ class SalaryCalculationHelper(
     fun getLinearMileageAccrualsFlow(): Flow<List<LinearMileageAccrual>> = flow {
         val distancesByPhase = linkedMapOf<String, Double>()
         val phasesById = linkedMapOf<String, com.z_company.domain.entities.setting.ServicePhase>()
+        val ratesByPhase = linkedMapOf<String, Double>()
         routeList.distinctBy { it.basicData.id }
             .filter { it.startsInSelectedMonth() }
             .forEach { route ->
@@ -1152,22 +1153,24 @@ class SalaryCalculationHelper(
                 val savedPhase = train.servicePhase ?: return@forEach
                 val currentPhase = userSettings.servicePhases.firstOrNull { it.id == savedPhase.id }
                     ?: savedPhase
-                val rate = currentPhase.linearMileageRate.coerceAtLeast(0.0)
+                val rate = currentPhase.linearMileageRate.nonNegativeFiniteOrZero()
                 if (rate == 0.0) return@forEach
                 val distance = (train.distance?.replace(',', '.')?.toDoubleOrNull()
-                    ?: savedPhase.distance.toDouble()).coerceAtLeast(0.0)
+                    ?: savedPhase.distance.toDouble()).nonNegativeFiniteOrZero()
                 phasesById[currentPhase.id] = currentPhase
+                ratesByPhase[currentPhase.id] = rate
                 distancesByPhase[currentPhase.id] = (distancesByPhase[currentPhase.id] ?: 0.0) + distance
             }
         }
         emit(distancesByPhase.map { (phaseId, distance) ->
             val phase = phasesById.getValue(phaseId)
+            val rate = ratesByPhase.getValue(phaseId)
             LinearMileageAccrual(
                 phaseId = phaseId,
                 phaseName = "${phase.departureStation} — ${phase.arrivalStation}",
                 distance = distance,
-                rate = phase.linearMileageRate,
-                money = distance * phase.linearMileageRate,
+                rate = rate,
+                money = distance * rate,
             )
         })
     }

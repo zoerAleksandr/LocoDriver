@@ -118,4 +118,27 @@ class LinearMileageCalculationTest {
         assertEquals(200.0, accrual.distance, 0.001)
         assertEquals(400.0, accrual.money, 0.001)
     }
+
+    @Test
+    fun invalidRatesAndDistancesFromLegacyDataCannotCreateNonFiniteMoney() = runTest {
+        val valid = phase(id = "valid", distance = 100, rate = 2.0)
+        val invalidRate = phase(id = "rate", distance = 100, rate = Double.NaN)
+        val calculation = helper(
+            routes = listOf(route(
+                instant(2025, 1, 10),
+                Train(servicePhase = invalidRate, distance = "100"),
+                Train(servicePhase = valid, distance = "Infinity"),
+                Train(servicePhase = valid, distance = "-50"),
+                Train(servicePhase = valid, distance = "25"),
+            )),
+            phases = listOf(invalidRate, valid),
+        )
+
+        val accrual = calculation.getLinearMileageAccrualsFlow().first().single()
+        assertEquals("valid", accrual.phaseId)
+        assertEquals(25.0, accrual.distance, 0.001)
+        assertEquals(2.0, accrual.rate, 0.001)
+        assertEquals(50.0, accrual.money, 0.001)
+        assertEquals(50.0, calculation.getMoneyLinearMileageFlow().first(), 0.001)
+    }
 }
