@@ -18,8 +18,8 @@ import kotlin.test.assertNull
 class CrossMonthTimezoneTest {
     private val hour = 3_600_000L
 
-    private fun utc(month: Int, day: Int, hour: Int): Long =
-        LocalDateTime(2025, month, day, hour, 0)
+    private fun utc(year: Int = 2025, month: Int, day: Int, hour: Int): Long =
+        LocalDateTime(year, month, day, hour, 0)
             .toInstant(TimeZone.UTC)
             .toEpochMilliseconds()
 
@@ -46,5 +46,58 @@ class CrossMonthTimezoneTest {
         assertEquals(hour, februaryMoscow!!.second - februaryMoscow.first)
         val februaryLocal = route.clipToMonth(february, context(CrossMonthTimezone.LOCAL))
         assertEquals(2 * hour, februaryLocal!!.second - februaryLocal.first)
+    }
+
+    @Test
+    fun moscowMonthBoundaryHandlesNewYearLeapAndCommonFebruary() {
+        fun assertOneHourOnEachSide(route: Route, firstMonth: MonthOfYear, secondMonth: MonthOfYear) {
+            val moscow = context(CrossMonthTimezone.MOSCOW)
+            val first = route.clipToMonth(firstMonth, moscow)!!
+            val second = route.clipToMonth(secondMonth, moscow)!!
+            assertEquals(hour, first.second - first.first)
+            assertEquals(hour, second.second - second.first)
+        }
+
+        assertOneHourOnEachSide(
+            Route(basicData = BasicData(
+                timeStartWork = utc(2024, 12, 31, 20),
+                timeEndWork = utc(2024, 12, 31, 22),
+            )),
+            MonthOfYear(year = 2024, month = 11),
+            MonthOfYear(year = 2025, month = 0),
+        )
+        assertOneHourOnEachSide(
+            Route(basicData = BasicData(
+                timeStartWork = utc(2024, 2, 29, 20),
+                timeEndWork = utc(2024, 2, 29, 22),
+            )),
+            MonthOfYear(year = 2024, month = 1),
+            MonthOfYear(year = 2024, month = 2),
+        )
+        assertOneHourOnEachSide(
+            Route(basicData = BasicData(
+                timeStartWork = utc(2025, 2, 28, 20),
+                timeEndWork = utc(2025, 2, 28, 22),
+            )),
+            MonthOfYear(year = 2025, month = 1),
+            MonthOfYear(year = 2025, month = 2),
+        )
+    }
+
+    @Test
+    fun utcLocalBusinessZoneClipsAtUtcMidnight() {
+        val utcContext = TimeCalculationContext.from(UserSettings(
+            timeZone = -3 * hour,
+            crossMonthTimezone = CrossMonthTimezone.LOCAL,
+        ))
+        val route = Route(basicData = BasicData(
+            timeStartWork = utc(month = 2, day = 28, hour = 23),
+            timeEndWork = utc(month = 3, day = 1, hour = 1),
+        ))
+
+        val february = route.clipToMonth(MonthOfYear(year = 2025, month = 1), utcContext)!!
+        val march = route.clipToMonth(MonthOfYear(year = 2025, month = 2), utcContext)!!
+        assertEquals(hour, february.second - february.first)
+        assertEquals(hour, march.second - march.first)
     }
 }
