@@ -128,4 +128,56 @@ class TariffPeriodCalculationTest {
 
         assertEquals(400.0, helper.getMoneyAtWorkTimeAtTariff().first(), 0.001)
     }
+
+    @Test
+    fun changeOnFirstDayUsesOnlyCurrentRate() = runTest {
+        val helper = helper(
+            routes = listOf(route(day = 1), route(day = 20)),
+            dateSetTariffRate = DateSetTariffRate(dateNewRate = 1, oldRate = 100.0),
+        )
+
+        assertEquals(3_200.0, helper.getMoneyAtWorkTimeAtTariff().first(), 0.001)
+    }
+
+    @Test
+    fun changeOnLastDayUsesOldRateBeforeBoundaryAndCurrentRateAfterIt() = runTest {
+        val helper = helper(
+            routes = listOf(route(day = 30), route(day = 31)),
+            dateSetTariffRate = DateSetTariffRate(dateNewRate = 31, oldRate = 100.0),
+        )
+
+        assertEquals(2_400.0, helper.getMoneyAtWorkTimeAtTariff().first(), 0.001)
+    }
+
+    @Test
+    fun equalOldAndCurrentRatesDoNotChangeMoneyAtBoundary() = runTest {
+        val crossing = route(startDay = 14, startHour = 22, endDay = 15, endHour = 2)
+        val withBoundary = helper(
+            routes = listOf(crossing),
+            dateSetTariffRate = DateSetTariffRate(dateNewRate = 15, oldRate = 200.0),
+        )
+        val withoutBoundary = helper(routes = listOf(crossing))
+
+        assertEquals(800.0, withBoundary.getMoneyAtWorkTimeAtTariff().first(), 0.001)
+        assertEquals(
+            withoutBoundary.getMoneyAtWorkTimeAtTariff().first(),
+            withBoundary.getMoneyAtWorkTimeAtTariff().first(),
+            0.001,
+        )
+    }
+
+    @Test
+    fun routesStrictlyBeforeAndAfterBoundaryUseOnlyTheirApplicableRate() = runTest {
+        val before = helper(
+            routes = listOf(route(day = 5)),
+            dateSetTariffRate = DateSetTariffRate(dateNewRate = 15, oldRate = 100.0),
+        )
+        val after = helper(
+            routes = listOf(route(day = 20)),
+            dateSetTariffRate = DateSetTariffRate(dateNewRate = 15, oldRate = 100.0),
+        )
+
+        assertEquals(800.0, before.getMoneyAtWorkTimeAtTariff().first(), 0.001)
+        assertEquals(1_600.0, after.getMoneyAtWorkTimeAtTariff().first(), 0.001)
+    }
 }
