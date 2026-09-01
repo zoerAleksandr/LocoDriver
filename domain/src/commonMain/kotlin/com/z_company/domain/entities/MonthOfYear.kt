@@ -1,4 +1,4 @@
-@file:OptIn(kotlin.time.ExperimentalTime::class)
+@file:OptIn(kotlin.time.ExperimentalTime::class, kotlinx.serialization.ExperimentalSerializationApi::class)
 
 package com.z_company.domain.entities
 
@@ -6,6 +6,8 @@ import com.z_company.domain.util.generateId
 import kotlin.time.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -27,7 +29,15 @@ enum class TagForDay {
 @Serializable
 data class MonthOfYear(
     var id: String = generateId(),
+    // @EncodeDefault обязателен: значения по умолчанию у year/month — ТЕКУЩИЕ
+    // год и месяц. Без принудительной записи Json с encodeDefaults = false
+    // (локальный settingsJson) выбрасывал их из JSON, если на момент сохранения
+    // они совпадали с «сегодня». При чтении в следующем месяце дефолты
+    // подставляли уже НОВЫЙ месяц, а days оставались от старого — сентябрь
+    // получал 31 день, и расчёт нормы падал на LocalDate(2026, 9, 31).
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     var year: Int = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).year,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     var month: Int = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).monthNumber - 1,
     val days: List<Day> = listOf(),
     val tariffRate: Double = 0.0,
