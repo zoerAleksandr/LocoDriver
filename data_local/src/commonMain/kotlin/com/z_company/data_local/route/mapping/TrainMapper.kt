@@ -1,6 +1,7 @@
 package com.z_company.data_local.route.mapping
 
 import com.zcompany.datalocal.route.db.Train as TrainRow
+import com.z_company.domain.entities.route.CarInspector
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.TrainAssist
@@ -28,7 +29,12 @@ private data class StationRow(
     val timeDeparture: Long? = null,
     val orderIndex: Int = 0,
     // Номер пути — новое поле. Отсутствующее значение в JSON → null (безопасная миграция).
-    @SerialName("track_number") val trackNumber: String? = null
+    @SerialName("track_number") val trackNumber: String? = null,
+    // Конечная / проходная станция, поля перегона — новые поля, безопасная миграция (default = "не задано").
+    val isFinalStation: Boolean = false,
+    val isPassingStation: Boolean = false,
+    val segmentTrackNumber: String? = null,
+    val segmentNotes: String? = null
 ) {
     fun toStation(): Station {
         val rawName = stationNameGson ?: stationNameNew
@@ -42,7 +48,11 @@ private data class StationRow(
             timeArrival = timeArrival,
             timeDeparture = timeDeparture,
             orderIndex = orderIndex,
-            trackNumber = cleanTrack
+            trackNumber = cleanTrack,
+            isFinalStation = isFinalStation,
+            isPassingStation = isPassingStation,
+            segmentTrackNumber = segmentTrackNumber,
+            segmentNotes = segmentNotes
         )
     }
 }
@@ -67,6 +77,9 @@ internal object TrainMapper {
 
     fun encodeTrainAssist(assist: TrainAssist?): String? =
         assist?.let { json.encodeToString(it) }
+
+    fun encodeCarInspector(carInspector: CarInspector?): String? =
+        carInspector?.let { json.encodeToString(it) }
 
     fun encodeAdditionalNumbers(numbers: List<String>): String? =
         if (numbers.isEmpty()) null else json.encodeToString(numbers)
@@ -100,6 +113,11 @@ internal object TrainMapper {
             runCatching { json.decodeFromString<TrainAssist>(it) }.getOrNull()
         }
 
+    private fun decodeCarInspector(value: String?): CarInspector? =
+        value?.let {
+            runCatching { json.decodeFromString<CarInspector>(it) }.getOrNull()
+        }
+
     private fun decodeAdditionalNumbers(value: String?): MutableList<String> =
         value?.let {
             runCatching { json.decodeFromString<List<String>>(it) }.getOrElse { mutableListOf() }
@@ -119,6 +137,7 @@ internal object TrainMapper {
         pusher = decodeTrainAssist(row.pusher),
         doubleTraction = decodeTrainAssist(row.doubleTraction),
         doubledTrain = decodeTrainAssist(row.doubledTrain),
-        dataVersions = decodeTrainDataVersions(row.stations)
+        dataVersions = decodeTrainDataVersions(row.stations),
+        carInspector = decodeCarInspector(row.carInspector)
     )
 }

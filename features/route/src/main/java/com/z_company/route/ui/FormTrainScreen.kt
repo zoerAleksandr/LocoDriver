@@ -125,6 +125,7 @@ import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.ShoulderEditBottomSheet
 import com.z_company.route.component.StationEditBottomSheet
+import com.z_company.route.component.SegmentEditBottomSheet
 import com.z_company.route.component.TrainStationTimeline
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.component.computeRouteSummary
@@ -315,9 +316,10 @@ fun FormTrainScreen(
                         )
                     }
                 } else null,
-                onSave = { name, arrival, departure, trackNumber ->
+                onSave = { name, arrival, departure, trackNumber, isFinalStation, isPassingStation ->
                     viewModel.saveStationFromSheet(
-                        editingIndex, name, arrival, departure, trackNumber, editingStationId
+                        editingIndex, name, arrival, departure, trackNumber,
+                        isFinalStation, isPassingStation, editingStationId
                     )
                 },
                 onDelete = if (editingIndex >= 0) {
@@ -325,6 +327,25 @@ fun FormTrainScreen(
                 } else null,
                 onDismiss = { viewModel.stopEditingStation() },
                 dateAndTimeConverter = dateAndTimeConverter
+            )
+        }
+
+        // BottomSheet для редактирования перегона (клик по «времени в пути» между станциями)
+        val editingSegmentAfterIndex = formUiState.editingSegmentAfterIndex
+        if (editingSegmentAfterIndex != null && stationListState != null) {
+            val fromState = stationListState.getOrNull(editingSegmentAfterIndex)
+            val toState = stationListState.getOrNull(editingSegmentAfterIndex + 1)
+            SegmentEditBottomSheet(
+                fromStationName = fromState?.station?.data,
+                toStationName = toState?.station?.data,
+                trackNumber = toState?.segmentTrackNumber,
+                notes = toState?.segmentNotes,
+                onSave = { fromName, toName, trackNumber, notes ->
+                    viewModel.saveSegmentFromSheet(
+                        editingSegmentAfterIndex, fromName, toName, trackNumber, notes
+                    )
+                },
+                onDismiss = { viewModel.stopEditingSegment() },
             )
         }
 
@@ -557,6 +578,20 @@ fun FormTrainScreen(
                             )
                         },
                         onDeleteSeries = viewModel::removeSeries
+                    )
+
+                    CarInspectorSection(
+                        carInspector = currentTrain?.carInspector,
+                        onAdd = viewModel::addCarInspector,
+                        onRemove = viewModel::removeCarInspector,
+                        onFullNameChange = viewModel::setCarInspectorFullName,
+                        onTabNumberChange = viewModel::setCarInspectorTabNumber,
+                        onCouplingTimeChange = viewModel::setCarInspectorCouplingTime,
+                        hintStyle = hintStyle,
+                        dataTextStyle = dataTextStyle,
+                        primaryColor = primaryColor,
+                        noValueColor = noValueColor,
+                        dateAndTimeConverter = dateAndTimeConverter,
                     )
 
                     Spacer(modifier = Modifier.height(40.dp))
@@ -1796,6 +1831,17 @@ fun FormTrainScreen(
                                         viewModel.startReorderStation(item.id)
                                     }
                                 },
+                                onSegmentClick = { displayIndex ->
+                                    // index здесь — станция ПЕРЕД перегоном в displayList;
+                                    // при развороте списка меняем местами «раньше»/«позже».
+                                    val originalAfterIndex =
+                                        if (formUiState.isStationsReversed) {
+                                            stationList.size - 2 - displayIndex
+                                        } else {
+                                            displayIndex
+                                        }
+                                    viewModel.startEditingSegment(originalAfterIndex)
+                                },
                                 onMoveUp = { displayIndex ->
                                     val originalIndex =
                                         if (formUiState.isStationsReversed) stationList.size - 1 - displayIndex
@@ -2260,6 +2306,157 @@ private fun TrainAssistSection(
             }
         }
 
+    }
+}
+
+// ─── Вагонник (осмотр/закрепление состава перед прицепкой) ───────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CarInspectorSection(
+    carInspector: com.z_company.domain.entities.route.CarInspector?,
+    onAdd: () -> Unit,
+    onRemove: () -> Unit,
+    onFullNameChange: (String) -> Unit,
+    onTabNumberChange: (String) -> Unit,
+    onCouplingTimeChange: (Long?) -> Unit,
+    hintStyle: androidx.compose.ui.text.TextStyle,
+    dataTextStyle: androidx.compose.ui.text.TextStyle,
+    primaryColor: Color,
+    noValueColor: Color,
+    dateAndTimeConverter: com.z_company.core.util.DateAndTimeConverter?,
+) {
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 2.dp, shape = Shapes.medium)
+            .clip(Shapes.medium)
+            .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Вагонник",
+                style = hintStyle,
+                color = primaryColor
+            )
+            if (carInspector == null) {
+                TextButton(onClick = onAdd) {
+                    Text(
+                        text = "Добавить",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            } else {
+                IconButton(
+                    modifier = Modifier.size(24.dp),
+                    onClick = onRemove
+                ) {
+                    Icon(
+                        painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                        contentDescription = "Удалить вагонника",
+                        tint = noValueColor
+                    )
+                }
+            }
+        }
+
+        AnimatedVisibility(visible = carInspector != null) {
+            if (carInspector != null) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextFieldApp(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = carInspector.fullName ?: "",
+                        onValueChange = onFullNameChange,
+                        placeholder = {
+                            Text(
+                                text = "ФИО",
+                                style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                color = noValueColor
+                            )
+                        },
+                        textStyle = dataTextStyle,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        fieldElevation = 0.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.secondary,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.secondary
+                    )
+                    OutlinedTextFieldApp(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = carInspector.tabNumber ?: "",
+                        onValueChange = onTabNumberChange,
+                        placeholder = {
+                            Text(
+                                text = "Табельный номер",
+                                style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                color = noValueColor
+                            )
+                        },
+                        textStyle = dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        fieldElevation = 0.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.secondary,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.secondary
+                    )
+
+                    // ── Время прицепки к составу ──
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.surfaceBright)
+                            .clickable { showTimePicker = true }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Время прицепки",
+                            style = dataTextStyle,
+                            color = if (carInspector.couplingTime != null) primaryColor else noValueColor
+                        )
+                        val timeText = carInspector.couplingTime?.let {
+                            dateAndTimeConverter?.getTimeFromDateLong(it)
+                        } ?: "—"
+                        Text(
+                            text = timeText,
+                            style = dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
+                            fontWeight = FontWeight.SemiBold,
+                            color = primaryColor
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showTimePicker) {
+        com.z_company.route.component.AppDateTimePicker(
+            title = "Время прицепки",
+            onDateTimeSelected = { time ->
+                onCouplingTimeChange(time)
+                showTimePicker = false
+            },
+            onDismiss = { showTimePicker = false },
+            startDateTime = carInspector?.couplingTime ?: com.z_company.core.util.TimeManager().now(),
+            timeZoneStr = dateAndTimeConverter?.timeZoneText ?: "GMT+3"
+        )
     }
 }
 

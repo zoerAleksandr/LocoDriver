@@ -27,7 +27,11 @@ data class StationFormState(
     val departure: StationFieldDate = StationFieldDate(type = StationDataType.DEPARTURE),
 //    val formValid: StationIsValidField = StationIsValidField(),
     val errorMessage: String = "",
-    val trackNumber: String? = null
+    val trackNumber: String? = null,
+    val isFinalStation: Boolean = false,
+    val isPassingStation: Boolean = false,
+    val segmentTrackNumber: String? = null,
+    val segmentNotes: String? = null
 )
 
 sealed class StationEvent{

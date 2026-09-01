@@ -343,6 +343,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "Train.pusher" to ColumnSpec("TEXT", true, "NULL"),
             "Train.doubleTraction" to ColumnSpec("TEXT", true, "NULL"),
             "Train.doubledTrain" to ColumnSpec("TEXT", true, "NULL"),
+            "Train.carInspector" to ColumnSpec("TEXT", true, "NULL"),
             // Route — Passenger (миграция 9)
             "Passenger.isWorkStartByArrival" to ColumnSpec("INTEGER", false, "0"),
             // SalarySetting
@@ -624,6 +625,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 "Train" to "pusher",
                 "Train" to "doubleTraction",
                 "Train" to "doubledTrain",
+                "Train" to "carInspector",
                 "Passenger" to "isWorkStartByArrival"
             )
             for ((table, column) in routeChecks) {

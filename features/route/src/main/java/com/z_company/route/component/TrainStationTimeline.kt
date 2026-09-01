@@ -75,6 +75,14 @@ data class StationTimelineItem(
     val timeArrival: Long?,
     val timeDeparture: Long?,
     val trackNumber: String? = null,
+    val isFinalStation: Boolean = false,
+    // Проходная станция — без остановки; показывается только timeArrival
+    // («время проследования»), по центру ширины прибытия+отправления, а
+    // название станции — приглушённым цветом.
+    val isPassingStation: Boolean = false,
+    // Путь/примечание перегона ПЕРЕД этой станцией (между предыдущей и этой).
+    val segmentTrackNumber: String? = null,
+    val segmentNotes: String? = null,
 )
 
 private data class SegmentInfo(val durationMillis: Long)
@@ -155,6 +163,9 @@ fun TrainStationTimeline(
     reorderingStationId: String? = null,
     onStationClick: ((Int) -> Unit)? = null,
     onStationLongPress: ((Int) -> Unit)? = null,
+    // Клик по перегону МЕЖДУ station[index] и station[index+1] — index здесь
+    // индекс станции ПЕРЕД перегоном (т.е. данные перегона хранятся на station[index+1]).
+    onSegmentClick: ((Int) -> Unit)? = null,
     onMoveUp: ((Int) -> Unit)? = null,
     onMoveDown: ((Int) -> Unit)? = null,
     onDismissReorder: (() -> Unit)? = null,
@@ -242,8 +253,13 @@ fun TrainStationTimeline(
                     val segment = calculateSegment(station, nextStation)
                     SegmentRow(
                         segment = segment,
+                        segmentTrackNumber = nextStation.segmentTrackNumber,
+                        segmentNotes = nextStation.segmentNotes,
                         colors = colors,
                         isAnyReordering = isAnyReordering,
+                        onClick = if (onSegmentClick != null) {
+                            { onSegmentClick(index) }
+                        } else null,
                     )
                 }
             }
@@ -426,12 +442,23 @@ private fun StationRow(
                         append("${item.trackNumber} п.")
                     }
                 }
+                if (item.isFinalStation) {
+                    withStyle(SpanStyle(fontFamily = MonoFont)) {
+                        append(" · конечная")
+                    }
+                }
+            }
+            // Проходная станция — название приглушённым цветом.
+            val nameColor = if (item.isPassingStation) {
+                colors.stationNameColor.copy(alpha = 0.55f)
+            } else {
+                colors.stationNameColor
             }
             Text(
                 text = stationDisplayText,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Normal,
-                color = colors.stationNameColor,
+                color = nameColor,
                 // Длинное название с номером пути не помещается в одну строку —
                 // переносим (до 3 строк), чтобы было видно целиком.
                 maxLines = 3,
@@ -443,39 +470,53 @@ private fun StationRow(
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            // ── Время прибытия ──
-            TimeText(
-                millis = item.timeArrival,
-                color = colors.timeColor,
-            )
-
-            // ── Бейдж стоянки (фиксированная ширина, цвет по порогу) ──
-            Box(
-                modifier = Modifier.width(StopBadgeWidth),
-                contentAlignment = Alignment.Center
-            ) {
-                if (stopInfo != null && stopInfo.durationMillis > 0) {
-                    val isPassengerTrain = trainNumber?.toIntOrNull()?.let { num ->
-                        UtilsForEntities.passengerTrainNumberList.any { range -> num in range }
-                    } ?: false
-                    val (badgeColor, badgeTextColor) = computeStopBadgeColors(
-                        stopDurationMillis = stopInfo.durationMillis,
-                        isPassengerTrain = isPassengerTrain,
-                        primaryColor = primaryColor,
-                    )
-                    StopBadge(
-                        stopInfo = stopInfo,
-                        badgeColor = badgeColor,
-                        textColor = badgeTextColor,
+            if (item.isPassingStation) {
+                // ── Проходная станция: одно время (проследование) по центру
+                // всей ширины, отведённой под прибытие+стоянку+отправление. ──
+                Box(
+                    modifier = Modifier.width(48.dp * 2 + StopBadgeWidth),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    TimeText(
+                        millis = item.timeArrival,
+                        color = colors.timeColor,
                     )
                 }
-            }
+            } else {
+                // ── Время прибытия ──
+                TimeText(
+                    millis = item.timeArrival,
+                    color = colors.timeColor,
+                )
 
-            // ── Время отправления ──
-            TimeText(
-                millis = item.timeDeparture,
-                color = colors.timeColor,
-            )
+                // ── Бейдж стоянки (фиксированная ширина, цвет по порогу) ──
+                Box(
+                    modifier = Modifier.width(StopBadgeWidth),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (stopInfo != null && stopInfo.durationMillis > 0) {
+                        val isPassengerTrain = trainNumber?.toIntOrNull()?.let { num ->
+                            UtilsForEntities.passengerTrainNumberList.any { range -> num in range }
+                        } ?: false
+                        val (badgeColor, badgeTextColor) = computeStopBadgeColors(
+                            stopDurationMillis = stopInfo.durationMillis,
+                            isPassengerTrain = isPassengerTrain,
+                            primaryColor = primaryColor,
+                        )
+                        StopBadge(
+                            stopInfo = stopInfo,
+                            badgeColor = badgeColor,
+                            textColor = badgeTextColor,
+                        )
+                    }
+                }
+
+                // ── Время отправления ──
+                TimeText(
+                    millis = item.timeDeparture,
+                    color = colors.timeColor,
+                )
+            }
         }
     }
 }
@@ -485,10 +526,15 @@ private fun StationRow(
 @Composable
 private fun SegmentRow(
     segment: SegmentInfo?,
+    segmentTrackNumber: String?,
+    segmentNotes: String?,
     colors: TimelineColors,
     isAnyReordering: Boolean = false,
+    onClick: (() -> Unit)? = null,
 ) {
     val lineWidth = 2.dp
+    val hasAnyContent = (segment != null && segment.durationMillis > 0) ||
+            !segmentTrackNumber.isNullOrBlank() || !segmentNotes.isNullOrBlank()
 
     Row(
         modifier = Modifier
@@ -509,6 +555,10 @@ private fun SegmentRow(
         Row(
             modifier = Modifier
                 .weight(1f)
+                .then(
+                    if (onClick != null && !isAnyReordering) Modifier.clickable { onClick() }
+                    else Modifier
+                )
                 .padding(horizontal = ContentPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -521,23 +571,48 @@ private fun SegmentRow(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // ── Перегонное время ──
-            if (segment != null && segment.durationMillis > 0) {
-                Box(
-                    modifier = Modifier
-                        .padding(vertical = 12.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(colors.segmentBackgroundColor)
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                ) {
+            // ── Перегонное время / путь / примечание ──
+            FlowRow(
+                modifier = Modifier.padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (segment != null && segment.durationMillis > 0) {
+                    SegmentPill(text = formatDuration(segment.durationMillis), colors = colors)
+                }
+                if (!segmentTrackNumber.isNullOrBlank()) {
+                    SegmentPill(text = "путь $segmentTrackNumber", colors = colors)
+                }
+                if (!segmentNotes.isNullOrBlank()) {
+                    SegmentPill(text = segmentNotes, colors = colors)
+                }
+                if (!hasAnyContent && onClick != null) {
                     Text(
-                        text = formatDuration(segment.durationMillis),
+                        text = "Добавить путь / примечание",
                         style = MaterialTheme.typography.labelSmall,
-                        color = colors.segmentTextColor,
+                        color = colors.segmentTextColor.copy(alpha = 0.5f),
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SegmentPill(text: String, colors: TimelineColors) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(colors.segmentBackgroundColor)
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.segmentTextColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -819,6 +894,10 @@ fun List<StationFormState>.toTimelineItems(): List<StationTimelineItem> {
             timeArrival = state.arrival.data,
             timeDeparture = state.departure.data,
             trackNumber = state.trackNumber,
+            isFinalStation = state.isFinalStation,
+            isPassingStation = state.isPassingStation,
+            segmentTrackNumber = state.segmentTrackNumber,
+            segmentNotes = state.segmentNotes,
         )
     }
 }
@@ -831,6 +910,10 @@ fun List<com.z_company.domain.entities.route.Station>.toStationTimelineItems(): 
             timeArrival = station.timeArrival,
             timeDeparture = station.timeDeparture,
             trackNumber = station.trackNumber,
+            isFinalStation = station.isFinalStation,
+            isPassingStation = station.isPassingStation,
+            segmentTrackNumber = station.segmentTrackNumber,
+            segmentNotes = station.segmentNotes,
         )
     }
 }

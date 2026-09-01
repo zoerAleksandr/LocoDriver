@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
@@ -73,7 +74,14 @@ fun StationEditBottomSheet(
     trainAxle: String?,
     trainConditionalLength: String?,
     onTrainDataChange: ((stationName: String?, weight: String, axle: String, conditionalLength: String) -> Unit)?,
-    onSave: (name: String?, arrival: Long?, departure: Long?, trackNumber: String?) -> Unit,
+    onSave: (
+        name: String?,
+        arrival: Long?,
+        departure: Long?,
+        trackNumber: String?,
+        isFinalStation: Boolean,
+        isPassingStation: Boolean,
+    ) -> Unit,
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?,
@@ -103,6 +111,11 @@ fun StationEditBottomSheet(
     }
     var localArrival by remember { mutableStateOf(stationFormState?.arrival?.data) }
     var localDeparture by remember { mutableStateOf(stationFormState?.departure?.data) }
+    var localIsFinal by remember { mutableStateOf(stationFormState?.isFinalStation ?: false) }
+    var localIsPassing by remember { mutableStateOf(stationFormState?.isPassingStation ?: false) }
+    // Клавиатура номера пути: по умолчанию числовая, с переключением на буквенную
+    // (есть номера путей вида «3Г»).
+    var trackKeyboardNumeric by remember { mutableStateOf(true) }
 
     var showArrivalPicker by remember { mutableStateOf(false) }
     var showDeparturePicker by remember { mutableStateOf(false) }
@@ -125,13 +138,18 @@ fun StationEditBottomSheet(
         val allBlank = localName.text.isBlank() &&
                 localTrackNumber.text.isBlank() &&
                 localArrival == null &&
-                localDeparture == null
+                localDeparture == null &&
+                !localIsFinal &&
+                !localIsPassing
         if (isNewStation && allBlank) {
             onDismiss()
         } else {
             val name = localName.text.ifBlank { null }
             val track = localTrackNumber.text.ifBlank { null }
-            onSave(name, localArrival, localDeparture, track)
+            // Проходная станция — только время проследования (localArrival);
+            // отправление не используется.
+            val departure = if (localIsPassing) null else localDeparture
+            onSave(name, localArrival, departure, track, localIsFinal, localIsPassing)
             onDismiss()
         }
     }
@@ -253,12 +271,34 @@ fun StationEditBottomSheet(
                 // ── Поле «Путь» (4 символа) ──
                 Column(
                     modifier = Modifier
-                        .width(80.dp)
+                        .width(92.dp)
                         .clip(fieldShape)
                         .background(fieldColor)
-                        .padding(horizontal = 14.dp, vertical = 9.dp)
+                        .padding(horizontal = 12.dp, vertical = 9.dp)
                 ) {
-                    FieldLabel("Путь", primaryColor)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FieldLabel("Путь", primaryColor)
+                        // Переключатель клавиатуры: обычно путь числовой, но
+                        // бывают номера вида «3Г» — переключение на буквенную.
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .clickable { trackKeyboardNumeric = !trackKeyboardNumeric },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (trackKeyboardNumeric) "Аб" else "123",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                fontWeight = FontWeight.Bold,
+                                color = primaryColor.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
                     BasicTextField(
                         modifier = Modifier.fillMaxWidth(),
                         value = localTrackNumber,
@@ -275,7 +315,14 @@ fun StationEditBottomSheet(
                         ),
                         cursorBrush = SolidColor(primaryColor),
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = if (trackKeyboardNumeric) {
+                                androidx.compose.ui.text.input.KeyboardType.Number
+                            } else {
+                                androidx.compose.ui.text.input.KeyboardType.Text
+                            },
+                            imeAction = ImeAction.Done
+                        ),
                         keyboardActions = KeyboardActions(
                             onDone = { focusManager.clearFocus() }
                         ),
@@ -291,51 +338,91 @@ fun StationEditBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(36.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // ── Прибытие ──
-            TimeBlock(
-                label = "Прибытие",
-                timeMillis = localArrival,
-                dateAndTimeConverter = dateAndTimeConverter,
-                onFieldClick = { showArrivalPicker = true },
-                onClear = { localArrival = null },
-                onAdjust = { delta ->
-                    val base = localArrival ?: nowTruncatedToMinutes()
-                    localArrival = base + delta * 60_000L
-                },
-                onNow = { localArrival = nowTruncatedToMinutes() },
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ── Бейдж стоянки (между прибытием и отправлением) ──
-            val stopMinutes = if (localArrival != null && localDeparture != null) {
-                val arr = localArrival!! - localArrival!! % 60_000L
-                val dep = localDeparture!! - localDeparture!! % 60_000L
-                val diff = dep - arr
-                if (diff > 0) (diff / 60_000).toInt() else null
-            } else null
-
-            if (stopMinutes != null && stopMinutes > 0) {
-                StopDurationDivider(stopMinutes = stopMinutes)
-            } else {
-                Spacer(modifier = Modifier.height(16.dp))
+            // ── Флажки «Конечная станция» / «Проходная станция» ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                StationFlagChip(
+                    label = "Конечная",
+                    checked = localIsFinal,
+                    onCheckedChange = { localIsFinal = it },
+                    modifier = Modifier.weight(1f)
+                )
+                StationFlagChip(
+                    label = "Проходная",
+                    checked = localIsPassing,
+                    onCheckedChange = { checked ->
+                        localIsPassing = checked
+                        if (checked) localDeparture = null
+                    },
+                    modifier = Modifier.weight(1f)
+                )
             }
 
-            // ── Отправление ──
-            TimeBlock(
-                label = "Отправление",
-                timeMillis = localDeparture,
-                dateAndTimeConverter = dateAndTimeConverter,
-                onFieldClick = { showDeparturePicker = true },
-                onClear = { localDeparture = null },
-                onAdjust = { delta ->
-                    val base = localDeparture ?: nowTruncatedToMinutes()
-                    localDeparture = base + delta * 60_000L
-                },
-                onNow = { localDeparture = nowTruncatedToMinutes() },
-            )
+            Spacer(modifier = Modifier.height(36.dp))
+
+            if (localIsPassing) {
+                // ── Проходная станция: только время проследования ──
+                TimeBlock(
+                    label = "Проследование",
+                    timeMillis = localArrival,
+                    dateAndTimeConverter = dateAndTimeConverter,
+                    onFieldClick = { showArrivalPicker = true },
+                    onClear = { localArrival = null },
+                    onAdjust = { delta ->
+                        val base = localArrival ?: nowTruncatedToMinutes()
+                        localArrival = base + delta * 60_000L
+                    },
+                    onNow = { localArrival = nowTruncatedToMinutes() },
+                )
+            } else {
+                // ── Прибытие ──
+                TimeBlock(
+                    label = "Прибытие",
+                    timeMillis = localArrival,
+                    dateAndTimeConverter = dateAndTimeConverter,
+                    onFieldClick = { showArrivalPicker = true },
+                    onClear = { localArrival = null },
+                    onAdjust = { delta ->
+                        val base = localArrival ?: nowTruncatedToMinutes()
+                        localArrival = base + delta * 60_000L
+                    },
+                    onNow = { localArrival = nowTruncatedToMinutes() },
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // ── Бейдж стоянки (между прибытием и отправлением) ──
+                val stopMinutes = if (localArrival != null && localDeparture != null) {
+                    val arr = localArrival!! - localArrival!! % 60_000L
+                    val dep = localDeparture!! - localDeparture!! % 60_000L
+                    val diff = dep - arr
+                    if (diff > 0) (diff / 60_000).toInt() else null
+                } else null
+
+                if (stopMinutes != null && stopMinutes > 0) {
+                    StopDurationDivider(stopMinutes = stopMinutes)
+                } else {
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // ── Отправление ──
+                TimeBlock(
+                    label = "Отправление",
+                    timeMillis = localDeparture,
+                    dateAndTimeConverter = dateAndTimeConverter,
+                    onFieldClick = { showDeparturePicker = true },
+                    onClear = { localDeparture = null },
+                    onAdjust = { delta ->
+                        val base = localDeparture ?: nowTruncatedToMinutes()
+                        localDeparture = base + delta * 60_000L
+                    },
+                    onNow = { localDeparture = nowTruncatedToMinutes() },
+                )
+            }
 
             if (onTrainDataChange != null) {
                 Spacer(modifier = Modifier.height(20.dp))
@@ -467,6 +554,279 @@ fun StationEditBottomSheet(
             onDismiss = { showDeparturePicker = false },
             startDateTime = localDeparture ?: nowTruncatedToMinutes(),
             timeZoneStr = displayTz
+        )
+    }
+}
+
+// ─── Шторка редактирования перегона (между двумя станциями) ─────────────────
+//
+// Открывается кликом по «времени в пути» между station[i] и station[i+1].
+// Названия станций предзаполнены соседними станциями, но остаются
+// редактируемыми (правка здесь меняет сами station[i]/station[i+1]).
+// Путь и примечание относятся к перегону (хранятся на station[i+1]).
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SegmentEditBottomSheet(
+    fromStationName: String?,
+    toStationName: String?,
+    trackNumber: String?,
+    notes: String?,
+    onSave: (fromName: String?, toName: String?, trackNumber: String?, notes: String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val focusManager = LocalFocusManager.current
+
+    var localFrom by remember { mutableStateOf(TextFieldValue(fromStationName ?: "")) }
+    var localTo by remember { mutableStateOf(TextFieldValue(toStationName ?: "")) }
+    var localTrack by remember { mutableStateOf(TextFieldValue(trackNumber ?: "")) }
+    var localNotes by remember { mutableStateOf(TextFieldValue(notes ?: "")) }
+    var trackKeyboardNumeric by remember { mutableStateOf(true) }
+
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val hintColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+    val dataTextStyle = MaterialTheme.typography.bodyLarge
+    val hintStyle = MaterialTheme.typography.bodyMedium
+    val fieldColor = MaterialTheme.colorScheme.surfaceBright
+    val fieldShape = RoundedCornerShape(14.dp)
+
+    val saveAndDismiss: () -> Unit = {
+        onSave(
+            localFrom.text.ifBlank { null },
+            localTo.text.ifBlank { null },
+            localTrack.text.ifBlank { null },
+            localNotes.text.ifBlank { null },
+        )
+        onDismiss()
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = saveAndDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.secondary,
+        shape = Shapes.large
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 40.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Перегон",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = primaryColor,
+                )
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .clickable { saveAndDismiss() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        modifier = Modifier.size(18.dp),
+                        painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                        contentDescription = "Закрыть",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // ── От — До (предзаполнены соседними станциями, редактируемы) ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SegmentTextField(
+                    label = "От",
+                    value = localFrom,
+                    onValueChange = { localFrom = it },
+                    modifier = Modifier.weight(1f),
+                    fieldColor = fieldColor,
+                    fieldShape = fieldShape,
+                    primaryColor = primaryColor,
+                    hintColor = hintColor,
+                    dataTextStyle = dataTextStyle,
+                    hintStyle = hintStyle,
+                    focusManager = focusManager,
+                )
+                SegmentTextField(
+                    label = "До",
+                    value = localTo,
+                    onValueChange = { localTo = it },
+                    modifier = Modifier.weight(1f),
+                    fieldColor = fieldColor,
+                    fieldShape = fieldShape,
+                    primaryColor = primaryColor,
+                    hintColor = hintColor,
+                    dataTextStyle = dataTextStyle,
+                    hintStyle = hintStyle,
+                    focusManager = focusManager,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // ── Путь на перегоне ──
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(fieldShape)
+                    .background(fieldColor)
+                    .padding(horizontal = 14.dp, vertical = 9.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FieldLabel("Путь", primaryColor)
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .clickable { trackKeyboardNumeric = !trackKeyboardNumeric },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (trackKeyboardNumeric) "Аб" else "123",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            fontWeight = FontWeight.Bold,
+                            color = primaryColor.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+                BasicTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    value = localTrack,
+                    onValueChange = { if (it.text.length <= 4) localTrack = it },
+                    textStyle = dataTextStyle.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = com.z_company.core.ui.theme.MonoFont,
+                        color = primaryColor
+                    ),
+                    cursorBrush = SolidColor(primaryColor),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = if (trackKeyboardNumeric) {
+                            androidx.compose.ui.text.input.KeyboardType.Number
+                        } else {
+                            androidx.compose.ui.text.input.KeyboardType.Text
+                        },
+                        imeAction = ImeAction.Next
+                    ),
+                    decorationBox = { inner ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (localTrack.text.isEmpty()) {
+                                Text(text = "№", style = hintStyle, color = hintColor)
+                            }
+                            inner()
+                        }
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // ── Примечание ──
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(fieldShape)
+                    .background(fieldColor)
+                    .padding(horizontal = 14.dp, vertical = 9.dp)
+            ) {
+                FieldLabel("Примечание", primaryColor)
+                BasicTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    value = localNotes,
+                    onValueChange = { localNotes = it },
+                    textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium, color = primaryColor),
+                    cursorBrush = SolidColor(primaryColor),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    decorationBox = { inner ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (localNotes.text.isEmpty()) {
+                                Text(text = "Например: смена бригады", style = hintStyle, color = hintColor)
+                            }
+                            inner()
+                        }
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = Shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                onClick = saveAndDismiss
+            ) {
+                Text(
+                    text = "Готово",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SegmentTextField(
+    label: String,
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    modifier: Modifier,
+    fieldColor: Color,
+    fieldShape: RoundedCornerShape,
+    primaryColor: Color,
+    hintColor: Color,
+    dataTextStyle: androidx.compose.ui.text.TextStyle,
+    hintStyle: androidx.compose.ui.text.TextStyle,
+    focusManager: androidx.compose.ui.focus.FocusManager,
+) {
+    Column(
+        modifier = modifier
+            .clip(fieldShape)
+            .background(fieldColor)
+            .padding(horizontal = 14.dp, vertical = 9.dp)
+    ) {
+        FieldLabel(label, primaryColor)
+        BasicTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = value,
+            onValueChange = onValueChange,
+            textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium, color = primaryColor),
+            cursorBrush = SolidColor(primaryColor),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Next) }),
+            decorationBox = { inner ->
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (value.text.isEmpty()) {
+                        Text(text = "Станция", style = hintStyle, color = hintColor)
+                    }
+                    inner()
+                }
+            }
         )
     }
 }
@@ -695,6 +1055,58 @@ private fun StepButton(
             ),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+        )
+    }
+}
+
+// ─── Флажок станции (Конечная / Проходная) ───────────────────────────────────
+
+@Composable
+private fun StationFlagChip(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val containerColor = if (checked) {
+        primaryColor.copy(alpha = 0.14f)
+    } else {
+        MaterialTheme.colorScheme.surfaceBright
+    }
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(containerColor)
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(16.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(if (checked) primaryColor else MaterialTheme.colorScheme.surface)
+                .border(width = 1.dp, color = primaryColor.copy(alpha = 0.4f), shape = RoundedCornerShape(4.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (checked) {
+                Icon(
+                    painter = painterResource(com.z_company.route.R.drawable.check_circle_24px),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(11.dp)
+                )
+            }
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = primaryColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

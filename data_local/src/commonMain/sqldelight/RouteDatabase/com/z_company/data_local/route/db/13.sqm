@@ -1,0 +1,9 @@
+-- Миграция 13: вагонник (CarInspector) на поезде.
+-- Опциональная запись — ФИО/табельный номер/время прицепки, серилизуется
+-- тем же паттерном, что pusher/doubleTraction/doubledTrain (JSON в TEXT-столбце).
+-- Флажки "конечная станция"/"проходная станция" и поля перегона
+-- (segmentTrackNumber/segmentNotes) хранятся ВНУТРИ уже существующего
+-- столбца Train.stations (список Station сериализуется целиком) —
+-- отдельной миграции для них не требуется.
+
+ALTER TABLE Train ADD COLUMN carInspector TEXT DEFAULT NULL;

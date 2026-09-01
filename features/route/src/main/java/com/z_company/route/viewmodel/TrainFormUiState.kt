@@ -23,6 +23,9 @@ data class TrainFormUiState(
     var isStationsReversed: Boolean = false,
     val reorderingStationId: String? = null,
     val editingStationIndex: Int? = null,
+    // Индекс станции ПЕРЕД перегоном, который сейчас редактируется в SegmentEditBottomSheet
+    // (данные перегона хранятся на station[index + 1]).
+    val editingSegmentAfterIndex: Int? = null,
     val showCreateServicePhaseSheet: Boolean = false,
     val suggestedDepartureStation: String = "",
     val suggestedArrivalStation: String = "",
