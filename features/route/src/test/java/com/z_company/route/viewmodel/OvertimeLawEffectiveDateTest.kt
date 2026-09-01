@@ -15,6 +15,13 @@ class OvertimeLawEffectiveDateTest {
     }
 
     @Test
+    fun expandedOvertimeBaseStartsInSeptember2024() {
+        assertEquals(false, isExpandedOvertimeBaseEffective(year = 2024, month = 7))
+        assertEquals(true, isExpandedOvertimeBaseEffective(year = 2024, month = 8))
+        assertEquals(true, isExpandedOvertimeBaseEffective(year = 2026, month = 8))
+    }
+
+    @Test
     fun firstTwoHoursAreLimitedByShiftCount() {
         val result = calculateHalfRateOvertime(
             overtime = 70 * HOUR,

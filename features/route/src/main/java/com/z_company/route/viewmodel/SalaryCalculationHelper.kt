@@ -95,6 +95,9 @@ internal fun validExtendedServicePhaseSurcharges(
 internal fun isFederalLaw144Effective(year: Int, month: Int): Boolean =
     year > 2026 || (year == 2026 && month >= 8)
 
+internal fun isExpandedOvertimeBaseEffective(year: Int, month: Int): Boolean =
+    year > 2024 || (year == 2024 && month >= 8)
+
 /**
  * Часы сверхурочной работы, к которым применяется доплата 0,5.
  * Для локомотивных бригад агрегатное правило «первые 2 ч на поездку»
@@ -893,8 +896,10 @@ class SalaryCalculationHelper(
             // С 01.09.2024 база сверхурочных включает компенсационные и
             // стимулирующие выплаты (ФЗ №91-ФЗ), поэтому и 0,5 считаем
             // от полной часовой базы, а не только от тарифа.
-            val expandedBaseEffective = currentMonthOfYear.year > 2024 ||
-                    (currentMonthOfYear.year == 2024 && currentMonthOfYear.month >= 8)
+            val expandedBaseEffective = isExpandedOvertimeBaseEffective(
+                currentMonthOfYear.year,
+                currentMonthOfYear.month,
+            )
             val moneyPerMillis = if (expandedBaseEffective) {
                 getOvertimeMoneyPerMillis()
             } else {
@@ -919,7 +924,14 @@ class SalaryCalculationHelper(
     fun getMoneySurchargeOvertimeFlow(): Flow<Double> {
         return flow {
             val surchargeAtOvertimeHour = getTimeSurchargeAtOvertimeFlow().first()
-            val overtimeMoneyPerMillis = getOvertimeMoneyPerMillis()
+            val overtimeMoneyPerMillis = if (isExpandedOvertimeBaseEffective(
+                    currentMonthOfYear.year,
+                    currentMonthOfYear.month,
+                )) {
+                getOvertimeMoneyPerMillis()
+            } else {
+                currentTariffRate / HOUR_IN_MILLIS.toDouble()
+            }
             val money = surchargeAtOvertimeHour.times(overtimeMoneyPerMillis)
             emit(money)
         }

@@ -116,6 +116,48 @@ class OvertimePaymentCompositionTest {
     }
 
     @Test
+    fun augustAndSeptember2024UseTariffOnlyThenExpandedOvertimeBase() = runTest {
+        fun helper(month: Int): SalaryCalculationHelper {
+            fun at(hourOfDay: Int): Long = LocalDateTime(2024, month + 1, 5, hourOfDay, 0)
+                .toInstant(TimeZone.of("GMT+3"))
+                .toEpochMilliseconds()
+            return SalaryCalculationHelper(
+                userSettings = UserSettings(
+                    selectMonthOfYear = MonthOfYear(
+                        year = 2024,
+                        month = month,
+                        tariffRate = 100.0,
+                        days = emptyList(),
+                    ),
+                    timeZone = 0L,
+                ),
+                salarySetting = SalarySetting(
+                    onePersonOperationPercent = 40.0,
+                    nightTimePercent = 0.0,
+                    zonalSurcharge = 0.0,
+                    harmfulnessPercent = 0.0,
+                ),
+                allRoutes = listOf(Route(
+                    basicData = BasicData(
+                        isOnePersonOperation = true,
+                        timeStartWork = at(8),
+                        timeEndWork = at(12),
+                    ),
+                    trains = mutableListOf(Train(number = "2503")),
+                )),
+            )
+        }
+
+        val august = helper(month = 7)
+        assertEquals(100.0, august.getMoneySurchargeOvertime05Flow().first(), 0.001)
+        assertEquals(200.0, august.getMoneySurchargeOvertimeFlow().first(), 0.001)
+
+        val september = helper(month = 8)
+        assertEquals(140.0, september.getMoneySurchargeOvertime05Flow().first(), 0.001)
+        assertEquals(280.0, september.getMoneySurchargeOvertimeFlow().first(), 0.001)
+    }
+
+    @Test
     fun overtimeTariffPartUsesRateOfLaterPeriodWhereOvertimeOccurred() = runTest {
         fun route(day: Int) = Route(
             basicData = BasicData(
