@@ -234,6 +234,73 @@ class OvertimePaymentCompositionTest {
     }
 
     @Test
+    fun nightAtStartOfMonthIsNotAveragedIntoDaytimeOvertimeTail() = runTest {
+        val nightRoute = Route(basicData = BasicData(
+            timeStartWork = instant(day = 5, hour = 22),
+            timeEndWork = instant(day = 6, hour = 6),
+        ))
+        val daytimeOvertimeRoute = Route(basicData = BasicData(
+            timeStartWork = instant(day = 20, hour = 8),
+            timeEndWork = instant(day = 20, hour = 12),
+        ))
+        val helper = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2025,
+                    month = 0,
+                    tariffRate = 100.0,
+                    days = listOf(Day(dayOfMonth = 5, tag = TagForDay.WORKING_DAY)),
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(
+                nightTimePercent = 40.0,
+                zonalSurcharge = 0.0,
+                harmfulnessPercent = 0.0,
+            ),
+            allRoutes = listOf(nightRoute, daytimeOvertimeRoute),
+        )
+
+        assertEquals(4 * hour, helper.getTimeOvertimeFlow().first())
+        assertEquals(320.0, helper.getMoneyAtNightTimeFlow().first(), 0.001)
+        assertEquals(100.0, helper.getMoneySurchargeOvertime05Flow().first(), 0.001)
+        assertEquals(200.0, helper.getMoneySurchargeOvertimeFlow().first(), 0.001)
+    }
+
+    @Test
+    fun nightInOvertimeTailIsIncludedOnlyForActualNightSegment() = runTest {
+        val regularRoute = Route(basicData = BasicData(
+            timeStartWork = instant(day = 5, hour = 8),
+            timeEndWork = instant(day = 5, hour = 16),
+        ))
+        val overtimeRoute = Route(basicData = BasicData(
+            timeStartWork = instant(day = 20, hour = 22),
+            timeEndWork = instant(day = 21, hour = 2),
+        ))
+        val helper = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2025,
+                    month = 0,
+                    tariffRate = 100.0,
+                    days = listOf(Day(dayOfMonth = 5, tag = TagForDay.WORKING_DAY)),
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(
+                nightTimePercent = 40.0,
+                zonalSurcharge = 0.0,
+                harmfulnessPercent = 0.0,
+            ),
+            allRoutes = listOf(regularRoute, overtimeRoute),
+        )
+
+        assertEquals(4 * hour, helper.getTimeOvertimeFlow().first())
+        assertEquals(140.0, helper.getMoneySurchargeOvertime05Flow().first(), 0.001)
+        assertEquals(280.0, helper.getMoneySurchargeOvertimeFlow().first(), 0.001)
+    }
+
+    @Test
     fun overRestPaymentIsNotIncludedInOvertimeMultiplierBase() = runTest {
         val firstRoute = Route(
             basicData = BasicData(

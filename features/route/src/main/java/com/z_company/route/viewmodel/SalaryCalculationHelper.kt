@@ -26,7 +26,9 @@ import com.z_company.domain.util.TimeInterval
 import com.z_company.domain.util.applyTariffChanges
 import com.z_company.domain.util.buildSalarySegments
 import com.z_company.domain.util.buildTieredTrainSurchargeSegments
+import com.z_company.domain.util.calculateOvertimeBreakdown
 import com.z_company.domain.util.calculateOvertimePremiumDurations
+import com.z_company.domain.util.selectLatestOvertimeSegments
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.subtractAll
 import com.z_company.domain.util.toExactIntOrNull
@@ -831,7 +833,7 @@ class SalaryCalculationHelper(
     /**
      * Обычная строка сверхурочных содержит только тарифную часть. Надбавки уже
      * начислены отдельными строками за фактическое время и входят повторно лишь
-     * в дополнительную часть 0,5/1,0 через [getOvertimeMoneyPerMillis].
+     * в дополнительную часть 0,5/1,0 через посегментный расчёт.
      */
     private suspend fun getOvertimeTariffMoney(overtime: Long): Double {
         if (overtime <= 0L) return 0.0
@@ -911,12 +913,11 @@ class SalaryCalculationHelper(
                 currentMonthOfYear.year,
                 currentMonthOfYear.month,
             )
-            val moneyPerMillis = if (expandedBaseEffective) {
-                getOvertimeMoneyPerMillis()
+            val money = if (expandedBaseEffective) {
+                getExpandedOvertimePremiumMoney().first
             } else {
-                currentTariffRate / HOUR_IN_MILLIS.toDouble()
+                time * currentTariffRate / HOUR_IN_MILLIS.toDouble() * 0.5
             }
-            val money = time.times(moneyPerMillis * 0.5)
             emit(money)
         }
     }
@@ -935,15 +936,15 @@ class SalaryCalculationHelper(
     fun getMoneySurchargeOvertimeFlow(): Flow<Double> {
         return flow {
             val surchargeAtOvertimeHour = getTimeSurchargeAtOvertimeFlow().first()
-            val overtimeMoneyPerMillis = if (isExpandedOvertimeBaseEffective(
+            val money = if (isExpandedOvertimeBaseEffective(
                     currentMonthOfYear.year,
                     currentMonthOfYear.month,
                 )) {
-                getOvertimeMoneyPerMillis()
+                getExpandedOvertimePremiumMoney().second
             } else {
-                currentTariffRate / HOUR_IN_MILLIS.toDouble()
+                surchargeAtOvertimeHour * currentTariffRate /
+                        HOUR_IN_MILLIS.toDouble()
             }
-            val money = surchargeAtOvertimeHour.times(overtimeMoneyPerMillis)
             emit(money)
         }
     }
@@ -1454,23 +1455,62 @@ class SalaryCalculationHelper(
     }
 
     /**
-     * Полная база сверхурочных в рублях на миллисекунду: тариф плюс все рассчитанные
-     * компенсационные/стимулирующие надбавки на час. Выплату по тарифу
-     * вычитаем из базы перед делением, чтобы не потерять тариф, когда все
-     * обычные часы месяца уже попали в переработку. При полной командировке берём
-     * заданный средний час: он не даёт обнулить оплату переработки.
+     * Дополнительные 0,5/1,0 сверхурочных по фактическому хвосту месяца.
+     * Ночная надбавка уже размечена на [SalarySegment], поэтому не усредняется
+     * по дневным часам. Остальные ещё не перенесённые в сегменты выплаты пока
+     * сохраняют прежнюю среднюю часовую базу.
      */
-    private suspend fun getOvertimeMoneyPerMillis(): Double {
+    private suspend fun getExpandedOvertimePremiumMoney(): Pair<Double, Double> {
+        val overtime = getTimeOvertimeFlow().first()
+        val halfRateDuration = getTimeSurchargeAtOvertime05Flow().first()
+        val fullRateDuration = (overtime - halfRateDuration).coerceAtLeast(0L)
+        if (overtime <= 0L) return 0.0 to 0.0
+
         val regularWorkTime = getTotalWorkTime(routeList).first()
         if (regularWorkTime <= 0L) {
-            return maxOf(currentTariffRate, averagePaymentHour) /
+            val fallbackPerMillis = maxOf(currentTariffRate, averagePaymentHour) /
                     HOUR_IN_MILLIS.toDouble()
+            return halfRateDuration * fallbackPerMillis * 0.5 to
+                    fullRateDuration * fallbackPerMillis
         }
+
+        val overtimeSegments = selectLatestOvertimeSegments(
+            workSegments = salarySegments()
+                .filter { AccrualCondition.PASSENGER !in it.conditions },
+            overtimeDurationMillis = overtime,
+        )
+        val breakdown = calculateOvertimeBreakdown(
+            segments = overtimeSegments,
+            halfRateDurationMillis = halfRateDuration,
+            conditionPercents = mapOf(
+                AccrualCondition.NIGHT to salarySetting.nightTimePercent
+                    .nonNegativeFiniteOrZero(),
+            ),
+        )
+
         val basicMoney = getBasicMoneyForOvertimeCalculation().first()
         val tariffMoney = getMoneyAtWorkTimeAtTariff().first()
-        val surchargeMoney = (basicMoney - tariffMoney).coerceAtLeast(0.0)
-        return currentTariffRate / HOUR_IN_MILLIS.toDouble() +
-                surchargeMoney / regularWorkTime
+        val nightMoney = getMoneyAtNightTimeFlow().first()
+        val averagedOtherSurchargePerMillis =
+            (basicMoney - tariffMoney - nightMoney).coerceAtLeast(0.0) /
+                    regularWorkTime
+
+        val selectedHalfDuration = breakdown.halfRateSegments
+            .sumOf { it.interval.durationMillis }
+        val selectedFullDuration = breakdown.fullRateSegments
+            .sumOf { it.interval.durationMillis }
+        val fallbackPerMillis = maxOf(currentTariffRate, averagePaymentHour) /
+                HOUR_IN_MILLIS.toDouble() + averagedOtherSurchargePerMillis
+
+        val halfMoney = breakdown.halfRateExtraMoney +
+                selectedHalfDuration * averagedOtherSurchargePerMillis * 0.5 +
+                (halfRateDuration - selectedHalfDuration).coerceAtLeast(0L) *
+                fallbackPerMillis * 0.5
+        val fullMoney = breakdown.fullRateExtraMoney +
+                selectedFullDuration * averagedOtherSurchargePerMillis +
+                (fullRateDuration - selectedFullDuration).coerceAtLeast(0L) *
+                fallbackPerMillis
+        return halfMoney to fullMoney
     }
 
     // База рабочего времени для ДЕНЕГ: «чистая» работа без проезда пассажиром до явки

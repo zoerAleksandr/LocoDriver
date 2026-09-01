@@ -42,6 +42,7 @@ object CalculateNightTime {
             (hourStart == hourEnd && minuteStart > minuteEnd)
 
         var day = Instant.fromEpochMilliseconds(startMillis).toLocalDateTime(tz).date
+        if (crossesMidnight) day = day.plus(-1, DateTimeUnit.DAY)
         val endDay = Instant.fromEpochMilliseconds(endMillis).toLocalDateTime(tz).date
         var count = 0
         while (day <= endDay) {
@@ -82,6 +83,7 @@ object CalculateNightTime {
             (hourStart == hourEnd && minuteStart > minuteEnd)
 
         var day = Instant.fromEpochMilliseconds(startMillis).toLocalDateTime(tz).date
+        if (crossesMidnight) day = day.plus(-1, DateTimeUnit.DAY)
         val endDay = Instant.fromEpochMilliseconds(endMillis).toLocalDateTime(tz).date
         val result = mutableListOf<Pair<Long, Long>>()
         while (day <= endDay) {
