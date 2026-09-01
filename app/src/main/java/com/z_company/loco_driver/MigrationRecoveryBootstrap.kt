@@ -2,6 +2,7 @@ package com.z_company.loco_driver
 
 import android.content.Context
 import com.z_company.data_local.DatabaseDriverFactory
+import com.z_company.data_local.recovery.AndroidRecoveryDatabaseInstaller
 import com.z_company.data_local.recovery.AndroidPreMigrationRecoveryCoordinator
 
 internal enum class MigrationBootstrapState {
@@ -30,6 +31,7 @@ internal class MigrationRecoveryBootstrap(
         }
 
         return try {
+            AndroidRecoveryDatabaseInstaller(context).recoverInterruptedInstall()
             AndroidPreMigrationRecoveryCoordinator(context, appBuild).prepareIfNeeded()
             DatabaseDriverFactory(context).createRouteDriver().close()
             preferences.edit().clear().commit()
