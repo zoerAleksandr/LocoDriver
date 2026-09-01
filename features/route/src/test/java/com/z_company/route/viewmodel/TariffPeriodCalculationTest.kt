@@ -43,11 +43,12 @@ class TariffPeriodCalculationTest {
     private fun helper(
         routes: List<Route>,
         dateSetTariffRate: DateSetTariffRate? = null,
+        tariffRate: Double = 200.0,
     ): SalaryCalculationHelper {
         val month = MonthOfYear(
             year = 2025,
             month = 0,
-            tariffRate = 200.0,
+            tariffRate = tariffRate,
             dateSetTariffRate = dateSetTariffRate,
             days = (1..31).map { Day(it, TagForDay.WORKING_DAY) },
         )
@@ -104,5 +105,27 @@ class TariffPeriodCalculationTest {
         assertEquals(2 * hour, newTime)
         assertEquals(4 * hour, oldTime + newTime)
         assertEquals(600.0, helper.getMoneyAtWorkTimeAtTariff().first(), 0.001)
+    }
+
+    @Test
+    fun invalidCurrentTariffsFromLegacyDataAreTreatedAsZero() = runTest {
+        val negative = helper(routes = listOf(route(day = 5)), tariffRate = -100.0)
+        val notANumber = helper(routes = listOf(route(day = 5)), tariffRate = Double.NaN)
+
+        assertEquals(0.0, negative.getMoneyAtWorkTimeAtTariff().first(), 0.001)
+        assertEquals(0.0, negative.getMoneyTotalChargedFlow().first(), 0.001)
+        assertEquals(0.0, notANumber.getMoneyAtWorkTimeAtTariff().first(), 0.001)
+        assertEquals(0.0, notANumber.getMoneyTotalChargedFlow().first(), 0.001)
+    }
+
+    @Test
+    fun invalidOldTariffIsZeroWhileCurrentTariffStillAppliesAfterChange() = runTest {
+        val helper = helper(
+            routes = listOf(route(startDay = 14, startHour = 22, endDay = 15, endHour = 2)),
+            dateSetTariffRate = DateSetTariffRate(dateNewRate = 15, oldRate = Double.NaN),
+            tariffRate = 200.0,
+        )
+
+        assertEquals(400.0, helper.getMoneyAtWorkTimeAtTariff().first(), 0.001)
     }
 }

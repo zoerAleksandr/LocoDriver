@@ -126,4 +126,25 @@ class AverageBasedAccrualCompositionTest {
         assertEquals(500.0, helper.getMoneyTechnicalStudyFlow().first(), 0.001)
         assertEquals(1_600.0, helper.getMoneyTotalChargedFlow().first(), 0.001)
     }
+
+    @Test
+    fun invalidAveragePaymentFromLegacyDataDoesNotCreateNegativeOrNanAccruals() = runTest {
+        fun helper(averagePaymentHour: Double) = SalaryCalculationHelper(
+            userSettings = UserSettings(selectMonthOfYear = MonthOfYear(
+                year = 2025,
+                month = 0,
+                tariffRate = 0.0,
+                days = listOf(Day(1, TagForDay.WORKING_DAY, true, ReleaseType.Other)),
+            )),
+            salarySetting = SalarySetting(
+                averagePaymentHour = averagePaymentHour,
+                zonalSurcharge = 0.0,
+                harmfulnessPercent = 0.0,
+            ),
+            allRoutes = emptyList(),
+        )
+
+        assertEquals(0.0, helper(-200.0).getMoneyAverageFlow().first(), 0.001)
+        assertEquals(0.0, helper(Double.NaN).getMoneyAverageFlow().first(), 0.001)
+    }
 }

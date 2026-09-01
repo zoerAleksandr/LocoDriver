@@ -58,6 +58,9 @@ private const val HOUR_IN_MILLIS = 3_600_000L
 private const val TWO_HOURS_IN_MILLIS = 2 * HOUR_IN_MILLIS
 private const val ANNUAL_OVERTIME_THRESHOLD_IN_MILLIS = 120 * HOUR_IN_MILLIS
 
+private fun Double.nonNegativeFiniteOrZero(): Double =
+    takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+
 internal fun validHeavyTrainSurcharges(
     surcharges: List<com.z_company.domain.entities.setting.SurchargeHeavyTrains>,
 ) = surcharges.mapNotNull { surcharge ->
@@ -132,6 +135,10 @@ class SalaryCalculationHelper(
     val currentMonthOfYear = userSettings.selectMonthOfYear
     val dateSetTariffRate = currentMonthOfYear.dateSetTariffRate
     private val timeCalculationContext = TimeCalculationContext.from(userSettings)
+    private val currentTariffRate = currentMonthOfYear.tariffRate.nonNegativeFiniteOrZero()
+    private val oldTariffRate = dateSetTariffRate?.oldRate?.nonNegativeFiniteOrZero()
+        ?: currentTariffRate
+    private val averagePaymentHour = salarySetting.averagePaymentHour.nonNegativeFiniteOrZero()
 
     val date = userSettings.selectMonthOfYear.dateSetTariffRate?.dateNewRate ?: 1
     val firstDate = 1
@@ -197,14 +204,14 @@ class SalaryCalculationHelper(
     @OptIn(kotlin.time.ExperimentalTime::class)
     private fun salarySegments(routes: List<Route> = routeList) = routes.flatMap { route ->
         val tariffChange = dateSetTariffRate
-        val initialRate = tariffChange?.oldRate ?: currentMonthOfYear.tariffRate
+        val initialRate = if (tariffChange != null) oldTariffRate else currentTariffRate
         val changes = tariffChange?.let {
             val effectiveAt = LocalDate(
                 year = currentMonthOfYear.year,
                 month = currentMonthOfYear.month + 1,
                 day = it.dateNewRate,
             ).atStartOfDayIn(timeCalculationContext.crossMonthTZ).toEpochMilliseconds()
-            listOf(TariffChange(effectiveAt, currentMonthOfYear.tariffRate))
+            listOf(TariffChange(effectiveAt, currentTariffRate))
         }.orEmpty()
         val night = userSettings.nightTime
         route.buildSalarySegments(
@@ -234,14 +241,14 @@ class SalaryCalculationHelper(
         }
         routes.forEach { route ->
             val tariffChange = dateSetTariffRate
-            val initialRate = tariffChange?.oldRate ?: currentMonthOfYear.tariffRate
+            val initialRate = if (tariffChange != null) oldTariffRate else currentTariffRate
             val changes = tariffChange?.let {
                 val effectiveAt = LocalDate(
                     year = currentMonthOfYear.year,
                     month = currentMonthOfYear.month + 1,
                     day = it.dateNewRate,
                 ).atStartOfDayIn(timeCalculationContext.crossMonthTZ).toEpochMilliseconds()
-                listOf(TariffChange(effectiveAt, currentMonthOfYear.tariffRate))
+                listOf(TariffChange(effectiveAt, currentTariffRate))
             }.orEmpty()
             route.buildTieredTrainSurchargeSegments(
                 monthOfYear = currentMonthOfYear,
@@ -361,7 +368,7 @@ class SalaryCalculationHelper(
             if (dateSetTariffRate == null) {
                 getWorkTimeAtTariffFlow().collect { timeInLong ->
                     val money =
-                        timeInLong.times(currentMonthOfYear.tariffRate) / 3_600_000.toDouble()
+                        timeInLong.times(currentTariffRate) / 3_600_000.toDouble()
                     trySend(money)
                 }
             } else {
@@ -374,14 +381,14 @@ class SalaryCalculationHelper(
                     period = Pair(firstDate, date)
                 ).first()
                 val firstRoutesMoney =
-                    firstRoutesTime.times(dateSetTariffRate.oldRate) / 3_600_000.toDouble()
+                    firstRoutesTime.times(oldTariffRate) / 3_600_000.toDouble()
 
                 val secondRoutesTime = getWorkTimeInPeriodAtTariffFlow(
                     routeList = secondRoutes,
                     period = Pair(date, lastDate)
                 ).first()
                 val secondRoutesMoney =
-                    secondRoutesTime.times(currentMonthOfYear.tariffRate) / 3_600_000.toDouble()
+                    secondRoutesTime.times(currentTariffRate) / 3_600_000.toDouble()
                 val result = firstRoutesMoney + secondRoutesMoney
                 trySend(result)
             }
@@ -394,7 +401,7 @@ class SalaryCalculationHelper(
             if (dateSetTariffRate == null) {
                 getWorkTimeAtTariffSingleRouteFlow().collect { timeInLong ->
                     val money =
-                        timeInLong.times(currentMonthOfYear.tariffRate) / 3_600_000.toDouble()
+                        timeInLong.times(currentTariffRate) / 3_600_000.toDouble()
                     trySend(money)
                 }
             } else {
@@ -410,10 +417,10 @@ class SalaryCalculationHelper(
                 ).first()
 
                 val firstRoutesMoney =
-                    firstRoutesTime.times(dateSetTariffRate.oldRate) / 3_600_000.toDouble()
+                    firstRoutesTime.times(oldTariffRate) / 3_600_000.toDouble()
 
                 val secondRoutesMoney =
-                    secondRoutesTime.times(currentMonthOfYear.tariffRate) / 3_600_000.toDouble()
+                    secondRoutesTime.times(currentTariffRate) / 3_600_000.toDouble()
 
                 val result = firstRoutesMoney + secondRoutesMoney
                 trySend(result)
@@ -485,14 +492,14 @@ class SalaryCalculationHelper(
     @OptIn(kotlin.time.ExperimentalTime::class)
     fun getMoneyAtPassengerOutsideWorkFlow(): Flow<Double> {
         return flow {
-            val initialRate = dateSetTariffRate?.oldRate ?: currentMonthOfYear.tariffRate
+            val initialRate = if (dateSetTariffRate != null) oldTariffRate else currentTariffRate
             val changes = dateSetTariffRate?.let { change ->
                 val effectiveAt = LocalDate(
                     currentMonthOfYear.year,
                     currentMonthOfYear.month + 1,
                     change.dateNewRate,
                 ).atStartOfDayIn(timeCalculationContext.crossMonthTZ).toEpochMilliseconds()
-                listOf(TariffChange(effectiveAt, currentMonthOfYear.tariffRate))
+                listOf(TariffChange(effectiveAt, currentTariffRate))
             }.orEmpty()
             val money = routeList
                 .getPassengerOutsideWorkIntervals(currentMonthOfYear, timeCalculationContext)
@@ -819,7 +826,7 @@ class SalaryCalculationHelper(
     private suspend fun getOvertimeTariffMoney(overtime: Long): Double {
         if (overtime <= 0L) return 0.0
         val tariffChange = dateSetTariffRate
-            ?: return overtime * currentMonthOfYear.tariffRate / HOUR_IN_MILLIS.toDouble()
+            ?: return overtime * currentTariffRate / HOUR_IN_MILLIS.toDouble()
 
         val (oldRateRoutes, newRateRoutes) = getTwoRouteList(allRoutes).first()
         val oldRateEligibleTime = (
@@ -837,8 +844,8 @@ class SalaryCalculationHelper(
             oldRateEligibleTime,
         )
         return (
-                newRateOvertime * currentMonthOfYear.tariffRate +
-                        oldRateOvertime * tariffChange.oldRate
+                newRateOvertime * currentTariffRate +
+                        oldRateOvertime * oldTariffRate
                 ) / HOUR_IN_MILLIS.toDouble()
     }
 
@@ -867,7 +874,7 @@ class SalaryCalculationHelper(
             val moneyPerMillis = if (expandedBaseEffective) {
                 getOvertimeMoneyPerMillis()
             } else {
-                currentMonthOfYear.tariffRate / HOUR_IN_MILLIS.toDouble()
+                currentTariffRate / HOUR_IN_MILLIS.toDouble()
             }
             val money = time.times(moneyPerMillis * 0.5)
             emit(money)
@@ -947,7 +954,6 @@ class SalaryCalculationHelper(
         return flow {
             val dayOffHoursInLong = getDayOffHoursFlow().first()
             val dayOffHours = dayOffHoursInLong.div(3_600_000)
-            val averagePaymentHour = salarySetting.averagePaymentHour
             val money = averagePaymentHour.times(dayOffHours)
             emit(money)
         }
@@ -976,7 +982,7 @@ class SalaryCalculationHelper(
     fun getMoneyUnderworkFlow(): Flow<Double> = flow {
         val underworkInLong = getUnderworkTimeFlow().first()
         val hours = underworkInLong.toDouble() / 3_600_000
-        emit(salarySetting.averagePaymentHour.times(hours))
+        emit(averagePaymentHour.times(hours))
     }
 
     // ── Командировка ──────────────────────────────────────────────────
@@ -1003,7 +1009,7 @@ class SalaryCalculationHelper(
         return flow {
             val hoursInLong = getBusinessTripTimeFlow().first()
             val hours = hoursInLong.toDouble() / 3_600_000
-            val money = salarySetting.averagePaymentHour.times(hours)
+            val money = averagePaymentHour.times(hours)
             emit(money)
         }
     }
@@ -1023,7 +1029,7 @@ class SalaryCalculationHelper(
     fun getMoneyTechnicalStudyFlow(): Flow<Double> {
         return flow {
             val hours = currentMonthOfYear.getTechnicalStudyHours()
-            emit(salarySetting.averagePaymentHour.times(hours))
+            emit(averagePaymentHour.times(hours))
         }
     }
 
@@ -1039,7 +1045,6 @@ class SalaryCalculationHelper(
         return flow {
             val hoursCaringForDisableChildrenInLong = getHoursCaringForDisableChildren().first()
             val hoursCaringForDisableChildren = hoursCaringForDisableChildrenInLong.div(3_600_000)
-            val averagePaymentHour = salarySetting.averagePaymentHour
             val money = averagePaymentHour.times(hoursCaringForDisableChildren)
             emit(money)
         }
@@ -1328,14 +1333,14 @@ class SalaryCalculationHelper(
             .atStartOfDayIn(timeCalculationContext.crossMonthTZ).toEpochMilliseconds()
         val monthInterval = TimeInterval(monthStart, nextMonthStart)
         val tariffChange = dateSetTariffRate
-        val initialRate = tariffChange?.oldRate ?: currentMonthOfYear.tariffRate
+        val initialRate = if (tariffChange != null) oldTariffRate else currentTariffRate
         val changes = tariffChange?.let {
             val effectiveAt = LocalDate(
                 currentMonthOfYear.year,
                 currentMonthOfYear.month + 1,
                 it.dateNewRate,
             ).atStartOfDayIn(timeCalculationContext.crossMonthTZ).toEpochMilliseconds()
-            listOf(TariffChange(effectiveAt, currentMonthOfYear.tariffRate))
+            listOf(TariffChange(effectiveAt, currentTariffRate))
         }.orEmpty()
 
         val sorted = routeList.sortedBy { it.basicData.timeStartWork }
@@ -1408,13 +1413,13 @@ class SalaryCalculationHelper(
     private suspend fun getOvertimeMoneyPerMillis(): Double {
         val regularWorkTime = getTotalWorkTime(routeList).first()
         if (regularWorkTime <= 0L) {
-            return maxOf(currentMonthOfYear.tariffRate, salarySetting.averagePaymentHour) /
+            return maxOf(currentTariffRate, averagePaymentHour) /
                     HOUR_IN_MILLIS.toDouble()
         }
         val basicMoney = getBasicMoneyForOvertimeCalculation().first()
         val tariffMoney = getMoneyAtWorkTimeAtTariff().first()
         val surchargeMoney = (basicMoney - tariffMoney).coerceAtLeast(0.0)
-        return currentMonthOfYear.tariffRate / HOUR_IN_MILLIS.toDouble() +
+        return currentTariffRate / HOUR_IN_MILLIS.toDouble() +
                 surchargeMoney / regularWorkTime
     }
 
