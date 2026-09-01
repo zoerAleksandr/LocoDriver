@@ -1,5 +1,6 @@
 package com.z_company.route.util
 
+import com.z_company.domain.util.validFor
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -1006,8 +1007,11 @@ class PdfGenerator(private val context: Context) {
             }
         }
 
-        // Норма на месяц из календарных данных
-        val standardNormaHours = calendarDays.sumOf { day ->
+        // Норма на месяц из календарных данных. validFor — отсекаем дни, которых
+        // в месяце не существует (испорченные записи вида «31 сентября»),
+        // иначе LocalDate(...) бросит исключение прямо в генерации PDF.
+        val calendarDaysValid = calendarDays.validFor(year, month)
+        val standardNormaHours = calendarDaysValid.sumOf { day ->
             workScheduleProfile.effectiveHours(
                 kotlinx.datetime.LocalDate(year, month + 1, day.dayOfMonth),
                 day.tag,
@@ -1016,7 +1020,7 @@ class PdfGenerator(private val context: Context) {
         // Норму уменьшают не все отвлечения: «Выходной» — перенос выходного дня,
         // а «Технические занятия» оплачиваются отдельно по среднему часу
         // (см. UtilForMonthOfYear.reducesNorma / NormaUseCase).
-        val detachmentHours = calendarDays.filter {
+        val detachmentHours = calendarDaysValid.filter {
             it.isReleaseDay &&
                 it.releaseType != ReleaseType.DayOff &&
                 it.releaseType != ReleaseType.TechnicalStudy

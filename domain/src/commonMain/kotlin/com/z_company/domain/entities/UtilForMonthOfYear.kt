@@ -1,6 +1,7 @@
 package com.z_company.domain.entities
 
 import com.z_company.domain.util.getTimeZone
+import com.z_company.domain.util.dateOfDayOrNull
 import com.z_company.domain.util.TimeCalculationContext
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
@@ -40,7 +41,7 @@ object UtilForMonthOfYear {
         var normaOfMonth = 0
         this.days.forEach { day ->
             if (!day.reducesNorma()) {
-                val date = LocalDate(year, month + 1, day.dayOfMonth)
+                val date = dateOfDayOrNull(day.dayOfMonth) ?: return@forEach
                 normaOfMonth += profile.effectiveHours(date, day.tag)
             }
         }
@@ -56,7 +57,7 @@ object UtilForMonthOfYear {
             // «Технические занятия» не входят в общий счётчик часов отвлечений —
             // у них собственные часы и отдельная оплата по среднему.
             if (day.isReleaseDay && day.releaseType != ReleaseType.TechnicalStudy) {
-                val date = LocalDate(year, month + 1, day.dayOfMonth)
+                val date = dateOfDayOrNull(day.dayOfMonth) ?: return@forEach
                 totalRelease += profile.effectiveHours(date, day.tag)
             }
         }
@@ -81,7 +82,7 @@ object UtilForMonthOfYear {
                 // введённым часам, а не через общий пул «оплата по среднему».
                 day.releaseType != ReleaseType.TechnicalStudy
             ) {
-                val date = LocalDate(year, month + 1, day.dayOfMonth)
+                val date = dateOfDayOrNull(day.dayOfMonth) ?: return@forEach
                 totalRelease += profile.effectiveHours(date, day.tag)
             }
         }
@@ -122,7 +123,7 @@ object UtilForMonthOfYear {
     fun MonthOfYear.getStandardNormaHours(profile: WorkScheduleProfile): Int {
         var normaOfMonth = 0
         this.days.forEach { day ->
-            val date = LocalDate(year, month + 1, day.dayOfMonth)
+            val date = dateOfDayOrNull(day.dayOfMonth) ?: return@forEach
             normaOfMonth += profile.effectiveHours(date, day.tag)
         }
         return normaOfMonth

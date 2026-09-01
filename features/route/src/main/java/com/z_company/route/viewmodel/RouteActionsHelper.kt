@@ -318,10 +318,15 @@ class RouteActionsHelper() : KoinComponent {
             val minTimeHomeRest = userSettings.minTimeHomeRest
             val tz = userSettings.timeZone
 
+            // days зануляем: списком дней владеет свой месяц, а здесь нужен только
+            // диапазон (year+month) для выборки маршрутов. Иначе получается месяц
+            // с чужими днями — например «31 сентября», на котором падает расчёт нормы.
             val previousMonth = if (currentMonthOfYear.month > 0) {
-                currentMonthOfYear.copy(month = currentMonthOfYear.month - 1)
+                currentMonthOfYear.copy(month = currentMonthOfYear.month - 1, days = emptyList())
             } else {
-                currentMonthOfYear.copy(year = currentMonthOfYear.year - 1, month = 11)
+                currentMonthOfYear.copy(
+                    year = currentMonthOfYear.year - 1, month = 11, days = emptyList()
+                )
             }
 
             val currentResult: ResultState<List<Route>>
@@ -439,10 +444,13 @@ class RouteActionsHelper() : KoinComponent {
             val userSettings = settingsUseCase.getUserSettingFlow().first()
             val currentMonthOfYear = userSettings.selectMonthOfYear
             val tz = userSettings.timeZone
+            // days зануляем — см. комментарий в calculationHomeRest.
             val nextMonth = if (currentMonthOfYear.month < 11) {
-                currentMonthOfYear.copy(month = currentMonthOfYear.month + 1)
+                currentMonthOfYear.copy(month = currentMonthOfYear.month + 1, days = emptyList())
             } else {
-                currentMonthOfYear.copy(year = currentMonthOfYear.year + 1, month = 0)
+                currentMonthOfYear.copy(
+                    year = currentMonthOfYear.year + 1, month = 0, days = emptyList()
+                )
             }
 
             val currentResult: ResultState<List<Route>>

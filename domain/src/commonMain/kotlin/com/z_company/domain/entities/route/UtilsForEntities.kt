@@ -2,6 +2,7 @@
 
 package com.z_company.domain.entities.route
 
+import com.z_company.domain.util.validFor
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.setting.SalarySetting
@@ -56,7 +57,7 @@ object UtilsForEntities {
         val tz = TimeZone.of(timeZoneStr)
         // «Выходной» (личный день отдыха) оплачивается как праздник — работа в
         // этот день по двойному тарифу. Поэтому включаем DayOff-дни в holiday-пул.
-        val holidayList = monthOfYear.days.filter {
+        val holidayList = monthOfYear.days.validFor(monthOfYear.year, monthOfYear.month).filter {
             it.tag == TagForDay.HOLIDAY || (it.isReleaseDay && it.releaseType == ReleaseType.DayOff)
         }
         if (holidayList.isNotEmpty()) {
@@ -929,7 +930,7 @@ object UtilsForEntities {
             val tz = context.localTZ
             // «Выходной» (личный день отдыха) оплачивается как праздник — работа в
         // этот день по двойному тарифу. Поэтому включаем DayOff-дни в holiday-пул.
-        val holidayList = monthOfYear.days.filter {
+        val holidayList = monthOfYear.days.validFor(monthOfYear.year, monthOfYear.month).filter {
             it.tag == TagForDay.HOLIDAY || (it.isReleaseDay && it.releaseType == ReleaseType.DayOff)
         }
             if (holidayList.isNotEmpty()) {
