@@ -273,6 +273,40 @@ class OvertimePaymentCompositionTest {
     }
 
     @Test
+    fun harmfulnessInOvertimeUsesTariffOfActualSegmentInsteadOfMonthlyAverage() = runTest {
+        fun route(day: Int, durationHours: Int) = Route(basicData = BasicData(
+            timeStartWork = instant(day, 8),
+            timeEndWork = instant(day, 8) + durationHours * hour,
+        ))
+        val helper = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2025,
+                    month = 0,
+                    tariffRate = 200.0,
+                    dateSetTariffRate = DateSetTariffRate(dateNewRate = 15, oldRate = 100.0),
+                    days = listOf(Day(dayOfMonth = 5, tag = TagForDay.WORKING_DAY)),
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(
+                harmfulnessPercent = 10.0,
+                nightTimePercent = 0.0,
+                zonalSurcharge = 0.0,
+            ),
+            allRoutes = listOf(
+                route(day = 5, durationHours = 8),
+                route(day = 20, durationHours = 4),
+            ),
+        )
+
+        assertEquals(4 * hour, helper.getTimeOvertimeFlow().first())
+        assertEquals(160.0, helper.getMoneyHarmfulnessFlow().first(), 0.001)
+        assertEquals(220.0, helper.getMoneySurchargeOvertime05Flow().first(), 0.001)
+        assertEquals(440.0, helper.getMoneySurchargeOvertimeFlow().first(), 0.001)
+    }
+
+    @Test
     fun nightAtStartOfMonthIsNotAveragedIntoDaytimeOvertimeTail() = runTest {
         val nightRoute = Route(basicData = BasicData(
             timeStartWork = instant(day = 5, hour = 22),

@@ -220,7 +220,7 @@ class SalaryCalculationHelper(
             listOf(TariffChange(effectiveAt, currentTariffRate))
         }.orEmpty()
         val night = userSettings.nightTime
-        route.buildSalarySegments(
+        val segments = route.buildSalarySegments(
             monthOfYear = currentMonthOfYear,
             context = timeCalculationContext,
             initialTariffRatePerHour = initialRate,
@@ -233,6 +233,13 @@ class SalaryCalculationHelper(
                 offsetFromMoscowMillis = userSettings.timeZone,
             ),
         )
+        if (salarySetting.harmfulnessPercent.nonNegativeFiniteOrZero() > 0.0) {
+            segments.map { segment ->
+                segment.copy(conditions = segment.conditions + AccrualCondition.HARMFUL)
+            }
+        } else {
+            segments
+        }
     }
 
     @OptIn(kotlin.time.ExperimentalTime::class)
@@ -1490,6 +1497,8 @@ class SalaryCalculationHelper(
                 AccrualCondition.ONE_PERSON_PASSENGER to
                         salarySetting.onePersonOperationPassengerTrainPercent
                             .nonNegativeFiniteOrZero(),
+                AccrualCondition.HARMFUL to
+                        salarySetting.harmfulnessPercent.nonNegativeFiniteOrZero(),
             ),
         )
 
@@ -1498,10 +1507,12 @@ class SalaryCalculationHelper(
         val nightMoney = getMoneyAtNightTimeFlow().first()
         val onePersonFreightMoney = getMoneyOnePersonOperationFlow().first()
         val onePersonPassengerMoney = getMoneyOnePersonOperationPassengerTrainFlow().first()
+        val harmfulnessMoney = getMoneyHarmfulnessFlow().first()
         val averagedOtherSurchargePerMillis =
             (
                     basicMoney - tariffMoney - nightMoney -
                             onePersonFreightMoney - onePersonPassengerMoney
+                            - harmfulnessMoney
                     ).coerceAtLeast(0.0) /
                     regularWorkTime
 
