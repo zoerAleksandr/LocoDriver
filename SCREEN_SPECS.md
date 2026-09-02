@@ -1316,7 +1316,8 @@ Full-replace `GET/POST /v1/partners/`: POST если локально есть �
 - **ViewModel**: `SalaryCalculationViewModel`. Реактивно пересчитывает при смене
   месяца (`selectYearAndMonth` пишет месяц в настройки) и настроек зарплаты. Каждая
   строка считается отдельным `set…Data(helper) → PartialState`, результаты
-  сливаются в `SalaryCalculationUIState`. Расчёт — через `SalaryCalculationHelper`.
+  сливаются в `SalaryCalculationUIState`. Пустая частичная строка не может стереть
+  уже рассчитанный заголовок месяца. Расчёт — через `SalaryCalculationHelper`.
 - Маршруты месяца загружаются через `listRoutesByMonth` с единым
   `TimeCalculationContext.from(userSettings)`. Граница переходной поездки берётся
   из `UserSettings.crossMonthTimezone` (`MOSCOW` или `LOCAL`), поэтому список и

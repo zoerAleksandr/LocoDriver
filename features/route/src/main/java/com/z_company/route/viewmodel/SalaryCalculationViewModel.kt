@@ -216,7 +216,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
                     acc.copy(
                         // Пояснение: copy копирует объект, заменяя только непустые поля из partial
-                        month = partial.month,
+                        month = mergeNonEmptyText(acc.month, partial.month),
                         normaHours = partial.normaHours ?: acc.normaHours,
                         totalWorkTime = partial.totalWorkTime ?: acc.totalWorkTime,
                         tariffRate = partial.tariffRate ?: acc.tariffRate,
@@ -993,3 +993,6 @@ data class PartialState(
     val totalRetention: Double? = null,
     val toBeCredited: Double? = null
 )
+
+internal fun mergeNonEmptyText(current: String, next: String): String =
+    next.takeIf { it.isNotEmpty() } ?: current
