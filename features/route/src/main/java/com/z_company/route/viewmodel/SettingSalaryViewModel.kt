@@ -38,6 +38,33 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
 
+internal fun validatedHeavyTrainSettings(
+    values: List<SurchargeHeavyTrains>,
+): List<SurchargeHeavyTrains>? = values.takeIf { list ->
+    list.all { item ->
+        item.weight.toNonNegativeFiniteDoubleOrNull()?.let { it > 0.0 } == true &&
+            item.percentSurcharge.toNonNegativeFiniteDoubleOrNull() != null
+    }
+}?.map { it.copy() }
+
+internal fun validatedLongTrainSettings(
+    values: List<SurchargeLongTrains>,
+): List<SurchargeLongTrains>? = values.takeIf { list ->
+    list.all { item ->
+        item.conditionalLength.toNonNegativeFiniteDoubleOrNull()?.let { it > 0.0 } == true &&
+            item.percentSurcharge.toNonNegativeFiniteDoubleOrNull() != null
+    }
+}?.map { it.copy() }
+
+internal fun validatedExtendedServiceSettings(
+    values: List<SurchargeExtendedServicePhase>,
+): List<SurchargeExtendedServicePhase>? = values.takeIf { list ->
+    list.all { item ->
+        item.distance.toNonNegativeFiniteDoubleOrNull()?.let { it > 0.0 } == true &&
+            item.percentSurcharge.toNonNegativeFiniteDoubleOrNull() != null
+    }
+}?.map { it.copy() }
+
 class SettingSalaryViewModel : ViewModel(), KoinComponent {
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
@@ -237,30 +264,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             val state = uiState.value.settingSalaryState
             if (state is ResultState.Success) {
                 state.data?.let { salarySetting ->
-                    salarySetting.surchargeExtendedServicePhaseList =
-                        surchargeExtendedServicePhaseListState.map { servicePhase ->
-                            SurchargeExtendedServicePhase(
-                                id = servicePhase.id,
-                                distance = servicePhase.distance,
-                                percentSurcharge = servicePhase.percentSurcharge
-                            )
-                        }.toMutableList()
-                    salarySetting.surchargeHeavyTrainsList =
-                        surchargeHeavyTrainsState.map { surcharge ->
-                            SurchargeHeavyTrains(
-                                id = surcharge.id,
-                                weight = surcharge.weight,
-                                percentSurcharge = surcharge.percentSurcharge
-                            )
-                        }.toMutableList()
-                    salarySetting.surchargeLongTrainsList =
-                        surchargeLongTrainsState.map { surcharge ->
-                            SurchargeLongTrains(
-                                id = surcharge.id,
-                                conditionalLength = surcharge.conditionalLength,
-                                percentSurcharge = surcharge.percentSurcharge
-                            )
-                        }.toMutableList()
+                    applyValidEditableLists(salarySetting)
 
                     salarySettingUseCase.saveSalarySetting(salarySetting).collect { saveResult ->
                         if (saveResult is ResultState.Success) autoPushSettings()
@@ -306,30 +310,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             val state = uiState.value.settingSalaryState
             if (state is ResultState.Success) {
                 state.data?.let { salarySetting ->
-                    salarySetting.surchargeExtendedServicePhaseList =
-                        surchargeExtendedServicePhaseListState.map { servicePhase ->
-                            SurchargeExtendedServicePhase(
-                                id = servicePhase.id,
-                                distance = servicePhase.distance,
-                                percentSurcharge = servicePhase.percentSurcharge
-                            )
-                        }.toMutableList()
-                    salarySetting.surchargeHeavyTrainsList =
-                        surchargeHeavyTrainsState.map { surcharge ->
-                            SurchargeHeavyTrains(
-                                id = surcharge.id,
-                                weight = surcharge.weight,
-                                percentSurcharge = surcharge.percentSurcharge
-                            )
-                        }.toMutableList()
-                    salarySetting.surchargeLongTrainsList =
-                        surchargeLongTrainsState.map { surcharge ->
-                            SurchargeLongTrains(
-                                id = surcharge.id,
-                                conditionalLength = surcharge.conditionalLength,
-                                percentSurcharge = surcharge.percentSurcharge
-                            )
-                        }.toMutableList()
+                    applyValidEditableLists(salarySetting)
                     salarySettingUseCase.saveSalarySetting(salarySetting).collect {}
                 }
             }
@@ -362,6 +343,18 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     setSurchargeLongTrainState(it.surchargeLongTrainsList)
                 }
             }
+        }
+    }
+
+    private fun applyValidEditableLists(salarySetting: SalarySetting) {
+        validatedExtendedServiceSettings(surchargeExtendedServicePhaseListState)?.let {
+            salarySetting.surchargeExtendedServicePhaseList = it.toMutableList()
+        }
+        validatedHeavyTrainSettings(surchargeHeavyTrainsState)?.let {
+            salarySetting.surchargeHeavyTrainsList = it.toMutableList()
+        }
+        validatedLongTrainSettings(surchargeLongTrainsState)?.let {
+            salarySetting.surchargeLongTrainsList = it.toMutableList()
         }
     }
 
