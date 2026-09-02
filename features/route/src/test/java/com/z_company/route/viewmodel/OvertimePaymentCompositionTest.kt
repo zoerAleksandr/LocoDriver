@@ -474,6 +474,48 @@ class OvertimePaymentCompositionTest {
     }
 
     @Test
+    fun reserveTariffLineIsNotRepeatedAsAveragedOvertimeSurcharge() = runTest {
+        fun route(day: Int, number: String) = Route(
+            basicData = BasicData(
+                timeStartWork = instant(day, 8),
+                timeEndWork = instant(day, 12),
+            ),
+            trains = mutableListOf(Train(
+                number = number,
+                stations = mutableListOf(
+                    Station(timeDeparture = instant(day, 8)),
+                    Station(timeArrival = instant(day, 12)),
+                ),
+            )),
+        )
+        val helper = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2025,
+                    month = 0,
+                    tariffRate = 200.0,
+                    dateSetTariffRate = DateSetTariffRate(dateNewRate = 15, oldRate = 100.0),
+                    days = emptyList(),
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(
+                zonalSurcharge = 0.0,
+                harmfulnessPercent = 0.0,
+                nightTimePercent = 0.0,
+            ),
+            allRoutes = listOf(
+                route(day = 5, number = "2503"),
+                route(day = 20, number = "4001"),
+            ),
+        )
+
+        assertEquals(800.0, helper.getMoneyAtSingleLocomotiveFlow().first(), 0.001)
+        assertEquals(200.0, helper.getMoneySurchargeOvertime05Flow().first(), 0.001)
+        assertEquals(800.0, helper.getMoneySurchargeOvertimeFlow().first(), 0.001)
+    }
+
+    @Test
     fun nightAtStartOfMonthIsNotAveragedIntoDaytimeOvertimeTail() = runTest {
         val nightRoute = Route(basicData = BasicData(
             timeStartWork = instant(day = 5, hour = 22),

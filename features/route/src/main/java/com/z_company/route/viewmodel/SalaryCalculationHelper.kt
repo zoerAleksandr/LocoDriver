@@ -1594,6 +1594,8 @@ class SalaryCalculationHelper(
 
         val basicMoney = getBasicMoneyForOvertimeCalculation().first()
         val tariffMoney = getMoneyAtWorkTimeAtTariff().first()
+        val passengerMoney = getMoneyAtPassengerFlow().first()
+        val singleLocomotiveMoney = getMoneyAtSingleLocomotiveFlow().first()
         val nightMoney = getMoneyAtNightTimeFlow().first()
         val onePersonFreightMoney = getMoneyOnePersonOperationFlow().first()
         val onePersonPassengerMoney = getMoneyOnePersonOperationPassengerTrainFlow().first()
@@ -1610,7 +1612,7 @@ class SalaryCalculationHelper(
         val longTrainMoney = getMoneyListSurchargeLongTrainsFlow().first().sum()
         val averagedOtherSurchargePerMillis =
             (
-                    basicMoney - tariffMoney - nightMoney -
+                    basicMoney - tariffMoney - passengerMoney - singleLocomotiveMoney - nightMoney -
                             onePersonFreightMoney - onePersonPassengerMoney
                             - harmfulnessMoney - qualificationClassMoney - zonalMoney -
                             otherSurchargeMoney - heavyLongDistanceMoney -
