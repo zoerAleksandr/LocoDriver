@@ -342,6 +342,40 @@ class OvertimePaymentCompositionTest {
     }
 
     @Test
+    fun otherSurchargeInOvertimeUsesActualTariffSegment() = runTest {
+        fun route(day: Int, durationHours: Int) = Route(basicData = BasicData(
+            timeStartWork = instant(day, 8),
+            timeEndWork = instant(day, 8) + durationHours * hour,
+        ))
+        val helper = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2025,
+                    month = 0,
+                    tariffRate = 200.0,
+                    dateSetTariffRate = DateSetTariffRate(dateNewRate = 15, oldRate = 100.0),
+                    days = listOf(Day(dayOfMonth = 5, tag = TagForDay.WORKING_DAY)),
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(
+                otherSurcharge = 15.0,
+                zonalSurcharge = 0.0,
+                harmfulnessPercent = 0.0,
+                nightTimePercent = 0.0,
+            ),
+            allRoutes = listOf(
+                route(day = 5, durationHours = 8),
+                route(day = 20, durationHours = 4),
+            ),
+        )
+
+        assertEquals(240.0, helper.getMoneyOtherSurchargeFlow().first(), 0.001)
+        assertEquals(230.0, helper.getMoneySurchargeOvertime05Flow().first(), 0.001)
+        assertEquals(460.0, helper.getMoneySurchargeOvertimeFlow().first(), 0.001)
+    }
+
+    @Test
     fun nightAtStartOfMonthIsNotAveragedIntoDaytimeOvertimeTail() = runTest {
         val nightRoute = Route(basicData = BasicData(
             timeStartWork = instant(day = 5, hour = 22),

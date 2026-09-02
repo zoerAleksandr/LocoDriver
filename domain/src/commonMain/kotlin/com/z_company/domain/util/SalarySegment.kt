@@ -9,6 +9,7 @@ enum class AccrualCondition {
     HARMFUL,
     QUALIFICATION_CLASS,
     ZONAL,
+    OTHER_SURCHARGE,
     ONE_PERSON,
     ONE_PERSON_FREIGHT,
     ONE_PERSON_PASSENGER,

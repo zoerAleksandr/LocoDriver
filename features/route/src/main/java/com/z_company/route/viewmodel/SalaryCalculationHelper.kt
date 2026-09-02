@@ -238,6 +238,8 @@ class SalaryCalculationHelper(
         val qualificationClassEnabled =
             salarySetting.surchargeQualificationClass.nonNegativeFiniteOrZero() > 0.0
         val zonalEnabled = salarySetting.zonalSurcharge.nonNegativeFiniteOrZero() > 0.0
+        val otherSurchargeEnabled =
+            salarySetting.otherSurcharge.nonNegativeFiniteOrZero() > 0.0
         segments.map { segment ->
             val additionalConditions = buildSet {
                 if (harmfulnessEnabled) add(AccrualCondition.HARMFUL)
@@ -247,6 +249,12 @@ class SalaryCalculationHelper(
                     AccrualCondition.PASSENGER !in segment.conditions
                 ) {
                     add(AccrualCondition.QUALIFICATION_CLASS)
+                }
+                if (
+                    otherSurchargeEnabled &&
+                    AccrualCondition.PASSENGER !in segment.conditions
+                ) {
+                    add(AccrualCondition.OTHER_SURCHARGE)
                 }
             }
             segment.copy(conditions = segment.conditions + additionalConditions)
@@ -1514,6 +1522,8 @@ class SalaryCalculationHelper(
                         salarySetting.surchargeQualificationClass.nonNegativeFiniteOrZero(),
                 AccrualCondition.ZONAL to
                         salarySetting.zonalSurcharge.nonNegativeFiniteOrZero(),
+                AccrualCondition.OTHER_SURCHARGE to
+                        salarySetting.otherSurcharge.nonNegativeFiniteOrZero(),
             ),
         )
 
@@ -1525,11 +1535,13 @@ class SalaryCalculationHelper(
         val harmfulnessMoney = getMoneyHarmfulnessFlow().first()
         val qualificationClassMoney = getMoneyAtQualificationClassFlow().first()
         val zonalMoney = getMoneyZonalSurchargeFlow().first()
+        val otherSurchargeMoney = getMoneyOtherSurchargeFlow().first()
         val averagedOtherSurchargePerMillis =
             (
                     basicMoney - tariffMoney - nightMoney -
                             onePersonFreightMoney - onePersonPassengerMoney
-                            - harmfulnessMoney - qualificationClassMoney - zonalMoney
+                            - harmfulnessMoney - qualificationClassMoney - zonalMoney -
+                            otherSurchargeMoney
                     ).coerceAtLeast(0.0) /
                     regularWorkTime
 
