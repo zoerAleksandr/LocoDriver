@@ -435,7 +435,7 @@ fun SettingSalaryScreen(
                         }
                     }
                     PaySep()
-                    PayFieldSlot("Средний час") {
+                    PayFieldSlot("Средний час", description = "Для командировок и других выплат по среднему") {
                         AsyncDataValue(resultState = uiState.averagePaymentHour) { v ->
                             v?.let { PayInput(it, setAveragePaymentHour, "₽", uiState.isErrorInputAveragePayment) }
                         }
@@ -445,43 +445,43 @@ fun SettingSalaryScreen(
 
             item {
                 PayCard {
-                    PayFieldSlot("Зональная надбавка") {
+                    PayFieldSlot("Зональная надбавка", description = "От тарифа рабочих часов и следования пассажиром") {
                         AsyncDataValue(resultState = zonalSurchargeValueState) { v ->
                             v?.let { PayInput(it, setZonalSurcharge, "%", isErrorInputZonalSurcharge) }
                         }
                     }
                     PaySep()
-                    PayFieldSlot("Доплаты за класс и права") {
+                    PayFieldSlot("Доплаты за класс и права", description = "От тарифа обычной работы, без следования пассажиром") {
                         AsyncDataValue(resultState = surchargeQualificationClassValueState) { v ->
                             v?.let { PayInput(it, setSurchargeQualificationClass, "%", isErrorInputSurchargeQualificationClass) }
                         }
                     }
                     PaySep()
-                    PayFieldSlot("Работа в одно лицо (грузовой)") {
+                    PayFieldSlot("Работа в одно лицо (грузовой)", description = "Только фактические сегменты грузовой работы в одно лицо") {
                         AsyncDataValue(resultState = onePersonOperationPercent) { v ->
                             v?.let { PayInput(it, setOnePersonOperationPercent, "%", isErrorInputOnePersonOperation) }
                         }
                     }
                     PaySep()
-                    PayFieldSlot("Работа в одно лицо (пассажирский)") {
+                    PayFieldSlot("Работа в одно лицо (пассажирский)", description = "Только фактические сегменты пассажирской работы в одно лицо") {
                         AsyncDataValue(resultState = onePersonOperationPassengerTrainPercent) { v ->
                             v?.let { PayInput(it, setOnePersonOperationPassengerTrainPercent, "%", isErrorInputOnePersonOperationPassengerTrain) }
                         }
                     }
                     PaySep()
-                    PayFieldSlot("Доплата за вредность") {
+                    PayFieldSlot("Доплата за вредность", description = "От тарифа рабочих часов и следования пассажиром") {
                         AsyncDataValue(resultState = harmfulnessPercentState) { v ->
                             v?.let { PayInput(it, setHarmfulnessPercent, "%", isErrorInputHarmfulness) }
                         }
                     }
                     PaySep()
-                    PayFieldSlot("Северная надбавка") {
+                    PayFieldSlot("Северная надбавка", description = "От подтверждённой базы начислений, без повторного среднего") {
                         AsyncDataValue(resultState = uiState.nordicCoefficient) { v ->
                             v?.let { PayInput(it, setNordicCoefficient, "%", uiState.isErrorInputNordicCoefficient) }
                         }
                     }
                     PaySep()
-                    PayFieldSlot("Районный коэффициент") {
+                    PayFieldSlot("Районный коэффициент", description = "От подтверждённой базы начислений, без повторного среднего") {
                         AsyncDataValue(resultState = uiState.districtCoefficient) { v ->
                             v?.let { PayInput(it, setDistrictCoefficient, "%", uiState.isErrorInputDistrictCoefficient) }
                         }
@@ -491,7 +491,7 @@ fun SettingSalaryScreen(
 
             item {
                 PayCard {
-                    PayFieldSlot("Доплата за ПДМ (6000 т. и 350 осей)") {
+                    PayFieldSlot("Доплата за ПДМ (6000 т. и 350 осей)", description = "От тарифа фактического интервала подходящего поезда") {
                         AsyncDataValue(resultState = surchargeHeavyLongDistanceTrainsState) { v ->
                             v?.let {
                                 PayInput(
@@ -509,6 +509,7 @@ fun SettingSalaryScreen(
             item {
                 PayTierSection(
                     label = "Доплата за тяж. поезда",
+                    description = "Порог массы → процент от тарифа интервала поезда",
                     onAdd = addSurchargeHeavyTran,
                 ) {
                     surchargeHeavyTrainsState.forEachIndexed { index, item ->
@@ -531,6 +532,7 @@ fun SettingSalaryScreen(
             item {
                 PayTierSection(
                     label = "Доплата за длинносост. поезда",
+                    description = "Порог условной длины → процент от тарифа интервала поезда",
                     onAdd = addSurchargeLongTrain,
                 ) {
                     surchargeLongTrainsState.forEachIndexed { index, item ->
@@ -553,6 +555,7 @@ fun SettingSalaryScreen(
             item {
                 PayTierSection(
                     label = "Доплата за удлиненное плечо",
+                    description = "Порог пробега маршрута → процент от тарифа обычной работы",
                     onAdd = addServicePhase,
                 ) {
                     surchargeExtendedServicePhaseValueState.forEachIndexed { index, item ->
@@ -574,7 +577,7 @@ fun SettingSalaryScreen(
 
             item {
                 PayCard {
-                    PayFieldSlot("Другие надбавки") {
+                    PayFieldSlot("Другие надбавки", description = "Постоянный процент тарифа обычной работы, не фиксированная премия") {
                         AsyncDataValue(resultState = uiState.otherSurchargeState) { v ->
                             v?.let { PayInput(it, setOtherSurcharge, "%", uiState.isErrorInputOtherSurcharge) }
                         }
@@ -666,6 +669,7 @@ private fun PaySep() {
 @Composable
 private fun PayFieldSlot(
     label: String,
+    description: String? = null,
     action: (@Composable () -> Unit)? = null,
     input: @Composable () -> Unit,
 ) {
@@ -688,6 +692,14 @@ private fun PayFieldSlot(
                 overflow = TextOverflow.Ellipsis,
             )
             action?.invoke()
+        }
+        description?.let {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         Spacer(Modifier.height(8.dp))
         input()
@@ -770,6 +782,7 @@ private fun PayInput(
 @Composable
 private fun PayTierSection(
     label: String,
+    description: String? = null,
     onAdd: () -> Unit,
     rows: @Composable ColumnScope.() -> Unit,
 ) {
@@ -794,6 +807,14 @@ private fun PayTierSection(
                 text = "Добавить",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.tertiary,
+            )
+        }
+        description?.let {
+            Text(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         rows()
