@@ -60,6 +60,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -1813,7 +1814,21 @@ fun FormTrainScreen(
                                 // Показать/скрыть карточки перегонов между станциями.
                                 IconButton(
                                     modifier = Modifier.size(32.dp),
-                                    onClick = { viewModel.toggleSegmentsVisibility() }
+                                    onClick = {
+                                        viewModel.toggleSegmentsVisibility()
+                                        val shown = !formUiState.showSegments
+                                        scope.launch {
+                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                            snackbarHostState.showSnackbar(
+                                                message = if (shown) {
+                                                    "Перегоны показаны"
+                                                } else {
+                                                    "Перегоны скрыты"
+                                                },
+                                                duration = SnackbarDuration.Short,
+                                            )
+                                        }
+                                    }
                                 ) {
                                     Icon(
                                         modifier = Modifier.size(20.dp),
@@ -1838,11 +1853,37 @@ fun FormTrainScreen(
                                 if (formUiState.isStationsReversed) stationList.reversed() else stationList
                             val timelineItems = displayList.toTimelineItems()
 
+                            // «Будущий перегон» — тот, у которого неизвестна вторая
+                            // граница, поэтому маршрут ещё может быть продолжен:
+                            //  • выбрано плечо, но нет времени прибытия на конечную —
+                            //    перед конечной ещё может появиться станция;
+                            //  • плеча нет и последняя станция не отмечена конечной —
+                            //    блок уходит под неё.
+                            // Флаг «конечная» на крайней станции убирает блок совсем.
+                            val lastIndex = stationList.lastIndex
+                            val lastStation = stationList.lastOrNull()
+                            val futureOriginalAfter: Int? = when {
+                                lastStation == null -> null
+                                lastStation.isFinalStation -> null
+                                selectedServicePhase != null ->
+                                    if (lastStation.arrival.data == null && stationList.size >= 2) {
+                                        lastIndex - 1
+                                    } else null
+                                else -> lastIndex
+                            }
+                            // Перевод в индекс отображаемого списка: при развороте блок
+                            // между исходными k и k+1 оказывается после строки size-2-k
+                            // (для трейлинг-случая это -1, т.е. над списком).
+                            val futureSegmentAfterIndex = futureOriginalAfter?.let { k ->
+                                if (formUiState.isStationsReversed) stationList.size - 2 - k else k
+                            }
+
                           Column {
                             TrainStationTimeline(
                                 stations = timelineItems,
                                 showSummary = false,
                                 showSegments = formUiState.showSegments,
+                                futureSegmentAfterIndex = futureSegmentAfterIndex,
                                 modifier = Modifier
                                     .padding(top = 8.dp)
                                     .fillMaxWidth()

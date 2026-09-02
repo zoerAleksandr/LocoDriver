@@ -179,6 +179,11 @@ fun TrainStationTimeline(
     // Показывать бейджи «Время в пути / Уч / Техн» внутри списка. Когда false —
     // они выносятся наружу отдельными пилюлями (см. RouteSummaryRow).
     showSummary: Boolean = true,
+    // Индекс строки в ОТОБРАЖАЕМОМ списке, ПОСЛЕ которой рисуется «будущий
+    // перегон» — тот, у которого вторая граница ещё неизвестна. -1 = над всем
+    // списком (перевёрнутый порядок), null = не рисуем. Считается на экране,
+    // т.к. зависит от выбранного плеча и порядка сортировки.
+    futureSegmentAfterIndex: Int? = null,
     // Показывать карточки перегонов между станциями (переключается кнопкой
     // над блоком «Маршрут»).
     showSegments: Boolean = true,
@@ -244,6 +249,18 @@ fun TrainStationTimeline(
             }
         }
 
+        if (showSegments && futureSegmentAfterIndex == -1) {
+            SegmentCard(
+                segment = null,
+                segmentTrackNumber = null,
+                segmentNotes = null,
+                colors = colors,
+                isAnyReordering = isAnyReordering,
+                isFuture = true,
+                onClick = null,
+            )
+        }
+
         stations.forEachIndexed { index, station ->
             val isFirst = index == 0
             val isLast = index == stations.lastIndex
@@ -297,19 +314,33 @@ fun TrainStationTimeline(
                 }
 
                 // ── Перегон между станциями ──
-                if (!isLast && showSegments) {
-                    val nextStation = stations[index + 1]
-                    val segment = calculateSegment(station, nextStation)
-                    SegmentCard(
-                        segment = segment,
-                        segmentTrackNumber = nextStation.segmentTrackNumber,
-                        segmentNotes = nextStation.segmentNotes,
-                        colors = colors,
-                        isAnyReordering = isAnyReordering,
-                        onClick = if (onSegmentClick != null) {
-                            { onSegmentClick(index) }
-                        } else null,
-                    )
+                // Если промежуток помечен «будущим» — вторая граница неизвестна,
+                // рисуем пунктирный блок вместо обычного и не даём его открыть.
+                if (showSegments) {
+                    val isFuture = index == futureSegmentAfterIndex
+                    if (isFuture) {
+                        SegmentCard(
+                            segment = null,
+                            segmentTrackNumber = null,
+                            segmentNotes = null,
+                            colors = colors,
+                            isAnyReordering = isAnyReordering,
+                            isFuture = true,
+                            onClick = null,
+                        )
+                    } else if (!isLast) {
+                        val nextStation = stations[index + 1]
+                        SegmentCard(
+                            segment = calculateSegment(station, nextStation),
+                            segmentTrackNumber = nextStation.segmentTrackNumber,
+                            segmentNotes = nextStation.segmentNotes,
+                            colors = colors,
+                            isAnyReordering = isAnyReordering,
+                            onClick = if (onSegmentClick != null) {
+                                { onSegmentClick(index) }
+                            } else null,
+                        )
+                    }
                 }
             }
         }
@@ -606,6 +637,9 @@ private fun SegmentCard(
     segmentNotes: String?,
     colors: TimelineColors,
     isAnyReordering: Boolean = false,
+    // «Будущий перегон» — вторая граница ещё неизвестна (маршрут может быть
+    // продолжен). Такой блок не заливаем цветом и обводим пунктиром.
+    isFuture: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
     val hasData = !segmentTrackNumber.isNullOrBlank() || !segmentNotes.isNullOrBlank()
@@ -650,11 +684,11 @@ private fun SegmentCard(
                     .padding(vertical = 6.dp)
                     .clip(shape)
                     .then(
-                        if (hasData) {
-                            // Не segmentBackgroundColor (полупрозрачный surface): на карточке
-                            // станций он почти не читался. surfaceBright — отдельный
-                            // непрозрачный слот, перегон видно как отдельный блок.
-                            Modifier.background(MaterialTheme.colorScheme.surfaceBright)
+                        if (!isFuture) {
+                            // Как в референсе: блок «утоплен» относительно карточки
+                            // станций (она лежит на secondary), поэтому background —
+                            // он темнее в тёмной теме и светло-серый в светлой.
+                            Modifier.background(MaterialTheme.colorScheme.background)
                         } else {
                             Modifier.drawBehind {
                                 drawRoundRect(
@@ -683,19 +717,19 @@ private fun SegmentCard(
                         .size(32.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(
-                            if (hasData) primary.copy(alpha = 0.08f)
-                            else accent.copy(alpha = 0.12f)
+                            if (isFuture) accent.copy(alpha = 0.12f)
+                            else primary.copy(alpha = 0.08f)
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         painter = painterResource(
-                            if (hasData) com.z_company.route.R.drawable.ic_card_train_ref
-                            else com.z_company.route.R.drawable.add_circle_24px
+                            if (isFuture) com.z_company.route.R.drawable.ic_card_train_ref
+                            else com.z_company.core.R.drawable.ic_edit
                         ),
                         contentDescription = null,
-                        tint = if (hasData) primary.copy(alpha = 0.7f) else accent,
-                        modifier = Modifier.size(if (hasData) 20.dp else 16.dp),
+                        tint = if (isFuture) accent else primary.copy(alpha = 0.7f),
+                        modifier = Modifier.size(if (isFuture) 20.dp else 16.dp),
                     )
                 }
 
@@ -728,48 +762,53 @@ private fun SegmentCard(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        if (!segmentTrackNumber.isNullOrBlank()) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(primary.copy(alpha = 0.10f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
+                    // Нижняя строка только при реальных данных: подписи-подсказки
+                    // не нужны, о редактировании говорит иконка-карандаш.
+                    if (hasData) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            if (!segmentTrackNumber.isNullOrBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(primary.copy(alpha = 0.10f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "$segmentTrackNumber путь",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontFamily = MonoFont
+                                        ),
+                                        color = primary.copy(alpha = 0.8f),
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
+                            segmentNotes?.takeIf { it.isNotBlank() }?.let { notes ->
                                 Text(
-                                    text = "$segmentTrackNumber путь",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontFamily = MonoFont
-                                    ),
-                                    color = primary.copy(alpha = 0.8f),
+                                    text = notes,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = primary.copy(alpha = 0.6f),
                                     maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
-                        val notes = segmentNotes?.takeIf { it.isNotBlank() }
-                        Text(
-                            text = notes ?: if (hasData) "" else "примечание",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (notes != null) primary.copy(alpha = 0.6f) else accent,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.width(6.dp))
-
-                Icon(
-                    painter = painterResource(com.z_company.route.R.drawable.qv_arrow_forward),
-                    contentDescription = null,
-                    tint = primary.copy(alpha = 0.3f),
-                    modifier = Modifier.size(16.dp),
-                )
+                if (!isFuture) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        painter = painterResource(com.z_company.route.R.drawable.qv_arrow_forward),
+                        contentDescription = null,
+                        tint = primary.copy(alpha = 0.3f),
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
         }
     }
