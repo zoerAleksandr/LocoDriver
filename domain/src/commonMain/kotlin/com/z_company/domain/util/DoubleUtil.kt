@@ -104,8 +104,9 @@ private fun expandScientificNotation(value: Double): String {
  * Неразрывный пробел ( ) не даёт сумме переноситься по строкам.
  */
 private fun formatFixed2(value: Double): String {
-    val negative = value < 0
-    val abs = if (negative) -value else value
+    val roundedValue = value.roundMoneyToCents()
+    val negative = roundedValue < 0
+    val abs = if (negative) -roundedValue else roundedValue
     val rounded = kotlin.math.round(abs * 100).toLong()
     val intPart = rounded / 100
     val fracPart = (rounded % 100).toInt()
@@ -124,6 +125,13 @@ private fun formatFixed2(value: Double): String {
 
 fun Double?.str2decimalSign(): String {
     return if (this == null) "" else formatFixed2(this)
+}
+
+/** Денежная граница расчёта: каждая строка округляется до копеек до суммирования. */
+fun Double.roundMoneyToCents(): Double {
+    if (!isFinite()) return 0.0
+    val sign = if (this < 0.0) -1.0 else 1.0
+    return sign * kotlin.math.floor(kotlin.math.abs(this) * 100.0 + 0.5) / 100.0
 }
 
 fun Double?.toMoneyString(currency: String = "₽"): String {

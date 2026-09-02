@@ -30,6 +30,7 @@ import com.z_company.domain.util.calculateOvertimeBreakdown
 import com.z_company.domain.util.calculateOvertimePremiumDurations
 import com.z_company.domain.util.selectLatestOvertimeSegments
 import com.z_company.domain.util.sum
+import com.z_company.domain.util.roundMoneyToCents
 import com.z_company.domain.util.subtractAll
 import com.z_company.domain.util.toExactIntOrNull
 import com.z_company.domain.util.toDoubleOrZero
@@ -1257,8 +1258,11 @@ class SalaryCalculationHelper(
             // getBasicMoney(), но остаётся самостоятельной тарифной выплатой.
             val passengerOutsideWorkMoney = getMoneyAtPassengerOutsideWorkFlow().first()
 
-            val totalMoney =
-                baseMoney + holidayMoney + averageMoney + averageMoneyCaringForDisableChildren + businessTripMoney + technicalStudyMoney + nordicSurcharge + districtSurcharge + underworkMoney + linearMileageMoney + overRestMoney + passengerOutsideWorkMoney
+            val totalMoney = listOf(
+                baseMoney, holidayMoney, averageMoney, averageMoneyCaringForDisableChildren,
+                businessTripMoney, technicalStudyMoney, nordicSurcharge, districtSurcharge,
+                underworkMoney, linearMileageMoney, overRestMoney, passengerOutsideWorkMoney,
+            ).sumOf { it.roundMoneyToCents() }.roundMoneyToCents()
 
             emit(totalMoney)
         }
@@ -1303,7 +1307,7 @@ class SalaryCalculationHelper(
     }
 
     fun getMoneyLinearMileageFlow(): Flow<Double> = flow {
-        emit(getLinearMileageAccrualsFlow().first().sumOf { it.money })
+        emit(getLinearMileageAccrualsFlow().first().sumOf { it.money.roundMoneyToCents() })
     }
 
     fun getPercentNDFLRetentionFlow(): Flow<Double> {
@@ -1320,7 +1324,7 @@ class SalaryCalculationHelper(
             val baseForCalculation =
                 getMoneyTotalChargedFlow().first() - averageMoneyCaringForDisableChildren
             val money = baseForCalculation.times(percentNDFL / 100)
-            emit(money)
+            emit(money.roundMoneyToCents())
         }
     }
 
@@ -1336,7 +1340,7 @@ class SalaryCalculationHelper(
             val percentUnionist = getPercentUnionistsRetentionFlow().first()
             val baseForCalculation = getMoneyTotalChargedFlow().first()
             val money = baseForCalculation.times(percentUnionist / 100)
-            emit(money)
+            emit(money.roundMoneyToCents())
         }
     }
 
@@ -1352,7 +1356,7 @@ class SalaryCalculationHelper(
             val percentOther = getPercentOtherRetentionFlow().first()
             val baseForCalculation = getMoneyTotalChargedFlow().first()
             val money = baseForCalculation.times(percentOther / 100)
-            emit(money)
+            emit(money.roundMoneyToCents())
         }
     }
 
@@ -1369,7 +1373,7 @@ class SalaryCalculationHelper(
             val percentWelfare = getPercentWelfareRetentionFlow().first()
             val baseForCalculation = getMoneyTotalChargedFlow().first()
             val money = baseForCalculation.times(percentWelfare / 100)
-            emit(money)
+            emit(money.roundMoneyToCents())
         }
     }
 
@@ -1389,7 +1393,7 @@ class SalaryCalculationHelper(
             val unionists = getMoneyUnionistsRetentionFlow().first()
             val other = getMoneyOtherRetentionFlow().first()
             val welfare = getMoneyWelfareRetentionFlow().first()
-            emit(gross - ndfl - unionists - other - welfare)
+            emit((gross - ndfl - unionists - other - welfare).roundMoneyToCents())
         }
     }
 
@@ -1400,7 +1404,7 @@ class SalaryCalculationHelper(
             val percentAlimony = getPercentAlimonyRetentionFlow().first()
             val baseForCalculation = getMoneyAlimonyBaseFlow().first()
             val money = baseForCalculation.times(percentAlimony / 100)
-            emit(money)
+            emit(money.roundMoneyToCents())
         }
     }
 
@@ -1412,7 +1416,9 @@ class SalaryCalculationHelper(
             val ndfl = getMoneyNDFLRetentionFlow().first()
             val welfare = getMoneyWelfareRetentionFlow().first()
             val alimony = getMoneyAlimonyRetentionFlow().first()
-            val total = other + unionists + ndfl + welfare + alimony
+            val total = listOf(other, unionists, ndfl, welfare, alimony)
+                .sumOf { it.roundMoneyToCents() }
+                .roundMoneyToCents()
             emit(total)
         }
     }
@@ -1421,7 +1427,7 @@ class SalaryCalculationHelper(
         return flow {
             val totalCharged = getMoneyTotalChargedFlow().first()
             val totalRetention = getMoneyTotalRetentionFlow().first()
-            val result = totalCharged - totalRetention
+            val result = (totalCharged - totalRetention).roundMoneyToCents()
             emit(result)
         }
     }
@@ -1492,8 +1498,12 @@ class SalaryCalculationHelper(
             val overtimeMoney = getMoneyOvertimeFlow().first()
             val overtimeMoneySurcharge05 = getMoneySurchargeOvertime05Flow().first()
             val overtimeMoneySurcharge = getMoneySurchargeOvertimeFlow().first()
-            val basicMoney =
-                basicForOvertime + overtimeMoney + overtimeMoneySurcharge05 + overtimeMoneySurcharge
+            val basicMoney = listOf(
+                basicForOvertime,
+                overtimeMoney,
+                overtimeMoneySurcharge05,
+                overtimeMoneySurcharge,
+            ).sumOf { it.roundMoneyToCents() }.roundMoneyToCents()
             emit(basicMoney)
         }
     }
@@ -1507,25 +1517,28 @@ class SalaryCalculationHelper(
             val paymentNightTimeMoney = getMoneyAtNightTimeFlow().first()
             val surchargeQualificationClassMoney = getMoneyAtQualificationClassFlow().first()
             val surchargeExtendedServicePhaseMoney =
-                getMoneyListSurchargeExtendedServicePhaseFlow().first().sum()
+                getMoneyListSurchargeExtendedServicePhaseFlow().first()
+                    .sumOf { it.roundMoneyToCents() }
             val surchargeOnePersonOperationMoney = getMoneyOnePersonOperationFlow().first()
             val surchargeOnePersonOperationPassengerTrainFlow =
                 getMoneyOnePersonOperationPassengerTrainFlow().first()
             val surchargeHarmfulnessSurchargeMoney = getMoneyHarmfulnessFlow().first()
-            val surchargeHeavyTrains = getMoneyListSurchargeExtendedHeavyTrainsFlow().first().sum()
-            val surchargeLongTrains = getMoneyListSurchargeLongTrainsFlow().first().sum()
+            val surchargeHeavyTrains = getMoneyListSurchargeExtendedHeavyTrainsFlow().first()
+                .sumOf { it.roundMoneyToCents() }
+            val surchargeLongTrains = getMoneyListSurchargeLongTrainsFlow().first()
+                .sumOf { it.roundMoneyToCents() }
             val surchargeHeavyLongDistanceTrains = getMoneyHeavyLongDistanceTrainsFlow().first()
             val otherSurcharge = getMoneyOtherSurchargeFlow().first()
             val surchargeDoubledTrainFirst = getMoneyDoubledTrainFirstSurchargeFlow().first()
             val surchargeDoubledTrainSecond = getMoneyDoubledTrainSecondSurchargeFlow().first()
-            val basicMoney = paymentAtTariffMoney + paymentAtPassengerMoney +
-                    paymentAtSingleLocomotiveMoney + zonalSurchargeMoney +
-                    paymentNightTimeMoney + surchargeQualificationClassMoney +
-                    surchargeExtendedServicePhaseMoney + surchargeOnePersonOperationMoney +
-                    surchargeOnePersonOperationPassengerTrainFlow +
-                    surchargeHarmfulnessSurchargeMoney +
-                    surchargeHeavyTrains + surchargeLongTrains + surchargeHeavyLongDistanceTrains +
-                    otherSurcharge + surchargeDoubledTrainFirst + surchargeDoubledTrainSecond
+            val basicMoney = listOf(
+                paymentAtTariffMoney, paymentAtPassengerMoney, paymentAtSingleLocomotiveMoney,
+                zonalSurchargeMoney, paymentNightTimeMoney, surchargeQualificationClassMoney,
+                surchargeExtendedServicePhaseMoney, surchargeOnePersonOperationMoney,
+                surchargeOnePersonOperationPassengerTrainFlow, surchargeHarmfulnessSurchargeMoney,
+                surchargeHeavyTrains, surchargeLongTrains, surchargeHeavyLongDistanceTrains,
+                otherSurcharge, surchargeDoubledTrainFirst, surchargeDoubledTrainSecond,
+            ).sumOf { it.roundMoneyToCents() }.roundMoneyToCents()
 
             emit(basicMoney)
         }
