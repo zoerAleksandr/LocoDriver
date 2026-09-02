@@ -150,6 +150,30 @@ struct SalaryCalculationView: View {
                     .foregroundColor(.secondary)
             }
         }
+
+        HStack {
+            Label("Начислено", systemImage: "plus.circle")
+            Spacer()
+            Text(formatMoney(summary.totalCharged))
+                .fontWeight(.medium)
+        }
+
+        HStack {
+            Label("Удержано", systemImage: "minus.circle")
+            Spacer()
+            Text(formatMoney(summary.totalRetained))
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+        }
+
+        HStack {
+            Label("К выдаче", systemImage: "rublesign.circle")
+                .fontWeight(.semibold)
+            Spacer()
+            Text(formatMoney(summary.toBeCredited))
+                .fontWeight(.semibold)
+                .foregroundColor(.accentColor)
+        }
     }
 
     // MARK: - Route row
@@ -189,6 +213,10 @@ struct SalaryCalculationView: View {
             return "\(hours)ч \(minutes)м"
         }
         return "\(minutes)м"
+    }
+
+    private func formatMoney(_ value: Double) -> String {
+        value.formatted(.currency(code: "RUB").locale(Locale(identifier: "ru_RU")))
     }
 
     private func formatMonthYear(month: Int, year: Int) -> String {

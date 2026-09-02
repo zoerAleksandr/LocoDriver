@@ -187,10 +187,13 @@ struct HomeView: View {
         }
     }
 
-    /// Длинносоставные (isHeavyLongDistance на поезде).
+    /// Поезда с указанной условной длиной (отдельный устаревший флаг удалён из модели).
     private var longCompositionMs: Int64 {
         vm.routes.reduce(Int64(0)) { acc, r in
-            guard (r.trains as! [DomainTrain]).contains(where: { $0.isHeavyLongDistance }) else { return acc }
+            guard (r.trains as! [DomainTrain]).contains(where: {
+                let length = $0.conditionalLength
+                return length != nil && !(length!.isEmpty)
+            }) else { return acc }
             return routeWorkMs(r).map { acc + $0 } ?? acc
         }
     }
@@ -511,7 +514,10 @@ struct RouteItemView: View {
                     .font(.headline)
                     .foregroundColor(route.basicData.number != nil ? .primary : .secondary)
                 Spacer()
-                if (route.trains as! [DomainTrain]).contains(where: { $0.isHeavyLongDistance }) {
+                if (route.trains as! [DomainTrain]).contains(where: {
+                    let length = $0.conditionalLength
+                    return length != nil && !(length!.isEmpty)
+                }) {
                     Image(systemName: "arrow.left.and.right").font(.caption).foregroundColor(.orange)
                 }
             }

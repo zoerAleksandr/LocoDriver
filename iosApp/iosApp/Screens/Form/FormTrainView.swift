@@ -42,13 +42,6 @@ struct FormTrainView: View {
                 ))
                 .keyboardType(.decimalPad)
             }
-
-            Section("Особые условия") {
-                Toggle("Тяжеловесный / длинносоставный", isOn: Binding(
-                    get: { vm.train?.isHeavyLongDistance ?? false },
-                    set: { vm.setIsHeavy($0) }
-                ))
-            }
         }
         .navigationTitle(trainId == nil ? "Новый поезд" : "Поезд")
         .navigationBarTitleDisplayMode(.inline)

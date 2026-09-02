@@ -34,8 +34,6 @@ class TrainFormIosViewModel(
     fun setAxle(value: String) { _train.update { it?.copy(axle = value.ifBlank { null }) } }
     fun setDistance(value: String) { _train.update { it?.copy(distance = value.ifBlank { null }) } }
     fun setLength(value: String) { _train.update { it?.copy(conditionalLength = value.ifBlank { null }) } }
-    fun setIsHeavy(value: Boolean) { _train.update { it?.copy(isHeavyLongDistance = value) } }
-
     fun watchTrain(callback: (Train?) -> Unit) {
         viewModelScope.launch { train.collect { callback(it) } }
     }

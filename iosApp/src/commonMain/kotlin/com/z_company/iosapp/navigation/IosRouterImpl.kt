@@ -3,6 +3,7 @@ package com.z_company.iosapp.navigation
 import androidx.navigation.NavHostController
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
+import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.navigation.Router
@@ -53,11 +54,22 @@ internal class IosRouterImpl : Router {
     override fun showEmptyPassengerForm(basicId: String) =
         navigate(FormPassenger.buildRoute(null, basicId))
 
+    // Нативные дочерние экраны ещё подключаются к SwiftUI coordinator; пока
+    // возвращаемся в форму маршрута вместо падения интерфейсного контракта.
+    override fun showChangeOtherWorkForm(otherWork: OtherWork) =
+        showRouteForm(otherWork.basicId)
+
+    override fun showEmptyOtherWorkForm(basicId: String) = showRouteForm(basicId)
+
     override fun showSelectReleaseDayScreen() = navigate(SelectReleaseDaysScreenRoute.route)
     override fun showPurchasesScreen() = navigate(PurchasesRoute.route)
     override fun showSalaryCalculation() = navigate(SalaryCalculationRoute.route)
     override fun showSettingSalary() = navigate(SettingSalaryRoute.route)
     override fun showAllRoute() = navigate(AllRouteScreenRoute.route)
+    override fun showCalendar() = navigate(HomeRoute.route)
+    override fun showScheduleWizard() = navigate(HomeRoute.route)
+    override fun showAbsence() = navigate(SelectReleaseDaysScreenRoute.route)
+    override fun showStatistics() = navigate(HomeRoute.route)
 
     private fun navigate(route: String) {
         navController?.navigate(route)

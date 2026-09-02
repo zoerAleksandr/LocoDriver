@@ -1313,6 +1313,9 @@ Full-replace `GET/POST /v1/partners/`: POST если локально есть �
   `SalaryCalculationHelper.kt` оставлен только как фасад совместимости и не
   содержит формул; удалённый старый `SalaryCalculationUseCase` не используется.
   Общий расчётчик проверяется `commonTest` на JVM и iOS Simulator.
+  Нативный iOS `SalaryCalculationIosViewModel` также получает из него рабочие,
+  ночные и сверхурочные часы, «Начислено», «Удержано» и «К выдаче»; упрощённые
+  самостоятельные формулы iOS удалены.
 - **ViewModel**: `SalaryCalculationViewModel`. Реактивно пересчитывает при смене
   месяца (`selectYearAndMonth` пишет месяц в настройки) и настроек зарплаты. Каждая
   строка считается отдельным `set…Data(helper) → PartialState`, результаты
