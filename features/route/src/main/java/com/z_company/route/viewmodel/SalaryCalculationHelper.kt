@@ -1485,14 +1485,24 @@ class SalaryCalculationHelper(
             conditionPercents = mapOf(
                 AccrualCondition.NIGHT to salarySetting.nightTimePercent
                     .nonNegativeFiniteOrZero(),
+                AccrualCondition.ONE_PERSON_FREIGHT to
+                        salarySetting.onePersonOperationPercent.nonNegativeFiniteOrZero(),
+                AccrualCondition.ONE_PERSON_PASSENGER to
+                        salarySetting.onePersonOperationPassengerTrainPercent
+                            .nonNegativeFiniteOrZero(),
             ),
         )
 
         val basicMoney = getBasicMoneyForOvertimeCalculation().first()
         val tariffMoney = getMoneyAtWorkTimeAtTariff().first()
         val nightMoney = getMoneyAtNightTimeFlow().first()
+        val onePersonFreightMoney = getMoneyOnePersonOperationFlow().first()
+        val onePersonPassengerMoney = getMoneyOnePersonOperationPassengerTrainFlow().first()
         val averagedOtherSurchargePerMillis =
-            (basicMoney - tariffMoney - nightMoney).coerceAtLeast(0.0) /
+            (
+                    basicMoney - tariffMoney - nightMoney -
+                            onePersonFreightMoney - onePersonPassengerMoney
+                    ).coerceAtLeast(0.0) /
                     regularWorkTime
 
         val selectedHalfDuration = breakdown.halfRateSegments

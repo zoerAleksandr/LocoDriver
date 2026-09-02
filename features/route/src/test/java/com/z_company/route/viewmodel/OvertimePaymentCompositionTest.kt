@@ -307,6 +307,45 @@ class OvertimePaymentCompositionTest {
     }
 
     @Test
+    fun onePersonAtStartOfMonthIsNotAveragedIntoOrdinaryOvertimeTail() = runTest {
+        val onePersonRoute = Route(
+            basicData = BasicData(
+                isOnePersonOperation = true,
+                timeStartWork = instant(day = 5, hour = 8),
+                timeEndWork = instant(day = 5, hour = 16),
+            ),
+            trains = mutableListOf(Train(number = "2503")),
+        )
+        val ordinaryOvertimeRoute = Route(basicData = BasicData(
+            timeStartWork = instant(day = 20, hour = 8),
+            timeEndWork = instant(day = 20, hour = 12),
+        ))
+        val helper = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2025,
+                    month = 0,
+                    tariffRate = 100.0,
+                    days = listOf(Day(dayOfMonth = 5, tag = TagForDay.WORKING_DAY)),
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(
+                onePersonOperationPercent = 40.0,
+                nightTimePercent = 0.0,
+                zonalSurcharge = 0.0,
+                harmfulnessPercent = 0.0,
+            ),
+            allRoutes = listOf(onePersonRoute, ordinaryOvertimeRoute),
+        )
+
+        assertEquals(4 * hour, helper.getTimeOvertimeFlow().first())
+        assertEquals(320.0, helper.getMoneyOnePersonOperationFlow().first(), 0.001)
+        assertEquals(100.0, helper.getMoneySurchargeOvertime05Flow().first(), 0.001)
+        assertEquals(200.0, helper.getMoneySurchargeOvertimeFlow().first(), 0.001)
+    }
+
+    @Test
     fun nightInOvertimeTailIsIncludedOnlyForActualNightSegment() = runTest {
         val regularRoute = Route(basicData = BasicData(
             timeStartWork = instant(day = 5, hour = 8),
