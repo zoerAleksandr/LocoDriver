@@ -7,6 +7,8 @@ enum class AccrualCondition {
     BUSINESS_TRIP,
     OVERTIME,
     HARMFUL,
+    QUALIFICATION_CLASS,
+    ZONAL,
     ONE_PERSON,
     ONE_PERSON_FREIGHT,
     ONE_PERSON_PASSENGER,

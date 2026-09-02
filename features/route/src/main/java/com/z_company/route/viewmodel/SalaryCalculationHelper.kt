@@ -233,12 +233,23 @@ class SalaryCalculationHelper(
                 offsetFromMoscowMillis = userSettings.timeZone,
             ),
         )
-        if (salarySetting.harmfulnessPercent.nonNegativeFiniteOrZero() > 0.0) {
-            segments.map { segment ->
-                segment.copy(conditions = segment.conditions + AccrualCondition.HARMFUL)
+        val harmfulnessEnabled =
+            salarySetting.harmfulnessPercent.nonNegativeFiniteOrZero() > 0.0
+        val qualificationClassEnabled =
+            salarySetting.surchargeQualificationClass.nonNegativeFiniteOrZero() > 0.0
+        val zonalEnabled = salarySetting.zonalSurcharge.nonNegativeFiniteOrZero() > 0.0
+        segments.map { segment ->
+            val additionalConditions = buildSet {
+                if (harmfulnessEnabled) add(AccrualCondition.HARMFUL)
+                if (zonalEnabled) add(AccrualCondition.ZONAL)
+                if (
+                    qualificationClassEnabled &&
+                    AccrualCondition.PASSENGER !in segment.conditions
+                ) {
+                    add(AccrualCondition.QUALIFICATION_CLASS)
+                }
             }
-        } else {
-            segments
+            segment.copy(conditions = segment.conditions + additionalConditions)
         }
     }
 
@@ -1499,6 +1510,10 @@ class SalaryCalculationHelper(
                             .nonNegativeFiniteOrZero(),
                 AccrualCondition.HARMFUL to
                         salarySetting.harmfulnessPercent.nonNegativeFiniteOrZero(),
+                AccrualCondition.QUALIFICATION_CLASS to
+                        salarySetting.surchargeQualificationClass.nonNegativeFiniteOrZero(),
+                AccrualCondition.ZONAL to
+                        salarySetting.zonalSurcharge.nonNegativeFiniteOrZero(),
             ),
         )
 
@@ -1508,11 +1523,13 @@ class SalaryCalculationHelper(
         val onePersonFreightMoney = getMoneyOnePersonOperationFlow().first()
         val onePersonPassengerMoney = getMoneyOnePersonOperationPassengerTrainFlow().first()
         val harmfulnessMoney = getMoneyHarmfulnessFlow().first()
+        val qualificationClassMoney = getMoneyAtQualificationClassFlow().first()
+        val zonalMoney = getMoneyZonalSurchargeFlow().first()
         val averagedOtherSurchargePerMillis =
             (
                     basicMoney - tariffMoney - nightMoney -
                             onePersonFreightMoney - onePersonPassengerMoney
-                            - harmfulnessMoney
+                            - harmfulnessMoney - qualificationClassMoney - zonalMoney
                     ).coerceAtLeast(0.0) /
                     regularWorkTime
 
