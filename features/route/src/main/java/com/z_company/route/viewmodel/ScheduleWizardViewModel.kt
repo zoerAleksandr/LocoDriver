@@ -268,6 +268,10 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    fun setExtendToNextMonth(enabled: Boolean) = _uiState.update {
+        it.copy(extendToNextMonth = enabled)
+    }
+
     /**
      * Продолжить график прошлого месяца: берём тот же паттерн и то же время
      * смен, ставим первый день = 1 и сдвигаем цикл на сохранённую фазу, чтобы
@@ -362,9 +366,16 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
                 // проверкой «можно ли ещё один маршрут» мастер создавал без
                 // подписки сколько угодно — лимит обходился целиком.
                 val planned = mutableListOf<Route>()
-                for (day in 1..state.daysInMonth) {
-                    if (day < state.firstDay) continue
-                    val kind = cycle[(state.phaseOffset + day - state.firstDay) % cycle.size]
+                fun appendMonth(
+                    year: Int,
+                    monthIndex: Int,
+                    daysInMonth: Int,
+                    firstDay: Int,
+                    phaseOffset: Int,
+                ) {
+                    for (day in 1..daysInMonth) {
+                        if (day < firstDay) continue
+                        val kind = cycle[(phaseOffset + day - firstDay) % cycle.size]
                     val (sh, sm, dur) = when (kind) {
                         ShiftKind.DAY -> Triple(dsh, dsm, dayDur)
                         ShiftKind.NIGHT -> Triple(nsh, nsm, nightDur)
@@ -375,11 +386,22 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
                     // тот же путь, что у ручной формы. Ночные/праздничные (местный
                     // ЧП) и переходные (настройка Норма/Регион) считаются ниже по
                     // стеку из сохранённого instant через TimeCalculationContext.
-                    val startMillis = conv.toEpochMillis(m.year, m.month, day, sh, sm)
+                    val startMillis = conv.toEpochMillis(year, monthIndex, day, sh, sm)
                     val endMillis = startMillis + dur * 60_000L
                     planned += Route(
                         basicData = BasicData(timeStartWork = startMillis, timeEndWork = endMillis)
                     )
+                }
+                }
+
+                appendMonth(m.year, m.month, state.daysInMonth, state.firstDay, state.phaseOffset)
+                val currentConsumed = (state.daysInMonth - state.firstDay + 1).coerceAtLeast(0)
+                val nextPhaseForExtension = (state.phaseOffset + currentConsumed) % cycle.size
+                val nextYear = if (m.month == 11) m.year + 1 else m.year
+                val nextMonth = if (m.month == 11) 0 else m.month + 1
+                val nextDays = LocalDate.of(nextYear, nextMonth + 1, 1).lengthOfMonth()
+                if (state.extendToNextMonth) {
+                    appendMonth(nextYear, nextMonth, nextDays, firstDay = 1, nextPhaseForExtension)
                 }
 
                 // Гейт на всю пачку — та же проверка, что в Календаре.
@@ -418,11 +440,14 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
 
                 // Запоминаем месяц вместе с фазой, на которой цикл закончился, и
                 // временем смен — чтобы следующий месяц продолжился без разрыва.
-                val consumed = (state.daysInMonth - state.firstDay + 1).coerceAtLeast(0)
-                val nextPhase = (state.phaseOffset + consumed) % cycle.size
+                val nextPhase = if (state.extendToNextMonth) {
+                    (nextPhaseForExtension + nextDays) % cycle.size
+                } else nextPhaseForExtension
+                val savedYear = if (state.extendToNextMonth) nextYear else m.year
+                val savedMonth = if (state.extendToNextMonth) nextMonth else m.month
                 prefs.setLastScheduleMonth(
                     listOf(
-                        "${m.year}-${m.month}",
+                        "$savedYear-$savedMonth",
                         patternId,
                         state.firstDay,
                         nextPhase,
@@ -558,6 +583,8 @@ data class WizardUiState(
     val nightStartText: String = "20:00",
     val nightEndText: String = "08:00",
     val firstDay: Int = 1,
+    /** Создать маршруты следующего месяца, не сбрасывая фазу выбранного цикла. */
+    val extendToNextMonth: Boolean = false,
     /** Прошлый месяц заполнен мастером — продолжение доступно (кнопка на шаге 1). */
     val canContinuePrevious: Boolean = false,
     /** Показывать шторку с предложением; гаснет после выбора, кнопка остаётся. */

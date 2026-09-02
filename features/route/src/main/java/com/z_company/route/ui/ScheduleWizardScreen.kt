@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -181,6 +182,7 @@ fun ScheduleWizardScreen(
     onSetNightStart: (Int, Int) -> Unit,
     onSetNightEnd: (Int, Int) -> Unit,
     onSetFirstDay: (Int) -> Unit,
+    onSetExtendToNextMonth: (Boolean) -> Unit,
     onShiftMonth: (Int) -> Unit,
     onContinuePrevious: () -> Unit,
     onDeclineContinuePrevious: () -> Unit,
@@ -338,7 +340,7 @@ fun ScheduleWizardScreen(
                     onDeclineContinuePrevious = onDeclineContinuePrevious,
                 )
             } else {
-                Step2(state, onSetFirstDay, onShiftMonth)
+                Step2(state, onSetFirstDay, onShiftMonth, onSetExtendToNextMonth)
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -884,7 +886,12 @@ private fun plural(n: Int, one: String, few: String, many: String): String {
 }
 
 @Composable
-private fun Step2(state: WizardUiState, onSetFirstDay: (Int) -> Unit, onShiftMonth: (Int) -> Unit) {
+private fun Step2(
+    state: WizardUiState,
+    onSetFirstDay: (Int) -> Unit,
+    onShiftMonth: (Int) -> Unit,
+    onSetExtendToNextMonth: (Boolean) -> Unit,
+) {
     val cs = MaterialTheme.colorScheme
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         SectionLabel("Первый день цикла")
@@ -912,6 +919,26 @@ private fun Step2(state: WizardUiState, onSetFirstDay: (Int) -> Unit, onShiftMon
         Text("$shiftCount смен", fontSize = 12.sp, fontFamily = MonoFont, color = cs.onSurfaceVariant)
     }
     PreviewGrid(state.preview)
+    Spacer(Modifier.height(16.dp))
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onSetExtendToNextMonth(!state.extendToNextMonth) }
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(
+            checked = state.extendToNextMonth,
+            onCheckedChange = onSetExtendToNextMonth,
+        )
+        Text(
+            "Продлить на следующий месяц",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = cs.primary,
+        )
+    }
 }
 
 @Composable
