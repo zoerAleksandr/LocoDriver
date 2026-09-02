@@ -186,7 +186,15 @@ class PdfGenerator(private val context: Context) {
         contentWidth * 0.14f, contentWidth * 0.21f
     )
 
-    private fun PageManager.salaryRow(desc: String, hours: String, pct: String, amount: String, bold: Boolean = false) {
+    private fun PageManager.salaryRow(
+        paymentId: SalaryPaymentId?,
+        desc: String,
+        hours: String,
+        pct: String,
+        amount: String,
+        bold: Boolean = false,
+        codeOverride: String? = null,
+    ) {
         val rowH = 13f
         checkNewPage(rowH + 2f)
         val top = y - 9f; val bot = y + 3f
@@ -196,7 +204,7 @@ class PdfGenerator(private val context: Context) {
         sColW.forEachIndexed { i, w ->
             canvas.drawRect(x, top, x + w, bot, paintTableBorder)
             val txt = when (i) {
-                0 -> payrollCodeForAccrual(desc)
+                0 -> codeOverride ?: paymentId?.let(::payrollCode).orEmpty()
                 1 -> desc
                 2 -> hours
                 3 -> pct
@@ -211,7 +219,7 @@ class PdfGenerator(private val context: Context) {
 
     private fun PageManager.salaryHeader() {
         checkNewPage(16f)
-        salaryRow("Вид выплаты", "Часы", "%", "Сумма", bold = true)
+        salaryRow(null, "Вид выплаты", "Часы", "%", "Сумма", bold = true, codeOverride = "Код")
     }
 
     /** Таблица удержаний: code, name, percent, amount. */
@@ -219,14 +227,21 @@ class PdfGenerator(private val context: Context) {
         contentWidth * 0.11f, contentWidth * 0.55f, contentWidth * 0.14f, contentWidth * 0.20f
     )
 
-    private fun PageManager.retentionRow(desc: String, pct: String, amount: String, bold: Boolean = false) {
+    private fun PageManager.retentionRow(
+        paymentId: SalaryPaymentId?,
+        desc: String,
+        pct: String,
+        amount: String,
+        bold: Boolean = false,
+        codeOverride: String? = null,
+    ) {
         val rowH = 13f
         checkNewPage(rowH + 2f)
         val top = y - 9f; val bot = y + 3f
         if (bold) canvas.drawRect(ml, top, ml + contentWidth, bot, paintSectionFill)
         var x = ml
         val p = if (bold) paintBodyBold else paintBody
-        val texts = arrayOf(payrollCodeForDeduction(desc), desc, pct, amount)
+        val texts = arrayOf(codeOverride ?: paymentId?.let(::payrollCode).orEmpty(), desc, pct, amount)
         rColW.forEachIndexed { i, w ->
             canvas.drawRect(x, top, x + w, bot, paintTableBorder)
             val txt = texts[i]
@@ -239,52 +254,9 @@ class PdfGenerator(private val context: Context) {
 
     private fun payrollCode(id: SalaryPaymentId): String = PayrollPaymentCatalog[id].codeLabel
 
-    private fun payrollCodeForAccrual(description: String): String = when {
-        description == "Вид выплаты" -> "Код"
-        description.startsWith("Итого") -> ""
-        description.startsWith("Оплата по тарифу") -> payrollCode(SalaryPaymentId.TARIFF)
-        description.startsWith("Ночные") -> payrollCode(SalaryPaymentId.NIGHT)
-        description.startsWith("Пассажиром") -> payrollCode(SalaryPaymentId.PASSENGER)
-        description.startsWith("Резервом") -> payrollCode(SalaryPaymentId.RESERVE)
-        description.startsWith("Праздничные") -> payrollCode(SalaryPaymentId.HOLIDAY)
-        description.startsWith("По среднему") -> payrollCode(SalaryPaymentId.AVERAGE)
-        description.startsWith("По уходу") -> payrollCode(SalaryPaymentId.DISABLED_CHILD_CARE)
-        description.startsWith("Командировка") -> payrollCode(SalaryPaymentId.BUSINESS_TRIP)
-        description.startsWith("Технические") -> payrollCode(SalaryPaymentId.TECHNICAL_STUDY)
-        description.startsWith("Зональная") -> payrollCode(SalaryPaymentId.ZONAL)
-        description.startsWith("Надбавка за класс") -> payrollCode(SalaryPaymentId.QUALIFICATION_CLASS)
-        description.startsWith("Пробег") -> payrollCode(SalaryPaymentId.LINEAR_MILEAGE)
-        description.startsWith("В одно лицо (груз") -> payrollCode(SalaryPaymentId.ONE_PERSON_FREIGHT)
-        description.startsWith("В одно лицо (пас") -> payrollCode(SalaryPaymentId.ONE_PERSON_PASSENGER)
-        description.startsWith("Вредность") -> payrollCode(SalaryPaymentId.HARMFULNESS)
-        description.startsWith("Районный") -> payrollCode(SalaryPaymentId.DISTRICT)
-        description.startsWith("Северная") -> payrollCode(SalaryPaymentId.NORDIC)
-        description.startsWith("Удлинённое") -> payrollCode(SalaryPaymentId.EXTENDED_SERVICE)
-        description.startsWith("Тяжёлые") -> payrollCode(SalaryPaymentId.HEAVY_TRAIN)
-        description.startsWith("Длинносост") -> payrollCode(SalaryPaymentId.LONG_TRAIN)
-        description.startsWith("Доплата за ПДМ") -> payrollCode(SalaryPaymentId.HEAVY_LONG_DISTANCE)
-        description.startsWith("Сдвоенные") -> payrollCode(SalaryPaymentId.DOUBLED_TRAIN)
-        description == "Сверхурочные" -> payrollCode(SalaryPaymentId.OVERTIME_BASE)
-        description.contains("сверхурочные (50%)") -> payrollCode(SalaryPaymentId.OVERTIME_HALF)
-        description.contains("сверхурочные (100%)") -> payrollCode(SalaryPaymentId.OVERTIME_FULL)
-        description.startsWith("Переотдых") -> payrollCode(SalaryPaymentId.EXCESS_REST)
-        description.startsWith("Прочие") -> payrollCode(SalaryPaymentId.OTHER_SURCHARGE)
-        else -> "—"
-    }
-
-    private fun payrollCodeForDeduction(description: String): String = when {
-        description.startsWith("НДФЛ") -> payrollCode(SalaryPaymentId.NDFL)
-        description.startsWith("Профсоюз") -> payrollCode(SalaryPaymentId.UNION)
-        description.startsWith("Благосостояние") -> payrollCode(SalaryPaymentId.WELFARE)
-        description.startsWith("Алименты") -> payrollCode(SalaryPaymentId.ALIMONY)
-        description.startsWith("Прочие") -> payrollCode(SalaryPaymentId.OTHER_DEDUCTION)
-        description.startsWith("Всего") -> ""
-        else -> "Код"
-    }
-
     private fun PageManager.retentionHeader() {
         checkNewPage(16f)
-        retentionRow("Вид удержания", "%", "Сумма", bold = true)
+        retentionRow(null, "Вид удержания", "%", "Сумма", bold = true, codeOverride = "Код")
     }
 
     // ─── Formatters ──────────────────────────────────────────────────────────────
@@ -1123,85 +1095,87 @@ class PdfGenerator(private val context: Context) {
         pm.y += 14f
         pm.salaryHeader()
 
-        fun row(desc: String, h: Long?, pct: Double?, money: Double?) {
+        fun row(paymentId: SalaryPaymentId, desc: String, h: Long?, pct: Double?, money: Double?) {
             val ms = fmtMoney(money)
             if (ms.isBlank()) return   // скрываем строки с нулевой/пустой суммой
-            pm.salaryRow(desc, fmtHours(h), fmtPct(pct), ms)
+            pm.salaryRow(paymentId, desc, fmtHours(h), fmtPct(pct), ms)
         }
 
-        row("Оплата по тарифу", s.paymentAtTariffHours, null, s.paymentAtTariffMoney)
-        row("Ночные часы", s.paymentNightTimeHours, s.paymentNightTimePercent, s.paymentNightTimeMoney)
-        row("Пассажиром", s.paymentAtPassengerHours, null, s.paymentAtPassengerMoney)
-        row("Резервом", s.paymentAtSingleLocomotiveHours, null, s.paymentAtSingleLocomotiveMoney)
-        row("Праздничные", s.paymentHolidayHours, null, s.paymentHolidayMoney)
-        row("По среднему", s.averagePaymentHours, null, s.averagePaymentMoney)
-        row("По уходу за ребёнком-инвалидом", s.caringForDisableChildrenHours, null, s.caringForDisableChildrenMoney)
-        row("Командировка (по среднему)", s.businessTripHours, null, s.businessTripMoney)
-        row("Технические занятия", s.technicalStudyHours, null, s.technicalStudyMoney)
+        row(SalaryPaymentId.TARIFF, "Оплата по тарифу", s.paymentAtTariffHours, null, s.paymentAtTariffMoney)
+        row(SalaryPaymentId.NIGHT, "Ночные часы", s.paymentNightTimeHours, s.paymentNightTimePercent, s.paymentNightTimeMoney)
+        row(SalaryPaymentId.PASSENGER, "Пассажиром", s.paymentAtPassengerHours, null, s.paymentAtPassengerMoney)
+        row(SalaryPaymentId.RESERVE, "Резервом", s.paymentAtSingleLocomotiveHours, null, s.paymentAtSingleLocomotiveMoney)
+        row(SalaryPaymentId.HOLIDAY, "Праздничные", s.paymentHolidayHours, null, s.paymentHolidayMoney)
+        row(SalaryPaymentId.AVERAGE, "По среднему", s.averagePaymentHours, null, s.averagePaymentMoney)
+        row(SalaryPaymentId.DISABLED_CHILD_CARE, "По уходу за ребёнком-инвалидом", s.caringForDisableChildrenHours, null, s.caringForDisableChildrenMoney)
+        row(SalaryPaymentId.BUSINESS_TRIP, "Командировка (по среднему)", s.businessTripHours, null, s.businessTripMoney)
+        row(SalaryPaymentId.TECHNICAL_STUDY, "Технические занятия", s.technicalStudyHours, null, s.technicalStudyMoney)
 
         // Percentage-only surcharges
-        fun rowPct(desc: String, pct: Double?, money: Double?) {
+        fun rowPct(paymentId: SalaryPaymentId, desc: String, pct: Double?, money: Double?) {
             val ms = fmtMoney(money)
             if (ms.isBlank()) return   // скрываем строки с нулевой/пустой суммой
-            pm.salaryRow(desc, "", fmtPct(pct), ms)
+            pm.salaryRow(paymentId, desc, "", fmtPct(pct), ms)
         }
-        rowPct("Зональная надбавка", s.zonalSurchargePercent, s.zonalSurchargeMoney)
-        rowPct("Надбавка за класс квалификации", s.surchargeQualificationClassPercent, s.surchargeQualificationClassMoney)
+        rowPct(SalaryPaymentId.ZONAL, "Зональная надбавка", s.zonalSurchargePercent, s.zonalSurchargeMoney)
+        rowPct(SalaryPaymentId.QUALIFICATION_CLASS, "Надбавка за класс квалификации", s.surchargeQualificationClassPercent, s.surchargeQualificationClassMoney)
         s.linearMileageAccruals.forEach { accrual ->
             pm.salaryRow(
+                SalaryPaymentId.LINEAR_MILEAGE,
                 "Пробег ${accrual.phaseName} (${"%.2f".format(accrual.rate)} ₽/км)",
                 "",
                 "",
                 fmtMoney(accrual.money),
             )
         }
-        row("В одно лицо (груз.)", s.onePersonOperationHours, s.onePersonOperationPercent, s.onePersonOperationMoney)
-        row("В одно лицо (пас.)", s.onePersonOperationPassengerTrainHours, s.onePersonOperationPassengerTrainPercent, s.onePersonOperationPassengerTrainMoney)
-        rowPct("Вредность", s.harmfulnessSurchargePercent, s.harmfulnessSurchargeMoney)
-        rowPct("Районный коэффициент", s.districtSurchargeCoefficient, s.districtSurchargeMoney)
-        rowPct("Северная надбавка", s.nordicSurchargePercent, s.nordicSurchargeMoney)
+        row(SalaryPaymentId.ONE_PERSON_FREIGHT, "В одно лицо (груз.)", s.onePersonOperationHours, s.onePersonOperationPercent, s.onePersonOperationMoney)
+        row(SalaryPaymentId.ONE_PERSON_PASSENGER, "В одно лицо (пас.)", s.onePersonOperationPassengerTrainHours, s.onePersonOperationPassengerTrainPercent, s.onePersonOperationPassengerTrainMoney)
+        rowPct(SalaryPaymentId.HARMFULNESS, "Вредность", s.harmfulnessSurchargePercent, s.harmfulnessSurchargeMoney)
+        rowPct(SalaryPaymentId.DISTRICT, "Районный коэффициент", s.districtSurchargeCoefficient, s.districtSurchargeMoney)
+        rowPct(SalaryPaymentId.NORDIC, "Северная надбавка", s.nordicSurchargePercent, s.nordicSurchargeMoney)
 
         s.surchargeExtendedServicePhaseHour.forEachIndexed { i, h ->
             val m = fmtMoney(s.surchargeExtendedServicePhaseMoney.getOrNull(i))
             if (m.isBlank()) return@forEachIndexed
-            pm.salaryRow("Удлинённое плечо ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeExtendedServicePhasePercent.getOrNull(i)), m)
+            pm.salaryRow(SalaryPaymentId.EXTENDED_SERVICE, "Удлинённое плечо ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeExtendedServicePhasePercent.getOrNull(i)), m)
         }
         s.surchargeHeavyTransHour.forEachIndexed { i, h ->
             val m = fmtMoney(s.surchargeHeavyTransMoney.getOrNull(i))
             if (m.isBlank()) return@forEachIndexed
-            pm.salaryRow("Тяжёлые поезда ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeHeavyTransPercent.getOrNull(i)), m)
+            pm.salaryRow(SalaryPaymentId.HEAVY_TRAIN, "Тяжёлые поезда ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeHeavyTransPercent.getOrNull(i)), m)
         }
         s.surchargeLongTrainHour.forEachIndexed { i, h ->
             val m = fmtMoney(s.surchargeLongTrainMoney.getOrNull(i))
             if (m.isBlank()) return@forEachIndexed
-            pm.salaryRow("Длинносост. поезда ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeLongTrainPercent.getOrNull(i)), m)
+            pm.salaryRow(SalaryPaymentId.LONG_TRAIN, "Длинносост. поезда ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeLongTrainPercent.getOrNull(i)), m)
         }
         row(
+            SalaryPaymentId.HEAVY_LONG_DISTANCE,
             "Доплата за ПДМ (6000 т. и 350 осей)",
             s.surchargeHeavyLongDistanceTrainsHours,
             s.surchargeHeavyLongDistanceTrainsPercent,
             s.surchargeHeavyLongDistanceTrainsMoney
         )
         fmtMoney(s.surchargeDoubledTrainFirstMoney).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow("Сдвоенные (30%)", fmtHours(s.surchargeDoubledTrainFirstHours), "30%", m)
+            pm.salaryRow(SalaryPaymentId.DOUBLED_TRAIN, "Сдвоенные (30%)", fmtHours(s.surchargeDoubledTrainFirstHours), "30%", m)
         }
         fmtMoney(s.surchargeDoubledTrainSecondMoney).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow("Сдвоенные (15%)", fmtHours(s.surchargeDoubledTrainSecondHours), "15%", m)
+            pm.salaryRow(SalaryPaymentId.DOUBLED_TRAIN, "Сдвоенные (15%)", fmtHours(s.surchargeDoubledTrainSecondHours), "15%", m)
         }
-        row("Сверхурочные", s.paymentAtOvertimeHours, null, s.paymentAtOvertimeMoney)
+        row(SalaryPaymentId.OVERTIME_BASE, "Сверхурочные", s.paymentAtOvertimeHours, null, s.paymentAtOvertimeMoney)
         fmtMoney(s.surchargeAtOvertime05Money).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow("Доп. сверхурочные (50%)", fmtHours(s.surchargeAtOvertime05Hours), "50%", m)
+            pm.salaryRow(SalaryPaymentId.OVERTIME_HALF, "Доп. сверхурочные (50%)", fmtHours(s.surchargeAtOvertime05Hours), "50%", m)
         }
         fmtMoney(s.surchargeAtOvertimeMoney).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow("Доп. сверхурочные (100%)", fmtHours(s.surchargeAtOvertimeHours), "100%", m)
+            pm.salaryRow(SalaryPaymentId.OVERTIME_FULL, "Доп. сверхурочные (100%)", fmtHours(s.surchargeAtOvertimeHours), "100%", m)
         }
-        row("Переотдых", s.restInExcessOfTheNormTime, null, s.restInExcessOfTheNormMoney)
+        row(SalaryPaymentId.EXCESS_REST, "Переотдых", s.restInExcessOfTheNormTime, null, s.restInExcessOfTheNormMoney)
         fmtMoney(s.otherSurchargeMoney).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow("Прочие надбавки", "", fmtPct(s.otherSurchargePercent), m)
+            pm.salaryRow(SalaryPaymentId.OTHER_SURCHARGE, "Прочие надбавки", "", fmtPct(s.otherSurchargePercent), m)
         }
 
         // Total charged
-        pm.salaryRow("Итого начислено", "", "", fmtMoney(s.totalChargedMoney), bold = true)
+        pm.salaryRow(null, "Итого начислено", "", "", fmtMoney(s.totalChargedMoney), bold = true)
         pm.y += 4f
 
         // Удержания
@@ -1212,12 +1186,12 @@ class PdfGenerator(private val context: Context) {
         pm.canvas.drawText("Удержания", ml + 4f, pm.y, paintSection)
         pm.y += 14f
         pm.retentionHeader()
-        if (fmtMoney(s.retentionNdfl).isNotBlank()) pm.retentionRow("НДФЛ (13%)", "13%", fmtMoney(s.retentionNdfl))
-        if (fmtMoney(s.unionistsRetention).isNotBlank()) pm.retentionRow("Профсоюз", "", fmtMoney(s.unionistsRetention))
-        if (fmtMoney(s.otherRetention).isNotBlank()) pm.retentionRow("Прочие удержания", "", fmtMoney(s.otherRetention))
-        if (fmtMoney(s.welfareRetention).isNotBlank()) pm.retentionRow("Благосостояние", "", fmtMoney(s.welfareRetention))
-        if (fmtMoney(s.alimonyRetention).isNotBlank()) pm.retentionRow("Алименты", "", fmtMoney(s.alimonyRetention))
-        pm.retentionRow("Всего удержано", "", fmtMoney(s.totalRetention), bold = true)
+        if (fmtMoney(s.retentionNdfl).isNotBlank()) pm.retentionRow(SalaryPaymentId.NDFL, "НДФЛ (13%)", "13%", fmtMoney(s.retentionNdfl))
+        if (fmtMoney(s.unionistsRetention).isNotBlank()) pm.retentionRow(SalaryPaymentId.UNION, "Профсоюз", "", fmtMoney(s.unionistsRetention))
+        if (fmtMoney(s.otherRetention).isNotBlank()) pm.retentionRow(SalaryPaymentId.OTHER_DEDUCTION, "Прочие удержания", "", fmtMoney(s.otherRetention))
+        if (fmtMoney(s.welfareRetention).isNotBlank()) pm.retentionRow(SalaryPaymentId.WELFARE, "Благосостояние", "", fmtMoney(s.welfareRetention))
+        if (fmtMoney(s.alimonyRetention).isNotBlank()) pm.retentionRow(SalaryPaymentId.ALIMONY, "Алименты", "", fmtMoney(s.alimonyRetention))
+        pm.retentionRow(null, "Всего удержано", "", fmtMoney(s.totalRetention), bold = true)
 
         pm.y += 8f
         pm.checkNewPage(20f)
