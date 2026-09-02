@@ -8,6 +8,15 @@ import kotlin.test.assertEquals
 
 class TrainSurchargeThresholdValidationTest {
     @Test
+    fun percentAboveOneHundredIsPreservedWhenConfiguredByLocalRule() {
+        val result = validHeavyTrainSurcharges(listOf(
+            SurchargeHeavyTrains(weight = "6000", percentSurcharge = "125,5"),
+        ))
+
+        assertEquals("125,5", result.single().percentSurcharge)
+    }
+
+    @Test
     fun invalidAndNegativePercentsAreExcludedFromAllTierLists() {
         assertEquals(
             emptyList(),
