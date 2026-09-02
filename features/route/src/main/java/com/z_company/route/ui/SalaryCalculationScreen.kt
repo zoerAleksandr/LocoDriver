@@ -939,7 +939,7 @@ private fun TariffWarningCard() {
 // ===========================================
 // Формирование строк начислений (только ненулевые суммы)
 // ===========================================
-private data class AccrualRow(
+internal data class AccrualRow(
     val paymentId: SalaryPaymentId,
     val title: String,
     val hours: Long?,
@@ -953,7 +953,7 @@ private fun formatPercent(value: Double): String = "%.1f".format(value).replace(
 // null трактуем как ноль, чтобы в шапке/итогах всегда было «0,00».
 private fun formatMoney(value: Double?): String = (value ?: 0.0).str2decimalSign()
 
-private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow> = listOfNotNull(
+internal fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow> = listOfNotNull(
     // Основные выплаты
     AccrualRow(SalaryPaymentId.TARIFF, "Оплата по тарифу", uiState.paymentAtTariffHours, null, uiState.paymentAtTariffMoney),
     AccrualRow(

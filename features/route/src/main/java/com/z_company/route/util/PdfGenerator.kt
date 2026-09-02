@@ -17,6 +17,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.route.viewmodel.SalaryCalculationUIState
 import com.z_company.domain.entities.salary.PayrollPaymentCatalog
 import com.z_company.domain.entities.salary.SalaryPaymentId
+import com.z_company.route.ui.buildAccrualRows
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Calendar
@@ -1107,6 +1108,7 @@ class PdfGenerator(private val context: Context) {
         row(SalaryPaymentId.RESERVE, "Резервом", s.paymentAtSingleLocomotiveHours, null, s.paymentAtSingleLocomotiveMoney)
         row(SalaryPaymentId.HOLIDAY, "Праздничные", s.paymentHolidayHours, null, s.paymentHolidayMoney)
         row(SalaryPaymentId.AVERAGE, "По среднему", s.averagePaymentHours, null, s.averagePaymentMoney)
+        row(SalaryPaymentId.UNDERWORK, "Оплата недоработки", s.underworkHours, null, s.underworkMoney)
         row(SalaryPaymentId.DISABLED_CHILD_CARE, "По уходу за ребёнком-инвалидом", s.caringForDisableChildrenHours, null, s.caringForDisableChildrenMoney)
         row(SalaryPaymentId.BUSINESS_TRIP, "Командировка (по среднему)", s.businessTripHours, null, s.businessTripMoney)
         row(SalaryPaymentId.TECHNICAL_STUDY, "Технические занятия", s.technicalStudyHours, null, s.technicalStudyMoney)
