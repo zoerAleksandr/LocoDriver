@@ -56,6 +56,20 @@ class PayrollPaymentCatalogTest {
     }
 
     @Test
+    fun `all definitions have both names and normalized distinct codes`() {
+        val codePattern = Regex("^[0-9A-Z]+$")
+
+        PayrollPaymentCatalog.entries.forEach { payment ->
+            assertTrue(payment.plainName.isNotBlank(), payment.id.name)
+            assertTrue(payment.payrollSheetName.isNotBlank(), payment.id.name)
+            assertEquals(payment.codes.distinct(), payment.codes, payment.id.name)
+            payment.codes.forEach { code ->
+                assertTrue(codePattern.matches(code), "${payment.id}: $code")
+            }
+        }
+    }
+
+    @Test
     fun `unknown or depot-specific code is shown explicitly`() {
         assertEquals("—", PayrollPaymentCatalog[SalaryPaymentId.OTHER_SURCHARGE].codeLabel)
         assertTrue(PayrollPaymentCatalog[SalaryPaymentId.OTHER_SURCHARGE].codes.isEmpty())
