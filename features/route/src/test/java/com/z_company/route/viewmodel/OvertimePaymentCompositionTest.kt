@@ -8,7 +8,9 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.TrainAssist
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import kotlinx.coroutines.flow.first
@@ -373,6 +375,51 @@ class OvertimePaymentCompositionTest {
         assertEquals(240.0, helper.getMoneyOtherSurchargeFlow().first(), 0.001)
         assertEquals(230.0, helper.getMoneySurchargeOvertime05Flow().first(), 0.001)
         assertEquals(460.0, helper.getMoneySurchargeOvertimeFlow().first(), 0.001)
+    }
+
+    @Test
+    fun doubledTrainInOvertimeAppliesOnlyToActualTrainSegment() = runTest {
+        fun route(day: Int, doubled: Boolean) = Route(
+            basicData = BasicData(
+                timeStartWork = instant(day, 8),
+                timeEndWork = instant(day, 12),
+            ),
+            trains = mutableListOf(Train(
+                doubledTrain = doubled.takeIf { it }?.let { TrainAssist(isFirst = true) },
+                stations = mutableListOf(
+                    Station(timeDeparture = instant(day, 8)),
+                    Station(timeArrival = instant(day, 12)),
+                ),
+            )),
+        )
+        val helper = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2025,
+                    month = 0,
+                    tariffRate = 200.0,
+                    dateSetTariffRate = DateSetTariffRate(dateNewRate = 15, oldRate = 100.0),
+                    days = emptyList(),
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(
+                zonalSurcharge = 0.0,
+                harmfulnessPercent = 0.0,
+                nightTimePercent = 0.0,
+            ),
+            allRoutes = listOf(
+                route(day = 5, doubled = false),
+                route(day = 20, doubled = true),
+            ),
+        )
+
+        assertEquals(240.0, helper.getMoneyDoubledTrainFirstSurchargeFlow().first(), 0.001)
+        // До 01.09.2026 полуторная ступень составляет по 2 ч на каждую из двух
+        // смен: 4 ч старой ставки × 0,5. Последние 4 ч новой ставки получают
+        // 30% сдвоенного поезда в полной ступени.
+        assertEquals(200.0, helper.getMoneySurchargeOvertime05Flow().first(), 0.001)
+        assertEquals(1_040.0, helper.getMoneySurchargeOvertimeFlow().first(), 0.001)
     }
 
     @Test

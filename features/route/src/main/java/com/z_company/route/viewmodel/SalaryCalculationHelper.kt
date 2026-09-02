@@ -1524,6 +1524,11 @@ class SalaryCalculationHelper(
                         salarySetting.zonalSurcharge.nonNegativeFiniteOrZero(),
                 AccrualCondition.OTHER_SURCHARGE to
                         salarySetting.otherSurcharge.nonNegativeFiniteOrZero(),
+                AccrualCondition.HEAVY_LONG_DISTANCE_TRAIN to
+                        salarySetting.surchargeHeavyLongDistanceTrains
+                            .nonNegativeFiniteOrZero(),
+                AccrualCondition.DOUBLED_TRAIN_FIRST to 30.0,
+                AccrualCondition.DOUBLED_TRAIN_SECOND to 15.0,
             ),
         )
 
@@ -1536,12 +1541,16 @@ class SalaryCalculationHelper(
         val qualificationClassMoney = getMoneyAtQualificationClassFlow().first()
         val zonalMoney = getMoneyZonalSurchargeFlow().first()
         val otherSurchargeMoney = getMoneyOtherSurchargeFlow().first()
+        val heavyLongDistanceMoney = getMoneyHeavyLongDistanceTrainsFlow().first()
+        val doubledTrainFirstMoney = getMoneyDoubledTrainFirstSurchargeFlow().first()
+        val doubledTrainSecondMoney = getMoneyDoubledTrainSecondSurchargeFlow().first()
         val averagedOtherSurchargePerMillis =
             (
                     basicMoney - tariffMoney - nightMoney -
                             onePersonFreightMoney - onePersonPassengerMoney
                             - harmfulnessMoney - qualificationClassMoney - zonalMoney -
-                            otherSurchargeMoney
+                            otherSurchargeMoney - heavyLongDistanceMoney -
+                            doubledTrainFirstMoney - doubledTrainSecondMoney
                     ).coerceAtLeast(0.0) /
                     regularWorkTime
 
