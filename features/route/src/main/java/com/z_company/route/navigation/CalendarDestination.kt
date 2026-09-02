@@ -25,6 +25,9 @@ fun CalendarDestination(
     val pullToSyncState by pullToSyncViewModel.uiState.collectAsState()
     val state by viewModel.uiState.collectAsState()
     val plan by viewModel.routePlan.collectAsState()
+    val duplicatePlannedRoute by viewModel.duplicatePlannedRoute.collectAsState()
+    val subscriptionLimit by viewModel.subscriptionLimit.collectAsState()
+    val showPurchases = rememberShowPurchasesScreen(router)
     val previewRouteState by viewModel.previewRouteUiState.collectAsState()
     val context = LocalContext.current
 
@@ -86,6 +89,13 @@ fun CalendarDestination(
         onShareRoute = viewModel::shareRoute,
         onSyncRoute = viewModel::syncRoute,
         onMakeCopy = viewModel::makeCopyRoute,
+        duplicatePlannedRoute = duplicatePlannedRoute,
+        onDismissDuplicatePlannedRoute = viewModel::dismissDuplicatePlannedRoute,
+        onReplaceDuplicatePlannedRoute = viewModel::replaceDuplicateAndCreate,
+        onKeepDuplicatePlannedRoute = viewModel::keepDuplicateAndCreate,
+        subscriptionLimit = subscriptionLimit,
+        onDismissSubscriptionLimit = viewModel::dismissSubscriptionLimit,
+        onPurchasesClick = showPurchases,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh(viewModel::reload) },
         pullSyncMessage = pullToSyncState.message,

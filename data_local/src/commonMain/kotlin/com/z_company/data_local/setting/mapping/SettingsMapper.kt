@@ -9,6 +9,8 @@ import com.z_company.domain.entities.setting.CrossMonthTimezone
 import com.z_company.domain.entities.setting.NightTime
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.util.validFor
+import com.z_company.domain.util.withValidDays
 import com.z_company.domain.entities.route.LocoType
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -30,8 +32,13 @@ internal object SettingsMapper {
     private fun decodeLocoType(v: String): LocoType =
         runCatching { LocoType.valueOf(v) }.getOrElse { LocoType.ELECTRIC }
 
+    // withValidDays(): у части пользователей в БД лежат месяцы с «несуществующими»
+    // днями (сентябрь с 31 числом — наследие дублей/старых импортов). Такой день
+    // роняет расчёт нормы на LocalDate(...) ещё на старте приложения, поэтому
+    // чистим список сразу при чтении.
     private fun decodeMonthOfYear(v: String): MonthOfYear =
-        runCatching { settingsJson.decodeFromString<MonthOfYear>(v) }.getOrElse { MonthOfYear() }
+        runCatching { settingsJson.decodeFromString<MonthOfYear>(v).withValidDays() }
+            .getOrElse { MonthOfYear() }
 
     private fun decodeStringList(v: String): List<String> =
         runCatching { settingsJson.decodeFromString<List<String>>(v) }.getOrElse { emptyList() }
@@ -100,7 +107,8 @@ internal object MonthOfYearMapper {
         id = row.id,
         year = row.year.toInt(),
         month = row.month.toInt(),
-        days = decodeDays(row.days),
+        // Отсекаем дни, которых в этом месяце не существует (см. decodeMonthOfYear).
+        days = decodeDays(row.days).validFor(row.year.toInt(), row.month.toInt()),
         tariffRate = row.tariffRate,
         dateSetTariffRate = decodeDateSetTariffRate(row.dateSetTariffRate)
     )

@@ -94,10 +94,12 @@ fun FormDestination(
         }
     }
 
-    LaunchedEffect(Unit) {
+    val showPurchases = rememberShowPurchasesScreen(router)
+
+    LaunchedEffect(showPurchases) {
         viewModel.purchasesEvent.collect { event ->
             when (event) {
-                is StartPurchasesEvent.ShowPurchasesScreen -> router.showPurchasesScreen()
+                is StartPurchasesEvent.ShowPurchasesScreen -> showPurchases()
                 is StartPurchasesEvent.Error -> {}
             }
         }
@@ -152,7 +154,7 @@ fun FormDestination(
         onSalarySettingClick = router::showSettingSalary,
         setFavoriteState = viewModel::setFavoriteRoute,
         dateAndTimeConverter = dateAndTimeConverter,
-        showPurchasesScreen = router::showPurchasesScreen,
+        showPurchasesScreen = showPurchases,
         onCopyClick = {
             currentRoute?.basicData?.id?.let { id ->
                 router.showRouteForm(basicId = id, isMakeCopy = true)

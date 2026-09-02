@@ -27,6 +27,8 @@ interface SharedPreferencesRepositories {
      */
     fun getSchedulePatterns(): List<SchedulePattern>?
     fun setSchedulePatterns(patterns: List<SchedulePattern>)
+    fun getLastScheduleMonth(): String?
+    fun setLastScheduleMonth(value: String)
 
     /** Индивидуальная продолжительность дней недели; хранится только локально. */
     fun getWorkScheduleProfile(): WorkScheduleProfile

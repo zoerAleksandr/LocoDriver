@@ -40,6 +40,14 @@ interface Router {
     fun showEmptyOtherWorkForm(basicId: String)
     fun showSelectReleaseDayScreen()
     fun showPurchasesScreen()
+
+    /**
+     * Переход на экран «Профиль» (вкладка нижнего меню).
+     * Нужен, когда действие требует авторизации — например попытка оформить
+     * подписку без входа в аккаунт. Реализация по умолчанию — no-op для
+     * платформ, где отдельного Профиля в навигации ещё нет.
+     */
+    fun showProfile() {}
     fun showSalaryCalculation()
     fun showSettingSalary()
     fun showAllRoute()

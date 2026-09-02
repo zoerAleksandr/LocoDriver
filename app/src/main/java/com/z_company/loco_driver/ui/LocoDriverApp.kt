@@ -60,6 +60,7 @@ import com.z_company.route.navigation.SalaryCalculationRoute
 import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.UpdatePresentationBlockDestination
 import com.z_company.route.navigation.homeGraph
+import com.z_company.route.navigation.rememberShowPurchasesScreen
 import androidx.activity.ComponentActivity // Изменено: Уже был, но подтверждено — нужен для доступа к window.
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -101,19 +102,24 @@ fun LocoDriverApp(
         val scope = rememberCoroutineScope()
         val routeHelper: RouteActionsHelper = koinInject()
 
+        // Переход на покупки — только для авторизованных (иначе в Профиль).
+        val showPurchasesScreen = rememberShowPurchasesScreen(appState.router)
+
         // Диалоги проверки подписки (показываются до навигации на FormScreen)
         var showNeedSubscribeDialog by remember { mutableStateOf(false) }
         var showAlertSubscribeDialog by remember { mutableStateOf(false) }
+        // Сколько маршрутов ещё можно создать бесплатно — для диалога пробного периода.
+        var freeRoutesLeft by remember { mutableStateOf(0) }
 
         if (showNeedSubscribeDialog) {
             AppAlertDialog(
                 onDismissRequest = { showNeedSubscribeDialog = false },
-                title = "Подписка завершена",
+                title = "Бесплатный лимит исчерпан",
                 text = "Для добавления новых маршрутов оформите подписку.",
                 confirmText = "Оформить подписку",
                 onConfirm = {
                     showNeedSubscribeDialog = false
-                    appState.router.showPurchasesScreen()
+                    showPurchasesScreen()
                 },
                 dismissText = "Отмена",
                 onDismiss = { showNeedSubscribeDialog = false }
@@ -124,8 +130,10 @@ fun LocoDriverApp(
             AppAlertDialog(
                 onDismissRequest = { showAlertSubscribeDialog = false },
                 title = "Пробный период",
-                text = "Вам доступно 20 бесплатных маршрутов. Оформите подписку для неограниченного использования.",
-                confirmText = "Продолжить",
+                text = "Осталось бесплатных маршрутов: $freeRoutesLeft из " +
+                        "${RouteActionsHelper.FREE_ROUTES_LIMIT}. Оформите подписку для " +
+                        "неограниченного использования или продолжите бесплатно.",
+                confirmText = "Продолжить бесплатно",
                 onConfirm = {
                     showAlertSubscribeDialog = false
                     navController.navigate(FormRoute.buildDetailsRoute(null, false)) {
@@ -135,7 +143,7 @@ fun LocoDriverApp(
                 dismissText = "Оформить подписку",
                 onDismiss = {
                     showAlertSubscribeDialog = false
-                    appState.router.showPurchasesScreen()
+                    showPurchasesScreen()
                 }
             )
         }
@@ -280,11 +288,12 @@ fun LocoDriverApp(
                                 navController = navController,
                                 onAddClick = {
                                     scope.launch {
-                                        when (routeHelper.newRouteClick()) {
+                                        when (val decision = routeHelper.newRouteClick()) {
                                             is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
                                                 showNeedSubscribeDialog = true
                                             }
                                             is RouteActionsHelper.NewRouteResult.AlertSubscribeDialog -> {
+                                                freeRoutesLeft = decision.freeRoutesLeft
                                                 showAlertSubscribeDialog = true
                                             }
                                             is RouteActionsHelper.NewRouteResult.ShowNewRouteScreen -> {

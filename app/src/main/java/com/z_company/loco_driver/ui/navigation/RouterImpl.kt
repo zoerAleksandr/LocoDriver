@@ -1,5 +1,6 @@
 package com.z_company.loco_driver.ui.navigation
 
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import android.net.Uri
 import com.z_company.domain.entities.route.BasicData
@@ -20,6 +21,7 @@ import com.z_company.route.navigation.FormRoute
 import com.z_company.route.navigation.FormTrain
 import com.z_company.route.navigation.HomeFeature
 import com.z_company.route.navigation.HomeRoute
+import com.z_company.route.navigation.ProfileRoute
 import com.z_company.route.navigation.PurchasesRoute
 import com.z_company.route.navigation.SalaryCalculationRoute
 import com.z_company.route.navigation.SearchRoute
@@ -159,6 +161,22 @@ class RouterImpl(
         requireNavController().navigate(
             PurchasesRoute.route
         )
+    }
+
+    /**
+     * Профиль — корневая вкладка нижнего меню, поэтому переход повторяет
+     * поведение BottomNavigationBar (saveState/restoreState), а не кладёт
+     * ещё один экран поверх стека.
+     */
+    override fun showProfile() {
+        val controller = requireNavController()
+        if (controller.currentDestination?.route == ProfileRoute.route) return
+        val startDest = controller.graph.findStartDestination()
+        controller.navigate(ProfileRoute.route) {
+            popUpTo(startDest.id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
     }
 
     override fun showSalaryCalculation() {

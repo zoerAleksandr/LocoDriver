@@ -13,6 +13,7 @@ import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.RouteUseCase
+import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +43,7 @@ const val CUSTOM_PATTERN_ID = "custom"
 class ScheduleWizardViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
+    private val calendarUseCase: CalendarUseCase by inject()
     private val routeHelper: RouteActionsHelper by inject()
     private val snackbarManager: ISnackbarManager by inject()
     private val prefs: SharedPreferencesRepositories by inject()
@@ -51,6 +53,91 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
 
     private var converter: DateAndTimeConverter? = null
     private var month: MonthOfYear? = null
+
+    /** Разобранная запись о последнем заполненном мастером месяце. */
+    private var lastSchedule: LastScheduleRecord? = null
+
+    /**
+     * Что мастер запомнил о последнем заполненном месяце.
+     *
+     * [nextPhase] — индекс цикла, с которого должно начаться 1-е число
+     * СЛЕДУЮЩЕГО месяца. Храним именно конечную фазу, а не «сколько дней
+     * израсходовано»: так продолжение корректно склеивается в цепочку
+     * (месяц, продолженный с фазы, сам отдаёт правильную фазу дальше).
+     */
+    private data class LastScheduleRecord(
+        val year: Int,
+        val month: Int,          // 0-based, как в MonthOfYear
+        val patternId: String,
+        val firstDay: Int,
+        val nextPhase: Int,
+        val dayStart: String?,
+        val dayEnd: String?,
+        val nightStart: String?,
+        val nightEnd: String?,
+    )
+
+    private fun cycleSizeOf(
+        patternId: String,
+        patterns: List<SchedulePattern>,
+        customCycle: List<ShiftKind>,
+    ): Int? = if (patternId == CUSTOM_PATTERN_ID) customCycle.size.takeIf { it > 0 }
+    else patterns.find { it.id == patternId }?.cycle?.size?.takeIf { it > 0 }
+
+    /**
+     * Формат записи: `year-month|patternId|firstDay|nextPhase|дн.начало|дн.конец|ноч.начало|ноч.конец`.
+     *
+     * Старые записи содержат только первые три поля — для них фазу
+     * восстанавливаем из длины того месяца (как считал прежний код), а время
+     * смен оставляем текущее.
+     */
+    private fun parseLastSchedule(
+        patterns: List<SchedulePattern>,
+        customCycle: List<ShiftKind>,
+    ): LastScheduleRecord? {
+        val raw = prefs.getLastScheduleMonth()?.split('|') ?: return null
+        val ym = raw.getOrNull(0)?.split('-') ?: return null
+        val year = ym.getOrNull(0)?.toIntOrNull() ?: return null
+        val monthIndex = ym.getOrNull(1)?.toIntOrNull() ?: return null
+        val patternId = raw.getOrNull(1)?.takeIf { it.isNotBlank() } ?: return null
+        val firstDay = raw.getOrNull(2)?.toIntOrNull() ?: 1
+        val size = cycleSizeOf(patternId, patterns, customCycle)
+        val nextPhase = raw.getOrNull(3)?.toIntOrNull() ?: run {
+            if (size == null) return@run 0
+            val days = LocalDate.of(year, monthIndex + 1, 1).lengthOfMonth()
+            (days - firstDay + 1).coerceAtLeast(0) % size
+        }
+        return LastScheduleRecord(
+            year = year,
+            month = monthIndex,
+            patternId = patternId,
+            firstDay = firstDay,
+            nextPhase = if (size != null) nextPhase % size else nextPhase,
+            dayStart = raw.getOrNull(4)?.takeIf { it.isNotBlank() },
+            dayEnd = raw.getOrNull(5)?.takeIf { it.isNotBlank() },
+            nightStart = raw.getOrNull(6)?.takeIf { it.isNotBlank() },
+            nightEnd = raw.getOrNull(7)?.takeIf { it.isNotBlank() },
+        )
+    }
+
+    /**
+     * Предложение продолжить график действует, только если мастером заполнен
+     * именно ПРЕДЫДУЩИЙ месяц относительно выбранного (раньше подходил любой
+     * ранее заполненный месяц — хоть годичной давности, хоть будущий) и если
+     * тот паттерн ещё существует: без него фазу цикла продолжать не от чего.
+     */
+    private fun canContinue(
+        record: LastScheduleRecord?,
+        target: MonthOfYear,
+        patterns: List<SchedulePattern>,
+        customCycle: List<ShiftKind>,
+    ): Boolean {
+        val rec = record ?: return false
+        val prevYear = if (target.month > 0) target.year else target.year - 1
+        val prevMonth = if (target.month > 0) target.month - 1 else 11
+        if (rec.year != prevYear || rec.month != prevMonth) return false
+        return cycleSizeOf(rec.patternId, patterns, customCycle) != null
+    }
 
     fun prepareScreen() {
         viewModelScope.launch {
@@ -66,6 +153,10 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
                     prefs.setSchedulePatterns(it)
                 }
                 val selectedId = patterns.firstOrNull()?.id ?: CUSTOM_PATTERN_ID
+                val customCycle = _uiState.value.customCycle
+                val record = parseLastSchedule(patterns, customCycle)
+                lastSchedule = record
+                val canContinue = canContinue(record, m, patterns, customCycle)
 
                 _uiState.update {
                     it.copy(
@@ -75,7 +166,12 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
                         daysInMonth = daysInMonth,
                         patterns = patterns,
                         selectedId = selectedId,
-                        preview = buildPreview(selectedId, patterns, it.firstDay, daysInMonth, it.customCycle),
+                        canContinuePrevious = canContinue,
+                        showContinuePreviousSheet = canContinue,
+                        previousMonthName = record?.let { r -> monthName(r.month) }.orEmpty(),
+                        continuePrevious = false,
+                        phaseOffset = 0,
+                        preview = buildPreview(selectedId, patterns, it.firstDay, daysInMonth, it.customCycle, 0),
                     )
                 }
             } catch (t: Throwable) {
@@ -86,10 +182,14 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
     }
 
     fun selectPattern(id: String) = _uiState.update {
+        // Выбор паттерна вручную выходит из режима продолжения: фаза считалась
+        // для цикла прошлого месяца и к другому циклу неприменима.
         it.copy(
             selectedId = id,
             pickerIndex = null,
-            preview = buildPreview(id, it.patterns, it.firstDay, it.daysInMonth, it.customCycle),
+            continuePrevious = false,
+            phaseOffset = 0,
+            preview = buildPreview(id, it.patterns, it.firstDay, it.daysInMonth, it.customCycle, 0),
         )
     }
 
@@ -105,7 +205,7 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
             patterns = patterns,
             selectedId = newSelected,
             pickerIndex = null,
-            preview = buildPreview(newSelected, patterns, s.firstDay, s.daysInMonth, s.customCycle),
+            preview = buildPreview(newSelected, patterns, s.firstDay, s.daysInMonth, s.customCycle, 0),
         )
     }
 
@@ -121,7 +221,12 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
     fun setCycleDayType(index: Int, kind: ShiftKind) = _uiState.update { s ->
         val cycle = s.customCycle.toMutableList()
         if (index in cycle.indices) cycle[index] = kind
-        s.copy(customCycle = cycle, preview = buildPreview(s.selectedId, s.patterns, s.firstDay, s.daysInMonth, cycle))
+        s.copy(
+            customCycle = cycle,
+            continuePrevious = false,
+            phaseOffset = 0,
+            preview = buildPreview(s.selectedId, s.patterns, s.firstDay, s.daysInMonth, cycle, 0),
+        )
     }
 
     fun addCycleDay() = _uiState.update { s ->
@@ -130,7 +235,9 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
         s.copy(
             customCycle = cycle,
             pickerIndex = cycle.lastIndex,
-            preview = buildPreview(s.selectedId, s.patterns, s.firstDay, s.daysInMonth, cycle),
+            continuePrevious = false,
+            phaseOffset = 0,
+            preview = buildPreview(s.selectedId, s.patterns, s.firstDay, s.daysInMonth, cycle, 0),
         )
     }
 
@@ -140,7 +247,9 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
         s.copy(
             customCycle = cycle,
             pickerIndex = null,
-            preview = buildPreview(s.selectedId, s.patterns, s.firstDay, s.daysInMonth, cycle),
+            continuePrevious = false,
+            phaseOffset = 0,
+            preview = buildPreview(s.selectedId, s.patterns, s.firstDay, s.daysInMonth, cycle, 0),
         )
     }
 
@@ -150,12 +259,85 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
     fun setNightEnd(hour: Int, minute: Int) = _uiState.update { it.copy(nightEndText = fmt(hour, minute)) }
 
     fun setFirstDay(day: Int) = _uiState.update {
-        it.copy(firstDay = day, preview = buildPreview(it.selectedId, it.patterns, day, it.daysInMonth, it.customCycle))
+        // Ручной выбор первого дня — тоже выход из режима продолжения.
+        it.copy(
+            firstDay = day,
+            continuePrevious = false,
+            phaseOffset = 0,
+            preview = buildPreview(it.selectedId, it.patterns, day, it.daysInMonth, it.customCycle, 0),
+        )
     }
+
+    /**
+     * Продолжить график прошлого месяца: берём тот же паттерн и то же время
+     * смен, ставим первый день = 1 и сдвигаем цикл на сохранённую фазу, чтобы
+     * он перетёк в новый месяц без разрыва, а не начинался заново.
+     */
+    fun continuePreviousSchedule() {
+        val rec = lastSchedule ?: return
+        _uiState.update { s ->
+            val size = cycleSizeOf(rec.patternId, s.patterns, s.customCycle) ?: return@update s
+            val phase = rec.nextPhase % size
+            s.copy(
+                selectedId = rec.patternId,
+                dayStartText = rec.dayStart ?: s.dayStartText,
+                dayEndText = rec.dayEnd ?: s.dayEndText,
+                nightStartText = rec.nightStart ?: s.nightStartText,
+                nightEndText = rec.nightEnd ?: s.nightEndText,
+                continuePrevious = true,
+                showContinuePreviousSheet = false,
+                firstDay = 1,
+                phaseOffset = phase,
+                step = 2,
+                pickerIndex = null,
+                preview = buildPreview(rec.patternId, s.patterns, 1, s.daysInMonth, s.customCycle, phase),
+            )
+        }
+    }
+
+    /**
+     * «Выбрать заново» / закрытие шторки «Продолжить график прошлого месяца?».
+     *
+     * Гасим только шторку: сама возможность продолжить остаётся кнопкой на шаге
+     * выбора графика. Сбрасывать флаг обязательно — иначе шторка остаётся в
+     * композиции, её scrim перехватывает нажатия и экран мастера зависает.
+     */
+    fun declineContinuePrevious() = _uiState.update { it.copy(showContinuePreviousSheet = false) }
+
+    fun shiftMonth(delta: Int) {
+        viewModelScope.launch {
+            val current = month ?: return@launch
+            val months = calendarMonths()
+            val index = months.indexOfFirst { it.year == current.year && it.month == current.month }
+            val next = months.getOrNull(index + delta) ?: return@launch
+            month = next
+            val days = LocalDate.of(next.year, next.month + 1, 1).lengthOfMonth()
+            _uiState.update { s ->
+                // Фаза считалась для прежнего месяца — при смене месяца режим
+                // продолжения сбрасывается, а доступность пересчитывается заново.
+                val canContinue = canContinue(lastSchedule, next, s.patterns, s.customCycle)
+                val firstDay = s.firstDay.coerceAtMost(days)
+                s.copy(
+                    year = next.year,
+                    month = next.month,
+                    monthName = monthName(next.month),
+                    daysInMonth = days,
+                    firstDay = firstDay,
+                    canContinuePrevious = canContinue,
+                    continuePrevious = false,
+                    phaseOffset = 0,
+                    preview = buildPreview(s.selectedId, s.patterns, firstDay, days, s.customCycle, 0),
+                )
+            }
+        }
+    }
+
+    private suspend fun calendarMonths(): List<MonthOfYear> =
+        settingsUseCase.getUserSettingFlow().first().let { calendarUseCase.loadFlowMonthOfYearListState().first() }
 
     fun goToStep(step: Int) = _uiState.update { it.copy(step = step) }
 
-    fun resetNeedSubscription() = _uiState.update { it.copy(needSubscription = false) }
+    fun dismissSubscriptionLimit() = _uiState.update { it.copy(subscriptionLimit = null) }
 
     /** Раскладывает выбранный паттерн на месяц и создаёт черновики на рабочие дни. */
     fun apply() {
@@ -175,25 +357,14 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
         _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
             try {
-                // Гейт подписки — та же логика, что при создании маршрута вручную.
-                when (routeHelper.newRouteClick()) {
-                    is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
-                        snackbarManager.show("Заполнение месяца доступно по подписке")
-                        _uiState.update { it.copy(isSaving = false, needSubscription = true) }
-                        return@launch
-                    }
-                    is RouteActionsHelper.NewRouteResult.Error -> {
-                        snackbarManager.show("Не удалось проверить подписку")
-                        _uiState.update { it.copy(isSaving = false) }
-                        return@launch
-                    }
-                    else -> { /* можно создавать */ }
-                }
-
-                var created = 0
+                // Сначала раскладываем месяц в список маршрутов, и только потом
+                // проверяем лимит: гейт должен знать размер пачки. Со старой
+                // проверкой «можно ли ещё один маршрут» мастер создавал без
+                // подписки сколько угодно — лимит обходился целиком.
+                val planned = mutableListOf<Route>()
                 for (day in 1..state.daysInMonth) {
                     if (day < state.firstDay) continue
-                    val kind = cycle[(day - state.firstDay) % cycle.size]
+                    val kind = cycle[(state.phaseOffset + day - state.firstDay) % cycle.size]
                     val (sh, sm, dur) = when (kind) {
                         ShiftKind.DAY -> Triple(dsh, dsm, dayDur)
                         ShiftKind.NIGHT -> Triple(nsh, nsm, nightDur)
@@ -206,22 +377,70 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
                     // стеку из сохранённого instant через TimeCalculationContext.
                     val startMillis = conv.toEpochMillis(m.year, m.month, day, sh, sm)
                     val endMillis = startMillis + dur * 60_000L
-                    val route = Route(
+                    planned += Route(
                         basicData = BasicData(timeStartWork = startMillis, timeEndWork = endMillis)
                     )
+                }
+
+                // Гейт на всю пачку — та же проверка, что в Календаре.
+                when (val gate = routeHelper.canCreateRoutes(planned.size)) {
+                    is RouteActionsHelper.BatchRoutesResult.LimitExceeded -> {
+                        _uiState.update {
+                            it.copy(
+                                isSaving = false,
+                                subscriptionLimit = SubscriptionLimitState(
+                                    requested = gate.requested,
+                                    remaining = gate.remaining,
+                                ),
+                            )
+                        }
+                        return@launch
+                    }
+                    is RouteActionsHelper.BatchRoutesResult.Error -> {
+                        snackbarManager.show("Не удалось проверить подписку")
+                        _uiState.update { it.copy(isSaving = false) }
+                        return@launch
+                    }
+                    is RouteActionsHelper.BatchRoutesResult.Allowed -> { /* можно создавать */ }
+                }
+
+                var created = 0
+                for (route in planned) {
                     val res = routeUseCase.saveRoute(route)
                         .first { it is ResultState.Success || it is ResultState.Error }
                     if (res is ResultState.Success) created++
                 }
 
                 // Свой цикл после применения — сохраняем паттерном (если ещё не сохранён).
-                if (state.selectedId == CUSTOM_PATTERN_ID) {
+                val patternId = if (state.selectedId == CUSTOM_PATTERN_ID) {
                     saveCustomAsPattern(state.customCycle)
-                }
+                } else state.selectedId
 
+                // Запоминаем месяц вместе с фазой, на которой цикл закончился, и
+                // временем смен — чтобы следующий месяц продолжился без разрыва.
+                val consumed = (state.daysInMonth - state.firstDay + 1).coerceAtLeast(0)
+                val nextPhase = (state.phaseOffset + consumed) % cycle.size
+                prefs.setLastScheduleMonth(
+                    listOf(
+                        "${m.year}-${m.month}",
+                        patternId,
+                        state.firstDay,
+                        nextPhase,
+                        state.dayStartText,
+                        state.dayEndText,
+                        state.nightStartText,
+                        state.nightEndText,
+                    ).joinToString("|")
+                )
+
+                val left = routeHelper.freeRoutesLeft()
                 snackbarManager.show(
-                    if (created > 0) "Создано черновиков маршрутов: $created"
-                    else "Не создано ни одного маршрута"
+                    when {
+                        created == 0 -> "Не создано ни одного маршрута"
+                        left == null -> "Создано черновиков маршрутов: $created"
+                        else -> "Создано черновиков маршрутов: $created. " +
+                            "Осталось бесплатных: $left из ${RouteActionsHelper.FREE_ROUTES_LIMIT}"
+                    }
                 )
                 _uiState.update { it.copy(isSaving = false, done = true) }
             } catch (t: Throwable) {
@@ -234,22 +453,25 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
     }
 
     // ── helpers ──────────────────────────────────────────────────
-    private fun saveCustomAsPattern(customCycle: List<ShiftKind>) {
+    /** Возвращает id паттерна — сохранённого только что либо уже существующего
+     *  с таким же циклом. Нужен, чтобы записать в «последний месяц» реальный id,
+     *  а не служебный [CUSTOM_PATTERN_ID], иначе продолжить график не выйдет. */
+    private fun saveCustomAsPattern(customCycle: List<ShiftKind>): String {
         val cycleTypes = customCycle.map { it.toWorkShiftType() }
+        _uiState.value.patterns.firstOrNull { it.cycle == cycleTypes }?.let { return it.id }
+        val work = customCycle.count { it != ShiftKind.OFF }
+        val off = customCycle.count { it == ShiftKind.OFF }
+        val pattern = SchedulePattern(
+            title = "$work/$off",
+            subtitle = customCycle.joinToString(" · ") { shiftWord(it) },
+            cycle = cycleTypes,
+        )
         _uiState.update { s ->
-            // Не дублируем — если такой цикл уже есть, ничего не добавляем.
-            if (s.patterns.any { it.cycle == cycleTypes }) return@update s
-            val work = customCycle.count { it != ShiftKind.OFF }
-            val off = customCycle.count { it == ShiftKind.OFF }
-            val pattern = SchedulePattern(
-                title = "$work/$off",
-                subtitle = customCycle.joinToString(" · ") { shiftWord(it) },
-                cycle = cycleTypes,
-            )
             val patterns = s.patterns + pattern
             prefs.setSchedulePatterns(patterns)
             s.copy(patterns = patterns)
         }
+        return pattern.id
     }
 
     private fun selectedCycle(state: WizardUiState): List<ShiftKind> =
@@ -257,12 +479,19 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
         else state.patterns.find { it.id == state.selectedId }?.cycle?.map { it.toShiftKind() }
             ?: state.customCycle
 
+    /**
+     * [phaseOffset] — с какого индекса цикла начинается [firstDay]. Ненулевой
+     * только при продолжении графика прошлого месяца. Без него предпросмотр
+     * рисовал цикл заново с первого числа, а `apply()` раскладывал со сдвигом —
+     * то есть показывал не то, что создавал.
+     */
     private fun buildPreview(
         selectedId: String,
         patterns: List<SchedulePattern>,
         firstDay: Int,
         daysInMonth: Int,
         customCycle: List<ShiftKind>,
+        phaseOffset: Int,
     ): List<ShiftKind> {
         if (daysInMonth == 0) return emptyList()
         val cycle = if (selectedId == CUSTOM_PATTERN_ID) customCycle
@@ -270,7 +499,7 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
         if (cycle.isEmpty()) return List(daysInMonth) { ShiftKind.OFF }
         return (1..daysInMonth).map { day ->
             if (day < firstDay) ShiftKind.OFF
-            else cycle[(day - firstDay) % cycle.size]
+            else cycle[(phaseOffset + day - firstDay) % cycle.size]
         }
     }
 
@@ -329,6 +558,15 @@ data class WizardUiState(
     val nightStartText: String = "20:00",
     val nightEndText: String = "08:00",
     val firstDay: Int = 1,
+    /** Прошлый месяц заполнен мастером — продолжение доступно (кнопка на шаге 1). */
+    val canContinuePrevious: Boolean = false,
+    /** Показывать шторку с предложением; гаснет после выбора, кнопка остаётся. */
+    val showContinuePreviousSheet: Boolean = false,
+    /** Название прошлого месяца — для подписи предложения. */
+    val previousMonthName: String = "",
+    val continuePrevious: Boolean = false,
+    /** Индекс цикла для [firstDay]; ненулевой только в режиме продолжения. */
+    val phaseOffset: Int = 0,
     val year: Int = 0,
     val month: Int = 0,
     val monthName: String = "",
@@ -337,7 +575,8 @@ data class WizardUiState(
     val customCycle: List<ShiftKind> = listOf(ShiftKind.DAY, ShiftKind.NIGHT, ShiftKind.OFF, ShiftKind.OFF),
     val isSaving: Boolean = false,
     val done: Boolean = false,
-    val needSubscription: Boolean = false,
+    /** Пачка не помещается в бесплатный лимит — показать диалог о подписке. */
+    val subscriptionLimit: SubscriptionLimitState? = null,
 ) {
     /** Типы смен выбранного паттерна (для показа карточек времени и предпросмотра). */
     val selectedCycleKinds: List<ShiftKind>

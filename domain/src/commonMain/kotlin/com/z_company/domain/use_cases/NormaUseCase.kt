@@ -8,7 +8,7 @@ import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.datetime.LocalDate
+import com.z_company.domain.util.dateOfDayOrNull
 
 /**
  * Единая точка расчёта нормы часов.
@@ -129,7 +129,7 @@ class NormaUseCase(
                     day.releaseType != ReleaseType.TechnicalStudy) ||
                     day.dayOfMonth in releaseDayNumbers
             if (!isNormReducingRelease) {
-                val date = LocalDate(year, month + 1, day.dayOfMonth)
+                val date = dateOfDayOrNull(year, month, day.dayOfMonth) ?: return@forEach
                 norma += profile.effectiveHours(date, day.tag)
             }
         }

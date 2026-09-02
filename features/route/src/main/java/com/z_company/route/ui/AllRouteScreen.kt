@@ -695,15 +695,21 @@ fun AllRouteScreen(
             val hasNextMonth = currentMonthIndex in 0 until monthYearList.lastIndex
 
             // Слева — месяц и год со стрелками переключения, справа — счётчики
-            // «маршрутов» и «отработано» за выбранный месяц.
-            Row(
+            // «маршрутов» и «отработано» за выбранный месяц. FlowRow вместо Row:
+            // при крупном системном шрифте, когда обе группы не помещаются в
+            // одну строку, счётчики переносятся целиком на строку ниже — вместо
+            // того чтобы сжиматься до переноса по одной букве в пилюле времени.
+            FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Row(
                         modifier = Modifier.clickable { isMonthSheetVisible = true },
                         verticalAlignment = Alignment.CenterVertically,
@@ -751,6 +757,7 @@ fun AllRouteScreen(
 
                 // Счётчики: количество маршрутов и отработанное время за месяц (моно).
                 Row(
+                    modifier = Modifier.align(Alignment.CenterVertically),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
@@ -1124,6 +1131,8 @@ private fun StatPill(
                 fontFamily = com.z_company.core.ui.theme.MonoFont,
             ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }

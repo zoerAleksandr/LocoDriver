@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.StateFlow
  * TODO: заменить хранение на NSUserDefaults через expect/actual, если потребуется.
  */
 class IosSharedPreferencesRepository : SharedPreferencesRepositories {
+    private var lastScheduleMonth: String? = null
+    override fun getLastScheduleMonth(): String? = lastScheduleMonth
+    override fun setLastScheduleMonth(value: String) { lastScheduleMonth = value }
     private val workScheduleProfileState = MutableStateFlow(WorkScheduleProfile.standard())
     override fun getWorkScheduleProfile(): WorkScheduleProfile = workScheduleProfileState.value
     override fun getWorkScheduleProfileFlow(): StateFlow<WorkScheduleProfile> = workScheduleProfileState

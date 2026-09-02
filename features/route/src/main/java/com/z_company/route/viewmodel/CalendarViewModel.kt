@@ -102,6 +102,20 @@ class CalendarViewModel : ViewModel(), KoinComponent {
     )
     val openRouteFormEvent: SharedFlow<OpenRouteFormEvent> = _openRouteFormEvent.asSharedFlow()
 
+    private val _duplicatePlannedRoute = MutableStateFlow<DuplicatePlannedRouteState?>(null)
+    val duplicatePlannedRoute: StateFlow<DuplicatePlannedRouteState?> = _duplicatePlannedRoute.asStateFlow()
+
+    fun dismissDuplicatePlannedRoute() { _duplicatePlannedRoute.value = null }
+
+    // Пачка маршрутов не помещается в бесплатный лимит — показываем диалог
+    // прямо на Календаре. Раньше тут был только snackbar, а на этом экране нет
+    // SnackbarHost, поэтому сообщение всплывало лишь при возврате на Главный,
+    // и маршруты «просто не создавались» без объяснений.
+    private val _subscriptionLimit = MutableStateFlow<SubscriptionLimitState?>(null)
+    val subscriptionLimit: StateFlow<SubscriptionLimitState?> = _subscriptionLimit.asStateFlow()
+
+    fun dismissSubscriptionLimit() { _subscriptionLimit.value = null }
+
     private var userSettings: UserSettings? = null
     private var salarySetting: SalarySetting? = null
     private var converter: DateAndTimeConverter? = null
@@ -188,18 +202,12 @@ class CalendarViewModel : ViewModel(), KoinComponent {
     /** Войти в режим планирования и сразу сохранить выбранный в календаре день. */
     fun enterRoutePlan(initialDay: Int) {
         val times = userSettings?.standardTimesStartWork.orEmpty()
-        val initialTime = times.firstOrNull()
-        val absence = _uiState.value.absenceByDay[initialDay]
-        val canPlanInitialDay = absence == null || absence.type == ReleaseType.DayOff
         _routePlan.value = RoutePlanState(
             active = true,
             timeOptions = times.map { TimeOption(it, ConverterLongToTime.getTimeInStringFormat(it).trim()) },
-            activeTime = initialTime,
-            plannedDays = if (initialTime != null && canPlanInitialDay) {
-                mapOf(initialDay to initialTime)
-            } else {
-                emptyMap()
-            },
+            activeTime = null,
+            plannedDays = emptyMap(),
+            initialDay = initialDay,
             suggestedWorkDuration = userSettings?.defaultWorkTime ?: 43_200_000L,
         )
     }
@@ -210,7 +218,14 @@ class CalendarViewModel : ViewModel(), KoinComponent {
 
     // Смена активного времени — влияет только на дни, которые будут отмечены
     // ПОСЛЕ этого. Уже отмеченные дни хранят своё время в plannedDays и не трогаются.
-    fun pickPlanTime(millis: Long) = _routePlan.update { it.copy(activeTime = millis) }
+    fun pickPlanTime(millis: Long) = _routePlan.update { state ->
+        state.copy(
+            activeTime = millis,
+            plannedDays = if (state.plannedDays.isEmpty() && state.initialDay != null) {
+                mapOf(state.initialDay to millis)
+            } else state.plannedDays,
+        )
+    }
 
     /** Добавить своё время явки в список чипов, выбрать его и сохранить в настройки. */
     fun addCustomPlanTime(hour: Int, minute: Int) {
@@ -219,7 +234,13 @@ class CalendarViewModel : ViewModel(), KoinComponent {
             val opts = if (s.timeOptions.any { it.millis == millis }) s.timeOptions
             else (s.timeOptions + TimeOption(millis, ConverterLongToTime.getTimeInStringFormat(millis).trim()))
                 .sortedBy { it.millis }
-            s.copy(timeOptions = opts, activeTime = millis)
+            s.copy(
+                timeOptions = opts,
+                activeTime = millis,
+                plannedDays = if (s.plannedDays.isEmpty() && s.initialDay != null) {
+                    mapOf(s.initialDay to millis)
+                } else s.plannedDays,
+            )
         }
         viewModelScope.launch {
             runCatching {
@@ -263,35 +284,40 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         }
         viewModelScope.launch {
             try {
-                when (routeHelper.newRouteClick()) {
-                    is RouteActionsHelper.NewRouteResult.NeedSubscribeDialog -> {
-                        snackbarManager.show("Создание маршрутов доступно по подписке")
+                // Гейт на всю пачку: newRouteClick() отвечает только за «ещё один
+                // маршрут», и без подписки цикл ниже создал бы сколько угодно.
+                when (val gate = routeHelper.canCreateRoutes(plan.plannedDays.size)) {
+                    is RouteActionsHelper.BatchRoutesResult.LimitExceeded -> {
+                        _subscriptionLimit.value = SubscriptionLimitState(
+                            requested = gate.requested,
+                            remaining = gate.remaining,
+                        )
                         return@launch
                     }
-                    is RouteActionsHelper.NewRouteResult.Error -> {
+                    is RouteActionsHelper.BatchRoutesResult.Error -> {
                         snackbarManager.show("Не удалось проверить подписку")
                         return@launch
                     }
-                    else -> { /* можно создавать */ }
+                    is RouteActionsHelper.BatchRoutesResult.Allowed -> { /* можно создавать */ }
                 }
-                var created = 0
-                for ((day, time) in plan.plannedDays.toSortedMap()) {
+                val routes = plan.plannedDays.toSortedMap().map { (day, time) ->
                     val hour = ConverterLongToTime.getHour(time)
                     val minute = ConverterLongToTime.getRemainingMinuteFromHour(time)
                     val start = conv.toEpochMillis(m.year, m.month, day, hour, minute)
-                    val route = Route(
-                        basicData = BasicData(
-                            timeStartWork = start,
-                            timeEndWork = workDuration?.let(start::plus),
-                        )
-                    )
-                    val res = routeUseCase.saveRoute(route)
-                        .first { it is ResultState.Success || it is ResultState.Error }
-                    if (res is ResultState.Success) created++
+                    Route(basicData = BasicData(timeStartWork = start, timeEndWork = workDuration?.let(start::plus)))
                 }
-                snackbarManager.show("Создано черновиков маршрутов: $created")
-                exitRoutePlan()
-                loadMonth()
+                val existing = routeUseCase.getListRoutes().firstOrNull { old ->
+                    routes.any { candidate ->
+                        old.basicData.timeStartWork != null &&
+                            candidate.basicData.timeStartWork != null &&
+                            normalizeToMinute(old.basicData.timeStartWork!!) == normalizeToMinute(candidate.basicData.timeStartWork!!)
+                    }
+                }
+                if (existing != null) {
+                    _duplicatePlannedRoute.value = DuplicatePlannedRouteState(existing, routes)
+                    return@launch
+                }
+                savePlannedRoutes(routes)
             } catch (t: Throwable) {
                 if (t is CancellationException) throw t
                 t.sendToSentry("CalendarViewModel", "createPlannedRoutes")
@@ -299,6 +325,38 @@ class CalendarViewModel : ViewModel(), KoinComponent {
             }
         }
     }
+
+    fun replaceDuplicateAndCreate(state: DuplicatePlannedRouteState) {
+        _duplicatePlannedRoute.value = null
+        viewModelScope.launch {
+            routeUseCase.removeRoute(state.existingRoute).first { it is ResultState.Success || it is ResultState.Error }
+            savePlannedRoutes(state.routes)
+        }
+    }
+
+    fun keepDuplicateAndCreate(state: DuplicatePlannedRouteState) {
+        _duplicatePlannedRoute.value = null
+        viewModelScope.launch { savePlannedRoutes(state.routes) }
+    }
+
+    private suspend fun savePlannedRoutes(routes: List<Route>) {
+                var created = 0
+                for (route in routes) {
+                    val res = routeUseCase.saveRoute(route)
+                        .first { it is ResultState.Success || it is ResultState.Error }
+                    if (res is ResultState.Success) created++
+                }
+                val left = routeHelper.freeRoutesLeft()
+                snackbarManager.show(
+                    if (left == null) "Создано черновиков маршрутов: $created"
+                    else "Создано черновиков маршрутов: $created. " +
+                        "Осталось бесплатных: $left из ${RouteActionsHelper.FREE_ROUTES_LIMIT}"
+                )
+                exitRoutePlan()
+                loadMonth()
+    }
+
+    private fun normalizeToMinute(timeMs: Long): Long = (timeMs / 60_000L) * 60_000L
 
     /** Удалить отвлечение только за один день. */
     fun deleteAbsenceDay(day: Int) = deleteAbsenceDates(listOf(day))
@@ -908,6 +966,20 @@ data class RoutePlanState(
     // Отмеченные дни → время явки на этот день (зафиксировано в момент
     // отметки). Разные дни могут иметь разное время.
     val plannedDays: Map<Int, Long> = emptyMap(),
+    /** День, выбранный до входа в режим планирования; отмечается после выбора времени. */
+    val initialDay: Int? = null,
     // Начальное значение диалога продолжительности перед созданием маршрутов.
     val suggestedWorkDuration: Long = 43_200_000L,
+)
+
+/** Пачка маршрутов не помещается в бесплатный лимит: запрошено [requested],
+ *  свободно [remaining] из [RouteActionsHelper.FREE_ROUTES_LIMIT]. */
+data class SubscriptionLimitState(
+    val requested: Int,
+    val remaining: Int,
+)
+
+data class DuplicatePlannedRouteState(
+    val existingRoute: Route,
+    val routes: List<Route>,
 )

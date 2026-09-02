@@ -52,6 +52,7 @@ import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.BufferOverflow
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -155,6 +156,8 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
         if (backgroundSyncJob?.isActive == true) return
         if (syncManager.isSyncInProgress() || !syncManager.shouldRunAutomaticSync()) return
         backgroundSyncJob = viewModelScope.launch(Dispatchers.IO) {
+            // Сначала показываем локальный список и завершаем его расчёты.
+            delay(SyncManager.BACKGROUND_SYNC_START_DELAY_MILLIS)
             if (syncManager.isSyncInProgress() || !syncManager.shouldRunAutomaticSync()) return@launch
             if (!routeHelper.hasActiveSubscription()) return@launch
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()

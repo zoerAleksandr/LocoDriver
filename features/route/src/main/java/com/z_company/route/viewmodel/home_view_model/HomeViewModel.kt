@@ -1129,6 +1129,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
         if (backgroundSyncJob?.isActive == true || syncJob?.isActive == true) return
         if (syncManager.isSyncInProgress() || !syncManager.shouldRunAutomaticSync()) return
         backgroundSyncJob = viewModelScope.launch(Dispatchers.IO) {
+            // Не конкурируем с первым кадром и расчётами главного экрана.
+            delay(SyncManager.BACKGROUND_SYNC_START_DELAY_MILLIS)
             if (syncManager.isSyncInProgress() || !syncManager.shouldRunAutomaticSync()) return@launch
             if (!routeHelper.hasActiveSubscription()) return@launch
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()

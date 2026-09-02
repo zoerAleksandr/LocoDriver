@@ -14,6 +14,8 @@ import com.z_company.route.util.startShare
 import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.PullToSyncViewModel
 import com.z_company.route.R
+import com.z_company.core.ResultState
+import com.z_company.domain.util.currencySymbol
 
 @Composable
 fun HomeDestination(
@@ -29,6 +31,8 @@ fun HomeDestination(
     val years by homeViewModel.yearList.collectAsState()
 
     val context = LocalContext.current
+    // Покупки только для авторизованных — см. rememberShowPurchasesScreen.
+    val showPurchasesScreen = rememberShowPurchasesScreen(router)
     LaunchedEffect(Unit) {
         homeViewModel.syncOnScreenOpen()
     }
@@ -63,6 +67,8 @@ fun HomeDestination(
         nightTimeState = uiState.nightTimeInRouteList,
         totalTimeWithHoliday = uiState.totalTimeWithHoliday,
         toBeCredited = uiState.toBeCredited,
+        currency = (uiState.settingState as? ResultState.Success)?.data?.let { currencySymbol(it.country) }
+            ?: currencySymbol(null),
         onSalaryClick = router::showSalaryCalculation,
         passengerTimeState = uiState.passengerTimeInRouteList,
         singleLocomotiveTimeState = uiState.singleLocomotiveTimeState,
@@ -113,7 +119,7 @@ fun HomeDestination(
         hasActiveSubscription = uiState.hasActiveSubscription,
         subscriptionEndTime = uiState.subscriptionEndTime,
         freeRoutesUsedCount = uiState.freeRoutesUsedCount,
-        onPurchasesClick = router::showPurchasesScreen,
+        onPurchasesClick = showPurchasesScreen,
         onSyncClick = homeViewModel::manualSync,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh() },
