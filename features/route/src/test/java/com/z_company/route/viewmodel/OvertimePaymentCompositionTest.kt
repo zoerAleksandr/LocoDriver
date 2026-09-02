@@ -158,6 +158,45 @@ class OvertimePaymentCompositionTest {
     }
 
     @Test
+    fun nightOvertimeUsesPreLawAndLaw91BasesOnDifferentSidesOfSeptember2024() = runTest {
+        fun helper(month: Int): SalaryCalculationHelper {
+            fun at(day: Int, hour: Int): Long = LocalDateTime(2024, month + 1, day, hour, 0)
+                .toInstant(TimeZone.of("GMT+3"))
+                .toEpochMilliseconds()
+            return SalaryCalculationHelper(
+                userSettings = UserSettings(
+                    selectMonthOfYear = MonthOfYear(
+                        year = 2024,
+                        month = month,
+                        tariffRate = 100.0,
+                        days = emptyList(),
+                    ),
+                    timeZone = 0L,
+                ),
+                salarySetting = SalarySetting(
+                    nightTimePercent = 40.0,
+                    zonalSurcharge = 0.0,
+                    harmfulnessPercent = 0.0,
+                ),
+                allRoutes = listOf(Route(basicData = BasicData(
+                    timeStartWork = at(day = 5, hour = 22),
+                    timeEndWork = at(day = 6, hour = 2),
+                ))),
+            )
+        }
+
+        val august = helper(month = 7)
+        assertEquals(160.0, august.getMoneyAtNightTimeFlow().first(), 0.001)
+        assertEquals(100.0, august.getMoneySurchargeOvertime05Flow().first(), 0.001)
+        assertEquals(200.0, august.getMoneySurchargeOvertimeFlow().first(), 0.001)
+
+        val september = helper(month = 8)
+        assertEquals(160.0, september.getMoneyAtNightTimeFlow().first(), 0.001)
+        assertEquals(140.0, september.getMoneySurchargeOvertime05Flow().first(), 0.001)
+        assertEquals(280.0, september.getMoneySurchargeOvertimeFlow().first(), 0.001)
+    }
+
+    @Test
     fun addingZeroDurationRouteDoesNotChangeOvertimeMoney() = runTest {
         val base = helper()
         val sourceRoute = Route(
