@@ -813,18 +813,12 @@ private fun DeductionsCard(uiState: SalaryCalculationUIState) {
         PayColumn("ВИД УДЕРЖАНИЯ", ColType.NAME),
         PayColumn("СУММА", ColType.MONEY),
     )
-    val rows = listOfNotNull(
-        uiState.retentionNdfl?.takeIf { it > 0 }?.let { Triple(SalaryPaymentId.NDFL, "НДФЛ (13 %)", it) },
-        uiState.unionistsRetention?.takeIf { it > 0 }?.let { Triple(SalaryPaymentId.UNION, "Профсоюз", it) },
-        uiState.otherRetention?.takeIf { it > 0 }?.let { Triple(SalaryPaymentId.OTHER_DEDUCTION, "Прочие удержания", it) },
-        uiState.welfareRetention?.takeIf { it > 0 }?.let { Triple(SalaryPaymentId.WELFARE, "Благосостояние", it) },
-        uiState.alimonyRetention?.takeIf { it > 0 }?.let { Triple(SalaryPaymentId.ALIMONY, "Алименты", it) },
-    ).map { (paymentId, name, amount) ->
-        val payment = PayrollPaymentCatalog[paymentId]
+    val rows = buildDeductionRows(uiState).map { row ->
+        val payment = PayrollPaymentCatalog[row.paymentId]
         listOf(
             CellVal(payment.codeLabel, faint = payment.codes.isEmpty()),
-            CellVal(name),
-            CellVal(formatMoney(amount)),
+            CellVal(row.title),
+            CellVal(formatMoney(row.money)),
         )
     }
 
@@ -945,6 +939,21 @@ internal data class AccrualRow(
     val hours: Long?,
     val percent: Double?,
     val money: Double?,
+)
+
+internal data class DeductionRow(
+    val paymentId: SalaryPaymentId,
+    val title: String,
+    val percent: Double?,
+    val money: Double,
+)
+
+internal fun buildDeductionRows(uiState: SalaryCalculationUIState): List<DeductionRow> = listOfNotNull(
+    uiState.retentionNdfl?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.NDFL, "НДФЛ (13 %)", 13.0, it) },
+    uiState.unionistsRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.UNION, "Профсоюз", null, it) },
+    uiState.otherRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.OTHER_DEDUCTION, "Прочие удержания", null, it) },
+    uiState.welfareRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.WELFARE, "Благосостояние", null, it) },
+    uiState.alimonyRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.ALIMONY, "Алименты", null, it) },
 )
 
 private fun formatPercent(value: Double): String = "%.1f".format(value).replace('.', ',')

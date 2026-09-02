@@ -63,4 +63,43 @@ class SalaryStatementRowsTest {
             rows.map { it.paymentId },
         )
     }
+
+    @Test
+    fun `all supported deductions have stable ids and positive amounts`() {
+        val rows = buildDeductionRows(
+            SalaryCalculationUIState(
+                retentionNdfl = 1.0,
+                unionistsRetention = 2.0,
+                otherRetention = 3.0,
+                welfareRetention = 4.0,
+                alimonyRetention = 5.0,
+            )
+        )
+
+        assertEquals(
+            listOf(
+                SalaryPaymentId.NDFL,
+                SalaryPaymentId.UNION,
+                SalaryPaymentId.OTHER_DEDUCTION,
+                SalaryPaymentId.WELFARE,
+                SalaryPaymentId.ALIMONY,
+            ),
+            rows.map { it.paymentId },
+        )
+        assertEquals(listOf(1.0, 2.0, 3.0, 4.0, 5.0), rows.map { it.money })
+        assertEquals(13.0, rows.first().percent)
+    }
+
+    @Test
+    fun `zero and negative deductions are not rendered`() {
+        val rows = buildDeductionRows(
+            SalaryCalculationUIState(
+                retentionNdfl = 0.0,
+                unionistsRetention = -1.0,
+                alimonyRetention = 10.0,
+            )
+        )
+
+        assertEquals(listOf(SalaryPaymentId.ALIMONY), rows.map { it.paymentId })
+    }
 }

@@ -18,6 +18,7 @@ import com.z_company.route.viewmodel.SalaryCalculationUIState
 import com.z_company.domain.entities.salary.PayrollPaymentCatalog
 import com.z_company.domain.entities.salary.SalaryPaymentId
 import com.z_company.route.ui.buildAccrualRows
+import com.z_company.route.ui.buildDeductionRows
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Calendar
@@ -1096,84 +1097,14 @@ class PdfGenerator(private val context: Context) {
         pm.y += 14f
         pm.salaryHeader()
 
-        fun row(paymentId: SalaryPaymentId, desc: String, h: Long?, pct: Double?, money: Double?) {
-            val ms = fmtMoney(money)
-            if (ms.isBlank()) return   // скрываем строки с нулевой/пустой суммой
-            pm.salaryRow(paymentId, desc, fmtHours(h), fmtPct(pct), ms)
-        }
-
-        row(SalaryPaymentId.TARIFF, "Оплата по тарифу", s.paymentAtTariffHours, null, s.paymentAtTariffMoney)
-        row(SalaryPaymentId.NIGHT, "Ночные часы", s.paymentNightTimeHours, s.paymentNightTimePercent, s.paymentNightTimeMoney)
-        row(SalaryPaymentId.PASSENGER, "Пассажиром", s.paymentAtPassengerHours, null, s.paymentAtPassengerMoney)
-        row(SalaryPaymentId.RESERVE, "Резервом", s.paymentAtSingleLocomotiveHours, null, s.paymentAtSingleLocomotiveMoney)
-        row(SalaryPaymentId.HOLIDAY, "Праздничные", s.paymentHolidayHours, null, s.paymentHolidayMoney)
-        row(SalaryPaymentId.AVERAGE, "По среднему", s.averagePaymentHours, null, s.averagePaymentMoney)
-        row(SalaryPaymentId.UNDERWORK, "Оплата недоработки", s.underworkHours, null, s.underworkMoney)
-        row(SalaryPaymentId.DISABLED_CHILD_CARE, "По уходу за ребёнком-инвалидом", s.caringForDisableChildrenHours, null, s.caringForDisableChildrenMoney)
-        row(SalaryPaymentId.BUSINESS_TRIP, "Командировка (по среднему)", s.businessTripHours, null, s.businessTripMoney)
-        row(SalaryPaymentId.TECHNICAL_STUDY, "Технические занятия", s.technicalStudyHours, null, s.technicalStudyMoney)
-
-        // Percentage-only surcharges
-        fun rowPct(paymentId: SalaryPaymentId, desc: String, pct: Double?, money: Double?) {
-            val ms = fmtMoney(money)
-            if (ms.isBlank()) return   // скрываем строки с нулевой/пустой суммой
-            pm.salaryRow(paymentId, desc, "", fmtPct(pct), ms)
-        }
-        rowPct(SalaryPaymentId.ZONAL, "Зональная надбавка", s.zonalSurchargePercent, s.zonalSurchargeMoney)
-        rowPct(SalaryPaymentId.QUALIFICATION_CLASS, "Надбавка за класс квалификации", s.surchargeQualificationClassPercent, s.surchargeQualificationClassMoney)
-        s.linearMileageAccruals.forEach { accrual ->
+        buildAccrualRows(s).forEach { row ->
             pm.salaryRow(
-                SalaryPaymentId.LINEAR_MILEAGE,
-                "Пробег ${accrual.phaseName} (${"%.2f".format(accrual.rate)} ₽/км)",
-                "",
-                "",
-                fmtMoney(accrual.money),
+                paymentId = row.paymentId,
+                desc = row.title,
+                hours = fmtHours(row.hours),
+                pct = fmtPct(row.percent),
+                amount = fmtMoney(row.money),
             )
-        }
-        row(SalaryPaymentId.ONE_PERSON_FREIGHT, "В одно лицо (груз.)", s.onePersonOperationHours, s.onePersonOperationPercent, s.onePersonOperationMoney)
-        row(SalaryPaymentId.ONE_PERSON_PASSENGER, "В одно лицо (пас.)", s.onePersonOperationPassengerTrainHours, s.onePersonOperationPassengerTrainPercent, s.onePersonOperationPassengerTrainMoney)
-        rowPct(SalaryPaymentId.HARMFULNESS, "Вредность", s.harmfulnessSurchargePercent, s.harmfulnessSurchargeMoney)
-        rowPct(SalaryPaymentId.DISTRICT, "Районный коэффициент", s.districtSurchargeCoefficient, s.districtSurchargeMoney)
-        rowPct(SalaryPaymentId.NORDIC, "Северная надбавка", s.nordicSurchargePercent, s.nordicSurchargeMoney)
-
-        s.surchargeExtendedServicePhaseHour.forEachIndexed { i, h ->
-            val m = fmtMoney(s.surchargeExtendedServicePhaseMoney.getOrNull(i))
-            if (m.isBlank()) return@forEachIndexed
-            pm.salaryRow(SalaryPaymentId.EXTENDED_SERVICE, "Удлинённое плечо ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeExtendedServicePhasePercent.getOrNull(i)), m)
-        }
-        s.surchargeHeavyTransHour.forEachIndexed { i, h ->
-            val m = fmtMoney(s.surchargeHeavyTransMoney.getOrNull(i))
-            if (m.isBlank()) return@forEachIndexed
-            pm.salaryRow(SalaryPaymentId.HEAVY_TRAIN, "Тяжёлые поезда ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeHeavyTransPercent.getOrNull(i)), m)
-        }
-        s.surchargeLongTrainHour.forEachIndexed { i, h ->
-            val m = fmtMoney(s.surchargeLongTrainMoney.getOrNull(i))
-            if (m.isBlank()) return@forEachIndexed
-            pm.salaryRow(SalaryPaymentId.LONG_TRAIN, "Длинносост. поезда ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeLongTrainPercent.getOrNull(i)), m)
-        }
-        row(
-            SalaryPaymentId.HEAVY_LONG_DISTANCE,
-            "Доплата за ПДМ (6000 т. и 350 осей)",
-            s.surchargeHeavyLongDistanceTrainsHours,
-            s.surchargeHeavyLongDistanceTrainsPercent,
-            s.surchargeHeavyLongDistanceTrainsMoney
-        )
-        fmtMoney(s.surchargeDoubledTrainFirstMoney).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow(SalaryPaymentId.DOUBLED_TRAIN, "Сдвоенные (30%)", fmtHours(s.surchargeDoubledTrainFirstHours), "30%", m)
-        }
-        fmtMoney(s.surchargeDoubledTrainSecondMoney).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow(SalaryPaymentId.DOUBLED_TRAIN, "Сдвоенные (15%)", fmtHours(s.surchargeDoubledTrainSecondHours), "15%", m)
-        }
-        row(SalaryPaymentId.OVERTIME_BASE, "Сверхурочные", s.paymentAtOvertimeHours, null, s.paymentAtOvertimeMoney)
-        fmtMoney(s.surchargeAtOvertime05Money).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow(SalaryPaymentId.OVERTIME_HALF, "Доп. сверхурочные (50%)", fmtHours(s.surchargeAtOvertime05Hours), "50%", m)
-        }
-        fmtMoney(s.surchargeAtOvertimeMoney).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow(SalaryPaymentId.OVERTIME_FULL, "Доп. сверхурочные (100%)", fmtHours(s.surchargeAtOvertimeHours), "100%", m)
-        }
-        row(SalaryPaymentId.EXCESS_REST, "Переотдых", s.restInExcessOfTheNormTime, null, s.restInExcessOfTheNormMoney)
-        fmtMoney(s.otherSurchargeMoney).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow(SalaryPaymentId.OTHER_SURCHARGE, "Прочие надбавки", "", fmtPct(s.otherSurchargePercent), m)
         }
 
         // Total charged
@@ -1188,11 +1119,14 @@ class PdfGenerator(private val context: Context) {
         pm.canvas.drawText("Удержания", ml + 4f, pm.y, paintSection)
         pm.y += 14f
         pm.retentionHeader()
-        if (fmtMoney(s.retentionNdfl).isNotBlank()) pm.retentionRow(SalaryPaymentId.NDFL, "НДФЛ (13%)", "13%", fmtMoney(s.retentionNdfl))
-        if (fmtMoney(s.unionistsRetention).isNotBlank()) pm.retentionRow(SalaryPaymentId.UNION, "Профсоюз", "", fmtMoney(s.unionistsRetention))
-        if (fmtMoney(s.otherRetention).isNotBlank()) pm.retentionRow(SalaryPaymentId.OTHER_DEDUCTION, "Прочие удержания", "", fmtMoney(s.otherRetention))
-        if (fmtMoney(s.welfareRetention).isNotBlank()) pm.retentionRow(SalaryPaymentId.WELFARE, "Благосостояние", "", fmtMoney(s.welfareRetention))
-        if (fmtMoney(s.alimonyRetention).isNotBlank()) pm.retentionRow(SalaryPaymentId.ALIMONY, "Алименты", "", fmtMoney(s.alimonyRetention))
+        buildDeductionRows(s).forEach { row ->
+            pm.retentionRow(
+                paymentId = row.paymentId,
+                desc = row.title,
+                pct = fmtPct(row.percent),
+                amount = fmtMoney(row.money),
+            )
+        }
         pm.retentionRow(null, "Всего удержано", "", fmtMoney(s.totalRetention), bold = true)
 
         pm.y += 8f
