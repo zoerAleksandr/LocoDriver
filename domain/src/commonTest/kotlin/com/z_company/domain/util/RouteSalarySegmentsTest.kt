@@ -22,8 +22,76 @@ class RouteSalarySegmentsTest {
     private val moscow = TimeZone.of("GMT+3")
     private val context = TimeCalculationContext(localTZ = moscow, crossMonthTZ = moscow)
 
-    private fun instant(month: Int, day: Int, hour: Int): Long =
-        LocalDateTime(2025, month, day, hour, 0).toInstant(moscow).toEpochMilliseconds()
+    private fun instant(month: Int, day: Int, hour: Int, minute: Int = 0): Long =
+        LocalDateTime(2025, month, day, hour, minute).toInstant(moscow).toEpochMilliseconds()
+
+    @Test
+    fun zeroDurationRouteProducesNoSalarySegments() {
+        val at = instant(month = 1, day = 10, hour = 8)
+        val route = Route(basicData = BasicData(timeStartWork = at, timeEndWork = at))
+
+        assertTrue(route.buildSalarySegments(
+            monthOfYear = MonthOfYear(year = 2025, month = 0),
+            context = context,
+            initialTariffRatePerHour = 100.0,
+        ).isEmpty())
+    }
+
+    @Test
+    fun oneMinuteRoutePreservesExactDurationAndFractionalMoney() {
+        val start = instant(month = 1, day = 10, hour = 8)
+        val route = Route(basicData = BasicData(
+            timeStartWork = start,
+            timeEndWork = start + 60_000L,
+        ))
+
+        val segments = route.buildSalarySegments(
+            monthOfYear = MonthOfYear(year = 2025, month = 0),
+            context = context,
+            initialTariffRatePerHour = 100.0,
+        )
+
+        assertEquals(60_000L, segments.sumOf { it.interval.durationMillis })
+        assertEquals(100.0 / 60.0, segments.sumOf(SalarySegment::tariffMoney), 0.000_001)
+    }
+
+    @Test
+    fun partiallyIntersectingBreakSubtractsOnlyItsOverlap() {
+        val start = instant(month = 1, day = 10, hour = 8)
+        val route = Route(basicData = BasicData(
+            timeStartWork = start,
+            timeEndWork = start + hour,
+            timeStartBreak = start - 30 * 60_000L,
+            timeEndBreak = start + 30 * 60_000L,
+        ))
+
+        val duration = route.buildSalarySegments(
+            monthOfYear = MonthOfYear(year = 2025, month = 0),
+            context = context,
+            initialTariffRatePerHour = 100.0,
+        ).sumOf { it.interval.durationMillis }
+
+        assertEquals(30 * 60_000L, duration)
+    }
+
+    @Test
+    fun breakOutsideRouteDoesNotReducePayableDuration() {
+        val start = instant(month = 1, day = 10, hour = 8)
+        val route = Route(basicData = BasicData(
+            timeStartWork = start,
+            timeEndWork = start + hour,
+            timeStartBreak = start + 2 * hour,
+            timeEndBreak = start + 3 * hour,
+        ))
+
+        val duration = route.buildSalarySegments(
+            monthOfYear = MonthOfYear(year = 2025, month = 0),
+            context = context,
+            initialTariffRatePerHour = 100.0,
+        ).sumOf { it.interval.durationMillis }
+
+        assertEquals(hour, duration)
+    }
 
     @Test
     fun routeIsClippedToMonthAndBreakIsSubtractedOnlyInsideMonth() {
