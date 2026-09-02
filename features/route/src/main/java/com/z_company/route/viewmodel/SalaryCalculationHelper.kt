@@ -1533,9 +1533,9 @@ class SalaryCalculationHelper(
 
     /**
      * Дополнительные 0,5/1,0 сверхурочных по фактическому хвосту месяца.
-     * Ночная надбавка уже размечена на [SalarySegment], поэтому не усредняется
-     * по дневным часам. Остальные ещё не перенесённые в сегменты выплаты пока
-     * сохраняют прежнюю среднюю часовую базу.
+     * Все существующие процентные надбавки привязаны к [SalarySegment] или к
+     * отдельному фактическому поездному сегменту. Месячное усреднение денег
+     * здесь намеренно отсутствует.
      */
     private suspend fun getExpandedOvertimePremiumMoney(): Pair<Double, Double> {
         val overtime = getTimeOvertimeFlow().first()
@@ -1592,48 +1592,17 @@ class SalaryCalculationHelper(
             tieredTrainSurcharges,
         )
 
-        val basicMoney = getBasicMoneyForOvertimeCalculation().first()
-        val tariffMoney = getMoneyAtWorkTimeAtTariff().first()
-        val passengerMoney = getMoneyAtPassengerFlow().first()
-        val singleLocomotiveMoney = getMoneyAtSingleLocomotiveFlow().first()
-        val nightMoney = getMoneyAtNightTimeFlow().first()
-        val onePersonFreightMoney = getMoneyOnePersonOperationFlow().first()
-        val onePersonPassengerMoney = getMoneyOnePersonOperationPassengerTrainFlow().first()
-        val harmfulnessMoney = getMoneyHarmfulnessFlow().first()
-        val qualificationClassMoney = getMoneyAtQualificationClassFlow().first()
-        val zonalMoney = getMoneyZonalSurchargeFlow().first()
-        val otherSurchargeMoney = getMoneyOtherSurchargeFlow().first()
-        val heavyLongDistanceMoney = getMoneyHeavyLongDistanceTrainsFlow().first()
-        val doubledTrainFirstMoney = getMoneyDoubledTrainFirstSurchargeFlow().first()
-        val doubledTrainSecondMoney = getMoneyDoubledTrainSecondSurchargeFlow().first()
-        val extendedServicePhaseMoney =
-            getMoneyListSurchargeExtendedServicePhaseFlow().first().sum()
-        val heavyTrainMoney = getMoneyListSurchargeExtendedHeavyTrainsFlow().first().sum()
-        val longTrainMoney = getMoneyListSurchargeLongTrainsFlow().first().sum()
-        val averagedOtherSurchargePerMillis =
-            (
-                    basicMoney - tariffMoney - passengerMoney - singleLocomotiveMoney - nightMoney -
-                            onePersonFreightMoney - onePersonPassengerMoney
-                            - harmfulnessMoney - qualificationClassMoney - zonalMoney -
-                            otherSurchargeMoney - heavyLongDistanceMoney -
-                            doubledTrainFirstMoney - doubledTrainSecondMoney -
-                            extendedServicePhaseMoney - heavyTrainMoney - longTrainMoney
-                    ).coerceAtLeast(0.0) /
-                    regularWorkTime
-
         val selectedHalfDuration = breakdown.halfRateSegments
             .sumOf { it.interval.durationMillis }
         val selectedFullDuration = breakdown.fullRateSegments
             .sumOf { it.interval.durationMillis }
         val fallbackPerMillis = maxOf(currentTariffRate, averagePaymentHour) /
-                HOUR_IN_MILLIS.toDouble() + averagedOtherSurchargePerMillis
+                HOUR_IN_MILLIS.toDouble()
 
         val halfMoney = breakdown.halfRateExtraMoney + halfTieredTrainBaseMoney * 0.5 +
-                selectedHalfDuration * averagedOtherSurchargePerMillis * 0.5 +
                 (halfRateDuration - selectedHalfDuration).coerceAtLeast(0L) *
                 fallbackPerMillis * 0.5
         val fullMoney = breakdown.fullRateExtraMoney + fullTieredTrainBaseMoney +
-                selectedFullDuration * averagedOtherSurchargePerMillis +
                 (fullRateDuration - selectedFullDuration).coerceAtLeast(0L) *
                 fallbackPerMillis
         return halfMoney to fullMoney
