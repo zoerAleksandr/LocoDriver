@@ -39,6 +39,9 @@ import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -50,6 +53,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
@@ -175,6 +179,9 @@ fun TrainStationTimeline(
     // Показывать бейджи «Время в пути / Уч / Техн» внутри списка. Когда false —
     // они выносятся наружу отдельными пилюлями (см. RouteSummaryRow).
     showSummary: Boolean = true,
+    // Показывать карточки перегонов между станциями (переключается кнопкой
+    // над блоком «Маршрут»).
+    showSegments: Boolean = true,
 ) {
     if (stations.isEmpty()) return
 
@@ -195,6 +202,48 @@ fun TrainStationTimeline(
             )
             .animateContentSize()
     ) {
+        // ── Шапка колонок ──
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = ContentPadding)
+                .padding(bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AnimatedVisibility(
+                visible = isAnyReordering,
+                enter = expandHorizontally(),
+                exit = shrinkHorizontally()
+            ) {
+                Spacer(modifier = Modifier.width(48.dp))
+            }
+            Spacer(modifier = Modifier.width(TimelineColumnWidth + 8.dp))
+            Text(
+                text = "СТАНЦИЯ",
+                style = ColumnHeaderStyle(),
+                color = colors.stationNameColor.copy(alpha = 0.4f),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "ПРИБ",
+                style = ColumnHeaderStyle(),
+                color = colors.stationNameColor.copy(alpha = 0.4f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(48.dp),
+            )
+            Spacer(modifier = Modifier.width(StopBadgeWidth))
+            Text(
+                text = "ОТПР",
+                style = ColumnHeaderStyle(),
+                color = colors.stationNameColor.copy(alpha = 0.4f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(48.dp),
+            )
+            if (onStationClick != null) {
+                Spacer(modifier = Modifier.width(18.dp))
+            }
+        }
+
         stations.forEachIndexed { index, station ->
             val isFirst = index == 0
             val isLast = index == stations.lastIndex
@@ -248,10 +297,10 @@ fun TrainStationTimeline(
                 }
 
                 // ── Перегон между станциями ──
-                if (!isLast) {
+                if (!isLast && showSegments) {
                     val nextStation = stations[index + 1]
                     val segment = calculateSegment(station, nextStation)
-                    SegmentRow(
+                    SegmentCard(
                         segment = segment,
                         segmentTrackNumber = nextStation.segmentTrackNumber,
                         segmentNotes = nextStation.segmentNotes,
@@ -304,6 +353,13 @@ fun TrainStationTimeline(
         }
     }
 }
+
+@Composable
+private fun ColumnHeaderStyle() = MaterialTheme.typography.labelSmall.copy(
+    fontFamily = MonoFont,
+    fontWeight = FontWeight.Medium,
+    letterSpacing = 1.sp,
+)
 
 // ─── Вычисление цвета бейджа стоянки ─────────────────────────────────────────
 
@@ -434,49 +490,57 @@ private fun StationRow(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // ── Название станции (Inter) + номер пути (Mono, идентификатор) ──
-            val stationDisplayText = buildAnnotatedString {
-                append(item.stationName.ifBlank { "—" })
-                if (!item.trackNumber.isNullOrBlank()) {
-                    append(" ")
-                    withStyle(SpanStyle(fontFamily = MonoFont)) {
-                        append("${item.trackNumber} п.")
-                    }
-                }
-            }
-            // Проходная станция — название приглушённым цветом.
+            // ── Название станции + подзаголовок (путь / «проходная») ──
             val nameColor = if (item.isPassingStation) {
                 colors.stationNameColor.copy(alpha = 0.55f)
             } else {
                 colors.stationNameColor
             }
-            Text(
-                text = stationDisplayText,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Normal,
-                color = nameColor,
-                // Длинное название с номером пути не помещается в одну строку —
-                // переносим (до 3 строк), чтобы было видно целиком.
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
+            Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(vertical = 4.dp),
-            )
+                    .padding(vertical = 6.dp)
+            ) {
+                Text(
+                    text = item.stationName.ifBlank { "—" },
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = nameColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                val subtitle = when {
+                    item.isPassingStation -> "проходная"
+                    !item.trackNumber.isNullOrBlank() -> "путь ${item.trackNumber}"
+                    else -> null
+                }
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.stationNameColor.copy(alpha = 0.5f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.width(4.dp))
 
             if (item.isPassingStation) {
-                // ── Проходная станция: одно время (проследование) по центру
-                // всей ширины, отведённой под прибытие+стоянку+отправление. ──
-                Box(
+                // ── Проходная: одно время (проследование) с меткой «просл.» ──
+                Row(
                     modifier = Modifier.width(48.dp * 2 + StopBadgeWidth),
-                    contentAlignment = Alignment.Center,
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TimeText(
-                        millis = item.timeArrival,
-                        color = colors.timeColor,
+                    Text(
+                        text = "просл.",
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = MonoFont),
+                        color = colors.timeColor.copy(alpha = 0.5f),
                     )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    TimeText(millis = item.timeArrival, color = colors.timeColor)
                 }
             } else {
                 // ── Время прибытия ──
@@ -513,14 +577,30 @@ private fun StationRow(
                     color = colors.timeColor,
                 )
             }
+
+            // ── Шеврон: строка станции кликабельна (открывает шторку) ──
+            if (onStationClick != null) {
+                Spacer(modifier = Modifier.width(2.dp))
+                Icon(
+                    painter = painterResource(com.z_company.route.R.drawable.qv_arrow_forward),
+                    contentDescription = null,
+                    tint = primaryColor.copy(alpha = 0.3f),
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
     }
 }
 
-// ─── Перегонная строка ───────────────────────────────────────────────────────
+// ─── Карточка перегона ───────────────────────────────────────────────────────
+//
+// Между станциями — самостоятельная кликабельная карточка (а не пилюля рядом с
+// временем): так видно, что перегон можно открыть и заполнить. Заполненный —
+// со сплошным фоном и иконкой локомотива, пустой — пунктирной рамкой и «+».
+// Километры и смежные пути не показываем (решение пользователя).
 
 @Composable
-private fun SegmentRow(
+private fun SegmentCard(
     segment: SegmentInfo?,
     segmentTrackNumber: String?,
     segmentNotes: String?,
@@ -528,9 +608,11 @@ private fun SegmentRow(
     isAnyReordering: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
-    val lineWidth = 2.dp
-    val hasAnyContent = (segment != null && segment.durationMillis > 0) ||
-            !segmentTrackNumber.isNullOrBlank() || !segmentNotes.isNullOrBlank()
+    val hasData = !segmentTrackNumber.isNullOrBlank() || !segmentNotes.isNullOrBlank()
+    val accent = MaterialTheme.colorScheme.tertiary
+    val primary = MaterialTheme.colorScheme.primary
+    val shape = RoundedCornerShape(12.dp)
+    val dashColor = colors.lineColor
 
     Row(
         modifier = Modifier
@@ -538,7 +620,7 @@ private fun SegmentRow(
             .height(IntrinsicSize.Min),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // ── Совпадение ширины с областью стрелок ──
+        // Совпадение ширины с областью стрелок режима перестановки.
         AnimatedVisibility(
             visible = isAnyReordering,
             enter = expandHorizontally(),
@@ -547,68 +629,119 @@ private fun SegmentRow(
             Spacer(modifier = Modifier.width(48.dp))
         }
 
-        // ── Контент перегона ──
         Row(
             modifier = Modifier
                 .weight(1f)
-                .then(
-                    if (onClick != null && !isAnyReordering) Modifier.clickable { onClick() }
-                    else Modifier
-                )
                 .padding(horizontal = ContentPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // ── Вертикальная линия (пунктирная) ──
+            // Пунктирная линия таймлайна слева — перегон это «между».
             TimelineDashedLine(
                 columnWidth = TimelineColumnWidth,
-                lineWidth = lineWidth,
+                lineWidth = 2.dp,
                 lineColor = colors.lineColor,
             )
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // ── Перегонное время / путь / примечание ──
-            FlowRow(
-                modifier = Modifier.padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 6.dp)
+                    .clip(shape)
+                    .then(
+                        if (hasData) {
+                            Modifier.background(colors.segmentBackgroundColor)
+                        } else {
+                            Modifier.drawBehind {
+                                drawRoundRect(
+                                    color = dashColor,
+                                    style = Stroke(
+                                        width = 1.dp.toPx(),
+                                        pathEffect = PathEffect.dashPathEffect(
+                                            floatArrayOf(10f, 8f), 0f
+                                        )
+                                    ),
+                                    cornerRadius = CornerRadius(12.dp.toPx()),
+                                )
+                            }
+                        }
+                    )
+                    .then(
+                        if (onClick != null && !isAnyReordering) Modifier.clickable { onClick() }
+                        else Modifier
+                    )
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (segment != null && segment.durationMillis > 0) {
-                    SegmentPill(text = formatDuration(segment.durationMillis), colors = colors)
-                }
-                if (!segmentTrackNumber.isNullOrBlank()) {
-                    SegmentPill(text = "путь $segmentTrackNumber", colors = colors)
-                }
-                if (!segmentNotes.isNullOrBlank()) {
-                    SegmentPill(text = segmentNotes, colors = colors)
-                }
-                if (!hasAnyContent && onClick != null) {
-                    Text(
-                        text = "перегон",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colors.segmentTextColor.copy(alpha = 0.5f),
+                // Иконка: локомотив у заполненного, «+» у пустого.
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (hasData) primary.copy(alpha = 0.08f)
+                            else accent.copy(alpha = 0.12f)
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            if (hasData) com.z_company.route.R.drawable.ic_card_train_ref
+                            else com.z_company.route.R.drawable.add_circle_24px
+                        ),
+                        contentDescription = null,
+                        tint = if (hasData) primary.copy(alpha = 0.7f) else accent,
+                        modifier = Modifier.size(if (hasData) 20.dp else 16.dp),
                     )
                 }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    // Строка 1: «Перегон» + время в пути (км не показываем).
+                    Text(
+                        text = buildAnnotatedString {
+                            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) {
+                                append("Перегон")
+                            }
+                            if (segment != null && segment.durationMillis > 0) {
+                                append("  ")
+                                withStyle(SpanStyle(fontFamily = MonoFont)) {
+                                    append(formatDuration(segment.durationMillis))
+                                }
+                            }
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    // Строка 2: путь и примечание, у пустого — подсказка.
+                    val detail = buildString {
+                        segmentTrackNumber?.takeIf { it.isNotBlank() }?.let { append("Путь $it") }
+                        segmentNotes?.takeIf { it.isNotBlank() }?.let {
+                            if (isNotEmpty()) append(" · ")
+                            append(it)
+                        }
+                    }
+                    Text(
+                        text = if (hasData) detail else "примечание",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (hasData) primary.copy(alpha = 0.6f) else accent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                Icon(
+                    painter = painterResource(com.z_company.route.R.drawable.qv_arrow_forward),
+                    contentDescription = null,
+                    tint = primary.copy(alpha = 0.3f),
+                    modifier = Modifier.size(16.dp),
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun SegmentPill(text: String, colors: TimelineColors) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(colors.segmentBackgroundColor)
-            .padding(horizontal = 8.dp, vertical = 3.dp),
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = colors.segmentTextColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 

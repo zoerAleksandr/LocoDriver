@@ -26,6 +26,7 @@ private const val TOKEN_SUBSCRIPTION_EXPIRATION_TAG = "TOKEN_SUBSCRIPTION_EXPIRA
 private const val TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16 =
     "TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16"
 private const val STATION_SORT_REVERSED = "STATION_SORT_REVERSED"
+private const val SHOW_SEGMENTS = "SHOW_SEGMENTS"
 private const val LAST_OTHER_WORK_TYPE_TAG = "LAST_OTHER_WORK_TYPE_TAG"
 private const val TOKEN_INPUT_DIESEL_IN_KILO = "TOKEN_INPUT_DIESEL_IN_KILO"
 private const val TOKEN_UNDERWORK_INFO_DISMISSED = "TOKEN_UNDERWORK_INFO_DISMISSED"
@@ -174,6 +175,14 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun isReversedSortStationList(): Boolean =
         sharedpref.getBoolean(STATION_SORT_REVERSED, false)
+
+    override fun setShowSegments(value: Boolean) {
+        editor.putBoolean(SHOW_SEGMENTS, value).apply()
+    }
+
+    // По умолчанию перегоны показаны.
+    override fun isShowSegments(): Boolean =
+        sharedpref.getBoolean(SHOW_SEGMENTS, true)
 
     override fun toggleInputDieselInKilo(value: Boolean) {
         editor.putBoolean(TOKEN_INPUT_DIESEL_IN_KILO, value).apply()

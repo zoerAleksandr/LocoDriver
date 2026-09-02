@@ -1787,19 +1787,47 @@ fun FormTrainScreen(
 
                     stationListState?.let { stationList ->
                         item {
-                            Text(
-                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
-                                text = "МАРШРУТ",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                    fontSize = 11.sp,
-                                    letterSpacing = androidx.compose.ui.unit.TextUnit(
-                                        1.4f,
-                                        androidx.compose.ui.unit.TextUnitType.Sp
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp, bottom = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "МАРШРУТ",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        fontSize = 11.sp,
+                                        letterSpacing = androidx.compose.ui.unit.TextUnit(
+                                            1.4f,
+                                            androidx.compose.ui.unit.TextUnitType.Sp
+                                        )
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                // Показать/скрыть карточки перегонов между станциями.
+                                IconButton(
+                                    modifier = Modifier.size(32.dp),
+                                    onClick = { viewModel.toggleSegmentsVisibility() }
+                                ) {
+                                    Icon(
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(
+                                            if (formUiState.showSegments)
+                                                com.z_company.route.R.drawable.collapse_rows_24px
+                                            else
+                                                com.z_company.route.R.drawable.expand_rows_24px
+                                        ),
+                                        contentDescription = if (formUiState.showSegments)
+                                            "Скрыть перегоны" else "Показать перегоны",
+                                        tint = if (formUiState.showSegments)
+                                            MaterialTheme.colorScheme.tertiary
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                ),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                                }
+                            }
                         }
                         item {
                             val displayList =
@@ -1810,6 +1838,7 @@ fun FormTrainScreen(
                             TrainStationTimeline(
                                 stations = timelineItems,
                                 showSummary = false,
+                                showSegments = formUiState.showSegments,
                                 modifier = Modifier
                                     .padding(top = 8.dp)
                                     .fillMaxWidth()

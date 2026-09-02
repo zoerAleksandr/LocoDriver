@@ -48,6 +48,12 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "useStandardTimePicker",
             "UserSettings" to "locomotiveSeriesList",
             "UserSettings" to "servicePhases",
+            // Найдено через Sentry: "no such column: UserSettings.stationList"
+            // (682 события у 9 пользователей). Столбец есть ещё в 1.sqm, но
+            // на БД, унаследованных от Room (таблица уже существовала), он не
+            // появлялся — тот же случай, что и
+            // SalarySetting.onePersonOperationPassengerTrainPercent ниже.
+            "UserSettings" to "stationList",
             "UserSettings" to "region",
             "UserSettings" to "isShowTrain",
             "UserSettings" to "isShowOtherWork",
@@ -308,6 +314,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.useStandardTimePicker" to ColumnSpec("INTEGER", false, "0"),
             "UserSettings.standardTimesStartWork" to ColumnSpec("TEXT", false, "'[28800000, 72000000]'"),
             "UserSettings.locomotiveSeriesList" to ColumnSpec("TEXT", false, "'[]'"),
+            "UserSettings.stationList" to ColumnSpec("TEXT", false, "'[]'"),
             "UserSettings.servicePhases" to ColumnSpec("TEXT", false, "'[]'"),
             "UserSettings.region" to ColumnSpec("TEXT", true, "NULL"),
             "UserSettings.isShowTrain" to ColumnSpec("INTEGER", false, "1"),

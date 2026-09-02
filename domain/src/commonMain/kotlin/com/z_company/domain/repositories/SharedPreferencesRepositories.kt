@@ -51,6 +51,9 @@ interface SharedPreferencesRepositories {
     fun setTokenIsLoadStationAndLocomotiveSeries(value: Boolean)
     fun toggleStationsSortOrder(value: Boolean)
     fun isReversedSortStationList(): Boolean
+    /** Показывать карточки перегонов в списке станций (кнопка над блоком «Маршрут»). */
+    fun setShowSegments(value: Boolean)
+    fun isShowSegments(): Boolean
     fun toggleInputDieselInKilo(value: Boolean)
     fun isInputDieselInKilo(): Boolean
     fun getSortOption(): String?

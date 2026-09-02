@@ -152,7 +152,8 @@ class TrainFormViewModel(
     fun loadStationsSortOrder() {
         viewModelScope.launch {
             val isReversed = sharedPreferenceStorage.isReversedSortStationList() // Используйте ваш репозиторий
-            _uiState.update { it.copy(isStationsReversed = isReversed) }
+            val showSegments = sharedPreferenceStorage.isShowSegments()
+            _uiState.update { it.copy(isStationsReversed = isReversed, showSegments = showSegments) }
         }
     }
 
@@ -1067,6 +1068,13 @@ class TrainFormViewModel(
         changesHave()
         checkFormValidStation()
         stopEditingStation()
+    }
+
+    /** Показать/скрыть карточки перегонов. Выбор запоминается между входами на экран. */
+    fun toggleSegmentsVisibility() {
+        val newValue = !_uiState.value.showSegments
+        _uiState.update { it.copy(showSegments = newValue) }
+        sharedPreferenceStorage.setShowSegments(newValue)
     }
 
     // ── Перегон (между station[afterIndex] и station[afterIndex + 1]) ──

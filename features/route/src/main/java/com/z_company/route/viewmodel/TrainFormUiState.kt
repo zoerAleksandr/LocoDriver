@@ -26,6 +26,8 @@ data class TrainFormUiState(
     // Индекс станции ПЕРЕД перегоном, который сейчас редактируется в SegmentEditBottomSheet
     // (данные перегона хранятся на station[index + 1]).
     val editingSegmentAfterIndex: Int? = null,
+    // Показывать карточки перегонов в списке станций (кнопка над блоком «Маршрут»).
+    val showSegments: Boolean = true,
     val showCreateServicePhaseSheet: Boolean = false,
     val suggestedDepartureStation: String = "",
     val suggestedArrivalStation: String = "",
