@@ -651,7 +651,10 @@ private fun SegmentCard(
                     .clip(shape)
                     .then(
                         if (hasData) {
-                            Modifier.background(colors.segmentBackgroundColor)
+                            // Не segmentBackgroundColor (полупрозрачный surface): на карточке
+                            // станций он почти не читался. surfaceBright — отдельный
+                            // непрозрачный слот, перегон видно как отдельный блок.
+                            Modifier.background(MaterialTheme.colorScheme.surfaceBright)
                         } else {
                             Modifier.drawBehind {
                                 drawRoundRect(
@@ -698,41 +701,68 @@ private fun SegmentCard(
 
                 Spacer(modifier = Modifier.width(10.dp))
 
+                // Данные разнесены по смыслу: сверху «что это и сколько ехали»,
+                // снизу — введённое пользователем (путь отдельной пилюлей,
+                // примечание — текстом). Раньше всё шло одной строкой через «·».
                 Column(modifier = Modifier.weight(1f)) {
-                    // Строка 1: «Перегон» + время в пути (км не показываем).
-                    Text(
-                        text = buildAnnotatedString {
-                            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) {
-                                append("Перегон")
-                            }
-                            if (segment != null && segment.durationMillis > 0) {
-                                append("  ")
-                                withStyle(SpanStyle(fontFamily = MonoFont)) {
-                                    append(formatDuration(segment.durationMillis))
-                                }
-                            }
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    // Строка 2: путь и примечание, у пустого — подсказка.
-                    val detail = buildString {
-                        segmentTrackNumber?.takeIf { it.isNotBlank() }?.let { append("Путь $it") }
-                        segmentNotes?.takeIf { it.isNotBlank() }?.let {
-                            if (isNotEmpty()) append(" · ")
-                            append(it)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "ПЕРЕГОН",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = MonoFont,
+                                letterSpacing = 1.sp,
+                            ),
+                            fontWeight = FontWeight.SemiBold,
+                            color = primary.copy(alpha = 0.45f),
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        if (segment != null && segment.durationMillis > 0) {
+                            Text(
+                                text = formatDuration(segment.durationMillis),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = MonoFont
+                                ),
+                                color = primary,
+                                maxLines = 1,
+                            )
                         }
                     }
-                    Text(
-                        text = if (hasData) detail else "примечание",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (hasData) primary.copy(alpha = 0.6f) else accent,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        if (!segmentTrackNumber.isNullOrBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(primary.copy(alpha = 0.10f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "$segmentTrackNumber путь",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontFamily = MonoFont
+                                    ),
+                                    color = primary.copy(alpha = 0.8f),
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                        val notes = segmentNotes?.takeIf { it.isNotBlank() }
+                        Text(
+                            text = notes ?: if (hasData) "" else "примечание",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (notes != null) primary.copy(alpha = 0.6f) else accent,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
+
+                Spacer(modifier = Modifier.width(6.dp))
 
                 Icon(
                     painter = painterResource(com.z_company.route.R.drawable.qv_arrow_forward),

@@ -316,6 +316,10 @@ fun FormTrainScreen(
                         )
                     }
                 } else null,
+                // Первая станция маршрута (либо первая добавляемая в пустой список):
+                // «конечной»/«проходной» она быть не может.
+                isFirstStation = editingIndex == 0 ||
+                        (editingIndex == -1 && stationListState.isNullOrEmpty()),
                 onSave = { name, arrival, departure, trackNumber, isFinalStation, isPassingStation ->
                     viewModel.saveStationFromSheet(
                         editingIndex, name, arrival, departure, trackNumber,

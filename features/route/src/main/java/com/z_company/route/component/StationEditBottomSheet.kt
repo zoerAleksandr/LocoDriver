@@ -75,6 +75,9 @@ fun StationEditBottomSheet(
     trainAxle: String?,
     trainConditionalLength: String?,
     onTrainDataChange: ((stationName: String?, weight: String, axle: String, conditionalLength: String) -> Unit)?,
+    // Первая станция маршрута: поезд с неё отправляется, поэтому «конечной» и
+    // «проходной» она быть не может — флажки не показываем.
+    isFirstStation: Boolean = false,
     onSave: (
         name: String?,
         arrival: Long?,
@@ -140,8 +143,7 @@ fun StationEditBottomSheet(
                 localTrackNumber.text.isBlank() &&
                 localArrival == null &&
                 localDeparture == null &&
-                !localIsFinal &&
-                !localIsPassing
+                (isFirstStation || (!localIsFinal && !localIsPassing))
         if (isNewStation && allBlank) {
             onDismiss()
         } else {
@@ -149,8 +151,10 @@ fun StationEditBottomSheet(
             val track = localTrackNumber.text.ifBlank { null }
             // Проходная станция — только время проследования (localArrival);
             // отправление не используется.
-            val departure = if (localIsPassing) null else localDeparture
-            onSave(name, localArrival, departure, track, localIsFinal, localIsPassing)
+            val isFinal = localIsFinal && !isFirstStation
+            val isPassing = localIsPassing && !isFirstStation
+            val departure = if (isPassing) null else localDeparture
+            onSave(name, localArrival, departure, track, isFinal, isPassing)
             onDismiss()
         }
     }
@@ -314,28 +318,30 @@ fun StationEditBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
             // ── Флажки «Конечная станция» / «Проходная станция» ──
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                StationFlagCheckbox(
-                    label = "Конечная",
-                    checked = localIsFinal,
-                    onCheckedChange = { localIsFinal = it },
-                    modifier = Modifier.weight(1f)
-                )
-                // Время отправления НЕ стираем при включении: пользователь может
-                // передумать и выключить флаг обратно. Отправление отбрасывается
-                // только при сохранении (см. saveAndDismiss).
-                StationFlagCheckbox(
-                    label = "Проходная",
-                    checked = localIsPassing,
-                    onCheckedChange = { localIsPassing = it },
-                    modifier = Modifier.weight(1f)
-                )
+            // У первой станции их нет: поезд с неё отправляется.
+            if (!isFirstStation) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    StationFlagCheckbox(
+                        label = "Конечная",
+                        checked = localIsFinal,
+                        onCheckedChange = { localIsFinal = it },
+                        modifier = Modifier.weight(1f)
+                    )
+                    // Время отправления НЕ стираем при включении: пользователь может
+                    // передумать и выключить флаг обратно. Отправление отбрасывается
+                    // только при сохранении (см. saveAndDismiss).
+                    StationFlagCheckbox(
+                        label = "Проходная",
+                        checked = localIsPassing,
+                        onCheckedChange = { localIsPassing = it },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(36.dp))
@@ -668,38 +674,59 @@ fun SegmentEditBottomSheet(
             Spacer(modifier = Modifier.height(10.dp))
 
             // ── Путь на перегоне ──
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(fieldShape)
-                    .background(fieldColor)
-                    .padding(horizontal = 14.dp, vertical = 9.dp)
+            // Ширина делится поровну между полем ввода и тремя кнопками
+            // римских номеров: на перегоне это самые частые значения.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                FieldLabel("Путь", primaryColor)
-                BasicTextField(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = localTrack,
-                    onValueChange = { if (it.text.length <= 4) localTrack = it },
-                    textStyle = dataTextStyle.copy(
-                        fontWeight = FontWeight.Medium,
-                        fontFamily = com.z_company.core.ui.theme.MonoFont,
-                        color = primaryColor
-                    ),
-                    cursorBrush = SolidColor(primaryColor),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
-                        imeAction = ImeAction.Next
-                    ),
-                    decorationBox = { inner ->
-                        Box(contentAlignment = Alignment.CenterStart) {
-                            if (localTrack.text.isEmpty()) {
-                                Text(text = "№", style = hintStyle, color = hintColor)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(fieldShape)
+                        .background(fieldColor)
+                        .padding(horizontal = 14.dp, vertical = 9.dp)
+                ) {
+                    FieldLabel("Путь", primaryColor)
+                    BasicTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = localTrack,
+                        onValueChange = { if (it.text.length <= 4) localTrack = it },
+                        textStyle = dataTextStyle.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = com.z_company.core.ui.theme.MonoFont,
+                            color = primaryColor
+                        ),
+                        cursorBrush = SolidColor(primaryColor),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
+                            imeAction = ImeAction.Next
+                        ),
+                        decorationBox = { inner ->
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                if (localTrack.text.isEmpty()) {
+                                    Text(text = "№", style = hintStyle, color = hintColor)
+                                }
+                                inner()
                             }
-                            inner()
                         }
-                    }
-                )
+                    )
+                }
+                listOf("I", "II", "III").forEach { numeral ->
+                    RomanTrackButton(
+                        numeral = numeral,
+                        selected = localTrack.text == numeral,
+                        onClick = {
+                            localTrack = TextFieldValue(
+                                text = numeral,
+                                selection = TextRange(numeral.length)
+                            )
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -1073,6 +1100,40 @@ private fun StationFlagCheckbox(
             color = MaterialTheme.colorScheme.primary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+// ─── Кнопка римского номера пути (шторка перегона) ───────────────────────────
+
+@Composable
+private fun RomanTrackButton(
+    numeral: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val container = if (selected) {
+        primaryColor.copy(alpha = 0.14f)
+    } else {
+        MaterialTheme.colorScheme.surfaceBright
+    }
+    Box(
+        modifier = modifier
+            .height(58.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(container)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = numeral,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontFamily = com.z_company.core.ui.theme.MonoFont
+            ),
+            fontWeight = FontWeight.SemiBold,
+            color = primaryColor,
         )
     }
 }
