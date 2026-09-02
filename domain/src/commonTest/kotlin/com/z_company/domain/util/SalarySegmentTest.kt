@@ -1,5 +1,6 @@
 package com.z_company.domain.util
 
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -7,6 +8,57 @@ import kotlin.test.assertTrue
 
 class SalarySegmentTest {
     private val hour = 3_600_000L
+
+    @Test
+    fun generatedSplitsAlwaysPreserveDurationConditionsAndMoney() {
+        val random = Random(91_152)
+        repeat(500) {
+            val start = random.nextLong(0, 10 * hour)
+            val duration = random.nextLong(1, 24 * hour)
+            val end = start + duration
+            val rate = random.nextDouble(0.0, 2_000.0)
+            val conditions = setOf(AccrualCondition.REGULAR, AccrualCondition.NIGHT)
+            val segment = SalarySegment(TimeInterval(start, end), rate, conditions)
+            val boundaries = List(8) { random.nextLong(start - hour, end + hour) }
+
+            val parts = segment.splitAt(boundaries)
+
+            assertEquals(duration, parts.sumOf { it.interval.durationMillis })
+            assertEquals(segment.tariffMoney, parts.sumOf(SalarySegment::tariffMoney), 0.000_001)
+            assertTrue(parts.all { it.conditions == conditions })
+            assertTrue(parts.zipWithNext().all { (left, right) ->
+                left.interval.endMillis == right.interval.startMillis
+            })
+        }
+    }
+
+    @Test
+    fun generatedOverlappingExclusionsNeverDuplicateOrIncreasePayableTime() {
+        val random = Random(91_153)
+        repeat(500) {
+            val duration = random.nextLong(1, 24 * hour)
+            val rate = random.nextDouble(0.0, 2_000.0)
+            val segment = SalarySegment(TimeInterval(0, duration), rate)
+            val exclusions = List(12) {
+                val first = random.nextLong(-hour, duration + hour)
+                val second = random.nextLong(first + 1, duration + 2 * hour)
+                TimeInterval(first, second)
+            }
+
+            val result = segment.subtract(exclusions)
+            val remainingDuration = result.sumOf { it.interval.durationMillis }
+
+            assertTrue(remainingDuration in 0..duration)
+            assertTrue(result.zipWithNext().all { (left, right) ->
+                left.interval.endMillis <= right.interval.startMillis
+            })
+            assertEquals(
+                remainingDuration.toDouble() * rate / hour,
+                result.sumOf(SalarySegment::tariffMoney),
+                0.000_001,
+            )
+        }
+    }
 
     @Test
     fun tariffChangeUsesOldRateBeforeBoundaryAndNewRateFromBoundary() {
