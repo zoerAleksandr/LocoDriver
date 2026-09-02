@@ -1,6 +1,7 @@
 package com.z_company.route.ui
 
 import com.z_company.domain.entities.salary.SalaryPaymentId
+import com.z_company.route.viewmodel.LinearMileageAccrual
 import com.z_company.route.viewmodel.SalaryCalculationUIState
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -101,5 +102,76 @@ class SalaryStatementRowsTest {
         )
 
         assertEquals(listOf(SalaryPaymentId.ALIMONY), rows.map { it.paymentId })
+    }
+
+    @Test
+    fun `statement snapshot contains every supported accrual in stable order`() {
+        val state = SalaryCalculationUIState(
+            paymentAtTariffMoney = 1.0,
+            paymentNightTimeMoney = 1.0,
+            paymentAtPassengerMoney = 1.0,
+            paymentAtSingleLocomotiveMoney = 1.0,
+            paymentHolidayMoney = 1.0,
+            averagePaymentMoney = 1.0,
+            underworkMoney = 1.0,
+            caringForDisableChildrenMoney = 1.0,
+            businessTripHours = 1L,
+            businessTripMoney = 1.0,
+            technicalStudyHours = 1L,
+            technicalStudyMoney = 1.0,
+            zonalSurchargePercent = 1.0,
+            zonalSurchargeMoney = 1.0,
+            surchargeQualificationClassPercent = 1.0,
+            surchargeQualificationClassMoney = 1.0,
+            linearMileageAccruals = listOf(LinearMileageAccrual("p", "Плечо", 1.0, 1.0, 1.0)),
+            onePersonOperationPercent = 1.0,
+            onePersonOperationMoney = 1.0,
+            onePersonOperationPassengerTrainPercent = 1.0,
+            onePersonOperationPassengerTrainMoney = 1.0,
+            harmfulnessSurchargePercent = 1.0,
+            harmfulnessSurchargeMoney = 1.0,
+            districtSurchargeCoefficient = 1.0,
+            districtSurchargeMoney = 1.0,
+            nordicSurchargePercent = 1.0,
+            nordicSurchargeMoney = 1.0,
+            otherSurchargePercent = 1.0,
+            otherSurchargeMoney = 1.0,
+            restInExcessOfTheNormMoney = 1.0,
+            surchargeExtendedServicePhaseHour = listOf(1L),
+            surchargeExtendedServicePhasePercent = listOf("1"),
+            surchargeExtendedServicePhaseMoney = listOf(1.0),
+            surchargeHeavyTransHour = listOf(1L),
+            surchargeHeavyTransPercent = listOf("1"),
+            surchargeHeavyTransMoney = listOf(1.0),
+            surchargeLongTrainHour = listOf(1L),
+            surchargeLongTrainPercent = listOf("1"),
+            surchargeLongTrainMoney = listOf(1.0),
+            surchargeHeavyLongDistanceTrainsMoney = 1.0,
+            surchargeDoubledTrainFirstMoney = 1.0,
+            surchargeDoubledTrainSecondMoney = 1.0,
+            paymentAtOvertimeMoney = 1.0,
+            surchargeAtOvertime05Money = 1.0,
+            surchargeAtOvertimeMoney = 1.0,
+        )
+
+        assertEquals(
+            listOf(
+                SalaryPaymentId.TARIFF, SalaryPaymentId.NIGHT, SalaryPaymentId.PASSENGER,
+                SalaryPaymentId.RESERVE, SalaryPaymentId.HOLIDAY, SalaryPaymentId.AVERAGE,
+                SalaryPaymentId.UNDERWORK, SalaryPaymentId.DISABLED_CHILD_CARE,
+                SalaryPaymentId.BUSINESS_TRIP, SalaryPaymentId.TECHNICAL_STUDY,
+                SalaryPaymentId.ZONAL, SalaryPaymentId.QUALIFICATION_CLASS,
+                SalaryPaymentId.LINEAR_MILEAGE, SalaryPaymentId.ONE_PERSON_FREIGHT,
+                SalaryPaymentId.ONE_PERSON_PASSENGER, SalaryPaymentId.HARMFULNESS,
+                SalaryPaymentId.DISTRICT, SalaryPaymentId.NORDIC,
+                SalaryPaymentId.OTHER_SURCHARGE, SalaryPaymentId.EXCESS_REST,
+                SalaryPaymentId.EXTENDED_SERVICE, SalaryPaymentId.HEAVY_TRAIN,
+                SalaryPaymentId.LONG_TRAIN, SalaryPaymentId.HEAVY_LONG_DISTANCE,
+                SalaryPaymentId.DOUBLED_TRAIN, SalaryPaymentId.DOUBLED_TRAIN,
+                SalaryPaymentId.OVERTIME_BASE, SalaryPaymentId.OVERTIME_HALF,
+                SalaryPaymentId.OVERTIME_FULL,
+            ),
+            buildAccrualRows(state).map { it.paymentId },
+        )
     }
 }
