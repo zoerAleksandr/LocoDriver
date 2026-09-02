@@ -25,6 +25,8 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(Libs.kotlinx_coroutines_core)
+        }
+        androidMain.dependencies {
             api(Libs.sentry_kmp)
         }
     }

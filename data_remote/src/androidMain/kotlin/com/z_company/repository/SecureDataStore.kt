@@ -11,7 +11,7 @@ import com.google.crypto.tink.KeyTemplates
 import com.google.crypto.tink.aead.AeadConfig
 import com.google.crypto.tink.integration.android.AndroidKeysetManager
 import com.z_company.core.sendToSentry
-import io.sentry.kotlin.multiplatform.Sentry
+import com.z_company.core.sendMessageToSentry
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.security.GeneralSecurityException
@@ -138,7 +138,7 @@ object SecureDataStore {
         val aead = getAeadWithRetry(context)
         if (aead == null) {
             Log.w(TAG, "Tink unavailable — saving auth token as plaintext fallback")
-            Sentry.captureMessage("SecureDataStore: Tink unavailable on saveAuthToken, using plaintext fallback")
+            sendMessageToSentry("SecureDataStore: Tink unavailable on saveAuthToken, using plaintext fallback")
             context.secureDataStore.edit { preferences ->
                 preferences[AUTH_TOKEN_FALLBACK_KEY] = token
             }
@@ -176,7 +176,7 @@ object SecureDataStore {
         val aead = getAeadWithRetry(context)
         if (aead == null) {
             Log.w(TAG, "Tink unavailable — saving vkId as plaintext fallback")
-            Sentry.captureMessage("SecureDataStore: Tink unavailable on saveVkId, using plaintext fallback")
+            sendMessageToSentry("SecureDataStore: Tink unavailable on saveVkId, using plaintext fallback")
             context.secureDataStore.edit { preferences ->
                 preferences[VK_ID_FALLBACK_KEY] = vkId
             }
@@ -211,7 +211,7 @@ object SecureDataStore {
         val aead = getAeadWithRetry(context)
         if (aead == null) {
             Log.w(TAG, "Tink unavailable — saving userId as plaintext fallback")
-            Sentry.captureMessage("SecureDataStore: Tink unavailable on saveUserId, using plaintext fallback")
+            sendMessageToSentry("SecureDataStore: Tink unavailable on saveUserId, using plaintext fallback")
             context.secureDataStore.edit { preferences ->
                 preferences[USER_ID_FALLBACK_KEY] = userId
             }
