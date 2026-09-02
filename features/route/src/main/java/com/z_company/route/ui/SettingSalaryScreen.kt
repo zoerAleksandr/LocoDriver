@@ -512,7 +512,7 @@ fun SettingSalaryScreen(
 
             item {
                 PayCard {
-                    PayFieldSlot("Доплата за ПДМ (6000 т. и 350 осей)", description = "От тарифа фактического интервала подходящего поезда") {
+                    PayFieldSlot("Доплата за ПДМ (>6000 т. и >350 осей)", description = "От тарифа фактического интервала подходящего поезда") {
                         AsyncDataValue(resultState = surchargeHeavyLongDistanceTrainsState) { v ->
                             v?.let {
                                 PayInput(

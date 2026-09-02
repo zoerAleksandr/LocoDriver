@@ -87,7 +87,7 @@ fun Route.buildSalarySegments(
         (train.weight?.trim()?.replace(',', '.')?.toDoubleOrNull() ?: 0.0) > 6000.0 &&
                 (train.axle?.trim()?.replace(',', '.')?.toDoubleOrNull()
                     ?.takeIf { it.isFinite() && it % 1.0 == 0.0 }
-                    ?.toInt() ?: 0) >= 350
+                    ?.toInt() ?: 0) > 350
     }
 
     val conditions = buildMap<AccrualCondition, Iterable<TimeInterval>> {

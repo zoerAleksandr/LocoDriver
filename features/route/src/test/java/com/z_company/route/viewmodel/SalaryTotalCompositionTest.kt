@@ -34,7 +34,7 @@ class SalaryTotalCompositionTest {
         val train = Train(
             number = "2503",
             weight = "7000",
-            axle = "350",
+            axle = "351",
             conditionalLength = "90",
             doubledTrain = TrainAssist(isFirst = true),
             stations = mutableListOf(

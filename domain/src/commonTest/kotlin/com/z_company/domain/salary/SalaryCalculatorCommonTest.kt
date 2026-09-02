@@ -70,7 +70,7 @@ class SalaryCalculatorCommonTest {
                 Train(
                     number = "2503",
                     weight = "7000",
-                    axle = "350",
+                    axle = "351",
                     conditionalLength = "90",
                     doubledTrain = TrainAssist(isFirst = true),
                     stations = mutableListOf(Station(timeDeparture = instant(8)), Station(timeArrival = instant(12))),

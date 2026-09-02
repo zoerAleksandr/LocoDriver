@@ -1089,7 +1089,7 @@ internal fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRo
 
     uiState.surchargeHeavyLongDistanceTrainsMoney?.takeIf { it > 0 }?.let {
         AccrualRow(
-            SalaryPaymentId.HEAVY_LONG_DISTANCE, "Доплата за ПДМ (6000 т. и 350 осей)",
+            SalaryPaymentId.HEAVY_LONG_DISTANCE, "Доплата за ПДМ (>6000 т. и >350 осей)",
             uiState.surchargeHeavyLongDistanceTrainsHours,
             uiState.surchargeHeavyLongDistanceTrainsPercent,
             it

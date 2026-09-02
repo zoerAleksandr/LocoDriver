@@ -28,7 +28,7 @@ class HeavyLongDistanceSegmentIntegrationTest {
     private fun instant(day: Int, hour: Int): Long =
         LocalDateTime(2025, 1, day, hour, 0).toInstant(moscow).toEpochMilliseconds()
 
-    private fun helper(weight: String, axle: String = "350"): SalaryCalculationHelper {
+    private fun helper(weight: String, axle: String = "351"): SalaryCalculationHelper {
         val start = instant(day = 10, hour = 22)
         val end = instant(day = 11, hour = 3)
         val route = Route(
@@ -86,10 +86,18 @@ class HeavyLongDistanceSegmentIntegrationTest {
     }
 
     @Test
-    fun fewerThanThreeHundredFiftyAxlesDoesNotQualify() = runTest {
-        val helper = helper(weight = "6000,5", axle = "349")
+    fun exactlyThreeHundredFiftyAxlesDoesNotQualify() = runTest {
+        val helper = helper(weight = "6000,5", axle = "350")
 
         assertEquals(0L, helper.getTimeHeavyLongDistanceTrainsFlow().first())
         assertEquals(0.0, helper.getMoneyHeavyLongDistanceTrainsFlow().first(), 0.001)
+    }
+
+    @Test
+    fun threeHundredFiftyOneAxlesQualifies() = runTest {
+        val helper = helper(weight = "6000,5", axle = "351")
+
+        assertEquals(3 * hour, helper.getTimeHeavyLongDistanceTrainsFlow().first())
+        assertEquals(25.0, helper.getMoneyHeavyLongDistanceTrainsFlow().first(), 0.001)
     }
 }
