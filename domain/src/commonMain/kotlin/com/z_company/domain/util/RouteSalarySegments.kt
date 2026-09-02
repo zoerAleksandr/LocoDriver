@@ -137,6 +137,7 @@ fun Route.buildTieredTrainSurchargeSegments(
     initialTariffRatePerHour: Double,
     thresholds: List<Int>,
     condition: AccrualCondition,
+    thresholdIsInclusive: Boolean = true,
     tariffChanges: Iterable<TariffChange> = emptyList(),
     valueOf: (Train) -> Int?,
 ): List<List<SalarySegment>> {
@@ -160,7 +161,10 @@ fun Route.buildTieredTrainSurchargeSegments(
         val upper = thresholds.getOrNull(index + 1)
         trainIntervals(workInterval) { train ->
             val value = valueOf(train) ?: return@trainIntervals false
-            value >= lower && (upper == null || value < upper)
+            val reachesLowerBound = if (thresholdIsInclusive) value >= lower else value > lower
+            val staysBelowNextTier = upper == null ||
+                    if (thresholdIsInclusive) value < upper else value <= upper
+            reachesLowerBound && staysBelowNextTier
         }
     }
     val selectedByTier = MutableList(thresholds.size) { emptyList<TimeInterval>() }

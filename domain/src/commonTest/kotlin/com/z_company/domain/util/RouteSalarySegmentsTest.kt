@@ -266,6 +266,37 @@ class RouteSalarySegmentsTest {
     }
 
     @Test
+    fun strictTrainThresholdStartsOnlyAboveEnteredConditionalLength() {
+        val start = instant(month = 1, day = 10, hour = 8)
+        fun train(length: String, fromHour: Int, toHour: Int) = Train(
+            conditionalLength = length,
+            stations = mutableListOf(
+                Station(timeDeparture = start + fromHour * hour),
+                Station(timeArrival = start + toHour * hour),
+            ),
+        )
+        val route = Route(
+            basicData = BasicData(timeStartWork = start, timeEndWork = start + 4 * hour),
+            trains = mutableListOf(
+                train(length = "80", fromHour = 0, toHour = 2),
+                train(length = "81", fromHour = 2, toHour = 4),
+            ),
+        )
+
+        val tier = route.buildTieredTrainSurchargeSegments(
+            monthOfYear = MonthOfYear(year = 2025, month = 0),
+            context = context,
+            initialTariffRatePerHour = 100.0,
+            thresholds = listOf(80),
+            condition = AccrualCondition.LONG_TRAIN,
+            thresholdIsInclusive = false,
+            valueOf = { it.conditionalLength?.toIntOrNull() },
+        ).single()
+
+        assertEquals(2 * hour, tier.sumOf { it.interval.durationMillis })
+    }
+
+    @Test
     fun tieredTrainSurchargeRejectsAmbiguousThresholdOrder() {
         val route = Route(
             basicData = BasicData(

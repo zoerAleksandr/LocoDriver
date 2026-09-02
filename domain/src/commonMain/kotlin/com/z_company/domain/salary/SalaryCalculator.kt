@@ -272,6 +272,7 @@ class SalaryCalculationHelper(
         routes: List<Route>,
         thresholds: List<Int>,
         condition: AccrualCondition,
+        thresholdIsInclusive: Boolean = true,
         valueOf: (com.z_company.domain.entities.route.Train) -> Int?,
     ): List<List<com.z_company.domain.util.SalarySegment>> {
         val result = MutableList(thresholds.size) {
@@ -294,6 +295,7 @@ class SalaryCalculationHelper(
                 initialTariffRatePerHour = initialRate,
                 thresholds = thresholds,
                 condition = condition,
+                thresholdIsInclusive = thresholdIsInclusive,
                 tariffChanges = changes,
                 valueOf = valueOf,
             ).forEachIndexed { index, segments -> result[index].addAll(segments) }
@@ -313,7 +315,9 @@ class SalaryCalculationHelper(
             val routeDistance = route.trains.sumOf { train ->
                 train.distance?.toFiniteDoubleOrNull()?.takeIf { it > 0.0 } ?: 0.0
             }
-            val tierIndex = thresholds.indexOfLast { threshold -> routeDistance >= threshold }
+            // В памятке пороги плеча заданы как «свыше N км»: равенство
+            // введённому значению ещё не включает соответствующую ступень.
+            val tierIndex = thresholds.indexOfLast { threshold -> routeDistance > threshold }
             if (tierIndex >= 0) {
                 result[tierIndex].addAll(
                     salarySegments(listOf(route))
@@ -341,6 +345,7 @@ class SalaryCalculationHelper(
             routes = routeList,
             thresholds = long.mapNotNull { it.conditionalLength.toExactIntOrNull() },
             condition = AccrualCondition.LONG_TRAIN,
+            thresholdIsInclusive = false,
             valueOf = { it.conditionalLength?.toExactIntOrNull() },
         ).flatMapIndexed { index, segments ->
             val percent = long[index].percentSurcharge.toDoubleOrZero()
@@ -806,6 +811,7 @@ class SalaryCalculationHelper(
             routes = routes,
             thresholds = thresholds,
             condition = AccrualCondition.LONG_TRAIN,
+            thresholdIsInclusive = false,
             valueOf = { it.conditionalLength?.toExactIntOrNull() },
         ).map { segments ->
             segments.filter { AccrualCondition.PASSENGER !in it.conditions }
@@ -824,6 +830,7 @@ class SalaryCalculationHelper(
             routes = routeList,
             thresholds = thresholds,
             condition = AccrualCondition.LONG_TRAIN,
+            thresholdIsInclusive = false,
             valueOf = { it.conditionalLength?.toExactIntOrNull() },
         )
         emit(segmentsByTier.mapIndexed { index, segments ->
@@ -1674,4 +1681,3 @@ class SalaryCalculationHelper(
     private fun basicSurchargeSegments(routes: List<Route> = routeList) = salarySegments(routes)
         .filter { AccrualCondition.PASSENGER !in it.conditions }
 }
-

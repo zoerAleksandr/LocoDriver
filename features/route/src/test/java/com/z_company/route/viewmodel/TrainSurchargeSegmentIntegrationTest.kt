@@ -75,7 +75,7 @@ class TrainSurchargeSegmentIntegrationTest {
     fun heavyAndLongSurchargesUseTrainIntervalBreakPassengerAndTariffBoundary() = runTest {
         val train = Train(
             weight = "6000",
-            conditionalLength = "80",
+            conditionalLength = "81",
             stations = mutableListOf(
                 Station(timeDeparture = instant(day = 10, hour = 22, minute = 30)),
                 Station(timeArrival = instant(day = 11, hour = 2, minute = 30)),
@@ -87,6 +87,37 @@ class TrainSurchargeSegmentIntegrationTest {
         assertEquals(listOf(35.0), helper.getMoneyListSurchargeExtendedHeavyTrainsFlow().first())
         assertEquals(listOf(2 * hour), helper.getTimeListSurchargeLongTrainsFlow().first())
         assertEquals(listOf(70.0), helper.getMoneyListSurchargeLongTrainsFlow().first())
+    }
+
+    @Test
+    fun longTrainSurchargeStartsOnlyAboveConfiguredBoundary() = runTest {
+        fun helperFor(length: String) = helper(
+            train = Train(
+                conditionalLength = length,
+                stations = mutableListOf(
+                    Station(timeDeparture = instant(day = 10, hour = 22, minute = 30)),
+                    Station(timeArrival = instant(day = 11, hour = 2, minute = 30)),
+                ),
+            ),
+            heavy = emptyList(),
+        )
+
+        assertEquals(
+            listOf(0L),
+            helperFor("80").getTimeListSurchargeLongTrainsFlow().first(),
+        )
+        assertEquals(
+            listOf(0.0),
+            helperFor("80").getMoneyListSurchargeLongTrainsFlow().first(),
+        )
+        assertEquals(
+            listOf(2 * hour),
+            helperFor("81").getTimeListSurchargeLongTrainsFlow().first(),
+        )
+        assertEquals(
+            listOf(70.0),
+            helperFor("81").getMoneyListSurchargeLongTrainsFlow().first(),
+        )
     }
 
     @Test
