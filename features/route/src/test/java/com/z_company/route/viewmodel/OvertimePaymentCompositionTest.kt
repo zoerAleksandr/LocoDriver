@@ -12,6 +12,7 @@ import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.TrainAssist
 import com.z_company.domain.entities.setting.SalarySetting
+import com.z_company.domain.entities.setting.SurchargeHeavyTrains
 import com.z_company.domain.entities.setting.UserSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -420,6 +421,56 @@ class OvertimePaymentCompositionTest {
         // 30% сдвоенного поезда в полной ступени.
         assertEquals(200.0, helper.getMoneySurchargeOvertime05Flow().first(), 0.001)
         assertEquals(1_040.0, helper.getMoneySurchargeOvertimeFlow().first(), 0.001)
+    }
+
+    @Test
+    fun tieredHeavyTrainPremiumUsesTierOfActualOvertimeSegment() = runTest {
+        fun route(day: Int, weight: String) = Route(
+            basicData = BasicData(
+                timeStartWork = instant(day, 8),
+                timeEndWork = instant(day, 12),
+            ),
+            trains = mutableListOf(Train(
+                weight = weight,
+                stations = mutableListOf(
+                    Station(timeDeparture = instant(day, 8)),
+                    Station(timeArrival = instant(day, 12)),
+                ),
+            )),
+        )
+        val helper = SalaryCalculationHelper(
+            userSettings = UserSettings(
+                selectMonthOfYear = MonthOfYear(
+                    year = 2025,
+                    month = 0,
+                    tariffRate = 200.0,
+                    dateSetTariffRate = DateSetTariffRate(dateNewRate = 15, oldRate = 100.0),
+                    days = emptyList(),
+                ),
+                timeZone = 0L,
+            ),
+            salarySetting = SalarySetting(
+                surchargeHeavyTrainsList = listOf(
+                    SurchargeHeavyTrains(weight = "6000", percentSurcharge = "10"),
+                ),
+                surchargeLongTrainsList = emptyList(),
+                surchargeExtendedServicePhaseList = emptyList(),
+                zonalSurcharge = 0.0,
+                harmfulnessPercent = 0.0,
+                nightTimePercent = 0.0,
+            ),
+            allRoutes = listOf(
+                route(day = 5, weight = "5999"),
+                route(day = 20, weight = "6000"),
+            ),
+        )
+
+        assertEquals(
+            listOf(80.0),
+            helper.getMoneyListSurchargeExtendedHeavyTrainsFlow().first(),
+        )
+        assertEquals(200.0, helper.getMoneySurchargeOvertime05Flow().first(), 0.001)
+        assertEquals(880.0, helper.getMoneySurchargeOvertimeFlow().first(), 0.001)
     }
 
     @Test

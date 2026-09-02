@@ -57,6 +57,11 @@ data class LinearMileageAccrual(
     val money: Double,
 )
 
+private data class RatedSalarySegment(
+    val segment: com.z_company.domain.util.SalarySegment,
+    val percent: Double,
+)
+
 private const val HOUR_IN_MILLIS = 3_600_000L
 private const val TWO_HOURS_IN_MILLIS = 2 * HOUR_IN_MILLIS
 private const val ANNUAL_OVERTIME_THRESHOLD_IN_MILLIS = 120 * HOUR_IN_MILLIS
@@ -316,6 +321,52 @@ class SalaryCalculationHelper(
             }
         }
         return result
+    }
+
+    private fun tieredTrainOvertimeSurchargeSegments(): List<RatedSalarySegment> {
+        val heavy = validHeavyTrainSurcharges(salarySetting.surchargeHeavyTrainsList)
+        val heavySegments = tieredTrainSurchargeSegments(
+            routes = routeList,
+            thresholds = heavy.mapNotNull { it.weight.toExactIntOrNull() },
+            condition = AccrualCondition.HEAVY_TRAIN,
+            valueOf = { it.weight?.toExactIntOrNull() },
+        ).flatMapIndexed { index, segments ->
+            val percent = heavy[index].percentSurcharge.toDoubleOrZero()
+            segments.map { RatedSalarySegment(it, percent) }
+        }
+
+        val long = validLongTrainSurcharges(salarySetting.surchargeLongTrainsList)
+        val longSegments = tieredTrainSurchargeSegments(
+            routes = routeList,
+            thresholds = long.mapNotNull { it.conditionalLength.toExactIntOrNull() },
+            condition = AccrualCondition.LONG_TRAIN,
+            valueOf = { it.conditionalLength?.toExactIntOrNull() },
+        ).flatMapIndexed { index, segments ->
+            val percent = long[index].percentSurcharge.toDoubleOrZero()
+            segments.map { RatedSalarySegment(it, percent) }
+        }
+
+        val extended = validExtendedServicePhaseSurcharges(
+            salarySetting.surchargeExtendedServicePhaseList,
+        )
+        val extendedSegments = extendedServicePhaseSegments(routeList, extended)
+            .flatMapIndexed { index, segments ->
+                val percent = extended[index].percentSurcharge.toDoubleOrZero()
+                segments.map { RatedSalarySegment(it, percent) }
+            }
+        return heavySegments + longSegments + extendedSegments
+    }
+
+    private fun overtimeSurchargeBaseMoney(
+        overtimeSegments: List<com.z_company.domain.util.SalarySegment>,
+        ratedSegments: List<RatedSalarySegment>,
+    ): Double = overtimeSegments.sumOf { overtimeSegment ->
+        ratedSegments.sumOf { rated ->
+            val duration = overtimeSegment.interval.intersect(rated.segment.interval)
+                ?.durationMillis ?: 0L
+            duration.toDouble() * overtimeSegment.tariffRatePerHour /
+                    HOUR_IN_MILLIS * rated.percent / 100.0
+        }
     }
 
     fun getWorkTimeAtTariffFlow(): Flow<Long> {
@@ -1531,6 +1582,15 @@ class SalaryCalculationHelper(
                 AccrualCondition.DOUBLED_TRAIN_SECOND to 15.0,
             ),
         )
+        val tieredTrainSurcharges = tieredTrainOvertimeSurchargeSegments()
+        val halfTieredTrainBaseMoney = overtimeSurchargeBaseMoney(
+            breakdown.halfRateSegments,
+            tieredTrainSurcharges,
+        )
+        val fullTieredTrainBaseMoney = overtimeSurchargeBaseMoney(
+            breakdown.fullRateSegments,
+            tieredTrainSurcharges,
+        )
 
         val basicMoney = getBasicMoneyForOvertimeCalculation().first()
         val tariffMoney = getMoneyAtWorkTimeAtTariff().first()
@@ -1544,13 +1604,18 @@ class SalaryCalculationHelper(
         val heavyLongDistanceMoney = getMoneyHeavyLongDistanceTrainsFlow().first()
         val doubledTrainFirstMoney = getMoneyDoubledTrainFirstSurchargeFlow().first()
         val doubledTrainSecondMoney = getMoneyDoubledTrainSecondSurchargeFlow().first()
+        val extendedServicePhaseMoney =
+            getMoneyListSurchargeExtendedServicePhaseFlow().first().sum()
+        val heavyTrainMoney = getMoneyListSurchargeExtendedHeavyTrainsFlow().first().sum()
+        val longTrainMoney = getMoneyListSurchargeLongTrainsFlow().first().sum()
         val averagedOtherSurchargePerMillis =
             (
                     basicMoney - tariffMoney - nightMoney -
                             onePersonFreightMoney - onePersonPassengerMoney
                             - harmfulnessMoney - qualificationClassMoney - zonalMoney -
                             otherSurchargeMoney - heavyLongDistanceMoney -
-                            doubledTrainFirstMoney - doubledTrainSecondMoney
+                            doubledTrainFirstMoney - doubledTrainSecondMoney -
+                            extendedServicePhaseMoney - heavyTrainMoney - longTrainMoney
                     ).coerceAtLeast(0.0) /
                     regularWorkTime
 
@@ -1561,11 +1626,11 @@ class SalaryCalculationHelper(
         val fallbackPerMillis = maxOf(currentTariffRate, averagePaymentHour) /
                 HOUR_IN_MILLIS.toDouble() + averagedOtherSurchargePerMillis
 
-        val halfMoney = breakdown.halfRateExtraMoney +
+        val halfMoney = breakdown.halfRateExtraMoney + halfTieredTrainBaseMoney * 0.5 +
                 selectedHalfDuration * averagedOtherSurchargePerMillis * 0.5 +
                 (halfRateDuration - selectedHalfDuration).coerceAtLeast(0L) *
                 fallbackPerMillis * 0.5
-        val fullMoney = breakdown.fullRateExtraMoney +
+        val fullMoney = breakdown.fullRateExtraMoney + fullTieredTrainBaseMoney +
                 selectedFullDuration * averagedOtherSurchargePerMillis +
                 (fullRateDuration - selectedFullDuration).coerceAtLeast(0L) *
                 fallbackPerMillis
