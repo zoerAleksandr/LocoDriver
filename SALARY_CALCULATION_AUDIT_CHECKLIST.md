@@ -65,7 +65,9 @@
 
 ## Основные файлы реализации
 
+- `domain/src/commonMain/kotlin/com/z_company/domain/salary/SalaryCalculator.kt`
 - `features/route/src/main/java/com/z_company/route/viewmodel/SalaryCalculationHelper.kt`
+  (тонкий фасад совместимости Android)
 - `features/route/src/main/java/com/z_company/route/viewmodel/SalaryCalculationViewModel.kt`
 - `features/route/src/main/java/com/z_company/route/viewmodel/FormViewModel.kt`
 - `features/route/src/main/java/com/z_company/route/viewmodel/SettingSalaryViewModel.kt`
@@ -77,14 +79,15 @@
 - `domain/src/commonMain/kotlin/com/z_company/domain/entities/setting/SalarySetting.kt`
 - `data_local/src/commonMain/kotlin/com/z_company/data_local/setting/SqlDelightSalarySettingRepository.kt`
 
-`domain/.../SalaryCalculationUseCase.kt` помечен `НЕ ИСПОЛЬЗУЕТСЯ` и содержит
-устаревшие формулы и неверные единицы измерения. Не подключать его к iOS или новой
-реализации. После появления единого KMP-калькулятора удалить либо полностью
-заменить этот класс отдельным согласованным изменением.
+Прежний неиспользуемый `domain/.../SalaryCalculationUseCase.kt` с устаревшими
+формулами и неверными единицами измерения удалён после переноса действующего
+расчётчика в `domain/commonMain`.
 
 ## Целевая архитектура расчёта
 
-- [ ] Создать единственный KMP-калькулятор в `domain/commonMain` без Android API.
+- [x] Создать единственный KMP-калькулятор в `domain/commonMain` без Android API.
+  Android использует тип-алиас и делегирующие функции без собственной формулы;
+  прежняя параллельная реализация удалена.
 - [x] Представлять расчёт как набор временных сегментов с началом, концом,
   часовым поясом и набором действующих условий.
 - [x] Разрезать сегменты на границах месяца, тарифа, командировки, праздника,
@@ -354,7 +357,10 @@
 
 ### Уровни тестов
 
-- [ ] Чистые unit-тесты доменного калькулятора без Android/Koin/БД.
+- [x] Чистые unit-тесты доменного калькулятора без Android/Koin/БД: отсутствие
+  условий и одновременная композиция начислений проверяются в `commonTest` на
+  JVM и iOS Simulator; детальная матрица сохраняется в Android unit-тестах того
+  же KMP-класса.
 - [x] Детерминированные property-based тесты инвариантов времени и денег для
   разрезания сегментов и перекрывающихся исключений.
 - [x] Нативный SQLDelight round-trip покрывает все столбцы настроек зарплаты,

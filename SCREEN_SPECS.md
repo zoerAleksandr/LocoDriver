@@ -1308,6 +1308,11 @@ Full-replace `GET/POST /v1/partners/`: POST если локально есть �
 границам. Пороги плеча проходят ту же проверку положительных целых значений,
 числовую сортировку и устранение дубликатов, что пороги массы и длины.
 
+- **Расчётчик**: единственная реализация `domain/salary/SalaryCalculator.kt`
+  находится в `domain/commonMain` и не зависит от Android API. Android-файл
+  `SalaryCalculationHelper.kt` оставлен только как фасад совместимости и не
+  содержит формул; удалённый старый `SalaryCalculationUseCase` не используется.
+  Общий расчётчик проверяется `commonTest` на JVM и iOS Simulator.
 - **ViewModel**: `SalaryCalculationViewModel`. Реактивно пересчитывает при смене
   месяца (`selectYearAndMonth` пишет месяц в настройки) и настроек зарплаты. Каждая
   строка считается отдельным `set…Data(helper) → PartialState`, результаты
@@ -2723,7 +2728,7 @@ STATION_LIST/SERIES_EDITOR_{id}/STATION_EDITOR_{id}).
 | 9 Все маршруты | `AllRouteScreen.kt` | `all_route_view_model/AllRouteViewModel.kt` |
 | 9.1 Быстрый просмотр | `component/RouteQuickViewSheet.kt` | — (использует `AllRouteViewModel`/`HomeViewModel`/`CalendarViewModel`) |
 | 10 Поиск | `SearchScreen.kt` | `SearchViewModel.kt` |
-| 11 Расчёт зарплаты | `SalaryCalculationScreen.kt` | `SalaryCalculationViewModel.kt` + `SalaryCalculationHelper.kt` |
+| 11 Расчёт зарплаты | `SalaryCalculationScreen.kt` | `SalaryCalculationViewModel.kt` + KMP `domain/salary/SalaryCalculator.kt` |
 | 12 Настройки зарплаты | `SettingSalaryScreen.kt` | `SettingSalaryViewModel.kt` |
 | 13 Статистика | `StatisticsScreen.kt` | `StatisticsViewModel.kt` (`StatisticsUiState`, `StatFormat`) |
 | 14 Календарь | `CalendarScreen.kt` | `CalendarViewModel.kt` |
