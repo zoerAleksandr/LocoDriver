@@ -18,8 +18,8 @@ import kotlin.test.assertNull
 class CrossMonthTimezoneTest {
     private val hour = 3_600_000L
 
-    private fun utc(year: Int = 2025, month: Int, day: Int, hour: Int): Long =
-        LocalDateTime(year, month, day, hour, 0)
+    private fun utc(year: Int = 2025, month: Int, day: Int, hour: Int, minute: Int = 0): Long =
+        LocalDateTime(year, month, day, hour, minute)
             .toInstant(TimeZone.UTC)
             .toEpochMilliseconds()
 
@@ -135,5 +135,35 @@ class CrossMonthTimezoneTest {
         val february = route.clipToMonth(MonthOfYear(year = 2025, month = 1), utcMinusFive)!!
         assertEquals(hour, january.second - january.first)
         assertEquals(hour, february.second - february.first)
+    }
+
+    @Test
+    fun extremeAndFractionalFixedOffsetsClipWithoutLosingTime() {
+        // Настройка хранит разницу относительно Москвы (UTC+3):
+        // UTC-12 = -15 ч, UTC+14 = +11 ч; также проверяем +05:30 и +05:45.
+        val offsetsFromMoscow = listOf(
+            -15 * hour,
+            11 * hour,
+            2 * hour + 30 * 60_000L,
+            2 * hour + 45 * 60_000L,
+        )
+
+        offsetsFromMoscow.forEach { offsetFromMoscow ->
+            val context = TimeCalculationContext.from(UserSettings(
+                timeZone = offsetFromMoscow,
+                crossMonthTimezone = CrossMonthTimezone.LOCAL,
+            ))
+            val utcOffset = 3 * hour + offsetFromMoscow
+            val localMidnightUtc = utc(2025, 2, 1, 0) - utcOffset
+            val route = Route(basicData = BasicData(
+                timeStartWork = localMidnightUtc - hour,
+                timeEndWork = localMidnightUtc + hour,
+            ))
+
+            val january = route.clipToMonth(MonthOfYear(year = 2025, month = 0), context)!!
+            val february = route.clipToMonth(MonthOfYear(year = 2025, month = 1), context)!!
+            assertEquals(hour, january.second - january.first, "offset=$offsetFromMoscow")
+            assertEquals(hour, february.second - february.first, "offset=$offsetFromMoscow")
+        }
     }
 }
