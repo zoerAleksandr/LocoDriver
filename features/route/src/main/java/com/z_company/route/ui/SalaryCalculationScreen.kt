@@ -710,7 +710,11 @@ private enum class ColType { NAME, VALUE, MONEY }
 
 private data class CellVal(val text: String, val faint: Boolean = false)
 
-private data class PayColumn(val header: String, val type: ColType)
+private data class PayColumn(
+    val header: String,
+    val type: ColType,
+    val alignStart: Boolean = type == ColType.NAME,
+)
 
 @Composable
 private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) {
@@ -838,7 +842,7 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
             ) {
                 Spacer(modifier = Modifier.width(leadInset))
                 columns.forEachIndexed { c, col ->
-                    HeaderCell(text = col.header, width = display[c], type = col.type)
+                    HeaderCell(text = col.header, width = display[c], alignStart = col.alignStart)
                 }
                 Spacer(modifier = Modifier.width(trailInset))
             }
@@ -849,7 +853,7 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
                 Row(modifier = Modifier.horizontalScroll(scroll)) {
                     Spacer(modifier = Modifier.width(leadInset))
                     columns.forEachIndexed { c, col ->
-                        DataCell(cell = row[c], width = display[c], type = col.type)
+                        DataCell(cell = row[c], width = display[c], type = col.type, alignStart = col.alignStart)
                     }
                     Spacer(modifier = Modifier.width(trailInset))
                 }
@@ -865,23 +869,23 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
 }
 
 @Composable
-private fun HeaderCell(text: String, width: Dp, type: ColType) {
+private fun HeaderCell(text: String, width: Dp, alignStart: Boolean) {
     Box(
         modifier = Modifier.width(width).padding(horizontal = 4.dp),
-        contentAlignment = if (type == ColType.NAME) Alignment.CenterStart else Alignment.CenterEnd,
+        contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.CenterEnd,
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
-            textAlign = if (type == ColType.NAME) TextAlign.Start else TextAlign.End,
+            textAlign = if (alignStart) TextAlign.Start else TextAlign.End,
         )
     }
 }
 
 @Composable
-private fun DataCell(cell: CellVal, width: Dp, type: ColType) {
+private fun DataCell(cell: CellVal, width: Dp, type: ColType, alignStart: Boolean) {
     val style = when (type) {
         ColType.NAME -> MaterialTheme.typography.bodyMedium
         ColType.VALUE -> MaterialTheme.typography.bodyMedium.copy(
@@ -898,7 +902,7 @@ private fun DataCell(cell: CellVal, width: Dp, type: ColType) {
     }
     Box(
         modifier = Modifier.width(width).padding(horizontal = 4.dp, vertical = 13.dp),
-        contentAlignment = if (type == ColType.NAME) Alignment.CenterStart else Alignment.CenterEnd,
+        contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.CenterEnd,
     ) {
         Text(
             text = cell.text,
@@ -908,7 +912,7 @@ private fun DataCell(cell: CellVal, width: Dp, type: ColType) {
             // названия («Надбавка за класс квалификации») не обрезаются многоточием.
             maxLines = if (type == ColType.NAME) 3 else 1,
             overflow = TextOverflow.Ellipsis,
-            textAlign = if (type == ColType.NAME) TextAlign.Start else TextAlign.End,
+            textAlign = if (alignStart) TextAlign.Start else TextAlign.End,
         )
     }
 }
@@ -954,7 +958,7 @@ private fun AccrualsCard(
     convertTimeToStringFormat: (Long?) -> String,
 ) {
     val columns = listOf(
-        PayColumn("КОД", ColType.VALUE),
+        PayColumn("КОД", ColType.VALUE, alignStart = true),
         PayColumn("ВИД ВЫПЛАТЫ", ColType.NAME),
         PayColumn("ЧАСЫ", ColType.VALUE),
         PayColumn("%", ColType.VALUE),
@@ -985,7 +989,7 @@ private fun AccrualsCard(
 @Composable
 private fun DeductionsCard(uiState: SalaryCalculationUIState) {
     val columns = listOf(
-        PayColumn("КОД", ColType.VALUE),
+        PayColumn("КОД", ColType.VALUE, alignStart = true),
         PayColumn("ВИД УДЕРЖАНИЯ", ColType.NAME),
         PayColumn("%", ColType.VALUE),
         PayColumn("СУММА", ColType.MONEY),
