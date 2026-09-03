@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#26b7f2">
+  <title>Машинист — расчётный лист</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header no-print">
+    <strong>Машинист</strong>
+    <nav aria-label="Разделы">
+      <button class="tab active" data-view="statement">Расчётный лист</button>
+      <button class="tab" data-view="codes">Расшифровать код</button>
+      <button class="tab" data-view="data">Данные</button>
+    </nav>
+  </header>
+  <main>
+    <section id="statement" class="view active">
+      <div class="toolbar no-print">
+        <div><h1>Расчётный лист</h1><p>Расчёт выполняется общим модулем Android, iOS и PWA.</p></div>
+        <button id="print" class="primary" disabled>Сформировать PDF</button>
+      </div>
+      <div id="empty" class="info">Загрузите экспортированные данные маршрутов и настроек в разделе «Данные». Они сохранятся только в этом браузере.</div>
+      <article id="sheet" class="sheet" hidden>
+        <h2 id="period"></h2>
+        <div class="summary"><span>Оклад/тариф: <b id="tariff"></b></span><span>Норма часов: <b id="norma"></b></span><span>Всего отработано: <b id="worked"></b></span></div>
+        <div class="tables">
+          <section><h3>Начислено</h3><div class="table-scroll"><table><thead><tr><th>Код</th><th>Вид выплаты</th><th>Часы</th><th>%</th><th>Сумма</th></tr></thead><tbody id="accruals"></tbody></table></div></section>
+          <section><h3>Удержано</h3><div class="table-scroll"><table><thead><tr><th>Код</th><th>Вид удержания</th><th>%</th><th>Сумма</th></tr></thead><tbody id="deductions"></tbody></table></div></section>
+        </div>
+        <div class="totals"><div><span>Всего начислено</span><b id="total-accrued"></b></div><div><span>Всего удержано</span><b id="total-deducted"></b></div><div class="payable"><span>К перечислению</span><b id="payable"></b></div></div>
+      </article>
+    </section>
+    <section id="codes" class="view">
+      <h1>Начисления и удержания</h1>
+      <label class="search"><span aria-hidden="true">⌕</span><input id="code-query" type="search" placeholder="Расшифровать код" autocomplete="off"></label>
+      <div class="info">Введите код, служебное название или слова из расшифровки любого удержания или начисления.</div>
+      <p id="found"></p><div id="catalog" class="catalog"></div>
+    </section>
+    <section id="data" class="view">
+      <h1>Данные расчёта</h1>
+      <div class="info">Вставьте JSON с полями <code>userSettings</code>, <code>salarySetting</code>, <code>routes</code>, <code>effectiveNormaHours</code> и <code>annualOvertimeBeforePeriod</code>. Формат совпадает с моделями приложения; данные не отправляются в сеть.</div>
+      <label for="payload">Экспорт расчёта</label><textarea id="payload" spellcheck="false" placeholder="{ ... }"></textarea>
+      <div class="actions"><label class="file">Открыть файл<input id="file" type="file" accept="application/json,.json"></label><button id="calculate" class="primary">Рассчитать</button><button id="clear" class="danger">Удалить данные</button></div>
+      <p id="status" role="status"></p>
+    </section>
+  </main>
+  <script src="vendor/js-joda.min.js"></script><script>globalThis['@js-joda/core']=globalThis.JSJoda;</script>
+  <script src="vendor/kotlin-kotlin-stdlib.js"></script><script src="vendor/kotlin-kotlinx-atomicfu-runtime-js-ir.js"></script><script src="vendor/88b0986a7186d029-atomicfu-js-ir.js"></script>
+  <script src="vendor/kotlinx-serialization-kotlinx-serialization-core.js"></script><script src="vendor/kotlinx-serialization-kotlinx-serialization-json.js"></script><script src="vendor/kotlinx.coroutines-kotlinx-coroutines-core-js-ir.js"></script><script src="vendor/Kotlin-DateTime-library-kotlinx-datetime.js"></script><script src="vendor/LocoDriver-core.js"></script><script src="vendor/LocoDriver-domain.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

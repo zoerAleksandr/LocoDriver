@@ -44,6 +44,15 @@ plugins.withType<YarnPlugin>().configureEach {
     }
 }
 
+tasks.register<Sync>("preparePwa") {
+    dependsOn(":domain:jsBrowserProductionLibraryDistribution")
+    into(layout.projectDirectory.dir("pwa/vendor"))
+    from(layout.projectDirectory.dir("domain/build/dist/js/productionLibrary")) {
+        include("*.js")
+    }
+    from(layout.buildDirectory.file("js/node_modules/@js-joda/core/dist/js-joda.min.js"))
+}
+
 
 // Добавление значений в Manifest Placeholders.
 vkidManifestPlaceholders {
