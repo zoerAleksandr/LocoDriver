@@ -88,6 +88,7 @@ class SalaryStatementRowsTest {
             rows.map { it.paymentId },
         )
         assertEquals(listOf(1.0, 2.0, 4.0, 5.0, 3.0), rows.map { it.money })
+        assertEquals("НДФЛ", rows.first().title)
         assertEquals(13.0, rows.first().percent)
     }
 

@@ -718,7 +718,9 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
     val density = LocalDensity.current
     // Ширина карточки ≈ ширина экрана минус горизонтальные отступы LazyColumn (16+16).
     val cardWidth = LocalConfiguration.current.screenWidthDp.dp - 32.dp
-    val leadInset = 16.dp
+    // Код — первый полезный столбец карточки, поэтому не дублируем здесь
+    // стандартный 16 dp отступ самой карточки.
+    val leadInset = 10.dp
     val trailInset = 16.dp
 
     val nameStyle = MaterialTheme.typography.bodyMedium
@@ -985,6 +987,7 @@ private fun DeductionsCard(uiState: SalaryCalculationUIState) {
     val columns = listOf(
         PayColumn("КОД", ColType.VALUE),
         PayColumn("ВИД УДЕРЖАНИЯ", ColType.NAME),
+        PayColumn("%", ColType.VALUE),
         PayColumn("СУММА", ColType.MONEY),
     )
     val rows = buildDeductionRows(uiState).map { row ->
@@ -992,6 +995,7 @@ private fun DeductionsCard(uiState: SalaryCalculationUIState) {
         listOf(
             CellVal(payment.codeLabel, faint = payment.codes.isEmpty()),
             CellVal(row.title),
+            CellVal(row.percent?.let { formatPercent(it) } ?: "—", faint = row.percent == null),
             CellVal(formatMoney(row.money)),
         )
     }
@@ -1123,7 +1127,7 @@ internal data class DeductionRow(
 )
 
 internal fun buildDeductionRows(uiState: SalaryCalculationUIState): List<DeductionRow> = listOfNotNull(
-    uiState.retentionNdfl?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.NDFL, "НДФЛ (13 %)", 13.0, it) },
+    uiState.retentionNdfl?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.NDFL, "НДФЛ", 13.0, it) },
     uiState.unionistsRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.UNION, "Профсоюз", null, it) },
     uiState.welfareRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.WELFARE, "Благосостояние", null, it) },
     uiState.alimonyRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.ALIMONY, "Алименты", null, it) },
