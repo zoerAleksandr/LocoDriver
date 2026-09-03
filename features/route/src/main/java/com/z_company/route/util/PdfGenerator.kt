@@ -1090,6 +1090,29 @@ class PdfGenerator(private val context: Context) {
         val amount: String,
     )
 
+    private data class StatementColumns(
+        val start: Float,
+        val monthEnd: Float,
+        val nameEnd: Float,
+        val codeEnd: Float,
+        val hoursEnd: Float,
+        val percentEnd: Float,
+        val end: Float,
+    )
+
+    private fun statementColumns(start: Float, width: Float, accrual: Boolean): StatementColumns {
+        val monthEnd = start + 48f
+        val codeWidth = 32f
+        val hoursWidth = if (accrual) 38f else 0f
+        val percentWidth = if (accrual) 32f else 0f
+        val amountWidth = 58f
+        val nameEnd = start + width - codeWidth - hoursWidth - percentWidth - amountWidth
+        val codeEnd = nameEnd + codeWidth
+        val hoursEnd = codeEnd + hoursWidth
+        val percentEnd = hoursEnd + percentWidth
+        return StatementColumns(start, monthEnd, nameEnd, codeEnd, hoursEnd, percentEnd, start + width)
+    }
+
     /** Чёрно-белая форма расчётного листка по структуре ФТУ-69. */
     private fun drawSalary(pm: PageManager, s: SalaryCalculationUIState, monthLabel: String = "") {
         payCurrency = s.currency
@@ -1165,13 +1188,50 @@ class PdfGenerator(private val context: Context) {
     private fun drawStatementColumnsHeader(pm: PageManager) {
         val split = ml + contentWidth * 0.58f
         val bottom = pm.y + 35f
+        val labelsTop = pm.y + 15f
+        val left = statementColumns(ml, split - ml, accrual = true)
+        val right = statementColumns(split, ml + contentWidth - split, accrual = false)
         pm.canvas.drawRect(ml, pm.y, ml + contentWidth, bottom, paintTableBorder)
         pm.canvas.drawLine(split, pm.y, split, bottom, paintTableBorder)
         drawCentered(pm.canvas, "Начислено", (ml + split) / 2f, pm.y + 11f, paintBodyBold)
         drawCentered(pm.canvas, "Удержано и перечислено", (split + ml + contentWidth) / 2f, pm.y + 11f, paintBodyBold)
-        pm.canvas.drawText("Мес   вид оплаты              код     часы     %       сумма", ml + 3f, pm.y + 27f, paintSmall)
-        pm.canvas.drawText("Мес   вид удержания             код             сумма", split + 3f, pm.y + 27f, paintSmall)
+        drawColumnLines(pm.canvas, left, labelsTop, bottom, accrual = true)
+        drawColumnLines(pm.canvas, right, labelsTop, bottom, accrual = false)
+        drawColumnHeader(pm.canvas, left, pm.y + 27f, "Вид выплаты", accrual = true)
+        drawColumnHeader(pm.canvas, right, pm.y + 27f, "Вид удержания", accrual = false)
         pm.y = bottom
+    }
+
+    private fun drawColumnHeader(
+        canvas: Canvas,
+        columns: StatementColumns,
+        baseline: Float,
+        name: String,
+        accrual: Boolean,
+    ) {
+        drawCentered(canvas, "Месяц", (columns.start + columns.monthEnd) / 2f, baseline, paintSmall)
+        drawCentered(canvas, name, (columns.monthEnd + columns.nameEnd) / 2f, baseline, paintSmall)
+        drawCentered(canvas, "Код", (columns.nameEnd + columns.codeEnd) / 2f, baseline, paintSmall)
+        if (accrual) {
+            drawCentered(canvas, "Часы", (columns.codeEnd + columns.hoursEnd) / 2f, baseline, paintSmall)
+            drawCentered(canvas, "%", (columns.hoursEnd + columns.percentEnd) / 2f, baseline, paintSmall)
+        }
+        drawCentered(canvas, "Сумма", (columns.percentEnd + columns.end) / 2f, baseline, paintSmall)
+    }
+
+    private fun drawColumnLines(
+        canvas: Canvas,
+        columns: StatementColumns,
+        top: Float,
+        bottom: Float,
+        accrual: Boolean,
+    ) {
+        val boundaries = if (accrual) {
+            listOf(columns.monthEnd, columns.nameEnd, columns.codeEnd, columns.hoursEnd, columns.percentEnd)
+        } else {
+            listOf(columns.monthEnd, columns.nameEnd, columns.codeEnd)
+        }
+        boundaries.forEach { canvas.drawLine(it, top, it, bottom, paintTableBorder) }
     }
 
     private fun drawStatementPair(
@@ -1184,11 +1244,16 @@ class PdfGenerator(private val context: Context) {
         val top = pm.y
         val bottom = top + height
         val split = ml + contentWidth * 0.58f
+        val leftColumns = statementColumns(ml, split - ml, accrual = true)
+        val rightColumns = statementColumns(split, ml + contentWidth - split, accrual = false)
         pm.canvas.drawLine(ml, top, ml, bottom, paintTableBorder)
         pm.canvas.drawLine(split, top, split, bottom, paintTableBorder)
         pm.canvas.drawLine(ml + contentWidth, top, ml + contentWidth, bottom, paintTableBorder)
-        left?.let { drawStatementRow(pm.canvas, month, it, ml, split - ml, top, accrual = true) }
-        right?.let { drawStatementRow(pm.canvas, month, it, split, ml + contentWidth - split, top, accrual = false) }
+        drawColumnLines(pm.canvas, leftColumns, top, bottom, accrual = true)
+        drawColumnLines(pm.canvas, rightColumns, top, bottom, accrual = false)
+        left?.let { drawStatementRow(pm.canvas, month, it, leftColumns, top, accrual = true) }
+        right?.let { drawStatementRow(pm.canvas, month, it, rightColumns, top, accrual = false) }
+        pm.canvas.drawLine(ml, bottom, ml + contentWidth, bottom, paintTableBorder)
         pm.y = bottom
     }
 
@@ -1196,38 +1261,27 @@ class PdfGenerator(private val context: Context) {
         canvas: Canvas,
         month: String,
         row: StatementRow,
-        x: Float,
-        width: Float,
+        columns: StatementColumns,
         top: Float,
         accrual: Boolean,
     ) {
-        val monthW = if (accrual) 43f else 38f
-        val codeW = 34f
-        val hoursW = if (accrual) 38f else 0f
-        val percentW = if (accrual) 34f else 0f
-        val amountW = if (accrual) 55f else 58f
-        val nameW = width - monthW - codeW - hoursW - percentW - amountW - 8f
         val baseline = top + 11f
-        canvas.drawText(month, x + 3f, baseline, paintSmall)
-        val nameX = x + monthW
-        drawWrapped(canvas, row.name, nameX, baseline, nameW, paintSmall)
-        var cursor = nameX + nameW + 2f
-        canvas.drawText(row.code, cursor, baseline, paintSmall)
-        cursor += codeW
+        drawCentered(canvas, month, (columns.start + columns.monthEnd) / 2f, baseline, paintSmall)
+        drawWrapped(canvas, row.name, columns.monthEnd + 3f, baseline, columns.nameEnd - columns.monthEnd - 6f, paintSmall)
+        drawCentered(canvas, row.code, (columns.nameEnd + columns.codeEnd) / 2f, baseline, paintSmall)
         if (accrual) {
-            drawRight(canvas, row.hours, cursor + hoursW - 2f, baseline, paintSmall)
-            cursor += hoursW
-            drawRight(canvas, row.percent, cursor + percentW - 2f, baseline, paintSmall)
-            cursor += percentW
+            drawRight(canvas, row.hours, columns.hoursEnd - 3f, baseline, paintSmall)
+            drawRight(canvas, row.percent, columns.percentEnd - 3f, baseline, paintSmall)
         }
-        drawRight(canvas, row.amount, x + width - 3f, baseline, paintSmall)
+        drawRight(canvas, row.amount, columns.end - 3f, baseline, paintSmall)
     }
 
     private fun statementRowHeight(row: StatementRow?, accrual: Boolean): Float {
         if (row == null) return 18f
         val sideWidth = contentWidth * if (accrual) 0.58f else 0.42f
-        val fixed = if (accrual) 43f + 34f + 38f + 34f + 55f + 8f else 38f + 34f + 58f + 8f
-        val lines = wrapText(row.name, paintSmall, (sideWidth - fixed).coerceAtLeast(30f)).size
+        val columns = statementColumns(0f, sideWidth, accrual)
+        val nameWidth = columns.nameEnd - columns.monthEnd - 6f
+        val lines = wrapText(row.name, paintSmall, nameWidth.coerceAtLeast(30f)).size
         return maxOf(18f, lines * 9f + 6f)
     }
 
