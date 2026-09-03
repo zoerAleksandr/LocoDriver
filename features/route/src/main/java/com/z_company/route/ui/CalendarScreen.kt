@@ -293,7 +293,21 @@ fun CalendarScreen(
                         snackbarScope.launch { runCatching { action() } }
                     }
                 }
-            }
+        }
+    }
+
+    state.operationMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = { Text("Подождите") },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    Text(message, modifier = Modifier.padding(start = 16.dp))
+                }
+            },
+        )
     }
 
     Scaffold(

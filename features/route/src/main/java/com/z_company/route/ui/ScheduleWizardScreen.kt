@@ -197,6 +197,23 @@ fun ScheduleWizardScreen(
     onPurchasesClick: () -> Unit = {},
 ) {
     val cs = MaterialTheme.colorScheme
+
+    if (state.isSaving) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = { Text("Создаём маршруты") },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    Text(
+                        "Это может занять несколько секунд",
+                        modifier = Modifier.padding(start = 16.dp),
+                    )
+                }
+            },
+        )
+    }
     var timePickerFor by remember { mutableStateOf<String?>(null) }
     var patternToDelete by remember { mutableStateOf<SchedulePattern?>(null) }
 
@@ -907,8 +924,12 @@ private fun Step2(
         modifier = Modifier.padding(start = 2.dp, bottom = 12.dp),
     )
     FlowDayGrid(daysInMonth = state.daysInMonth, selected = state.firstDay, onSelect = onSetFirstDay)
-
-    Spacer(Modifier.height(22.dp))
+    Spacer(Modifier.height(24.dp))
+    ExtendToNextMonthCheckbox(
+        checked = state.extendToNextMonth,
+        onCheckedChange = onSetExtendToNextMonth,
+    )
+    Spacer(Modifier.height(4.dp))
     val shiftCount = state.preview.count { it != ShiftKind.OFF }
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
@@ -919,19 +940,28 @@ private fun Step2(
         Text("$shiftCount смен", fontSize = 12.sp, fontFamily = MonoFont, color = cs.onSurfaceVariant)
     }
     PreviewGrid(state.preview)
-    Spacer(Modifier.height(16.dp))
+}
+
+@Composable
+private fun ExtendToNextMonthCheckbox(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable { onSetExtendToNextMonth(!state.extendToNextMonth) }
+            .clickable { onCheckedChange(!checked) }
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(
-            checked = state.extendToNextMonth,
-            onCheckedChange = onSetExtendToNextMonth,
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.size(24.dp),
         )
+        Spacer(Modifier.width(12.dp))
         Text(
             "Продлить на следующий месяц",
             fontSize = 14.sp,
