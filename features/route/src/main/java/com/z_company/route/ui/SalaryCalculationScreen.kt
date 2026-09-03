@@ -132,7 +132,9 @@ fun SalaryCalculationScreen(
                 title = {
                     Surface(
                         onClick = { isCodeSearchActive = true },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = 12.dp),
                         shape = RoundedCornerShape(12.dp),
                         color = Color.Transparent,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
@@ -363,7 +365,7 @@ private fun PayrollCodeSearchScreen(
                         text = "Введите код, служебное название или слова из расшифровки любого удержания или начисления.",
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -613,6 +615,7 @@ private fun SalaryHero(amount: Double?, currency: String, totalWorkTime: String)
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalArrangement = Arrangement.spacedBy(12.dp),
+            itemVerticalAlignment = Alignment.Bottom,
             maxItemsInEachRow = 2,
         ) {
             Column {
@@ -643,12 +646,12 @@ private fun SalaryHero(amount: Double?, currency: String, totalWorkTime: String)
                     )
                 }
             }
-            Column(horizontalAlignment = Alignment.Start) {
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "ВСЕГО ОТРАБОТАНО",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Start,
+                    textAlign = TextAlign.End,
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
@@ -658,7 +661,7 @@ private fun SalaryHero(amount: Double?, currency: String, totalWorkTime: String)
                         fontWeight = FontWeight.Bold,
                     ),
                     color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Start,
+                    textAlign = TextAlign.End,
                 )
             }
         }
@@ -1122,9 +1125,9 @@ internal data class DeductionRow(
 internal fun buildDeductionRows(uiState: SalaryCalculationUIState): List<DeductionRow> = listOfNotNull(
     uiState.retentionNdfl?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.NDFL, "НДФЛ (13 %)", 13.0, it) },
     uiState.unionistsRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.UNION, "Профсоюз", null, it) },
-    uiState.otherRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.OTHER_DEDUCTION, "Прочие удержания", null, it) },
     uiState.welfareRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.WELFARE, "Благосостояние", null, it) },
     uiState.alimonyRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.ALIMONY, "Алименты", null, it) },
+    uiState.otherRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.OTHER_DEDUCTION, "Прочие удержания", null, it) },
 )
 
 private fun formatPercent(value: Double): String = "%.1f".format(value).replace('.', ',')
@@ -1202,9 +1205,6 @@ internal fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRo
     uiState.nordicSurchargePercent?.let {
         AccrualRow(SalaryPaymentId.NORDIC, "Северная надбавка", null, it, uiState.nordicSurchargeMoney)
     },
-    uiState.otherSurchargePercent?.let {
-        AccrualRow(SalaryPaymentId.OTHER_SURCHARGE, "Прочие надбавки", null, it, uiState.otherSurchargeMoney)
-    },
     uiState.restInExcessOfTheNormMoney?.takeIf { it > 0 }?.let {
         AccrualRow(SalaryPaymentId.EXCESS_REST, "Переотдых", uiState.restInExcessOfTheNormTime, null, it)
     },
@@ -1281,5 +1281,10 @@ internal fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRo
     },
     uiState.surchargeAtOvertimeMoney?.takeIf { it > 0 }?.let {
         AccrualRow(SalaryPaymentId.OVERTIME_FULL, "Доплата за сверхурочные (100%)", uiState.surchargeAtOvertimeHours, 100.0, it)
+    },
+
+    // Пользовательские суммы всегда завершают список штатных начислений.
+    uiState.otherSurchargePercent?.let {
+        AccrualRow(SalaryPaymentId.OTHER_SURCHARGE, "Прочие надбавки", null, it, uiState.otherSurchargeMoney)
     },
 ).filter { it.money != null && it.money > 0 }

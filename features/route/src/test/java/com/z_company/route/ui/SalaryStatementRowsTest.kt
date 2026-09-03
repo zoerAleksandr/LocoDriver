@@ -81,13 +81,13 @@ class SalaryStatementRowsTest {
             listOf(
                 SalaryPaymentId.NDFL,
                 SalaryPaymentId.UNION,
-                SalaryPaymentId.OTHER_DEDUCTION,
                 SalaryPaymentId.WELFARE,
                 SalaryPaymentId.ALIMONY,
+                SalaryPaymentId.OTHER_DEDUCTION,
             ),
             rows.map { it.paymentId },
         )
-        assertEquals(listOf(1.0, 2.0, 3.0, 4.0, 5.0), rows.map { it.money })
+        assertEquals(listOf(1.0, 2.0, 4.0, 5.0, 3.0), rows.map { it.money })
         assertEquals(13.0, rows.first().percent)
     }
 
@@ -164,12 +164,12 @@ class SalaryStatementRowsTest {
                 SalaryPaymentId.LINEAR_MILEAGE, SalaryPaymentId.ONE_PERSON_FREIGHT,
                 SalaryPaymentId.ONE_PERSON_PASSENGER, SalaryPaymentId.HARMFULNESS,
                 SalaryPaymentId.DISTRICT, SalaryPaymentId.NORDIC,
-                SalaryPaymentId.OTHER_SURCHARGE, SalaryPaymentId.EXCESS_REST,
+                SalaryPaymentId.EXCESS_REST,
                 SalaryPaymentId.EXTENDED_SERVICE, SalaryPaymentId.HEAVY_TRAIN,
                 SalaryPaymentId.LONG_TRAIN, SalaryPaymentId.HEAVY_LONG_DISTANCE,
                 SalaryPaymentId.DOUBLED_TRAIN, SalaryPaymentId.DOUBLED_TRAIN,
                 SalaryPaymentId.OVERTIME_BASE, SalaryPaymentId.OVERTIME_HALF,
-                SalaryPaymentId.OVERTIME_FULL,
+                SalaryPaymentId.OVERTIME_FULL, SalaryPaymentId.OTHER_SURCHARGE,
             ),
             buildAccrualRows(state).map { it.paymentId },
         )
