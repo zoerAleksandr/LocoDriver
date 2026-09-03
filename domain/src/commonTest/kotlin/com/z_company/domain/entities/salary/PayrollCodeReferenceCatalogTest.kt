@@ -30,14 +30,13 @@ class PayrollCodeReferenceCatalogTest {
         assertEquals(listOf("365P"), PayrollCodeReferenceCatalog.search("премзасодейстизобррацион").map { it.code })
         assertTrue(PayrollCodeReferenceCatalog.search("стоимости бытового топлива").any { it.code == "501Z" })
         assertEquals(67, PayrollCodeReferenceCatalog.search("удержание").size)
-        assertEquals(10, PayrollCodeReferenceCatalog.search("0342").size)
+        assertTrue(PayrollCodeReferenceCatalog.search("0342").isEmpty())
     }
 
     @Test
     fun search_requires_all_terms_even_when_they_come_from_different_parameters() {
-        val crossFieldResults = PayrollCodeReferenceCatalog.search("0342 бытового топлива")
-        assertTrue(crossFieldResults.any { it.code == "501Z" })
-        assertTrue(crossFieldResults.all { it.source == "0342" })
+        val crossFieldResults = PayrollCodeReferenceCatalog.search("501z бытового топлива")
+        assertEquals(listOf("501Z"), crossFieldResults.map { it.code })
         assertTrue(PayrollCodeReferenceCatalog.search("несуществующий код").isEmpty())
     }
 
@@ -47,5 +46,21 @@ class PayrollCodeReferenceCatalogTest {
 
         assertEquals(2, results.size)
         assertEquals(setOf("0339", "0340"), results.map { it.source }.toSet())
+    }
+
+    @Test
+    fun entries_are_sorted_by_type_then_numeric_code() {
+        val entries = PayrollCodeReferenceCatalog.entries
+        val firstDeduction = entries.indexOfFirst { it.type == PayrollPaymentType.DEDUCTION }
+
+        assertEquals(218, firstDeduction)
+        assertTrue(entries.take(firstDeduction).all { it.type == PayrollPaymentType.ACCRUAL })
+        assertTrue(entries.drop(firstDeduction).all { it.type == PayrollPaymentType.DEDUCTION })
+        listOf(entries.take(firstDeduction), entries.drop(firstDeduction)).forEach { group ->
+            val numericParts = group.map {
+                it.code.takeWhile(Char::isDigit).toIntOrNull() ?: Int.MAX_VALUE
+            }
+            assertEquals(numericParts.sorted(), numericParts)
+        }
     }
 }

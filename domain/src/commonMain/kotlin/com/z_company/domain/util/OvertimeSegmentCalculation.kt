@@ -77,10 +77,10 @@ fun selectLatestOvertimeSegments(
     overtimeDurationMillis: Long,
 ): List<SalarySegment> {
     require(overtimeDurationMillis >= 0L) { "Overtime duration must be non-negative" }
-    val eligible = workSegments
+    val eligible = normalizeOverlappingSegments(
+        workSegments
         .filterNot { it.interval.isEmpty || AccrualCondition.HOLIDAY in it.conditions }
-        .sortedBy { it.interval.startMillis }
-        .also(::requireNonOverlapping)
+    )
     var remaining = minOf(
         overtimeDurationMillis,
         eligible.sumOf { it.interval.durationMillis },
@@ -123,10 +123,10 @@ fun calculateOvertimeBreakdown(
         }
     }
 
-    val overtimeSegments = segments
+    val overtimeSegments = normalizeOverlappingSegments(
+        segments
         .filterNot { it.interval.isEmpty || AccrualCondition.HOLIDAY in it.conditions }
-        .sortedBy { it.interval.startMillis }
-        .also(::requireNonOverlapping)
+    )
         .map { it.copy(conditions = it.conditions + AccrualCondition.OVERTIME) }
 
     var halfRateRemaining = minOf(
@@ -170,10 +170,43 @@ fun calculateOvertimeBreakdown(
     )
 }
 
-private fun requireNonOverlapping(segments: List<SalarySegment>) {
-    segments.zipWithNext().forEach { (previous, next) ->
-        require(previous.interval.endMillis <= next.interval.startMillis) {
-            "Overtime segments must not overlap"
+/**
+ * Защищает расчёт от пересекающихся маршрутов. На каждом атомарном интервале
+ * остаётся одна ставка (максимальная из действующих), а условия объединяются.
+ * Так ошибочные пересечения не удваивают часы и не могут уронить приложение.
+ */
+private fun normalizeOverlappingSegments(segments: Iterable<SalarySegment>): List<SalarySegment> {
+    val source = segments.filterNot { it.interval.isEmpty }.toList()
+    if (source.isEmpty()) return emptyList()
+    val boundaries = source
+        .flatMap { listOf(it.interval.startMillis, it.interval.endMillis) }
+        .distinct()
+        .sorted()
+    val atomic = boundaries.zipWithNext().mapNotNull { (start, end) ->
+        val active = source.filter {
+            it.interval.startMillis < end && it.interval.endMillis > start
         }
+        if (active.isEmpty()) return@mapNotNull null
+        val representative = active.maxBy { it.tariffRatePerHour }
+        representative.copy(
+            interval = TimeInterval(start, end),
+            conditions = active.flatMapTo(mutableSetOf()) { it.conditions },
+        )
+    }
+    return atomic.fold(mutableListOf()) { result, segment ->
+        val previous = result.lastOrNull()
+        if (
+            previous != null &&
+            previous.interval.endMillis == segment.interval.startMillis &&
+            previous.tariffRatePerHour == segment.tariffRatePerHour &&
+            previous.conditions == segment.conditions
+        ) {
+            result[result.lastIndex] = previous.copy(
+                interval = TimeInterval(previous.interval.startMillis, segment.interval.endMillis),
+            )
+        } else {
+            result += segment
+        }
+        result
     }
 }

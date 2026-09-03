@@ -200,7 +200,13 @@ fun SalaryCalculationScreen(
                 }
 
                 // Hero — крупная сумма «К выдаче»
-                item { SalaryHero(amount = uiState.toBeCredited, currency = uiState.currency) }
+                item {
+                    SalaryHero(
+                        amount = uiState.toBeCredited,
+                        currency = uiState.currency,
+                        totalWorkTime = viewModel.convertTimeToStringFormat(uiState.totalWorkTime),
+                    )
+                }
 
                 // Предупреждение о неустановленной тарифной ставке
                 item {
@@ -424,12 +430,6 @@ private fun PayrollCodeReferenceCard(item: PayrollCodeReference) {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = item.description, style = MaterialTheme.typography.bodyMedium)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Источник: IMG_${item.source}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
@@ -599,38 +599,64 @@ private fun SalaryMonthSheet(
 // Hero — «К ВЫДАЧЕ · МЕСЯЦ» + крупная mono-сумма
 // ===========================================
 @Composable
-private fun SalaryHero(amount: Double?, currency: String) {
+private fun SalaryHero(amount: Double?, currency: String, totalWorkTime: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 16.dp)
     ) {
         // Месяц вынесен в отдельный переключатель над Hero, поэтому здесь — только «К ВЫДАЧЕ».
-        Text(
-            text = "К ВЫДАЧЕ",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = formatMoney(amount),
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-1.5).sp,
-                ),
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-            )
-            Text(
-                text = " $currency",
-                style = MaterialTheme.typography.displayMedium.copy(
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "К ВЫДАЧЕ",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = formatMoney(amount),
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontSize = 34.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = (-1.5).sp,
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = " $currency",
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "ВСЕГО ОТРАБОТАНО",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = totalWorkTime,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontFamily = MonoFont,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.End,
+                )
+            }
         }
     }
 }

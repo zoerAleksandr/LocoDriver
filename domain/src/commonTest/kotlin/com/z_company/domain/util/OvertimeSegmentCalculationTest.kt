@@ -92,7 +92,7 @@ class OvertimeSegmentCalculationTest {
     }
 
     @Test
-    fun rejectsInvalidPercentDurationAndOverlappingSegments() {
+    fun rejectsInvalidPercentAndDuration() {
         assertFailsWith<IllegalArgumentException> {
             calculateOvertimeBreakdown(listOf(segment(0, 1)), -1L)
         }
@@ -105,12 +105,28 @@ class OvertimeSegmentCalculationTest {
                 )
             }
         }
-        assertFailsWith<IllegalArgumentException> {
-            calculateOvertimeBreakdown(
-                listOf(segment(0, 2), segment(1, 3)),
-                hour,
-            )
-        }
+    }
+
+    @Test
+    fun overlappingRoutesAreNormalizedWithoutDuplicatingTimeOrCrashing() {
+        val selected = selectLatestOvertimeSegments(
+            workSegments = listOf(
+                segment(0, 3, tariff = 100.0),
+                segment(1, 4, tariff = 120.0, conditions = arrayOf(AccrualCondition.NIGHT)),
+            ),
+            overtimeDurationMillis = 4 * hour,
+        )
+        val result = calculateOvertimeBreakdown(
+            segments = selected,
+            halfRateDurationMillis = 2 * hour,
+            conditionPercents = mapOf(AccrualCondition.NIGHT to 40.0),
+        )
+
+        assertEquals(4 * hour, selected.sumOf { it.interval.durationMillis })
+        assertEquals(listOf(TimeInterval(0, hour), TimeInterval(hour, 4 * hour)), selected.map { it.interval })
+        assertEquals(listOf(100.0, 120.0), selected.map { it.tariffRatePerHour })
+        assertEquals(460.0, result.ordinaryTariffMoney, 0.001)
+        assertTrue(result.totalMoney.isFinite())
     }
 
     @Test

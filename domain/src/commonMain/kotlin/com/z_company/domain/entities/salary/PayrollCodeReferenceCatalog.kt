@@ -295,6 +295,10 @@ object PayrollCodeReferenceCatalog {
         PayrollCodeReference("0341", PayrollPaymentType.ACCRUAL, "272N", "ЕдинПоощрРабВсвязЮбилДат50к", "Единовременное поощрение работникам в связи с юбилейными датами"),
         PayrollCodeReference("0341", PayrollPaymentType.ACCRUAL, "289P", "ДопПрЛБКнигЗамечанПрМесСу", "Дополнительная премия локомотивным бригадам по результатам работы с книгой замечаний формы ТУ-137 в филиалах ОАО \"РЖД\" за прошедший месяц"),
         PayrollCodeReference("0341", PayrollPaymentType.ACCRUAL, "292A", "ДоплЗаУченуюСтепеньФактВр", "Доплата специалистам и руководителям, имеющим ученую степень"),
+    ).sortedWith(
+        compareBy<PayrollCodeReference> { it.type.ordinal }
+            .thenBy { numericCodePart(it.code) }
+            .thenBy { it.code },
     )
 
     fun search(query: String): List<PayrollCodeReference> {
@@ -303,8 +307,6 @@ object PayrollCodeReferenceCatalog {
 
         return entries.filter { entry ->
             val searchableText = buildString {
-                append(entry.source)
-                append(' ')
                 append(entry.code)
                 append(' ')
                 append(entry.shortName)
@@ -342,4 +344,7 @@ object PayrollCodeReferenceCatalog {
             )
         }
     }
+
+    private fun numericCodePart(code: String): Int =
+        code.takeWhile(Char::isDigit).toIntOrNull() ?: Int.MAX_VALUE
 }

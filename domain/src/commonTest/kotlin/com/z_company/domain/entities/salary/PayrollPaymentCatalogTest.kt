@@ -29,9 +29,9 @@ class PayrollPaymentCatalogTest {
         assertEquals("072L", PayrollPaymentCatalog[SalaryPaymentId.OVERTIME_BASE].codeLabel)
         assertEquals("073L", PayrollPaymentCatalog[SalaryPaymentId.OVERTIME_HALF].codeLabel)
         assertEquals("073M", PayrollPaymentCatalog[SalaryPaymentId.OVERTIME_FULL].codeLabel)
-        assertEquals("151L/151P", PayrollPaymentCatalog[SalaryPaymentId.EXTENDED_SERVICE].codeLabel)
-        assertEquals("152L/152P", PayrollPaymentCatalog[SalaryPaymentId.HEAVY_TRAIN].codeLabel)
-        assertEquals("152L/152P", PayrollPaymentCatalog[SalaryPaymentId.LONG_TRAIN].codeLabel)
+        assertEquals("151L", PayrollPaymentCatalog[SalaryPaymentId.EXTENDED_SERVICE].codeLabel)
+        assertEquals("152L", PayrollPaymentCatalog[SalaryPaymentId.HEAVY_TRAIN].codeLabel)
+        assertEquals("152L", PayrollPaymentCatalog[SalaryPaymentId.LONG_TRAIN].codeLabel)
         assertEquals("158L", PayrollPaymentCatalog[SalaryPaymentId.DOUBLED_TRAIN].codeLabel)
         assertEquals("153L", PayrollPaymentCatalog[SalaryPaymentId.ONE_PERSON_FREIGHT].codeLabel)
         assertEquals("153L", PayrollPaymentCatalog[SalaryPaymentId.ONE_PERSON_PASSENGER].codeLabel)
@@ -65,6 +65,21 @@ class PayrollPaymentCatalogTest {
             assertEquals(payment.codes.distinct(), payment.codes, payment.id.name)
             payment.codes.forEach { code ->
                 assertTrue(codePattern.matches(code), "${payment.id}: $code")
+            }
+        }
+    }
+
+    @Test
+    fun `calculated rows never use a manual-only payroll code`() {
+        PayrollPaymentCatalog.entries.flatMap { payment ->
+            payment.codes.map { payment.id to it }
+        }.forEach { (paymentId, code) ->
+            val references = PayrollCodeReferenceCatalog.entries.filter { it.code == code }
+            if (references.isNotEmpty()) {
+                assertTrue(
+                    references.any { "ручн" !in it.description.lowercase() },
+                    "$paymentId uses manual-only code $code",
+                )
             }
         }
     }
