@@ -83,7 +83,7 @@ object PayrollPaymentCatalog {
         accrual(SalaryPaymentId.DISTRICT, "026A", "РайонныйКоэффициентРФ", "Районный коэффициент"),
         accrual(SalaryPaymentId.NORDIC, "027A", "СевернаяНадбавкРабКрСевер", "Северная надбавка"),
         accrual(SalaryPaymentId.OTHER_SURCHARGE, emptyList(), "Прочие доплаты и надбавки", "Прочие надбавки"),
-        accrual(SalaryPaymentId.EXCESS_REST, emptyList(), "Оплата переотдыха", "Переотдых"),
+        accrual(SalaryPaymentId.EXCESS_REST, "172L", "ВыпЛБЗаВрОтдСвНорВПОЛБ", "Переотдых"),
         accrual(SalaryPaymentId.EXTENDED_SERVICE, "151L", "ДоплРабЛокомБрУдлинУчОбсл", "Удлинённое плечо"),
         accrual(SalaryPaymentId.HEAVY_TRAIN, "152L", "ДоплРабЛокомБрТяжДлинПоез", "Тяжёлые поезда"),
         accrual(SalaryPaymentId.LONG_TRAIN, "152L", "ДоплРабЛокомБрТяжДлинПоез", "Длинносоставные поезда"),

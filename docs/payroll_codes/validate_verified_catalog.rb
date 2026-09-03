@@ -7,7 +7,7 @@ rows = CSV.read(catalog_path, headers: true)
 required_headers = %w[source type code short_name description status]
 
 abort "Unexpected headers: #{rows.headers.inspect}" unless rows.headers == required_headers
-abort "Expected 285 rows, got #{rows.size}" unless rows.size == 285
+abort "Expected 286 rows, got #{rows.size}" unless rows.size == 286
 
 expected_source_counts = {
   "0336" => 35,
@@ -16,6 +16,7 @@ expected_source_counts = {
   "0339" => 75,
   "0340" => 58,
   "0341" => 75,
+  "USER" => 1,
   "0342" => 10,
 }
 actual_source_counts = rows.group_by { |row| row["source"] }.transform_values(&:size)

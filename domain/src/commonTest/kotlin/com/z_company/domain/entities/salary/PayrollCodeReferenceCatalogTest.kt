@@ -10,8 +10,8 @@ class PayrollCodeReferenceCatalogTest {
     fun catalog_contains_every_verified_row() {
         val entries = PayrollCodeReferenceCatalog.entries
 
-        assertEquals(285, entries.size)
-        assertEquals(218, entries.count { it.type == PayrollPaymentType.ACCRUAL })
+        assertEquals(286, entries.size)
+        assertEquals(219, entries.count { it.type == PayrollPaymentType.ACCRUAL })
         assertEquals(67, entries.count { it.type == PayrollPaymentType.DEDUCTION })
         assertTrue(entries.all { it.source.isNotBlank() })
         assertTrue(entries.all { it.code.matches(Regex("[0-9A-Z]+")) })
@@ -29,6 +29,7 @@ class PayrollCodeReferenceCatalogTest {
         assertEquals(listOf("152P"), PayrollCodeReferenceCatalog.search("152Р").map { it.code })
         assertEquals(listOf("365P"), PayrollCodeReferenceCatalog.search("премзасодейстизобррацион").map { it.code })
         assertTrue(PayrollCodeReferenceCatalog.search("стоимости бытового топлива").any { it.code == "501Z" })
+        assertEquals(listOf("172L"), PayrollCodeReferenceCatalog.search("выплбзавротдсвнорвполб").map { it.code })
         assertEquals(67, PayrollCodeReferenceCatalog.search("удержание").size)
         assertTrue(PayrollCodeReferenceCatalog.search("0342").isEmpty())
     }
@@ -53,7 +54,7 @@ class PayrollCodeReferenceCatalogTest {
         val entries = PayrollCodeReferenceCatalog.entries
         val firstDeduction = entries.indexOfFirst { it.type == PayrollPaymentType.DEDUCTION }
 
-        assertEquals(218, firstDeduction)
+        assertEquals(219, firstDeduction)
         assertTrue(entries.take(firstDeduction).all { it.type == PayrollPaymentType.ACCRUAL })
         assertTrue(entries.drop(firstDeduction).all { it.type == PayrollPaymentType.DEDUCTION })
         listOf(entries.take(firstDeduction), entries.drop(firstDeduction)).forEach { group ->

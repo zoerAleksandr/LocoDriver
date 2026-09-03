@@ -33,6 +33,7 @@ class PayrollPaymentCatalogTest {
         assertEquals("152L", PayrollPaymentCatalog[SalaryPaymentId.HEAVY_TRAIN].codeLabel)
         assertEquals("152L", PayrollPaymentCatalog[SalaryPaymentId.LONG_TRAIN].codeLabel)
         assertEquals("158L", PayrollPaymentCatalog[SalaryPaymentId.DOUBLED_TRAIN].codeLabel)
+        assertEquals("172L", PayrollPaymentCatalog[SalaryPaymentId.EXCESS_REST].codeLabel)
         assertEquals("153L", PayrollPaymentCatalog[SalaryPaymentId.ONE_PERSON_FREIGHT].codeLabel)
         assertEquals("153L", PayrollPaymentCatalog[SalaryPaymentId.ONE_PERSON_PASSENGER].codeLabel)
         assertEquals("030A/030B", PayrollPaymentCatalog[SalaryPaymentId.AVERAGE].codeLabel)
@@ -53,6 +54,14 @@ class PayrollPaymentCatalogTest {
         assertEquals("ПоврОплатаПоТарифСтавкам", payment.displayName(PayrollNameMode.PAYROLL_SHEET))
         assertTrue(payment.payrollSheetName.isNotBlank())
         assertTrue(payment.plainName.isNotBlank())
+    }
+
+    @Test
+    fun `excess rest keeps confirmed payroll sheet name`() {
+        val payment = PayrollPaymentCatalog[SalaryPaymentId.EXCESS_REST]
+
+        assertEquals("Переотдых", payment.displayName(PayrollNameMode.PLAIN))
+        assertEquals("ВыпЛБЗаВрОтдСвНорВПОЛБ", payment.displayName(PayrollNameMode.PAYROLL_SHEET))
     }
 
     @Test
