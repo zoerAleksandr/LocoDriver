@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -19,6 +20,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -33,7 +36,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -52,12 +57,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -72,16 +79,15 @@ import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.salary.PayrollPaymentCatalog
+import com.z_company.domain.entities.salary.PayrollCodeReference
+import com.z_company.domain.entities.salary.PayrollCodeReferenceCatalog
+import com.z_company.domain.entities.salary.PayrollPaymentType
 import com.z_company.domain.entities.salary.SalaryPaymentId
 import com.z_company.domain.util.str2decimalSign
 import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.component.ChipApp
-import com.z_company.route.component.PdfActionSheet
-import com.z_company.route.component.PdfContentDialog
-import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.SalaryCalculationUIState
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
-import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,30 +96,21 @@ fun SalaryCalculationScreen(
     uiState: SalaryCalculationUIState,
     onSettingsSalaryClick: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val pdfViewModel: PdfViewModel = koinInject()
-    var showPdfDialog by remember { mutableStateOf(false) }
-    var pdfUri by remember { mutableStateOf<android.net.Uri?>(null) }
-    val isPdfGenerating by pdfViewModel.isGenerating.collectAsState()
-    val pdfError by pdfViewModel.errorMessage.collectAsState()
+    var isCodeSearchActive by rememberSaveable { mutableStateOf(false) }
+    var codeSearchQuery by rememberSaveable { mutableStateOf("") }
+    val salaryListState = rememberLazyListState()
 
-    // Update pdfViewModel with latest salary state
-    LaunchedEffect(uiState) {
-        pdfViewModel.updateSalaryState(uiState)
+    BackHandler(enabled = isCodeSearchActive) {
+        isCodeSearchActive = false
     }
 
-    // PDF ready event
-    LaunchedEffect(Unit) {
-        pdfViewModel.pdfReady.collect { uri ->
-            pdfUri = uri
-        }
-    }
-
-    // Show PDF error
-    LaunchedEffect(pdfError) {
-        pdfError?.let {
-            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
-        }
+    if (isCodeSearchActive) {
+        PayrollCodeSearchScreen(
+            query = codeSearchQuery,
+            onQueryChange = { codeSearchQuery = it },
+            onBack = { isCodeSearchActive = false },
+        )
+        return
     }
 
     // Предупреждение о неустановленной тарифной ставке (без привязки к валюте:
@@ -133,31 +130,33 @@ fun SalaryCalculationScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "Зарплата",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                actions = {
-                    IconButton(
-                        onClick = { if (!isPdfGenerating) showPdfDialog = true },
-                        enabled = !isPdfGenerating
+                    Surface(
+                        onClick = { isCodeSearchActive = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
                     ) {
-                        if (isPdfGenerating) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.padding(8.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Icon(
-                                painter = painterResource(com.z_company.route.R.drawable.picture_as_pdf_24px),
-                                contentDescription = "PDF",
-                                tint = MaterialTheme.colorScheme.primary
+                                painter = painterResource(com.z_company.route.R.drawable.search_24px),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Расшифровать код",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
                             )
                         }
                     }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                actions = {
                     IconButton(
                         modifier = Modifier.padding(end = 16.dp),
                         onClick = onSettingsSalaryClick
@@ -182,6 +181,7 @@ fun SalaryCalculationScreen(
             }
         } else {
             LazyColumn(
+                state = salaryListState,
                 modifier = Modifier
                     .padding(paddingValues)
                     .fillMaxSize()
@@ -233,29 +233,6 @@ fun SalaryCalculationScreen(
         }
     }
 
-    // PDF dialog
-    if (showPdfDialog) {
-        PdfContentDialog(
-            onDismiss = { showPdfDialog = false },
-            onGenerate = { sections ->
-                showPdfDialog = false
-                pdfViewModel.generateAndShare(
-                    sections = sections,
-                    routes = emptyList(),
-                    monthLabel = uiState.month,
-                    calendarDays = emptyList()
-                )
-            }
-        )
-    }
-
-    pdfUri?.let { uri ->
-        PdfActionSheet(
-            uri = uri,
-            onDismiss = { pdfUri = null }
-        )
-    }
-
     // Шторка выбора месяца/года (как на главном): чипы месяцев и лет + «Применить».
     if (showMonthSheet && uiState.monthIndex != null && uiState.year != null) {
         SalaryMonthSheet(
@@ -290,6 +267,170 @@ fun SalaryCalculationScreen(
                 underworkInfoSessionDismissed = true
             }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PayrollCodeSearchScreen(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onBack: () -> Unit,
+) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val results = remember(query) { PayrollCodeReferenceCatalog.search(query) }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
+                            contentDescription = "Назад к расчётному листу",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                },
+                title = {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = onQueryChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester)
+                            .testTag("payroll_code_search_field"),
+                        placeholder = { Text("Расшифровать код") },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(com.z_company.route.R.drawable.search_24px),
+                                contentDescription = null,
+                            )
+                        },
+                        trailingIcon = if (query.isNotEmpty()) {
+                            {
+                                IconButton(onClick = { onQueryChange("") }) {
+                                    Icon(
+                                        painter = painterResource(com.z_company.route.R.drawable.ic_close_24px),
+                                        contentDescription = "Очистить поиск",
+                                    )
+                                }
+                            }
+                        } else null,
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+            )
+        },
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .padding(paddingValues)
+                .fillMaxSize()
+                .testTag("payroll_code_search_results"),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 12.dp,
+                bottom = 32.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    ),
+                ) {
+                    Text(
+                        text = "Введите код, служебное название или слова из расшифровки. Можно искать по типу — «начисление» или «удержание». Пока строка пуста, показан весь справочник.",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
+            }
+
+            item {
+                Text(
+                    text = "Найдено: ${results.size}",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (results.isEmpty()) {
+                item {
+                    Text(
+                        text = "Совпадений нет. Проверьте код или попробуйте часть названия.",
+                        modifier = Modifier.padding(vertical = 24.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+            } else {
+                itemsIndexed(
+                    items = results,
+                    key = { index, item -> "${item.source}-${item.code}-$index" },
+                ) { _, item ->
+                    PayrollCodeReferenceCard(item)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PayrollCodeReferenceCard(item: PayrollCodeReference) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = item.code,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = if (item.type == PayrollPaymentType.ACCRUAL) "Начисление" else "Удержание",
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = item.shortName,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = item.description, style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Источник: IMG_${item.source}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
