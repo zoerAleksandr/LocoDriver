@@ -1349,7 +1349,10 @@ Full-replace `GET/POST /v1/partners/`: POST если локально есть �
 числовую сортировку и устранение дубликатов, что пороги массы и длины.
 
 - **Расчётчик**: единственная реализация `domain/salary/SalaryCalculator.kt`
-  находится в `domain/commonMain` и не зависит от Android API. Android-файл
+  находится в `domain/commonMain` и не зависит от Android API. Модуль имеет
+  JavaScript browser/node target, поэтому PWA обязана вызывать этот же
+  расчётчик через типизированный мост, а не копировать формулы на JavaScript.
+  Android-файл
   `SalaryCalculationHelper.kt` оставлен только как фасад совместимости и не
   содержит формул; удалённый старый `SalaryCalculationUseCase` не используется.
   Общий расчётчик проверяется `commonTest` на JVM и iOS Simulator.
