@@ -38,6 +38,8 @@ import com.z_company.route.util.ShareLinkData
 import com.z_company.route.viewmodel.home_view_model.OpenRouteFormEvent
 import kotlinx.datetime.LocalDate
 import com.z_company.domain.util.TimeCalculationContext
+import com.z_company.domain.util.displayTimeZone
+import kotlinx.datetime.TimeZone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -128,6 +130,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
     /** Удалить маршрут (soft-delete + синхронизация), затем обновить месяц. */
     fun deleteRoute(route: Route) {
         viewModelScope.launch {
+            _uiState.update { it.copy(operationMessage = "Удаляем маршрут…") }
             try {
                 routeUseCase.markAsRemoved(route)
                     .first { it is ResultState.Success || it is ResultState.Error }
@@ -136,6 +139,8 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                 if (t is CancellationException) throw t
                 t.sendToSentry("CalendarViewModel", "deleteRoute")
                 snackbarManager.show("Не удалось удалить маршрут")
+            } finally {
+                _uiState.update { it.copy(operationMessage = null) }
             }
         }
     }
@@ -340,20 +345,25 @@ class CalendarViewModel : ViewModel(), KoinComponent {
     }
 
     private suspend fun savePlannedRoutes(routes: List<Route>) {
-                var created = 0
-                for (route in routes) {
-                    val res = routeUseCase.saveRoute(route)
-                        .first { it is ResultState.Success || it is ResultState.Error }
-                    if (res is ResultState.Success) created++
-                }
-                val left = routeHelper.freeRoutesLeft()
-                snackbarManager.show(
-                    if (left == null) "Создано черновиков маршрутов: $created"
-                    else "Создано черновиков маршрутов: $created. " +
-                        "Осталось бесплатных: $left из ${RouteActionsHelper.FREE_ROUTES_LIMIT}"
-                )
-                exitRoutePlan()
-                loadMonth()
+        _uiState.update { it.copy(operationMessage = "Создаём маршруты…\nЭто может занять несколько секунд") }
+        try {
+            var created = 0
+            for (route in routes) {
+                val res = routeUseCase.saveRoute(route)
+                    .first { it is ResultState.Success || it is ResultState.Error }
+                if (res is ResultState.Success) created++
+            }
+            val left = routeHelper.freeRoutesLeft()
+            snackbarManager.show(
+                if (left == null) "Создано черновиков маршрутов: $created"
+                else "Создано черновиков маршрутов: $created. " +
+                    "Осталось бесплатных: $left из ${RouteActionsHelper.FREE_ROUTES_LIMIT}"
+            )
+            exitRoutePlan()
+            loadMonth()
+        } finally {
+            _uiState.update { it.copy(operationMessage = null) }
+        }
     }
 
     private fun normalizeToMinute(timeMs: Long): Long = (timeMs / 60_000L) * 60_000L
@@ -633,7 +643,13 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         }.getOrNull() ?: baseMonth
 
         withContext(Dispatchers.IO) {
-            val result = routeUseCase.listRoutesByMonth(month, context)
+            // Календарная дата должна совпадать с вводом и отображением явки.
+            // Для РФ это МСК даже если настройки расчётов переходящих маршрутов
+            // используют локальный часовой пояс (например, Красноярск).
+            val calendarContext = context.copy(
+                crossMonthTZ = TimeZone.of(setting.displayTimeZone())
+            )
+            val result = routeUseCase.listRoutesByMonth(month, calendarContext)
                 .first { it is ResultState.Success || it is ResultState.Error }
 
             val routes: List<Route> = when (result) {
@@ -878,6 +894,8 @@ class CalendarViewModel : ViewModel(), KoinComponent {
 /** Полное состояние экрана «Календарь». */
 data class CalendarUiState(
     val isLoading: Boolean = true,
+    /** Блокирующая операция над маршрутами, для которой нужен явный прогресс. */
+    val operationMessage: String? = null,
     val year: Int = 0,
     val month: Int = 0,                 // 0-based
     val monthLabelUpper: String = "",   // "МАЙ 2026"

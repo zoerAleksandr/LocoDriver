@@ -37,6 +37,7 @@ fun ScheduleWizardDestination(
         onSetNightStart = viewModel::setNightStart,
         onSetNightEnd = viewModel::setNightEnd,
         onSetFirstDay = viewModel::setFirstDay,
+        onSetExtendToNextMonth = viewModel::setExtendToNextMonth,
         onShiftMonth = viewModel::shiftMonth,
         onContinuePrevious = viewModel::continuePreviousSchedule,
         onDeclineContinuePrevious = viewModel::declineContinuePrevious,

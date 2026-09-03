@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -181,6 +182,7 @@ fun ScheduleWizardScreen(
     onSetNightStart: (Int, Int) -> Unit,
     onSetNightEnd: (Int, Int) -> Unit,
     onSetFirstDay: (Int) -> Unit,
+    onSetExtendToNextMonth: (Boolean) -> Unit,
     onShiftMonth: (Int) -> Unit,
     onContinuePrevious: () -> Unit,
     onDeclineContinuePrevious: () -> Unit,
@@ -195,6 +197,23 @@ fun ScheduleWizardScreen(
     onPurchasesClick: () -> Unit = {},
 ) {
     val cs = MaterialTheme.colorScheme
+
+    if (state.isSaving) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = { Text("Создаём маршруты") },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    Text(
+                        "Это может занять несколько секунд",
+                        modifier = Modifier.padding(start = 16.dp),
+                    )
+                }
+            },
+        )
+    }
     var timePickerFor by remember { mutableStateOf<String?>(null) }
     var patternToDelete by remember { mutableStateOf<SchedulePattern?>(null) }
 
@@ -338,7 +357,7 @@ fun ScheduleWizardScreen(
                     onDeclineContinuePrevious = onDeclineContinuePrevious,
                 )
             } else {
-                Step2(state, onSetFirstDay, onShiftMonth)
+                Step2(state, onSetFirstDay, onShiftMonth, onSetExtendToNextMonth)
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -884,7 +903,12 @@ private fun plural(n: Int, one: String, few: String, many: String): String {
 }
 
 @Composable
-private fun Step2(state: WizardUiState, onSetFirstDay: (Int) -> Unit, onShiftMonth: (Int) -> Unit) {
+private fun Step2(
+    state: WizardUiState,
+    onSetFirstDay: (Int) -> Unit,
+    onShiftMonth: (Int) -> Unit,
+    onSetExtendToNextMonth: (Boolean) -> Unit,
+) {
     val cs = MaterialTheme.colorScheme
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         SectionLabel("Первый день цикла")
@@ -900,8 +924,12 @@ private fun Step2(state: WizardUiState, onSetFirstDay: (Int) -> Unit, onShiftMon
         modifier = Modifier.padding(start = 2.dp, bottom = 12.dp),
     )
     FlowDayGrid(daysInMonth = state.daysInMonth, selected = state.firstDay, onSelect = onSetFirstDay)
-
-    Spacer(Modifier.height(22.dp))
+    Spacer(Modifier.height(24.dp))
+    ExtendToNextMonthCheckbox(
+        checked = state.extendToNextMonth,
+        onCheckedChange = onSetExtendToNextMonth,
+    )
+    Spacer(Modifier.height(4.dp))
     val shiftCount = state.preview.count { it != ShiftKind.OFF }
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
@@ -912,6 +940,35 @@ private fun Step2(state: WizardUiState, onSetFirstDay: (Int) -> Unit, onShiftMon
         Text("$shiftCount смен", fontSize = 12.sp, fontFamily = MonoFont, color = cs.onSurfaceVariant)
     }
     PreviewGrid(state.preview)
+}
+
+@Composable
+private fun ExtendToNextMonthCheckbox(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.size(24.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            "Продлить на следующий месяц",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = cs.primary,
+        )
+    }
 }
 
 @Composable
