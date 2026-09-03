@@ -16,8 +16,13 @@ import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Route
 import com.z_company.route.viewmodel.SalaryCalculationUIState
+import com.z_company.domain.entities.salary.PayrollPaymentCatalog
+import com.z_company.domain.entities.salary.SalaryPaymentId
+import com.z_company.route.ui.buildAccrualRows
+import com.z_company.route.ui.buildDeductionRows
 import java.io.File
 import java.io.FileOutputStream
+import java.text.NumberFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
@@ -92,14 +97,14 @@ class PdfGenerator(private val context: Context) {
         private var pageNumber = 0
         var y = mt
 
-        fun newPage(): Canvas {
+        fun newPage(drawAppHeader: Boolean = true): Canvas {
             currentPage?.let { document.finishPage(it) }
             pageNumber++
             val info = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
             currentPage = document.startPage(info)
             canvas = currentPage!!.canvas
             y = mt
-            drawPageHeader(canvas)
+            if (drawAppHeader) drawPageHeader(canvas)
             return canvas
         }
 
@@ -179,12 +184,21 @@ class PdfGenerator(private val context: Context) {
         y += rowH
     }
 
-    /** Salary table: 4 columns */
+    /** Salary table: code, name, hours, percent, amount. */
     private val sColW = floatArrayOf(
-        contentWidth * 0.50f, contentWidth * 0.16f, contentWidth * 0.14f, contentWidth * 0.20f
+        contentWidth * 0.11f, contentWidth * 0.39f, contentWidth * 0.15f,
+        contentWidth * 0.14f, contentWidth * 0.21f
     )
 
-    private fun PageManager.salaryRow(desc: String, hours: String, pct: String, amount: String, bold: Boolean = false) {
+    private fun PageManager.salaryRow(
+        paymentId: SalaryPaymentId?,
+        desc: String,
+        hours: String,
+        pct: String,
+        amount: String,
+        bold: Boolean = false,
+        codeOverride: String? = null,
+    ) {
         val rowH = 13f
         checkNewPage(rowH + 2f)
         val top = y - 9f; val bot = y + 3f
@@ -193,8 +207,14 @@ class PdfGenerator(private val context: Context) {
         val p = if (bold) paintBodyBold else paintBody
         sColW.forEachIndexed { i, w ->
             canvas.drawRect(x, top, x + w, bot, paintTableBorder)
-            val txt = when (i) { 0 -> desc; 1 -> hours; 2 -> pct; else -> amount }
-            val tx = if (i == 0) x + 3f else x + w - p.measureText(txt) - 3f
+            val txt = when (i) {
+                0 -> codeOverride ?: paymentId?.let(::payrollCode).orEmpty()
+                1 -> desc
+                2 -> hours
+                3 -> pct
+                else -> amount
+            }
+            val tx = if (i == 1) x + 3f else x + w - p.measureText(txt) - 3f
             canvas.drawText(txt, tx, y, p)
             x += w
         }
@@ -203,35 +223,44 @@ class PdfGenerator(private val context: Context) {
 
     private fun PageManager.salaryHeader() {
         checkNewPage(16f)
-        salaryRow("Вид выплаты", "Часы", "%", "Сумма", bold = true)
+        salaryRow(null, "Вид выплаты", "Часы", "%", "Сумма", bold = true, codeOverride = "Код")
     }
 
-    /** Таблица удержаний: 3 колонки (без Часы) */
+    /** Таблица удержаний: code, name, percent, amount. */
     private val rColW = floatArrayOf(
-        contentWidth * 0.66f, contentWidth * 0.14f, contentWidth * 0.20f
+        contentWidth * 0.11f, contentWidth * 0.55f, contentWidth * 0.14f, contentWidth * 0.20f
     )
 
-    private fun PageManager.retentionRow(desc: String, pct: String, amount: String, bold: Boolean = false) {
+    private fun PageManager.retentionRow(
+        paymentId: SalaryPaymentId?,
+        desc: String,
+        pct: String,
+        amount: String,
+        bold: Boolean = false,
+        codeOverride: String? = null,
+    ) {
         val rowH = 13f
         checkNewPage(rowH + 2f)
         val top = y - 9f; val bot = y + 3f
         if (bold) canvas.drawRect(ml, top, ml + contentWidth, bot, paintSectionFill)
         var x = ml
         val p = if (bold) paintBodyBold else paintBody
-        val texts = arrayOf(desc, pct, amount)
+        val texts = arrayOf(codeOverride ?: paymentId?.let(::payrollCode).orEmpty(), desc, pct, amount)
         rColW.forEachIndexed { i, w ->
             canvas.drawRect(x, top, x + w, bot, paintTableBorder)
             val txt = texts[i]
-            val tx = if (i == 0) x + 3f else x + w - p.measureText(txt) - 3f
+            val tx = if (i == 1) x + 3f else x + w - p.measureText(txt) - 3f
             canvas.drawText(txt, tx, y, p)
             x += w
         }
         y += rowH
     }
 
+    private fun payrollCode(id: SalaryPaymentId): String = PayrollPaymentCatalog[id].codeLabel
+
     private fun PageManager.retentionHeader() {
         checkNewPage(16f)
-        retentionRow("Вид удержания", "%", "Сумма", bold = true)
+        retentionRow(null, "Вид удержания", "%", "Сумма", bold = true, codeOverride = "Код")
     }
 
     // ─── Formatters ──────────────────────────────────────────────────────────────
@@ -275,7 +304,7 @@ class PdfGenerator(private val context: Context) {
             drawSchedule(pm, routes, monthLabel, calendarDays, workScheduleProfile)
         }
         if (sections.includeSalary) {
-            pm.newPage()
+            pm.newPage(drawAppHeader = false)
             if (salaryState != null) {
                 drawSalary(pm, salaryState, monthLabel)
             } else {
@@ -1057,122 +1086,270 @@ class PdfGenerator(private val context: Context) {
 
     // ─── Salary section ───────────────────────────────────────────────────────────
 
+    private data class StatementRow(
+        val code: String,
+        val name: String,
+        val hours: String = "",
+        val percent: String = "",
+        val amount: String,
+    )
+
+    private data class StatementColumns(
+        val start: Float,
+        val monthEnd: Float,
+        val nameEnd: Float,
+        val codeEnd: Float,
+        val hoursEnd: Float,
+        val percentEnd: Float,
+        val end: Float,
+    )
+
+    private fun statementColumns(start: Float, width: Float, accrual: Boolean): StatementColumns {
+        val monthEnd = start + 48f
+        val codeWidth = 32f
+        val hoursWidth = if (accrual) 38f else 0f
+        val percentWidth = if (accrual) 32f else 0f
+        val amountWidth = 58f
+        val nameEnd = start + width - codeWidth - hoursWidth - percentWidth - amountWidth
+        val codeEnd = nameEnd + codeWidth
+        val hoursEnd = codeEnd + hoursWidth
+        val percentEnd = hoursEnd + percentWidth
+        return StatementColumns(start, monthEnd, nameEnd, codeEnd, hoursEnd, percentEnd, start + width)
+    }
+
+    /** Чёрно-белая форма расчётного листка по структуре ФТУ-69. */
     private fun drawSalary(pm: PageManager, s: SalaryCalculationUIState, monthLabel: String = "") {
-        payCurrency = s.currency   // валюта расчётного листа — по стране из настроек (₽ / ₸ / Br)
-        val monthTitle = monthLabel.ifBlank { s.month }
-        pm.text("Расчётный лист${if (monthTitle.isNotBlank()) " за $monthTitle" else ""}", paintTitle)
-        pm.y += 2f
-        pm.separator()
-
-        // Начисления
-        pm.checkNewPage(28f)
-        pm.y += 8f
-        pm.canvas.drawRect(ml, pm.y - 12f, ml + contentWidth, pm.y + 2f, paintSectionFill)
-        pm.canvas.drawRect(ml, pm.y - 12f, ml + contentWidth, pm.y + 2f, paintTableBorder)
-        pm.canvas.drawText("Начисления", ml + 4f, pm.y, paintSection)
-        pm.y += 14f
-        pm.salaryHeader()
-
-        fun row(desc: String, h: Long?, pct: Double?, money: Double?) {
-            val ms = fmtMoney(money)
-            if (ms.isBlank()) return   // скрываем строки с нулевой/пустой суммой
-            pm.salaryRow(desc, fmtHours(h), fmtPct(pct), ms)
-        }
-
-        row("Оплата по тарифу", s.paymentAtTariffHours, null, s.paymentAtTariffMoney)
-        row("Ночные часы", s.paymentNightTimeHours, s.paymentNightTimePercent, s.paymentNightTimeMoney)
-        row("Пассажиром", s.paymentAtPassengerHours, null, s.paymentAtPassengerMoney)
-        row("Резервом", s.paymentAtSingleLocomotiveHours, null, s.paymentAtSingleLocomotiveMoney)
-        row("Праздничные", s.paymentHolidayHours, null, s.paymentHolidayMoney)
-        row("По среднему", s.averagePaymentHours, null, s.averagePaymentMoney)
-        row("По уходу за ребёнком-инвалидом", s.caringForDisableChildrenHours, null, s.caringForDisableChildrenMoney)
-        row("Командировка (по среднему)", s.businessTripHours, null, s.businessTripMoney)
-        row("Технические занятия", s.technicalStudyHours, null, s.technicalStudyMoney)
-
-        // Percentage-only surcharges
-        fun rowPct(desc: String, pct: Double?, money: Double?) {
-            val ms = fmtMoney(money)
-            if (ms.isBlank()) return   // скрываем строки с нулевой/пустой суммой
-            pm.salaryRow(desc, "", fmtPct(pct), ms)
-        }
-        rowPct("Зональная надбавка", s.zonalSurchargePercent, s.zonalSurchargeMoney)
-        rowPct("Надбавка за класс квалификации", s.surchargeQualificationClassPercent, s.surchargeQualificationClassMoney)
-        s.linearMileageAccruals.forEach { accrual ->
-            pm.salaryRow(
-                "Пробег ${accrual.phaseName} (${"%.2f".format(accrual.rate)} ₽/км)",
-                "",
-                "",
-                fmtMoney(accrual.money),
+        payCurrency = s.currency
+        val monthTitle = monthLabel.ifBlank { listOfNotNull(s.month, s.year?.toString()).joinToString(" ") }
+        val month = monthTitle.substringBefore(' ').lowercase(Locale("ru"))
+        val accruals = buildAccrualRows(s).map { row ->
+            val definition = PayrollPaymentCatalog[row.paymentId]
+            StatementRow(
+                code = definition.codeLabel,
+                name = definition.payrollSheetName,
+                hours = statementHours(row.hours),
+                percent = statementPercent(row.percent),
+                amount = statementMoney(row.money),
             )
         }
-        row("В одно лицо (груз.)", s.onePersonOperationHours, s.onePersonOperationPercent, s.onePersonOperationMoney)
-        row("В одно лицо (пас.)", s.onePersonOperationPassengerTrainHours, s.onePersonOperationPassengerTrainPercent, s.onePersonOperationPassengerTrainMoney)
-        rowPct("Вредность", s.harmfulnessSurchargePercent, s.harmfulnessSurchargeMoney)
-        rowPct("Районный коэффициент", s.districtSurchargeCoefficient, s.districtSurchargeMoney)
-        rowPct("Северная надбавка", s.nordicSurchargePercent, s.nordicSurchargeMoney)
-
-        s.surchargeExtendedServicePhaseHour.forEachIndexed { i, h ->
-            val m = fmtMoney(s.surchargeExtendedServicePhaseMoney.getOrNull(i))
-            if (m.isBlank()) return@forEachIndexed
-            pm.salaryRow("Удлинённое плечо ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeExtendedServicePhasePercent.getOrNull(i)), m)
-        }
-        s.surchargeHeavyTransHour.forEachIndexed { i, h ->
-            val m = fmtMoney(s.surchargeHeavyTransMoney.getOrNull(i))
-            if (m.isBlank()) return@forEachIndexed
-            pm.salaryRow("Тяжёлые поезда ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeHeavyTransPercent.getOrNull(i)), m)
-        }
-        s.surchargeLongTrainHour.forEachIndexed { i, h ->
-            val m = fmtMoney(s.surchargeLongTrainMoney.getOrNull(i))
-            if (m.isBlank()) return@forEachIndexed
-            pm.salaryRow("Длинносост. поезда ${i + 1}", fmtHours(h), fmtPctStr(s.surchargeLongTrainPercent.getOrNull(i)), m)
-        }
-        row(
-            "Доплата за ПДМ (6000 т. и 350 осей)",
-            s.surchargeHeavyLongDistanceTrainsHours,
-            s.surchargeHeavyLongDistanceTrainsPercent,
-            s.surchargeHeavyLongDistanceTrainsMoney
-        )
-        fmtMoney(s.surchargeDoubledTrainFirstMoney).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow("Сдвоенные (30%)", fmtHours(s.surchargeDoubledTrainFirstHours), "30%", m)
-        }
-        fmtMoney(s.surchargeDoubledTrainSecondMoney).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow("Сдвоенные (15%)", fmtHours(s.surchargeDoubledTrainSecondHours), "15%", m)
-        }
-        row("Сверхурочные", s.paymentAtOvertimeHours, null, s.paymentAtOvertimeMoney)
-        fmtMoney(s.surchargeAtOvertime05Money).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow("Доп. сверхурочные (50%)", fmtHours(s.surchargeAtOvertime05Hours), "50%", m)
-        }
-        fmtMoney(s.surchargeAtOvertimeMoney).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow("Доп. сверхурочные (100%)", fmtHours(s.surchargeAtOvertimeHours), "100%", m)
-        }
-        row("Переотдых", s.restInExcessOfTheNormTime, null, s.restInExcessOfTheNormMoney)
-        fmtMoney(s.otherSurchargeMoney).takeIf { it.isNotBlank() }?.let { m ->
-            pm.salaryRow("Прочие надбавки", "", fmtPct(s.otherSurchargePercent), m)
+        val deductions = buildDeductionRows(s).map { row ->
+            val definition = PayrollPaymentCatalog[row.paymentId]
+            StatementRow(
+                code = definition.codeLabel,
+                name = definition.payrollSheetName,
+                percent = statementPercent(row.percent),
+                amount = statementMoney(row.money),
+            )
         }
 
-        // Total charged
-        pm.salaryRow("Итого начислено", "", "", fmtMoney(s.totalChargedMoney), bold = true)
-        pm.y += 4f
-
-        // Удержания
-        pm.checkNewPage(28f)
-        pm.y += 8f
-        pm.canvas.drawRect(ml, pm.y - 12f, ml + contentWidth, pm.y + 2f, paintSectionFill)
-        pm.canvas.drawRect(ml, pm.y - 12f, ml + contentWidth, pm.y + 2f, paintTableBorder)
-        pm.canvas.drawText("Удержания", ml + 4f, pm.y, paintSection)
-        pm.y += 14f
-        pm.retentionHeader()
-        if (fmtMoney(s.retentionNdfl).isNotBlank()) pm.retentionRow("НДФЛ (13%)", "13%", fmtMoney(s.retentionNdfl))
-        if (fmtMoney(s.unionistsRetention).isNotBlank()) pm.retentionRow("Профсоюз", "", fmtMoney(s.unionistsRetention))
-        if (fmtMoney(s.otherRetention).isNotBlank()) pm.retentionRow("Прочие удержания", "", fmtMoney(s.otherRetention))
-        if (fmtMoney(s.welfareRetention).isNotBlank()) pm.retentionRow("Благосостояние", "", fmtMoney(s.welfareRetention))
-        if (fmtMoney(s.alimonyRetention).isNotBlank()) pm.retentionRow("Алименты", "", fmtMoney(s.alimonyRetention))
-        pm.retentionRow("Всего удержано", "", fmtMoney(s.totalRetention), bold = true)
-
-        pm.y += 8f
-        pm.checkNewPage(20f)
-        pm.text("К выдаче: ${fmtMoney(s.toBeCredited)}", paintTitle)
-        pm.y += 4f
-        pm.separator()
+        drawSalaryFormHeader(pm, s, monthTitle, continuation = false)
+        var index = 0
+        val rowCount = maxOf(accruals.size, deductions.size)
+        while (index < rowCount) {
+            val left = accruals.getOrNull(index)
+            val right = deductions.getOrNull(index)
+            val rowHeight = maxOf(statementRowHeight(left, true), statementRowHeight(right, false))
+            if (pm.y + rowHeight > pageHeight - 92f) {
+                pm.newPage(drawAppHeader = false)
+                drawSalaryFormHeader(pm, s, monthTitle, continuation = true)
+            }
+            drawStatementPair(pm, month, left, right, rowHeight)
+            index++
+        }
+        drawStatementTotals(pm, s)
     }
+
+    private fun drawSalaryFormHeader(
+        pm: PageManager,
+        s: SalaryCalculationUIState,
+        monthTitle: String,
+        continuation: Boolean,
+    ) {
+        pm.y = 34f
+        val titleParts = monthTitle.trim().split(Regex("\\s+")).filter(String::isNotBlank)
+        val periodTitle = if (titleParts.size >= 2) {
+            "за ${titleParts.first().lowercase(Locale("ru"))} месяц ${titleParts[1]} года"
+        } else {
+            "за $monthTitle"
+        }
+        val title = "Расчётный листок $periodTitle${if (continuation) " (продолжение)" else ""}"
+        drawCentered(pm.canvas, title, pageWidth / 2f, pm.y, paintTitle)
+        pm.y += 18f
+        if (!continuation) {
+            val leftX = ml + 4f
+            val rightX = ml + contentWidth * 0.57f
+            pm.canvas.drawRect(ml, pm.y - 11f, ml + contentWidth, pm.y + 43f, paintTableBorder)
+            pm.canvas.drawText("Оклад/Тариф: ${s.tariffRate.orEmpty()}", leftX, pm.y, paintBody)
+            pm.canvas.drawText("Норма часов: ${s.normaHours?.let { statementDecimal(it.toDouble()) }.orEmpty()}", rightX, pm.y, paintBody)
+            pm.y += 16f
+            pm.canvas.drawText("Всего отработано часов: ${statementHours(s.totalWorkTime)}", leftX, pm.y, paintBodyBold)
+            pm.canvas.drawText("Валюта расчёта: ${s.currency}", rightX, pm.y, paintBody)
+            pm.y += 28f
+        }
+        drawStatementColumnsHeader(pm)
+    }
+
+    private fun drawStatementColumnsHeader(pm: PageManager) {
+        val split = ml + contentWidth * 0.58f
+        val bottom = pm.y + 35f
+        val labelsTop = pm.y + 15f
+        val left = statementColumns(ml, split - ml, accrual = true)
+        val right = statementColumns(split, ml + contentWidth - split, accrual = false)
+        pm.canvas.drawRect(ml, pm.y, ml + contentWidth, bottom, paintTableBorder)
+        pm.canvas.drawLine(split, pm.y, split, bottom, paintTableBorder)
+        drawCentered(pm.canvas, "Начислено", (ml + split) / 2f, pm.y + 11f, paintBodyBold)
+        drawCentered(pm.canvas, "Удержано и перечислено", (split + ml + contentWidth) / 2f, pm.y + 11f, paintBodyBold)
+        drawColumnLines(pm.canvas, left, labelsTop, bottom, accrual = true)
+        drawColumnLines(pm.canvas, right, labelsTop, bottom, accrual = false)
+        drawColumnHeader(pm.canvas, left, pm.y + 27f, "Вид выплаты", accrual = true)
+        drawColumnHeader(pm.canvas, right, pm.y + 27f, "Вид удержания", accrual = false)
+        pm.y = bottom
+    }
+
+    private fun drawColumnHeader(
+        canvas: Canvas,
+        columns: StatementColumns,
+        baseline: Float,
+        name: String,
+        accrual: Boolean,
+    ) {
+        drawCentered(canvas, "Месяц", (columns.start + columns.monthEnd) / 2f, baseline, paintSmall)
+        drawCentered(canvas, name, (columns.monthEnd + columns.nameEnd) / 2f, baseline, paintSmall)
+        drawCentered(canvas, "Код", (columns.nameEnd + columns.codeEnd) / 2f, baseline, paintSmall)
+        if (accrual) {
+            drawCentered(canvas, "Часы", (columns.codeEnd + columns.hoursEnd) / 2f, baseline, paintSmall)
+            drawCentered(canvas, "%", (columns.hoursEnd + columns.percentEnd) / 2f, baseline, paintSmall)
+        }
+        drawCentered(canvas, "Сумма", (columns.percentEnd + columns.end) / 2f, baseline, paintSmall)
+    }
+
+    private fun drawColumnLines(
+        canvas: Canvas,
+        columns: StatementColumns,
+        top: Float,
+        bottom: Float,
+        accrual: Boolean,
+    ) {
+        val boundaries = if (accrual) {
+            listOf(columns.monthEnd, columns.nameEnd, columns.codeEnd, columns.hoursEnd, columns.percentEnd)
+        } else {
+            listOf(columns.monthEnd, columns.nameEnd, columns.codeEnd)
+        }
+        boundaries.forEach { canvas.drawLine(it, top, it, bottom, paintTableBorder) }
+    }
+
+    private fun drawStatementPair(
+        pm: PageManager,
+        month: String,
+        left: StatementRow?,
+        right: StatementRow?,
+        height: Float,
+    ) {
+        val top = pm.y
+        val bottom = top + height
+        val split = ml + contentWidth * 0.58f
+        val leftColumns = statementColumns(ml, split - ml, accrual = true)
+        val rightColumns = statementColumns(split, ml + contentWidth - split, accrual = false)
+        pm.canvas.drawLine(ml, top, ml, bottom, paintTableBorder)
+        pm.canvas.drawLine(split, top, split, bottom, paintTableBorder)
+        pm.canvas.drawLine(ml + contentWidth, top, ml + contentWidth, bottom, paintTableBorder)
+        drawColumnLines(pm.canvas, leftColumns, top, bottom, accrual = true)
+        drawColumnLines(pm.canvas, rightColumns, top, bottom, accrual = false)
+        left?.let { drawStatementRow(pm.canvas, month, it, leftColumns, top, accrual = true) }
+        right?.let { drawStatementRow(pm.canvas, month, it, rightColumns, top, accrual = false) }
+        pm.canvas.drawLine(ml, bottom, ml + contentWidth, bottom, paintTableBorder)
+        pm.y = bottom
+    }
+
+    private fun drawStatementRow(
+        canvas: Canvas,
+        month: String,
+        row: StatementRow,
+        columns: StatementColumns,
+        top: Float,
+        accrual: Boolean,
+    ) {
+        val baseline = top + 11f
+        drawCentered(canvas, month, (columns.start + columns.monthEnd) / 2f, baseline, paintSmall)
+        drawWrapped(canvas, row.name, columns.monthEnd + 3f, baseline, columns.nameEnd - columns.monthEnd - 6f, paintSmall)
+        drawCentered(canvas, row.code, (columns.nameEnd + columns.codeEnd) / 2f, baseline, paintSmall)
+        if (accrual) {
+            drawRight(canvas, row.hours, columns.hoursEnd - 3f, baseline, paintSmall)
+            drawRight(canvas, row.percent, columns.percentEnd - 3f, baseline, paintSmall)
+        }
+        drawRight(canvas, row.amount, columns.end - 3f, baseline, paintSmall)
+    }
+
+    private fun statementRowHeight(row: StatementRow?, accrual: Boolean): Float {
+        if (row == null) return 18f
+        val sideWidth = contentWidth * if (accrual) 0.58f else 0.42f
+        val columns = statementColumns(0f, sideWidth, accrual)
+        val nameWidth = columns.nameEnd - columns.monthEnd - 6f
+        val lines = wrapText(row.name, paintSmall, nameWidth.coerceAtLeast(30f)).size
+        return maxOf(18f, lines * 9f + 6f)
+    }
+
+    private fun drawStatementTotals(pm: PageManager, s: SalaryCalculationUIState) {
+        if (pm.y + 58f > pageHeight - mb) {
+            pm.newPage(drawAppHeader = false)
+            pm.y = 40f
+        }
+        val split = ml + contentWidth * 0.58f
+        val top = pm.y
+        val bottom = top + 56f
+        pm.canvas.drawRect(ml, top, ml + contentWidth, bottom, paintTableBorder)
+        pm.canvas.drawLine(split, top, split, bottom, paintTableBorder)
+        pm.canvas.drawText("Всего начислено", ml + 4f, top + 14f, paintBodyBold)
+        drawRight(pm.canvas, statementMoney(s.totalChargedMoney), split - 4f, top + 14f, paintBodyBold)
+        pm.canvas.drawText("Всего удержано", split + 4f, top + 14f, paintBodyBold)
+        drawRight(pm.canvas, statementMoney(s.totalRetention), ml + contentWidth - 4f, top + 14f, paintBodyBold)
+        pm.canvas.drawText("Всего отработано часов за месяц", ml + 4f, top + 31f, paintBodyBold)
+        drawRight(pm.canvas, statementHours(s.totalWorkTime), split - 4f, top + 31f, paintBody)
+        pm.canvas.drawText("К перечислению", split + 4f, top + 31f, paintBodyBold)
+        drawRight(pm.canvas, statementMoney(s.toBeCredited), ml + contentWidth - 4f, top + 31f, paintBodyBold)
+        pm.canvas.drawText("Сформировано в приложении «Машинист»", ml + 4f, top + 48f, paintTiny)
+        pm.y = bottom
+    }
+
+    private fun drawCentered(canvas: Canvas, text: String, centerX: Float, y: Float, paint: Paint) {
+        canvas.drawText(text, centerX - paint.measureText(text) / 2f, y, paint)
+    }
+
+    private fun drawRight(canvas: Canvas, text: String, right: Float, y: Float, paint: Paint) {
+        canvas.drawText(text, right - paint.measureText(text), y, paint)
+    }
+
+    private fun drawWrapped(canvas: Canvas, text: String, x: Float, y: Float, maxWidth: Float, paint: Paint) {
+        wrapText(text, paint, maxWidth).forEachIndexed { index, line ->
+            canvas.drawText(line, x, y + index * 9f, paint)
+        }
+    }
+
+    private fun wrapText(text: String, paint: Paint, maxWidth: Float): List<String> {
+        if (text.isBlank()) return listOf("")
+        val result = mutableListOf<String>()
+        var rest = text
+        while (rest.isNotEmpty()) {
+            var count = rest.length
+            while (count > 1 && paint.measureText(rest.take(count)) > maxWidth) count--
+            if (count < rest.length) {
+                val breakAt = rest.take(count + 1).lastIndexOf(' ').takeIf { it > 0 } ?: count
+                count = breakAt
+            }
+            result += rest.take(count).trim()
+            rest = rest.drop(count).trimStart()
+        }
+        return result
+    }
+
+    private val statementNumberFormat = NumberFormat.getNumberInstance(Locale("ru", "RU")).apply {
+        minimumFractionDigits = 2
+        maximumFractionDigits = 2
+    }
+    private fun statementDecimal(value: Double): String = statementNumberFormat.format(value)
+    private fun statementMoney(value: Double?): String = value?.let(::statementDecimal).orEmpty()
+    private fun statementHours(value: Long?): String = value?.takeIf { it > 0L }?.let {
+        statementDecimal(it.toDouble() / 3_600_000.0)
+    }.orEmpty()
+    private fun statementPercent(value: Double?): String = value?.takeIf { it != 0.0 }?.let(::statementDecimal).orEmpty()
 }

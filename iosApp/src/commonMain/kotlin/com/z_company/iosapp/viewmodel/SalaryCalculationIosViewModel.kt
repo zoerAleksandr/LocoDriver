@@ -1,20 +1,27 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.iosapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.domain.entities.MonthOfYear
-import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
-import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.salary.SalaryCalculationHelper
 import com.z_company.domain.use_cases.RouteUseCase
+import com.z_company.domain.use_cases.NormaUseCase
+import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 
 /**
  * KMP ViewModel для экрана «Расчёт зарплаты».
@@ -27,6 +34,8 @@ import kotlinx.coroutines.launch
 class SalaryCalculationIosViewModel(
     private val routeUseCase: RouteUseCase,
     private val settingsUseCase: SettingsUseCase,
+    private val salarySettingUseCase: SalarySettingUseCase,
+    private val normaUseCase: NormaUseCase,
 ) : ViewModel() {
 
     /** Сводка за месяц — передаётся в Swift через watchSummary. */
@@ -37,6 +46,9 @@ class SalaryCalculationIosViewModel(
         val nightTimeMs: Long,
         val overtimeMs: Long,
         val normalNormaMs: Long,
+        val totalCharged: Double,
+        val totalRetained: Double,
+        val toBeCredited: Double,
     ) {
         val totalWorkHours: Long get() = totalWorkMs / (1_000L * 60 * 60)
         val totalWorkMinutes: Long get() = (totalWorkMs / (1_000L * 60)) % 60
@@ -140,10 +152,21 @@ class SalaryCalculationIosViewModel(
                 monthOfYear = settings.selectMonthOfYear,
                 offsetInMoscow = settings.timeZone,
             ).collect { routes ->
-                val totalWorkMs = calculateTotalWorkMs(routes)
-                val nightTimeMs = calculateNightTimeMs(routes, settings)
-                val normaMs = calculateNormaMs(settings.selectMonthOfYear)
-                val overtimeMs = if (totalWorkMs > normaMs) totalWorkMs - normaMs else 0L
+                val normaHours = normaUseCase.normaHoursFlow(
+                    settings.selectMonthOfYear.year,
+                    settings.selectMonthOfYear.month,
+                ).first()
+                val normaMs = normaHours * 3_600_000L
+                val effectiveNormaHours = effectiveNormaHours(settings.selectMonthOfYear)
+                val calculator = SalaryCalculationHelper(
+                    userSettings = settings,
+                    salarySetting = salarySettingUseCase.getSalarySetting(),
+                    allRoutes = routes,
+                    effectiveNormaHoursForUnderwork = effectiveNormaHours,
+                )
+                val totalWorkMs = calculator.getTotalWorkTimeWithCommute().first()
+                val nightTimeMs = calculator.getNightTimeFlow().first()
+                val overtimeMs = calculator.getTimeOvertimeFlow().first()
 
                 _summary.value = MonthlySummary(
                     month = formatMonth(settings),
@@ -152,6 +175,9 @@ class SalaryCalculationIosViewModel(
                     nightTimeMs = nightTimeMs,
                     overtimeMs = overtimeMs,
                     normalNormaMs = normaMs,
+                    totalCharged = calculator.getMoneyTotalChargedFlow().first(),
+                    totalRetained = calculator.getMoneyTotalRetentionFlow().first(),
+                    toBeCredited = calculator.getMoneyToBeCredited().first(),
                 )
                 _routes.value = routes.map { route ->
                     val workMs = route.getWorkTime() ?: 0L
@@ -169,23 +195,20 @@ class SalaryCalculationIosViewModel(
 
     // ── Calculations ──────────────────────────────────────────────────────────
 
-    private fun calculateTotalWorkMs(routes: List<Route>): Long {
-        var total = 0L
-        routes.forEach { route ->
-            val wt = route.getWorkTime()
-            if (wt != null && wt > 0L) total += wt
+    private suspend fun effectiveNormaHours(monthOfYear: MonthOfYear): Int {
+        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val selectedIndex = monthOfYear.year * 12 + monthOfYear.month
+        val currentIndex = today.year * 12 + today.monthNumber - 1
+        return when {
+            selectedIndex > currentIndex -> 0
+            selectedIndex < currentIndex -> normaUseCase
+                .normaHoursFlow(monthOfYear.year, monthOfYear.month).first()
+            else -> normaUseCase.normaHoursToDateFlow(
+                monthOfYear.year,
+                monthOfYear.month,
+                today.dayOfMonth,
+            ).first()
         }
-        return total
-    }
-
-    private suspend fun calculateNightTimeMs(routes: List<Route>, settings: UserSettings): Long {
-        if (routes.isEmpty()) return 0L
-        return routes.getNightTime(settings)
-    }
-
-    private fun calculateNormaMs(monthOfYear: MonthOfYear): Long {
-        val normaHours = monthOfYear.getPersonalNormaHours()
-        return normaHours * 3_600_000L
     }
 
     // ── Formatting ────────────────────────────────────────────────────────────

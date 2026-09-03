@@ -627,12 +627,13 @@ class FormViewModel(
             // составляющие выше равны 0 (маршрут исключён из расчёта), а оплата —
             // только по среднему часу.
             val businessTripMoney = salaryCalculationHelper.getMoneyBusinessTripFlow().first()
-            val isBusinessTrip = salaryCalculationHelper.hasBusinessTripRoutes()
+            val hasBusinessTripPart = salaryCalculationHelper.hasBusinessTripRoutes()
+            val isEntirelyBusinessTrip = salaryCalculationHelper.isEntirelyBusinessTrip()
 
             // Жёсткий инвариант командировки: даже расчёты, которым по ошибке
             // передали маршрут напрямую (например, сдвоенный поезд или переотдых),
             // не должны попасть ни в строки шторки, ни в итоговую сумму.
-            if (isBusinessTrip) {
+            if (isEntirelyBusinessTrip) {
                 _salaryForRouteState.update {
                     SalaryForRouteState(
                         isCalculated = true,
@@ -673,7 +674,7 @@ class FormViewModel(
                     otherSurcharge = otherSurcharge,
                     overRestMoney = overRestMoney,
                     businessTripMoney = businessTripMoney,
-                    isBusinessTrip = false,
+                    isBusinessTrip = hasBusinessTripPart,
                     tariffRate = setting.selectMonthOfYear.tariffRate,
                     workTimeForPay = workTimeForPay,
                     zonalPercent = zonalPercent,

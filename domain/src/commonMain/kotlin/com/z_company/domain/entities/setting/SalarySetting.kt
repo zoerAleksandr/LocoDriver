@@ -14,7 +14,9 @@ data class SalarySetting(
     val nordicPercent: Double = 0.0,
     val onePersonOperationPercent: Double = 40.0,
     val onePersonOperationPassengerTrainPercent: Double = 50.0,
-    val harmfulnessPercent: Double = 0.0,
+    // Памятка по оплате локомотивных бригад: базовая доплата за вредные условия
+    // составляет 4%. Пользователь может изменить значение по локальному акту.
+    val harmfulnessPercent: Double = 4.0,
     val percentLongDistanceTrain: Double = 0.0,
     val lengthLongDistanceTrain: Int = 0,
     val zonalSurcharge: Double = 25.0,

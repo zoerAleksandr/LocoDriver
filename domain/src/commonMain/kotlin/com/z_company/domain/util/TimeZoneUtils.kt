@@ -11,8 +11,16 @@ import com.z_company.domain.entities.setting.UserSettings
  */
 fun getTimeZone(timeZoneInMillis: Long = 0L): String {
     val offsetInMillis = timeZoneInMillis + 10_800_000L
-    val offset = offsetInMillis / 3_600_000L
-    return if (offset >= 0) "GMT+$offset" else "GMT$offset"
+    val totalMinutes = offsetInMillis / 60_000L
+    val sign = if (totalMinutes >= 0) "+" else "-"
+    val absoluteMinutes = kotlin.math.abs(totalMinutes)
+    val hours = absoluteMinutes / 60
+    val minutes = absoluteMinutes % 60
+    return if (minutes == 0L) {
+        "GMT$sign$hours"
+    } else {
+        "GMT$sign${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}"
+    }
 }
 
 /**

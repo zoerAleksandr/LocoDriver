@@ -154,17 +154,18 @@ object UtilForMonthOfYear {
     fun MonthOfYear.getPersonalNormaHoursInPeriod(
         period: Pair<Int, Int>,
         monthOfYear: MonthOfYear
+    ): Int = getPersonalNormaHoursInPeriod(period, WorkScheduleProfile.standard())
+
+    fun MonthOfYear.getPersonalNormaHoursInPeriod(
+        period: Pair<Int, Int>,
+        profile: WorkScheduleProfile,
     ): Int {
         var normaOfMonth = 0
         this.days.forEach { day ->
             if (!day.reducesNorma()) {
                 if (day.dayOfMonth in period.first..period.second) {
-                    normaOfMonth += when (day.tag) {
-                        TagForDay.WORKING_DAY -> 8
-                        TagForDay.SHORTENED_DAY -> 7
-                        TagForDay.NON_WORKING_DAY -> 0
-                        TagForDay.HOLIDAY -> 0
-                    }
+                    val date = LocalDate(year, month + 1, day.dayOfMonth)
+                    normaOfMonth += profile.effectiveHours(date, day.tag)
                 }
             }
         }

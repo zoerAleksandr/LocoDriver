@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -19,6 +20,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -33,7 +36,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -52,12 +57,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -71,15 +78,16 @@ import com.z_company.core.ResultState
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.MonthFullText.getMonthFullText
+import com.z_company.domain.entities.salary.PayrollPaymentCatalog
+import com.z_company.domain.entities.salary.PayrollCodeReference
+import com.z_company.domain.entities.salary.PayrollCodeReferenceCatalog
+import com.z_company.domain.entities.salary.PayrollPaymentType
+import com.z_company.domain.entities.salary.SalaryPaymentId
 import com.z_company.domain.util.str2decimalSign
 import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.component.ChipApp
-import com.z_company.route.component.PdfActionSheet
-import com.z_company.route.component.PdfContentDialog
-import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.SalaryCalculationUIState
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
-import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,30 +96,21 @@ fun SalaryCalculationScreen(
     uiState: SalaryCalculationUIState,
     onSettingsSalaryClick: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val pdfViewModel: PdfViewModel = koinInject()
-    var showPdfDialog by remember { mutableStateOf(false) }
-    var pdfUri by remember { mutableStateOf<android.net.Uri?>(null) }
-    val isPdfGenerating by pdfViewModel.isGenerating.collectAsState()
-    val pdfError by pdfViewModel.errorMessage.collectAsState()
+    var isCodeSearchActive by rememberSaveable { mutableStateOf(false) }
+    var codeSearchQuery by rememberSaveable { mutableStateOf("") }
+    val salaryListState = rememberLazyListState()
 
-    // Update pdfViewModel with latest salary state
-    LaunchedEffect(uiState) {
-        pdfViewModel.updateSalaryState(uiState)
+    BackHandler(enabled = isCodeSearchActive) {
+        isCodeSearchActive = false
     }
 
-    // PDF ready event
-    LaunchedEffect(Unit) {
-        pdfViewModel.pdfReady.collect { uri ->
-            pdfUri = uri
-        }
-    }
-
-    // Show PDF error
-    LaunchedEffect(pdfError) {
-        pdfError?.let {
-            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
-        }
+    if (isCodeSearchActive) {
+        PayrollCodeSearchScreen(
+            query = codeSearchQuery,
+            onQueryChange = { codeSearchQuery = it },
+            onBack = { isCodeSearchActive = false },
+        )
+        return
     }
 
     // Предупреждение о неустановленной тарифной ставке (без привязки к валюте:
@@ -131,31 +130,36 @@ fun SalaryCalculationScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "Зарплата",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                actions = {
-                    IconButton(
-                        onClick = { if (!isPdfGenerating) showPdfDialog = true },
-                        enabled = !isPdfGenerating
+                    Surface(
+                        onClick = { isCodeSearchActive = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = 12.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Transparent,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                     ) {
-                        if (isPdfGenerating) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.padding(8.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Icon(
-                                painter = painterResource(com.z_company.route.R.drawable.picture_as_pdf_24px),
-                                contentDescription = "PDF",
-                                tint = MaterialTheme.colorScheme.primary
+                                painter = painterResource(com.z_company.route.R.drawable.search_24px),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Расшифровать код",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
                             )
                         }
                     }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                actions = {
                     IconButton(
                         modifier = Modifier.padding(end = 16.dp),
                         onClick = onSettingsSalaryClick
@@ -180,6 +184,7 @@ fun SalaryCalculationScreen(
             }
         } else {
             LazyColumn(
+                state = salaryListState,
                 modifier = Modifier
                     .padding(paddingValues)
                     .fillMaxSize()
@@ -198,7 +203,13 @@ fun SalaryCalculationScreen(
                 }
 
                 // Hero — крупная сумма «К выдаче»
-                item { SalaryHero(amount = uiState.toBeCredited, currency = uiState.currency) }
+                item {
+                    SalaryHero(
+                        amount = uiState.toBeCredited,
+                        currency = uiState.currency,
+                        totalWorkTime = viewModel.convertTimeToStringFormat(uiState.totalWorkTime),
+                    )
+                }
 
                 // Предупреждение о неустановленной тарифной ставке
                 item {
@@ -229,29 +240,6 @@ fun SalaryCalculationScreen(
                 item { Spacer(modifier = Modifier.height(32.dp)) }
             }
         }
-    }
-
-    // PDF dialog
-    if (showPdfDialog) {
-        PdfContentDialog(
-            onDismiss = { showPdfDialog = false },
-            onGenerate = { sections ->
-                showPdfDialog = false
-                pdfViewModel.generateAndShare(
-                    sections = sections,
-                    routes = emptyList(),
-                    monthLabel = uiState.month,
-                    calendarDays = emptyList()
-                )
-            }
-        )
-    }
-
-    pdfUri?.let { uri ->
-        PdfActionSheet(
-            uri = uri,
-            onDismiss = { pdfUri = null }
-        )
     }
 
     // Шторка выбора месяца/года (как на главном): чипы месяцев и лет + «Применить».
@@ -288,6 +276,165 @@ fun SalaryCalculationScreen(
                 underworkInfoSessionDismissed = true
             }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PayrollCodeSearchScreen(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onBack: () -> Unit,
+) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val results = remember(query) { PayrollCodeReferenceCatalog.search(query) }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
+                            contentDescription = "Назад к расчётному листу",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                },
+                title = {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = onQueryChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester)
+                            .testTag("payroll_code_search_field"),
+                        placeholder = { Text("Расшифровать код") },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(com.z_company.route.R.drawable.search_24px),
+                                contentDescription = null,
+                            )
+                        },
+                        trailingIcon = if (query.isNotEmpty()) {
+                            {
+                                IconButton(onClick = { onQueryChange("") }) {
+                                    Icon(
+                                        painter = painterResource(com.z_company.route.R.drawable.ic_close_24px),
+                                        contentDescription = "Очистить поиск",
+                                    )
+                                }
+                            }
+                        } else null,
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+            )
+        },
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .padding(paddingValues)
+                .fillMaxSize()
+                .testTag("payroll_code_search_results"),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 12.dp,
+                bottom = 32.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                ) {
+                    Text(
+                        text = "Введите код, служебное название или слова из расшифровки любого удержания или начисления.",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            item {
+                Text(
+                    text = "Найдено: ${results.size}",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (results.isEmpty()) {
+                item {
+                    Text(
+                        text = "Совпадений нет. Проверьте код или попробуйте часть названия.",
+                        modifier = Modifier.padding(vertical = 24.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+            } else {
+                itemsIndexed(
+                    items = results,
+                    key = { index, item -> "${item.source}-${item.code}-$index" },
+                ) { _, item ->
+                    PayrollCodeReferenceCard(item)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PayrollCodeReferenceCard(item: PayrollCodeReference) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = item.code,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = if (item.type == PayrollPaymentType.ACCRUAL) "Начисление" else "Удержание",
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.tertiary,
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = item.shortName,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = item.description, style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 
@@ -455,39 +602,68 @@ private fun SalaryMonthSheet(
 // ===========================================
 // Hero — «К ВЫДАЧЕ · МЕСЯЦ» + крупная mono-сумма
 // ===========================================
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SalaryHero(amount: Double?, currency: String) {
+private fun SalaryHero(amount: Double?, currency: String, totalWorkTime: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 16.dp)
     ) {
         // Месяц вынесен в отдельный переключатель над Hero, поэтому здесь — только «К ВЫДАЧЕ».
-        Text(
-            text = "К ВЫДАЧЕ",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = formatMoney(amount),
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-1.5).sp,
-                ),
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-            )
-            Text(
-                text = " $currency",
-                style = MaterialTheme.typography.displayMedium.copy(
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            itemVerticalAlignment = Alignment.Bottom,
+            maxItemsInEachRow = 2,
+        ) {
+            Column {
+                Text(
+                    text = "К ВЫДАЧЕ",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = formatMoney(amount),
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontSize = 34.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = (-1.5).sp,
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = " $currency",
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "ВСЕГО ОТРАБОТАНО",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = totalWorkTime,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontFamily = MonoFont,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.End,
+                )
+            }
         }
     }
 }
@@ -534,7 +710,11 @@ private enum class ColType { NAME, VALUE, MONEY }
 
 private data class CellVal(val text: String, val faint: Boolean = false)
 
-private data class PayColumn(val header: String, val type: ColType)
+private data class PayColumn(
+    val header: String,
+    val type: ColType,
+    val alignStart: Boolean = type == ColType.NAME,
+)
 
 @Composable
 private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) {
@@ -542,7 +722,9 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
     val density = LocalDensity.current
     // Ширина карточки ≈ ширина экрана минус горизонтальные отступы LazyColumn (16+16).
     val cardWidth = LocalConfiguration.current.screenWidthDp.dp - 32.dp
-    val leadInset = 16.dp
+    // Код — первый полезный столбец карточки, поэтому не дублируем здесь
+    // стандартный 16 dp отступ самой карточки.
+    val leadInset = 10.dp
     val trailInset = 16.dp
 
     val nameStyle = MaterialTheme.typography.bodyMedium
@@ -660,7 +842,7 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
             ) {
                 Spacer(modifier = Modifier.width(leadInset))
                 columns.forEachIndexed { c, col ->
-                    HeaderCell(text = col.header, width = display[c], type = col.type)
+                    HeaderCell(text = col.header, width = display[c], alignStart = col.alignStart)
                 }
                 Spacer(modifier = Modifier.width(trailInset))
             }
@@ -671,7 +853,7 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
                 Row(modifier = Modifier.horizontalScroll(scroll)) {
                     Spacer(modifier = Modifier.width(leadInset))
                     columns.forEachIndexed { c, col ->
-                        DataCell(cell = row[c], width = display[c], type = col.type)
+                        DataCell(cell = row[c], width = display[c], type = col.type, alignStart = col.alignStart)
                     }
                     Spacer(modifier = Modifier.width(trailInset))
                 }
@@ -687,23 +869,23 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
 }
 
 @Composable
-private fun HeaderCell(text: String, width: Dp, type: ColType) {
+private fun HeaderCell(text: String, width: Dp, alignStart: Boolean) {
     Box(
         modifier = Modifier.width(width).padding(horizontal = 4.dp),
-        contentAlignment = if (type == ColType.NAME) Alignment.CenterStart else Alignment.CenterEnd,
+        contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.CenterEnd,
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
-            textAlign = if (type == ColType.NAME) TextAlign.Start else TextAlign.End,
+            textAlign = if (alignStart) TextAlign.Start else TextAlign.End,
         )
     }
 }
 
 @Composable
-private fun DataCell(cell: CellVal, width: Dp, type: ColType) {
+private fun DataCell(cell: CellVal, width: Dp, type: ColType, alignStart: Boolean) {
     val style = when (type) {
         ColType.NAME -> MaterialTheme.typography.bodyMedium
         ColType.VALUE -> MaterialTheme.typography.bodyMedium.copy(
@@ -720,7 +902,7 @@ private fun DataCell(cell: CellVal, width: Dp, type: ColType) {
     }
     Box(
         modifier = Modifier.width(width).padding(horizontal = 4.dp, vertical = 13.dp),
-        contentAlignment = if (type == ColType.NAME) Alignment.CenterStart else Alignment.CenterEnd,
+        contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.CenterEnd,
     ) {
         Text(
             text = cell.text,
@@ -730,7 +912,7 @@ private fun DataCell(cell: CellVal, width: Dp, type: ColType) {
             // названия («Надбавка за класс квалификации») не обрезаются многоточием.
             maxLines = if (type == ColType.NAME) 3 else 1,
             overflow = TextOverflow.Ellipsis,
-            textAlign = if (type == ColType.NAME) TextAlign.Start else TextAlign.End,
+            textAlign = if (alignStart) TextAlign.Start else TextAlign.End,
         )
     }
 }
@@ -776,6 +958,7 @@ private fun AccrualsCard(
     convertTimeToStringFormat: (Long?) -> String,
 ) {
     val columns = listOf(
+        PayColumn("КОД", ColType.VALUE, alignStart = true),
         PayColumn("ВИД ВЫПЛАТЫ", ColType.NAME),
         PayColumn("ЧАСЫ", ColType.VALUE),
         PayColumn("%", ColType.VALUE),
@@ -783,6 +966,7 @@ private fun AccrualsCard(
     )
     val rows = buildAccrualRows(uiState).map { row ->
         listOf(
+            CellVal(PayrollPaymentCatalog[row.paymentId].codeLabel, faint = PayrollPaymentCatalog[row.paymentId].codes.isEmpty()),
             CellVal(row.title),
             CellVal(row.hours?.let { convertTimeToStringFormat(it) } ?: "—", faint = row.hours == null),
             CellVal(row.percent?.let { formatPercent(it) } ?: "—", faint = row.percent == null),
@@ -805,17 +989,19 @@ private fun AccrualsCard(
 @Composable
 private fun DeductionsCard(uiState: SalaryCalculationUIState) {
     val columns = listOf(
+        PayColumn("КОД", ColType.VALUE, alignStart = true),
         PayColumn("ВИД УДЕРЖАНИЯ", ColType.NAME),
+        PayColumn("%", ColType.VALUE),
         PayColumn("СУММА", ColType.MONEY),
     )
-    val rows = listOfNotNull(
-        uiState.retentionNdfl?.takeIf { it > 0 }?.let { "НДФЛ (13 %)" to it },
-        uiState.unionistsRetention?.takeIf { it > 0 }?.let { "Профсоюз" to it },
-        uiState.otherRetention?.takeIf { it > 0 }?.let { "Прочие удержания" to it },
-        uiState.welfareRetention?.takeIf { it > 0 }?.let { "Благосостояние" to it },
-        uiState.alimonyRetention?.takeIf { it > 0 }?.let { "Алименты" to it },
-    ).map { (name, amount) ->
-        listOf(CellVal(name), CellVal(formatMoney(amount)))
+    val rows = buildDeductionRows(uiState).map { row ->
+        val payment = PayrollPaymentCatalog[row.paymentId]
+        listOf(
+            CellVal(payment.codeLabel, faint = payment.codes.isEmpty()),
+            CellVal(row.title),
+            CellVal(row.percent?.let { formatPercent(it) } ?: "—", faint = row.percent == null),
+            CellVal(formatMoney(row.money)),
+        )
     }
 
     PayCard {
@@ -929,11 +1115,27 @@ private fun TariffWarningCard() {
 // ===========================================
 // Формирование строк начислений (только ненулевые суммы)
 // ===========================================
-private data class AccrualRow(
+internal data class AccrualRow(
+    val paymentId: SalaryPaymentId,
     val title: String,
     val hours: Long?,
     val percent: Double?,
     val money: Double?,
+)
+
+internal data class DeductionRow(
+    val paymentId: SalaryPaymentId,
+    val title: String,
+    val percent: Double?,
+    val money: Double,
+)
+
+internal fun buildDeductionRows(uiState: SalaryCalculationUIState): List<DeductionRow> = listOfNotNull(
+    uiState.retentionNdfl?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.NDFL, "НДФЛ", 13.0, it) },
+    uiState.unionistsRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.UNION, "Профсоюз", null, it) },
+    uiState.welfareRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.WELFARE, "Благосостояние", null, it) },
+    uiState.alimonyRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.ALIMONY, "Алименты", null, it) },
+    uiState.otherRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.OTHER_DEDUCTION, "Прочие удержания", null, it) },
 )
 
 private fun formatPercent(value: Double): String = "%.1f".format(value).replace('.', ',')
@@ -942,80 +1144,77 @@ private fun formatPercent(value: Double): String = "%.1f".format(value).replace(
 // null трактуем как ноль, чтобы в шапке/итогах всегда было «0,00».
 private fun formatMoney(value: Double?): String = (value ?: 0.0).str2decimalSign()
 
-private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow> = listOfNotNull(
+internal fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow> = listOfNotNull(
     // Основные выплаты
-    AccrualRow("Оплата по тарифу", uiState.paymentAtTariffHours, null, uiState.paymentAtTariffMoney),
+    AccrualRow(SalaryPaymentId.TARIFF, "Оплата по тарифу", uiState.paymentAtTariffHours, null, uiState.paymentAtTariffMoney),
     AccrualRow(
-        "Ночные часы",
+        SalaryPaymentId.NIGHT, "Ночные часы",
         uiState.paymentNightTimeHours,
         uiState.paymentNightTimePercent,
         uiState.paymentNightTimeMoney
     ),
-    AccrualRow("Пассажиром", uiState.paymentAtPassengerHours, null, uiState.paymentAtPassengerMoney),
+    AccrualRow(SalaryPaymentId.PASSENGER, "Пассажиром", uiState.paymentAtPassengerHours, null, uiState.paymentAtPassengerMoney),
     AccrualRow(
-        "Резервом",
+        SalaryPaymentId.RESERVE, "Резервом",
         uiState.paymentAtSingleLocomotiveHours,
         null,
         uiState.paymentAtSingleLocomotiveMoney
     ),
-    AccrualRow("Праздничные", uiState.paymentHolidayHours, null, uiState.paymentHolidayMoney),
-    AccrualRow("Оплата по среднему", uiState.averagePaymentHours, null, uiState.averagePaymentMoney),
+    AccrualRow(SalaryPaymentId.HOLIDAY, "Праздничные", uiState.paymentHolidayHours, null, uiState.paymentHolidayMoney),
+    AccrualRow(SalaryPaymentId.AVERAGE, "Оплата по среднему", uiState.averagePaymentHours, null, uiState.averagePaymentMoney),
     uiState.underworkMoney?.takeIf { it > 0 }?.let {
-        AccrualRow("Оплата недоработки", uiState.underworkHours, null, it)
+        AccrualRow(SalaryPaymentId.UNDERWORK, "Оплата недоработки", uiState.underworkHours, null, it)
     },
     AccrualRow(
-        "По уходу за ребенком-инвалидом",
+        SalaryPaymentId.DISABLED_CHILD_CARE, "По уходу за ребенком-инвалидом",
         uiState.caringForDisableChildrenHours,
         null,
         uiState.caringForDisableChildrenMoney
     ),
     uiState.businessTripHours?.takeIf { it > 0 }?.let {
-        AccrualRow("Командировка (по среднему)", it, null, uiState.businessTripMoney)
+        AccrualRow(SalaryPaymentId.BUSINESS_TRIP, "Командировка (по среднему)", it, null, uiState.businessTripMoney)
     },
     uiState.technicalStudyHours?.takeIf { it > 0 }?.let {
-        AccrualRow("Технические занятия", it, null, uiState.technicalStudyMoney)
+        AccrualRow(SalaryPaymentId.TECHNICAL_STUDY, "Технические занятия", it, null, uiState.technicalStudyMoney)
     },
 
     // Надбавки
     uiState.zonalSurchargePercent?.let {
-        AccrualRow("Зональная надбавка", null, it, uiState.zonalSurchargeMoney)
+        AccrualRow(SalaryPaymentId.ZONAL, "Зональная надбавка", null, it, uiState.zonalSurchargeMoney)
     },
     uiState.surchargeQualificationClassPercent?.let {
-        AccrualRow("Надбавка за класс квалификации", null, it, uiState.surchargeQualificationClassMoney)
+        AccrualRow(SalaryPaymentId.QUALIFICATION_CLASS, "Надбавка за класс квалификации", null, it, uiState.surchargeQualificationClassMoney)
     },
     *uiState.linearMileageAccruals.map { accrual ->
         AccrualRow(
-            "Доплата за пробег: ${accrual.phaseName} (${formatMoney(accrual.rate)} ₽/км)",
+            SalaryPaymentId.LINEAR_MILEAGE, "Доплата за пробег: ${accrual.phaseName} (${formatMoney(accrual.rate)} ₽/км)",
             null,
             null,
             accrual.money,
         )
     }.toTypedArray(),
     uiState.onePersonOperationPercent?.let {
-        AccrualRow("В одно лицо (грузовые)", uiState.onePersonOperationHours, it, uiState.onePersonOperationMoney)
+        AccrualRow(SalaryPaymentId.ONE_PERSON_FREIGHT, "В одно лицо (грузовые)", uiState.onePersonOperationHours, it, uiState.onePersonOperationMoney)
     },
     uiState.onePersonOperationPassengerTrainPercent?.let {
         AccrualRow(
-            "В одно лицо (пассажирские)",
+            SalaryPaymentId.ONE_PERSON_PASSENGER, "В одно лицо (пассажирские)",
             uiState.onePersonOperationPassengerTrainHours,
             it,
             uiState.onePersonOperationPassengerTrainMoney
         )
     },
     uiState.harmfulnessSurchargePercent?.let {
-        AccrualRow("Вредность", null, it, uiState.harmfulnessSurchargeMoney)
+        AccrualRow(SalaryPaymentId.HARMFULNESS, "Вредность", null, it, uiState.harmfulnessSurchargeMoney)
     },
     uiState.districtSurchargeCoefficient?.let {
-        AccrualRow("Районный коэффициент", null, it, uiState.districtSurchargeMoney)
+        AccrualRow(SalaryPaymentId.DISTRICT, "Районный коэффициент", null, it, uiState.districtSurchargeMoney)
     },
     uiState.nordicSurchargePercent?.let {
-        AccrualRow("Северная надбавка", null, it, uiState.nordicSurchargeMoney)
-    },
-    uiState.otherSurchargePercent?.let {
-        AccrualRow("Прочие надбавки", null, it, uiState.otherSurchargeMoney)
+        AccrualRow(SalaryPaymentId.NORDIC, "Северная надбавка", null, it, uiState.nordicSurchargeMoney)
     },
     uiState.restInExcessOfTheNormMoney?.takeIf { it > 0 }?.let {
-        AccrualRow("Переотдых", uiState.restInExcessOfTheNormTime, null, it)
+        AccrualRow(SalaryPaymentId.EXCESS_REST, "Переотдых", uiState.restInExcessOfTheNormTime, null, it)
     },
 
     // Списки надбавок
@@ -1027,7 +1226,7 @@ private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow
         val money = uiState.surchargeExtendedServicePhaseMoney.getOrNull(i) ?: 0.0
         if (money > 0) {
             AccrualRow(
-                "Удлиненное плечо (${uiState.surchargeExtendedServicePhasePercent[i] ?: ""}%)",
+                SalaryPaymentId.EXTENDED_SERVICE, "Удлиненное плечо (${uiState.surchargeExtendedServicePhasePercent[i] ?: ""}%)",
                 uiState.surchargeExtendedServicePhaseHour.getOrNull(i),
                 uiState.surchargeExtendedServicePhasePercent.getOrNull(i)?.toDoubleOrNull(),
                 money
@@ -1043,7 +1242,7 @@ private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow
         val money = uiState.surchargeHeavyTransMoney.getOrNull(i) ?: 0.0
         if (money > 0) {
             AccrualRow(
-                "Тяжелые поезда (${uiState.surchargeHeavyTransPercent[i] ?: ""}%)",
+                SalaryPaymentId.HEAVY_TRAIN, "Тяжелые поезда (${uiState.surchargeHeavyTransPercent[i] ?: ""}%)",
                 uiState.surchargeHeavyTransHour.getOrNull(i),
                 uiState.surchargeHeavyTransPercent.getOrNull(i)?.toDoubleOrNull(),
                 money
@@ -1059,7 +1258,7 @@ private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow
         val money = uiState.surchargeLongTrainMoney.getOrNull(i) ?: 0.0
         if (money > 0) {
             AccrualRow(
-                "Длинносост. (${uiState.surchargeLongTrainPercent[i] ?: ""}%)",
+                SalaryPaymentId.LONG_TRAIN, "Длинносост. (${uiState.surchargeLongTrainPercent[i] ?: ""}%)",
                 uiState.surchargeLongTrainHour.getOrNull(i),
                 uiState.surchargeLongTrainPercent.getOrNull(i)?.toDoubleOrNull(),
                 money
@@ -1069,7 +1268,7 @@ private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow
 
     uiState.surchargeHeavyLongDistanceTrainsMoney?.takeIf { it > 0 }?.let {
         AccrualRow(
-            "Доплата за ПДМ (6000 т. и 350 осей)",
+            SalaryPaymentId.HEAVY_LONG_DISTANCE, "Доплата за ПДМ (>6000 т. и >350 осей)",
             uiState.surchargeHeavyLongDistanceTrainsHours,
             uiState.surchargeHeavyLongDistanceTrainsPercent,
             it
@@ -1077,18 +1276,23 @@ private fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRow
     },
 
     uiState.surchargeDoubledTrainFirstMoney?.takeIf { it > 0 }?.let {
-        AccrualRow("Сдвоенные поезда (30%)", uiState.surchargeDoubledTrainFirstHours, 30.0, it)
+        AccrualRow(SalaryPaymentId.DOUBLED_TRAIN, "Сдвоенные поезда (30%)", uiState.surchargeDoubledTrainFirstHours, 30.0, it)
     },
     uiState.surchargeDoubledTrainSecondMoney?.takeIf { it > 0 }?.let {
-        AccrualRow("Сдвоенные поезда (15%)", uiState.surchargeDoubledTrainSecondHours, 15.0, it)
+        AccrualRow(SalaryPaymentId.DOUBLED_TRAIN, "Сдвоенные поезда (15%)", uiState.surchargeDoubledTrainSecondHours, 15.0, it)
     },
 
     // Сверхурочные
-    AccrualRow("Сверхурочные часы", uiState.paymentAtOvertimeHours, null, uiState.paymentAtOvertimeMoney),
+    AccrualRow(SalaryPaymentId.OVERTIME_BASE, "Сверхурочные часы", uiState.paymentAtOvertimeHours, null, uiState.paymentAtOvertimeMoney),
     uiState.surchargeAtOvertime05Money?.takeIf { it > 0 }?.let {
-        AccrualRow("Доплата за сверхурочные (50%)", uiState.surchargeAtOvertime05Hours, 50.0, it)
+        AccrualRow(SalaryPaymentId.OVERTIME_HALF, "Доплата за сверхурочные (50%)", uiState.surchargeAtOvertime05Hours, 50.0, it)
     },
     uiState.surchargeAtOvertimeMoney?.takeIf { it > 0 }?.let {
-        AccrualRow("Доплата за сверхурочные (100%)", uiState.surchargeAtOvertimeHours, 100.0, it)
+        AccrualRow(SalaryPaymentId.OVERTIME_FULL, "Доплата за сверхурочные (100%)", uiState.surchargeAtOvertimeHours, 100.0, it)
+    },
+
+    // Пользовательские суммы всегда завершают список штатных начислений.
+    uiState.otherSurchargePercent?.let {
+        AccrualRow(SalaryPaymentId.OTHER_SURCHARGE, "Прочие надбавки", null, it, uiState.otherSurchargeMoney)
     },
 ).filter { it.money != null && it.money > 0 }

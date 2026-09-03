@@ -18,8 +18,8 @@ import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.str
-import com.z_company.domain.util.toDoubleOrZero
 import com.z_company.domain.util.toIntOrZero
+import com.z_company.domain.util.toNonNegativeFiniteDoubleOrNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -37,6 +37,33 @@ import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
+
+internal fun validatedHeavyTrainSettings(
+    values: List<SurchargeHeavyTrains>,
+): List<SurchargeHeavyTrains>? = values.takeIf { list ->
+    list.all { item ->
+        item.weight.toNonNegativeFiniteDoubleOrNull()?.let { it > 0.0 } == true &&
+            item.percentSurcharge.toNonNegativeFiniteDoubleOrNull() != null
+    }
+}?.map { it.copy() }
+
+internal fun validatedLongTrainSettings(
+    values: List<SurchargeLongTrains>,
+): List<SurchargeLongTrains>? = values.takeIf { list ->
+    list.all { item ->
+        item.conditionalLength.toNonNegativeFiniteDoubleOrNull()?.let { it > 0.0 } == true &&
+            item.percentSurcharge.toNonNegativeFiniteDoubleOrNull() != null
+    }
+}?.map { it.copy() }
+
+internal fun validatedExtendedServiceSettings(
+    values: List<SurchargeExtendedServicePhase>,
+): List<SurchargeExtendedServicePhase>? = values.takeIf { list ->
+    list.all { item ->
+        item.distance.toNonNegativeFiniteDoubleOrNull()?.let { it > 0.0 } == true &&
+            item.percentSurcharge.toNonNegativeFiniteDoubleOrNull() != null
+    }
+}?.map { it.copy() }
 
 class SettingSalaryViewModel : ViewModel(), KoinComponent {
     private val salarySettingUseCase: SalarySettingUseCase by inject()
@@ -237,30 +264,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             val state = uiState.value.settingSalaryState
             if (state is ResultState.Success) {
                 state.data?.let { salarySetting ->
-                    salarySetting.surchargeExtendedServicePhaseList =
-                        surchargeExtendedServicePhaseListState.map { servicePhase ->
-                            SurchargeExtendedServicePhase(
-                                id = servicePhase.id,
-                                distance = servicePhase.distance,
-                                percentSurcharge = servicePhase.percentSurcharge
-                            )
-                        }.toMutableList()
-                    salarySetting.surchargeHeavyTrainsList =
-                        surchargeHeavyTrainsState.map { surcharge ->
-                            SurchargeHeavyTrains(
-                                id = surcharge.id,
-                                weight = surcharge.weight,
-                                percentSurcharge = surcharge.percentSurcharge
-                            )
-                        }.toMutableList()
-                    salarySetting.surchargeLongTrainsList =
-                        surchargeLongTrainsState.map { surcharge ->
-                            SurchargeLongTrains(
-                                id = surcharge.id,
-                                conditionalLength = surcharge.conditionalLength,
-                                percentSurcharge = surcharge.percentSurcharge
-                            )
-                        }.toMutableList()
+                    applyValidEditableLists(salarySetting)
 
                     salarySettingUseCase.saveSalarySetting(salarySetting).collect { saveResult ->
                         if (saveResult is ResultState.Success) autoPushSettings()
@@ -306,30 +310,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             val state = uiState.value.settingSalaryState
             if (state is ResultState.Success) {
                 state.data?.let { salarySetting ->
-                    salarySetting.surchargeExtendedServicePhaseList =
-                        surchargeExtendedServicePhaseListState.map { servicePhase ->
-                            SurchargeExtendedServicePhase(
-                                id = servicePhase.id,
-                                distance = servicePhase.distance,
-                                percentSurcharge = servicePhase.percentSurcharge
-                            )
-                        }.toMutableList()
-                    salarySetting.surchargeHeavyTrainsList =
-                        surchargeHeavyTrainsState.map { surcharge ->
-                            SurchargeHeavyTrains(
-                                id = surcharge.id,
-                                weight = surcharge.weight,
-                                percentSurcharge = surcharge.percentSurcharge
-                            )
-                        }.toMutableList()
-                    salarySetting.surchargeLongTrainsList =
-                        surchargeLongTrainsState.map { surcharge ->
-                            SurchargeLongTrains(
-                                id = surcharge.id,
-                                conditionalLength = surcharge.conditionalLength,
-                                percentSurcharge = surcharge.percentSurcharge
-                            )
-                        }.toMutableList()
+                    applyValidEditableLists(salarySetting)
                     salarySettingUseCase.saveSalarySetting(salarySetting).collect {}
                 }
             }
@@ -365,15 +346,25 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    private fun applyValidEditableLists(salarySetting: SalarySetting) {
+        validatedExtendedServiceSettings(surchargeExtendedServicePhaseListState)?.let {
+            salarySetting.surchargeExtendedServicePhaseList = it.toMutableList()
+        }
+        validatedHeavyTrainSettings(surchargeHeavyTrainsState)?.let {
+            salarySetting.surchargeHeavyTrainsList = it.toMutableList()
+        }
+        validatedLongTrainSettings(surchargeLongTrainsState)?.let {
+            salarySetting.surchargeLongTrainsList = it.toMutableList()
+        }
+    }
+
     private fun isErrorInputDouble(value: String): Boolean {
-        if (value.isBlank()) return false
-        return value.toDoubleOrNull() == null
+        return value.toNonNegativeFiniteDoubleOrNull() == null
     }
 
     fun setTariffRate(value: String) {
-        currentMonthOfYear = currentMonthOfYear?.copy(
-            tariffRate = value.toDoubleOrZero()
-        )
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentMonthOfYear = currentMonthOfYear?.copy(tariffRate = parsed)
         _uiState.update {
             it.copy(
                 tariffRate = ResultState.Success(value),
@@ -383,8 +374,9 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
     }
 
     fun setSurchargeHeavyLongDistanceTrains(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            surchargeHeavyLongDistanceTrains = value.toDoubleOrZero()
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(
+            surchargeHeavyLongDistanceTrains = parsed
         )
         _uiState.update {
             it.copy(
@@ -392,13 +384,14 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 isErrorInputSurchargeHeavyLongDistanceTrains = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setOldTariffRate(value: String) {
-        currentMonthOfYear = currentMonthOfYear?.copy(
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentMonthOfYear = currentMonthOfYear?.copy(
             dateSetTariffRate = currentMonthOfYear!!.dateSetTariffRate?.copy(
-                oldRate = value.toDoubleOrZero()
+                oldRate = parsed
             )
         )
 
@@ -481,8 +474,9 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
     }
 
     fun setAveragePaymentHour(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            averagePaymentHour = value.toDoubleOrZero()
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(
+            averagePaymentHour = parsed
         )
         _uiState.update {
             it.copy(
@@ -490,12 +484,13 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 isErrorInputAveragePayment = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setDistrictCoefficient(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            districtCoefficient = value.toDoubleOrZero()
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(
+            districtCoefficient = parsed
         )
         _uiState.update {
             it.copy(
@@ -503,12 +498,13 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 isErrorInputDistrictCoefficient = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setNordicCoefficient(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            nordicPercent = value.toDoubleOrZero()
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(
+            nordicPercent = parsed
         )
         _uiState.update {
             it.copy(
@@ -516,25 +512,25 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 isErrorInputNordicCoefficient = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setZonalSurcharge(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            zonalSurcharge = value.toDoubleOrZero()
-        )
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(zonalSurcharge = parsed)
         _uiState.update {
             it.copy(
                 zonalSurcharge = ResultState.Success(value),
                 isErrorInputZonalSurcharge = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setSurchargeQualificationClass(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            surchargeQualificationClass = value.toDoubleOrZero()
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(
+            surchargeQualificationClass = parsed
         )
         _uiState.update {
             it.copy(
@@ -542,12 +538,13 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 isErrorInputSurchargeQualificationClass = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setOnePersonOperationPercent(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            onePersonOperationPercent = value.toDoubleOrZero()
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(
+            onePersonOperationPercent = parsed
         )
         _uiState.update {
             it.copy(
@@ -555,12 +552,13 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 isErrorInputOnePersonOperation = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setOnePersonOperationPassengerTrainPercent(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            onePersonOperationPassengerTrainPercent = value.toDoubleOrZero()
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(
+            onePersonOperationPassengerTrainPercent = parsed
         )
         _uiState.update {
             it.copy(
@@ -568,12 +566,13 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 isErrorInputOnePersonOperationPassengerTrain = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setHarmfulnessPercent(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            harmfulnessPercent = value.toDoubleOrZero()
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(
+            harmfulnessPercent = parsed
         )
         _uiState.update {
             it.copy(
@@ -581,7 +580,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 isErrorInputHarmfulnessPercent = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun addSurchargeHeavyTrain() {
@@ -699,81 +698,75 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
     }
 
     fun setOtherSurcharge(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            otherSurcharge = value.toDoubleOrZero()
-        )
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(otherSurcharge = parsed)
         _uiState.update {
             it.copy(
                 otherSurchargeState = ResultState.Success(value),
                 isErrorInputOtherSurcharge = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setNDFL(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            ndfl = value.toDoubleOrZero()
-        )
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(ndfl = parsed)
         _uiState.update {
             it.copy(
                 ndfl = ResultState.Success(value),
                 isErrorInputNdfl = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setUnionistsRetention(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            unionistsRetention = value.toDoubleOrZero()
-        )
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(unionistsRetention = parsed)
         _uiState.update {
             it.copy(
                 unionistsRetentionState = ResultState.Success(value),
                 isErrorInputUnionistsRetention = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setOtherRetention(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            otherRetention = value.toDoubleOrZero()
-        )
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(otherRetention = parsed)
         _uiState.update {
             it.copy(
                 otherRetention = ResultState.Success(value),
                 isErrorInputOtherRetention = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setWelfarePercent(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            welfarePercent = value.toDoubleOrZero()
-        )
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(welfarePercent = parsed)
         _uiState.update {
             it.copy(
                 welfarePercentState = ResultState.Success(value),
                 isErrorInputWelfarePercent = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setAlimonyPercent(value: String) {
-        currentSalarySetting = currentSalarySetting?.copy(
-            alimonyPercent = value.toDoubleOrZero()
-        )
+        val parsed = value.toNonNegativeFiniteDoubleOrNull()
+        if (parsed != null) currentSalarySetting = currentSalarySetting?.copy(alimonyPercent = parsed)
         _uiState.update {
             it.copy(
                 alimonyPercentState = ResultState.Success(value),
                 isErrorInputAlimonyPercent = isErrorInputDouble(value)
             )
         }
-        scheduleAutoSave()
+        if (parsed != null) scheduleAutoSave()
     }
 
     fun setShowUnderworkPayments(value: Boolean) {

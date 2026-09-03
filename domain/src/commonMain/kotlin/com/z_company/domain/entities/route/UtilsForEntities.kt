@@ -12,11 +12,14 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.UtilForMonthOfYear.getTimeInCurrentMonth
 import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.TimeCalculationContext
+import com.z_company.domain.util.TimeInterval
 import com.z_company.domain.util.div
 import com.z_company.domain.util.getTimeZone
 import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
+import com.z_company.domain.util.mergeTimeIntervals
+import com.z_company.domain.util.subtractAll
 import com.z_company.domain.util.plus
 import com.z_company.domain.util.toIntOrZero
 import kotlinx.coroutines.flow.Flow
@@ -846,24 +849,39 @@ object UtilsForEntities {
     fun List<Route>.getPassengerTimeOutsideWork(
         monthOfYear: MonthOfYear,
         context: TimeCalculationContext
-    ): Long {
-        var passengerTime = 0L
-        this.forEach { route ->
-            route.passengers.forEach { passenger ->
-                if (passenger.isWorkStartByArrival) {
-                    val start = passenger.timeDeparture
-                    val end = passenger.timeArrival
-                    if (start != null && end != null) {
-                        passengerTime += if (passenger.isTransition(context.crossMonthTZ)) {
-                            monthOfYear.getTimeInCurrentMonth(start, end, context)
-                        } else {
-                            end.floorToMinute() - start.floorToMinute()
-                        }
-                    }
+    ): Long = getPassengerOutsideWorkIntervals(monthOfYear, context)
+        .sumOf { it.durationMillis }
+
+    fun List<Route>.getPassengerOutsideWorkIntervals(
+        monthOfYear: MonthOfYear,
+        context: TimeCalculationContext,
+    ): List<TimeInterval> {
+        val monthStart = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
+            .atStartOfDayIn(context.crossMonthTZ).toEpochMilliseconds()
+        val monthEnd = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
+            .plus(1, DateTimeUnit.MONTH)
+            .atStartOfDayIn(context.crossMonthTZ).toEpochMilliseconds()
+        val monthInterval = TimeInterval(monthStart, monthEnd)
+        return flatMap { route ->
+            val workInterval = route.basicData.timeStartWork?.let { start ->
+                route.basicData.timeEndWork?.takeIf { it > start }?.let { end ->
+                    TimeInterval(start, end)
                 }
             }
+            route.passengers.asSequence()
+                .filter { it.isWorkStartByArrival }
+                .mapNotNull { passenger ->
+                    val start = passenger.timeDeparture ?: return@mapNotNull null
+                    val end = passenger.timeArrival ?: return@mapNotNull null
+                    if (end <= start) return@mapNotNull null
+                    TimeInterval(start.floorToMinute(), end.floorToMinute())
+                        .intersect(monthInterval)
+                }
+                .flatMap { interval -> interval.subtractAll(listOfNotNull(workInterval)).asSequence() }
+                .toList()
+                .mergeTimeIntervals()
+                .toList()
         }
-        return passengerTime
     }
 
     fun List<Route>.getPassengerTimeOutsideWork(
@@ -1179,7 +1197,7 @@ object UtilsForEntities {
                 // Доплата за плечо обслуживания не начисляется на часы следования
                 // пассажиром — вычитаем их из времени смены.
                 val passengerTime = this.getPassengerTime() ?: 0L
-                summaryTimeFollowing += ((endWork - startWork) - passengerTime).coerceAtLeast(0L)
+                summaryTimeFollowing += ((endWork - startWork) - passengerTime - getBreakDuration()).coerceAtLeast(0L)
             }
             return summaryTimeFollowing
         }
@@ -1221,7 +1239,7 @@ object UtilsForEntities {
                     // Доплата за длинносоставный поезд не начисляется на часы
                     // следования пассажиром — вычитаем их из времени смены.
                     val passengerTime = this.getPassengerTime() ?: 0L
-                    resultTime += ((endWork - startWork) - passengerTime).coerceAtLeast(0L)
+                    resultTime += ((endWork - startWork) - passengerTime - getBreakDuration()).coerceAtLeast(0L)
                     return resultTime
                 }
             }
@@ -1267,7 +1285,7 @@ object UtilsForEntities {
                     // Доплата за тяжеловесный поезд не начисляется на часы
                     // следования пассажиром — вычитаем их из времени смены.
                     val passengerTime = this.getPassengerTime() ?: 0L
-                    resultTime += ((endWork - startWork) - passengerTime).coerceAtLeast(0L)
+                    resultTime += ((endWork - startWork) - passengerTime - getBreakDuration()).coerceAtLeast(0L)
                     return resultTime
                 }
             }
@@ -1280,15 +1298,35 @@ object UtilsForEntities {
      * Критерии фиксированы отраслевым правилом: вес > 6000 т и осность >= 350.
      */
     fun Route.getTimeInHeavyLongDistanceTrain(): Long {
-        val matches = trains.any { train ->
+        val intervals = trains.filter { train ->
             (train.weight?.toDoubleOrNull() ?: 0.0) > 6000.0 &&
                 train.axle.toIntOrZero() >= 350
+        }.mapNotNull { train ->
+            val start = train.stations.firstOrNull()?.timeDeparture ?: basicData.timeStartWork
+            val end = train.stations.lastOrNull()?.timeArrival ?: basicData.timeEndWork
+            if (start != null && end != null && end > start) start until end else null
         }
-        if (!matches) return 0L
+        return coveredTrainTime(intervals)
+    }
+
+    private fun Route.coveredTrainTime(intervals: List<LongRange>): Long {
         val startWork = basicData.timeStartWork ?: return 0L
         val endWork = basicData.timeEndWork ?: return 0L
-        val passengerTime = getPassengerTime() ?: 0L
-        return ((endWork - startWork) - passengerTime).coerceAtLeast(0L)
+        val clipped = intervals.mapNotNull { interval ->
+            val start = maxOf(startWork, interval.first)
+            val end = minOf(endWork, interval.last + 1)
+            if (end > start) start until end else null
+        }.sortedBy { it.first }
+        if (clipped.isEmpty()) return 0L
+        val merged = mutableListOf<LongRange>()
+        clipped.forEach { interval ->
+            val last = merged.lastOrNull()
+            if (last != null && interval.first <= last.last + 1) {
+                merged[merged.lastIndex] = last.first..maxOf(last.last, interval.last)
+            } else merged += interval
+        }
+        val covered = merged.sumOf { it.last - it.first + 1 }
+        return (covered - (getPassengerTime() ?: 0L) - getBreakDuration()).coerceAtLeast(0L)
     }
 
     private fun Train.getTimeInLongDistance(
@@ -1342,35 +1380,40 @@ object UtilsForEntities {
         context: TimeCalculationContext
     ): Long {
         var resultTime = 0L
-        var isNotPassengerTrain = true
         this.forEach { route ->
             if (route.basicData.isOnePersonOperation) {
-                route.trains.forEach { train ->
-                    passengerTrainNumberList.forEach { interval ->
-                        if (interval.contains(train.number.toIntOrZero())) {
-                            isNotPassengerTrain = false
-                        }
-                    }
+                val hasFreight = route.trains.any { train ->
+                    passengerTrainNumberList.none { it.contains(train.number.toIntOrZero()) }
                 }
-                if (isNotPassengerTrain) {
-                    val routeTime = if (route.isTransition(context)) {
-                        monthOfYear.getTimeInCurrentMonth(
-                            route.basicData.timeStartWork!!,
-                            route.basicData.timeEndWork!!,
-                            context
-                        )
-                    } else {
-                        route.getWorkTime() ?: 0L
-                    }
-                    // Вычитаем время следования пассажиром: оно не считается работой в одно лицо,
-                    // доплата начисляется только на чистое время управления локомотивом.
-                    val passengerTime = route.getPassengerTime() ?: 0L
-                    resultTime += (routeTime - passengerTime).coerceAtLeast(0L)
+                if (hasFreight) resultTime += route.categoryWorkTime(monthOfYear, context) { train ->
+                    passengerTrainNumberList.none { it.contains(train.number.toIntOrZero()) }
                 }
-                isNotPassengerTrain = true
             }
         }
         return resultTime
+    }
+
+    private fun Route.categoryWorkTime(
+        monthOfYear: MonthOfYear,
+        context: TimeCalculationContext,
+        predicate: (Train) -> Boolean,
+    ): Long {
+        val selected = trains.filter(predicate)
+        if (selected.isEmpty()) return 0L
+        val routeStart = basicData.timeStartWork ?: return 0L
+        val routeEnd = basicData.timeEndWork ?: return 0L
+        val intervals = selected.mapNotNull { train ->
+            val start = train.stations.firstOrNull()?.timeDeparture
+            val end = train.stations.lastOrNull()?.timeArrival
+            if (start != null && end != null && end > start) start until end else null
+        }
+        val raw = if (intervals.isEmpty()) {
+            if (isTransition(context)) monthOfYear.getTimeInCurrentMonth(routeStart, routeEnd, context)
+            else getWorkTime() ?: 0L
+        } else coveredTrainTime(intervals)
+        return if (intervals.isEmpty()) {
+            (raw - (getPassengerTime() ?: 0L)).coerceAtLeast(0L)
+        } else raw
     }
 
     fun List<Route>.getOnePersonOperationTime(
@@ -1389,32 +1432,11 @@ object UtilsForEntities {
         context: TimeCalculationContext
     ): Long {
         var resultTime = 0L
-        var isPassengerTrain = false
         this.forEach { route ->
             if (route.basicData.isOnePersonOperation) {
-                route.trains.forEach { train ->
-                    passengerTrainNumberList.forEach { interval ->
-                        if (interval.contains(train.number.toIntOrZero())) {
-                            isPassengerTrain = true
-                        }
-                    }
+                resultTime += route.categoryWorkTime(monthOfYear, context) { train ->
+                    passengerTrainNumberList.any { it.contains(train.number.toIntOrZero()) }
                 }
-                if (isPassengerTrain) {
-                    val routeTime = if (route.isTransition(context)) {
-                        monthOfYear.getTimeInCurrentMonth(
-                            route.basicData.timeStartWork!!,
-                            route.basicData.timeEndWork!!,
-                            context
-                        )
-                    } else {
-                        route.getWorkTime() ?: 0L
-                    }
-                    // Аналогично — вычитаем время следования пассажиром из времени работы
-                    // в одно лицо в пассажирском движении.
-                    val passengerTime = route.getPassengerTime() ?: 0L
-                    resultTime += (routeTime - passengerTime).coerceAtLeast(0L)
-                }
-                isPassengerTrain = false
             }
         }
         return resultTime
@@ -1466,13 +1488,16 @@ object UtilsForEntities {
     }
 
     fun Route.getOverRestTime(nextRoute: Route?, minTimeRest: Long): Long {
-        if (!this.basicData.restPointOfTurnover) return 0L
-        val endWork = this.basicData.timeEndWork ?: return 0L
-        val nextStart = nextRoute?.basicData?.timeStartWork ?: return 0L
-        val workTime = this.getWorkTime() ?: return 0L
-        val fullRestDuration = maxOf(workTime, minTimeRest)
-        val actualRest = nextStart - endWork
-        return if (actualRest > fullRestDuration) actualRest - fullRestDuration else 0L
+        return getOverRestInterval(nextRoute, minTimeRest)?.durationMillis ?: 0L
+    }
+
+    fun Route.getOverRestInterval(nextRoute: Route?, minTimeRest: Long): TimeInterval? {
+        if (!basicData.restPointOfTurnover) return null
+        val endWork = basicData.timeEndWork ?: return null
+        val nextStart = nextRoute?.basicData?.timeStartWork ?: return null
+        val workTime = getWorkTime() ?: return null
+        val payableStart = endWork + maxOf(workTime, minTimeRest)
+        return if (nextStart > payableStart) TimeInterval(payableStart, nextStart) else null
     }
 
     fun List<Route>.getTotalOverRestTime(minTimeRest: Long): Long {

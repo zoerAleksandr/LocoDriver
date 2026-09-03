@@ -23,5 +23,4 @@ final class TrainFormViewModelWrapper: ObservableObject {
     func setAxle(_ v: String) { viewModel.setAxle(value: v) }
     func setDistance(_ v: String) { viewModel.setDistance(value: v) }
     func setLength(_ v: String) { viewModel.setLength(value: v) }
-    func setIsHeavy(_ v: Bool) { viewModel.setIsHeavy(value: v) }
 }

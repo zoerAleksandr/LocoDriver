@@ -26,6 +26,7 @@ import com.z_company.domain.repositories.PartnerRepository
 import com.z_company.domain.repositories.StationNormRepository
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.PartnerUseCase
+import com.z_company.domain.use_cases.NormaUseCase
 import com.z_company.domain.use_cases.ProductionCalendarUseCase
 import com.z_company.domain.use_cases.RoutePartnerUseCase
 import com.z_company.domain.use_cases.ReleaseDayUseCase
@@ -86,6 +87,7 @@ val iosUseCaseModule = module {
     single { SalarySettingUseCase(get(), get()) }
     single { ReleaseDayUseCase(get()) }
     single { ProductionCalendarUseCase(get()) }
+    single { NormaUseCase(get(), get(), get()) }
     single { RoutePartnerUseCase(get()) }
     single { PartnerUseCase(get()) }
 
@@ -111,7 +113,7 @@ val iosUseCaseModule = module {
     single { HomeIosViewModel(get(), get()) }
     single { SettingsIosViewModel(get()) }
     single { FormIosViewModel(get(), get()) }
-    single { SalaryCalculationIosViewModel(get(), get()) }
+    single { SalaryCalculationIosViewModel(get(), get(), get(), get()) }
     single { LocoFormIosViewModel(get()) }
     single { TrainFormIosViewModel(get()) }
     single { PassengerFormIosViewModel(get()) }

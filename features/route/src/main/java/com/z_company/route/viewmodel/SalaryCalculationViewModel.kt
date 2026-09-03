@@ -40,6 +40,14 @@ import org.koin.core.component.inject
 import java.util.Calendar
 import kotlin.String
 
+internal fun shouldShowAverageHourInfo(
+    underworkTime: Long,
+    averagePaymentHour: Double,
+    alreadyDismissed: Boolean,
+): Boolean = underworkTime > 0L &&
+        (!averagePaymentHour.isFinite() || averagePaymentHour <= 0.0) &&
+        !alreadyDismissed
+
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
@@ -208,7 +216,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
                     acc.copy(
                         // Пояснение: copy копирует объект, заменяя только непустые поля из partial
-                        month = partial.month,
+                        month = mergeNonEmptyText(acc.month, partial.month),
                         normaHours = partial.normaHours ?: acc.normaHours,
                         totalWorkTime = partial.totalWorkTime ?: acc.totalWorkTime,
                         tariffRate = partial.tariffRate ?: acc.tariffRate,
@@ -554,11 +562,13 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
 
     // Метод для установки данных по пассажирским поездам (часы, сумма).
     private suspend fun setPassengerData(helper: SalaryCalculationHelper): PartialState {
-        val passengerTime = helper.getPassengerTimeFlow().first()
-        val money = helper.getMoneyAtPassengerFlow().first()
+        val passengerInsideTime = helper.getPassengerTimeFlow().first()
+        val passengerOutsideTime = helper.getPassengerOutsideWorkTimeFlow().first()
+        val money = helper.getMoneyAtPassengerFlow().first() +
+                helper.getMoneyAtPassengerOutsideWorkFlow().first()
 
         return PartialState(
-            paymentAtPassengerHours = passengerTime,
+            paymentAtPassengerHours = passengerInsideTime + passengerOutsideTime,
             paymentAtPassengerMoney = money
         )
     }
@@ -772,13 +782,16 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     ): PartialState {
         val time = helper.getUnderworkTimeFlow().first()
         val money = helper.getMoneyUnderworkFlow().first()
-        val averageHourSet = salarySetting.averagePaymentHour > 0.0
         // Инфо-окно не показываем, если пользователь уже закрыл его через «Понятно».
         val alreadyDismissed = sharedPreferenceStorage.isUnderworkInfoDismissed()
         return PartialState(
             underworkTime = time,
             underworkMoney = money,
-            showSetAverageHourInfo = time > 0L && !averageHourSet && !alreadyDismissed
+            showSetAverageHourInfo = shouldShowAverageHourInfo(
+                underworkTime = time,
+                averagePaymentHour = salarySetting.averagePaymentHour,
+                alreadyDismissed = alreadyDismissed,
+            )
         )
     }
 
@@ -980,3 +993,6 @@ data class PartialState(
     val totalRetention: Double? = null,
     val toBeCredited: Double? = null
 )
+
+internal fun mergeNonEmptyText(current: String, next: String): String =
+    next.takeIf { it.isNotEmpty() } ?: current

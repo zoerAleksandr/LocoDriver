@@ -1,11 +1,13 @@
 package com.z_company.route.viewmodel
 
 import com.z_company.domain.entities.Day
+import com.z_company.domain.entities.DateSetTariffRate
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
@@ -34,11 +36,19 @@ class OnePersonOperationSurchargeTest {
     private val tariffRate = 100.0
     private val oneHourMs = 3_600_000L
 
-    private fun createHelper(routes: List<Route>): SalaryCalculationHelper {
-        val days = (1..30).map { Day(dayOfMonth = it, tag = TagForDay.WORKING_DAY) }
-        val monthOfYear = MonthOfYear(tariffRate = tariffRate, days = days)
-        val userSettings = UserSettings(selectMonthOfYear = monthOfYear)
-        val salarySetting = SalarySetting()
+    private fun createHelper(
+        routes: List<Route>,
+        monthOfYear: MonthOfYear? = null,
+        salarySetting: SalarySetting = SalarySetting(),
+    ): SalaryCalculationHelper {
+        val days = (1..31).map { Day(dayOfMonth = it, tag = TagForDay.WORKING_DAY) }
+        val selectedMonth = monthOfYear ?: MonthOfYear(
+            year = 1970,
+            month = 0,
+            tariffRate = tariffRate,
+            days = days,
+        )
+        val userSettings = UserSettings(selectMonthOfYear = selectedMonth)
         return SalaryCalculationHelper(
             userSettings = userSettings,
             salarySetting = salarySetting,
@@ -147,6 +157,43 @@ class OnePersonOperationSurchargeTest {
         val helper = createHelper(listOf(route))
         val result = helper.getTimeOnePersonOperationFlow(listOf(route)).first()
         assertEquals(0L, result)
+    }
+
+    @Test
+    fun onePersonWithoutTrainUsesFreightRate() = runTest {
+        val route = oneOpRoute(
+            workDurationMs = 5 * oneHourMs,
+            trainNumber = null,
+        )
+        val helper = createHelper(listOf(route))
+
+        assertEquals(5 * oneHourMs, helper.getTimeOnePersonOperationFlow().first())
+        assertEquals(200.0, helper.getMoneyOnePersonOperationFlow().first(), 0.01)
+        assertEquals(0L, helper.getTimeOnePersonOperationPassengerTrainFlow().first())
+    }
+
+    @Test
+    fun mixedRoute_separatesFreightAndPassengerTrainIntervals() = runTest {
+        val route = Route(
+            basicData = BasicData(
+                isOnePersonOperation = true,
+                timeStartWork = 0L,
+                timeEndWork = 10 * oneHourMs,
+            ),
+            trains = mutableListOf(
+                Train(
+                    number = "2503",
+                    stations = mutableListOf(Station(timeDeparture = 0L, timeArrival = 4 * oneHourMs)),
+                ),
+                Train(
+                    number = "100",
+                    stations = mutableListOf(Station(timeDeparture = 4 * oneHourMs, timeArrival = 10 * oneHourMs)),
+                ),
+            ),
+        )
+        val helper = createHelper(listOf(route))
+        assertEquals(4 * oneHourMs, helper.getTimeOnePersonOperationFlow(listOf(route)).first())
+        assertEquals(6 * oneHourMs, helper.getTimeOnePersonOperationPassengerTrainFlow(listOf(route)).first())
     }
 
     // --- Несколько маршрутов ---
@@ -273,7 +320,8 @@ class OnePersonOperationSurchargeTest {
 
     @Test
     fun multiplePassengersInOneRoute_sumSubtracted() = runTest {
-        // 10 часов работы, 2 пассажирских сегмента по 1 часу → (10 - 2) = 8 часов
+        // Два одинаковых пассажирских интервала покрывают один и тот же час:
+        // пересечение исключается один раз, поэтому 10 - 1 = 9 часов.
         val route = Route(
             basicData = BasicData(
                 isOnePersonOperation = true,
@@ -288,6 +336,54 @@ class OnePersonOperationSurchargeTest {
         )
         val helper = createHelper(listOf(route))
         val result = helper.getTimeOnePersonOperationFlow(listOf(route)).first()
-        assertEquals(8 * oneHourMs, result)
+        assertEquals(9 * oneHourMs, result)
+    }
+
+    @Test
+    fun onePersonMoney_usesExactPassengerBreakAndTariffSegments() = runTest {
+        val route = Route(
+            basicData = BasicData(
+                isOnePersonOperation = true,
+                // 20:00–04:00 по Москве (эпоха хранится в UTC).
+                timeStartWork = 17 * oneHourMs,
+                timeEndWork = 25 * oneHourMs,
+                timeStartBreak = 20 * oneHourMs,
+                timeEndBreak = 21 * oneHourMs,
+            ),
+            trains = mutableListOf(Train(number = "2503")),
+            passengers = mutableListOf(
+                Passenger(timeDeparture = 18 * oneHourMs, timeArrival = 19 * oneHourMs),
+            ),
+        )
+        val month = MonthOfYear(
+            year = 1970,
+            month = 0,
+            tariffRate = 200.0,
+            dateSetTariffRate = DateSetTariffRate(dateNewRate = 2, oldRate = 100.0),
+            days = (1..31).map { Day(dayOfMonth = it, tag = TagForDay.WORKING_DAY) },
+        )
+        val helper = createHelper(listOf(route), monthOfYear = month)
+
+        // До полуночи остаются 2 часа (пассажиром и перерыв исключены),
+        // после полуночи — 4 часа по новой ставке.
+        assertEquals(6 * oneHourMs, helper.getTimeOnePersonOperationFlow().first())
+        assertEquals(400.0, helper.getMoneyOnePersonOperationFlow().first(), 0.01)
+    }
+
+    @Test
+    fun onePersonTime_isClippedBySelectedMonth() = runTest {
+        val route = Route(
+            basicData = BasicData(
+                isOnePersonOperation = true,
+                // 22:00 31 декабря — 02:00 1 января по Москве.
+                timeStartWork = -5 * oneHourMs,
+                timeEndWork = -oneHourMs,
+            ),
+            trains = mutableListOf(Train(number = "2503")),
+        )
+        val helper = createHelper(listOf(route))
+
+        assertEquals(2 * oneHourMs, helper.getTimeOnePersonOperationFlow().first())
+        assertEquals(80.0, helper.getMoneyOnePersonOperationFlow().first(), 0.01)
     }
 }
