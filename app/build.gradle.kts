@@ -68,15 +68,12 @@ android {
 
 
     buildTypes {
-        // Debug ходит на локальный бэкенд: правки авторизации нужно проверять
-        // против ветки сервера, а не против прода. Адрес по умолчанию —
-        // хост машины разработчика с точки зрения эмулятора; для устройства в
-        // одной сети пропишите DEBUG_API_URL в secret.properties (например,
-        // http://192.168.1.10:8766/), а чтобы debug снова смотрел на прод —
-        // http://87.228.110.32:8766/.
+        // Debug по умолчанию использует тот же production API, что и release.
+        // Для явной проверки локального бэкенда задайте DEBUG_API_URL в
+        // secret.properties (например, http://10.0.2.2:8766/ для эмулятора).
         getByName("debug") {
             val debugApiUrl: String =
-                properties.getProperty("DEBUG_API_URL") ?: "http://10.0.2.2:8766/"
+                properties.getProperty("DEBUG_API_URL") ?: ""
             buildConfigField(type = "String", name = "API_BASE_URL", value = "\"$debugApiUrl\"")
         }
         release {
