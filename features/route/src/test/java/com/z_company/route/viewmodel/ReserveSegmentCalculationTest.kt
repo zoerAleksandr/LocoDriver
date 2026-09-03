@@ -67,8 +67,14 @@ class ReserveSegmentCalculationTest {
     fun reserveUsesActualIntervalExcludingBreakPassengerAndApplyingTariffs() = runTest {
         val calculation = helper(number = "4001")
 
+        // Четыре оплачиваемых часа состоят из 3 ч резервом и 1 ч пассажиром.
+        // Они оплачиваются отдельными строками и не должны повторяться в 004L.
+        assertEquals(4 * hour, calculation.getTotalWorkTime().first())
         assertEquals(3 * hour, calculation.getSingleLocomotiveTimeFlow().first())
         assertEquals(500.0, calculation.getMoneyAtSingleLocomotiveFlow().first(), 0.001)
+        assertEquals(1 * hour, calculation.getPassengerTimeFlow().first())
+        assertEquals(0L, calculation.getWorkTimeAtTariffFlow().first())
+        assertEquals(0.0, calculation.getMoneyAtWorkTimeAtTariff().first(), 0.001)
     }
 
     @Test

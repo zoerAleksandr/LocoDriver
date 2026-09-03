@@ -423,7 +423,7 @@ private fun PayrollCodeReferenceCard(item: PayrollCodeReference) {
                         .background(MaterialTheme.colorScheme.primaryContainer)
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = MaterialTheme.colorScheme.tertiary,
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
