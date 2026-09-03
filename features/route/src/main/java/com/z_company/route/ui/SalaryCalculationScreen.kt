@@ -134,10 +134,11 @@ fun SalaryCalculationScreen(
                         onClick = { isCodeSearchActive = true },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        color = Color.Transparent,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
@@ -332,6 +333,7 @@ private fun PayrollCodeSearchScreen(
                         } else null,
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
+                        textStyle = MaterialTheme.typography.bodyLarge,
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
@@ -354,14 +356,14 @@ private fun PayrollCodeSearchScreen(
             item {
                 Card(
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
                     ),
                 ) {
                     Text(
-                        text = "Введите код, служебное название или слова из расшифровки. Можно искать по типу — «начисление» или «удержание». Пока строка пуста, показан весь справочник.",
+                        text = "Введите код, служебное название или слова из расшифровки любого удержания или начисления.",
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
@@ -598,6 +600,7 @@ private fun SalaryMonthSheet(
 // ===========================================
 // Hero — «К ВЫДАЧЕ · МЕСЯЦ» + крупная mono-сумма
 // ===========================================
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SalaryHero(amount: Double?, currency: String, totalWorkTime: String) {
     Column(
@@ -606,12 +609,13 @@ private fun SalaryHero(amount: Double?, currency: String, totalWorkTime: String)
             .padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 16.dp)
     ) {
         // Месяц вынесен в отдельный переключатель над Hero, поэтому здесь — только «К ВЫДАЧЕ».
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Bottom,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            maxItemsInEachRow = 2,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column {
                 Text(
                     text = "К ВЫДАЧЕ",
                     style = MaterialTheme.typography.labelMedium,
@@ -639,12 +643,12 @@ private fun SalaryHero(amount: Double?, currency: String, totalWorkTime: String)
                     )
                 }
             }
-            Column(horizontalAlignment = Alignment.End) {
+            Column(horizontalAlignment = Alignment.Start) {
                 Text(
                     text = "ВСЕГО ОТРАБОТАНО",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.End,
+                    textAlign = TextAlign.Start,
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
@@ -654,7 +658,7 @@ private fun SalaryHero(amount: Double?, currency: String, totalWorkTime: String)
                         fontWeight = FontWeight.Bold,
                     ),
                     color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.End,
+                    textAlign = TextAlign.Start,
                 )
             }
         }
