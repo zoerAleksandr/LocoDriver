@@ -2031,6 +2031,9 @@ STATION_LIST/SERIES_EDITOR_{id}/STATION_EDITOR_{id}).
   (`forgotRequest`/`forgotResetState`); привязка VK ID к существующему аккаунту
   (`attachVKID`, `onVkAuthForLinkedAccount`), отвязка (`removeUsersVKID`); обновление
   VK-токена (`vkIdRefreshToken`); выход (`logOut`).
+- Если регистрация по email получает от сервера HTTP `409 Conflict`, Android и
+  PWA показывают точное сообщение: **«Пользователь с таким email уже существует»**.
+  Для остальных ошибок сохраняется общий сетевой/серверный текст.
 - После успешного входа по email или VK Android дожидается отдельной загрузки
   серверного `UserSettings.subscriptionPeriod` и сохраняет срок локально до
   запуска обновления профиля и полной синхронизации. Ошибка этого шага не

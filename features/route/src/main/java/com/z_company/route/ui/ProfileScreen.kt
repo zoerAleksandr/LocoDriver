@@ -331,7 +331,7 @@ fun ProfileScreen(
     LaunchedEffect(registeredUiState) {
         if (registeredUiState is RegistrationState.Error) {
             val errorText = if ((registeredUiState as RegistrationState.Error).code == 409) {
-                "Пользователь уже зарегистрирован."
+                "Пользователь с таким email уже существует"
             } else {
                 vpnAwareErrorMessage(ctx, (registeredUiState as RegistrationState.Error).message)
             }
