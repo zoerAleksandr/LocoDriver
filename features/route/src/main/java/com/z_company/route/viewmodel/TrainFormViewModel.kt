@@ -152,7 +152,8 @@ class TrainFormViewModel(
     fun loadStationsSortOrder() {
         viewModelScope.launch {
             val isReversed = sharedPreferenceStorage.isReversedSortStationList() // Используйте ваш репозиторий
-            _uiState.update { it.copy(isStationsReversed = isReversed) }
+            val showSegments = sharedPreferenceStorage.isShowSegments()
+            _uiState.update { it.copy(isStationsReversed = isReversed, showSegments = showSegments) }
         }
     }
 
@@ -242,7 +243,11 @@ class TrainFormViewModel(
                         stationName = s.station.data,
                         timeArrival = s.arrival.data,
                         timeDeparture = s.departure.data,
-                        trackNumber = s.trackNumber
+                        trackNumber = s.trackNumber,
+                        isFinalStation = s.isFinalStation,
+                        isPassingStation = s.isPassingStation,
+                        segmentTrackNumber = s.segmentTrackNumber,
+                        segmentNotes = s.segmentNotes
                     )
                 }.toMutableList()
                 performSave(train)
@@ -292,7 +297,11 @@ class TrainFormViewModel(
                             stationName = s.station.data,
                             timeArrival = s.arrival.data,
                             timeDeparture = s.departure.data,
-                            trackNumber = s.trackNumber
+                            trackNumber = s.trackNumber,
+                            isFinalStation = s.isFinalStation,
+                            isPassingStation = s.isPassingStation,
+                            segmentTrackNumber = s.segmentTrackNumber,
+                            segmentNotes = s.segmentNotes
                         )
                     }.toMutableList()
                     trainUseCase.saveTrain(train).collect {}
@@ -336,7 +345,11 @@ class TrainFormViewModel(
                             stationName = state.station.data,
                             timeArrival = state.arrival.data,
                             timeDeparture = state.departure.data,
-                            trackNumber = state.trackNumber
+                            trackNumber = state.trackNumber,
+                            isFinalStation = state.isFinalStation,
+                            isPassingStation = state.isPassingStation,
+                            segmentTrackNumber = state.segmentTrackNumber,
+                            segmentNotes = state.segmentNotes
                         )
                     }.toMutableList()
 
@@ -788,6 +801,41 @@ class TrainFormViewModel(
         changesHave()
     }
 
+    // --- Вагонник (осмотр/закрепление состава перед прицепкой) ---
+    fun addCarInspector() {
+        currentTrain = currentTrain?.copy(carInspector = com.z_company.domain.entities.route.CarInspector())
+        changesHave()
+    }
+
+    fun removeCarInspector() {
+        currentTrain = currentTrain?.copy(carInspector = null)
+        changesHave()
+    }
+
+    fun setCarInspectorFullName(value: String) {
+        currentTrain = currentTrain?.copy(
+            carInspector = (currentTrain?.carInspector ?: com.z_company.domain.entities.route.CarInspector())
+                .copy(fullName = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setCarInspectorTabNumber(value: String) {
+        currentTrain = currentTrain?.copy(
+            carInspector = (currentTrain?.carInspector ?: com.z_company.domain.entities.route.CarInspector())
+                .copy(tabNumber = value.ifBlank { null })
+        )
+        changesHave()
+    }
+
+    fun setCarInspectorCouplingTime(value: Long?) {
+        currentTrain = currentTrain?.copy(
+            carInspector = (currentTrain?.carInspector ?: com.z_company.domain.entities.route.CarInspector())
+                .copy(couplingTime = value)
+        )
+        changesHave()
+    }
+
     // --- Series dropdown ---
     fun changeSeriesMenuExpanded(sectionId: String, expanded: Boolean) {
         _uiState.update {
@@ -854,7 +902,11 @@ class TrainFormViewModel(
                         data = station.timeDeparture,
                         type = StationDataType.DEPARTURE
                     ),
-                    trackNumber = station.trackNumber
+                    trackNumber = station.trackNumber,
+                    isFinalStation = station.isFinalStation,
+                    isPassingStation = station.isPassingStation,
+                    segmentTrackNumber = station.segmentTrackNumber,
+                    segmentNotes = station.segmentNotes
                 )
             )
         }
@@ -983,6 +1035,8 @@ class TrainFormViewModel(
         arrival: Long?,
         departure: Long?,
         trackNumber: String?,
+        isFinalStation: Boolean = false,
+        isPassingStation: Boolean = false,
         newStationId: String? = null
     ) {
         if (index == -1) {
@@ -991,7 +1045,9 @@ class TrainFormViewModel(
                 station = StationField(data = name, type = StationDataType.NAME),
                 arrival = StationFieldDate(data = arrival, type = StationDataType.ARRIVAL),
                 departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE),
-                trackNumber = trackNumber
+                trackNumber = trackNumber,
+                isFinalStation = isFinalStation,
+                isPassingStation = isPassingStation
             )
             val hasServicePhase = _uiState.value.selectedServicePhase != null
             if (hasServicePhase && stationsListState.size >= 2) {
@@ -1004,12 +1060,55 @@ class TrainFormViewModel(
                 station = StationField(data = name, type = StationDataType.NAME),
                 arrival = StationFieldDate(data = arrival, type = StationDataType.ARRIVAL),
                 departure = StationFieldDate(data = departure, type = StationDataType.DEPARTURE),
-                trackNumber = trackNumber
+                trackNumber = trackNumber,
+                isFinalStation = isFinalStation,
+                isPassingStation = isPassingStation
             )
         }
         changesHave()
         checkFormValidStation()
         stopEditingStation()
+    }
+
+    /** Показать/скрыть карточки перегонов. Выбор запоминается между входами на экран. */
+    fun toggleSegmentsVisibility() {
+        val newValue = !_uiState.value.showSegments
+        _uiState.update { it.copy(showSegments = newValue) }
+        sharedPreferenceStorage.setShowSegments(newValue)
+    }
+
+    // ── Перегон (между station[afterIndex] и station[afterIndex + 1]) ──
+    fun startEditingSegment(afterIndex: Int) {
+        _uiState.update { it.copy(editingSegmentAfterIndex = afterIndex) }
+    }
+
+    fun stopEditingSegment() {
+        _uiState.update { it.copy(editingSegmentAfterIndex = null) }
+    }
+
+    fun saveSegmentFromSheet(
+        afterIndex: Int,
+        fromName: String?,
+        toName: String?,
+        trackNumber: String?,
+        notes: String?
+    ) {
+        val toIndex = afterIndex + 1
+        if (afterIndex in stationsListState.indices) {
+            stationsListState[afterIndex] = stationsListState[afterIndex].copy(
+                station = stationsListState[afterIndex].station.copy(data = fromName)
+            )
+        }
+        if (toIndex in stationsListState.indices) {
+            stationsListState[toIndex] = stationsListState[toIndex].copy(
+                station = stationsListState[toIndex].station.copy(data = toName),
+                segmentTrackNumber = trackNumber,
+                segmentNotes = notes
+            )
+        }
+        changesHave()
+        checkFormValidStation()
+        stopEditingSegment()
     }
 
     fun requestDeleteStation(index: Int) {

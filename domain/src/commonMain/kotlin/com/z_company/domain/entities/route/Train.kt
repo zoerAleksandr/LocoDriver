@@ -27,6 +27,18 @@ data class TrainAssist(
     var isFirst: Boolean? = null            // null = не задано, true = "Я первый", false = "Я второй"
 )
 
+/**
+ * Вагонник, осматривавший и закреплявший состав (автосцепку) перед прицепкой
+ * к поезду. Опционален — может отсутствовать. Редактируется в «Настройках
+ * поезда» тем же паттерном, что толкач/двойная тяга (add/remove-секция).
+ */
+@Serializable
+data class CarInspector(
+    var fullName: String? = null,       // ФИО
+    var tabNumber: String? = null,      // табельный номер
+    var couplingTime: Long? = null      // время прицепки к составу
+)
+
 @Serializable
 data class Train(
     var trainId: String = generateId(),
@@ -43,7 +55,9 @@ data class Train(
     var doubleTraction: TrainAssist? = null,    // Двойная тяга
     var doubledTrain: TrainAssist? = null,      // Сдвоенный поезд
     /** История изменения состава; опциональное поле обратносуместимого API. */
-    var dataVersions: List<TrainDataVersion> = emptyList()
+    var dataVersions: List<TrainDataVersion> = emptyList(),
+    /** Вагонник, осматривавший/закреплявший состав. Опционально. */
+    var carInspector: CarInspector? = null
 )
 
 @Serializable
@@ -56,5 +70,17 @@ data class Station(
     var timeDeparture: Long? = null,
     var orderIndex: Int = 0,
     @SerialName("track_number")
-    var trackNumber: String? = null
+    var trackNumber: String? = null,
+    /** Конечная станция маршрута поезда. */
+    var isFinalStation: Boolean = false,
+    /**
+     * Проходная станция — без остановки. Когда true, у станции только одно
+     * время (проследования), которое хранится в [timeArrival]; [timeDeparture]
+     * не используется и должно оставаться null.
+     */
+    var isPassingStation: Boolean = false,
+    /** Путь на перегоне ПЕРЕД этой станцией (между предыдущей станцией и этой). */
+    var segmentTrackNumber: String? = null,
+    /** Примечание к перегону ПЕРЕД этой станцией. */
+    var segmentNotes: String? = null
 )

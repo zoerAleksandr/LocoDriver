@@ -140,9 +140,16 @@ class SearchRouteUseCase(val repository: RouteRepository) {
                 key(a.driverName); a.driverName?.let { p += it }
                 a.notes?.let { p += it }
             }
+            train.carInspector?.let { ci ->
+                key(ci.fullName); ci.fullName?.let { p += it }
+                key(ci.tabNumber); ci.tabNumber?.let { p += it }
+                ci.couplingTime?.let { p += c.getDateAndTime(it) }
+            }
             train.stations.forEach { st ->
                 key(st.stationName); st.stationName?.let { p += it }
                 key(st.trackNumber); st.trackNumber?.let { p += it }
+                key(st.segmentTrackNumber); st.segmentTrackNumber?.let { p += it }
+                st.segmentNotes?.let { p += it }
                 st.timeArrival?.let { p += c.getDateAndTime(it) }
                 st.timeDeparture?.let { p += c.getDateAndTime(it) }
             }

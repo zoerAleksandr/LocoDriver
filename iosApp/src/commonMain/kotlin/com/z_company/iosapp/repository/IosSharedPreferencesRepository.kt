@@ -40,6 +40,7 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var tokenIsFirstAppEntry: Boolean = true
     private var tokenIsLoadStationAndLocomotiveSeries: Boolean = false
     private var stationsReversed: Boolean = false
+    private var showSegments: Boolean = true
     private var inputDieselInKilo: Boolean = false
     private var sortOption: String? = null
     private var selectedFilters: Set<String>? = null
@@ -94,6 +95,8 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setTokenIsLoadStationAndLocomotiveSeries(value: Boolean) { tokenIsLoadStationAndLocomotiveSeries = value }
     override fun toggleStationsSortOrder(value: Boolean) { stationsReversed = value }
     override fun isReversedSortStationList(): Boolean = stationsReversed
+    override fun setShowSegments(value: Boolean) { showSegments = value }
+    override fun isShowSegments(): Boolean = showSegments
     override fun toggleInputDieselInKilo(value: Boolean) { inputDieselInKilo = value }
     override fun isInputDieselInKilo(): Boolean = inputDieselInKilo
     override fun getSortOption(): String? = sortOption

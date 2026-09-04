@@ -144,7 +144,8 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 servicePhase = TrainMapper.encodeServicePhase(train.servicePhase),
                 pusher = TrainMapper.encodeTrainAssist(train.pusher),
                 doubleTraction = TrainMapper.encodeTrainAssist(train.doubleTraction),
-                doubledTrain = TrainMapper.encodeTrainAssist(train.doubledTrain)
+                doubledTrain = TrainMapper.encodeTrainAssist(train.doubledTrain),
+                carInspector = TrainMapper.encodeCarInspector(train.carInspector)
             )
         }
         route.passengers.forEach { passenger ->
@@ -466,7 +467,8 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 servicePhase = TrainMapper.encodeServicePhase(train.servicePhase),
                 pusher = TrainMapper.encodeTrainAssist(train.pusher),
                 doubleTraction = TrainMapper.encodeTrainAssist(train.doubleTraction),
-                doubledTrain = TrainMapper.encodeTrainAssist(train.doubledTrain)
+                doubledTrain = TrainMapper.encodeTrainAssist(train.doubledTrain),
+                carInspector = TrainMapper.encodeCarInspector(train.carInspector)
             )
             markUnsynchronizedAndTouch(train.basicId)
         }

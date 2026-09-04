@@ -12,17 +12,18 @@ CREATE TABLE IF NOT EXISTS Train (
     pusher TEXT DEFAULT NULL,
     doubleTraction TEXT DEFAULT NULL,
     doubledTrain TEXT DEFAULT NULL,
+    carInspector TEXT DEFAULT NULL,
     FOREIGN KEY (basicId) REFERENCES BasicData(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS index_Train_basicId ON Train(basicId);
 
 insertOrReplace:
-INSERT OR REPLACE INTO Train (trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, stations, servicePhase, pusher, doubleTraction, doubledTrain)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO Train (trainId, basicId, number, additionalNumbers, distance, weight, axle, conditionalLength, stations, servicePhase, pusher, doubleTraction, doubledTrain, carInspector)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 update:
-UPDATE OR REPLACE Train SET trainId = :trainId, basicId = :basicId, number = :number, additionalNumbers = :additionalNumbers, distance = :distance, weight = :weight, axle = :axle, conditionalLength = :conditionalLength, stations = :stations, servicePhase = :servicePhase, pusher = :pusher, doubleTraction = :doubleTraction, doubledTrain = :doubledTrain
+UPDATE OR REPLACE Train SET trainId = :trainId, basicId = :basicId, number = :number, additionalNumbers = :additionalNumbers, distance = :distance, weight = :weight, axle = :axle, conditionalLength = :conditionalLength, stations = :stations, servicePhase = :servicePhase, pusher = :pusher, doubleTraction = :doubleTraction, doubledTrain = :doubledTrain, carInspector = :carInspector
 WHERE trainId = :trainId;
 
 getById:

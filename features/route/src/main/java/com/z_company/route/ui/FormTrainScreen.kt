@@ -60,6 +60,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -125,6 +126,7 @@ import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.OutlinedTextFieldApp
 import com.z_company.route.component.ShoulderEditBottomSheet
 import com.z_company.route.component.StationEditBottomSheet
+import com.z_company.route.component.SegmentEditBottomSheet
 import com.z_company.route.component.TrainStationTimeline
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.component.computeRouteSummary
@@ -315,9 +317,14 @@ fun FormTrainScreen(
                         )
                     }
                 } else null,
-                onSave = { name, arrival, departure, trackNumber ->
+                // Первая станция маршрута (либо первая добавляемая в пустой список):
+                // «конечной»/«проходной» она быть не может.
+                isFirstStation = editingIndex == 0 ||
+                        (editingIndex == -1 && stationListState.isNullOrEmpty()),
+                onSave = { name, arrival, departure, trackNumber, isFinalStation, isPassingStation ->
                     viewModel.saveStationFromSheet(
-                        editingIndex, name, arrival, departure, trackNumber, editingStationId
+                        editingIndex, name, arrival, departure, trackNumber,
+                        isFinalStation, isPassingStation, editingStationId
                     )
                 },
                 onDelete = if (editingIndex >= 0) {
@@ -325,6 +332,30 @@ fun FormTrainScreen(
                 } else null,
                 onDismiss = { viewModel.stopEditingStation() },
                 dateAndTimeConverter = dateAndTimeConverter
+            )
+        }
+
+        // BottomSheet для редактирования перегона (клик по «времени в пути» между станциями)
+        val editingSegmentAfterIndex = formUiState.editingSegmentAfterIndex
+        if (editingSegmentAfterIndex != null && stationListState != null) {
+            val fromState = stationListState.getOrNull(editingSegmentAfterIndex)
+            val toState = stationListState.getOrNull(editingSegmentAfterIndex + 1)
+            SegmentEditBottomSheet(
+                fromStationName = fromState?.station?.data,
+                toStationName = toState?.station?.data,
+                trackNumber = toState?.segmentTrackNumber,
+                notes = toState?.segmentNotes,
+                menuList = menuList,
+                onFilterMenu = {
+                    viewModel.onChangedDropDownContent(editingSegmentAfterIndex, it)
+                },
+                onDeleteStationName = { viewModel.removeStationName(it) },
+                onSave = { fromName, toName, trackNumber, notes ->
+                    viewModel.saveSegmentFromSheet(
+                        editingSegmentAfterIndex, fromName, toName, trackNumber, notes
+                    )
+                },
+                onDismiss = { viewModel.stopEditingSegment() },
             )
         }
 
@@ -557,6 +588,20 @@ fun FormTrainScreen(
                             )
                         },
                         onDeleteSeries = viewModel::removeSeries
+                    )
+
+                    CarInspectorSection(
+                        carInspector = currentTrain?.carInspector,
+                        onAdd = viewModel::addCarInspector,
+                        onRemove = viewModel::removeCarInspector,
+                        onFullNameChange = viewModel::setCarInspectorFullName,
+                        onTabNumberChange = viewModel::setCarInspectorTabNumber,
+                        onCouplingTimeChange = viewModel::setCarInspectorCouplingTime,
+                        hintStyle = hintStyle,
+                        dataTextStyle = dataTextStyle,
+                        primaryColor = primaryColor,
+                        noValueColor = noValueColor,
+                        dateAndTimeConverter = dateAndTimeConverter,
                     )
 
                     Spacer(modifier = Modifier.height(40.dp))
@@ -1646,7 +1691,12 @@ fun FormTrainScreen(
                     item {
                         val stopwatch = rememberStopwatchState(
                             stations = stationListState?.map {
-                                Triple(it.station.data, it.arrival.data, it.departure.data)
+                                StopwatchStation(
+                                    name = it.station.data,
+                                    arrival = it.arrival.data,
+                                    departure = it.departure.data,
+                                    isFinal = it.isFinalStation,
+                                )
                             } ?: emptyList(),
                             legArrivalStation = selectedServicePhase?.arrivalStation,
                         )
@@ -1742,29 +1792,98 @@ fun FormTrainScreen(
 
                     stationListState?.let { stationList ->
                         item {
-                            Text(
-                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
-                                text = "МАРШРУТ",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                    fontSize = 11.sp,
-                                    letterSpacing = androidx.compose.ui.unit.TextUnit(
-                                        1.4f,
-                                        androidx.compose.ui.unit.TextUnitType.Sp
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp, bottom = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "МАРШРУТ",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        fontSize = 11.sp,
+                                        letterSpacing = androidx.compose.ui.unit.TextUnit(
+                                            1.4f,
+                                            androidx.compose.ui.unit.TextUnitType.Sp
+                                        )
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                // Показать/скрыть карточки перегонов между станциями.
+                                IconButton(
+                                    modifier = Modifier.size(32.dp),
+                                    onClick = {
+                                        viewModel.toggleSegmentsVisibility()
+                                        val shown = !formUiState.showSegments
+                                        scope.launch {
+                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                            snackbarHostState.showSnackbar(
+                                                message = if (shown) {
+                                                    "Перегоны показаны"
+                                                } else {
+                                                    "Перегоны скрыты"
+                                                },
+                                                duration = SnackbarDuration.Short,
+                                            )
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        modifier = Modifier.size(20.dp),
+                                        painter = painterResource(
+                                            if (formUiState.showSegments)
+                                                com.z_company.route.R.drawable.collapse_rows_24px
+                                            else
+                                                com.z_company.route.R.drawable.expand_rows_24px
+                                        ),
+                                        contentDescription = if (formUiState.showSegments)
+                                            "Скрыть перегоны" else "Показать перегоны",
+                                        tint = if (formUiState.showSegments)
+                                            MaterialTheme.colorScheme.tertiary
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                ),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                                }
+                            }
                         }
                         item {
                             val displayList =
                                 if (formUiState.isStationsReversed) stationList.reversed() else stationList
                             val timelineItems = displayList.toTimelineItems()
 
+                            // «Будущий перегон» — тот, у которого неизвестна вторая
+                            // граница, поэтому маршрут ещё может быть продолжен:
+                            //  • выбрано плечо, но нет времени прибытия на конечную —
+                            //    перед конечной ещё может появиться станция;
+                            //  • плеча нет и последняя станция не отмечена конечной —
+                            //    блок уходит под неё.
+                            // Флаг «конечная» на крайней станции убирает блок совсем.
+                            val lastIndex = stationList.lastIndex
+                            val lastStation = stationList.lastOrNull()
+                            val futureOriginalAfter: Int? = when {
+                                lastStation == null -> null
+                                lastStation.isFinalStation -> null
+                                selectedServicePhase != null ->
+                                    if (lastStation.arrival.data == null && stationList.size >= 2) {
+                                        lastIndex - 1
+                                    } else null
+                                else -> lastIndex
+                            }
+                            // Перевод в индекс отображаемого списка: при развороте блок
+                            // между исходными k и k+1 оказывается после строки size-2-k
+                            // (для трейлинг-случая это -1, т.е. над списком).
+                            val futureSegmentAfterIndex = futureOriginalAfter?.let { k ->
+                                if (formUiState.isStationsReversed) stationList.size - 2 - k else k
+                            }
+
                           Column {
                             TrainStationTimeline(
                                 stations = timelineItems,
                                 showSummary = false,
+                                showSegments = formUiState.showSegments,
+                                futureSegmentAfterIndex = futureSegmentAfterIndex,
                                 modifier = Modifier
                                     .padding(top = 8.dp)
                                     .fillMaxWidth()
@@ -1795,6 +1914,17 @@ fun FormTrainScreen(
                                     } else {
                                         viewModel.startReorderStation(item.id)
                                     }
+                                },
+                                onSegmentClick = { displayIndex ->
+                                    // index здесь — станция ПЕРЕД перегоном в displayList;
+                                    // при развороте списка меняем местами «раньше»/«позже».
+                                    val originalAfterIndex =
+                                        if (formUiState.isStationsReversed) {
+                                            stationList.size - 2 - displayIndex
+                                        } else {
+                                            displayIndex
+                                        }
+                                    viewModel.startEditingSegment(originalAfterIndex)
                                 },
                                 onMoveUp = { displayIndex ->
                                     val originalIndex =
@@ -2263,6 +2393,157 @@ private fun TrainAssistSection(
     }
 }
 
+// ─── Вагонник (осмотр/закрепление состава перед прицепкой) ───────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CarInspectorSection(
+    carInspector: com.z_company.domain.entities.route.CarInspector?,
+    onAdd: () -> Unit,
+    onRemove: () -> Unit,
+    onFullNameChange: (String) -> Unit,
+    onTabNumberChange: (String) -> Unit,
+    onCouplingTimeChange: (Long?) -> Unit,
+    hintStyle: androidx.compose.ui.text.TextStyle,
+    dataTextStyle: androidx.compose.ui.text.TextStyle,
+    primaryColor: Color,
+    noValueColor: Color,
+    dateAndTimeConverter: com.z_company.core.util.DateAndTimeConverter?,
+) {
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 2.dp, shape = Shapes.medium)
+            .clip(Shapes.medium)
+            .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Вагонник",
+                style = hintStyle,
+                color = primaryColor
+            )
+            if (carInspector == null) {
+                TextButton(onClick = onAdd) {
+                    Text(
+                        text = "Добавить",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            } else {
+                IconButton(
+                    modifier = Modifier.size(24.dp),
+                    onClick = onRemove
+                ) {
+                    Icon(
+                        painter = painterResource(com.z_company.core.R.drawable.ic_clear),
+                        contentDescription = "Удалить вагонника",
+                        tint = noValueColor
+                    )
+                }
+            }
+        }
+
+        AnimatedVisibility(visible = carInspector != null) {
+            if (carInspector != null) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextFieldApp(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = carInspector.fullName ?: "",
+                        onValueChange = onFullNameChange,
+                        placeholder = {
+                            Text(
+                                text = "ФИО",
+                                style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                color = noValueColor
+                            )
+                        },
+                        textStyle = dataTextStyle,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        fieldElevation = 0.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.secondary,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.secondary
+                    )
+                    OutlinedTextFieldApp(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = carInspector.tabNumber ?: "",
+                        onValueChange = onTabNumberChange,
+                        placeholder = {
+                            Text(
+                                text = "Табельный номер",
+                                style = LocalTextStyle.current.copy(fontWeight = FontWeight.Light),
+                                color = noValueColor
+                            )
+                        },
+                        textStyle = dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        fieldElevation = 0.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        colorBackgroundEmptyField = MaterialTheme.colorScheme.secondary,
+                        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.secondary
+                    )
+
+                    // ── Время прицепки к составу ──
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.surfaceBright)
+                            .clickable { showTimePicker = true }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Время прицепки",
+                            style = dataTextStyle,
+                            color = if (carInspector.couplingTime != null) primaryColor else noValueColor
+                        )
+                        val timeText = carInspector.couplingTime?.let {
+                            dateAndTimeConverter?.getTimeFromDateLong(it)
+                        } ?: "—"
+                        Text(
+                            text = timeText,
+                            style = dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
+                            fontWeight = FontWeight.SemiBold,
+                            color = primaryColor
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showTimePicker) {
+        com.z_company.route.component.AppDateTimePicker(
+            title = "Время прицепки",
+            onDateTimeSelected = { time ->
+                onCouplingTimeChange(time)
+                showTimePicker = false
+            },
+            onDismiss = { showTimePicker = false },
+            startDateTime = carInspector?.couplingTime ?: com.z_company.core.util.TimeManager().now(),
+            timeZoneStr = dateAndTimeConverter?.timeZoneText ?: "GMT+3"
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DoubledTrainSection(
@@ -2531,6 +2812,20 @@ private fun DoubledTrainSection(
  * подпись, что именно показано.
  * Прибыв на конечную станцию выбранного плеча, стоянку не показываем (возвращаем null).
  */
+private data class StopwatchStation(
+    val name: String?,
+    val arrival: Long?,
+    val departure: Long?,
+    val isFinal: Boolean,
+)
+
+private data class StopwatchEvent(
+    val time: Long,
+    val isDeparture: Boolean,
+    val name: String?,
+    val isFinal: Boolean,
+)
+
 private data class StopwatchData(
     val timeText: String,
     val bg: Color,
@@ -2540,8 +2835,8 @@ private data class StopwatchData(
 
 @Composable
 private fun rememberStopwatchState(
-    // (имя станции, прибытие, отправление)
-    stations: List<Triple<String?, Long?, Long?>>,
+    // (имя станции, прибытие, отправление, отмечена ли станция конечной)
+    stations: List<StopwatchStation>,
     // Конечная станция выбранного плеча — прибыв на неё, время стоянки не показываем.
     legArrivalStation: String? = null,
 ): StopwatchData? {
@@ -2569,26 +2864,29 @@ private fun rememberStopwatchState(
     // События: (время, isDeparture, имя станции). При равном времени приоритет у отправления
     // (compareBy: false < true) → берём его, поэтому это «в пути», а не «стоянка».
     val events = buildList {
-        stations.forEach { (name, arrival, departure) ->
-            arrival?.let { add(Triple(it, false, name)) }
-            departure?.let { add(Triple(it, true, name)) }
+        stations.forEach { st ->
+            st.arrival?.let { add(StopwatchEvent(it, false, st.name, st.isFinal)) }
+            st.departure?.let { add(StopwatchEvent(it, true, st.name, st.isFinal)) }
         }
     }
     val last = events
-        .filter { it.first <= now }
-        .maxWithOrNull(compareBy({ it.first }, { it.second })) ?: return null
+        .filter { it.time <= now }
+        .maxWithOrNull(compareBy({ it.time }, { it.isDeparture })) ?: return null
 
-    val isMoving = last.second
+    val isMoving = last.isDeparture
+
+    // Станция явно отмечена конечной — маршрут закончился, стоянку не показываем.
+    if (!isMoving && last.isFinal) return null
 
     // Прибыли на конечную станцию плеча (последнее событие — прибытие на станцию,
     // совпадающую с конечной станцией выбранного плеча) → стоянку не показываем.
     if (!isMoving && !legArrivalStation.isNullOrBlank() &&
-        last.third?.trim().equals(legArrivalStation.trim(), ignoreCase = true)
+        last.name?.trim().equals(legArrivalStation.trim(), ignoreCase = true)
     ) {
         return null
     }
 
-    val totalSec = (now - last.first).coerceAtLeast(0L) / 1000
+    val totalSec = (now - last.time).coerceAtLeast(0L) / 1000
     val totalMin = totalSec / 60
     val totalHours = totalMin / 60
     val days = totalHours / 24
