@@ -1369,7 +1369,18 @@ class SyncManager(
         /** Даём экрану завершить первый кадр и локальные расчёты до тихой синхронизации. */
         const val BACKGROUND_SYNC_START_DELAY_MILLIS: Long = 1_500L
         const val AUTOMATIC_SYNC_COOLDOWN_MILLIS: Long = 5 * 60 * 1000L
-        const val SYNC_OPERATION_TIMEOUT_MILLIS: Long = 25_000L
+        /**
+         * Страховка от зависшей синхронизации, а не лимит на один запрос:
+         * [withSyncDeadline] накрывает весь многошаговый флоу целиком — настройки,
+         * календарь, график, маршруты.
+         *
+         * Прежние 25 с были меньше бюджета одного тяжёлого шага, поэтому обрывали
+         * синхронизацию раньше, чем срабатывал HTTP-таймаут, и пользователь видел
+         * ошибку вместо результата. Считаем по худшему случаю одного шага:
+         * запрос 60 с + пауза 2 с + повтор 60 с = 122 с, плюс запас на остальные
+         * шаги.
+         */
+        const val SYNC_OPERATION_TIMEOUT_MILLIS: Long = 180_000L
 
         // Пороги "значительного" удаления маршрутов при синхронизации — см. isSignificantRouteDeletion.
         private const val SIGNIFICANT_DELETION_MIN_COUNT = 3

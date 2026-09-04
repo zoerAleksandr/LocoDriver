@@ -6,7 +6,10 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.plugins.HttpRedirect
+import io.ktor.client.plugins.HttpRequestRetry
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
@@ -21,6 +24,28 @@ import com.z_company.domain.entities.serializers.DoubleAsStringSerializer
 object RemoteRestClient {
     const val PROD_BASE_URL = "http://87.228.110.32:8766/"
     const val PROD_BASE_URL_FOR_SEND_EMAIL = "http://locodrivers.freemyip.com/"
+
+    /**
+     * Соединение либо устанавливается быстро, либо не устанавливается вовсе —
+     * долго ждать здесь нечего, это только съедает общий бюджет синхронизации.
+     */
+    const val CONNECT_TIMEOUT_MILLIS = 15_000L
+
+    /**
+     * Чтение ответа. Прежние 25 с не выдерживала полная выгрузка маршрутов на
+     * мобильной связи — именно этот таймаут пользователи видели как «сервер не
+     * ответил за 25 секунд». Сжатие на сервере ужало ответ примерно в 9 раз, но
+     * в кабине движущегося локомотива канал проседает, и запасу времени взяться
+     * неоткуда — даём запросу минуту.
+     */
+    const val REQUEST_TIMEOUT_MILLIS = 60_000L
+    const val SOCKET_TIMEOUT_MILLIS = 60_000L
+
+    /** Один повтор: осечка на секунду не должна показывать пользователю ошибку. */
+    const val TRANSIENT_RETRY_COUNT = 1
+
+    /** Пауза перед повтором — дать связи восстановиться, а не бить сразу. */
+    const val TRANSIENT_RETRY_DELAY_MILLIS = 2_000L
 
     /**
      * Публичный: используется и как база Ktor-клиента, и для склейки абсолютных
@@ -73,6 +98,33 @@ object RemoteRestClient {
         KtorApiForSendEmail(createClient { BASE_URL_FOR_SEND_EMAIL })
     }
 
+    /**
+     * Повторяем только то, что безопасно повторить вслепую: GET, PUT и DELETE
+     * идемпотентны по определению HTTP.
+     *
+     * POST исключён намеренно. Среди них есть неидемпотентные (`v1/auth/create` —
+     * повтор может создать второй аккаунт или дать ложное «email занят»), а
+     * разбирать POST-ы по списку путей — это правило, которое молча протухнет при
+     * добавлении нового эндпоинта. Выгрузка на сервер от этого не страдает:
+     * неотправленные изменения остаются помеченными и уедут следующей
+     * синхронизацией.
+     */
+    private fun isRetryableMethod(method: HttpMethod): Boolean =
+        method == HttpMethod.Get || method == HttpMethod.Put || method == HttpMethod.Delete
+
+    /**
+     * Повторяем только транспортные сбои — соединение не дошло до сервера.
+     * Ответ сервера с кодом ошибки повторять бессмысленно: 4xx повтор не
+     * исправит, а 5xx у нас означает отвергнутые данные, а не временный сбой.
+     *
+     * [HttpRequestTimeoutException] исключён отдельно: он означает, что весь
+     * бюджет запроса ([REQUEST_TIMEOUT_MILLIS]) уже израсходован. Повтор в этом
+     * случае почти никогда не успевает, зато удваивает ожидание и съедает общий
+     * дедлайн синхронизации.
+     */
+    private fun isTransientFailure(cause: Throwable): Boolean =
+        cause !is HttpRequestTimeoutException && NetworkErrorMapper.isConnectivityError(cause)
+
     private fun createClient(baseUrl: () -> String): HttpClient = HttpClient(createHttpEngine()) {
         expectSuccess = true
         install(ContentNegotiation) {
@@ -88,9 +140,15 @@ object RemoteRestClient {
             allowHttpsDowngrade = false
         }
         install(HttpTimeout) {
-            connectTimeoutMillis = 25_000
-            requestTimeoutMillis = 25_000
-            socketTimeoutMillis = 25_000
+            connectTimeoutMillis = CONNECT_TIMEOUT_MILLIS
+            requestTimeoutMillis = REQUEST_TIMEOUT_MILLIS
+            socketTimeoutMillis = SOCKET_TIMEOUT_MILLIS
+        }
+        install(HttpRequestRetry) {
+            retryOnExceptionIf(TRANSIENT_RETRY_COUNT) { request, cause ->
+                isRetryableMethod(request.method) && isTransientFailure(cause)
+            }
+            constantDelay(TRANSIENT_RETRY_DELAY_MILLIS, 0L, false)
         }
         install(DefaultRequest) {
             url(baseUrl())
