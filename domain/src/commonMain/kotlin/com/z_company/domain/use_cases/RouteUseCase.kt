@@ -185,6 +185,19 @@ class RouteUseCase(private val repository: RouteRepository) {
         // здесь, чтобы правило соблюдалось на всех путях сохранения (FormViewModel,
         // экран «Пассажиром», WorkSchedule и т.д.), а не только при переключении.
         val normalizedRoute = applyWorkStartByArrival(route)
+        val startTime = normalizedRoute.basicData.timeStartWork
+        val endTime = normalizedRoute.basicData.timeEndWork
+        if (startTime != null && endTime != null && endTime < startTime) {
+            return flow {
+                emit(
+                    ResultState.Error(
+                        ErrorEntity(
+                            message = "Окончание работы раньше начала. Невозможно сохранить маршрут."
+                        )
+                    )
+                )
+            }
+        }
         // Штамп updatedAt на КАЖДОМ локальном изменении — это часы для LWW-merge
         // в двусторонней синхронизации. Локальная правка всегда двигает updatedAt
         // вперёд, поэтому при конфликте с сервером побеждает более свежая версия.
@@ -342,7 +355,7 @@ class RouteUseCase(private val repository: RouteRepository) {
             if (startTime.moreThan(endTime)) {
                 trySend(
                     ResultState.Error(
-                        ErrorEntity(message = "Начало работы позже окончания. Невозможно сохранить маршрут.")
+                        ErrorEntity(message = "Окончание работы раньше начала. Невозможно сохранить маршрут.")
                     )
                 )
             }
