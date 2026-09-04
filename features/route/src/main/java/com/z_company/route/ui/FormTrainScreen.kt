@@ -1510,7 +1510,9 @@ fun FormTrainScreen(
                                         } ?: "",
                                     onValueChange = { onLengthChanged(it) },
                                     keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Number,
+                                        // Условная длина дробная: Decimal показывает
+                                        // разделитель и не тащит ряд со скобками.
+                                        keyboardType = KeyboardType.Decimal,
                                         imeAction = ImeAction.Done
                                     ),
                                     keyboardActions = KeyboardActions(

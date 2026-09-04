@@ -20,6 +20,7 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
+import com.z_company.domain.util.sanitizeNumericInput
 import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -548,7 +549,7 @@ class TrainFormViewModel(
 
     fun setWeight(weight: String) {
         currentTrain?.let { train ->
-            val value = weight.ifBlank { null }
+            val value = weight.sanitizeNumericInput().ifBlank { null }
             currentTrain = train.copy(
                 weight = value,
                 dataVersions = train.dataVersions.updateLast { it.copy(weight = value) }
@@ -559,7 +560,7 @@ class TrainFormViewModel(
 
     fun setAxle(axle: String) {
         currentTrain?.let { train ->
-            val value = axle.ifBlank { null }
+            val value = axle.sanitizeNumericInput().ifBlank { null }
             currentTrain = train.copy(
                 axle = value,
                 dataVersions = train.dataVersions.updateLast { it.copy(axle = value) }
@@ -570,7 +571,7 @@ class TrainFormViewModel(
 
     fun setConditionalLength(length: String) {
         currentTrain?.let { train ->
-            val value = length.ifBlank { null }
+            val value = length.sanitizeNumericInput(allowDecimal = true).ifBlank { null }
             currentTrain = train.copy(
                 conditionalLength = value,
                 dataVersions = train.dataVersions.updateLast { it.copy(conditionalLength = value) }
@@ -598,9 +599,10 @@ class TrainFormViewModel(
             val newVersion = TrainDataVersion(
                 stationId = stationId,
                 stationName = stationName?.ifBlank { null },
-                weight = weight.ifBlank { null },
-                axle = axle.ifBlank { null },
-                conditionalLength = conditionalLength.ifBlank { null },
+                weight = weight.sanitizeNumericInput().ifBlank { null },
+                axle = axle.sanitizeNumericInput().ifBlank { null },
+                conditionalLength = conditionalLength.sanitizeNumericInput(allowDecimal = true)
+                    .ifBlank { null },
                 changedAt = System.currentTimeMillis()
             )
             val existingIndex = versions.indexOfFirst { it.stationId == stationId }

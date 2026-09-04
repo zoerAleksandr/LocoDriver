@@ -38,3 +38,30 @@ fun String?.toIntOrZero(): Int {
     if (value < Int.MIN_VALUE || value > Int.MAX_VALUE) return 0
     return value.toInt()
 }
+
+/**
+ * Оставляет от пользовательского ввода ведущее число: цифры и, если
+ * [allowDecimal], один десятичный разделитель (запятая приводится к точке).
+ *
+ * Числовая клавиатура Android показывает вспомогательный ряд с «( ) - , .»,
+ * поэтому на сервер уходили значения вида "4623(" (промах по скобке рядом с
+ * цифрами), "13-" и "29,13". Разбор останавливается на первом недопустимом
+ * символе: "4623 (60)" должно дать 4623, а не склейку 462360.
+ */
+fun String.sanitizeNumericInput(allowDecimal: Boolean = false): String {
+    val result = StringBuilder()
+    var hasSeparator = false
+    for (char in trim()) {
+        when {
+            // Именно ASCII-цифры: Char.isDigit() пропустит арабо-индийские,
+            // которые сервер потом не разберёт.
+            char in '0'..'9' -> result.append(char)
+            allowDecimal && !hasSeparator && (char == ',' || char == '.') -> {
+                result.append('.')
+                hasSeparator = true
+            }
+            else -> return result.toString()
+        }
+    }
+    return result.toString()
+}

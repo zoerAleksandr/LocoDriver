@@ -44,3 +44,41 @@ class StringNumberParsingTest {
         assertEquals(0, "Infinity".toIntOrZero())
     }
 }
+
+class NumericInputSanitizeTest {
+    @Test
+    fun keepsPlainNumbersAsTheyAre() {
+        assertEquals("4623", "4623".sanitizeNumericInput())
+        assertEquals("29.13", "29,13".sanitizeNumericInput(allowDecimal = true))
+        assertEquals("29.13", "29.13".sanitizeNumericInput(allowDecimal = true))
+    }
+
+    @Test
+    fun stopsAtFirstForeignCharacterInsteadOfGluingDigits() {
+        // Ряд «( ) - , .» на числовой клавиатуре Android давал на сервер
+        // "4623(" и "13-"; склейка "4623 (60)" → 462360 была бы хуже обрезки.
+        assertEquals("4623", "4623(".sanitizeNumericInput())
+        assertEquals("4623", "4623 (60)".sanitizeNumericInput())
+        assertEquals("13", "13-".sanitizeNumericInput(allowDecimal = true))
+        assertEquals("29.1", "29.1.5".sanitizeNumericInput(allowDecimal = true))
+    }
+
+    @Test
+    fun integerFieldsDropSeparatorAndSurroundingSpaces() {
+        assertEquals("29", "29,13".sanitizeNumericInput())
+        assertEquals("4623", " 4623 ".sanitizeNumericInput())
+    }
+
+    @Test
+    fun allowsIntermediateStateWhileTyping() {
+        assertEquals("29.", "29,".sanitizeNumericInput(allowDecimal = true))
+    }
+
+    @Test
+    fun returnsBlankWhenThereIsNoLeadingNumber() {
+        assertEquals("", "".sanitizeNumericInput())
+        assertEquals("", "нет данных".sanitizeNumericInput())
+        // Не ASCII-цифры: сервер их не разберёт, пропускать нельзя.
+        assertEquals("", "٤٦٢٣".sanitizeNumericInput())
+    }
+}
