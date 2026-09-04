@@ -506,6 +506,11 @@ class RouteUseCase(private val repository: RouteRepository) {
                     timeEndWork = route.basicData.timeEndWork?.plus(offsetFromMoscow),
                     timeStartBreak = route.basicData.timeStartBreak?.plus(offsetFromMoscow),
                     timeEndBreak = route.basicData.timeEndBreak?.plus(offsetFromMoscow),
+                    // Резерв прежней явки («явка по прибытию») — такой же timestamp,
+                    // сдвигаем вместе с остальными, иначе выключение режима вернёт
+                    // явку, съехавшую на величину offset.
+                    timeStartWorkBeforeArrival =
+                        route.basicData.timeStartWorkBeforeArrival?.plus(offsetFromMoscow),
                 ),
                 locomotives = route.locomotives.map { loco ->
                     loco.copy(
