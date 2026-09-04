@@ -34,6 +34,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
@@ -708,6 +709,49 @@ object UtilsForEntities {
             }
         }
         return newRouteList
+    }
+
+    /**
+     * Границы месяца в миллисекундах — [начало 1-го числа 00:00; последний день 23:59]
+     * в [TimeCalculationContext.crossMonthTZ].
+     *
+     * Единая точка истины для отбора маршрутов месяца: используется и в
+     * [RouteUseCase.routeListByMonthFlow] (приложение), и в виджете. Раньше виджет
+     * считал принадлежность месяцу по жёстко зашитому GMT+3 и терял маршруты,
+     * попадающие в месяц только по местному времени.
+     */
+    fun monthBoundsMillis(
+        monthOfYear: MonthOfYear,
+        context: TimeCalculationContext
+    ): Pair<Long, Long> {
+        val tz = context.crossMonthTZ
+        val startDate = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
+        val startMonthInLong = startDate.atStartOfDayIn(tz).toEpochMilliseconds()
+        val maxDayOfMonth = startDate
+            .plus(1, DateTimeUnit.MONTH)
+            .minus(1, DateTimeUnit.DAY)
+            .dayOfMonth
+        val endMonthInLong = LocalDateTime(
+            monthOfYear.year, monthOfYear.month + 1, maxDayOfMonth, 23, 59, 0, 0
+        ).toInstant(tz).toEpochMilliseconds()
+        return startMonthInLong to endMonthInLong
+    }
+
+    /**
+     * Маршруты, реально пересекающиеся с [monthOfYear] (включая переходные из
+     * соседнего месяца). Маршрут без времени явки остаётся в списке — как и в
+     * [RouteUseCase.routeListByMonthFlow].
+     */
+    fun List<Route>.filterByMonth(
+        monthOfYear: MonthOfYear,
+        context: TimeCalculationContext
+    ): List<Route> {
+        val (startMonthInLong, endMonthInLong) = monthBoundsMillis(monthOfYear, context)
+        return filter { route ->
+            val start = route.basicData.timeStartWork ?: return@filter true
+            val end = route.basicData.timeEndWork
+            start < endMonthInLong && (end == null || end >= startMonthInLong)
+        }
     }
 
     fun List<Route>.getWorkTime(monthOfYear: MonthOfYear, context: TimeCalculationContext): Long {

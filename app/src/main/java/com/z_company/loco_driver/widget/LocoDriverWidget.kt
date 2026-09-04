@@ -46,18 +46,23 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.UtilsForEntities.calculateWorkTimeWithSettings
+import com.z_company.domain.entities.route.UtilsForEntities.filterByMonth
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.findNextFutureRoute
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.NormaUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
+import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.loco_driver.MainActivity
 import com.z_company.loco_driver.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
@@ -387,15 +392,22 @@ object WidgetDataLoader : KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
+    private val normaUseCase: NormaUseCase by inject()
+
+    /** Норма считается из нескольких Flow — не ждём дольше, чем нужно виджету. */
+    private const val NORMA_TIMEOUT_MS = 2_000L
 
     suspend fun loadAndPush(context: Context) {
         val userSettings = settingsUseCase.getUserSetting()
-        val currentTimeInMillis = Calendar.getInstance(
-            TimeZone.getTimeZone("GMT+3")
-        ).timeInMillis
+        // Тот же контекст расчёта, что и на главном экране (HomeViewModel):
+        // границы месяца и обрезка переходных маршрутов идут по crossMonthTZ,
+        // а не по жёстко зашитому GMT+3 — иначе виджет и приложение расходятся
+        // на маршрутах, попадающих в месяц только по местному времени.
+        val calcContext = TimeCalculationContext.from(userSettings)
+        val currentTimeInMillis = System.currentTimeMillis()
 
-        // Determine current month from system clock (Moscow time, UTC+3).
-        val cal = Calendar.getInstance(TimeZone.getTimeZone("GMT+3"))
+        // Текущий месяц — по той же зоне, что и границы месяца.
+        val cal = Calendar.getInstance(TimeZone.getTimeZone(calcContext.crossMonthTZ.id))
         val currentMonth = cal.get(Calendar.MONTH) // 0-based, как MonthOfYear.month
         val currentYear = cal.get(Calendar.YEAR)
         val monthOfYear: MonthOfYear? = userSettings.selectMonthOfYear.let {
@@ -409,42 +421,37 @@ object WidgetDataLoader : KoinComponent {
         // Load all routes
         val allRoutes = routeUseCase.getListRoutes()
 
-        // Filter routes for current month (include transitional routes)
+        // Маршруты месяца (включая переходные) — общее с приложением правило,
+        // см. UtilsForEntities.filterByMonth / RouteUseCase.routeListByMonthFlow.
         val routesForMonth = if (monthOfYear != null) {
-            allRoutes.filter { route ->
-                val startWork = route.basicData.timeStartWork ?: return@filter false
-                val startCal = Calendar.getInstance(TimeZone.getTimeZone("GMT+3")).apply {
-                    timeInMillis = startWork
-                }
-                val startInMonth = startCal.get(Calendar.MONTH) == monthOfYear.month
-                    && startCal.get(Calendar.YEAR) == monthOfYear.year
-
-                val endWork = route.basicData.timeEndWork
-                val endInMonth = if (endWork != null) {
-                    val endCal = Calendar.getInstance(TimeZone.getTimeZone("GMT+3")).apply {
-                        timeInMillis = endWork
-                    }
-                    endCal.get(Calendar.MONTH) == monthOfYear.month
-                        && endCal.get(Calendar.YEAR) == monthOfYear.year
-                } else false
-
-                startInMonth || endInMonth
-            }
+            allRoutes.filterByMonth(monthOfYear, calcContext)
         } else allRoutes
 
-        val filteredRouteList = if (userSettings.isConsiderFutureRoute) {
-            routesForMonth
-        } else {
-            routesForMonth.filter { (it.basicData.timeStartWork ?: 0L) < currentTimeInMillis }
-        }
-
-        // Total work time
+        // Total work time — та же цепочка, что и в HomeViewModel:
+        // filterByConsiderFutureRoute + getWorkTime(monthOfYear, context).
         val totalTimeMillis = if (monthOfYear != null) {
-            filteredRouteList.getWorkTime(monthOfYear, userSettings.timeZone)
+            routesForMonth.calculateWorkTimeWithSettings(
+                monthOfYear = monthOfYear,
+                userSettings = userSettings,
+                currentTimeInMillis = currentTimeInMillis,
+            )
         } else 0L
 
-        // Norm
-        val normHoursInt = monthOfYear?.getPersonalNormaHours() ?: 0
+        // Норма — из NormaUseCase (регион + отвлечения), как на главном экране.
+        // Таймаут: loadAndPush вызывается из provideGlance, зависнуть тут нельзя.
+        val normHoursInt = monthOfYear?.let { month ->
+            val fromUseCase = try {
+                withTimeoutOrNull(NORMA_TIMEOUT_MS) {
+                    normaUseCase.normaHoursFlow(month.year, month.month).first()
+                }
+            } catch (e: Exception) {
+                Log.w("WidgetDataLoader", "Norma calculation failed", e)
+                null
+            }
+            // Как в HomeViewModel: значение из NormaUseCase приоритетнее,
+            // getPersonalNormaHours() — только если посчитать не удалось.
+            fromUseCase ?: month.getPersonalNormaHours()
+        } ?: 0
         val normMillis = normHoursInt.toLong() * 3_600_000L
         val hasNorm = normHoursInt > 0
         val diff = totalTimeMillis - normMillis

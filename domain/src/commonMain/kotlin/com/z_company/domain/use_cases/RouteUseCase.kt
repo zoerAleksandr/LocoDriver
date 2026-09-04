@@ -8,7 +8,9 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Photo
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
+import com.z_company.domain.entities.route.UtilsForEntities.filterByMonth
 import com.z_company.domain.entities.route.UtilsForEntities.fullRest
+import com.z_company.domain.entities.route.UtilsForEntities.monthBoundsMillis
 import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.util.TimeCalculationContext
@@ -71,25 +73,15 @@ class RouteUseCase(private val repository: RouteRepository) {
 
     fun routeListByMonthFlow(monthOfYear: MonthOfYear, context: TimeCalculationContext): Flow<List<Route>> {
         return callbackFlow {
-            val tz = context.crossMonthTZ
-            val startDate = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
-            val startMonthInLong = startDate.atStartOfDayIn(tz).toEpochMilliseconds()
-            val maxDayOfMonth = startDate.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY).dayOfMonth
-            val endMonthInLong = LocalDateTime(
-                monthOfYear.year, monthOfYear.month + 1, maxDayOfMonth, 23, 59, 0, 0
-            ).toInstant(tz).toEpochMilliseconds()
+            val (startMonthInLong, endMonthInLong) = monthBoundsMillis(monthOfYear, context)
             val extendedStart = startMonthInLong - 2 * 24 * 3_600_000L
 
             repository.loadRouteByPeriodFlow(
                 startPeriod = extendedStart,
                 endPeriod = endMonthInLong
             ).collect { routes ->
-                val filtered = routes.filter { route ->
-                    val start = route.basicData.timeStartWork ?: return@filter true
-                    val end = route.basicData.timeEndWork
-                    start < endMonthInLong && (end == null || end >= startMonthInLong)
-                }
-                trySend(filtered)
+                // Пост-фильтр общий с виджетом — см. UtilsForEntities.filterByMonth
+                trySend(routes.filterByMonth(monthOfYear, context))
             }
             awaitClose()
         }
