@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -213,6 +212,7 @@ fun ProfileScreen(
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordConfirmation by rememberSaveable { mutableStateOf("") }
 
     // Для чего: Чтобы условно рендерить экран профиля или форму входа на основе наличия токена
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
@@ -1371,10 +1371,12 @@ fun ProfileScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
+                            .imePadding()
                             .padding(16.dp),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.TopCenter
                     ) {
                         var passwordVisible by remember { mutableStateOf(false) }
+                        var passwordConfirmationVisible by remember { mutableStateOf(false) }
                         var login by remember { mutableStateOf(!viewModel.isFirstAppEntry.value) }
 
                         val paddingBetweenView = 12.dp
@@ -1384,11 +1386,8 @@ fun ProfileScreen(
 
                         Column(
                             modifier = Modifier
+                                .fillMaxSize()
                                 .verticalScroll(rememberScrollState())
-                                .animateContentSize(  // Добавлено: Анимирует изменения размера всей формы
-                                    animationSpec = tween(durationMillis = 300)
-                                )
-                                .fillMaxWidth()
                                 .padding(horizontal = 2.dp),
 
                             ) {
@@ -1442,119 +1441,151 @@ fun ProfileScreen(
                                 placeholder = { Text(text = "email", style = dataStyle) },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(bottom = paddingBetweenView),
+                                    .padding(bottom = paddingBetweenView * 2),
                                 singleLine = true,
                                 textStyle = dataStyle,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                             )
 
 
-                            AnimatedVisibility(
-                                visible = email.isEmailValid(),
-                                enter = slideInVertically(animationSpec = tween(durationMillis = 300))
-                                        + fadeIn(animationSpec = tween(durationMillis = 300)) +
-                                        expandVertically(animationSpec = tween(durationMillis = 300)) +
-                                        expandVertically(animationSpec = tween(durationMillis = 300)),
-                                exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
-                                        + fadeOut(animationSpec = tween(durationMillis = 300)) +
-                                        shrinkVertically(animationSpec = tween(durationMillis = 300))
-                            ) {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    OutlinedTextFieldApp(
-                                        value = password,
-                                        onValueChange = { password = it },
-                                        placeholder = { Text(text = "пароль", style = dataStyle) },
-                                        modifier = Modifier
-                                            .padding(top = paddingBetweenView)
-                                            .fillMaxWidth(),
-                                        singleLine = true,
-                                        textStyle = dataStyle,
-                                        supportingText = {
-                                            if (password.isNotEmpty() && password.length < MIN_LENGTH_PASSWORD) {
-                                                Text(
-                                                    text = "Минимум $MIN_LENGTH_PASSWORD символа",
-                                                    style = hintStyle
-                                                )
-                                            }
-                                        },
-                                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                        trailingIcon = {
-                                            val image = if (passwordVisible)
-                                                R.drawable.outline_visibility_24
-                                            else R.drawable.outline_visibility_off_24
+                            OutlinedTextFieldApp(
+                                value = password,
+                                onValueChange = { password = it },
+                                placeholder = { Text(text = "пароль", style = dataStyle) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                textStyle = dataStyle,
+                                supportingText = {
+                                    if (password.isNotEmpty() && password.length < MIN_LENGTH_PASSWORD) {
+                                        Text(
+                                            text = "Минимум $MIN_LENGTH_PASSWORD символа",
+                                            style = hintStyle
+                                        )
+                                    }
+                                },
+                                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    val image = if (passwordVisible)
+                                        R.drawable.outline_visibility_24
+                                    else R.drawable.outline_visibility_off_24
 
-                                            val description =
-                                                if (passwordVisible) "Скрыть пароль" else "Показать пароль"
+                                    val description =
+                                        if (passwordVisible) "Скрыть пароль" else "Показать пароль"
 
-                                            IconButton(onClick = {
-                                                passwordVisible = !passwordVisible
-                                            }) {
-                                                Icon(
-                                                    painter = painterResource(id = image),
-                                                    description
-                                                )
-                                            }
-                                        },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                                    )
+                                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                        Icon(
+                                            painter = painterResource(id = image),
+                                            contentDescription = description
+                                        )
+                                    }
+                                },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                            )
 
-                                    if (login) {
-                                        val onCooldown = forgotCooldownSeconds > 0
-                                        TextButton(
-                                            onClick = { viewModel.forgotRequest(email) },
-                                            enabled = !onCooldown
+                            if (!login) {
+                                OutlinedTextFieldApp(
+                                    value = passwordConfirmation,
+                                    onValueChange = { passwordConfirmation = it },
+                                    placeholder = {
+                                        Text(text = "подтвердите пароль", style = dataStyle)
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 4.dp),
+                                    singleLine = true,
+                                    textStyle = dataStyle,
+                                    supportingText = {
+                                        if (
+                                            passwordConfirmation.isNotEmpty() &&
+                                            passwordConfirmation != password
                                         ) {
-                                            Text(
-                                                text = if (onCooldown) "Повторить через $forgotCooldownSeconds с"
-                                                else "Создать новый пароль",
-                                                style = buttonTextStyle,
-                                                color = MaterialTheme.colorScheme.tertiary
+                                            Text(text = "Пароли не совпадают", style = hintStyle)
+                                        }
+                                    },
+                                    visualTransformation = if (passwordConfirmationVisible) {
+                                        VisualTransformation.None
+                                    } else {
+                                        PasswordVisualTransformation()
+                                    },
+                                    trailingIcon = {
+                                        val image = if (passwordConfirmationVisible) {
+                                            R.drawable.outline_visibility_24
+                                        } else {
+                                            R.drawable.outline_visibility_off_24
+                                        }
+                                        val description = if (passwordConfirmationVisible) {
+                                            "Скрыть подтверждение пароля"
+                                        } else {
+                                            "Показать подтверждение пароля"
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                passwordConfirmationVisible =
+                                                    !passwordConfirmationVisible
+                                            }
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(id = image),
+                                                contentDescription = description
                                             )
                                         }
-                                    }
+                                    },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                                )
+                            } else {
+                                val onCooldown = forgotCooldownSeconds > 0
+                                TextButton(
+                                    onClick = { viewModel.forgotRequest(email) },
+                                    enabled = !onCooldown
+                                ) {
+                                    Text(
+                                        text = if (onCooldown) "Повторить через $forgotCooldownSeconds с"
+                                        else "Создать новый пароль",
+                                        style = buttonTextStyle,
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
                                 }
                             }
 
 
                             // Кнопка "Войти"
                             val text = if (login) "Войти" else "Зарегистрировать"
-                            AnimatedVisibility(
-                                visible = password.length >= MIN_LENGTH_PASSWORD && email.isEmailValid(),
-                                enter = slideInVertically(animationSpec = tween(durationMillis = 300))
-                                        + fadeIn(animationSpec = tween(durationMillis = 300)),
-                                exit = slideOutVertically(animationSpec = tween(durationMillis = 300))
-                                        + fadeOut(animationSpec = tween(durationMillis = 300)) +
-                                        shrinkVertically(animationSpec = tween(durationMillis = 300))
+                            val credentialsValid =
+                                email.isEmailValid() && password.length >= MIN_LENGTH_PASSWORD
+                            val registrationValid =
+                                credentialsValid &&
+                                        passwordConfirmation == password &&
+                                        passwordConfirmation.isNotEmpty() &&
+                                        isAcceptedPersonalDataProcessingPolicy &&
+                                        isLicenseAgreementAccepted
+                            Button(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = paddingBetweenView),
+                                onClick = {
+                                    if (login) {
+                                        viewModel.authWithEmail(email, password)
+                                    } else {
+                                        viewModel.registeredUserByEmail(email, password)
+                                    }
+                                },
+                                enabled = if (login) credentialsValid else registrationValid,
+                                shape = Shapes.medium,
+                                elevation = ButtonDefaults.elevatedButtonElevation(
+                                    defaultElevation = 1.dp
+                                ),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                )
                             ) {
-                                Button(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = paddingBetweenView),
-                                    onClick = {
-                                        if (login) {
-                                            viewModel.authWithEmail(email, password)
-                                        } else {
-                                            viewModel.registeredUserByEmail(email, password)
-                                        }
-                                    },
-                                    enabled = if (!login) {
-                                        isAcceptedPersonalDataProcessingPolicy && isLicenseAgreementAccepted
-                                    } else true,
-                                    shape = Shapes.medium,
-                                    elevation = ButtonDefaults.elevatedButtonElevation(
-                                        defaultElevation = 1.dp
-                                    ),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                                        disabledContainerColor = MaterialTheme.colorScheme.surface,
-                                    )
-                                ) {
-                                    Text(
-                                        text = text,
-                                        style = buttonTextStyle,
-                                        color = MaterialTheme.colorScheme.secondary
-                                    )
-                                }
+                                Text(
+                                    text = text,
+                                    style = buttonTextStyle
+                                )
                             }
 
 
