@@ -23,6 +23,7 @@ import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
+import com.z_company.repository.remote_rest.response.RouteDeltaResponse
 import com.z_company.repository.remote_rest.response.SaveRouteResponse
 import com.z_company.repository.remote_rest.response.ShareRouteResponse
 import com.z_company.repository.remote_rest.response.UserResponse
@@ -92,6 +93,17 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
     override suspend fun getRoutes(token: String): List<Route> =
         client.get("v1/route/") {
             header("Authorization", token)
+        }.body()
+
+    override suspend fun getRouteDelta(
+        token: String,
+        cursor: String?,
+        limit: Int?,
+    ): RouteDeltaResponse =
+        client.get("v1/route/delta") {
+            header("Authorization", token)
+            if (!cursor.isNullOrBlank()) parameter("cursor", cursor)
+            if (limit != null) parameter("limit", limit)
         }.body()
 
     override suspend fun deleteRoute(token: String, routeId: String) {

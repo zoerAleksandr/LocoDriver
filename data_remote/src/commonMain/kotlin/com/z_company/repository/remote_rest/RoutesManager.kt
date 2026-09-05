@@ -86,6 +86,25 @@ class RoutesManager(
         emit(result)
     }
 
+    /**
+     * Обойти страницы `GET /v1/route/delta` и собрать изменения в один снимок.
+     *
+     * Ничего не применяет: обрыв на середине обхода обязан оставить локальные
+     * данные и курсор нетронутыми, поэтому исключение уходит наверх, а вызывающий
+     * применяет снимок только целиком.
+     */
+    suspend fun loadRouteDelta(
+        cursor: String?,
+        bearerToken: String,
+        pageLimit: Int? = null,
+    ): RouteDeltaSnapshot = collectRouteDelta(cursor) { pageCursor ->
+        remoteRestApi.getRouteDelta(
+            token = bearerToken,
+            cursor = pageCursor,
+            limit = pageLimit,
+        )
+    }
+
     companion object {
         private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
