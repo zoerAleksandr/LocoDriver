@@ -13,6 +13,7 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.repository.remote_rest.request.AddEmailRequest
 import com.z_company.repository.remote_rest.request.AddVKIDRequest
 import com.z_company.repository.remote_rest.request.AuthRequest
+import com.z_company.repository.remote_rest.request.ClientInfoRequest
 import com.z_company.repository.remote_rest.request.RegisteredRequestByEmail
 import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
@@ -33,6 +34,9 @@ import com.z_company.repository.remote_rest.diagnostic.DiagnosticEventsResponse
  * При HTTP-ошибке бросается ResponseException из Ktor.
  */
 interface RemoteRestApi {
+
+    /** Сохраняет актуальную версию текущей платформы в профиле пользователя. */
+    suspend fun saveClientInfo(token: String, body: ClientInfoRequest)
 
     suspend fun sendDiagnosticEvents(body: DiagnosticEventsRequest): DiagnosticEventsResponse
 

@@ -105,7 +105,8 @@ val iosUseCaseModule = module {
             sharedPrefs = get(),
             locomotiveSeriesRepository = get(),
             stationNormRepository = get(),
-            partnerRepository = get()
+            partnerRepository = get(),
+            remoteRestApi = get(),
         )
     }
 

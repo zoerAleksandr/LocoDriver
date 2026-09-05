@@ -18,6 +18,7 @@ import com.z_company.repository.remote_rest.response.PartnerResponse
 import com.z_company.repository.remote_rest.request.AddEmailRequest
 import com.z_company.repository.remote_rest.request.AddVKIDRequest
 import com.z_company.repository.remote_rest.request.AuthRequest
+import com.z_company.repository.remote_rest.request.ClientInfoRequest
 import com.z_company.repository.remote_rest.request.RegisteredRequestByEmail
 import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
@@ -48,6 +49,14 @@ import io.ktor.http.contentType
  * Заменяет Retrofit-интерфейс.
  */
 class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
+
+    override suspend fun saveClientInfo(token: String, body: ClientInfoRequest) {
+        client.post("v1/client-info") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(body)
+        }.bodyAsText()
+    }
 
     override suspend fun sendDiagnosticEvents(body: DiagnosticEventsRequest): DiagnosticEventsResponse =
         client.post("v1/diagnostics/events") {
