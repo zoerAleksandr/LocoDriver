@@ -16,6 +16,7 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.entities.route.Route
+import com.z_company.repository.remote_rest.request.ClientInfoRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
@@ -88,7 +89,10 @@ class SyncManager(
     private val sharedPrefs: SharedPreferencesRepositories,
     private val locomotiveSeriesRepository: LocomotiveSeriesRepository,
     private val stationNormRepository: StationNormRepository,
-    private val partnerRepository: PartnerRepository
+    private val partnerRepository: PartnerRepository,
+    private val remoteRestApi: RemoteRestApi,
+    private val clientPlatform: String? = null,
+    private val clientVersion: String? = null,
 ) {
 
     private val syncMutex = Mutex()
@@ -712,6 +716,18 @@ class SyncManager(
         beginSync()
         try {
             emit(ResultState.Loading())
+        if (!clientPlatform.isNullOrBlank() && !clientVersion.isNullOrBlank()) {
+            try {
+                remoteRestApi.saveClientInfo(
+                    bearerToken,
+                    ClientInfoRequest(platform = clientPlatform, version = clientVersion),
+                )
+            } catch (e: Exception) {
+                // Метаданные клиента не должны блокировать основную синхронизацию,
+                // в том числе во время поэтапного выката нового эндпоинта сервера.
+                e.sendToSentry("SyncManager", "reportClientInfo")
+            }
+        }
         val result = SyncBidirectionalResult()
         val settingsPending = sharedPrefs.getSettingsSyncPending()
         var settingsUploadSucceeded = true

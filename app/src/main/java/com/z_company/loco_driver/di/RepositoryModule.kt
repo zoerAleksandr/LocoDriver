@@ -128,7 +128,10 @@ val repositoryModule = module {
             sharedPrefs = get(),
             locomotiveSeriesRepository = get(),
             stationNormRepository = get(),
-            partnerRepository = get()
+            partnerRepository = get(),
+            remoteRestApi = get(),
+            clientPlatform = "android",
+            clientVersion = BuildConfig.VERSION_NAME,
         )
     }
 }

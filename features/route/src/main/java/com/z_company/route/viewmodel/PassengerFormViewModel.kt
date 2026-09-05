@@ -388,8 +388,12 @@ class PassengerFormViewModel(
                     ?: currentBasic.timeStartWork,
                 timeStartWork = current.timeArrival
             )
-        } else if (!current.isWorkStartByArrival) {
-            // Выключение: возвращаем прежнюю явку и очищаем резерв.
+        } else if (mergedPassengers.none { it.isWorkStartByArrival }) {
+            // Режим выключен для всего маршрута: возвращаем прежнюю явку и чистим резерв.
+            // Проверяем именно весь список, а не только текущего пассажира: этот метод
+            // вызывается при любом сохранении и выходе с экрана, и раньше открытие
+            // соседней поездки (у которой флага нет) сбрасывало явку из резерва, пока
+            // режим держал другой пассажир.
             currentBasic.copy(
                 timeStartWork = currentBasic.timeStartWorkBeforeArrival ?: currentBasic.timeStartWork,
                 timeStartWorkBeforeArrival = null

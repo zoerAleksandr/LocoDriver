@@ -944,21 +944,49 @@ class FormViewModel(
         val basicId = _currentRoute.value?.basicData?.id ?: return
         // Флаг живёт в строке пассажира. Пока он там true, любое следующее чтение
         // из БД (подписка) и любое сохранение маршрута вернут режим обратно —
-        // поэтому снимаем его в БД сразу, не дожидаясь автосейва.
+        // поэтому снимаем его в БД сразу, не дожидаясь автосейва. Явку не
+        // восстанавливаем: пользователь как раз собирается задать её сам.
+        clearWorkStartByArrivalInDb(basicId, restorePreviousStart = false)
+    }
+
+    /**
+     * Снимает «явку по прибытию» в БД: чистит флаг у всех пассажиров маршрута и
+     * резерв прежней явки. Пишет вне [viewModelScope] — уход с экрана не должен
+     * отменить запись, иначе в БД останется включённый режим.
+     *
+     * @param restorePreviousStart вернуть ли явку из резерва. При удалении
+     *   пассажира-источника — да (иначе явка осталась бы равной прибытию уже
+     *   удалённой поездки). При ручной правке времени — нет.
+     * @param before выполняется до чтения свежего маршрута из БД (например,
+     *   удаление пассажира), чтобы прочитанный маршрут уже был актуальным.
+     */
+    private fun clearWorkStartByArrivalInDb(
+        basicId: String,
+        restorePreviousStart: Boolean,
+        before: (suspend () -> Unit)? = null,
+    ) {
         disableArrivalJob = CoroutineScope(NonCancellable + Dispatchers.IO).launch {
+            before?.invoke()
             val routeState = routeUseCase.routeDetails(basicId)
                 .first { it is ResultState.Success }
             val freshRoute = (routeState as? ResultState.Success)?.data ?: return@launch
+            val reserve = freshRoute.basicData.timeStartWorkBeforeArrival
             val nothingToClear = freshRoute.passengers.none { it.isWorkStartByArrival } &&
-                    freshRoute.basicData.timeStartWorkBeforeArrival == null
+                    reserve == null
             if (nothingToClear) return@launch
             routeUseCase.saveRoute(
                 freshRoute.copy(
                     passengers = freshRoute.passengers
                         .map { it.copy(isWorkStartByArrival = false) }
                         .toMutableList(),
-                    // Резерв прежней явки больше не нужен: время пользователь задаёт сам.
-                    basicData = freshRoute.basicData.copy(timeStartWorkBeforeArrival = null)
+                    basicData = freshRoute.basicData.copy(
+                        timeStartWork = if (restorePreviousStart) {
+                            reserve ?: freshRoute.basicData.timeStartWork
+                        } else {
+                            freshRoute.basicData.timeStartWork
+                        },
+                        timeStartWorkBeforeArrival = null
+                    )
                 )
             ).first { it !is ResultState.Loading }
         }
@@ -1112,12 +1140,40 @@ class FormViewModel(
     }
 
     fun onDeletePassenger(passenger: Passenger) {
+        // Удаляемая поездка была точкой отсчёта «явки по прибытию» — держать режим
+        // больше не на чем. Возвращаем прежнюю явку и чистим резерв, иначе явка
+        // осталась бы равной прибытию удалённой поездки, причём уже без пометки
+        // «по прибытию пассажиром» — пользователь видит время, которого не ставил.
+        val wasWorkStartSource = passenger.isWorkStartByArrival
         _currentRoute.update { route ->
-            route?.copy(passengers = route.passengers.filter { it != passenger } as MutableList<Passenger>)
+            route?.copy(
+                passengers = route.passengers.filter { it != passenger } as MutableList<Passenger>,
+                basicData = if (wasWorkStartSource) {
+                    route.basicData.copy(
+                        timeStartWork = route.basicData.timeStartWorkBeforeArrival
+                            ?: route.basicData.timeStartWork,
+                        timeStartWorkBeforeArrival = null
+                    )
+                } else {
+                    route.basicData
+                }
+            )
         }
         deletedPassengerList.add(passenger)
-        viewModelScope.launch(Dispatchers.IO) {
-            passengerUseCase.removePassenger(passenger).collect {}
+        if (wasWorkStartSource) {
+            // Удаление и восстановленная явка — одной операцией: подписка тянет
+            // timeStartWork из БД, и без немедленной записи ближайшее событие
+            // вернуло бы явку к прибытию удалённого пассажира.
+            val basicId = passenger.basicId.ifBlank {
+                _currentRoute.value?.basicData?.id.orEmpty()
+            }
+            clearWorkStartByArrivalInDb(basicId, restorePreviousStart = true) {
+                passengerUseCase.removePassenger(passenger).collect {}
+            }
+        } else {
+            viewModelScope.launch(Dispatchers.IO) {
+                passengerUseCase.removePassenger(passenger).collect {}
+            }
         }
         changesHave()
     }
