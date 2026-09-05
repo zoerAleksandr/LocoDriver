@@ -56,6 +56,7 @@ private const val TOKEN_LOCO_NORM_HAND_TO_HAND = "TOKEN_LOCO_NORM_HAND_TO_HAND"
 private const val TOKEN_PASSENGER_12H_ACCEPTED = "TOKEN_PASSENGER_12H_ACCEPTED"
 
 private const val TOKEN_LAST_SYNC_TIME = "TOKEN_LAST_SYNC_TIME"
+private const val TOKEN_ROUTE_SYNC_CURSOR = "TOKEN_ROUTE_SYNC_CURSOR"
 private const val TOKEN_TIMEZONE_MIGRATION = "TOKEN_TIMEZONE_MIGRATION"
 private const val TOKEN_RELEASE_DAY_MIGRATION = "TOKEN_RELEASE_DAY_MIGRATION"
 private const val TOKEN_PRODUCTION_CALENDAR_MIGRATION = "TOKEN_PRODUCTION_CALENDAR_MIGRATION"
@@ -95,6 +96,17 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun getLastSyncTimestamp(): Long =
         sharedpref.getLong(TOKEN_LAST_SYNC_TIME, 0L)
+
+    override fun getRouteSyncCursor(): String? =
+        sharedpref.getString(TOKEN_ROUTE_SYNC_CURSOR, null)
+
+    override fun setRouteSyncCursor(value: String?) {
+        if (value.isNullOrBlank()) {
+            editor.remove(TOKEN_ROUTE_SYNC_CURSOR).apply()
+        } else {
+            editor.putString(TOKEN_ROUTE_SYNC_CURSOR, value).apply()
+        }
+    }
 
     override fun getSettingsSyncPending(): Boolean =
         sharedpref.getBoolean(TOKEN_SETTINGS_SYNC_PENDING, true)

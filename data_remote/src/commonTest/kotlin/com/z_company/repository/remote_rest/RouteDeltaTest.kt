@@ -175,4 +175,53 @@ class RouteDeltaTest {
         assertTrue(snapshot.fullResync)
         assertEquals(listOf("a", "b"), snapshot.routes.map { it.basicData.id })
     }
+
+    // --- 9 и главный водораздел: отсутствие в выгрузке против тумбстона ---
+
+    @Test
+    fun deltaDeletesOnlyWhatTheServerExplicitlyReportedAsDeleted() {
+        val local = listOf(route("kept"), route("gone"), route("untouched"))
+        val snapshot = RouteDeltaSnapshot(
+            routes = listOf(route("kept")),
+            deletedIds = setOf("gone"),
+            cursor = "c1",
+            fullResync = false,
+        )
+
+        // "untouched" сервер не упоминал вовсе — при дельте это не значит
+        // ничего, и трогать его нельзя.
+        assertEquals(listOf("gone"), deletionSuspects(local, snapshot).map { it.basicData.id })
+    }
+
+    @Test
+    fun fullResyncTreatsAbsenceAsDeletion() {
+        val local = listOf(route("kept"), route("missing"))
+        val snapshot = RouteDeltaSnapshot(
+            routes = listOf(route("kept")),
+            deletedIds = emptySet(),
+            cursor = "c1",
+            fullResync = true,
+        )
+
+        // Полный набор исчерпывающий — поведение ровно как до дельты.
+        assertEquals(listOf("missing"), deletionSuspects(local, snapshot).map { it.basicData.id })
+    }
+
+    @Test
+    fun emptyDeltaTouchesNothing() {
+        val local = listOf(route("a"), route("b"))
+        val snapshot = RouteDeltaSnapshot(emptyList(), emptySet(), "c1", fullResync = false)
+
+        assertTrue(deletionSuspects(local, snapshot).isEmpty())
+    }
+
+    @Test
+    fun emptyFullResyncStillMeansEverythingIsGone() {
+        val local = listOf(route("a"), route("b"))
+        val snapshot = RouteDeltaSnapshot(emptyList(), emptySet(), "c1", fullResync = true)
+
+        // Аккаунт очистили с другого устройства. Дальше решают предохранители
+        // canDeleteLocalRouteMissingFromServer и isSignificantRouteDeletion.
+        assertEquals(listOf("a", "b"), deletionSuspects(local, snapshot).map { it.basicData.id })
+    }
 }

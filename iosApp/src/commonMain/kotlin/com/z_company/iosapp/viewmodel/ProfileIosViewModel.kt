@@ -3,6 +3,7 @@ package com.z_company.iosapp.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.AuthManager
 import com.z_company.repository.remote_rest.AuthState
@@ -32,6 +33,7 @@ class ProfileIosViewModel(
     private val authManager: AuthManager,
     private val syncManager: SyncManager,
     private val secureTokenStorage: SecureTokenStorage,
+    private val sharedPrefs: SharedPreferencesRepositories,
 ) : ViewModel() {
 
     // ── State ─────────────────────────────────────────────────────────────────
@@ -194,6 +196,8 @@ class ProfileIosViewModel(
         viewModelScope.launch {
             secureTokenStorage.saveAuthToken("")
             secureTokenStorage.saveUserId("")
+            // Курсор дельта-синхронизации привязан к аккаунту — см. Android.
+            sharedPrefs.setRouteSyncCursor(null)
             _isLoggedIn.value = false
             _userEmail.value = null
             _errorMessage.value = null

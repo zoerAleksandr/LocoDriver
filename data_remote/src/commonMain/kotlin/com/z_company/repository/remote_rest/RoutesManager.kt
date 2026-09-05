@@ -4,6 +4,7 @@ import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.route.Route
 import io.ktor.client.plugins.ClientRequestException
+import io.ktor.http.HttpStatusCode
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -97,12 +98,31 @@ class RoutesManager(
         cursor: String?,
         bearerToken: String,
         pageLimit: Int? = null,
-    ): RouteDeltaSnapshot = collectRouteDelta(cursor) { pageCursor ->
-        remoteRestApi.getRouteDelta(
-            token = bearerToken,
-            cursor = pageCursor,
-            limit = pageLimit,
-        )
+    ): RouteDeltaSnapshot = try {
+        collectRouteDelta(cursor) { pageCursor ->
+            remoteRestApi.getRouteDelta(
+                token = bearerToken,
+                cursor = pageCursor,
+                limit = pageLimit,
+            )
+        }
+    } catch (e: ClientRequestException) {
+        // Сервер не знает про /delta: сборка приехала на бэкенд старее себя
+        // (откат релиза, свой адрес в отладочной сборке). Молча уронить
+        // синхронизацию маршрутов здесь нельзя — откатываемся на полную
+        // выгрузку, то есть на поведение до дельты.
+        if (e.response.status == HttpStatusCode.NotFound) {
+            RouteDeltaSnapshot(
+                routes = remoteRestApi.getRoutes(token = bearerToken),
+                deletedIds = emptySet(),
+                // Курсора нет и сохранять нечего: полный набор исчерпывающий,
+                // а следующая синхронизация снова попробует дельту.
+                cursor = null,
+                fullResync = true,
+            )
+        } else {
+            throw e
+        }
     }
 
     companion object {

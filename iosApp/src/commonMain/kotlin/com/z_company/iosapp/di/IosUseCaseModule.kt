@@ -117,5 +117,5 @@ val iosUseCaseModule = module {
     single { LocoFormIosViewModel(get()) }
     single { TrainFormIosViewModel(get()) }
     single { PassengerFormIosViewModel(get()) }
-    single { ProfileIosViewModel(authManager = get(), syncManager = get(), secureTokenStorage = get()) }
+    single { ProfileIosViewModel(authManager = get(), syncManager = get(), secureTokenStorage = get(), sharedPrefs = get()) }
 }

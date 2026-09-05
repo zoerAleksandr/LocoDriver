@@ -779,6 +779,10 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch(Dispatchers.IO) {
             secureTokenStorage.saveAuthToken("")
             secureTokenStorage.saveVkId("")
+            // Курсор дельта-синхронизации привязан к аккаунту. Вход под другим
+            // аккаунтом с чужим курсором дал бы почти пустую дельту поверх чужих
+            // маршрутов, то есть «синхронизировано» на неверном наборе.
+            sharedPrefs.setRouteSyncCursor(null)
             _isLoggedIn.value = false
         }
     }
@@ -795,6 +799,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     private suspend fun handleSessionExpired() {
         secureTokenStorage.saveAuthToken("")
         secureTokenStorage.saveVkId("")
+        sharedPrefs.setRouteSyncCursor(null)
         _isLoggedIn.value = false
         _uiState.update {
             it.copy(

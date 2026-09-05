@@ -69,6 +69,10 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setLastSyncTimestamp(time: Long) { lastSyncTimestamp = time }
     override fun getLastSyncTimestamp(): Long = lastSyncTimestamp
 
+    private var routeSyncCursor: String? = null
+    override fun getRouteSyncCursor(): String? = routeSyncCursor
+    override fun setRouteSyncCursor(value: String?) { routeSyncCursor = value }
+
     private var settingsSyncPending: Boolean = true
     override fun getSettingsSyncPending(): Boolean = settingsSyncPending
     override fun setSettingsSyncPending(value: Boolean) { settingsSyncPending = value }

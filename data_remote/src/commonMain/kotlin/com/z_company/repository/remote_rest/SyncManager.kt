@@ -886,26 +886,35 @@ class SyncManager(
         val allErrors = mutableListOf<String>()
         val allWarnings = mutableListOf<String>()
 
-        // 2.1 Тянем актуальный список маршрутов с сервера.
-        val serverRoutes: List<Route> = try {
-            val state = routesManager.getRoutesFromRemote(bearerToken)
-                .first { it is ResultState.Success || it is ResultState.Error }
-            when (state) {
-                is ResultState.Success -> state.data
-                is ResultState.Error -> {
-                    emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки маршрутов: ${state.entity.message ?: NetworkErrorMapper.humanMessage(state.entity.throwable)}")))
-                    return@flow
-                }
-                else -> emptyList()
-            }
+        val localAll = routeUseCase.listRouteWithDeleting()
+        val localById = localAll.associateBy { it.basicData.id }
+
+        // 2.1 Тянем изменения с сервера: только то, что поменялось с прошлой
+        // синхронизации. Обход страниц идёт целиком до применения — оборванный
+        // обход не должен ни менять локальные данные, ни двигать курсор.
+        //
+        // full_resync означает, что сервер не стал обслуживать курсор (нет,
+        // просрочен, чужой, битый) и отдал полный набор с нуля. Тогда работаем
+        // ровно как до дельты: набор считается исчерпывающим, и отсутствие
+        // маршрута в нём снова значит «удалён на другом устройстве».
+        val delta: RouteDeltaSnapshot = try {
+            routesManager.loadRouteDelta(
+                cursor = cursorForRequest(
+                    stored = sharedPrefs.getRouteSyncCursor(),
+                    hasLocalRoutes = localAll.isNotEmpty(),
+                ),
+                bearerToken = bearerToken,
+            )
         } catch (e: Exception) {
             emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки маршрутов: ${NetworkErrorMapper.humanMessage(e)}")))
             return@flow
         }
+        val serverRoutes: List<Route> = delta.routes
         val serverById = serverRoutes.associateBy { it.basicData.id }
 
-        val localAll = routeUseCase.listRouteWithDeleting()
-        val localById = localAll.associateBy { it.basicData.id }
+        // Сбой применения скачанного запрещает двигать курсор: иначе изменение
+        // числилось бы полученным, а на устройстве его нет.
+        var downloadFailures = 0
 
         // 2.2 Удаления, сделанные локально → удалить на сервере, затем жёстко локально.
         // (Раньше блок был мёртв из-за guard'а remoteRouteId, который нигде не заполнялся,
@@ -915,12 +924,12 @@ class SyncManager(
         }) {
             val routeId = route.basicData.id
             val label = routeLabel(route)
-            if (routeId !in serverById) {
-                // Сервер уже не знает о маршруте — просто убираем локально.
-                routeUseCase.markAsRemoved(route).collect {}
-                result.routesDeletedLocal++
-                continue
-            }
+            // Раньше здесь была срезка «маршрута нет в выгрузке — значит сервер
+            // о нём уже не знает, DELETE не нужен». При дельте выгрузка неполна
+            // по определению, и такая срезка означала бы, что удаление не
+            // доедет до сервера, тумбстон не появится и на других устройствах
+            // маршрут воскреснет. DELETE идемпотентен (на неизвестный id сервер
+            // отвечает 200), поэтому зовём его всегда.
             try {
                 var handled = false
                 routesManager.deleteRouteInRemote(routeId, bearerToken).collect { del ->
@@ -960,7 +969,9 @@ class SyncManager(
         val locallyDeletedIds = localAll.filter { it.basicData.isDeleted }.map { it.basicData.id }.toSet()
 
         // 2.3 Серверные маршруты → merge в локальную БД (LWW по updatedAt).
+        val handledIds = mutableSetOf<String>()
         for (server in serverRoutes) {
+            handledIds.add(server.basicData.id)
             val id = server.basicData.id
             if (id in locallyDeletedIds) continue // локальное удаление в приоритете
             val local = localById[id]
@@ -973,12 +984,12 @@ class SyncManager(
             when {
                 local == null -> {
                     // Новый маршрут с другого устройства.
-                    saveDownloadedRoute(server, local); result.routesDownloaded++
+                    if (saveDownloadedRoute(server, local)) result.routesDownloaded++ else downloadFailures++
                 }
                 local.basicData.isSynchronized -> {
                     // Локально не менялся: берём серверный, если он свежее.
                     if (server.basicData.updatedAt > local.basicData.updatedAt) {
-                        saveDownloadedRoute(server, local); result.routesDownloaded++
+                        if (saveDownloadedRoute(server, local)) result.routesDownloaded++ else downloadFailures++
                     }
                 }
                 else -> {
@@ -986,35 +997,46 @@ class SyncManager(
                     if (local.basicData.updatedAt >= server.basicData.updatedAt) {
                         pushRoute(local, bearerToken, allWarnings, allErrors)?.let { if (it) result.routesUploaded++ }
                     } else {
-                        saveDownloadedRoute(server); result.routesDownloaded++
+                        if (saveDownloadedRoute(server)) result.routesDownloaded++ else downloadFailures++
                     }
                 }
             }
         }
 
-        // 2.4 Локальные маршруты, которых нет на сервере.
-        // Кандидаты на удаление сначала собираем, не удаляя сразу: если их доля
-        // окажется подозрительно большой (см. isSignificantRouteDeletion), это может
-        // быть не «удалили на другом устройстве», а пустой/усечённый ответ сервера
-        // из-за бага или сбоя — тогда лучше спросить пользователя, чем стереть историю.
+        // 2.4 Удаления, сделанные на другом устройстве.
+        //
+        // Триггер зависит от режима. При full_resync набор с сервера исчерпывающий,
+        // и отсутствие маршрута в нём — как и до дельты — значит «удалён». При
+        // обычной дельте отсутствие не значит РОВНО НИЧЕГО: сервер прислал только
+        // изменения, и удаления приходят отдельным явным списком тумбстонов.
         val deletionCandidates = mutableListOf<Route>()
-        for (local in localAll) {
+        for (local in deletionSuspects(localAll, delta)) {
             if (local.basicData.isDeleted) continue
-            val id = local.basicData.id
-            if (id in serverById) continue
             if (canDeleteLocalRouteMissingFromServer(local)) {
                 // Только подтверждённо синхронизированный маршрут можно считать
                 // удалённым на другом устройстве. Наличие remoteRouteId недостаточно:
                 // маршрут мог быть изменён локально после последней синхронизации.
-                // Такой маршрут нельзя удалять при неполном ответе сервера — его
-                // нужно повторно выгрузить.
                 deletionCandidates.add(local)
             } else {
-                // Несинхронизированный маршрут (в том числе ранее облачный, но
-                // изменённый локально) никогда не удаляем из-за отсутствия в ответе
-                // сервера — повторно выгружаем его.
+                // Маршрут с локальными правками не удаляем никогда — ни по
+                // отсутствию в выгрузке, ни по тумбстону. Правка новее удаления,
+                // поэтому выгружаем её обратно на сервер.
+                handledIds.add(local.basicData.id)
                 pushRoute(local, bearerToken, allWarnings, allErrors)?.let { if (it) result.routesUploaded++ }
             }
+        }
+
+        // 2.5 Локальные правки, о которых сервер ещё не знает.
+        //
+        // Раньше их выгружал шаг 2.4: маршрут, которого нет в полном списке,
+        // выгружался повторно. При дельте сервер присылает только изменения, такой
+        // маршрут в ответе не появится вовсе — и правка не уехала бы никогда.
+        // Поэтому «грязные» маршруты выгружаются явным шагом.
+        for (local in localAll) {
+            if (local.basicData.isDeleted) continue
+            if (local.basicData.isSynchronized) continue
+            if (local.basicData.id in handledIds) continue
+            pushRoute(local, bearerToken, allWarnings, allErrors)?.let { if (it) result.routesUploaded++ }
         }
 
         val totalSyncedLocal = localAll.count {
@@ -1037,9 +1059,20 @@ class SyncManager(
                 // Только clean-маршрут может подтвердить удаление на другом
                 // устройстве, и воскресать сам он не должен — удаление побеждает.
                 // Стираем не физически: маршрут уходит в локальную корзину.
-                routeUseCase.markAsRemoved(local).collect {}
-                result.routesDeletedLocal++
+                var removed = true
+                routeUseCase.markAsRemoved(local).collect { if (it is ResultState.Error) removed = false }
+                if (removed) result.routesDeletedLocal++ else downloadFailures++
             }
+        }
+
+        // Курсор сохраняем последним и только когда всё скачанное применено.
+        //
+        // Отложенные на подтверждение пользователем удаления тоже держат курсор:
+        // тумбстон уже не повторится, а решение ещё не принято. Пусть лучше
+        // следующая синхронизация принесёт его заново.
+        val deltaCursor = delta.cursor
+        if (downloadFailures == 0 && result.pendingDeletionRouteIds.isEmpty() && !deltaCursor.isNullOrBlank()) {
+            sharedPrefs.setRouteSyncCursor(deltaCursor)
         }
 
         result.routesDone = true
@@ -1095,8 +1128,12 @@ class SyncManager(
         emit(ResultState.Success(deletedCount))
     }.flowOn(Dispatchers.Default)
 
-    /** Сохранить маршрут, пришедший с сервера (пометив синхронизированным). */
-    private suspend fun saveDownloadedRoute(server: Route, local: Route? = null) {
+    /**
+     * Сохранить маршрут, пришедший с сервера (пометив синхронизированным).
+     * @return true — сохранён. Неудача запрещает двигать курсор дельты: иначе
+     *   изменение числилось бы полученным, а на устройстве его нет.
+     */
+    private suspend fun saveDownloadedRoute(server: Route, local: Route? = null): Boolean {
         val orderedServer = server.preserveSectionOrderFrom(local)
         val r = orderedServer.copy(
             basicData = server.basicData.copy(
@@ -1107,7 +1144,9 @@ class SyncManager(
                 remoteRouteId = server.basicData.remoteRouteId ?: server.basicData.id
             )
         )
-        routeUseCase.saveRouteAfterLoading(r).collect {}
+        var saved = true
+        routeUseCase.saveRouteAfterLoading(r).collect { if (it is ResultState.Error) saved = false }
+        return saved
     }
 
     /**
