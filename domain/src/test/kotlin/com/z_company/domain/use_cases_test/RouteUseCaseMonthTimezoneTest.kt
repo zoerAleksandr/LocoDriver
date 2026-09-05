@@ -9,6 +9,7 @@ import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Photo
+import com.z_company.domain.entities.route.PhysicalDeletionReason
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.RoutePartner
 import com.z_company.domain.entities.route.Train
@@ -86,6 +87,7 @@ class RouteUseCaseMonthTimezoneTest {
         override fun loadRoutesAsFlow() = flowOf(listOf(route))
         override fun loadRoutes() = listOf(route)
         override fun loadRoutesWithDeleting() = emptyList<Route>()
+        override fun loadTrash() = emptyList<Route>()
         override fun loadRoute(routeId: String) = success<Route?>(null)
         override fun loadLoco(locoId: String) = success<Locomotive?>(null)
         override fun loadLocoListByBasicId(basicId: String) = emptyList<Locomotive>()
@@ -100,6 +102,7 @@ class RouteUseCaseMonthTimezoneTest {
         override fun loadPhoto(photoId: String) = success<Photo?>(null)
         override fun loadPhotosByRoute(basicId: String) = success(emptyList<Photo>())
         override fun remove(route: Route) = success(Unit)
+        override fun purgeRoute(route: Route, reason: PhysicalDeletionReason) = success(Unit)
         override fun removeLoco(locomotive: Locomotive) = success(Unit)
         override fun removeTrain(train: Train) = success(Unit)
         override fun removePassenger(passenger: Passenger) = success(Unit)
@@ -122,9 +125,11 @@ class RouteUseCaseMonthTimezoneTest {
         override fun savePartner(partner: RoutePartner) = success(Unit)
         override fun savePhoto(photo: Photo) = success(Unit)
         override fun markAsRemoved(route: Route) = success(Unit)
+        override fun markAsPendingRemoteDeletion(route: Route) = success(Unit)
+        override fun restoreFromTrash(routeId: String) = success(Unit)
+        override fun acknowledgeRemoteDeletion(routeId: String, deletedAt: Long) = success(Unit)
         override fun setSynchronizedRoute(basicId: String) = success(Unit)
         override fun markUnsynchronized(basicId: String) = success(Unit)
-        override fun clearRepository() = success(Unit)
         override fun setFavoriteRoute(basicId: String, isFavorite: Boolean) = success(isFavorite)
 
         private fun <T> success(value: T): Flow<ResultState<T>> = flowOf(ResultState.Success(value))

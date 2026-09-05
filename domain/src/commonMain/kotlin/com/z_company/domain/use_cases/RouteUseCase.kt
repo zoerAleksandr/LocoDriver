@@ -149,6 +149,14 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.loadRoutesWithDeleting()
     }
 
+    fun listTrash(): List<Route> = repository.loadTrash()
+
+    fun restoreFromTrash(routeId: String): Flow<ResultState<Unit>> =
+        repository.restoreFromTrash(routeId)
+
+    fun acknowledgeRemoteDeletion(routeId: String, deletedAt: Long): Flow<ResultState<Unit>> =
+        repository.acknowledgeRemoteDeletion(routeId, deletedAt)
+
 
     fun getListRoutes(): List<Route> {
         return repository.loadRoutes()
@@ -169,11 +177,21 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.remove(route)
     }
 
+    fun purgeRoute(route: Route, reason: com.z_company.domain.entities.route.PhysicalDeletionReason): Flow<ResultState<Unit>> =
+        repository.purgeRoute(route, reason)
+
     fun markAsRemoved(route: Route): Flow<ResultState<Unit>> {
         // Штампуем updatedAt удаления — время soft-delete участвует в LWW-merge
         // (удаление на этом устройстве побеждает более старую правку на другом).
         val now = Clock.System.now().toEpochMilliseconds()
         return repository.markAsRemoved(
+            route.copy(basicData = route.basicData.copy(updatedAt = now))
+        )
+    }
+
+    fun markAsPendingRemoteDeletion(route: Route): Flow<ResultState<Unit>> {
+        val now = Clock.System.now().toEpochMilliseconds()
+        return repository.markAsPendingRemoteDeletion(
             route.copy(basicData = route.basicData.copy(updatedAt = now))
         )
     }
@@ -486,10 +504,6 @@ class RouteUseCase(private val repository: RouteRepository) {
 
     fun fullRest(route: Route, minTimeRest: Long?): Long? {
         return route.fullRest(minTimeRest)
-    }
-
-    fun clearLocalRouteRepository(): Flow<ResultState<Unit>> {
-        return repository.clearRepository()
     }
 
     fun setFavoriteRoute(routeId: String, isFavorite: Boolean): Flow<ResultState<Boolean>> {

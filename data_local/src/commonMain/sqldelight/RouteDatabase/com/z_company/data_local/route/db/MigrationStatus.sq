@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS MigrationStatus (
+    singletonId INTEGER NOT NULL PRIMARY KEY CHECK (singletonId = 1),
+    status TEXT NOT NULL,
+    fromVersion INTEGER NOT NULL,
+    toVersion INTEGER NOT NULL,
+    routesBefore INTEGER NOT NULL,
+    routesAfter INTEGER NOT NULL,
+    backupCreated INTEGER NOT NULL,
+    errorCode TEXT,
+    updatedAt INTEGER NOT NULL
+);
+
+getStatus:
+SELECT * FROM MigrationStatus WHERE singletonId = 1;
+
+saveStatus:
+INSERT OR REPLACE INTO MigrationStatus(
+    singletonId, status, fromVersion, toVersion, routesBefore, routesAfter,
+    backupCreated, errorCode, updatedAt
+) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?);

@@ -5,6 +5,7 @@ import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.OtherWork
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Photo
+import com.z_company.domain.entities.route.PhysicalDeletionReason
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.RoutePartner
 import com.z_company.domain.entities.route.Train
@@ -17,6 +18,7 @@ interface RouteRepository {
     fun loadRoutesAsFlow(): Flow<List<Route>>
     fun loadRoutes(): List<Route>
     fun loadRoutesWithDeleting(): List<Route>
+    fun loadTrash(): List<Route>
     fun loadRoute(routeId: String): Flow<ResultState<Route?>>
     fun loadLoco(locoId: String): Flow<ResultState<Locomotive?>>
     fun loadLocoListByBasicId(basicId: String): List<Locomotive>
@@ -31,6 +33,7 @@ interface RouteRepository {
     fun loadPhoto(photoId: String): Flow<ResultState<Photo?>>
     fun loadPhotosByRoute(basicId: String): Flow<ResultState<List<Photo>>>
     fun remove(route: Route): Flow<ResultState<Unit>>
+    fun purgeRoute(route: Route, reason: PhysicalDeletionReason): Flow<ResultState<Unit>>
     fun removeLoco(locomotive: Locomotive): Flow<ResultState<Unit>>
     fun removeTrain(train: Train): Flow<ResultState<Unit>>
     fun removePassenger(passenger: Passenger): Flow<ResultState<Unit>>
@@ -53,9 +56,11 @@ interface RouteRepository {
     fun savePartner(partner: RoutePartner): Flow<ResultState<Unit>>
     fun savePhoto(photo: Photo): Flow<ResultState<Unit>>
     fun markAsRemoved(route: Route): Flow<ResultState<Unit>>
+    fun markAsPendingRemoteDeletion(route: Route): Flow<ResultState<Unit>>
+    fun restoreFromTrash(routeId: String): Flow<ResultState<Unit>>
+    fun acknowledgeRemoteDeletion(routeId: String, deletedAt: Long): Flow<ResultState<Unit>>
     fun setSynchronizedRoute(basicId: String): Flow<ResultState<Unit>>
     /** Сбрасывает isSynchronized = false для маршрута. Вызывается при изменении подразделов. */
     fun markUnsynchronized(basicId: String): Flow<ResultState<Unit>>
-    fun clearRepository(): Flow<ResultState<Unit>>
     fun setFavoriteRoute(basicId: String, isFavorite: Boolean): Flow<ResultState<Boolean>>
 }

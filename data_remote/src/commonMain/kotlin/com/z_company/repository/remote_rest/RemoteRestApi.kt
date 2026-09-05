@@ -23,6 +23,8 @@ import com.z_company.repository.remote_rest.response.LoginResponse
 import com.z_company.repository.remote_rest.response.SaveRouteResponse
 import com.z_company.repository.remote_rest.response.ShareRouteResponse
 import com.z_company.repository.remote_rest.response.UserResponse
+import com.z_company.repository.remote_rest.diagnostic.DiagnosticEventsRequest
+import com.z_company.repository.remote_rest.diagnostic.DiagnosticEventsResponse
 
 /**
  * Контракт для взаимодействия с REST API.
@@ -31,6 +33,8 @@ import com.z_company.repository.remote_rest.response.UserResponse
  * При HTTP-ошибке бросается ResponseException из Ktor.
  */
 interface RemoteRestApi {
+
+    suspend fun sendDiagnosticEvents(body: DiagnosticEventsRequest): DiagnosticEventsResponse
 
     suspend fun authWithEmail(authRequest: AuthRequest): AuthResponse
 

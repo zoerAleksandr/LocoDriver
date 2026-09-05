@@ -23,6 +23,7 @@ import com.z_company.route.viewmodel.PartnerListViewModel
 import com.z_company.route.viewmodel.PartnerEditorViewModel
 import com.z_company.route.viewmodel.PartnerPickerViewModel
 import com.z_company.route.viewmodel.TrainFormViewModel
+import com.z_company.route.viewmodel.TrashViewModel
 import org.koin.android.ext.koin.androidApplication
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
@@ -59,6 +60,7 @@ val viewModelModule = module {
     viewModel { (id: String?, name: String?) -> SeriesEditorViewModel(id, name) }
     viewModel { (id: String?, name: String?) -> StationNormEditorViewModel(id, name) }
     viewModel { PartnerListViewModel() }
+    viewModel { TrashViewModel() }
     viewModel { (partnerId: String?) -> PartnerEditorViewModel(partnerId) }
     viewModel { (basicId: String) -> PartnerPickerViewModel(basicId) }
 }

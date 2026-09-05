@@ -1,0 +1,34 @@
+CREATE TABLE IF NOT EXISTS RouteEvent (
+    eventId TEXT NOT NULL PRIMARY KEY,
+    installationId TEXT NOT NULL,
+    routeIdHash TEXT,
+    eventType TEXT NOT NULL,
+    reasonCode TEXT,
+    createdAt INTEGER NOT NULL,
+    appVersion TEXT,
+    appBuild INTEGER,
+    dbVersion INTEGER,
+    detailsJson TEXT,
+    uploadedAt INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS index_RouteEvent_createdAt ON RouteEvent(createdAt);
+CREATE INDEX IF NOT EXISTS index_RouteEvent_uploadedAt ON RouteEvent(uploadedAt);
+
+insertEvent:
+INSERT INTO RouteEvent(
+    eventId, installationId, routeIdHash, eventType, reasonCode, createdAt,
+    appVersion, appBuild, dbVersion, detailsJson, uploadedAt
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+getRecent:
+SELECT * FROM RouteEvent ORDER BY createdAt DESC LIMIT :limit;
+
+getPendingUpload:
+SELECT * FROM RouteEvent WHERE uploadedAt IS NULL ORDER BY createdAt ASC LIMIT :limit;
+
+markUploaded:
+UPDATE RouteEvent SET uploadedAt = :uploadedAt WHERE eventId = :eventId;
+
+deleteOlderThan:
+DELETE FROM RouteEvent WHERE createdAt < :cutoff AND uploadedAt IS NOT NULL;

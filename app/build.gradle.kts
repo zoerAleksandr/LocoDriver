@@ -54,6 +54,11 @@ android {
             name = "SENTRY_DSN",
             value = "\"${properties.getProperty("SENTRY_DSN", "")}\""
         )
+        buildConfigField(
+            type = "boolean",
+            name = "RECOVERY_CLOUD_ENABLED",
+            value = properties.getProperty("RECOVERY_CLOUD_ENABLED", "false")
+        )
         // client_id приложения VK ID: уходит на сервер в vkClientId, чтобы он
         // проверял VK access token у нужного приложения.
         buildConfigField(
@@ -65,6 +70,9 @@ android {
         // Подменяется только в debug (см. buildTypes ниже).
         buildConfigField(type = "String", name = "API_BASE_URL", value = "\"\"")
     }
+    sourceSets.getByName("androidTest").assets.srcDir(
+        project(":data_local").file("schemas")
+    )
 
 
     buildTypes {
@@ -188,6 +196,9 @@ dependencies {
     // ART использует его для AOT-компиляции при установке
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     "baselineProfile"(project(":baselineprofile"))
+    testImplementation(TestLibs.kotlin_test)
+    androidTestImplementation(TestLibs.ext_junit)
+    androidTestImplementation(TestLibs.test_runner)
 }
 configurations.all {
     exclude (group = "com.squareup.okhttp3", module = "okhttp-bom")

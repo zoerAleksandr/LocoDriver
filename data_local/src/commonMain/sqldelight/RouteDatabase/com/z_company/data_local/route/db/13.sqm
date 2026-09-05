@@ -1,3 +1,7 @@
+-- Миграция 13 объединяет две независимые аддитивные правки, попавшие в неё
+-- параллельно: вагонника на поезде и корзину маршрутов с диагностикой.
+-- Таблицы разные, порядок применения значения не имеет.
+
 -- Миграция 13: вагонник (CarInspector) на поезде.
 -- Опциональная запись — ФИО/табельный номер/время прицепки, серилизуется
 -- тем же паттерном, что pusher/doubleTraction/doubledTrain (JSON в TEXT-столбце).
@@ -7,3 +11,54 @@
 -- отдельной миграции для них не требуется.
 
 ALTER TABLE Train ADD COLUMN carInspector TEXT DEFAULT NULL;
+
+-- Аддитивная миграция корзины маршрутов.
+-- Старые клиенты не видят новые колонки и продолжают работать с прежними полями.
+ALTER TABLE BasicData ADD COLUMN deletedAt INTEGER;
+ALTER TABLE BasicData ADD COLUMN deletionReason TEXT;
+ALTER TABLE BasicData ADD COLUMN remoteDeletionPending INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE BasicData ADD COLUMN remoteDeletedAt INTEGER;
+
+CREATE TABLE IF NOT EXISTS DiagnosticInstallation (
+    singletonId INTEGER NOT NULL PRIMARY KEY CHECK (singletonId = 1),
+    installationId TEXT NOT NULL,
+    createdAt INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS RouteEvent (
+    eventId TEXT NOT NULL PRIMARY KEY,
+    installationId TEXT NOT NULL,
+    routeIdHash TEXT,
+    eventType TEXT NOT NULL,
+    reasonCode TEXT,
+    createdAt INTEGER NOT NULL,
+    appVersion TEXT,
+    appBuild INTEGER,
+    dbVersion INTEGER,
+    detailsJson TEXT,
+    uploadedAt INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS index_RouteEvent_createdAt ON RouteEvent(createdAt);
+CREATE INDEX IF NOT EXISTS index_RouteEvent_uploadedAt ON RouteEvent(uploadedAt);
+
+CREATE TABLE IF NOT EXISTS DiagnosticOutbox (
+    eventId TEXT NOT NULL PRIMARY KEY,
+    createdAt INTEGER NOT NULL,
+    attemptCount INTEGER NOT NULL DEFAULT 0,
+    nextAttemptAt INTEGER NOT NULL,
+    lastErrorCode TEXT,
+    FOREIGN KEY (eventId) REFERENCES RouteEvent(eventId) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS MigrationStatus (
+    singletonId INTEGER NOT NULL PRIMARY KEY CHECK (singletonId = 1),
+    status TEXT NOT NULL,
+    fromVersion INTEGER NOT NULL,
+    toVersion INTEGER NOT NULL,
+    routesBefore INTEGER NOT NULL,
+    routesAfter INTEGER NOT NULL,
+    backupCreated INTEGER NOT NULL,
+    errorCode TEXT,
+    updatedAt INTEGER NOT NULL
+);

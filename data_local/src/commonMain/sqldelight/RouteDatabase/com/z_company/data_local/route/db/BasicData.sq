@@ -5,6 +5,10 @@ CREATE TABLE IF NOT EXISTS BasicData (
     isSynchronized INTEGER NOT NULL,
     remoteObjectId TEXT,
     isDeleted INTEGER NOT NULL,
+    deletedAt INTEGER,
+    deletionReason TEXT,
+    remoteDeletionPending INTEGER NOT NULL DEFAULT 0,
+    remoteDeletedAt INTEGER,
     updatedAt TEXT NOT NULL,
     number TEXT,
     timeStartWork INTEGER,
@@ -18,8 +22,8 @@ CREATE TABLE IF NOT EXISTS BasicData (
 );
 
 insertOrReplace:
-INSERT OR REPLACE INTO BasicData (id, remoteRouteId, isOnePersonOperation, isSynchronized, remoteObjectId, isDeleted, updatedAt, number, timeStartWork, timeEndWork, restPointOfTurnover, notes, isFavorite, timeStartBreak, timeEndBreak, timeStartWorkBeforeArrival)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO BasicData (id, remoteRouteId, isOnePersonOperation, isSynchronized, remoteObjectId, isDeleted, deletedAt, deletionReason, remoteDeletionPending, remoteDeletedAt, updatedAt, number, timeStartWork, timeEndWork, restPointOfTurnover, notes, isFavorite, timeStartBreak, timeEndBreak, timeStartWorkBeforeArrival)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getById:
 SELECT * FROM BasicData WHERE id = :id;
@@ -29,6 +33,27 @@ SELECT * FROM BasicData WHERE isDeleted = 0;
 
 getAllWithDeleted:
 SELECT * FROM BasicData;
+
+getTrash:
+SELECT * FROM BasicData WHERE isDeleted = 1 ORDER BY deletedAt DESC;
+
+restoreFromTrash:
+UPDATE BasicData
+SET isDeleted = 0,
+    deletedAt = NULL,
+    deletionReason = NULL,
+    remoteDeletionPending = 0,
+    remoteDeletedAt = NULL,
+    isSynchronized = 0,
+    updatedAt = :updatedAt
+WHERE id = :id AND isDeleted = 1;
+
+acknowledgeRemoteDeletion:
+UPDATE BasicData
+SET remoteDeletionPending = 0,
+    remoteDeletedAt = :remoteDeletedAt,
+    isSynchronized = 1
+WHERE id = :id AND isDeleted = 1;
 
 getByPeriod:
 SELECT * FROM BasicData
@@ -43,9 +68,6 @@ ORDER BY timeStartWork DESC;
 
 delete:
 DELETE FROM BasicData WHERE id = :id;
-
-deleteAll:
-DELETE FROM BasicData;
 
 setRemoteObjectId:
 UPDATE BasicData SET remoteObjectId = :remoteObjectId WHERE id = :id;

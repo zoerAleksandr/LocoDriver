@@ -16,6 +16,18 @@ data class BasicData(
     var remoteObjectId: String? = null,
     var isOnePersonOperation: Boolean = false,
     var isDeleted: Boolean = false,
+    /** Время перемещения в локальную корзину, epoch millis. */
+    @Transient
+    var deletedAt: Long? = null,
+    /** Машиночитаемая причина перемещения в корзину. */
+    @Transient
+    var deletionReason: String? = null,
+    /** Массовое серверное удаление ожидает явного подтверждения пользователя. */
+    @Transient
+    var remoteDeletionPending: Boolean = false,
+    /** Время подтверждения серверного удаления, epoch millis. */
+    @Transient
+    var remoteDeletedAt: Long? = null,
     @Serializable(with = DateAsLongSerializer::class)
     var updatedAt: Long = Clock.System.now().toEpochMilliseconds(),
     var number: String? = null,
