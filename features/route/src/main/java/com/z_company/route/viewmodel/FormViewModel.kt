@@ -197,6 +197,9 @@ class FormViewModel(
     private var deleteLocoJob: Job? = null
     private var deleteTrainJob: Job? = null
     private var deletePassengerJob: Job? = null
+    // Запись «выключить явку по прибытию» в таблицу пассажиров. Живёт вне
+    // viewModelScope, чтобы уход с экрана её не отменил.
+    private var disableArrivalJob: Job? = null
 
     private val deletedLocoList = mutableListOf<Locomotive>()
     private val deletedTrainList = mutableListOf<Train>()
@@ -365,7 +368,7 @@ class FormViewModel(
             withContext(Dispatchers.IO) {
                 currentRoute.value?.let { route ->
                     val wasInDb = isPersistedToDb
-                    routeUseCase.saveRoute(route).collect { result ->
+                    routeUseCase.saveRoute(route.withPassengerArrivalFlagsFromDb()).collect { result ->
                         if (!wasInDb && result is ResultState.Success) {
                             isPersistedToDb = true
                             subscribeToChanges(route.basicData.id)
@@ -392,7 +395,7 @@ class FormViewModel(
         if (isPersistedToDb && _uiState.value.changesHaveState) {
             CoroutineScope(NonCancellable + Dispatchers.IO).launch {
                 currentRoute.value?.let { route ->
-                    routeUseCase.saveRoute(route).collect {}
+                    routeUseCase.saveRoute(route.withPassengerArrivalFlagsFromDb()).collect {}
                 }
             }
         }
@@ -938,7 +941,56 @@ class FormViewModel(
             )
         }
         changesHave()
+        val basicId = _currentRoute.value?.basicData?.id ?: return
+        // Флаг живёт в строке пассажира. Пока он там true, любое следующее чтение
+        // из БД (подписка) и любое сохранение маршрута вернут режим обратно —
+        // поэтому снимаем его в БД сразу, не дожидаясь автосейва.
+        disableArrivalJob = CoroutineScope(NonCancellable + Dispatchers.IO).launch {
+            val routeState = routeUseCase.routeDetails(basicId)
+                .first { it is ResultState.Success }
+            val freshRoute = (routeState as? ResultState.Success)?.data ?: return@launch
+            val nothingToClear = freshRoute.passengers.none { it.isWorkStartByArrival } &&
+                    freshRoute.basicData.timeStartWorkBeforeArrival == null
+            if (nothingToClear) return@launch
+            routeUseCase.saveRoute(
+                freshRoute.copy(
+                    passengers = freshRoute.passengers
+                        .map { it.copy(isWorkStartByArrival = false) }
+                        .toMutableList(),
+                    // Резерв прежней явки больше не нужен: время пользователь задаёт сам.
+                    basicData = freshRoute.basicData.copy(timeStartWorkBeforeArrival = null)
+                )
+            ).first { it !is ResultState.Loading }
+        }
     }
+
+    /**
+     * Возвращает маршрут с флагами «явки по прибытию» из БД.
+     *
+     * Флаг [Passenger.isWorkStartByArrival] принадлежит экрану «Пассажиром» — форма
+     * маршрута его сама не включает, но держит свою копию списка пассажиров в памяти.
+     * Копия успевает устареть (пользователь выключил переключатель на дочернем экране,
+     * а событие из БД ещё не дошло), и сохранение маршрута целиком записывало старое
+     * значение обратно — режим включался «сам собой». Поэтому перед каждой записью
+     * маршрута берём флаг из БД.
+     *
+     * Локальное выключение из [disableWorkStartByArrival] пишется в БД отдельно и
+     * раньше — дожидаемся его, иначе прочитаем ещё не перезаписанное true.
+     */
+    private suspend fun Route.withPassengerArrivalFlagsFromDb(): Route =
+        withContext(Dispatchers.IO) {
+            disableArrivalJob?.join()
+            val flagInDb = passengerUseCase.getPassengerListByBasicId(basicData.id)
+                .associate { it.passengerId to it.isWorkStartByArrival }
+            if (flagInDb.isEmpty()) return@withContext this@withPassengerArrivalFlagsFromDb
+            copy(
+                passengers = passengers.map { passenger ->
+                    val inDb = flagInDb[passenger.passengerId]
+                    if (inDb == null || inDb == passenger.isWorkStartByArrival) passenger
+                    else passenger.copy(isWorkStartByArrival = inDb)
+                }.toMutableList()
+            )
+        }
 
     fun setTimeEndWork(time: Long?) {
         _currentRoute.update { it?.copy(basicData = it.basicData.copy(timeEndWork = time.truncateToMinute())) }
@@ -1182,7 +1234,8 @@ class FormViewModel(
     private fun performSave(exitAfterSave: Boolean) {
         saveRouteJob?.cancel()
         saveRouteJob = viewModelScope.launch(Dispatchers.IO) {
-            currentRoute.value?.let { route ->
+            currentRoute.value?.let { inMemoryRoute ->
+                val route = inMemoryRoute.withPassengerArrivalFlagsFromDb()
                 val routeToSave = if (_isSharedPreview.value || route.basicData.isDeleted) {
                     route.copy(basicData = route.basicData.copy(isDeleted = false))
                 } else {
@@ -1433,13 +1486,16 @@ class FormViewModel(
         if (isPersistedToDb && !_uiState.value.changesHaveState) return
         currentRoute.value?.let { route ->
             saveRouteJob?.cancel()
-            saveRouteJob = routeUseCase.saveRoute(route).onEach { saveRouteState ->
-                if (saveRouteState is ResultState.Success) {
-                    isPersistedToDb = true
-                    subscribeToChanges(route.basicData.id)
-                    changesHave()
+            saveRouteJob = viewModelScope.launch {
+                val routeToSave = route.withPassengerArrivalFlagsFromDb()
+                routeUseCase.saveRoute(routeToSave).collect { saveRouteState ->
+                    if (saveRouteState is ResultState.Success) {
+                        isPersistedToDb = true
+                        subscribeToChanges(route.basicData.id)
+                        changesHave()
+                    }
                 }
-            }.launchIn(viewModelScope)
+            }
         }
     }
 

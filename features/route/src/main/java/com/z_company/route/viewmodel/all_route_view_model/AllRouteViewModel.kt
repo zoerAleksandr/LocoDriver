@@ -181,9 +181,9 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                     }
                 }
                 // Тихий фоновый sync не удаляет маршруты сам, если это значительный объём —
-                // просто подсказываем, где подтвердить (см. ProfileViewModel.confirmPendingRouteDeletions).
+                // Подтверждение выполняется непосредственно в корзине.
                 val message = failureMessage ?: if (pendingDeletionCount > 0) {
-                    "На сервере пропало маршрутов: $pendingDeletionCount. Подтвердите удаление в Профиле."
+                    "На сервере пропало маршрутов: $pendingDeletionCount. Проверьте корзину в Настройках."
                 } else null
                 message?.let { snackbarManager.show(it) }
             } catch (e: kotlinx.coroutines.CancellationException) {

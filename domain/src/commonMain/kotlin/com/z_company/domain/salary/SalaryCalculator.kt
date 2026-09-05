@@ -143,7 +143,14 @@ class SalaryCalculationHelper(
     private val annualOvertimeBeforePeriod: Long = 0L,
     private val workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
 ) {
-    private val allRoutes: List<Route> = allRoutes
+    // Повреждённые или устаревшие записи могут содержать сдачу раньше явки.
+    // Они не должны ронять расчёт и не должны давать отрицательные начисления:
+    // для зарплаты такой маршрут эквивалентен маршруту без рассчитанного времени.
+    private val allRoutes: List<Route> = allRoutes.filter { route ->
+        val start = route.basicData.timeStartWork
+        val end = route.basicData.timeEndWork
+        start == null || end == null || end >= start
+    }
     val currentMonthOfYear = userSettings.selectMonthOfYear
     val dateSetTariffRate = currentMonthOfYear.dateSetTariffRate
     private val timeCalculationContext = TimeCalculationContext.from(userSettings)
@@ -206,12 +213,12 @@ class SalaryCalculationHelper(
                 date.monthNumber == currentMonthOfYear.month + 1
     }
 
-    private val businessTripRoutes: List<Route> = allRoutes.flatMap { it.fragments(businessTrip = true) }
+    private val businessTripRoutes: List<Route> = this.allRoutes.flatMap { it.fragments(businessTrip = true) }
 
     // Обычные тарифы и надбавки считаются только по маршрутам вне
     // командировки. Для нормы, недоработки и сверхурочных используется
     // allRoutes: командировочные часы тоже закрывают норму.
-    private val routeList: List<Route> = allRoutes.flatMap { it.fragments(businessTrip = false) }
+    private val routeList: List<Route> = this.allRoutes.flatMap { it.fragments(businessTrip = false) }
 
     @OptIn(kotlin.time.ExperimentalTime::class)
     private fun salarySegments(routes: List<Route> = routeList) = routes.flatMap { route ->

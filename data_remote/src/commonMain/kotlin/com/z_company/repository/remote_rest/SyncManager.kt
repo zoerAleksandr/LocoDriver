@@ -290,7 +290,9 @@ class SyncManager(
 
         // 4. Удаление маршрутов, помеченных isDeleted = true
         val allRoutesWithDeleted = routeUseCase.listRouteWithDeleting()
-        val deletedRoutes = allRoutesWithDeleted.filter { it.basicData.isDeleted }
+        val deletedRoutes = allRoutesWithDeleted.filter {
+            it.basicData.isDeleted && !it.basicData.remoteDeletionPending
+        }
         for (route in deletedRoutes) {
             val routeId = route.basicData.id
             val label = routeLabel(route)
@@ -306,7 +308,12 @@ class SyncManager(
                 routesManager.deleteRouteInRemote(routeId, bearerToken)
                     .collect { deleteResult ->
                         if (deleteResult is ResultState.Success) {
-                            routeUseCase.removeRoute(route).collect {}
+                            // Серверная копия удалена, но локальная запись должна
+                            // оставаться в корзине до истечения retention-периода.
+                            routeUseCase.acknowledgeRemoteDeletion(
+                                routeId,
+                                Clock.System.now().toEpochMilliseconds()
+                            ).collect {}
                         } else if (deleteResult is ResultState.Error) {
                             val msg = deleteResult.entity.message
                                 ?: deleteResult.entity.throwable?.message ?: "Ошибка"
@@ -903,12 +910,14 @@ class SyncManager(
         // 2.2 Удаления, сделанные локально → удалить на сервере, затем жёстко локально.
         // (Раньше блок был мёртв из-за guard'а remoteRouteId, который нигде не заполнялся,
         //  поэтому удаления не доходили до сервера.)
-        for (route in localAll.filter { it.basicData.isDeleted }) {
+        for (route in localAll.filter {
+            it.basicData.isDeleted && !it.basicData.remoteDeletionPending
+        }) {
             val routeId = route.basicData.id
             val label = routeLabel(route)
             if (routeId !in serverById) {
                 // Сервер уже не знает о маршруте — просто убираем локально.
-                routeUseCase.removeRoute(route).collect {}
+                routeUseCase.markAsRemoved(route).collect {}
                 result.routesDeletedLocal++
                 continue
             }
@@ -917,7 +926,10 @@ class SyncManager(
                 routesManager.deleteRouteInRemote(routeId, bearerToken).collect { del ->
                     when (del) {
                         is ResultState.Success -> {
-                            routeUseCase.removeRoute(route).collect {}
+                            routeUseCase.acknowledgeRemoteDeletion(
+                                routeId,
+                                Clock.System.now().toEpochMilliseconds()
+                            ).collect {}
                             result.routesDeletedRemote++
                             handled = true
                         }
@@ -925,7 +937,10 @@ class SyncManager(
                             val msg = del.entity.message ?: del.entity.throwable?.message ?: "Ошибка"
                             // 404 — на сервере уже нет: считаем удаление успешным.
                             if (msg.contains("404") || msg.contains("not found", ignoreCase = true)) {
-                                routeUseCase.removeRoute(route).collect {}
+                                routeUseCase.acknowledgeRemoteDeletion(
+                                    routeId,
+                                    Clock.System.now().toEpochMilliseconds()
+                                ).collect {}
                                 result.routesDeletedRemote++
                             } else {
                                 allErrors.add("[$routeId] Удаление $label: $msg")
@@ -1009,13 +1024,20 @@ class SyncManager(
             isSignificantRouteDeletion(deletionCandidates.size, totalSyncedLocal)
         ) {
             // Dirty-маршруты сюда не попадают; для подозрительно большого объёма
-            // clean-маршрутов решение всё равно оставляем пользователю.
+            // clean-маршрутов решение всё равно оставляем пользователю. Полные
+            // локальные копии сразу кладём в корзину, но серверное удаление не
+            // считаем подтверждённым до его явного действия.
+            for (local in deletionCandidates) {
+                routeUseCase.markAsPendingRemoteDeletion(local).collect {}
+            }
             result.pendingDeletionRouteIds = deletionCandidates.map { it.basicData.id }
             result.pendingDeletionLabels = deletionCandidates.map { routeLabel(it) }
         } else {
             for (local in deletionCandidates) {
-                // Только clean-маршрут может подтвердить удаление на другом устройстве.
-                routeUseCase.removeRoute(local).collect {}
+                // Только clean-маршрут может подтвердить удаление на другом
+                // устройстве, и воскресать сам он не должен — удаление побеждает.
+                // Стираем не физически: маршрут уходит в локальную корзину.
+                routeUseCase.markAsRemoved(local).collect {}
                 result.routesDeletedLocal++
             }
         }
@@ -1067,7 +1089,7 @@ class SyncManager(
             // с локальным редактированием: несинхронизированные маршруты нельзя
             // удалять автоматически ни при каких обстоятельствах.
             if (!canDeleteLocalRouteMissingFromServer(local)) continue
-            routeUseCase.removeRoute(local).collect {}
+            routeUseCase.markAsRemoved(local).collect {}
             deletedCount++
         }
         emit(ResultState.Success(deletedCount))
@@ -1369,7 +1391,18 @@ class SyncManager(
         /** Даём экрану завершить первый кадр и локальные расчёты до тихой синхронизации. */
         const val BACKGROUND_SYNC_START_DELAY_MILLIS: Long = 1_500L
         const val AUTOMATIC_SYNC_COOLDOWN_MILLIS: Long = 5 * 60 * 1000L
-        const val SYNC_OPERATION_TIMEOUT_MILLIS: Long = 25_000L
+        /**
+         * Страховка от зависшей синхронизации, а не лимит на один запрос:
+         * [withSyncDeadline] накрывает весь многошаговый флоу целиком — настройки,
+         * календарь, график, маршруты.
+         *
+         * Прежние 25 с были меньше бюджета одного тяжёлого шага, поэтому обрывали
+         * синхронизацию раньше, чем срабатывал HTTP-таймаут, и пользователь видел
+         * ошибку вместо результата. Считаем по худшему случаю одного шага:
+         * запрос 60 с + пауза 2 с + повтор 60 с = 122 с, плюс запас на остальные
+         * шаги.
+         */
+        const val SYNC_OPERATION_TIMEOUT_MILLIS: Long = 180_000L
 
         // Пороги "значительного" удаления маршрутов при синхронизации — см. isSignificantRouteDeletion.
         private const val SIGNIFICANT_DELETION_MIN_COUNT = 3

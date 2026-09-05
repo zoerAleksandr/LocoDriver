@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS DiagnosticInstallation (
+    singletonId INTEGER NOT NULL PRIMARY KEY CHECK (singletonId = 1),
+    installationId TEXT NOT NULL,
+    createdAt INTEGER NOT NULL
+);
+
+getInstallationId:
+SELECT installationId FROM DiagnosticInstallation WHERE singletonId = 1;
+
+insertInstallation:
+INSERT OR IGNORE INTO DiagnosticInstallation(singletonId, installationId, createdAt)
+VALUES (1, :installationId, :createdAt);

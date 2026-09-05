@@ -583,30 +583,6 @@ fun ProfileScreen(
         onDismiss = viewModel::resetSyncState
     )
 
-    // Синхронизация обнаружила, что заметная часть маршрутов пропала с сервера.
-    // Не удаляем их локально молча — сначала спрашиваем подтверждение (см.
-    // SyncManager.isSignificantRouteDeletion / ProfileViewModel.confirmPendingRouteDeletions).
-    if (uiState.pendingRouteDeletionIds.isNotEmpty()) {
-        val count = uiState.pendingRouteDeletionIds.size
-        val labels = uiState.pendingRouteDeletionLabels
-        val preview = labels.take(8).joinToString("\n") { "• $it" }
-        val moreCount = labels.size - 8
-        val moreLine = if (moreCount > 0) "\nи ещё $moreCount" else ""
-        AppAlertDialog(
-            onDismissRequest = viewModel::dismissPendingRouteDeletions,
-            title = "Подтвердите удаление маршрутов",
-            text = "На сервере не найдено маршрутов: $count\n\n$preview$moreLine\n\n" +
-                "Обычно это значит, что их удалили на другом устройстве — тогда подтвердите, " +
-                "чтобы убрать и отсюда. Если вы этого не делали — отмените и проверьте соединение, " +
-                "прежде чем синхронизироваться снова.",
-            confirmText = "Удалить",
-            onConfirm = viewModel::confirmPendingRouteDeletions,
-            isDestructive = true,
-            dismissText = "Отмена",
-            onDismiss = viewModel::dismissPendingRouteDeletions
-        )
-    }
-
     Scaffold(
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->

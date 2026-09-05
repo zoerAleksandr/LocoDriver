@@ -149,6 +149,14 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.loadRoutesWithDeleting()
     }
 
+    fun listTrash(): List<Route> = repository.loadTrash()
+
+    fun restoreFromTrash(routeId: String): Flow<ResultState<Unit>> =
+        repository.restoreFromTrash(routeId)
+
+    fun acknowledgeRemoteDeletion(routeId: String, deletedAt: Long): Flow<ResultState<Unit>> =
+        repository.acknowledgeRemoteDeletion(routeId, deletedAt)
+
 
     fun getListRoutes(): List<Route> {
         return repository.loadRoutes()
@@ -169,11 +177,21 @@ class RouteUseCase(private val repository: RouteRepository) {
         return repository.remove(route)
     }
 
+    fun purgeRoute(route: Route, reason: com.z_company.domain.entities.route.PhysicalDeletionReason): Flow<ResultState<Unit>> =
+        repository.purgeRoute(route, reason)
+
     fun markAsRemoved(route: Route): Flow<ResultState<Unit>> {
         // Штампуем updatedAt удаления — время soft-delete участвует в LWW-merge
         // (удаление на этом устройстве побеждает более старую правку на другом).
         val now = Clock.System.now().toEpochMilliseconds()
         return repository.markAsRemoved(
+            route.copy(basicData = route.basicData.copy(updatedAt = now))
+        )
+    }
+
+    fun markAsPendingRemoteDeletion(route: Route): Flow<ResultState<Unit>> {
+        val now = Clock.System.now().toEpochMilliseconds()
+        return repository.markAsPendingRemoteDeletion(
             route.copy(basicData = route.basicData.copy(updatedAt = now))
         )
     }
@@ -185,6 +203,19 @@ class RouteUseCase(private val repository: RouteRepository) {
         // здесь, чтобы правило соблюдалось на всех путях сохранения (FormViewModel,
         // экран «Пассажиром», WorkSchedule и т.д.), а не только при переключении.
         val normalizedRoute = applyWorkStartByArrival(route)
+        val startTime = normalizedRoute.basicData.timeStartWork
+        val endTime = normalizedRoute.basicData.timeEndWork
+        if (startTime != null && endTime != null && endTime < startTime) {
+            return flow {
+                emit(
+                    ResultState.Error(
+                        ErrorEntity(
+                            message = "Окончание работы раньше начала. Невозможно сохранить маршрут."
+                        )
+                    )
+                )
+            }
+        }
         // Штамп updatedAt на КАЖДОМ локальном изменении — это часы для LWW-merge
         // в двусторонней синхронизации. Локальная правка всегда двигает updatedAt
         // вперёд, поэтому при конфликте с сервером побеждает более свежая версия.
@@ -342,7 +373,7 @@ class RouteUseCase(private val repository: RouteRepository) {
             if (startTime.moreThan(endTime)) {
                 trySend(
                     ResultState.Error(
-                        ErrorEntity(message = "Начало работы позже окончания. Невозможно сохранить маршрут.")
+                        ErrorEntity(message = "Окончание работы раньше начала. Невозможно сохранить маршрут.")
                     )
                 )
             }
@@ -475,10 +506,6 @@ class RouteUseCase(private val repository: RouteRepository) {
         return route.fullRest(minTimeRest)
     }
 
-    fun clearLocalRouteRepository(): Flow<ResultState<Unit>> {
-        return repository.clearRepository()
-    }
-
     fun setFavoriteRoute(routeId: String, isFavorite: Boolean): Flow<ResultState<Boolean>> {
         return repository.setFavoriteRoute(routeId, isFavorite)
     }
@@ -506,6 +533,11 @@ class RouteUseCase(private val repository: RouteRepository) {
                     timeEndWork = route.basicData.timeEndWork?.plus(offsetFromMoscow),
                     timeStartBreak = route.basicData.timeStartBreak?.plus(offsetFromMoscow),
                     timeEndBreak = route.basicData.timeEndBreak?.plus(offsetFromMoscow),
+                    // Резерв прежней явки («явка по прибытию») — такой же timestamp,
+                    // сдвигаем вместе с остальными, иначе выключение режима вернёт
+                    // явку, съехавшую на величину offset.
+                    timeStartWorkBeforeArrival =
+                        route.basicData.timeStartWorkBeforeArrival?.plus(offsetFromMoscow),
                 ),
                 locomotives = route.locomotives.map { loco ->
                     loco.copy(

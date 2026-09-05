@@ -112,4 +112,14 @@ class SalaryCalculatorCommonTest {
         assertTrue(rows.count { it > 0.0 } >= 10)
         assertEquals(rows.sum(), helper.getMoneyTotalChargedFlow().first(), 0.001)
     }
+
+    @Test
+    fun workEndBeforeWorkStartProducesZeroSalary() = runTest {
+        val helper = calculator(
+            SalarySetting(),
+            Route(basicData = BasicData(timeStartWork = instant(12), timeEndWork = instant(8))),
+        )
+
+        assertEquals(0.0, helper.getMoneyTotalChargedFlow().first(), 0.001)
+    }
 }

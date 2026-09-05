@@ -13,6 +13,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +41,10 @@ import com.z_company.loco_driver.viewmodel.MainViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import com.vk.id.VKID
+import com.z_company.loco_driver.ui.MigrationRecoveryScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity(), KoinComponent {
 
@@ -58,6 +63,11 @@ class MainActivity : ComponentActivity(), KoinComponent {
     // чтобы системный сплэш (windowSplashScreenBackground) резолвился из values/
     // values-night и не мелькал белый «пустой» экран при тёмной теме на светлой системе.
     override fun attachBaseContext(newBase: Context) {
+        val startApp = newBase.applicationContext as? StartApp
+        if (startApp?.migrationBootstrapState == MigrationBootstrapState.RECOVERY_REQUIRED) {
+            super.attachBaseContext(newBase)
+            return
+        }
         val night: Int? = when (themeManager.themeMode.value) {
             ThemeMode.MODE_DARK -> Configuration.UI_MODE_NIGHT_YES
             ThemeMode.MODE_LIGHT -> Configuration.UI_MODE_NIGHT_NO
@@ -76,6 +86,11 @@ class MainActivity : ComponentActivity(), KoinComponent {
     @OptIn(ExperimentalAnimationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val startApp = application as StartApp
+        if (startApp.migrationBootstrapState == MigrationBootstrapState.RECOVERY_REQUIRED) {
+            showMigrationRecovery(startApp)
+            return
+        }
         // Сообщаем системе ночной режим приложения, чтобы системный starting-window
         // (первый кадр) красился по ВЫБРАННОЙ теме, а не по настройке телефона.
         // Без этого при «Тёмная» на светлом телефоне первый кадр белый → мелькание.
@@ -180,6 +195,57 @@ class MainActivity : ComponentActivity(), KoinComponent {
             } // Box
         }
         VKID.logsEnabled = true
+    }
+
+    private fun showMigrationRecovery(startApp: StartApp) {
+        setContent {
+            var isRetrying by remember { mutableStateOf(false) }
+            var isCloudRestoring by remember { mutableStateOf(false) }
+            var cloudMessage by remember { mutableStateOf<String?>(null) }
+            MigrationRecoveryScreen(
+                isRetrying = isRetrying,
+                isCloudRestoring = isCloudRestoring,
+                cloudRecoveryEnabled = startApp.cloudRecoveryEnabled(),
+                cloudMessage = cloudMessage,
+                errorCode = startApp.migrationErrorCode(),
+                onRetry = {
+                    if (!isRetrying) {
+                        isRetrying = true
+                        lifecycleScope.launch {
+                            val recovered = withContext(Dispatchers.IO) {
+                                startApp.retryRouteMigration()
+                            }
+                            if (recovered) recreate() else isRetrying = false
+                        }
+                    }
+                },
+                onCloudRestore = {
+                    if (!isRetrying && !isCloudRestoring) {
+                        isCloudRestoring = true
+                        cloudMessage = null
+                        lifecycleScope.launch {
+                            when (val outcome = withContext(Dispatchers.IO) {
+                                startApp.restoreLatestCloudSnapshot()
+                            }) {
+                                CloudRecoveryOutcome.Success -> recreate()
+                                CloudRecoveryOutcome.AuthorizationRequired -> {
+                                    cloudMessage = "Для облачного восстановления нужно снова войти в аккаунт."
+                                }
+                                CloudRecoveryOutcome.SnapshotUnavailable -> {
+                                    cloudMessage = "Резервная копия аккаунта не найдена."
+                                }
+                                is CloudRecoveryOutcome.Failed -> {
+                                    cloudMessage = "Не удалось восстановить резервную копию. " +
+                                        "Код ошибки: ${outcome.errorCode}"
+                                }
+                            }
+                            isCloudRestoring = false
+                        }
+                    }
+                },
+                onClose = ::finishAndRemoveTask,
+            )
+        }
     }
 
     /**

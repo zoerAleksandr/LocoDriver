@@ -20,11 +20,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -64,6 +68,7 @@ import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.entities.route.TrashPurgePolicy
 import com.z_company.route.ui.settings.SettingsAccountingContent
 import com.z_company.route.ui.settings.SettingsLocoContent
 import com.z_company.route.ui.settings.SettingsNormaContent
@@ -87,11 +92,18 @@ import com.z_company.route.viewmodel.StationNormListViewModel
 import com.z_company.route.viewmodel.StationNormEditorViewModel
 import com.z_company.route.viewmodel.PartnerListViewModel
 import com.z_company.route.viewmodel.PartnerEditorViewModel
+import com.z_company.route.viewmodel.TrashViewModel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
 import android.net.Uri
+import android.widget.Toast
+import androidx.core.content.FileProvider
+import com.z_company.domain.entities.diagnostic.DiagnosticReportFormatter
+import com.z_company.domain.repositories.DiagnosticRepository
+import org.koin.compose.koinInject
+import java.io.File
 
 enum class SettingsSubScreen(val title: String, val depth: Int) {
     HUB("Настройки", 0),
@@ -108,6 +120,7 @@ enum class SettingsSubScreen(val title: String, val depth: Int) {
     STATION_EDITOR("Станция", 2),
     PARTNER_LIST("Напарники", 1),
     PARTNER_EDITOR("Напарник", 2),
+    TRASH("Корзина маршрутов", 1),
 }
 
 // Под-экраны настроек, где заголовок — по центру, а слева вместо стрелки
@@ -163,6 +176,7 @@ fun SettingsScreen(
     seriesListViewModel: SeriesListViewModel? = null,
     stationListViewModel: StationNormListViewModel? = null,
     partnerListViewModel: PartnerListViewModel? = null,
+    trashViewModel: TrashViewModel? = null,
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
     pullSyncMessage: String? = null,
@@ -210,6 +224,7 @@ fun SettingsScreen(
                 "LOCOMOTIVE" -> InitState(SettingsSubScreen.LOCOMOTIVE, null, null)
                 "SERIES_LIST" -> InitState(SettingsSubScreen.SERIES_LIST, null, null)
                 "STATION_LIST" -> InitState(SettingsSubScreen.STATION_LIST, null, null)
+                "TRASH" -> InitState(SettingsSubScreen.TRASH, null, null)
                 else -> InitState(SettingsSubScreen.HUB, null, null)
             }
         }
@@ -449,6 +464,7 @@ fun SettingsScreen(
                                 seriesTotalCount = seriesUnionCount(settings.locomotiveSeriesList, seriesRecords.map { it.name }),
                                 stationTotalCount = seriesUnionCount(settings.stationList, stationRecords.map { it.name }),
                                 partnerTotalCount = partnerRecords.size,
+                                trashCount = trashViewModel?.uiState?.collectAsState()?.value?.routes?.size ?: 0,
                                 onNavigate = { currentSubScreen = it },
                                 showSettingSalary = showSettingSalary,
                             )
@@ -643,6 +659,28 @@ fun SettingsScreen(
                             )
                         }
 
+                        SettingsSubScreen.TRASH -> {
+                            trashViewModel?.let { vm ->
+                                val trashState by vm.uiState.collectAsState()
+                                LaunchedEffect(Unit) { vm.onScreenOpened() }
+                                LaunchedEffect(trashState.message) {
+                                    trashState.message?.let { snackbarHostState.showSnackbar(it) }
+                                    if (trashState.message != null) vm.consumeMessage()
+                                }
+                                TrashContent(
+                                    routes = trashState.routes,
+                                    restoringRouteId = trashState.restoringRouteId,
+                                    isRestoringAll = trashState.isRestoringAll,
+                                    isPurging = trashState.isPurging,
+                                    isSyncing = trashState.isSyncing,
+                                    onRestore = vm::restore,
+                                    onRestoreAll = vm::restoreAll,
+                                    onConfirmPending = vm::confirmPendingRemoteDeletions,
+                                    onEmptyTrash = vm::emptyTrash,
+                                )
+                            }
+                        }
+
                     }
                 }
                 }
@@ -652,11 +690,201 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun TrashContent(
+    routes: List<com.z_company.domain.entities.route.Route>,
+    restoringRouteId: String?,
+    isRestoringAll: Boolean,
+    isPurging: Boolean,
+    isSyncing: Boolean,
+    onRestore: (String) -> Unit,
+    onRestoreAll: () -> Unit,
+    onConfirmPending: () -> Unit,
+    onEmptyTrash: () -> Unit,
+) {
+    if (routes.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Корзина пуста", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+    var showEmptyConfirmation by remember { mutableStateOf(false) }
+    val purgeableCount = routes.count(TrashPurgePolicy::canPurgeManually)
+    if (showEmptyConfirmation) {
+        AlertDialog(
+            onDismissRequest = { if (!isPurging) showEmptyConfirmation = false },
+            title = { Text("Очистить корзину?") },
+            text = {
+                Text("Будут безвозвратно удалены $purgeableCount маршрутов. Ожидающие синхронизации записи не удаляются.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEmptyConfirmation = false
+                    onEmptyTrash()
+                }) { Text("Удалить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEmptyConfirmation = false }) { Text("Отмена") }
+            },
+        )
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+    ) {
+        val pendingCount = routes.count { it.basicData.remoteDeletionPending }
+        val waitingForServerCount = routes.count { route ->
+            !route.basicData.remoteDeletionPending &&
+                !route.basicData.remoteRouteId.isNullOrBlank() &&
+                route.basicData.remoteDeletedAt == null
+        }
+        if (isSyncing) {
+            item {
+                Text(
+                    "Синхронизация корзины…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 12.dp),
+                )
+            }
+        }
+        if (pendingCount > 0) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            "Ожидают подтверждения: $pendingCount",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            "Эти маршруты уже удалены с сервера или другого устройства. Можно восстановить их либо принять удаление. Локальные копии останутся в корзине.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Button(
+                            onClick = onConfirmPending,
+                            enabled = !isRestoringAll && restoringRouteId == null,
+                            modifier = Modifier.align(Alignment.End).padding(top = 8.dp),
+                        ) {
+                            Text("Принять удаление")
+                        }
+                    }
+                }
+            }
+        }
+        if (waitingForServerCount > 0) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    ),
+                ) {
+                    Text(
+                        "Ожидают удаления с сервера: $waitingForServerCount. Они останутся в корзине до успешной синхронизации.",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
+        }
+        item {
+            Button(
+                onClick = onRestoreAll,
+                enabled = restoringRouteId == null && !isRestoringAll,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            ) {
+                Text(if (isRestoringAll) "Восстановление…" else "Восстановить всё")
+            }
+        }
+        if (purgeableCount > 0) {
+            item {
+                TextButton(
+                    onClick = { showEmptyConfirmation = true },
+                    enabled = restoringRouteId == null && !isRestoringAll && !isPurging,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                ) {
+                    Text(if (isPurging) "Очистка…" else "Очистить корзину ($purgeableCount)")
+                }
+            }
+        }
+        items(routes, key = { it.basicData.id }) { route ->
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        text = route.basicData.number?.takeIf { it.isNotBlank() }
+                            ?: "Маршрут без номера",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    route.basicData.deletedAt?.let { deletedAt ->
+                        Text(
+                            text = "Удалён: ${formatTrashDate(deletedAt)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = trashRetentionText(deletedAt),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } ?: Text(
+                        text = "Срок хранения начнётся после обновления даты удаления",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (!route.basicData.remoteDeletionPending &&
+                        !route.basicData.remoteRouteId.isNullOrBlank() &&
+                        route.basicData.remoteDeletedAt == null
+                    ) {
+                        Text(
+                            "Ожидает удаления с сервера",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    Button(
+                        onClick = { onRestore(route.basicData.id) },
+                        enabled = restoringRouteId == null && !isRestoringAll,
+                        modifier = Modifier.align(Alignment.End).padding(top = 8.dp),
+                    ) {
+                        Text(
+                            if (restoringRouteId == route.basicData.id) "Восстановление…"
+                            else "Восстановить"
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatTrashDate(value: Long): String =
+    java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
+        .format(java.util.Date(value))
+
+private fun trashRetentionText(deletedAt: Long): String {
+    val retentionMs = 30L * 24L * 60L * 60L * 1000L
+    val remainingMs = (deletedAt + retentionMs - System.currentTimeMillis()).coerceAtLeast(0L)
+    val remainingDays = ((remainingMs + 86_399_999L) / 86_400_000L).toInt()
+    return if (remainingDays == 0) "Срок хранения истёк"
+    else "Осталось: $remainingDays ${pluralRu(remainingDays, "день", "дня", "дней")}"
+}
+
+@Composable
 private fun SettingsHubContent(
     currentSettings: UserSettings,
     seriesTotalCount: Int,
     stationTotalCount: Int,
     partnerTotalCount: Int,
+    trashCount: Int,
     onNavigate: (SettingsSubScreen) -> Unit,
     showSettingSalary: () -> Unit,
 ) {
@@ -706,6 +934,13 @@ private fun SettingsHubContent(
                 title = "Напарники",
                 value = "$partnerCount ${pluralRu(partnerCount, "напарник", "напарника", "напарников")}",
                 onClick = { onNavigate(SettingsSubScreen.PARTNER_LIST) },
+            )
+            SettingsRowDivider()
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.delete_24px,
+                title = "Корзина маршрутов",
+                value = "$trashCount ${pluralRu(trashCount, "маршрут", "маршрута", "маршрутов")}",
+                onClick = { onNavigate(SettingsSubScreen.TRASH) },
             )
         }
 
@@ -931,6 +1166,8 @@ private fun SettingsAboutCard() {
     SettingsGroupHeader("О приложении")
 
     val context = LocalContext.current
+    val diagnosticRepository: DiagnosticRepository = koinInject()
+    var showDiagnosticExportDialog by remember { mutableStateOf(false) }
     val email = "locodriver.app@yandex.ru"
     val versionName = remember {
         try {
@@ -1026,5 +1263,75 @@ private fun SettingsAboutCard() {
                 )
             }
         }
+        SettingsRowDivider()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showDiagnosticExportDialog = true }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SettingsIconAvatar(
+                iconRes = com.z_company.route.R.drawable.ic_mail_24,
+                accent = false,
+            )
+            Spacer(modifier = Modifier.size(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Экспорт диагностики", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "Обезличенный отчёт для поддержки",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+
+    if (showDiagnosticExportDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiagnosticExportDialog = false },
+            title = { Text("Экспортировать диагностику?") },
+            text = {
+                Text(
+                    "В отчёт войдут диагностический код, версии приложения, Android и базы данных, статус миграции и типы последних технических событий. Маршруты, заметки, email и токены не включаются."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDiagnosticExportDialog = false
+                    runCatching {
+                        val summary = diagnosticRepository.getSummary()
+                        val report = DiagnosticReportFormatter.format(
+                            summary = summary,
+                            appVersion = versionName,
+                            androidVersion = Build.VERSION.RELEASE ?: Build.VERSION.SDK_INT.toString(),
+                            device = "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
+                        )
+                        val file = File(context.cacheDir, "locodriver-diagnostic-${summary.diagnosticCode}.txt")
+                        file.writeText(report)
+                        val uri = FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.fileprovider",
+                            file,
+                        )
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(Intent.createChooser(intent, "Отправить диагностику"))
+                    }.onFailure {
+                        Toast.makeText(
+                            context,
+                            "Не удалось подготовить диагностический отчёт",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }) { Text("Экспортировать") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiagnosticExportDialog = false }) { Text("Отмена") }
+            },
+        )
     }
 }

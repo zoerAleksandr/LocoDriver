@@ -27,6 +27,8 @@ import com.z_company.repository.remote_rest.response.RouteDeltaResponse
 import com.z_company.repository.remote_rest.response.SaveRouteResponse
 import com.z_company.repository.remote_rest.response.ShareRouteResponse
 import com.z_company.repository.remote_rest.response.UserResponse
+import com.z_company.repository.remote_rest.diagnostic.DiagnosticEventsRequest
+import com.z_company.repository.remote_rest.diagnostic.DiagnosticEventsResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
@@ -47,6 +49,12 @@ import io.ktor.http.contentType
  * Заменяет Retrofit-интерфейс.
  */
 class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
+
+    override suspend fun sendDiagnosticEvents(body: DiagnosticEventsRequest): DiagnosticEventsResponse =
+        client.post("v1/diagnostics/events") {
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }.body()
 
     override suspend fun authWithEmail(authRequest: AuthRequest): AuthResponse =
         client.post("v1/auth") {
