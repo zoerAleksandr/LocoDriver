@@ -21,6 +21,7 @@ import com.z_company.repository.remote_rest.response.AnnouncementResponse
 import com.z_company.repository.remote_rest.response.TariffsResponse
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
+import com.z_company.repository.remote_rest.response.RouteDeltaResponse
 import com.z_company.repository.remote_rest.response.SaveRouteResponse
 import com.z_company.repository.remote_rest.response.ShareRouteResponse
 import com.z_company.repository.remote_rest.response.UserResponse
@@ -58,6 +59,17 @@ interface RemoteRestApi {
     suspend fun saveRoute(token: String, data: Route): SaveRouteResponse
 
     suspend fun getRoutes(token: String): List<Route>
+
+    /**
+     * Одна страница изменений маршрутов, `GET /v1/route/delta`.
+     *
+     * Отдельный эндпоинт, а не параметр к [getRoutes]: полный список обязан
+     * остаться полным. Сборка, которая получит неполный список из [getRoutes],
+     * решит, что маршрутов нет на сервере, и пометит локальные на удаление.
+     *
+     * @param cursor граница прошлой синхронизации; null — сервер отдаёт всё с нуля.
+     */
+    suspend fun getRouteDelta(token: String, cursor: String?, limit: Int?): RouteDeltaResponse
 
     suspend fun deleteRoute(token: String, routeId: String)
 
