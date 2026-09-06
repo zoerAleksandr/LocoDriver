@@ -26,7 +26,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -74,6 +73,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
     private val secureTokenStorage: SecureTokenStorage by inject()
 
     private var initialValueTariffRate: Double? = null
+    private var initialDateSetTariffRate: DateSetTariffRate? = null
     private var currentMonthOfYear: MonthOfYear? = null
     private var autoSaveJob: Job? = null
 
@@ -179,6 +179,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                     }
                 }
                 initialValueTariffRate = tariffRate
+                initialDateSetTariffRate = actualMonth.dateSetTariffRate
                 currentMonthOfYear = actualMonth
             } catch (e: Exception) {
                 e.sendToSentry("SettingSalaryViewModel", "loadUserSetting")
@@ -206,88 +207,121 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    /**
+     * Выход с экрана. Если тарифная ставка изменилась — спрашиваем, на какие
+     * месяцы её распространить (только текущий или текущий и следующие).
+     * Прошлые месяцы не трогаем ни в одном из вариантов.
+     */
+    fun onBackPressed(onExit: () -> Unit) {
+        if (isTariffRateChanged()) {
+            showDialogTariffRate()
+        } else {
+            onExit()
+        }
+    }
+
+    private fun isTariffRateChanged(): Boolean {
+        val month = currentMonthOfYear ?: return false
+        val initialRate = initialValueTariffRate ?: return false
+        return month.tariffRate != initialRate
+    }
+
+    private fun isMonthOfYearChanged(): Boolean {
+        val month = currentMonthOfYear ?: return false
+        return isTariffRateChanged() || month.dateSetTariffRate != initialDateSetTariffRate
+    }
+
     fun saveSettingAndOnlyMonthTariffRate(onSaved: () -> Unit = {}) {
         viewModelScope.launch {
-            changeTariffRateInOnlyInOneMonthOfYear()
-            markTariffRateSaved()
-            saveSetting(updateMonthOfYear = true)
-            onSaved()
+            currentMonthOfYear?.let { monthOfYear ->
+                salarySettingUseCase.updateTariffRateOnlyInOneMonthOfYear(monthOfYear)
+                    .first { it is ResultState.Success || it is ResultState.Error }
+            }
+            finishTariffRateSave(onSaved)
         }
     }
 
     fun saveSettingAndTariffRateCurrentAndNextMonth(onSaved: () -> Unit = {}) {
         viewModelScope.launch {
-            changeTariffRateCurrentAndNextMonths()
-            markTariffRateSaved()
-            saveSetting(updateMonthOfYear = true)
-            onSaved()
+            currentMonthOfYear?.let { monthOfYear ->
+                salarySettingUseCase.updateTariffRateCurrentAndNextMonths(monthOfYear)
+                    .first { it is ResultState.Success || it is ResultState.Error }
+            }
+            finishTariffRateSave(onSaved)
         }
+    }
+
+    /**
+     * Досохраняем настройки и выгружаем их на сервер ДО выхода с экрана.
+     * Порядок важен: сначала запись месяца в БД, только потом push — иначе
+     * на сервер уедет старая ставка, а следующая синхронизация вернёт её
+     * обратно на устройство.
+     */
+    private suspend fun finishTariffRateSave(onSaved: () -> Unit) {
+        markTariffRateSaved()
+        persistSetting(updateMonthOfYear = true)
+        onSaved()
     }
 
     private fun markTariffRateSaved() {
         initialValueTariffRate = currentMonthOfYear?.tariffRate
+        initialDateSetTariffRate = currentMonthOfYear?.dateSetTariffRate
         _uiState.update { it.copy(isShowDialogChangeTariffRate = false) }
     }
 
-    private suspend fun changeTariffRateInOnlyInOneMonthOfYear() {
-        viewModelScope.launch {
-            currentMonthOfYear?.let { monthOfYear ->
-                salarySettingUseCase.updateTariffRateOnlyInOneMonthOfYear(
-                    newTariffRate = monthOfYear.tariffRate,
-                    monthId = monthOfYear.id
-                ).collect { result ->
-                    if (result is ResultState.Success) {
-                        this.cancel()
-                    }
-                }
-            }
-        }.join()
-    }
+    /**
+     * Запись настроек в локальную БД. Тарифная ставка живёт в ДВУХ местах и оба
+     * обязательны (так же, как до редизайна экрана):
+     *  1. таблица `MonthOfYear` — источник правды по месяцам, она уходит на сервер;
+     *  2. `UserSettings.selectMonthOfYear` — снимок выбранного месяца, из него
+     *     читают расчёт зарплаты, форма маршрута и главный экран.
+     * Запись месяца и push не зависят от того, успел ли загрузиться SalarySetting.
+     */
+    private suspend fun persistSetting(updateMonthOfYear: Boolean = false) {
+        val salarySetting = (uiState.value.settingSalaryState as? ResultState.Success)?.data
+        withContext(Dispatchers.IO) {
+            var isChangeSaved = false
 
-    private suspend fun changeTariffRateCurrentAndNextMonths() {
-        viewModelScope.launch {
-            currentMonthOfYear?.let { monthOfYear ->
-                salarySettingUseCase.updateTariffRateCurrentAndNextMonths(
-                    newTariffRate = monthOfYear.tariffRate,
-                    currentMonthId = monthOfYear.id
-                ).collect { result ->
-                    if (result is ResultState.Success) {
-                        this.cancel()
-                    }
+            if (salarySetting != null) {
+                applyValidEditableLists(salarySetting)
+                salarySettingUseCase.saveSalarySetting(salarySetting).collect { saveResult ->
+                    if (saveResult is ResultState.Success) isChangeSaved = true
                 }
             }
-        }.join()
+
+            if (updateMonthOfYear) {
+                currentMonthOfYear?.let { month ->
+                    // 1. таблица MonthOfYear
+                    salarySettingUseCase.updateMonthOfYear(month).collect {}
+                    // 2. снимок в UserSettings
+                    val userSettings = userSettingUseCase.getUserSetting()
+                    userSettingUseCase.saveSetting(
+                        userSettings.copy(selectMonthOfYear = month)
+                    ).collect {}
+                    isChangeSaved = true
+                }
+            }
+
+            // Push только после того, как всё легло в локальную БД.
+            if (isChangeSaved) autoPushSettings()
+        }
     }
 
     private fun saveSetting(updateMonthOfYear: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
-            val state = uiState.value.settingSalaryState
-            if (state is ResultState.Success) {
-                state.data?.let { salarySetting ->
-                    applyValidEditableLists(salarySetting)
-
-                    salarySettingUseCase.saveSalarySetting(salarySetting).collect { saveResult ->
-                        if (saveResult is ResultState.Success) autoPushSettings()
-                        if (updateMonthOfYear && saveResult is ResultState.Success) {
-                            currentMonthOfYear?.let { month ->
-                                salarySettingUseCase.updateMonthOfYear(month).collect {}
-                                var userSettings =
-                                    this.async { userSettingUseCase.getUserSetting() }.await()
-                                userSettings = userSettings.copy(
-                                    selectMonthOfYear = month
-                                )
-                                userSettingUseCase.saveSetting(userSettings).collect {}
-                            }
-                        }
-                    }
-                }
-            }
+            persistSetting(updateMonthOfYear)
         }
     }
 
+    /**
+     * Выгрузка настроек на сервер. Флаг «есть несинхронизированные настройки»
+     * взводится сразу: без него двусторонняя синхронизация не пушит локальные
+     * месяцы и затирает свежую тарифную ставку серверной.
+     * Корутина — NonCancellable: экран может закрыться сразу после сохранения.
+     */
     private fun autoPushSettings() {
         sharedPrefs.setSettingsSyncPending(true)
-        viewModelScope.launch(Dispatchers.IO) {
+        CoroutineScope(NonCancellable + Dispatchers.IO).launch {
             val token = secureTokenStorage.getAuthBearerTokenFlow().first() ?: return@launch
             syncManager.autoPushSettings("Bearer $token").collect {}
         }
@@ -303,6 +337,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
 
     override fun onCleared() {
         autoSaveJob?.cancel()
+        val isMonthChanged = isMonthOfYearChanged()
         // Сохраняем данные в NonCancellable-контексте, чтобы save завершился
         // даже если ViewModel уже очищается (пользователь покинул экран раньше 500мс)
         CoroutineScope(NonCancellable + Dispatchers.IO).launch {
@@ -327,6 +362,10 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 // через getUserSettingFlow(). Без этого flow не эмитит новое значение
                 // и расчёт ЗП остаётся на старых данных.
                 userSettingUseCase.updateMonthOfYearInUserSetting(month).collect {}
+                // Ставка/дата её смены изменились — выгружаем настройки на сервер.
+                // Без этого флаг settingsSyncPending остаётся снятым, и ближайшая
+                // синхронизация не пушит месяцы, а тянет с сервера старую ставку.
+                if (isMonthChanged) autoPushSettings()
             }
         }
         super.onCleared()
@@ -364,7 +403,13 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
 
     fun setTariffRate(value: String) {
         val parsed = value.toNonNegativeFiniteDoubleOrNull()
-        if (parsed != null) currentMonthOfYear = currentMonthOfYear?.copy(tariffRate = parsed)
+        if (parsed != null) {
+            currentMonthOfYear = currentMonthOfYear?.copy(tariffRate = parsed)
+            // Помечаем настройки несинхронизированными сразу, чтобы синхронизация,
+            // запущенная до выхода с экрана, выгружала локальную ставку, а не
+            // затирала её серверной.
+            sharedPrefs.setSettingsSyncPending(true)
+        }
         _uiState.update {
             it.copy(
                 tariffRate = ResultState.Success(value),
@@ -389,11 +434,14 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
 
     fun setOldTariffRate(value: String) {
         val parsed = value.toNonNegativeFiniteDoubleOrNull()
-        if (parsed != null) currentMonthOfYear = currentMonthOfYear?.copy(
-            dateSetTariffRate = currentMonthOfYear!!.dateSetTariffRate?.copy(
-                oldRate = parsed
+        if (parsed != null) {
+            currentMonthOfYear = currentMonthOfYear?.copy(
+                dateSetTariffRate = currentMonthOfYear!!.dateSetTariffRate?.copy(
+                    oldRate = parsed
+                )
             )
-        )
+            sharedPrefs.setSettingsSyncPending(true)
+        }
 
         _uiState.update {
             it.copy(
@@ -404,6 +452,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
     }
 
     fun setDateSetTariffRate(date: Calendar) {
+        sharedPrefs.setSettingsSyncPending(true)
         val dayOfMonth = date.get(Calendar.DAY_OF_MONTH)
         val month = date.get(Calendar.MONTH) // Месяцы в Calendar от 0 до 11
         val year = date.get(Calendar.YEAR)
@@ -432,6 +481,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                         )
                     }
                     initialValueTariffRate = currentMonthOfYear?.tariffRate
+                    initialDateSetTariffRate = currentMonthOfYear?.dateSetTariffRate
                 }
             }
 

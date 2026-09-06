@@ -241,130 +241,67 @@ fun SettingSalaryScreen(
                     setDateNewTariffRate(list.first())
                 }
                 isShowSetDateTariffRateDialog = false
+                // Возвращаем шторку выбора месяцев — из неё сюда и пришли.
+                onTariffDateClick()
             },
             onDismiss = {
                 isShowSetDateTariffRateDialog = false
+                onTariffDateClick()
             },
             title = "Дата начала действия нового тарифа",
         )
     }
 
-    AnimationDialog(
-        showDialog = isShowDialogChangeTariffRate,
-        onDismissRequest = onHideDialogChangeTariffRate
-    ) {
-        val currentDateSetTariffRate = currentMonthOfYear?.dateSetTariffRate?.dateNewRate ?: 1
-
-        Box(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-        )
-        {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(color = MaterialTheme.colorScheme.secondary, shape = Shapes.medium)
-                    .padding(horizontal = 16.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "Изменилась тарифная ставка",
-                    overflow = TextOverflow.Visible,
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = "Для какого месяца сохранить тариф?",
-                    overflow = TextOverflow.Visible,
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-
-                Text(
-                    modifier = Modifier.noRippleEffect {
-                        isShowSetDateTariffRateDialog = true
-                    },
-                    text = "Новый тариф начнет действовать с $currentDateSetTariffRate ${
-                        getMonthFullText(
-                            currentMonthOfYear?.month
-                        )
-                    } ${currentMonthOfYear?.year.toString()}",
-                    overflow = TextOverflow.Visible,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-
+    // Ставка изменилась — спрашиваем, на какие месяцы её распространить.
+    // По стандарту (docs/DIALOGS_STANDARD.md) выбор из нескольких вариантов —
+    // нижняя шторка, а не диалог.
+    if (isShowDialogChangeTariffRate) {
+        val tariffSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val dateSetNewTariffRate = currentMonthOfYear?.dateSetTariffRate?.dateNewRate ?: 1
+        AppBottomSheet(
+            onDismissRequest = onHideDialogChangeTariffRate,
+            sheetState = tariffSheetState,
+            title = "Изменилась тарифная ставка",
+            contentAfterHeader = {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Button(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = Shapes.medium,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary
-                        ),
-                        border = BorderStroke(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        ),
-                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 1.dp),
-                        onClick = saveOnlyMonthTariffRate
-                    ) {
-                        Text(
-                            text = "Только для этого",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Button(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = Shapes.medium,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary
-                        ),
-                        border = BorderStroke(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        ),
-                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 1.dp),
-                        onClick = saveTariffRateCurrentAndNextMonth
-                    ) {
-                        Text(
-                            text = "Для этого и следующих",
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 2,
-                            overflow = TextOverflow.Visible,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Button(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 24.dp),
-                        shape = Shapes.medium,
-                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 1.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary
-                        ),
-                        border = BorderStroke(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.error
-                        ),
-                        onClick = onHideDialogChangeTariffRate,
-                    ) {
-                        Text(
-                            style = MaterialTheme.typography.bodySmall,
-                            text = "Отмена",
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    Text(
+                        text = "Для какого месяца сохранить тариф? Прошлые месяцы останутся со старой ставкой.",
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        modifier = Modifier.noRippleEffect {
+                            // Сначала закрываем шторку, потом открываем выбор даты:
+                            // две модальные шторки одновременно не показываем.
+                            onHideDialogChangeTariffRate()
+                            isShowSetDateTariffRateDialog = true
+                        },
+                        text = "Новый тариф начнёт действовать с $dateSetNewTariffRate ${
+                            getMonthFullText(currentMonthOfYear?.month)
+                        } ${currentMonthOfYear?.year.toString()}",
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
                 }
-            }
-        }
+            },
+            actions = listOf(
+                BottomSheetAction(text = "Только для этого месяца", onClick = saveOnlyMonthTariffRate),
+                BottomSheetAction(
+                    text = "Для этого и следующих",
+                    onClick = saveTariffRateCurrentAndNextMonth
+                ),
+            ),
+            cancelText = "Отмена",
+            onCancel = onHideDialogChangeTariffRate,
+        )
     }
 
 

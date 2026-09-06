@@ -1,5 +1,6 @@
 package com.z_company.route.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -15,8 +16,14 @@ fun SettingSalaryDestination(
     val viewModel: SettingSalaryViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
 
+    // Выход с экрана — через ViewModel: при изменённой тарифной ставке
+    // сначала спрашиваем, на какие месяцы её применить.
+    val onBack = { viewModel.onBackPressed(router::back) }
+
+    BackHandler(enabled = true, onBack = onBack)
+
     SettingSalaryScreen(
-        onBack = router::back,
+        onBack = onBack,
         onTariffDateClick = viewModel::showDialogTariffRate,
         saveSettingState = uiState.saveSettingState,
         uiState = uiState,

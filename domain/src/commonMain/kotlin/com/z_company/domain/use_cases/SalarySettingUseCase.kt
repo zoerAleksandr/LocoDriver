@@ -31,58 +31,75 @@ class SalarySettingUseCase(
     fun updateMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> =
         calendarUseCase.updateMonthOfYear(monthOfYear)
 
-    fun updateTariffRateOnlyInOneMonthOfYear(
-        newTariffRate: Double,
-        monthId: String
-    ): Flow<ResultState<Unit>> {
+    /**
+     * Сохранить тарифную ставку ТОЛЬКО в переданном месяце.
+     * Прошлые и будущие месяцы не трогаем.
+     *
+     * Ищем месяц по году+месяцу, а не по id: id в UserSettings.selectMonthOfYear
+     * может не совпадать с id в таблице (после синхронизации на новом устройстве),
+     * а в локальной БД исторически встречаются дубликаты одного года+месяца —
+     * обновляем все, чтобы UI не подхватил строку со старой ставкой.
+     */
+    fun updateTariffRateOnlyInOneMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
         val dispatcher = Dispatchers.Default
-        val scope = CoroutineScope(dispatcher)
-
         return flow {
             emit(ResultState.Loading())
-            val oldMonth = scope.async { calendarUseCase.loadMonthOfYearById(monthId) }.await()
-            val newMonth = oldMonth.copy(tariffRate = newTariffRate)
-            calendarUseCase.updateMonthOfYear(newMonth).collect {
-                if (it is ResultState.Success) {
-                    emit(ResultState.Success(Unit))
-                }
-                if (it is ResultState.Error) {
-                    emit(ResultState.Error(it.entity))
-                }
-            }
-        }.catch {
-            emit(ResultState.Error(ErrorEntity(it)))
-        }.flowOn(dispatcher)
-    }
-
-    fun updateTariffRateCurrentAndNextMonths(
-        newTariffRate: Double,
-        currentMonthId: String
-    ): Flow<ResultState<Unit>> {
-        val dispatcher = Dispatchers.Default
-        val scope = CoroutineScope(dispatcher)
-
-        return flow {
-            emit(ResultState.Loading())
-            val currentMonth =
-                scope.async { calendarUseCase.loadMonthOfYearById(currentMonthId) }.await()
-            val allMonthOfYear = scope.async { calendarUseCase.loadMonthOfYearList() }.await()
-            val sortedListAllMonthOfYear =
-                allMonthOfYear.sortedWith(compareBy(MonthOfYear::year, MonthOfYear::month))
-            val indexCurrentMonthOfYear = sortedListAllMonthOfYear.indexOf(currentMonth)
-            val nextMonths =
-                sortedListAllMonthOfYear.slice(indexCurrentMonthOfYear..sortedListAllMonthOfYear.lastIndex)
-            nextMonths.forEach { oldMonth ->
-                updateTariffRateOnlyInOneMonthOfYear(
-                    monthId = oldMonth.id,
-                    newTariffRate = newTariffRate
-                ).collect {}
-            }
+            applyTariffRateToMonth(monthOfYear)
             emit(ResultState.Success(Unit))
         }.catch {
             emit(ResultState.Error(ErrorEntity(it)))
         }.flowOn(dispatcher)
     }
+
+    /**
+     * Сохранить тарифную ставку в переданном месяце и во всех СЛЕДУЮЩИХ.
+     * Прошлые месяцы остаются со своей ставкой — расчёт зарплаты за них
+     * не должен меняться задним числом.
+     *
+     * В следующих месяцах [MonthOfYear.dateSetTariffRate] сбрасывается: дата
+     * смены тарифа со старой ставкой относилась к прежнему тарифу и после
+     * переноса новой ставки на будущее уже неверна.
+     */
+    fun updateTariffRateCurrentAndNextMonths(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
+        val dispatcher = Dispatchers.Default
+        return flow {
+            emit(ResultState.Loading())
+            applyTariffRateToMonth(monthOfYear)
+            calendarUseCase.loadMonthOfYearList()
+                .filter { it.isAfter(monthOfYear) }
+                .forEach { next ->
+                    calendarUseCase.updateMonthOfYear(
+                        next.copy(
+                            tariffRate = monthOfYear.tariffRate,
+                            dateSetTariffRate = null
+                        )
+                    ).collect {}
+                }
+            emit(ResultState.Success(Unit))
+        }.catch {
+            emit(ResultState.Error(ErrorEntity(it)))
+        }.flowOn(dispatcher)
+    }
+
+    private suspend fun applyTariffRateToMonth(monthOfYear: MonthOfYear) {
+        val storedRows = calendarUseCase.loadMonthOfYearList()
+            .filter { it.year == monthOfYear.year && it.month == monthOfYear.month }
+        if (storedRows.isEmpty()) {
+            calendarUseCase.updateMonthOfYear(monthOfYear).collect {}
+            return
+        }
+        storedRows.forEach { row ->
+            calendarUseCase.updateMonthOfYear(
+                row.copy(
+                    tariffRate = monthOfYear.tariffRate,
+                    dateSetTariffRate = monthOfYear.dateSetTariffRate
+                )
+            ).collect {}
+        }
+    }
+
+    private fun MonthOfYear.isAfter(other: MonthOfYear): Boolean =
+        year > other.year || (year == other.year && month > other.month)
 
     suspend fun getTariffRateFromCurrentMonthOfYear(monthOfYear: MonthOfYear): Double {
         val dispatcher = Dispatchers.Default
