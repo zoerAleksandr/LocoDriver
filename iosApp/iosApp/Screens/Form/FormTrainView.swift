@@ -7,6 +7,10 @@ struct FormTrainView: View {
     @StateObject private var vm = TrainFormViewModelWrapper()
     @Environment(\.dismiss) private var dismiss
 
+    // Локальное состояние пикера: значение из модели приходит асинхронно,
+    // поэтому синхронизируем его в onChange, как в FormLocoView.
+    @State private var couplingDate = Date()
+
     var body: some View {
         Form {
             Section("Поезд") {
@@ -42,10 +46,78 @@ struct FormTrainView: View {
                 ))
                 .keyboardType(.decimalPad)
             }
+
+            carInspectorSection
         }
         .navigationTitle(trainId == nil ? "Новый поезд" : "Поезд")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Сохранить") { vm.save() }
+            }
+        }
         .onAppear { vm.load(routeId: routeId, trainId: trainId) }
-        .onChange(of: vm.isSaved) { if $0 { dismiss() } }
+        .onChange(of: vm.couplingTimeMs) { ms in
+            if ms > 0 { couplingDate = TimeFormatter.msToDate(ms) }
+        }
+        .onChange(of: vm.isSaved) { saved in
+            if saved { dismiss() }
+        }
+        .alert(
+            "Не удалось сохранить",
+            isPresented: Binding(
+                get: { vm.errorMessage != nil },
+                set: { if !$0 { vm.clearError() } }
+            )
+        ) {
+            Button("Понятно", role: .cancel) { vm.clearError() }
+        } message: {
+            Text(vm.errorMessage ?? "")
+        }
+    }
+
+    /// Вагонник — осматривает и закрепляет состав перед прицепкой.
+    /// Опционален: пока не добавлен, показываем одну кнопку.
+    @ViewBuilder
+    private var carInspectorSection: some View {
+        Section("Вагонник") {
+            if let inspector = vm.carInspector {
+                TextField("ФИО", text: Binding(
+                    get: { inspector.fullName ?? "" },
+                    set: { vm.setCarInspectorFullName($0) }
+                ))
+
+                TextField("Табельный номер", text: Binding(
+                    get: { inspector.tabNumber ?? "" },
+                    set: { vm.setCarInspectorTabNumber($0) }
+                ))
+                .keyboardType(.numbersAndPunctuation)
+
+                if vm.hasCouplingTime {
+                    DatePicker(
+                        "Время прицепки",
+                        selection: Binding(
+                            get: { couplingDate },
+                            set: { couplingDate = $0; vm.setCouplingTime($0) }
+                        ),
+                        displayedComponents: [.date, .hourAndMinute]
+                    )
+                    Button("Убрать время прицепки", role: .destructive) {
+                        vm.clearCouplingTime()
+                    }
+                } else {
+                    Button("Указать время прицепки") {
+                        couplingDate = Date()
+                        vm.setCouplingTime(couplingDate)
+                    }
+                }
+
+                Button("Удалить вагонника", role: .destructive) {
+                    vm.removeCarInspector()
+                }
+            } else {
+                Button("Добавить вагонника") { vm.addCarInspector() }
+            }
+        }
     }
 }
