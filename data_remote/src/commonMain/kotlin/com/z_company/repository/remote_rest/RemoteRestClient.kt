@@ -22,7 +22,15 @@ import com.z_company.domain.entities.serializers.DoubleAsStringSerializer
  * Движок HTTP задаётся через expect/actual (createHttpEngine()).
  */
 object RemoteRestClient {
-    const val PROD_BASE_URL = "http://87.228.110.32:8766/"
+    /**
+     * HTTPS через Caddy на том же сервере: api.locodriver.ru (Let's Encrypt)
+     * проксирует на 127.0.0.1:8766, то есть тот же backend, что и раньше.
+     *
+     * До этого клиент ходил на http://87.228.110.32:8766/ открытым текстом —
+     * access-токен и все данные рейсов шли по сети без шифрования. Прямой порт
+     * 8766 остаётся открытым, пока не обновятся установленные сборки.
+     */
+    const val PROD_BASE_URL = "https://api.locodriver.ru/"
     const val PROD_BASE_URL_FOR_SEND_EMAIL = "http://locodrivers.freemyip.com/"
 
     /**

@@ -352,7 +352,9 @@ final class HomeViewModelWrapper: ObservableObject {
    ```
 
 ### Адрес API (на 25 апреля 2026)
-- **Android-клиент** ходит на `http://87.228.110.32:8766/`
+- **Android-клиент** ходит на `https://api.locodriver.ru/` (Caddy на том же
+  сервере проксирует на `127.0.0.1:8766`); прямой `http://87.228.110.32:8766/`
+  пока открыт для старых сборок
 - Email/page-эндпоинты: `http://locodrivers.freemyip.com/`
 
 ⚠️ HTTP без TLS. Запланирован переезд на HTTPS — отдельная задача.
