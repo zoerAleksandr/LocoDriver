@@ -68,6 +68,34 @@ class TrashViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    /**
+     * Отправляет восстановленный маршрут на сервер сразу, не дожидаясь
+     * следующей полной синхронизации.
+     *
+     * Восстановление само по себе локальное, а на сервере маршрут остаётся
+     * удалённым, и там уже лежит отметка об удалении. Пока восстановленный
+     * маршрут не уехал обратно, другое устройство при синхронизации получит эту
+     * отметку и снова уберёт свою копию — восстановление будет выглядеть как
+     * не сработавшее.
+     *
+     * Неудача отправки восстановление не отменяет: маршрут остаётся
+     * несинхронизированным и уедет следующей синхронизацией. Возвращает текст
+     * ошибки или null.
+     */
+    private suspend fun pushRestoredRoute(routeId: String): String? {
+        if (!routeActionsHelper.hasActiveSubscription()) return null
+        val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+        if (token.isNullOrBlank()) return null
+        var errorMessage: String? = null
+        syncManager.syncRoute(routeId, "Bearer $token").collect { result ->
+            if (result is ResultState.Error) {
+                errorMessage = result.entity.message
+                    ?: "Маршрут восстановлен, но отправить его на сервер не удалось"
+            }
+        }
+        return errorMessage
+    }
+
     fun restore(routeId: String) {
         if (_uiState.value.restoringRouteId != null || _uiState.value.isRestoringAll) return
         viewModelScope.launch {
@@ -75,8 +103,12 @@ class TrashViewModel : ViewModel(), KoinComponent {
             routeUseCase.restoreFromTrash(routeId).collect { result ->
                 when (result) {
                     is ResultState.Success -> {
+                        val pushError = pushRestoredRoute(routeId)
                         refresh()
-                        _uiState.value = _uiState.value.copy(restoringRouteId = null, message = "Маршрут восстановлен")
+                        _uiState.value = _uiState.value.copy(
+                            restoringRouteId = null,
+                            message = pushError ?: "Маршрут восстановлен",
+                        )
                     }
                     is ResultState.Error -> _uiState.value = _uiState.value.copy(
                         restoringRouteId = null,
@@ -94,15 +126,23 @@ class TrashViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRestoringAll = true, message = null)
             var failed = false
+            var pushFailed = false
             routeIds.forEach { routeId ->
+                var restored = false
                 routeUseCase.restoreFromTrash(routeId).collect { result ->
                     if (result is ResultState.Error) failed = true
+                    if (result is ResultState.Success) restored = true
                 }
+                if (restored && pushRestoredRoute(routeId) != null) pushFailed = true
             }
             refresh()
             _uiState.value = _uiState.value.copy(
                 isRestoringAll = false,
-                message = if (failed) "Часть маршрутов восстановить не удалось" else "Все маршруты восстановлены",
+                message = when {
+                    failed -> "Часть маршрутов восстановить не удалось"
+                    pushFailed -> "Маршруты восстановлены, часть не отправлена на сервер"
+                    else -> "Все маршруты восстановлены"
+                },
             )
         }
     }
