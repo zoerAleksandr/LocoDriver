@@ -170,13 +170,12 @@ class RouteDeltaTest {
             )
         }
 
-        // Локальный набор заменяется целиком, а не домерживается — решение
-        // принимается по итогу всего обхода, а не по первой странице.
+        // Флаг относится ко всему обходу, но сам по себе не разрешает удаление.
         assertTrue(snapshot.fullResync)
         assertEquals(listOf("a", "b"), snapshot.routes.map { it.basicData.id })
     }
 
-    // --- 9 и главный водораздел: отсутствие в выгрузке против тумбстона ---
+    // --- отсутствие в выгрузке против явного tombstone ---
 
     @Test
     fun deltaDeletesOnlyWhatTheServerExplicitlyReportedAsDeleted() {
@@ -194,7 +193,7 @@ class RouteDeltaTest {
     }
 
     @Test
-    fun fullResyncTreatsAbsenceAsDeletion() {
+    fun fullResyncDoesNotTreatAbsenceAsDeletion() {
         val local = listOf(route("kept"), route("missing"))
         val snapshot = RouteDeltaSnapshot(
             routes = listOf(route("kept")),
@@ -203,8 +202,7 @@ class RouteDeltaTest {
             fullResync = true,
         )
 
-        // Полный набор исчерпывающий — поведение ровно как до дельты.
-        assertEquals(listOf("missing"), deletionSuspects(local, snapshot).map { it.basicData.id })
+        assertTrue(deletionSuspects(local, snapshot).isEmpty())
     }
 
     @Test
@@ -216,12 +214,32 @@ class RouteDeltaTest {
     }
 
     @Test
-    fun emptyFullResyncStillMeansEverythingIsGone() {
+    fun emptyFullResyncNeverMeansEverythingIsGone() {
         val local = listOf(route("a"), route("b"))
         val snapshot = RouteDeltaSnapshot(emptyList(), emptySet(), "c1", fullResync = true)
 
-        // Аккаунт очистили с другого устройства. Дальше решают предохранители
-        // canDeleteLocalRouteMissingFromServer и isSignificantRouteDeletion.
-        assertEquals(listOf("a", "b"), deletionSuspects(local, snapshot).map { it.basicData.id })
+        assertTrue(deletionSuspects(local, snapshot).isEmpty())
+    }
+
+    @Test
+    fun serverRouteCancelsOnlyRemotePendingDeletion() {
+        val remotePending = route("remote").copy(
+            basicData = BasicData(
+                id = "remote",
+                isDeleted = true,
+                deletionReason = "REMOTE_SYNC_DELETE",
+                remoteDeletionPending = true,
+            )
+        )
+        val userDeleted = route("local").copy(
+            basicData = BasicData(
+                id = "local",
+                isDeleted = true,
+                deletionReason = "USER_REQUESTED",
+            )
+        )
+
+        assertTrue(serverRouteCancelsPendingDeletion(remotePending))
+        assertFalse(serverRouteCancelsPendingDeletion(userDeleted))
     }
 }

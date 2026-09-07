@@ -8,6 +8,7 @@ import com.z_company.domain.navigation.Router
 import com.z_company.route.ui.ProfileScreen
 import com.z_company.route.viewmodel.ProfileViewModel
 import com.z_company.route.viewmodel.PullToSyncViewModel
+import com.z_company.route.viewmodel.TrashViewModel
 
 @Composable
 fun ProfileDestination(
@@ -15,10 +16,12 @@ fun ProfileDestination(
 ){
     val viewModel: ProfileViewModel = viewModel()
     val pullToSyncViewModel: PullToSyncViewModel = viewModel()
+    val trashViewModel: TrashViewModel = viewModel()
     val pullToSyncState by pullToSyncViewModel.uiState.collectAsState()
     val showPurchasesScreen = rememberShowPurchasesScreen(router)
     ProfileScreen(
         viewModel = viewModel,
+        trashViewModel = trashViewModel,
         onBillingClick = showPurchasesScreen,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh(viewModel::refresh) },

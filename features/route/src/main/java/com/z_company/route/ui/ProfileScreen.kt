@@ -83,6 +83,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import com.z_company.route.viewmodel.VkUserInfo
+import com.z_company.route.viewmodel.TrashViewModel
 
 const val MIN_LENGTH_PASSWORD = 4
 
@@ -203,12 +204,18 @@ private fun VkNotLinkedHeader(linkedOnServer: Boolean) {
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel,
+    trashViewModel: TrashViewModel,
     onBillingClick: () -> Unit,
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
     pullSyncMessage: String? = null,
     onPullSyncMessageShown: () -> Unit = {},
 ) {
+    var showTrash by rememberSaveable { mutableStateOf(false) }
+    if (showTrash) {
+        TrashScreen(viewModel = trashViewModel, onBack = { showTrash = false })
+        return
+    }
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -1312,6 +1319,44 @@ fun ProfileScreen(
                                         text = "Раздел синхронизации доступен после оплаты подписки.",
                                         style = styleHint,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+
+                            item {
+                                val trashState by trashViewModel.uiState.collectAsState()
+                                ProfileGroupLabel("ДАННЫЕ")
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .shadow(1.dp, Shapes.medium)
+                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+                                        .clickable { showTrash = true }
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceBright),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(painterResource(R.drawable.delete_24px), null, modifier = Modifier.size(21.dp), tint = MaterialTheme.colorScheme.tertiary)
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Корзина маршрутов", style = styleData, color = primaryColor)
+                                        Text(
+                                            "${trashState.routes.size} ${trashPluralRu(trashState.routes.size, "маршрут", "маршрута", "маршрутов")}",
+                                            style = styleHint,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Icon(
+                                        painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }

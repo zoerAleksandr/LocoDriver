@@ -910,13 +910,19 @@ class SyncManager(
         // обход не должен ни менять локальные данные, ни двигать курсор.
         //
         // full_resync означает, что сервер не стал обслуживать курсор (нет,
-        // просрочен, чужой, битый) и отдал полный набор с нуля. Тогда работаем
-        // ровно как до дельты: набор считается исчерпывающим, и отсутствие
-        // маршрута в нём снова значит «удалён на другом устройстве».
+        // просрочен, чужой, битый) и отдал данные с нуля. Даже такой ответ не
+        // используется как отрицательное доказательство: удаление принимается
+        // только по явному tombstone.
         val delta: RouteDeltaSnapshot = try {
             routesManager.loadRouteDelta(
                 cursor = cursorForRequest(
-                    stored = sharedPrefs.getRouteSyncCursor(),
+                    // Pending означает, что предыдущему ответу нельзя доверять.
+                    // Обычная дельта не повторит давно существующие на сервере
+                    // маршруты, поэтому начинаем обход с нуля и даём серверным
+                    // записям автоматически отменить ошибочную пометку корзины.
+                    stored = sharedPrefs.getRouteSyncCursor().takeUnless {
+                        localAll.any { route -> route.basicData.remoteDeletionPending }
+                    },
                     hasLocalRoutes = localAll.isNotEmpty(),
                 ),
                 bearerToken = bearerToken,
@@ -936,7 +942,9 @@ class SyncManager(
         // (Раньше блок был мёртв из-за guard'а remoteRouteId, который нигде не заполнялся,
         //  поэтому удаления не доходили до сервера.)
         for (route in localAll.filter {
-            it.basicData.isDeleted && !it.basicData.remoteDeletionPending
+            it.basicData.isDeleted &&
+                !it.basicData.remoteDeletionPending &&
+                it.basicData.deletionReason != "REMOTE_SYNC_DELETE"
         }) {
             val routeId = route.basicData.id
             val label = routeLabel(route)
@@ -982,7 +990,12 @@ class SyncManager(
             }
         }
 
-        val locallyDeletedIds = localAll.filter { it.basicData.isDeleted }.map { it.basicData.id }.toSet()
+        // Только локальное пользовательское удаление имеет приоритет над
+        // серверной записью. Серверное pending-удаление обязано самоисцелиться,
+        // если сервер снова (или всё ещё) возвращает полный маршрут.
+        val locallyDeletedIds = localAll.filter {
+            it.basicData.isDeleted && it.basicData.deletionReason != "REMOTE_SYNC_DELETE"
+        }.map { it.basicData.id }.toSet()
 
         // 2.3 Серверные маршруты → merge в локальную БД (LWW по updatedAt).
         val handledIds = mutableSetOf<String>()
@@ -991,6 +1004,10 @@ class SyncManager(
             val id = server.basicData.id
             if (id in locallyDeletedIds) continue // локальное удаление в приоритете
             val local = localById[id]
+            if (local != null && serverRouteCancelsPendingDeletion(local)) {
+                if (saveDownloadedRoute(server, local)) result.routesDownloaded++ else downloadFailures++
+                continue
+            }
             // Миграция старых установок: раньше remoteRouteId не заполнялся.
             // Сам факт наличия id на сервере надёжно доказывает, что маршрут уже
             // был облачным; сохраняем локальный маркер до дальнейших правок.
@@ -1021,13 +1038,21 @@ class SyncManager(
 
         // 2.4 Удаления, сделанные на другом устройстве.
         //
-        // Триггер зависит от режима. При full_resync набор с сервера исчерпывающий,
-        // и отсутствие маршрута в нём — как и до дельты — значит «удалён». При
-        // обычной дельте отсутствие не значит РОВНО НИЧЕГО: сервер прислал только
-        // изменения, и удаления приходят отдельным явным списком тумбстонов.
+        // Единственный допустимый триггер — явный tombstone в deletedIds.
+        // Отсутствие в ответе, включая full_resync, ничего не удаляет.
         val deletionCandidates = mutableListOf<Route>()
         for (local in deletionSuspects(localAll, delta)) {
-            if (local.basicData.isDeleted) continue
+            if (local.basicData.isDeleted) {
+                // Старый pending больше не требует отдельного решения: явный
+                // tombstone сервера является достаточным подтверждением.
+                if (local.basicData.remoteDeletionPending) {
+                    routeUseCase.acknowledgeRemoteDeletion(
+                        local.basicData.id,
+                        Clock.System.now().toEpochMilliseconds(),
+                    ).collect { if (it is ResultState.Error) downloadFailures++ }
+                }
+                continue
+            }
             if (canDeleteLocalRouteMissingFromServer(local)) {
                 // Только подтверждённо синхронизированный маршрут можно считать
                 // удалённым на другом устройстве. Наличие remoteRouteId недостаточно:
@@ -1055,30 +1080,36 @@ class SyncManager(
             pushRoute(local, bearerToken, allWarnings, allErrors)?.let { if (it) result.routesUploaded++ }
         }
 
-        val totalSyncedLocal = localAll.count {
-            !it.basicData.isDeleted && it.basicData.isSynchronized
+        for (local in deletionCandidates) {
+            // Явный tombstone достаточен: маршрут хранится в корзине 30 дней,
+            // отдельного пользовательского подтверждения не требуется.
+            var removed = true
+            routeUseCase.markAsPendingRemoteDeletion(local).collect {
+                if (it is ResultState.Error) removed = false
+            }
+            if (removed) {
+                routeUseCase.acknowledgeRemoteDeletion(
+                    local.basicData.id,
+                    Clock.System.now().toEpochMilliseconds(),
+                ).collect { if (it is ResultState.Error) removed = false }
+            }
+            if (removed) result.routesDeletedLocal++ else downloadFailures++
         }
-        if (deletionCandidates.isNotEmpty() &&
-            isSignificantRouteDeletion(deletionCandidates.size, totalSyncedLocal)
-        ) {
-            // Dirty-маршруты сюда не попадают; для подозрительно большого объёма
-            // clean-маршрутов решение всё равно оставляем пользователю. Полные
-            // локальные копии сразу кладём в корзину, но серверное удаление не
-            // считаем подтверждённым до его явного действия.
-            for (local in deletionCandidates) {
-                routeUseCase.markAsPendingRemoteDeletion(local).collect {}
-            }
-            result.pendingDeletionRouteIds = deletionCandidates.map { it.basicData.id }
-            result.pendingDeletionLabels = deletionCandidates.map { routeLabel(it) }
-        } else {
-            for (local in deletionCandidates) {
-                // Только clean-маршрут может подтвердить удаление на другом
-                // устройстве, и воскресать сам он не должен — удаление побеждает.
-                // Стираем не физически: маршрут уходит в локальную корзину.
-                var removed = true
-                routeUseCase.markAsRemoved(local).collect { if (it is ResultState.Error) removed = false }
-                if (removed) result.routesDeletedLocal++ else downloadFailures++
-            }
+
+        // Retention-очистка запускается после каждой синхронизации. Удаляются
+        // только подтверждённые записи старше 30 дней; pending и активные
+        // маршруты защищены политикой репозитория.
+        val trashRetentionMs = 30L * 24L * 60L * 60L * 1000L
+        val trashCutoff = Clock.System.now().toEpochMilliseconds() - trashRetentionMs
+        for (route in routeUseCase.listTrash().filter {
+            val deletedAt = it.basicData.deletedAt
+            deletedAt != null && deletedAt <= trashCutoff &&
+                com.z_company.domain.entities.route.TrashPurgePolicy.canPurgeManually(it)
+        }) {
+            routeUseCase.purgeRoute(
+                route,
+                com.z_company.domain.entities.route.PhysicalDeletionReason.TRASH_RETENTION_EXPIRED,
+            ).collect { if (it is ResultState.Error) downloadFailures++ }
         }
 
         // Курсор сохраняем последним и только когда всё скачанное применено.
@@ -1480,6 +1511,6 @@ class SyncManager(
     }
 }
 
-/** Серверное отсутствие может удалять только clean-маршрут. */
+/** Явный серверный tombstone может применяться только к clean-маршруту. */
 internal fun canDeleteLocalRouteMissingFromServer(local: Route): Boolean =
     !local.basicData.isDeleted && local.basicData.isSynchronized

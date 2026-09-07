@@ -549,7 +549,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
 
                 is ResultState.Success -> {
                     // уведомляем через SnackbarManager и сбрасываем state (чтобы не держать success в uiState)
-                    snackbarManager.show(message = "Маршрут удалён")
+                    snackbarManager.show(message = "Маршрут перемещён в корзину")
                     _uiState.update { it.copy(removeRouteState = null) }
                 }
 
@@ -776,10 +776,10 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
             _uiState.update { it.copy(removeRouteState = null) }
             snackbarManager.show(
                 message = when {
-                    failed == 0 && deleted == 1 -> "Маршрут удалён"
-                    failed == 0 -> "Удалено маршрутов: $deleted"
+                    failed == 0 && deleted == 1 -> "Маршрут перемещён в корзину"
+                    failed == 0 -> "Маршруты перемещены в корзину: $deleted"
                     deleted == 0 -> "Не удалось удалить маршруты"
-                    else -> "Удалено: $deleted, не удалось: $failed"
+                    else -> "Перемещено в корзину: $deleted, не удалось: $failed"
                 }
             )
             exitSelectionMode()

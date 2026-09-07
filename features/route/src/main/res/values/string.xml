@@ -7,7 +7,7 @@
     <string name="other_work">Прочая работа</string>
     <string name="notes">Примечания</string>
 
-    <string name="msg_route_deleted">Маршрут удален</string>
+    <string name="msg_route_deleted">Маршрут перемещён в корзину</string>
     <string name="msg_empty_route_list">Список маршрутов пуст</string>
 
     <string name="text_btn_dismiss">Отмена</string>

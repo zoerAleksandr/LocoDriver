@@ -120,7 +120,6 @@ enum class SettingsSubScreen(val title: String, val depth: Int) {
     STATION_EDITOR("Станция", 2),
     PARTNER_LIST("Напарники", 1),
     PARTNER_EDITOR("Напарник", 2),
-    TRASH("Корзина маршрутов", 1),
 }
 
 // Под-экраны настроек, где заголовок — по центру, а слева вместо стрелки
@@ -176,7 +175,6 @@ fun SettingsScreen(
     seriesListViewModel: SeriesListViewModel? = null,
     stationListViewModel: StationNormListViewModel? = null,
     partnerListViewModel: PartnerListViewModel? = null,
-    trashViewModel: TrashViewModel? = null,
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
     pullSyncMessage: String? = null,
@@ -224,7 +222,6 @@ fun SettingsScreen(
                 "LOCOMOTIVE" -> InitState(SettingsSubScreen.LOCOMOTIVE, null, null)
                 "SERIES_LIST" -> InitState(SettingsSubScreen.SERIES_LIST, null, null)
                 "STATION_LIST" -> InitState(SettingsSubScreen.STATION_LIST, null, null)
-                "TRASH" -> InitState(SettingsSubScreen.TRASH, null, null)
                 else -> InitState(SettingsSubScreen.HUB, null, null)
             }
         }
@@ -464,7 +461,6 @@ fun SettingsScreen(
                                 seriesTotalCount = seriesUnionCount(settings.locomotiveSeriesList, seriesRecords.map { it.name }),
                                 stationTotalCount = seriesUnionCount(settings.stationList, stationRecords.map { it.name }),
                                 partnerTotalCount = partnerRecords.size,
-                                trashCount = trashViewModel?.uiState?.collectAsState()?.value?.routes?.size ?: 0,
                                 onNavigate = { currentSubScreen = it },
                                 showSettingSalary = showSettingSalary,
                             )
@@ -659,28 +655,6 @@ fun SettingsScreen(
                             )
                         }
 
-                        SettingsSubScreen.TRASH -> {
-                            trashViewModel?.let { vm ->
-                                val trashState by vm.uiState.collectAsState()
-                                LaunchedEffect(Unit) { vm.onScreenOpened() }
-                                LaunchedEffect(trashState.message) {
-                                    trashState.message?.let { snackbarHostState.showSnackbar(it) }
-                                    if (trashState.message != null) vm.consumeMessage()
-                                }
-                                TrashContent(
-                                    routes = trashState.routes,
-                                    restoringRouteId = trashState.restoringRouteId,
-                                    isRestoringAll = trashState.isRestoringAll,
-                                    isPurging = trashState.isPurging,
-                                    isSyncing = trashState.isSyncing,
-                                    onRestore = vm::restore,
-                                    onRestoreAll = vm::restoreAll,
-                                    onConfirmPending = vm::confirmPendingRemoteDeletions,
-                                    onEmptyTrash = vm::emptyTrash,
-                                )
-                            }
-                        }
-
                     }
                 }
                 }
@@ -690,7 +664,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun TrashContent(
+private fun LegacyTrashContent(
     routes: List<com.z_company.domain.entities.route.Route>,
     restoringRouteId: String?,
     isRestoringAll: Boolean,
@@ -884,7 +858,6 @@ private fun SettingsHubContent(
     seriesTotalCount: Int,
     stationTotalCount: Int,
     partnerTotalCount: Int,
-    trashCount: Int,
     onNavigate: (SettingsSubScreen) -> Unit,
     showSettingSalary: () -> Unit,
 ) {
@@ -934,13 +907,6 @@ private fun SettingsHubContent(
                 title = "Напарники",
                 value = "$partnerCount ${pluralRu(partnerCount, "напарник", "напарника", "напарников")}",
                 onClick = { onNavigate(SettingsSubScreen.PARTNER_LIST) },
-            )
-            SettingsRowDivider()
-            SettingsRow(
-                iconRes = com.z_company.route.R.drawable.delete_24px,
-                title = "Корзина маршрутов",
-                value = "$trashCount ${pluralRu(trashCount, "маршрут", "маршрута", "маршрутов")}",
-                onClick = { onNavigate(SettingsSubScreen.TRASH) },
             )
         }
 

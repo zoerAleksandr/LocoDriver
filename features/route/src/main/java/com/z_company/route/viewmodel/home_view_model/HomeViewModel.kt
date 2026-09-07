@@ -1019,7 +1019,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
                 is ResultState.Success -> {
                     // уведомляем через SnackbarManager и сбрасываем state (чтобы не держать success в uiState)
-                    snackbarManager.show(message = "Маршрут удалён")
+                    snackbarManager.show(message = "Маршрут перемещён в корзину")
                     _uiState.update { it.copy(removeRouteState = null) }
                 }
 

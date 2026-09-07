@@ -12,7 +12,6 @@ import com.z_company.route.viewmodel.SeriesListViewModel
 import com.z_company.route.viewmodel.SettingsViewModel
 import com.z_company.route.viewmodel.PullToSyncViewModel
 import com.z_company.route.viewmodel.StationNormListViewModel
-import com.z_company.route.viewmodel.TrashViewModel
 
 @Composable
 fun SettingDestination(
@@ -28,7 +27,6 @@ fun SettingDestination(
     val seriesListViewModel: SeriesListViewModel = viewModel()
     val stationListViewModel: StationNormListViewModel = viewModel()
     val partnerListViewModel: PartnerListViewModel = viewModel()
-    val trashViewModel: TrashViewModel = viewModel()
 
     SettingsScreen(
         viewModel = settingsViewModel,
@@ -69,7 +67,6 @@ fun SettingDestination(
         seriesListViewModel = seriesListViewModel,
         stationListViewModel = stationListViewModel,
         partnerListViewModel = partnerListViewModel,
-        trashViewModel = trashViewModel,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh() },
         pullSyncMessage = pullToSyncState.message,

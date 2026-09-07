@@ -43,6 +43,7 @@ class TrashViewModel : ViewModel(), KoinComponent {
 
     fun onScreenOpened() {
         refresh()
+        purgeExpiredRoutes()
         if (_uiState.value.isSyncing || syncManager.isSyncInProgress()) return
         if (!syncManager.shouldRunAutomaticSync(cooldownMillis = TRASH_SYNC_COOLDOWN_MILLIS)) return
         viewModelScope.launch {
@@ -65,6 +66,21 @@ class TrashViewModel : ViewModel(), KoinComponent {
                 refresh()
                 _uiState.value = _uiState.value.copy(isSyncing = false, message = errorMessage)
             }
+        }
+    }
+
+    private fun purgeExpiredRoutes() {
+        viewModelScope.launch {
+            val cutoff = kotlin.time.Clock.System.now().toEpochMilliseconds() -
+                30L * 24L * 60L * 60L * 1000L
+            _uiState.value.routes.filter { route ->
+                val deletedAt = route.basicData.deletedAt
+                deletedAt != null && deletedAt <= cutoff && TrashPurgePolicy.canPurgeManually(route)
+            }.forEach { route ->
+                routeUseCase.purgeRoute(route, PhysicalDeletionReason.TRASH_RETENTION_EXPIRED)
+                    .collect { }
+            }
+            refresh()
         }
     }
 
@@ -143,29 +159,6 @@ class TrashViewModel : ViewModel(), KoinComponent {
                     pushFailed -> "Маршруты восстановлены, часть не отправлена на сервер"
                     else -> "Все маршруты восстановлены"
                 },
-            )
-        }
-    }
-
-    fun confirmPendingRemoteDeletions() {
-        val pendingIds = _uiState.value.routes
-            .filter { it.basicData.remoteDeletionPending }
-            .map { it.basicData.id }
-        if (pendingIds.isEmpty()) return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isRestoringAll = true, message = null)
-            val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
-            var failed = false
-            pendingIds.forEach { routeId ->
-                routeUseCase.acknowledgeRemoteDeletion(routeId, now).collect { result ->
-                    if (result is ResultState.Error) failed = true
-                }
-            }
-            refresh()
-            _uiState.value = _uiState.value.copy(
-                isRestoringAll = false,
-                message = if (failed) "Часть подтверждений сохранить не удалось"
-                else "Удаление принято. Локальные копии останутся в корзине",
             )
         }
     }

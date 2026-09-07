@@ -89,22 +89,18 @@ internal suspend fun collectRouteDelta(
 /**
  * Локальные маршруты, которые сервер считает удалёнными.
  *
- * Тот самый участок, где дельта отличается от полной выгрузки. При full_resync
- * набор с сервера исчерпывающий, и отсутствие маршрута в нём значит «удалён» —
- * поведение до дельты. При обычной дельте отсутствие не значит ничего: сервер
- * прислал только изменения, а удаления приходят явным списком тумбстонов.
- *
- * Перепутать эти два случая — значит стереть у пользователя всю историю, кроме
- * последних изменений.
+ * Удаление принимается только по явному серверному tombstone. Даже ответ,
+ * помеченный full_resync, может оказаться пустым или неполным из-за ошибки
+ * пагинации/прокси/серверной реализации. Отсутствие записи не является
+ * доказательством удаления и никогда не должно менять локальные данные.
  */
 internal fun deletionSuspects(
     localRoutes: List<Route>,
     snapshot: RouteDeltaSnapshot,
 ): List<Route> {
-    val serverIds = snapshot.routes.mapTo(HashSet()) { it.basicData.id }
-    return if (snapshot.fullResync) {
-        localRoutes.filter { it.basicData.id !in serverIds }
-    } else {
-        localRoutes.filter { it.basicData.id in snapshot.deletedIds }
-    }
+    return localRoutes.filter { it.basicData.id in snapshot.deletedIds }
 }
+
+/** Серверная запись отменяет только удаление, инициированное серверной синхронизацией. */
+internal fun serverRouteCancelsPendingDeletion(local: Route): Boolean =
+    local.basicData.isDeleted && local.basicData.deletionReason == "REMOTE_SYNC_DELETE"
