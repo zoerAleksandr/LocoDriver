@@ -1688,6 +1688,38 @@ fun FormTrainScreen(
                                 }
                             }
                         }
+
+                        // Вагонник — отдельным блоком: он не вспомогательная тяга,
+                        // а осмотрщик, и смешивать его со списком тяги нельзя.
+                        val inspector = currentTrain?.carInspector
+                        val hasInspectorData = inspector != null && (
+                            !inspector.fullName.isNullOrBlank() ||
+                                !inspector.tabNumber.isNullOrBlank() ||
+                                inspector.couplingTime != null
+                            )
+                        if (inspector != null && hasInspectorData) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp)
+                                    .clip(Shapes.medium)
+                                    .clickable { showSettingsSheet = true }
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surfaceDim,
+                                        shape = Shapes.medium
+                                    )
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                CarInspectorInfoRow(
+                                    fullName = inspector.fullName,
+                                    tabNumber = inspector.tabNumber,
+                                    couplingTimeText = inspector.couplingTime?.let { time ->
+                                        dateAndTimeConverter?.getTimeFromDateLong(time)
+                                    }
+                                )
+                            }
+                        }
                     }
                     item { Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing))) }
                     item {
@@ -2502,13 +2534,20 @@ private fun CarInspectorSection(
                     )
 
                     // ── Время прицепки к составу ──
+                    // Фон и рамка — как у соседних полей ФИО и табельного номера,
+                    // чтобы строка читалась как такое же поле ввода, а не как чужой блок.
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
-                            .background(MaterialTheme.colorScheme.surfaceBright)
+                            .background(MaterialTheme.colorScheme.secondary)
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
+                            )
                             .clickable { showTimePicker = true }
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -2950,6 +2989,58 @@ private fun AssistInfoRow(label: String, assist: TrainAssist, direction: String?
                 Text(
                     text = "· $direction",
                     style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+        }
+        if (details.isNotBlank()) {
+            Text(
+                text = details,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+/**
+ * Строка сводки вагонника — та же вёрстка, что у [AssistInfoRow]: подпись с
+ * временем прицепки сверху, ФИО и табельный номер строкой ниже.
+ */
+@Composable
+private fun CarInspectorInfoRow(
+    fullName: String?,
+    tabNumber: String?,
+    couplingTimeText: String?,
+) {
+    val details = buildString {
+        fullName?.takeIf { it.isNotBlank() }?.let { append(it) }
+        tabNumber?.takeIf { it.isNotBlank() }?.let {
+            if (isNotEmpty()) append(" · ")
+            append("таб. $it")
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "Вагонник",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (couplingTimeText != null) {
+                Text(
+                    text = "· прицепка",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+                Text(
+                    text = couplingTimeText,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontFamily = com.z_company.core.ui.theme.MonoFont
+                    ),
                     color = MaterialTheme.colorScheme.tertiary
                 )
             }
