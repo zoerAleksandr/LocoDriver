@@ -1107,6 +1107,17 @@ class TrainFormViewModel(
                 segmentTrackNumber = trackNumber,
                 segmentNotes = notes
             )
+        } else if (toIndex == stationsListState.size && !toName.isNullOrBlank()) {
+            // «Будущий перегон»: второй станции ещё нет. Название, введённое
+            // в поле «До», и создаёт её — иначе перегон некуда было бы записать.
+            stationsListState.add(
+                StationFormState(
+                    id = Station().stationId,
+                    station = StationField(data = toName, type = StationDataType.NAME),
+                    segmentTrackNumber = trackNumber,
+                    segmentNotes = notes
+                )
+            )
         }
         changesHave()
         checkFormValidStation()

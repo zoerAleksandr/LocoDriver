@@ -3034,14 +3034,14 @@ private fun CarInspectorInfoRow(
                 Text(
                     text = "· прицепка",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.tertiary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = couplingTimeText,
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontFamily = com.z_company.core.ui.theme.MonoFont
                     ),
-                    color = MaterialTheme.colorScheme.tertiary
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }

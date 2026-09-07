@@ -257,7 +257,9 @@ fun TrainStationTimeline(
                 colors = colors,
                 isAnyReordering = isAnyReordering,
                 isFuture = true,
-                onClick = null,
+                // Будущий перегон открывается так же, как обычный: в шторке
+                // «До» пустое, и введённое там название создаёт станцию.
+                onClick = onSegmentClick?.let { callback -> { callback(-1) } },
             )
         }
 
@@ -315,7 +317,8 @@ fun TrainStationTimeline(
 
                 // ── Перегон между станциями ──
                 // Если промежуток помечен «будущим» — вторая граница неизвестна,
-                // рисуем пунктирный блок вместо обычного и не даём его открыть.
+                // рисуем пунктирный блок вместо обычного. Открывается он так же:
+                // название, введённое в поле «До», и создаёт вторую станцию.
                 if (showSegments) {
                     val isFuture = index == futureSegmentAfterIndex
                     if (isFuture) {
@@ -326,7 +329,7 @@ fun TrainStationTimeline(
                             colors = colors,
                             isAnyReordering = isAnyReordering,
                             isFuture = true,
-                            onClick = null,
+                            onClick = onSegmentClick?.let { callback -> { callback(index) } },
                         )
                     } else if (!isLast) {
                         val nextStation = stations[index + 1]
@@ -341,6 +344,17 @@ fun TrainStationTimeline(
                             } else null,
                         )
                     }
+                } else if (!isLast) {
+                    // Карточки перегонов скрыты, но время в пути между станциями
+                    // остаётся: это не «данные перегона», а сам ход поездки.
+                    SegmentTimeRow(
+                        segment = calculateSegment(station, stations[index + 1]),
+                        colors = colors,
+                        isAnyReordering = isAnyReordering,
+                        onClick = if (onSegmentClick != null) {
+                            { onSegmentClick(index) }
+                        } else null,
+                    )
                 }
             }
         }
@@ -629,6 +643,67 @@ private fun StationRow(
 // временем): так видно, что перегон можно открыть и заполнить. Заполненный —
 // со сплошным фоном и иконкой локомотива, пустой — пунктирной рамкой и «+».
 // Километры и смежные пути не показываем (решение пользователя).
+
+@Composable
+private fun SegmentTimeRow(
+    segment: SegmentInfo?,
+    colors: TimelineColors,
+    isAnyReordering: Boolean = false,
+    onClick: (() -> Unit)? = null,
+) {
+    if (segment == null || segment.durationMillis <= 0) return
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Совпадение ширины с областью стрелок режима перестановки.
+        AnimatedVisibility(
+            visible = isAnyReordering,
+            enter = expandHorizontally(),
+            exit = shrinkHorizontally()
+        ) {
+            Spacer(modifier = Modifier.width(48.dp))
+        }
+
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .then(
+                    if (onClick != null && !isAnyReordering) Modifier.clickable { onClick() }
+                    else Modifier
+                )
+                .padding(horizontal = ContentPadding),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TimelineDashedLine(
+                columnWidth = TimelineColumnWidth,
+                lineWidth = 2.dp,
+                lineColor = colors.lineColor,
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 6.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(colors.segmentBackgroundColor)
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            ) {
+                Text(
+                    text = formatDuration(segment.durationMillis),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.segmentTextColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun SegmentCard(
