@@ -51,6 +51,8 @@ fun ElectricStatisticsSection(
     electricSectionListState: SnapshotStateList<ElectricSectionFormState>?,
     locomotive: Locomotive,
     isShowOtherCurrent: Boolean,
+    considerHeatingInTotal: Boolean,
+    considerAuxiliaryInTotal: Boolean,
     onSettingsClick: () -> Unit,
     onNorma1Change: (String) -> Unit = {},
     onNorma2Change: (String) -> Unit = {},
@@ -76,6 +78,16 @@ fun ElectricStatisticsSection(
         overResult2 += (delivery2 - accepted2)
         overRecovery2 += (deliveryRecovery2 - acceptedRecovery2)
     }
+
+    overResult = com.z_company.domain.util.CalculationEnergy.getTotalEnergyConsumption(
+        sectionConsumption = overResult,
+        heatingAccepted = locomotive.heatingCounterAccepted,
+        heatingDelivery = locomotive.heatingCounterDelivery,
+        auxiliaryAccepted = locomotive.auxiliaryCounterAccepted,
+        auxiliaryDelivery = locomotive.auxiliaryCounterDelivery,
+        considerHeating = considerHeatingInTotal,
+        considerAuxiliary = considerAuxiliaryInTotal,
+    )
 
     val monoLabel = MaterialTheme.typography.labelSmall.copy(
         fontFamily = MonoFont,

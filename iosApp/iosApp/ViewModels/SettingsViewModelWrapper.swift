@@ -43,6 +43,8 @@ final class SettingsViewModelWrapper: ObservableObject {
     // MARK: - Loco display flags
     func setShowLocoHeating(_ value: Bool)    { viewModel.setShowLocoHeating(value: value) }
     func setShowLocoAuxiliary(_ value: Bool)  { viewModel.setShowLocoAuxiliary(value: value) }
+    func setConsiderLocoHeatingInTotal(_ value: Bool) { viewModel.setConsiderLocoHeatingInTotal(value: value) }
+    func setConsiderLocoAuxiliaryInTotal(_ value: Bool) { viewModel.setConsiderLocoAuxiliaryInTotal(value: value) }
     func setShowLocoStatistics(_ value: Bool) { viewModel.setShowLocoStatistics(value: value) }
     func setShowLocoNorma(_ value: Bool)      { viewModel.setShowLocoNorma(value: value) }
     func setShowOtherCurrent(_ value: Bool)   { viewModel.setShowOtherCurrent(value: value) }

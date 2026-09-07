@@ -285,6 +285,8 @@ private struct SettingsLocoView: View {
 
     @State private var showHeating: Bool
     @State private var showAuxiliary: Bool
+    @State private var considerHeatingInTotal: Bool
+    @State private var considerAuxiliaryInTotal: Bool
     @State private var showStatistics: Bool
     @State private var showNorma: Bool
     @State private var showOtherCurrent: Bool
@@ -294,6 +296,8 @@ private struct SettingsLocoView: View {
         self.vm = vm
         _showHeating      = State(initialValue: settings.isShowLocoHeating)
         _showAuxiliary    = State(initialValue: settings.isShowLocoAuxiliary)
+        _considerHeatingInTotal = State(initialValue: settings.isConsiderLocoHeatingInTotal)
+        _considerAuxiliaryInTotal = State(initialValue: settings.isConsiderLocoAuxiliaryInTotal)
         _showStatistics   = State(initialValue: settings.isShowLocoStatistics)
         _showNorma        = State(initialValue: settings.isShowLocoNorma)
         _showOtherCurrent = State(initialValue: settings.isShowOtherCurrent)
@@ -307,8 +311,16 @@ private struct SettingsLocoView: View {
             ) {
                 Toggle("Отопление", isOn: $showHeating)
                     .onChange(of: showHeating)      { vm.setShowLocoHeating($0) }
+                if showHeating {
+                    Toggle("Учитывать в общем расходе", isOn: $considerHeatingInTotal)
+                        .onChange(of: considerHeatingInTotal) { vm.setConsiderLocoHeatingInTotal($0) }
+                }
                 Toggle("Собственные нужды", isOn: $showAuxiliary)
                     .onChange(of: showAuxiliary)    { vm.setShowLocoAuxiliary($0) }
+                if showAuxiliary {
+                    Toggle("Учитывать в общем расходе", isOn: $considerAuxiliaryInTotal)
+                        .onChange(of: considerAuxiliaryInTotal) { vm.setConsiderLocoAuxiliaryInTotal($0) }
+                }
                 Toggle("Статистика", isOn: $showStatistics)
                     .onChange(of: showStatistics)   { vm.setShowLocoStatistics($0) }
                 Toggle("Норма", isOn: $showNorma)

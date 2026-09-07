@@ -21,6 +21,8 @@ fun SettingsLocoContent(
     currentSettings: UserSettings,
     changeShowLocoHeating: (Boolean) -> Unit,
     changeShowLocoAuxiliary: (Boolean) -> Unit,
+    changeConsiderLocoHeatingInTotal: (Boolean) -> Unit,
+    changeConsiderLocoAuxiliaryInTotal: (Boolean) -> Unit,
     changeShowOtherCurrent: (Boolean) -> Unit,
     setDefaultLocoType: (LocoType) -> Unit,
     selectedSeriesName: String? = null,
@@ -66,12 +68,30 @@ fun SettingsLocoContent(
                 checked = currentSettings.isShowLocoHeating,
                 onCheckedChange = changeShowLocoHeating,
             )
+            if (currentSettings.isShowLocoHeating) {
+                SettingsCardSep()
+                SettingsSwitchRow(
+                    label = "Учитывать в общем расходе",
+                    checked = currentSettings.isConsiderLocoHeatingInTotal,
+                    onCheckedChange = changeConsiderLocoHeatingInTotal,
+                    sub = "Отопление",
+                )
+            }
             SettingsCardSep()
             SettingsSwitchRow(
                 label = "Собственные нужды",
                 checked = currentSettings.isShowLocoAuxiliary,
                 onCheckedChange = changeShowLocoAuxiliary,
             )
+            if (currentSettings.isShowLocoAuxiliary) {
+                SettingsCardSep()
+                SettingsSwitchRow(
+                    label = "Учитывать в общем расходе",
+                    checked = currentSettings.isConsiderLocoAuxiliaryInTotal,
+                    onCheckedChange = changeConsiderLocoAuxiliaryInTotal,
+                    sub = "Собственные нужды",
+                )
+            }
         }
         SettingsSectionNote("Показывать эти поля в форме локомотива для ввода показаний.")
 

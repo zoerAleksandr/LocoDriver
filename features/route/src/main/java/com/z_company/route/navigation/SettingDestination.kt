@@ -53,6 +53,8 @@ fun SettingDestination(
         changeShowPartner = settingsViewModel::changeShowPartner,
         changeShowLocoHeating = settingsViewModel::changeShowLocoHeating,
         changeShowLocoAuxiliary = settingsViewModel::changeShowLocoAuxiliary,
+        changeConsiderLocoHeatingInTotal = settingsViewModel::changeConsiderLocoHeatingInTotal,
+        changeConsiderLocoAuxiliaryInTotal = settingsViewModel::changeConsiderLocoAuxiliaryInTotal,
         changeShowOtherCurrent = settingsViewModel::changeShowOtherCurrent,
         timeZoneRussiaList = settingsViewModel.timeZoneList,
         setTimeZone = settingsViewModel::setTimeZone,

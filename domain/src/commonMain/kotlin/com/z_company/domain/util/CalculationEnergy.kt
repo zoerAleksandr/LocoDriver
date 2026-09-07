@@ -53,4 +53,23 @@ object CalculationEnergy {
     ): Double? {
         return differenceBetweenDouble(accepted, delivery)
     }
+
+    fun getTotalEnergyConsumption(
+        sectionConsumption: Double?,
+        heatingAccepted: Double?,
+        heatingDelivery: Double?,
+        auxiliaryAccepted: Double?,
+        auxiliaryDelivery: Double?,
+        considerHeating: Boolean,
+        considerAuxiliary: Boolean,
+    ): Double? {
+        var total = sectionConsumption
+        if (considerHeating) {
+            total = total.plusNullableValue(differenceBetweenDouble(heatingAccepted, heatingDelivery))
+        }
+        if (considerAuxiliary) {
+            total = total.plusNullableValue(differenceBetweenDouble(auxiliaryAccepted, auxiliaryDelivery))
+        }
+        return total
+    }
 }

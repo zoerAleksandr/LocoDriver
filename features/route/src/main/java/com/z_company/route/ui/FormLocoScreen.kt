@@ -869,6 +869,8 @@ fun FormLocoScreen(
                                             electricSectionListState = electricSectionListState,
                                             locomotive = locomotive,
                                             isShowOtherCurrent = formUiState.isShowOtherCurrent,
+                                            considerHeatingInTotal = userSettings?.isConsiderLocoHeatingInTotal != false,
+                                            considerAuxiliaryInTotal = userSettings?.isConsiderLocoAuxiliaryInTotal != false,
                                             onSettingsClick = onSettingsClick,
                                             onNorma1Change = { viewModel.setNormaElectricCurrent1(it) },
                                             onNorma2Change = { viewModel.setNormaElectricCurrent2(it) }

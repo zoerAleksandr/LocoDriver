@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.iosapp.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -8,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 /**
  * KMP ViewModel для экрана настроек.
@@ -50,7 +53,9 @@ class SettingsIosViewModel(
 
     fun saveSetting(settings: UserSettings) {
         viewModelScope.launch {
-            settingsUseCase.saveSetting(settings).collect {}
+            settingsUseCase.saveSetting(
+                settings.copy(updateAt = Clock.System.now().toEpochMilliseconds())
+            ).collect {}
         }
     }
 
@@ -77,6 +82,16 @@ class SettingsIosViewModel(
     fun setShowLocoAuxiliary(value: Boolean) {
         val current = _settings.value ?: return
         saveSetting(current.copy(isShowLocoAuxiliary = value))
+    }
+
+    fun setConsiderLocoHeatingInTotal(value: Boolean) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(isConsiderLocoHeatingInTotal = value))
+    }
+
+    fun setConsiderLocoAuxiliaryInTotal(value: Boolean) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(isConsiderLocoAuxiliaryInTotal = value))
     }
 
     fun setShowLocoStatistics(value: Boolean) {

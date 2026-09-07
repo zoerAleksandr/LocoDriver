@@ -1,0 +1,4 @@
+-- Управление включением отопления и собственных нужд в общий расход энергии.
+-- Значение 1 сохраняет прежнее поведение для существующих пользователей.
+ALTER TABLE UserSettings ADD COLUMN isConsiderLocoHeatingInTotal INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE UserSettings ADD COLUMN isConsiderLocoAuxiliaryInTotal INTEGER NOT NULL DEFAULT 1;
