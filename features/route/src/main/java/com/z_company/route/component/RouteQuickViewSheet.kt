@@ -613,12 +613,12 @@ private fun QuickViewContent(
             }
         }
 
-        // 3. Локомотивы — от нового к старому по времени приёмки
+        // 3. Локомотивы — от старого к новому по времени приёмки
         // (timeStartOfAcceptance); локомотивы без времени приёмки — в конце,
         // в исходном порядке. Порядок route.locomotives из БД/сети не гарантирован.
         val sortedLocomotives = route.locomotives
             .filter { it.timeStartOfAcceptance != null }
-            .sortedByDescending { it.timeStartOfAcceptance } +
+            .sortedBy { it.timeStartOfAcceptance } +
             route.locomotives.filter { it.timeStartOfAcceptance == null }
         if (sortedLocomotives.isNotEmpty()) {
             item { SectionHeader("Локомотивы · ${sortedLocomotives.size}") }
@@ -627,11 +627,11 @@ private fun QuickViewContent(
             }
         }
 
-        // 4. Поезда — от нового к старому по времени отправления первой станции;
+        // 4. Поезда — от старого к новому по времени отправления первой станции;
         // поезда без времени отправления — в конце, в исходном порядке.
         val sortedTrains = route.trains
             .filter { it.stations.firstOrNull()?.timeDeparture != null }
-            .sortedByDescending { it.stations.firstOrNull()?.timeDeparture } +
+            .sortedBy { it.stations.firstOrNull()?.timeDeparture } +
             route.trains.filter { it.stations.firstOrNull()?.timeDeparture == null }
         if (sortedTrains.isNotEmpty()) {
             item { SectionHeader("Поезда · ${sortedTrains.size}") }

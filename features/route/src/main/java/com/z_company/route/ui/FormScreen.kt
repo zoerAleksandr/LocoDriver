@@ -1362,7 +1362,12 @@ fun FormScreen(
                                 ItemAddingScreen(
                                     title = stringResource(id = R.string.locomotive),
                                     iconRes = R.drawable.ic_card_locomotive_ref,
-                                    contentList = route.locomotives,
+                                    // Сортировка: локомотивы с временем приёмки — по возрастанию
+                                    // (старые сверху, новые снизу), без времени — в порядке добавления.
+                                    contentList = route.locomotives
+                                        .filter { it.timeStartOfAcceptance != null }
+                                        .sortedBy { it.timeStartOfAcceptance } +
+                                        route.locomotives.filter { it.timeStartOfAcceptance == null },
                                     onChangeElementClick = onChangedLocoClick,
                                     onNewElementClick = onNewLocoClick,
                                     basicId = basicId,
@@ -1380,11 +1385,11 @@ fun FormScreen(
                                 ItemAddingScreen(
                                     title = stringResource(id = R.string.train),
                                     iconRes = R.drawable.ic_card_train_ref,
-                                    // Сортировка: поезда с временем отправления первой станции — по убыванию
-                                    // (последний отправившийся сверху), поезда без времени — в порядке добавления.
+                                    // Сортировка: поезда с временем отправления первой станции — по возрастанию
+                                    // (старые сверху, новые снизу), поезда без времени — в порядке добавления.
                                     contentList = route.trains
                                         .filter { it.stations.firstOrNull()?.timeDeparture != null }
-                                        .sortedByDescending { it.stations.firstOrNull()?.timeDeparture } +
+                                        .sortedBy { it.stations.firstOrNull()?.timeDeparture } +
                                         route.trains.filter { it.stations.firstOrNull()?.timeDeparture == null },
                                     onChangeElementClick = onChangeTrainClick,
                                     onNewElementClick = onNewTrainClick,
