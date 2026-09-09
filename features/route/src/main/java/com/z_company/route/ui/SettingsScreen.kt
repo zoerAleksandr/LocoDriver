@@ -71,6 +71,7 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.route.TrashPurgePolicy
 import com.z_company.route.ui.settings.SettingsAccountingContent
 import com.z_company.route.ui.settings.SettingsLocoContent
+import com.z_company.route.ui.settings.SettingsTrainContent
 import com.z_company.route.ui.settings.SettingsNormaContent
 import com.z_company.route.ui.settings.SettingsRestContent
 import com.z_company.route.ui.settings.SettingsRouteContent
@@ -114,6 +115,7 @@ enum class SettingsSubScreen(val title: String, val depth: Int) {
     REST("Отдых", 1),
     SHOULDERS("Плечи", 1),
     LOCOMOTIVE("Локомотив", 1),
+    TRAIN("Поезд", 1),
     SERIES_LIST("Серии", 1),
     SERIES_EDITOR("Серия", 2),
     STATION_LIST("Станции", 1),
@@ -132,6 +134,7 @@ private val SETTINGS_CENTERED_DONE_SCREENS = setOf(
     SettingsSubScreen.ACCOUNTING,
     SettingsSubScreen.REST,
     SettingsSubScreen.LOCOMOTIVE,
+    SettingsSubScreen.TRAIN,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -156,6 +159,7 @@ fun SettingsScreen(
     changeShowOnePersonSwitch: (Boolean) -> Unit,
     changeShowLocomotive: (Boolean) -> Unit,
     changeShowTrain: (Boolean) -> Unit,
+    setPassengerWagonLengthMeters: (Double) -> Unit,
     changeShowPassenger: (Boolean) -> Unit,
     changeShowOtherWork: (Boolean) -> Unit,
     changeShowPartner: (Boolean) -> Unit,
@@ -222,6 +226,7 @@ fun SettingsScreen(
                 "REST" -> InitState(SettingsSubScreen.REST, null, null)
                 "SHOULDERS" -> InitState(SettingsSubScreen.SHOULDERS, null, null)
                 "LOCOMOTIVE" -> InitState(SettingsSubScreen.LOCOMOTIVE, null, null)
+                "TRAIN" -> InitState(SettingsSubScreen.TRAIN, null, null)
                 "SERIES_LIST" -> InitState(SettingsSubScreen.SERIES_LIST, null, null)
                 "STATION_LIST" -> InitState(SettingsSubScreen.STATION_LIST, null, null)
                 else -> InitState(SettingsSubScreen.HUB, null, null)
@@ -559,6 +564,13 @@ fun SettingsScreen(
                                 series = records,
                                 onEditSeries = { onEditSeries(it) },
                                 onCreateSeries = { onCreateSeries(it) },
+                            )
+                        }
+
+                        SettingsSubScreen.TRAIN -> {
+                            SettingsTrainContent(
+                                currentSettings = settings,
+                                setPassengerWagonLengthMeters = setPassengerWagonLengthMeters,
                             )
                         }
 
@@ -968,6 +980,13 @@ private fun SettingsHubContent(
                 title = "Локомотив",
                 subtitle = "Поля ввода показаний и вид тяги",
                 onClick = { onNavigate(SettingsSubScreen.LOCOMOTIVE) },
+            )
+            SettingsRowDivider()
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.ic_card_train_ref,
+                title = "Поезд",
+                subtitle = "Расчёт длины состава",
+                onClick = { onNavigate(SettingsSubScreen.TRAIN) },
             )
         }
 

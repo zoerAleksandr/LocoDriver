@@ -27,9 +27,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -86,6 +88,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
@@ -105,6 +111,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
@@ -118,6 +125,7 @@ import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.TrainAssist
 import com.z_company.domain.entities.route.TrainDataVersion
+import com.z_company.domain.entities.route.UtilsForEntities
 import com.z_company.domain.entities.route.UtilsForEntities.trainCategory
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.route.component.AppBottomSheet
@@ -185,13 +193,24 @@ fun FormTrainScreen(
     val primaryColor = MaterialTheme.colorScheme.primary
     val noValueColor = primaryColor.copy(alpha = 0.5f)
     var showSettingsSheet by remember { mutableStateOf(false) }
+    var settingsSheetMode by remember { mutableStateOf(TrainExtraSheetMode.ASSISTS) }
     var showTrainDataHistory by remember { mutableStateOf(false) }
+    var bottomBarVisible by remember { mutableStateOf(true) }
+    val bottomBarNestedScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -3f) bottomBarVisible = false
+                else if (available.y > 3f) bottomBarVisible = true
+                return Offset.Zero
+            }
+        }
+    }
     // Сигнал закрытия свайп-раскрытой строки станции (при отмене подтверждения)
     var closeSwipeSignal by remember { mutableStateOf(0) }
 
     Scaffold(
         modifier = Modifier
-            .fillMaxWidth(),
+            .fillMaxSize(),
         snackbarHost = {
             SnackbarHost(snackbarHostState) { snackBarData ->
                 CustomSnackBar(snackBarData = snackBarData)
@@ -227,26 +246,12 @@ fun FormTrainScreen(
                     }
                 },
                 actions = {
-                    val hasAnyAssist = currentTrain?.let {
-                        it.pusher != null || it.doubleTraction != null || it.doubledTrain != null
-                    } ?: false
-
-                    Box {
-                        IconButton(onClick = { showSettingsSheet = true }) {
-                            Icon(
-                                painter = painterResource(com.z_company.route.R.drawable.settings_24px),
-                                contentDescription = "Настройки",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        if (hasAnyAssist) {
-                            Badge(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .offset(x = (-4).dp, y = 4.dp),
-                                containerColor = Color(0xFFf1642e)
-                            )
-                        }
+                    IconButton(onClick = onSettingClick) {
+                        Icon(
+                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
+                            contentDescription = "Настройки",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                 },
             )
@@ -474,7 +479,11 @@ fun FormTrainScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Настройки поезда",
+                            text = if (settingsSheetMode == TrainExtraSheetMode.INSPECTOR) {
+                                "Вагонник"
+                            } else {
+                                "Параметры поезда"
+                            },
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = primaryColor
@@ -496,6 +505,7 @@ fun FormTrainScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    if (settingsSheetMode == TrainExtraSheetMode.ASSISTS) {
                     TrainAssistSection(
                         title = "Толкач",
                         assist = currentTrain?.pusher,
@@ -589,7 +599,9 @@ fun FormTrainScreen(
                         },
                         onDeleteSeries = viewModel::removeSeries
                     )
+                    }
 
+                    if (settingsSheetMode == TrainExtraSheetMode.INSPECTOR) {
                     CarInspectorSection(
                         carInspector = currentTrain?.carInspector,
                         onAdd = viewModel::addCarInspector,
@@ -603,6 +615,7 @@ fun FormTrainScreen(
                         noValueColor = noValueColor,
                         dateAndTimeConverter = dateAndTimeConverter,
                     )
+                    }
 
                     Spacer(modifier = Modifier.height(40.dp))
                 }
@@ -835,7 +848,7 @@ fun FormTrainScreen(
                                     Text(
                                         modifier = Modifier.weight(1f),
                                         text = "${item.departureStation} — ${item.arrivalStation}",
-                                        style = dataTextStyle,
+                                        style = dataTextStyle.copy(fontWeight = FontWeight.Normal),
                                         color = primaryColor,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -1022,13 +1035,18 @@ fun FormTrainScreen(
             BottomShadow()
         }
 
-        Box(modifier = Modifier.padding(paddingValues)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .nestedScroll(bottomBarNestedScroll)
+        ) {
             currentTrain?.let { train ->
                 LazyColumn(
                     state = scrollState,
                     modifier = Modifier.testTag("form_train_lazy_column"),
                     horizontalAlignment = Alignment.End,
-                    contentPadding = PaddingValues(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 16.dp)
+                    contentPadding = PaddingValues(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 84.dp)
                 ) {
                     item {
                         formUiState.errorMessage?.let {
@@ -1300,8 +1318,7 @@ fun FormTrainScreen(
                                 // заливка поверх тени даёт «двойную рамку».
                                 val addEnabled = !train.number.isNullOrBlank()
                                 val addButtonColor = if (addEnabled)
-                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f)
-                                        .compositeOver(cardColor)
+                                    MaterialTheme.colorScheme.tertiary
                                 else cardColor
                                 Box(
                                     modifier = Modifier
@@ -1323,7 +1340,7 @@ fun FormTrainScreen(
                                         painter = painterResource(com.z_company.route.R.drawable.add_circle_24px),
                                         contentDescription = "Добавить номер",
                                         tint = if (addEnabled)
-                                            MaterialTheme.colorScheme.tertiary
+                                            MaterialTheme.colorScheme.surface
                                         else
                                             noValueColor
                                     )
@@ -1457,11 +1474,14 @@ fun FormTrainScreen(
                                     .weight(1f)
                                     .padding(vertical = 8.dp)
                             ) {
-                                // Длина в метрах = условная длина × 14 (подсказка рядом с «У.Д.»).
-                                val lengthMeters = train.conditionalLength
-                                    ?.takeIf { it != "0" }
-                                    ?.toDoubleOrNull()
-                                    ?.let { (it * 14).toInt() }
+                                // Для пассажирского номера введённое значение
+                                // трактуем как число вагонов; для остальных —
+                                // как условную длину по 14 м.
+                                val lengthMeters = conditionalLengthToMeters(
+                                    conditionalLength = train.conditionalLength,
+                                    trainNumber = train.number,
+                                    passengerWagonLengthMeters = formUiState.passengerWagonLengthMeters,
+                                )
                                 // При крупном шрифте полная подсказка «· 868 м»
                                 // не помещается — тогда убираем точку-разделитель и
                                 // единицу «м», оставляя только число.
@@ -1602,7 +1622,7 @@ fun FormTrainScreen(
                                     )
                                     Text(
                                         text = "${phase.departureStation} — ${phase.arrivalStation}",
-                                        style = dataTextStyle,
+                                        style = dataTextStyle.copy(fontWeight = FontWeight.Normal),
                                         color = primaryColor,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -1671,7 +1691,10 @@ fun FormTrainScreen(
                                     .fillMaxWidth()
                                     .padding(top = 8.dp)
                                     .clip(Shapes.medium)
-                                    .clickable { showSettingsSheet = true }
+                                    .clickable {
+                                        settingsSheetMode = TrainExtraSheetMode.ASSISTS
+                                        showSettingsSheet = true
+                                    }
                                     .background(
                                         color = MaterialTheme.colorScheme.surfaceDim,
                                         shape = Shapes.medium
@@ -1703,7 +1726,10 @@ fun FormTrainScreen(
                                     .fillMaxWidth()
                                     .padding(top = 8.dp)
                                     .clip(Shapes.medium)
-                                    .clickable { showSettingsSheet = true }
+                                    .clickable {
+                                        settingsSheetMode = TrainExtraSheetMode.INSPECTOR
+                                        showSettingsSheet = true
+                                    }
                                     .background(
                                         color = MaterialTheme.colorScheme.surfaceDim,
                                         shape = Shapes.medium
@@ -1885,7 +1911,23 @@ fun FormTrainScreen(
                         item {
                             val displayList =
                                 if (formUiState.isStationsReversed) stationList.reversed() else stationList
-                            val timelineItems = displayList.toTimelineItems()
+                            val timelineItems = if (formUiState.isStationsReversed) {
+                                // Данные перегона хранятся у станции, следующей в
+                                // исходном направлении. После разворота эта станция
+                                // оказывается перед перегоном, поэтому переносим её
+                                // путь и примечание к следующему display-элементу —
+                                // именно оттуда их читает TrainStationTimeline.
+                                val reversedItems = displayList.toTimelineItems()
+                                reversedItems.mapIndexed { index, item ->
+                                    val segmentOwner = displayList.getOrNull(index - 1)
+                                    item.copy(
+                                        segmentTrackNumber = segmentOwner?.segmentTrackNumber,
+                                        segmentNotes = segmentOwner?.segmentNotes,
+                                    )
+                                }
+                            } else {
+                                displayList.toTimelineItems()
+                            }
 
                             // «Будущий перегон» — тот, у которого неизвестна вторая
                             // граница, поэтому маршрут ещё может быть продолжен:
@@ -2018,50 +2060,163 @@ fun FormTrainScreen(
                           }
                         }
                     }
-                    item {
-                        Button(
-                            modifier = Modifier
-                                .padding(top = 24.dp)
-                                .fillMaxWidth()
-                                .height(52.dp)
-                                .shadow(
-                                    elevation = 8.dp,
-                                    shape = Shapes.medium,
-                                    clip = false
-                                ),
-                            shape = Shapes.medium,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            elevation = ButtonDefaults.buttonElevation(
-                                defaultElevation = 0.dp,
-                                pressedElevation = 0.dp
-                            ),
-                            onClick = {
-                                viewModel.startAddingNewStation()
-                            }
-                        ) {
-                            Icon(
-                                modifier = Modifier.size(18.dp),
-                                painter = painterResource(com.z_company.route.R.drawable.add_circle_24px),
-                                contentDescription = null
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Добавить станцию",
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
-                                ),
-                            )
-                        }
-                    }
                     item { Spacer(modifier = Modifier.height(20.dp)) }
                 }
+            }
+
+            var barHeightPx by remember { mutableStateOf(0) }
+            val barOffsetY by androidx.compose.animation.core.animateIntAsState(
+                targetValue = if (bottomBarVisible) 0 else barHeightPx,
+                animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+                label = "trainBottomBarOffset",
+            )
+            TrainBottomAppBar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .onSizeChanged { barHeightPx = it.height }
+                    .offset { IntOffset(0, barOffsetY) },
+                hasInspector = currentTrain?.carInspector?.hasEnteredData() == true,
+                hasAssists = currentTrain?.let {
+                    it.pusher?.hasEnteredData() == true ||
+                        it.doubleTraction?.hasEnteredData() == true ||
+                        it.doubledTrain?.hasEnteredData() == true
+                } == true,
+                onInspectorClick = {
+                    if (currentTrain?.carInspector == null) viewModel.addCarInspector()
+                    settingsSheetMode = TrainExtraSheetMode.INSPECTOR
+                    showSettingsSheet = true
+                },
+                onAssistsClick = {
+                    settingsSheetMode = TrainExtraSheetMode.ASSISTS
+                    showSettingsSheet = true
+                },
+                onAddStationClick = viewModel::startAddingNewStation,
+            )
+        }
+    }
+}
+
+private enum class TrainExtraSheetMode { INSPECTOR, ASSISTS }
+
+private fun com.z_company.domain.entities.route.CarInspector.hasEnteredData(): Boolean =
+    !fullName.isNullOrBlank() || !tabNumber.isNullOrBlank() || couplingTime != null
+
+private fun com.z_company.domain.entities.route.TrainAssist.hasEnteredData(): Boolean =
+    !locomotiveSeries.isNullOrBlank() ||
+        !locomotiveNumber.isNullOrBlank() ||
+        !driverName.isNullOrBlank() ||
+        !notes.isNullOrBlank() ||
+        isFirst != null
+
+@Composable
+private fun TrainBottomAppBar(
+    modifier: Modifier = Modifier,
+    hasInspector: Boolean,
+    hasAssists: Boolean,
+    onInspectorClick: () -> Unit,
+    onAssistsClick: () -> Unit,
+    onAddStationClick: () -> Unit,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .navigationBarsPadding()
+                .padding(start = 8.dp, top = 10.dp, end = 8.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Row(
+                modifier = Modifier.weight(2f),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TrainBottomIconButton(
+                    modifier = Modifier.width(48.dp),
+                    iconRes = com.z_company.route.R.drawable.ic_couplers_24,
+                    contentDescription = "Добавить вагонника",
+                    active = hasInspector,
+                    onClick = onInspectorClick,
+                )
+                TrainBottomIconButton(
+                    modifier = Modifier.width(48.dp),
+                    iconRes = com.z_company.route.R.drawable.baseline_tune_24,
+                    contentDescription = "Параметры поезда",
+                    active = hasAssists,
+                    onClick = onAssistsClick,
+                )
+            }
+            Button(
+                modifier = Modifier
+                    .weight(2f)
+                    .height(48.dp),
+                onClick = onAddStationClick,
+                shape = RoundedCornerShape(14.dp),
+                elevation = ButtonDefaults.buttonElevation(0.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.surface,
+                ),
+            ) {
+                Icon(
+                    modifier = Modifier.size(18.dp),
+                    painter = painterResource(com.z_company.route.R.drawable.add_circle_24px),
+                    contentDescription = null,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Станция", fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
+
+@Composable
+private fun TrainBottomIconButton(
+    modifier: Modifier,
+    iconRes: Int,
+    contentDescription: String,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(modifier = modifier.height(48.dp), contentAlignment = Alignment.Center) {
+        IconButton(onClick = onClick) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = contentDescription,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
+        if (active) {
+            Badge(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-8).dp, y = 4.dp),
+                containerColor = Color(0xFFf1642e),
+            )
+        }
+    }
+}
+
+internal fun conditionalLengthToMeters(
+    conditionalLength: String?,
+    trainNumber: String?,
+    passengerWagonLengthMeters: Double,
+): Int? {
+    val units = conditionalLength?.takeIf { it != "0" }?.toDoubleOrNull() ?: return null
+    val number = trainNumber?.toIntOrNull()
+    val metersPerUnit = if (
+        number != null && UtilsForEntities.passengerTrainNumberList.any { number in it }
+    ) {
+        passengerWagonLengthMeters
+    } else {
+        CONDITIONAL_WAGON_LENGTH_METERS
+    }
+    return (units * metersPerUnit).toInt()
+}
+
+private const val CONDITIONAL_WAGON_LENGTH_METERS = 14.0
 
 @Composable
 private fun TrainDataVersionEditor(
@@ -2553,18 +2708,19 @@ private fun CarInspectorSection(
                     ) {
                         Text(
                             text = "Время прицепки",
-                            style = dataTextStyle,
+                            style = dataTextStyle.copy(fontWeight = FontWeight.Normal),
                             color = if (carInspector.couplingTime != null) primaryColor else noValueColor
                         )
-                        val timeText = carInspector.couplingTime?.let {
+                        carInspector.couplingTime?.let {
                             dateAndTimeConverter?.getTimeFromDateLong(it)
-                        } ?: "—"
-                        Text(
-                            text = timeText,
-                            style = dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
-                            fontWeight = FontWeight.SemiBold,
-                            color = primaryColor
-                        )
+                        }?.let { timeText ->
+                            Text(
+                                text = timeText,
+                                style = dataTextStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
+                                fontWeight = FontWeight.SemiBold,
+                                color = primaryColor
+                            )
+                        }
                     }
                 }
             }

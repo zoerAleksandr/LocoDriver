@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="30dp"
+    android:height="24dp"
+    android:viewportWidth="32"
+    android:viewportHeight="24">
+    <!-- Контур построен по пользовательскому эскизу одной СА-3: длинный
+         прямой хвостовик, расширяющаяся головка, большой и малый зубья. -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M1,8.5L9,8.5L10.8,5.5L15.1,2.8L18,4.4L16,7.4L18.3,9.4L16.4,11.2L14.5,9.5L12.9,10.8L10.8,16.6L8.8,18.3L6.3,16.7L8.2,13.2L1,13.2Z" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M31,15.5L23,15.5L21.2,18.5L16.9,21.2L14,19.6L16,16.6L13.7,14.6L15.6,12.8L17.5,14.5L19.1,13.2L21.2,7.4L23.2,5.7L25.7,7.3L23.8,10.8L31,10.8Z" />
+</vector>

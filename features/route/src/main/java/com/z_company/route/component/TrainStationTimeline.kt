@@ -322,10 +322,11 @@ fun TrainStationTimeline(
                 if (showSegments) {
                     val isFuture = index == futureSegmentAfterIndex
                     if (isFuture) {
+                        val futureData = stations.getOrNull(index + 1)
                         SegmentCard(
                             segment = null,
-                            segmentTrackNumber = null,
-                            segmentNotes = null,
+                            segmentTrackNumber = futureData?.segmentTrackNumber,
+                            segmentNotes = futureData?.segmentNotes,
                             colors = colors,
                             isAnyReordering = isAnyReordering,
                             isFuture = true,
@@ -549,7 +550,7 @@ private fun StationRow(
                 Text(
                     text = item.stationName.ifBlank { "—" },
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Normal,
                     color = nameColor,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -841,9 +842,8 @@ private fun SegmentCard(
                     // не нужны, о редактировании говорит иконка-карандаш.
                     if (hasData) {
                         Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(5.dp),
                         ) {
                             if (!segmentTrackNumber.isNullOrBlank()) {
                                 Box(
@@ -867,8 +867,7 @@ private fun SegmentCard(
                                     text = notes,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = primary.copy(alpha = 0.6f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                         }

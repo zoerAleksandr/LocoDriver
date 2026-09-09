@@ -234,7 +234,7 @@ fun StationEditBottomSheet(
                                 isDropdownExpanded = newValue.text.isNotEmpty()
                             },
                             textStyle = dataTextStyle.copy(
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.Normal,
                                 color = primaryColor
                             ),
                             cursorBrush = SolidColor(primaryColor),
@@ -269,7 +269,7 @@ fun StationEditBottomSheet(
                         },
                         onDelete = onDeleteStationName,
                         onDismiss = { isDropdownExpanded = false },
-                        textStyle = dataTextStyle
+                        textStyle = dataTextStyle.copy(fontWeight = FontWeight.Normal)
                     )
                 }
 
@@ -821,7 +821,7 @@ private fun SegmentStationField(
                     onFilterMenu(newValue.text)
                     onExpandedChange(newValue.text.isNotEmpty())
                 },
-                textStyle = dataTextStyle.copy(fontWeight = FontWeight.Medium, color = primaryColor),
+                textStyle = dataTextStyle.copy(fontWeight = FontWeight.Normal, color = primaryColor),
                 cursorBrush = SolidColor(primaryColor),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
@@ -847,7 +847,7 @@ private fun SegmentStationField(
             },
             onDelete = onDeleteStationName,
             onDismiss = { onExpandedChange(false) },
-            textStyle = dataTextStyle
+            textStyle = dataTextStyle.copy(fontWeight = FontWeight.Normal)
         )
     }
 }

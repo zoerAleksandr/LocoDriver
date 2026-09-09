@@ -1062,7 +1062,8 @@ object UtilsForEntities {
 
     // согласно распоряжению ОАО "РЖД" от 5 апреля 2014 г. N 859р
     fun Train.trainCategory(): String {
-        return when (this.number?.toIntOrNull()) {
+        val trainNumber = this.number?.toIntOrNull()
+        val category = when (trainNumber) {
             in 1..150 -> "Скорые круглогодичные"
             in 151..298 -> "Скорые сезонного и разового обращения"
             in 301..450 -> "Пассажирские круглогодичные"
@@ -1141,6 +1142,14 @@ object UtilsForEntities {
             in 8991..8998 -> "Для проведения опытных поездок"
             in 9001..9098 -> "Из порожних вагонов, негодных под погрузку, следующих на заводы и в депо для ремонта и модернизации по специально оформленным документам"
             else -> "Номер не найден"
+        }
+        return if (
+            trainNumber != null &&
+            (trainNumber in 1001..3998 || trainNumber in 9201..9798)
+        ) {
+            "Грузовые — $category"
+        } else {
+            category
         }
     }
 

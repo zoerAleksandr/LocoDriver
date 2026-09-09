@@ -19,6 +19,7 @@ data class TrainFormUiState(
     val isShowDialogSelectServicePhase: Boolean = false,
     val servicePhaseList: SnapshotStateList<ServicePhase> = mutableStateListOf(),
     val selectedServicePhase: ServicePhase? = null,
+    val passengerWagonLengthMeters: Double = 24.5,
     var dateAndTimeConverter: DateAndTimeConverter? = null,
     var isStationsReversed: Boolean = false,
     val reorderingStationId: String? = null,

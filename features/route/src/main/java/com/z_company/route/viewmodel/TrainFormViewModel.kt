@@ -193,7 +193,8 @@ class TrainFormViewModel(
                         settingState.data.let { settings ->
                             _uiState.update {
                                 it.copy(
-                                    dateAndTimeConverter = DateAndTimeConverter(settings)
+                                    dateAndTimeConverter = DateAndTimeConverter(settings),
+                                    passengerWagonLengthMeters = settings.passengerWagonLengthMeters,
                                 )
                             }
                             stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())

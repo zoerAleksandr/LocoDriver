@@ -232,6 +232,10 @@ class RouterImpl(
         requireNavController().navigate(SettingsScreenRoute.buildRoute(subScreen))
     }
 
+    override fun showSettingsTrain() {
+        requireNavController().navigate(SettingsScreenRoute.buildRoute("TRAIN"))
+    }
+
     override fun showSettingsRest() {
         requireNavController().navigate(SettingsScreenRoute.buildRoute("REST"))
     }
