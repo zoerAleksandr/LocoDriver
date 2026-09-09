@@ -1,8 +1,11 @@
 package com.z_company.route.component
 
+import androidx.compose.animation.core.animate
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -29,8 +34,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,10 +45,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -70,6 +80,7 @@ import com.z_company.domain.util.CalculationEnergy.rounding
 import com.z_company.domain.util.ifNullOrBlank
 import com.z_company.domain.util.times
 import com.z_company.route.R
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToLong
 
@@ -108,6 +119,7 @@ fun RouteQuickViewSheet(
     onRequestDelete: (Route) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
 
     // Реактивное избранное: route — неизменяемый снимок, поэтому храним локальный
     // оптимистичный флаг, чтобы иконка в панели переключалась сразу по тапу.
@@ -121,30 +133,83 @@ fun RouteQuickViewSheet(
     // контент шторку не разворачивает — Column обнимает содержимое.
     val contentMaxHeight = (LocalConfiguration.current.screenHeightDp.dp * 0.92f) - 300.dp
 
-    // Разделяем жесты: прокрутка контента ≠ закрытие шторки. Эта nested-scroll
-    // связь поглощает остаток вертикального драга ВНИЗ после того, как LazyColumn
-    // упёрся в верх списка, чтобы он не дошёл до ModalBottomSheet и не потянул её к
-    // закрытию. Свайп по списку только скроллит; закрыть шторку можно ручкой,
-    // затемнением, кнопкой «назад» или свайпом по неподвижной шапке — но не
-    // случайным свайпом по контенту.
-    val blockCloseOnContentScroll = remember {
-        object : NestedScrollConnection {
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource,
-            ): Offset = if (available.y > 0f) Offset(0f, available.y) else Offset.Zero
+    // ─── Закрытие свайпом вниз «вторым жестом» (как в PWA) ──────────────────
+    // Штатные драг-жесты шторки отключены (sheetGesturesEnabled = false): их
+    // nested-scroll поглощал остаток флинга LazyColumn на верхней кромке и давал
+    // дёрганье вверх-вниз. Вместо этого — собственное смещение [dragPx]:
+    //   • свайп по контенту закрывает ТОЛЬКО если жест начался на самом верху
+    //     списка (gestureFromTop) и сразу пошёл вниз. Свайп, начатый с прокрутки,
+    //     докручивает список до верха, но НЕ закрывает — нужен новый (второй) свайп;
+    //   • свайп по неподвижной шапке тянет шторку всегда (прокручивать там нечего).
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val dismissThresholdPx = with(density) { 110.dp.toPx() }
 
-            override suspend fun onPostFling(
-                consumed: Velocity,
-                available: Velocity,
-            ): Velocity = if (available.y > 0f) available.copy(x = 0f) else Velocity.Zero
+    var dragPx by remember { mutableFloatStateOf(0f) }
+    var gestureFromTop by remember { mutableStateOf(false) }
+    var owningDrag by remember { mutableStateOf(false) }
+
+    fun finishDrag() {
+        owningDrag = false
+        if (dragPx >= dismissThresholdPx) {
+            onDismiss()
+        } else {
+            scope.launch { animate(dragPx, 0f) { v, _ -> dragPx = v } }
+        }
+    }
+
+    val dismissConnection = remember(listState, dismissThresholdPx) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
+                val dy = available.y
+                if (owningDrag) {
+                    // Вверх (dy<0) сначала убирает набранное смещение шторки.
+                    val newOffset = (dragPx + dy).coerceAtLeast(0f)
+                    val consumed = newOffset - dragPx
+                    dragPx = newOffset
+                    if (newOffset == 0f) owningDrag = false
+                    return Offset(0f, consumed)
+                }
+                // Любое движение вверх до перехвата отменяет закрытие в этом жесте:
+                // свайп, начатый с прокрутки, только скроллит.
+                if (dy < 0f) {
+                    gestureFromTop = false
+                    return Offset.Zero
+                }
+                // Тянем вниз и жест начался на самом верху списка → перехватываем.
+                if (dy > 0f && gestureFromTop && !listState.canScrollBackward) {
+                    owningDrag = true
+                    dragPx += dy
+                    return Offset(0f, dy)
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (!owningDrag && dragPx == 0f) return Velocity.Zero
+                owningDrag = false
+                if (dragPx >= dismissThresholdPx) {
+                    onDismiss()
+                } else {
+                    animate(dragPx, 0f) { v, _ -> dragPx = v }
+                }
+                return available
+            }
         }
     }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        // Смещаем ВСЮ панель шторки (а не внутренний контент): иначе над сдвинутым
+        // контентом внутри панели оставался её собственный фон (белый прогал).
+        // graphicsLayer двигает только отрисовку — над панелью видно штатное
+        // затемнение, лэйаут не пересчитывается.
+        modifier = Modifier.graphicsLayer { translationY = dragPx },
         sheetState = sheetState,
+        // Драг-жесты самой шторки отключены — закрытие свайпом реализуем сами
+        // (см. dismissConnection выше), чтобы прокрутка контента не тянула шторку.
+        sheetGesturesEnabled = false,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.background,
         // dragHandle = null — штатная ручка кликабельна (ripple по тапу). Свою рисуем
@@ -153,20 +218,45 @@ fun RouteQuickViewSheet(
         dragHandle = null,
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            QuickViewHeader(
-                route = route,
-                shiftPaymentText = shiftPaymentText,
-            )
+            // Шапка неподвижна для контента, но её свайп вниз тянет шторку всегда.
+            Box(
+                modifier = Modifier.pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onDragEnd = { finishDrag() },
+                        onDragCancel = { finishDrag() },
+                    ) { change, dragAmount ->
+                        change.consume()
+                        dragPx = (dragPx + dragAmount).coerceAtLeast(0f)
+                    }
+                }
+            ) {
+                QuickViewHeader(
+                    route = route,
+                    shiftPaymentText = shiftPaymentText,
+                )
+            }
 
             // heightIn(max) с фиксированным dp: при коротком контенте Box обнимает
             // список, при длинном — ограничивает и LazyColumn скроллится.
+            // pointerInput фиксирует «жест начался на верху списка» на каждом
+            // touch-down; nestedScroll ведёт закрытие свайпом (см. dismissConnection).
             Box(
                 modifier = Modifier
                     .heightIn(max = contentMaxHeight)
-                    .nestedScroll(blockCloseOnContentScroll)
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                awaitFirstDown(requireUnconsumed = false)
+                                gestureFromTop = !listState.canScrollBackward
+                                owningDrag = false
+                            }
+                        }
+                    }
+                    .nestedScroll(dismissConnection)
             ) {
                 QuickViewContent(
                     route = route,
+                    listState = listState,
                     isHeavyTrains = isHeavyTrains,
                     isLongCompositionTrain = isLongCompositionTrain,
                     isExtendedServicePhaseTrains = isExtendedServicePhaseTrains,
@@ -417,6 +507,7 @@ private fun HeaderChip(modifier: Modifier = Modifier, content: @Composable () ->
 @Composable
 private fun QuickViewContent(
     route: Route,
+    listState: LazyListState,
     isHeavyTrains: Boolean,
     isLongCompositionTrain: Boolean,
     isExtendedServicePhaseTrains: Boolean,
@@ -427,7 +518,10 @@ private fun QuickViewContent(
     actualRestDuration: Long?,
     actualRestUntil: Long?,
 ) {
-    LazyColumn(modifier = Modifier.fillMaxWidth()) {
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         // 1. Время работы
         if (route.basicData.timeStartWork != null || route.basicData.timeEndWork != null) {
             item {
@@ -1154,10 +1248,20 @@ private fun TrainBlock(train: Train, dateAndTimeConverter: DateAndTimeConverter?
             )
         }
 
+        // Вагонник — данные состава, поэтому идут сразу под данными поезда
+        // (характеристикой), до графика станций.
+        train.carInspector?.let { CarInspectorLine(it, dateAndTimeConverter) }
+
         // График станций
         if (train.stations.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
             train.stations.forEachIndexed { index, station ->
+                // Перегон ПЕРЕД станцией (между предыдущей и этой) — отдельной
+                // строкой на линии МЕЖДУ точками, а не под названием станции, куда
+                // он визуально попадал в самый низ графика.
+                if (index > 0) {
+                    StationSegmentRow(station)
+                }
                 StationRow(
                     station = station,
                     isFirst = index == 0,
@@ -1171,7 +1275,54 @@ private fun TrainBlock(train: Train, dateAndTimeConverter: DateAndTimeConverter?
         train.pusher?.let { AssistLine("Толкач", it) }
         train.doubleTraction?.let { AssistLine("Двойная тяга", it) }
         train.doubledTrain?.let { AssistLine("Сдвоенный", it) }
-        train.carInspector?.let { CarInspectorLine(it, dateAndTimeConverter) }
+    }
+}
+
+/**
+ * Данные перегона перед [station] (между предыдущей станцией и этой) — короткая
+ * строка на непрерывной линии таймлайна между точками станций. Ничего не рисует,
+ * если у перегона не заполнены путь/примечание (линия остаётся непрерывной за
+ * счёт нижней/верхней линий соседних [StationRow]).
+ */
+@Composable
+private fun StationSegmentRow(station: Station) {
+    val textMuted = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+    val railColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+    val segmentText = buildString {
+        station.segmentTrackNumber?.takeIf { it.isNotBlank() }?.let { append("путь $it") }
+        station.segmentNotes?.takeIf { it.isNotBlank() }?.let {
+            if (isNotEmpty()) append(" · ")
+            append(it)
+        }
+    }
+    if (segmentText.isEmpty()) return
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(androidx.compose.foundation.layout.IntrinsicSize.Min),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier.width(20.dp).fillMaxHeight(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .fillMaxHeight()
+                    .background(railColor)
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = "перегон · $segmentText",
+            style = MaterialTheme.typography.labelSmall,
+            color = textMuted,
+            modifier = Modifier
+                .weight(1f)
+                .padding(vertical = 4.dp),
+        )
     }
 }
 
@@ -1255,23 +1406,6 @@ private fun StationRow(
                         )
                     }
                 }
-            }
-
-            // Данные перегона ПЕРЕД этой станцией (путь / примечание).
-            val segmentText = buildString {
-                station.segmentTrackNumber?.takeIf { it.isNotBlank() }?.let { append("путь $it") }
-                station.segmentNotes?.takeIf { it.isNotBlank() }?.let {
-                    if (isNotEmpty()) append(" · ")
-                    append(it)
-                }
-            }
-            if (segmentText.isNotEmpty() && !isFirst) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "перегон · $segmentText",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = textMuted,
-                )
             }
         }
 
