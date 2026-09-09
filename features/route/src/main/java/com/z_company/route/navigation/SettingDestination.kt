@@ -48,6 +48,7 @@ fun SettingDestination(
         changeShowOnePersonSwitch = settingsViewModel::changeShowOnePersonSwitch,
         changeShowLocomotive = settingsViewModel::changeShowLocomotive,
         changeShowTrain = settingsViewModel::changeShowTrain,
+        setPassengerWagonLengthMeters = settingsViewModel::setPassengerWagonLengthMeters,
         changeShowPassenger = settingsViewModel::changeShowPassenger,
         changeShowOtherWork = settingsViewModel::changeShowOtherWork,
         changeShowPartner = settingsViewModel::changeShowPartner,

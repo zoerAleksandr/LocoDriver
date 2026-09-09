@@ -91,6 +91,7 @@ internal object SettingsMapper {
         isShowOtherWork = row.isShowOtherWork != 0L,
         otherWorkTypeList = runCatching { decodeStringList(row.otherWorkTypeList) }.getOrElse { emptyList() },
         isShowPartner = row.isShowPartner != 0L,
+        passengerWagonLengthMeters = row.passengerWagonLengthMeters,
     )
 }
 

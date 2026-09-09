@@ -231,7 +231,7 @@ fun LocoDriverApp(
 
         // Системную нав-полосу оставляем в цвете surface и на FormRoute —
         // под белой контекстной панелью маршрута.
-        val surfaceNavBarRoutes = bottomBarRoutes + FormRoute.route
+        val surfaceNavBarRoutes = bottomBarRoutes + FormRoute.route + FormTrain.route
 
         val navBarColor = if (currentRoute in surfaceNavBarRoutes) {
             surfaceColor

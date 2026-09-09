@@ -508,6 +508,11 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    fun setPassengerWagonLengthMeters(value: Double) {
+        if (value <= 0.0 || !value.isFinite()) return
+        currentSettings = currentSettings?.copy(passengerWagonLengthMeters = value)
+    }
+
     fun changeShowPassenger(isShow: Boolean) {
         currentSettings = currentSettings?.copy(
             isShowPassenger = isShow

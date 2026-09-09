@@ -574,11 +574,15 @@ class SyncManager(
                             .first { it is ResultState.Success || it is ResultState.Error }
                         val localSubscriptionPeriod = (localSettings as? ResultState.Success)
                             ?.data?.subscriptionPeriod ?: 0L
+                        val localPassengerWagonLength = (localSettings as? ResultState.Success)
+                            ?.data?.passengerWagonLengthMeters ?: 24.5
                         val remoteSubscriptionPeriod = loadState.data.subscriptionPeriod
                         val mergedSubscriptionPeriod = maxOf(localSubscriptionPeriod, remoteSubscriptionPeriod)
                         val userSettings = loadState.data.copy(
                             selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull() ?: com.z_company.domain.entities.MonthOfYear(),
-                            subscriptionPeriod = mergedSubscriptionPeriod
+                            subscriptionPeriod = mergedSubscriptionPeriod,
+                            // Поле локальное и @Transient: сервер его не знает.
+                            passengerWagonLengthMeters = localPassengerWagonLength,
                         )
                         settingsUseCase.saveSetting(userSettings)
                             .collect { saveResult ->
@@ -776,7 +780,9 @@ class SyncManager(
                 val mergedSub = maxOf(localNow?.subscriptionPeriod ?: 0L, remoteUserSettings.subscriptionPeriod)
                 val userSettings = remoteUserSettings.copy(
                     selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull() ?: com.z_company.domain.entities.MonthOfYear(),
-                    subscriptionPeriod = mergedSub
+                    subscriptionPeriod = mergedSub,
+                    // Не сбрасываем локальную настройку при pull с сервера.
+                    passengerWagonLengthMeters = localNow?.passengerWagonLengthMeters ?: 24.5,
                 )
                 settingsUseCase.saveSetting(userSettings).collect {}
                 try {

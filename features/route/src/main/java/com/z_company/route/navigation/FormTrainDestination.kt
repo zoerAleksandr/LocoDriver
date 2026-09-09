@@ -40,7 +40,7 @@ fun FormTrainDestination(
         servicePhaseList = formUiState.servicePhaseList,
         onSelectServicePhase = viewModel::setSelectedServicePhase,
         selectedServicePhase = formUiState.selectedServicePhase,
-        onSettingClick = router::showSettings,
+        onSettingClick = router::showSettingsTrain,
         onAddServicePhase = viewModel::addServicePhase,
         onUpdateServicePhase = viewModel::updateServicePhase,
         onDeleteServicePhase = viewModel::deleteServicePhase,
