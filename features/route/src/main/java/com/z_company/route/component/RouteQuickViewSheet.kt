@@ -35,13 +35,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.MonoFont
@@ -116,6 +121,27 @@ fun RouteQuickViewSheet(
     // контент шторку не разворачивает — Column обнимает содержимое.
     val contentMaxHeight = (LocalConfiguration.current.screenHeightDp.dp * 0.92f) - 300.dp
 
+    // Разделяем жесты: прокрутка контента ≠ закрытие шторки. Эта nested-scroll
+    // связь поглощает остаток вертикального драга ВНИЗ после того, как LazyColumn
+    // упёрся в верх списка, чтобы он не дошёл до ModalBottomSheet и не потянул её к
+    // закрытию. Свайп по списку только скроллит; закрыть шторку можно ручкой,
+    // затемнением, кнопкой «назад» или свайпом по неподвижной шапке — но не
+    // случайным свайпом по контенту.
+    val blockCloseOnContentScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset = if (available.y > 0f) Offset(0f, available.y) else Offset.Zero
+
+            override suspend fun onPostFling(
+                consumed: Velocity,
+                available: Velocity,
+            ): Velocity = if (available.y > 0f) available.copy(x = 0f) else Velocity.Zero
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -134,7 +160,11 @@ fun RouteQuickViewSheet(
 
             // heightIn(max) с фиксированным dp: при коротком контенте Box обнимает
             // список, при длинном — ограничивает и LazyColumn скроллится.
-            Box(modifier = Modifier.heightIn(max = contentMaxHeight)) {
+            Box(
+                modifier = Modifier
+                    .heightIn(max = contentMaxHeight)
+                    .nestedScroll(blockCloseOnContentScroll)
+            ) {
                 QuickViewContent(
                     route = route,
                     isHeavyTrains = isHeavyTrains,
@@ -231,7 +261,7 @@ private fun QuickViewHeader(
                     text = "№${route.basicData.number.ifNullOrBlank { "б/н" }}",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontFamily = MonoFont,
-                        fontWeight = FontWeight.W700,
+                        fontWeight = FontWeight.W600,
                         fontSize = 19.sp,
                     ),
                     color = text,
@@ -245,7 +275,7 @@ private fun QuickViewHeader(
                     Text(
                         text = from,
                         style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.W600, fontSize = 17.sp,
+                            fontWeight = FontWeight.W500, fontSize = 17.sp,
                         ),
                         color = text,
                         maxLines = 1,
@@ -263,7 +293,7 @@ private fun QuickViewHeader(
                     Text(
                         text = to,
                         style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.W600, fontSize = 17.sp,
+                            fontWeight = FontWeight.W500, fontSize = 17.sp,
                         ),
                         color = text,
                         maxLines = 1,
@@ -287,7 +317,7 @@ private fun QuickViewHeader(
                             ConverterLongToTime.getTimeInStringFormat(workTime) else "—",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontFamily = MonoFont,
-                            fontWeight = FontWeight.W800,
+                            fontWeight = FontWeight.W700,
                             fontSize = 20.sp,
                         ),
                         color = text,
@@ -302,7 +332,7 @@ private fun QuickViewHeader(
                         text = shiftPaymentText?.takeIf { it.isNotBlank() } ?: "—",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontFamily = MonoFont,
-                            fontWeight = FontWeight.W800,
+                            fontWeight = FontWeight.W700,
                             fontSize = 20.sp,
                         ),
                         color = accent,
@@ -489,15 +519,22 @@ private fun QuickViewContent(
             }
         }
 
-        // 3. Локомотивы
-        if (route.locomotives.isNotEmpty()) {
-            item { SectionHeader("Локомотивы · ${route.locomotives.size}") }
-            items(route.locomotives, key = { it.locoId }) { loco ->
+        // 3. Локомотивы — от нового к старому по времени приёмки
+        // (timeStartOfAcceptance); локомотивы без времени приёмки — в конце,
+        // в исходном порядке. Порядок route.locomotives из БД/сети не гарантирован.
+        val sortedLocomotives = route.locomotives
+            .filter { it.timeStartOfAcceptance != null }
+            .sortedByDescending { it.timeStartOfAcceptance } +
+            route.locomotives.filter { it.timeStartOfAcceptance == null }
+        if (sortedLocomotives.isNotEmpty()) {
+            item { SectionHeader("Локомотивы · ${sortedLocomotives.size}") }
+            items(sortedLocomotives, key = { it.locoId }) { loco ->
                 QvCardBlock { LocomotiveBlock(loco, dateAndTimeConverter) }
             }
         }
 
-        // 4. Поезда
+        // 4. Поезда — от нового к старому по времени отправления первой станции;
+        // поезда без времени отправления — в конце, в исходном порядке.
         val sortedTrains = route.trains
             .filter { it.stations.firstOrNull()?.timeDeparture != null }
             .sortedByDescending { it.stations.firstOrNull()?.timeDeparture } +
@@ -565,7 +602,7 @@ private fun SectionHeader(title: String) {
             fontFamily = MonoFont,
             fontSize = 10.5.sp,
             letterSpacing = 1.3.sp,
-            fontWeight = FontWeight.W600,
+            fontWeight = FontWeight.W500,
         ),
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
     )
@@ -718,7 +755,7 @@ private fun RestContentRow(title: String, until: String?, duration: String, dura
         Text(
             text = duration,
             style = MaterialTheme.typography.titleMedium.copy(
-                fontFamily = MonoFont, fontWeight = FontWeight.W800, fontSize = 18.sp,
+                fontFamily = MonoFont, fontWeight = FontWeight.W700, fontSize = 18.sp,
             ),
             color = durationColor,
         )
@@ -782,7 +819,7 @@ private fun LocomotiveBlock(loco: Locomotive, dateAndTimeConverter: DateAndTimeC
             Text(
                 text = name,
                 style = MaterialTheme.typography.titleMedium.copy(
-                    fontFamily = MonoFont, fontWeight = FontWeight.W700,
+                    fontFamily = MonoFont, fontWeight = FontWeight.W600,
                 ),
                 color = text,
             )
@@ -946,7 +983,7 @@ private fun ConsumptionBlock(
             Text(
                 text = total,
                 style = MaterialTheme.typography.titleMedium.copy(
-                    fontFamily = MonoFont, fontWeight = FontWeight.W700,
+                    fontFamily = MonoFont, fontWeight = FontWeight.W600,
                 ),
                 color = totalColor,
             )
@@ -997,7 +1034,7 @@ private fun CounterPill(
             Text(
                 text = value ?: "—",
                 style = MaterialTheme.typography.titleSmall.copy(
-                    fontFamily = MonoFont, fontWeight = FontWeight.W700,
+                    fontFamily = MonoFont, fontWeight = FontWeight.W600,
                 ),
                 color = text,
             )
@@ -1051,7 +1088,7 @@ private fun SummaryLine(title: String, value: String) {
             text = value,
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontFamily = MonoFont,
-                fontWeight = FontWeight.W700,
+                fontWeight = FontWeight.W600,
             ),
             color = text,
         )
@@ -1087,7 +1124,7 @@ private fun TrainBlock(train: Train, dateAndTimeConverter: DateAndTimeConverter?
                 Text(
                     text = train.number?.takeIf { it.isNotBlank() }?.let { "№$it" } ?: "Поезд",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = MonoFont, fontWeight = FontWeight.W700,
+                        fontFamily = MonoFont, fontWeight = FontWeight.W600,
                     ),
                     color = text,
                 )
@@ -1192,7 +1229,7 @@ private fun StationRow(
                     append(station.stationName.ifNullOrBlank { "—" })
                     if (!station.trackNumber.isNullOrBlank()) append("  ${station.trackNumber} п.")
                 },
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W500),
                 // Проходная станция — приглушённым цветом, как в таймлайне формы поезда.
                 color = if (station.isPassingStation) textMuted else text,
             )
@@ -1274,7 +1311,7 @@ private fun AssistLine(label: String, assist: TrainAssist) {
     val textMuted = text.copy(alpha = 0.6f)
     Spacer(Modifier.height(6.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text = "$label:", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600), color = textMuted)
+        Text(text = "$label:", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W500), color = textMuted)
         val info = buildString {
             assist.locomotiveSeries?.takeIf { it.isNotBlank() }?.let { append(it) }
             assist.locomotiveNumber?.takeIf { it.isNotBlank() }?.let { append(" - $it") }
@@ -1308,7 +1345,7 @@ private fun CarInspectorLine(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = "Вагонник:",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W600),
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.W500),
             color = textMuted,
         )
         Text(text = info, style = MaterialTheme.typography.labelMedium, color = text)
@@ -1343,7 +1380,7 @@ private fun PassengerBlock(passenger: Passenger, dateAndTimeConverter: DateAndTi
                 Text(
                     text = passenger.trainNumber?.takeIf { it.isNotBlank() }?.let { "№$it" } ?: "Пассажиром",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = MonoFont, fontWeight = FontWeight.W700,
+                        fontFamily = MonoFont, fontWeight = FontWeight.W600,
                     ),
                     color = text,
                 )
@@ -1358,7 +1395,7 @@ private fun PassengerBlock(passenger: Passenger, dateAndTimeConverter: DateAndTi
             passenger.getFollowingTime()?.let {
                 Text(
                     text = ConverterLongToTime.getTimeInStringFormat(it),
-                    style = MaterialTheme.typography.titleSmall.copy(fontFamily = MonoFont, fontWeight = FontWeight.W700),
+                    style = MaterialTheme.typography.titleSmall.copy(fontFamily = MonoFont, fontWeight = FontWeight.W600),
                     color = text,
                 )
             }
