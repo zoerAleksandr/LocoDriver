@@ -2011,14 +2011,13 @@ fun MainInfo(
 ) {
     Column(
         modifier = Modifier
-            .padding(horizontal = 8.dp)
+            .padding(12.dp)
             .wrapContentHeight(Alignment.Top)
             .fillMaxWidth(),
     ) {
             // Свайп-карточка с прогресс-барами (внутри Card)
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
             ) {
