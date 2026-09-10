@@ -35,7 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.route.LocoType
@@ -55,6 +57,8 @@ fun SeriesPickerSheet(
     onEditSeries: ((LocomotiveSeries) -> Unit)? = null,
     // Открыть сразу в редакторе этой серии (например из «Настроить серию»).
     initialEditSeries: LocomotiveSeries? = null,
+    selectedSeriesId: String? = null,
+    onClearSelection: () -> Unit = {},
 ) {
     val seriesRepo: LocomotiveSeriesRepository = koinInject()
     val allSeries by seriesRepo.getAllFlow().collectAsState(initial = emptyList())
@@ -80,6 +84,7 @@ fun SeriesPickerSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.background,
+        dragHandle = { Spacer(Modifier.height(6.dp)) },
     ) {
         Column(modifier = Modifier.fillMaxHeight(0.85f)) {
             val editing = editingSeries
@@ -87,6 +92,10 @@ fun SeriesPickerSheet(
                 // null seriesId → создание новой серии.
                 val editSeriesId = editing?.seriesId
                 fun closeEditor() { editingSeries = null; addingSeries = false }
+                val editorVm = koinViewModel<SeriesEditorViewModel>(
+                    key = "picker_series_editor_${editSeriesId ?: "new"}",
+                    parameters = { parametersOf(editSeriesId, null) }
+                )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -94,8 +103,8 @@ fun SeriesPickerSheet(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(onClick = { closeEditor() }) {
-                        Text("Назад", color = MaterialTheme.colorScheme.tertiary)
+                    TextButton(onClick = { editorVm.commit(); closeEditor() }) {
+                        Text("Готово", color = MaterialTheme.colorScheme.tertiary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Text(
                         text = if (editSeriesId == null) "Новая серия" else "Серия",
@@ -104,10 +113,6 @@ fun SeriesPickerSheet(
                     )
                     Spacer(Modifier.size(72.dp))
                 }
-                val editorVm = koinViewModel<SeriesEditorViewModel>(
-                    key = "picker_series_editor_${editSeriesId ?: "new"}",
-                    parameters = { parametersOf(editSeriesId, null) }
-                )
                 Box(modifier = Modifier.weight(1f)) {
                     SettingsSeriesEditorContent(
                         viewModel = editorVm,
@@ -125,7 +130,7 @@ fun SeriesPickerSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(onClick = onClose) {
-                    Text("Отмена", color = MaterialTheme.colorScheme.tertiary)
+                    Text("Отмена", color = MaterialTheme.colorScheme.tertiary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Text(
                     text = "Серия",
@@ -204,9 +209,10 @@ fun SeriesPickerSheet(
                             electric.forEachIndexed { idx, s ->
                                 SeriesRow(
                                     series = s,
-                                    onClick = { onSelect(s) },
+                                    onClick = { if (s.seriesId == selectedSeriesId) onClearSelection() else onSelect(s) },
                                     onLongClick = onEditSeries?.let { cb -> { cb(s) } },
                                     showChevron = false,
+                                    isSelected = s.seriesId == selectedSeriesId,
                                     onEdit = { editingSeries = s }
                                 )
                                 if (idx < electric.lastIndex) {
@@ -236,9 +242,10 @@ fun SeriesPickerSheet(
                             diesel.forEachIndexed { idx, s ->
                                 SeriesRow(
                                     series = s,
-                                    onClick = { onSelect(s) },
+                                    onClick = { if (s.seriesId == selectedSeriesId) onClearSelection() else onSelect(s) },
                                     onLongClick = onEditSeries?.let { cb -> { cb(s) } },
                                     showChevron = false,
+                                    isSelected = s.seriesId == selectedSeriesId,
                                     onEdit = { editingSeries = s }
                                 )
                                 if (idx < diesel.lastIndex) {
@@ -252,4 +259,3 @@ fun SeriesPickerSheet(
         }
     }
 }
-

@@ -13,11 +13,13 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.repository.remote_rest.request.AddEmailRequest
 import com.z_company.repository.remote_rest.request.AddVKIDRequest
 import com.z_company.repository.remote_rest.request.AuthRequest
+import com.z_company.repository.remote_rest.request.CkassaCheckoutRequest
 import com.z_company.repository.remote_rest.request.ClientInfoRequest
 import com.z_company.repository.remote_rest.request.RegisteredRequestByEmail
 import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import com.z_company.repository.remote_rest.response.AnnouncementResponse
+import com.z_company.repository.remote_rest.response.CkassaCheckoutResponse
 import com.z_company.repository.remote_rest.response.TariffsResponse
 import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
@@ -143,6 +145,21 @@ interface RemoteRestApi {
      * Единый источник цен для приложения и сайта.
      */
     suspend fun getTariffs(): TariffsResponse
+
+    // --- CKassa (новая платёжная система, работает параллельно с Robokassa) ---
+
+    /**
+     * Создать инвойс CKassa и получить ссылку оплаты
+     * (`POST /v1/payment/ckassa/checkout`, требует токен).
+     *
+     * Цена/срок берутся на сервере по коду тарифа (со скидками из кабинета).
+     * После оплаты сервер продлевает подписку по S2S-callback от CKassa —
+     * клиент об оплате серверу не сообщает, а поллит статус подписки.
+     */
+    suspend fun createCkassaCheckout(
+        token: String,
+        request: CkassaCheckoutRequest,
+    ): CkassaCheckoutResponse
 
     // --- ProductionCalendar (производственный календарь) ---
 

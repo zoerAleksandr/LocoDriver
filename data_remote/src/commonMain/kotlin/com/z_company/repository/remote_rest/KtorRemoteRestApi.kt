@@ -11,6 +11,8 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.repository.remote_rest.response.AnnouncementResponse
+import com.z_company.repository.remote_rest.response.CkassaCheckoutResponse
+import com.z_company.repository.remote_rest.request.CkassaCheckoutRequest
 import com.z_company.repository.remote_rest.response.TariffsResponse
 import com.z_company.repository.remote_rest.response.NormaTimeLocomotiveResponse
 import com.z_company.repository.remote_rest.response.NormaTimeStationResponse
@@ -300,4 +302,14 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
     override suspend fun getTariffs(): TariffsResponse {
         return client.get("v1/tariffs").body()
     }
+
+    override suspend fun createCkassaCheckout(
+        token: String,
+        request: CkassaCheckoutRequest,
+    ): CkassaCheckoutResponse =
+        client.post("v1/payment/ckassa/checkout") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(request)
+        }.body()
 }

@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.MonoFont
@@ -32,6 +33,7 @@ fun SeriesRow(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     showChevron: Boolean = true,
+    isSelected: Boolean = false,
     // Если задан — вместо шапки-стрелки показываем «карандаш» для перехода в
     // редактирование (тап по строке при этом продолжает выбирать серию).
     onEdit: (() -> Unit)? = null,
@@ -39,6 +41,7 @@ fun SeriesRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(if (isSelected) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f) else Color.Transparent)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(start = 16.dp, end = if (onEdit != null) 6.dp else 16.dp, top = 12.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,

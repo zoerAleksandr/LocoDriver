@@ -16,6 +16,7 @@ import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.Product
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.repository.remote_rest.request.CkassaCheckoutRequest
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.AuthManager
@@ -48,6 +49,10 @@ sealed class BillingEvent {
     data class ShowError(val error: Throwable) : BillingEvent()
     data class StartPayment(val params: PaymentParams, val onlyChek: Boolean = false) :
         BillingEvent()
+
+    // CKassa: открыть ссылку оплаты (хостовую страницу) во внешнем браузере.
+    // После возврата в приложение экран сам поллит статус подписки.
+    data class OpenPaymentUrl(val url: String) : BillingEvent()
 }
 
 class PurchasesViewModel : ViewModel(), KoinComponent {
@@ -196,6 +201,12 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     }
 
     fun onProductClick(product: Product) {
+        // Переходный период: обе платёжки работают параллельно. USE_CKASSA
+        // выбирает провайдера. Robokassa (прод) не трогаем.
+        if (USE_CKASSA) {
+            startCkassaCheckout(product)
+            return
+        }
         viewModelScope.launch {
 //            val opKey = sharedPrefs.getOPKeyRobokassa()
             val userId = secureTokenStorage.getUserIdFlow().first()
@@ -205,6 +216,34 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 _event.tryEmit(BillingEvent.StartPayment(paymentParams))
             } else {
                 _event.tryEmit(BillingEvent.ShowError(Throwable(message = "Отсутствует User ID")))
+            }
+        }
+    }
+
+    /**
+     * CKassa: создаём инвойс на сервере (цена/срок берутся там по коду тарифа,
+     * со скидками) и открываем ссылку оплаты. Платформу передаём, чтобы в
+     * платежах был виден источник. После возврата экран поллит подписку.
+     */
+    private fun startCkassaCheckout(product: Product) {
+        if (product.code.isBlank()) {
+            _event.tryEmit(BillingEvent.ShowError(Throwable("Тариф недоступен для оплаты")))
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+                val response = remoteRestApi.createCkassaCheckout(
+                    token = "Bearer $token",
+                    request = CkassaCheckoutRequest(
+                        tariffCode = product.code,
+                        platform = CKASSA_PLATFORM,
+                    ),
+                )
+                _event.tryEmit(BillingEvent.OpenPaymentUrl(response.paymentUrl))
+            } catch (t: Throwable) {
+                t.sendToSentry("PurchasesViewModel", "startCkassaCheckout")
+                _event.tryEmit(BillingEvent.ShowError(t))
             }
         }
     }
@@ -344,5 +383,18 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 // Для чего: Чтобы из MainViewModel (при возврате) или из onProductClick можно было эмитировать событие для запуска launcher в UI с нужным onlyCheck. Это упрощает обработку возврата без дублирования кода.
     fun emitStartPayment(params: PaymentParams, onlyCheck: Boolean) {
         _event.tryEmit(BillingEvent.StartPayment(params, onlyCheck))
+    }
+
+    companion object {
+        // Переключатель платёжного провайдера на переходный период.
+        //  false — рабочая Robokassa (прод, старые клиенты).
+        //  true  — новая CKassa (для теста/раскатки; сервер должен иметь
+        //          CKASSA_ENABLED=true и ключи в .env).
+        // Позже заменить на удалённый конфиг. Robokassa НЕ удаляем — обе
+        // системы работают параллельно.
+        const val USE_CKASSA = false
+
+        // Источник оплаты для журнала платежей на сервере.
+        const val CKASSA_PLATFORM = "android"
     }
 }

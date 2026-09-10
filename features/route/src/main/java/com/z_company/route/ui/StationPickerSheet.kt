@@ -39,7 +39,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.norma_time.StationNorm
 import com.z_company.domain.repositories.StationNormRepository
@@ -58,6 +60,8 @@ fun StationPickerSheet(
     onEditStation: ((StationNorm) -> Unit)? = null,
     // Открыть сразу в редакторе этой станции (например из «Настроить станцию»).
     initialEditStation: StationNorm? = null,
+    selectedStationId: String? = null,
+    onClearSelection: () -> Unit = {},
 ) {
     val stationRepo: StationNormRepository = koinInject()
     val stations by stationRepo.getAllFlow().collectAsState(initial = emptyList())
@@ -88,6 +92,7 @@ fun StationPickerSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.background,
+        dragHandle = { Spacer(Modifier.height(6.dp)) },
     ) {
         // Fixed height column so LazyColumn can scroll inside the sheet (~85% screen)
         Column(modifier = Modifier.fillMaxHeight(0.85f)) {
@@ -96,6 +101,10 @@ fun StationPickerSheet(
                 // null stationId → создание новой станции.
                 val editStationId = editing?.stationId
                 fun closeEditor() { editingStation = null; addingStation = false }
+                val editorVm = koinViewModel<StationNormEditorViewModel>(
+                    key = "picker_station_editor_${editStationId ?: "new"}",
+                    parameters = { parametersOf(editStationId, null) }
+                )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -103,8 +112,8 @@ fun StationPickerSheet(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(onClick = { closeEditor() }) {
-                        Text("Назад", color = MaterialTheme.colorScheme.tertiary)
+                    TextButton(onClick = { editorVm.commit(); closeEditor() }) {
+                        Text("Готово", color = MaterialTheme.colorScheme.tertiary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Text(
                         text = if (editStationId == null) "Новая станция" else "Станция",
@@ -113,10 +122,6 @@ fun StationPickerSheet(
                     )
                     Spacer(Modifier.size(72.dp))
                 }
-                val editorVm = koinViewModel<StationNormEditorViewModel>(
-                    key = "picker_station_editor_${editStationId ?: "new"}",
-                    parameters = { parametersOf(editStationId, null) }
-                )
                 Box(modifier = Modifier.weight(1f)) {
                     SettingsStationEditorContent(
                         viewModel = editorVm,
@@ -134,7 +139,7 @@ fun StationPickerSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(onClick = onClose) {
-                    Text("Отмена", color = MaterialTheme.colorScheme.tertiary)
+                    Text("Отмена", color = MaterialTheme.colorScheme.tertiary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Text(
                     text = "Станция",
@@ -214,7 +219,8 @@ fun StationPickerSheet(
                                 StationPickerItem(
                                     station = s,
                                     showNorms = true,
-                                    onClick = { onSelect(s) },
+                                    isSelected = s.stationId == selectedStationId,
+                                    onClick = { if (s.stationId == selectedStationId) onClearSelection() else onSelect(s) },
                                     onEdit = { editingStation = s }
                                 )
                                 if (idx < withNorms.lastIndex) {
@@ -245,7 +251,8 @@ fun StationPickerSheet(
                                 StationPickerItem(
                                     station = s,
                                     showNorms = false,
-                                    onClick = { onSelect(s) },
+                                    isSelected = s.stationId == selectedStationId,
+                                    onClick = { if (s.stationId == selectedStationId) onClearSelection() else onSelect(s) },
                                     onEdit = { editingStation = s }
                                 )
                                 if (idx < withoutNorms.lastIndex) {
@@ -264,12 +271,14 @@ fun StationPickerSheet(
 private fun StationPickerItem(
     station: StationNorm,
     showNorms: Boolean,
+    isSelected: Boolean,
     onClick: () -> Unit,
     onEdit: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(if (isSelected) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(start = 16.dp, end = if (onEdit != null) 6.dp else 16.dp, top = 14.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically

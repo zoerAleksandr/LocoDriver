@@ -151,7 +151,7 @@ fun SettingsSeriesEditorContent(
     ) {
         // Hint
         Text(
-            text = "Для каждой серии задаются нормы длительности приёмки и сдачи. " +
+            text = "Для каждой серии задаются нормы приёмки и сдачи. " +
                 "Нормы применяются автоматически при заполнении времени в шторке локомотива.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),

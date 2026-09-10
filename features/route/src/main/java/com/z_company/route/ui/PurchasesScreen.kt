@@ -37,6 +37,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -64,6 +65,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.flowWithLifecycle
 import com.robokassa.library.pay.RobokassaPayLauncher
 import com.z_company.core.ui.component.CustomSnackBar
@@ -154,6 +157,10 @@ fun PurchasesScreen(
 ) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val scope = rememberCoroutineScope()
+
+    // true после открытия ссылки оплаты CKassa — при следующем возврате в
+    // приложение (ON_RESUME) поллим статус подписки.
+    var awaitingCkassaReturn by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -287,9 +294,39 @@ fun PurchasesScreen(
                             )
                         )
                     }
+
+                    is BillingEvent.OpenPaymentUrl -> {
+                        // CKassa: открываем хостовую страницу оплаты во внешнем
+                        // браузере. Возврат в приложение ловим по ON_RESUME и
+                        // тогда поллим статус подписки (см. DisposableEffect).
+                        awaitingCkassaReturn = true
+                        try {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, event.url.toUri())
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        } catch (t: Throwable) {
+                            awaitingCkassaReturn = false
+                            snackbarHostState.showSnackbar("Не удалось открыть страницу оплаты")
+                        }
+                    }
                 }
             }
         }
+    }
+
+    // CKassa: оплата идёт во внешнем браузере, поэтому результат ловим не через
+    // ActivityResult, а по возврату в приложение. На ON_RESUME (если мы ждём
+    // возврата с оплаты) запускаем тот же поллинг статуса, что и Robokassa.
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && awaitingCkassaReturn) {
+                awaitingCkassaReturn = false
+                viewModel.checkPaymentOnServer(sdkConfirmed = false)
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
     }
 
     // ── Данные состояния ───────────────────────────────────────────────────

@@ -167,7 +167,7 @@ fun TimeBottomSheet(
             selectedStation = allStations.find { it.stationId == initialStationId }
         }
     }
-    var selectedSeriesName by remember { mutableStateOf(seriesName) }
+    var selectedSeriesName by remember { mutableStateOf(seriesName?.takeIf { it.isNotBlank() }) }
     val selectedSeries: LocomotiveSeries? = allSeries.find { it.name == selectedSeriesName }
     val seriesInRepo = selectedSeries != null
 
@@ -295,24 +295,41 @@ fun TimeBottomSheet(
         else seriesDeliveryMin == null
     }
     val stationEmpty = selectedStation == null
-    // Нормы станции, относящиеся к текущей операции (приёмка/сдача) — их всегда две.
-    // Собираем названия тех интервалов, для которых норма не задана.
+    // Предупреждаем только об отсутствующей основной норме станции. Интервал до/от
+    // КП опционален: если пользователь его не заполнил, КП на этой станции не нужен.
     val stationMissingNorms: List<String> = if (stationEmpty) emptyList()
     else selectedStation!!.let { s ->
         if (kind == "acceptance") buildList {
             if (s.appearanceToStartMin == null) add("от явки до начала приёмки")
-            if (s.endToBarrierMin == null) add("от окончания приёмки до выхода на КП")
         } else buildList {
-            if (s.barrierToStartMin == null) add("от захода на КП до начала сдачи")
             if (s.endToWorkEndMin == null) add("от окончания сдачи до окончания работы")
         }
     }
-    // Для операции нет ни одной нормы станции (обе отсутствуют).
-    val noStationNorm = !stationEmpty && stationMissingNorms.size == 2
+    val noStationNorm = !stationEmpty && stationMissingNorms.isNotEmpty() &&
+        if (kind == "acceptance") selectedStation!!.endToBarrierMin == null
+        else selectedStation!!.barrierToStartMin == null
     // Any filled delivery time field can serve as anchor
     val hasAnchorForDelivery = barrierIn != null || startTime != null || endTime != null || workEnd != null
-    val canApplyNorms = (selectedSeries != null || selectedStation != null) &&
-        (kind == "acceptance" || hasAnchorForDelivery)
+    val hasSeriesNorm = if (kind == "acceptance") seriesAcceptanceMin != null else seriesDeliveryMin != null
+    fun canCalculateFromAcceptance(field: AcceptanceAnchorField): Boolean = when (field) {
+        AcceptanceAnchorField.START_WORK -> routeStartWork != null && selectedStation?.appearanceToStartMin != null
+        AcceptanceAnchorField.START_TIME -> startTime != null && seriesAcceptanceMin != null
+        AcceptanceAnchorField.END_TIME -> endTime != null &&
+            (seriesAcceptanceMin != null || selectedStation?.endToBarrierMin != null)
+        AcceptanceAnchorField.BARRIER_OUT -> barrierOut != null && selectedStation?.endToBarrierMin != null
+    }
+    fun canCalculateFromDelivery(field: DeliveryAnchorField): Boolean = when (field) {
+        DeliveryAnchorField.BARRIER_IN -> barrierIn != null && selectedStation?.barrierToStartMin != null
+        DeliveryAnchorField.START_TIME -> startTime != null && seriesDeliveryMin != null
+        DeliveryAnchorField.END_TIME -> endTime != null &&
+            (seriesDeliveryMin != null || selectedStation?.endToWorkEndMin != null)
+        DeliveryAnchorField.WORK_END -> workEnd != null && selectedStation?.endToWorkEndMin != null
+    }
+    val canApplyNorms = if (kind == "acceptance") {
+        AcceptanceAnchorField.entries.any(::canCalculateFromAcceptance)
+    } else {
+        DeliveryAnchorField.entries.any(::canCalculateFromDelivery)
+    }
 
     /** Sets calculatedWorkEnd, handling the conflict with routeEndWork. */
     fun handleCalculatedWorkEnd(calculatedWorkEnd: Long) {
@@ -335,44 +352,47 @@ fun TimeBottomSheet(
         // Норма «КП → начало сдачи» не задана — не подставляем вычисленное
         // значение в поле «Заход на КП», оставляем прочерк.
         val barrierNormSet = selectedStation?.barrierToStartMin != null
-        val barrierMin = selectedStation?.barrierToStartMin ?: 0
-        val durMin = deliveryMin ?: 0
-        val workEndMin = selectedStation?.endToWorkEndMin ?: 0
+        val barrierMin = selectedStation?.barrierToStartMin
+        val durMin = deliveryMin
+        val workEndMin = selectedStation?.endToWorkEndMin
         when (field) {
             DeliveryAnchorField.BARRIER_IN -> {
                 val anchor = barrierIn ?: return
-                val newStart = anchor + barrierMin * 60_000L
-                val newEnd = newStart + durMin * 60_000L
+                val newStart = barrierMin?.let { anchor + it * 60_000L } ?: return
                 startTime = newStart
-                endTime = newEnd
-                handleCalculatedWorkEnd(newEnd + workEndMin * 60_000L)
+                val newEnd = durMin?.let { newStart + it * 60_000L }
+                if (newEnd != null) {
+                    endTime = newEnd
+                    workEndMin?.let { handleCalculatedWorkEnd(newEnd + it * 60_000L) }
+                }
             }
             DeliveryAnchorField.START_TIME -> {
                 val anchor = startTime ?: return
-                // Forward
-                val newEnd = anchor + durMin * 60_000L
-                endTime = newEnd
-                handleCalculatedWorkEnd(newEnd + workEndMin * 60_000L)
-                // Backward
-                barrierIn = if (barrierNormSet) anchor - barrierMin * 60_000L else null
+                durMin?.let { duration ->
+                    val newEnd = anchor + duration * 60_000L
+                    endTime = newEnd
+                    workEndMin?.let { handleCalculatedWorkEnd(newEnd + it * 60_000L) }
+                }
+                barrierIn = if (barrierNormSet) anchor - barrierMin!! * 60_000L else null
             }
             DeliveryAnchorField.END_TIME -> {
                 val anchor = endTime ?: return
-                // Forward
-                handleCalculatedWorkEnd(anchor + workEndMin * 60_000L)
-                // Backward
-                val newStart = anchor - durMin * 60_000L
-                startTime = newStart
-                barrierIn = if (barrierNormSet) newStart - barrierMin * 60_000L else null
+                workEndMin?.let { handleCalculatedWorkEnd(anchor + it * 60_000L) }
+                durMin?.let { duration ->
+                    val newStart = anchor - duration * 60_000L
+                    startTime = newStart
+                    barrierIn = if (barrierNormSet) newStart - barrierMin!! * 60_000L else null
+                }
             }
             DeliveryAnchorField.WORK_END -> {
-                // Backward from workEnd (use as source — don't update route)
                 val ew = workEnd ?: routeEndWork ?: return
-                val newEnd = ew - workEndMin * 60_000L
-                val newStart = newEnd - durMin * 60_000L
+                val newEnd = workEndMin?.let { ew - it * 60_000L } ?: return
                 endTime = newEnd
-                startTime = newStart
-                barrierIn = if (barrierNormSet) newStart - barrierMin * 60_000L else null
+                durMin?.let { duration ->
+                    val newStart = newEnd - duration * 60_000L
+                    startTime = newStart
+                    barrierIn = if (barrierNormSet) newStart - barrierMin!! * 60_000L else null
+                }
                 workEnd = ew
                 workEndAccepted = false  // source — don't sync to route
             }
@@ -388,8 +408,8 @@ fun TimeBottomSheet(
         askingEmptyHint = false
         accAnchor = field
         appliedHandToHand = normHandToHand
-        val appearMin = selectedStation?.appearanceToStartMin ?: 0
-        val durMin = acceptanceMin ?: 0
+        val appearMin = selectedStation?.appearanceToStartMin
+        val durMin = acceptanceMin
         // Норма «окончание приёмки → КП» не задана — не подставляем
         // вычисленное значение в поле «Выход на КП», оставляем прочерк.
         val barrierNormSet = selectedStation?.endToBarrierMin != null
@@ -397,30 +417,35 @@ fun TimeBottomSheet(
         when (field) {
             AcceptanceAnchorField.START_WORK -> {
                 val base = routeStartWork ?: return
-                val newStart = base + appearMin * 60_000L
-                val newEnd = newStart + durMin * 60_000L
+                val newStart = appearMin?.let { base + it * 60_000L } ?: return
                 startTime = newStart
-                endTime = newEnd
-                barrierOut = if (barrierNormSet) newEnd + barrierMin * 60_000L else null
+                durMin?.let { duration ->
+                    val newEnd = newStart + duration * 60_000L
+                    endTime = newEnd
+                    barrierOut = if (barrierNormSet) newEnd + barrierMin * 60_000L else null
+                }
             }
             AcceptanceAnchorField.START_TIME -> {
                 val anchor = startTime ?: return
-                val newEnd = anchor + durMin * 60_000L
-                endTime = newEnd
-                barrierOut = if (barrierNormSet) newEnd + barrierMin * 60_000L else null
+                durMin?.let { duration ->
+                    val newEnd = anchor + duration * 60_000L
+                    endTime = newEnd
+                    barrierOut = if (barrierNormSet) newEnd + barrierMin * 60_000L else null
+                }
                 // Явку не трогаем.
             }
             AcceptanceAnchorField.END_TIME -> {
                 val anchor = endTime ?: return
                 barrierOut = if (barrierNormSet) anchor + barrierMin * 60_000L else null
-                startTime = anchor - durMin * 60_000L
+                durMin?.let { startTime = anchor - it * 60_000L }
                 // Явку не трогаем.
             }
             AcceptanceAnchorField.BARRIER_OUT -> {
                 val anchor = barrierOut ?: return
+                if (!barrierNormSet) return
                 val newEnd = anchor - barrierMin * 60_000L
                 endTime = newEnd
-                startTime = newEnd - durMin * 60_000L
+                durMin?.let { startTime = newEnd - it * 60_000L }
                 // Явку не трогаем.
             }
         }
@@ -433,17 +458,13 @@ fun TimeBottomSheet(
         if (kind == "acceptance") {
             // Явка всегда присутствует (из маршрута) и служит якорем по умолчанию.
             // Если пользователь заполнил ещё поля — спрашиваем, от какого считать.
-            val anchors = buildList {
-                if (routeStartWork != null) add(AcceptanceAnchorField.START_WORK)
-                if (startTime != null) add(AcceptanceAnchorField.START_TIME)
-                if (endTime != null) add(AcceptanceAnchorField.END_TIME)
-                if (barrierOut != null) add(AcceptanceAnchorField.BARRIER_OUT)
-            }
+            val anchors = AcceptanceAnchorField.entries.filter(::canCalculateFromAcceptance)
             when (anchors.size) {
                 0 -> Unit
                 1 -> {
-                    accAnchor = anchors[0]
-                    applyFromAcceptanceField(anchors[0], acceptanceMin)
+                    val field = anchors[0]
+                    accAnchor = field
+                    applyFromAcceptanceField(field, acceptanceMin)
                     anchorState = DeliveryNormAnchor.FROM_SELECTED
                 }
                 else -> {
@@ -452,19 +473,12 @@ fun TimeBottomSheet(
                 }
             }
         } else {
-            val filled = listOfNotNull(barrierIn, startTime, endTime, workEnd)
-            when (filled.size) {
+            val anchors = DeliveryAnchorField.entries.filter(::canCalculateFromDelivery)
+            when (anchors.size) {
                 0 -> Unit  // button should be inactive
                 1 -> {
                     // Single anchor — direct calculation, no banner
-                    val field = when {
-                        barrierIn != null -> DeliveryAnchorField.BARRIER_IN
-                        startTime != null -> DeliveryAnchorField.START_TIME
-                        endTime != null -> DeliveryAnchorField.END_TIME
-                        workEnd != null -> DeliveryAnchorField.WORK_END
-                        else -> return
-                    }
-                    applyFromField(field, deliveryMin)
+                    applyFromField(anchors[0], deliveryMin)
                     anchorState = DeliveryNormAnchor.FROM_SELECTED
                 }
                 else -> {
@@ -639,7 +653,14 @@ fun TimeBottomSheet(
         onSelect = { st -> selectedStation = st; showStationPicker = false; stationPickerAutoEdit = null },
         onClose = { showStationPicker = false; stationPickerAutoEdit = null },
         onNavigateToSettings = { showStationPicker = false; onClose(); onNavigateToStationSettings() },
-        initialEditStation = stationPickerAutoEdit
+        initialEditStation = stationPickerAutoEdit,
+        selectedStationId = selectedStation?.stationId,
+        onClearSelection = {
+            selectedStation = null
+            onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, null))
+            showStationPicker = false
+            stationPickerAutoEdit = null
+        },
     )
     if (showSeriesPicker) SeriesPickerSheet(
         onSelect = { s ->
@@ -650,7 +671,14 @@ fun TimeBottomSheet(
         },
         onClose = { showSeriesPicker = false; seriesPickerAutoEdit = null },
         onNavigateToSettings = { showSeriesPicker = false; onClose(); onNavigateToSeriesSettings() },
-        initialEditSeries = seriesPickerAutoEdit
+        initialEditSeries = seriesPickerAutoEdit,
+        selectedSeriesId = selectedSeries?.seriesId,
+        onClearSelection = {
+            selectedSeriesName = null
+            onSeriesChanged?.invoke("")
+            showSeriesPicker = false
+            seriesPickerAutoEdit = null
+        },
     )
 
     // ── Sheet ──
@@ -773,17 +801,32 @@ fun TimeBottomSheet(
                 when {
                     selectedSeriesName == null ->
                         add(WarnItem("Серия не выбрана",
-                            "Выберите серию, чтобы применить нормы длительности",
+                            "Выберите серию, чтобы применить нормы",
                             null, true))
                     noSeriesNorm ->
                         add(WarnItem("Нет нормы для серии $selectedSeriesName", null, "Настроить серию", true))
                 }
-                if (stationEmpty)
-                    add(WarnItem(
-                        "Станция ${if (kind == "acceptance") "приёмки" else "сдачи"} не выбрана",
-                        "Выберите станцию, чтобы применить нормы интервалов",
-                        null, false
-                    ))
+                if (stationEmpty && selectedSeriesName != null) {
+                    if (kind == "acceptance" && startTime != null && hasSeriesNorm) {
+                        add(WarnItem(
+                            "Будет рассчитано только время приёмки",
+                            "Чтобы применить нормы станции, выберите станцию",
+                            null, false
+                        ))
+                    } else if (kind == "acceptance") {
+                        add(WarnItem(
+                            "Укажите время начала / окончания приёмки или выберите станцию",
+                            "Начало нужно для расчёта времени приёмки по норме локомотива",
+                            null, false
+                        ))
+                    } else {
+                        add(WarnItem(
+                            "Станция сдачи не выбрана",
+                            "Выберите станцию или укажите начало / окончание сдачи локомотива",
+                            null, false
+                        ))
+                    }
+                }
                 else if (noStationNorm)
                     add(WarnItem("Нет нормы для станции ${selectedStation!!.name}", null, "Настроить станцию", false, dismissible = true))
                 else if (stationMissingNorms.isNotEmpty())
@@ -791,7 +834,7 @@ fun TimeBottomSheet(
                     // Расчёт остаётся доступным, интервал считается нулевым.
                     add(WarnItem(
                         "Нет нормы времени: ${stationMissingNorms.joinToString(", ")}",
-                        "Расчёт выполнится без этого интервала",
+                        "Расчёт выполнится без этой нормы",
                         "Настроить станцию", false, dismissible = true
                     ))
                 // Task 3: delivery with norms set but no anchor at all
@@ -877,23 +920,21 @@ fun TimeBottomSheet(
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 if (kind == "acceptance") {
                     // При ASKING строки мигают и по тапу выбирают якорь расчёта.
-                    fun onAccTap(field: AcceptanceAnchorField, hasTime: Boolean) {
-                        if (asking) {
-                            if (hasTime) {
-                                accAnchor = field
-                                applyFromAcceptanceField(field)
-                                anchorState = DeliveryNormAnchor.FROM_SELECTED
-                            } else askingEmptyHint = true
+                    fun onAccTap(field: AcceptanceAnchorField) {
+                        if (asking && canCalculateFromAcceptance(field)) {
+                            accAnchor = field
+                            applyFromAcceptanceField(field)
+                            anchorState = DeliveryNormAnchor.FROM_SELECTED
                         }
                     }
                     SheetTimeRowItem(
                         label = "Явка", time = fmtTime(routeStartWork), delta = null,
                         isFirst = true, isLocked = true, sequenceError = false,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        highlightAlpha = highlightAlpha,
-                        allowClickWhenLocked = asking,
-                        onClick = if (asking) {
-                            { onAccTap(AcceptanceAnchorField.START_WORK, routeStartWork != null) }
+                        highlightAlpha = if (asking && canCalculateFromAcceptance(AcceptanceAnchorField.START_WORK)) highlightAlpha else 0f,
+                        allowClickWhenLocked = asking && canCalculateFromAcceptance(AcceptanceAnchorField.START_WORK),
+                        onClick = if (asking && canCalculateFromAcceptance(AcceptanceAnchorField.START_WORK)) {
+                            { onAccTap(AcceptanceAnchorField.START_WORK) }
                         } else null
                     )
                     RowConnector()
@@ -903,8 +944,10 @@ fun TimeBottomSheet(
                         isFirst = false, isLocked = false,
                         sequenceError = startTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        highlightAlpha = highlightAlpha,
-                        onClick = { if (asking) onAccTap(AcceptanceAnchorField.START_TIME, startTime != null) else showStartPicker = true },
+                        highlightAlpha = if (asking && canCalculateFromAcceptance(AcceptanceAnchorField.START_TIME)) highlightAlpha else 0f,
+                        onClick = if (asking) {
+                            if (canCalculateFromAcceptance(AcceptanceAnchorField.START_TIME)) { { onAccTap(AcceptanceAnchorField.START_TIME) } } else null
+                        } else { { showStartPicker = true } },
                         onLongClick = { if (startTime != null) pendingTimeDelete = PendingTimeDelete("Начало приёмки") { startTime = null } }
                     )
                     RowConnector()
@@ -914,8 +957,10 @@ fun TimeBottomSheet(
                         isFirst = false, isLocked = false,
                         sequenceError = endTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        highlightAlpha = highlightAlpha,
-                        onClick = { if (asking) onAccTap(AcceptanceAnchorField.END_TIME, endTime != null) else showEndPicker = true },
+                        highlightAlpha = if (asking && canCalculateFromAcceptance(AcceptanceAnchorField.END_TIME)) highlightAlpha else 0f,
+                        onClick = if (asking) {
+                            if (canCalculateFromAcceptance(AcceptanceAnchorField.END_TIME)) { { onAccTap(AcceptanceAnchorField.END_TIME) } } else null
+                        } else { { showEndPicker = true } },
                         onLongClick = { if (endTime != null) pendingTimeDelete = PendingTimeDelete("Окончание приёмки") { endTime = null } }
                     )
                     RowConnector()
@@ -925,20 +970,18 @@ fun TimeBottomSheet(
                         isFirst = false, isLocked = false,
                         sequenceError = barrierOutError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        highlightAlpha = highlightAlpha,
-                        onClick = { if (asking) onAccTap(AcceptanceAnchorField.BARRIER_OUT, barrierOut != null) else showBarrierOutPicker = true },
+                        highlightAlpha = if (asking && canCalculateFromAcceptance(AcceptanceAnchorField.BARRIER_OUT)) highlightAlpha else 0f,
+                        onClick = if (asking) {
+                            if (canCalculateFromAcceptance(AcceptanceAnchorField.BARRIER_OUT)) { { onAccTap(AcceptanceAnchorField.BARRIER_OUT) } } else null
+                        } else { { showBarrierOutPicker = true } },
                         onLongClick = { if (barrierOut != null) pendingTimeDelete = PendingTimeDelete("Выход на КП") { barrierOut = null } }
                     )
                 } else {
-                    // Delivery — all 4 rows blink via highlightAlpha when ASKING
-                    fun onRowTap(field: DeliveryAnchorField, hasTime: Boolean) {
-                        if (asking) {
-                            if (hasTime) {
-                                applyFromField(field)
-                                anchorState = DeliveryNormAnchor.FROM_SELECTED
-                            } else {
-                                askingEmptyHint = true
-                            }
+                    // Мигают только заполненные якоря, от которых возможен расчёт.
+                    fun onRowTap(field: DeliveryAnchorField) {
+                        if (asking && canCalculateFromDelivery(field)) {
+                            applyFromField(field)
+                            anchorState = DeliveryNormAnchor.FROM_SELECTED
                         }
                     }
 
@@ -946,11 +989,10 @@ fun TimeBottomSheet(
                         label = "Заход на КП", time = fmtTime(barrierIn), delta = null,
                         isFirst = true, isLocked = false, sequenceError = false,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        highlightAlpha = highlightAlpha,
-                        onClick = {
-                            if (asking) onRowTap(DeliveryAnchorField.BARRIER_IN, barrierIn != null)
-                            else showBarrierInPicker = true
-                        },
+                        highlightAlpha = if (asking && canCalculateFromDelivery(DeliveryAnchorField.BARRIER_IN)) highlightAlpha else 0f,
+                        onClick = if (asking) {
+                            if (canCalculateFromDelivery(DeliveryAnchorField.BARRIER_IN)) { { onRowTap(DeliveryAnchorField.BARRIER_IN) } } else null
+                        } else { { showBarrierInPicker = true } },
                         onLongClick = { if (barrierIn != null) pendingTimeDelete = PendingTimeDelete("Заход на КП") { barrierIn = null } }
                     )
                     RowConnector()
@@ -960,11 +1002,10 @@ fun TimeBottomSheet(
                         isFirst = false, isLocked = false,
                         sequenceError = startTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        highlightAlpha = highlightAlpha,
-                        onClick = {
-                            if (asking) onRowTap(DeliveryAnchorField.START_TIME, startTime != null)
-                            else showStartPicker = true
-                        },
+                        highlightAlpha = if (asking && canCalculateFromDelivery(DeliveryAnchorField.START_TIME)) highlightAlpha else 0f,
+                        onClick = if (asking) {
+                            if (canCalculateFromDelivery(DeliveryAnchorField.START_TIME)) { { onRowTap(DeliveryAnchorField.START_TIME) } } else null
+                        } else { { showStartPicker = true } },
                         onLongClick = { if (startTime != null) pendingTimeDelete = PendingTimeDelete("Начало сдачи") { startTime = null } }
                     )
                     RowConnector()
@@ -974,11 +1015,10 @@ fun TimeBottomSheet(
                         isFirst = false, isLocked = false,
                         sequenceError = endTimeError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        highlightAlpha = highlightAlpha,
-                        onClick = {
-                            if (asking) onRowTap(DeliveryAnchorField.END_TIME, endTime != null)
-                            else showEndPicker = true
-                        },
+                        highlightAlpha = if (asking && canCalculateFromDelivery(DeliveryAnchorField.END_TIME)) highlightAlpha else 0f,
+                        onClick = if (asking) {
+                            if (canCalculateFromDelivery(DeliveryAnchorField.END_TIME)) { { onRowTap(DeliveryAnchorField.END_TIME) } } else null
+                        } else { { showEndPicker = true } },
                         onLongClick = { if (endTime != null) pendingTimeDelete = PendingTimeDelete("Окончание сдачи") { endTime = null } }
                     )
                     RowConnector()
@@ -988,7 +1028,7 @@ fun TimeBottomSheet(
                         isFirst = false, isLocked = false,
                         sequenceError = workEndError,
                         iconRes = com.z_company.route.R.drawable.check_circle_24px,
-                        highlightAlpha = highlightAlpha,
+                        highlightAlpha = if (asking && canCalculateFromDelivery(DeliveryAnchorField.WORK_END)) highlightAlpha else 0f,
                         pendingTimeText = pendingEndWorkUpdate?.let { fmtTime(it) },
                         onPendingAccept = {
                             val newVal = pendingEndWorkUpdate
@@ -998,10 +1038,9 @@ fun TimeBottomSheet(
                             // Task 5: immediately sync to route
                             if (newVal != null) onTimeEndWorkChanged?.invoke(newVal)
                         },
-                        onClick = {
-                            if (asking) onRowTap(DeliveryAnchorField.WORK_END, workEnd != null)
-                            else if (pendingEndWorkUpdate == null) showWorkEndPicker = true
-                        },
+                        onClick = if (asking) {
+                            if (canCalculateFromDelivery(DeliveryAnchorField.WORK_END)) { { onRowTap(DeliveryAnchorField.WORK_END) } } else null
+                        } else { { if (pendingEndWorkUpdate == null) showWorkEndPicker = true } },
                         onLongClick = {
                             if (workEnd != null) pendingTimeDelete = PendingTimeDelete("Окончание работы") {
                                 workEnd = null
@@ -1106,9 +1145,9 @@ fun TimeBottomSheet(
             }
 
             // ── «Рассчитать время» — применение норм ПЗВ ──
-            // Кнопка активна, даже если часть норм станции не задана — недостающий
-            // интервал просто считается нулевым, пользователю он может быть не нужен.
-            val normsActive = canApplyNorms && !noSeriesNorm && !stationEmpty
+            // Кнопка активна, если доступен хотя бы один независимый участок расчёта.
+            // Отсутствующие нормы не подменяются нулевыми интервалами.
+            val normsActive = canApplyNorms
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1119,7 +1158,7 @@ fun TimeBottomSheet(
                         if (normsActive) Modifier.border(0.dp, Color.Transparent, RoundedCornerShape(12.dp))
                         else Modifier.border(1.dp, borderColor(), RoundedCornerShape(12.dp))
                     )
-                    .clickable(enabled = canApplyNorms) { applyNorms() }
+                    .clickable(enabled = normsActive) { applyNorms() }
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center
             ) {

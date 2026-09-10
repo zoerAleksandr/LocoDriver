@@ -940,11 +940,9 @@ private fun TimeSummaryRow(
             )
         }
 
+        // Значения времени оформлены так же, как серия и номер локомотива.
         val timeStyle = MaterialTheme.typography.bodyLarge.copy(
-            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-            fontSize = 18.sp,
-            lineHeight = 18.sp
+            fontFamily = com.z_company.core.ui.theme.MonoFont
         )
         val captionStyle = MaterialTheme.typography.labelSmall.copy(
             letterSpacing = androidx.compose.ui.unit.TextUnit(0.8f, androidx.compose.ui.unit.TextUnitType.Sp),
