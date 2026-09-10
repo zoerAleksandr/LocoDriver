@@ -973,11 +973,8 @@ fun HomeScreen(
                                     onClick = onStatistics,
                                 ),
                             state = pagerState,
-                            // verticalAlignment=Top + Card.wrapContentHeight(Align.Top)
-                            // не дают карточке растягиваться на высоту самой
-                            // высокой страницы пейджера (иначе MainInfo с 2-мя
-                            // строками выглядит с пустым местом снизу из-за того,
-                            // что DetailWorkTimeCard выше).
+                            // Все страницы содержат по три строки, поэтому
+                            // высота пейджера остаётся постоянной при свайпе.
                             verticalAlignment = Alignment.Top
                         ) { page ->
                             when (page) {
@@ -2027,13 +2024,13 @@ fun MainInfo(
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                 currentMonthOfYear?.let { month ->
+                    val normaHoursInMonth =
+                        normaHours ?: month.getPersonalNormaHours()
                     Column(
                         modifier = Modifier
                             .fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        val normaHoursInMonth =
-                            normaHours ?: month.getPersonalNormaHours()
                         val percent =
                             ((totalTime * 100).toFloat() / (normaHoursInMonth * 3_600_000L).toFloat()) / 100f
 
@@ -2120,12 +2117,12 @@ fun MainInfo(
                             progress = { percentNormaInDay },
                         )
                     }
-                    if (isConsiderFutureRoute) {
-                        Spacer(modifier = Modifier.height(7.dp))
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
+                    Spacer(modifier = Modifier.height(7.dp))
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        if (isConsiderFutureRoute) {
                             val currentTime = Calendar.getInstance()
                             val normaHoursToday = month.getNormaHoursInDate(currentTime.timeInMillis)
                             val percentTodayWorked = (todayWorkTime.toFloat() / (normaHoursToday * 3_600_000L).coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
@@ -2155,6 +2152,39 @@ fun MainInfo(
                                 gapSize = 4.dp,
                                 drawStopIndicator = {},
                                 progress = { percentTodayWorked },
+                            )
+                        } else {
+                            val normaMillis = normaHoursInMonth.toLong() * 3_600_000L
+                            val difference = kotlin.math.abs(normaMillis - totalTime)
+                            val balanceProgress =
+                                (difference.toFloat() / normaMillis.coerceAtLeast(1L).toFloat())
+                                    .coerceIn(0f, 1f)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (totalTime > normaMillis) "Сверх нормы" else "Осталось до нормы",
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f),
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = convertTimeToString(difference),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth().height(4.dp),
+                                trackColor = MaterialTheme.colorScheme.outlineVariant,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                gapSize = 4.dp,
+                                drawStopIndicator = {},
+                                progress = { balanceProgress },
                             )
                         }
                     }
