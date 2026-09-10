@@ -465,6 +465,11 @@ class FormViewModel(
             val deferredMoneyAtPassengerTime = async {
                 salaryCalculationHelper.getMoneyAtPassengerFlow().first()
             }
+            // Ожидание следования пассажиром — по тарифу, отдельно от работы (в
+            // «работу по тарифу» больше не входит).
+            val deferredMoneyAtPassengerWaiting = async {
+                salaryCalculationHelper.getMoneyAtPassengerWaitingFlow().first()
+            }
             // Оплата проезда пассажиром до явки — по тарифу, отдельно от работы.
             val deferredMoneyAtPassengerOutside = async {
                 salaryCalculationHelper.getMoneyAtPassengerOutsideWorkFlow().first()
@@ -583,6 +588,7 @@ class FormViewModel(
             val moneyAtNightHours = deferredMoneyAtNightHours.await()
             val zonalSurchargeMoney = deferredZonalSurchargeMoney.await()
             val moneyAtPassengerTime = deferredMoneyAtPassengerTime.await()
+            val moneyAtPassengerWaiting = deferredMoneyAtPassengerWaiting.await()
             val moneyAtPassengerOutside = deferredMoneyAtPassengerOutside.await()
             val moneyAtHoliday = deferredMoneyAtHoliday.await()
             val linearMileageDistance = deferredLinearMileageDistance.await()
@@ -651,7 +657,7 @@ class FormViewModel(
             }
 
             val totalMoney =
-                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtPassengerOutside + moneyAtHoliday + linearMileageMoney + surchargeAtTrains + moneyAtOnePerson + otherSurcharge + overRestMoney + businessTripMoney
+                moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney + moneyAtPassengerTime + moneyAtPassengerWaiting + moneyAtPassengerOutside + moneyAtHoliday + linearMileageMoney + surchargeAtTrains + moneyAtOnePerson + otherSurcharge + overRestMoney + businessTripMoney
 
             // Логи (оставляем как есть)
             Log.d("zzz", "moneyAtTariffRate $moneyAtTariffRate")

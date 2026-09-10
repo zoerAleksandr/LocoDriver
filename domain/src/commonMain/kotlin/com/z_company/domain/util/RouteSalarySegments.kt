@@ -42,6 +42,14 @@ fun Route.buildSalarySegments(
     val passengerIntervals = passengers.mapNotNull { passenger ->
         validInterval(passenger.timeDeparture, passenger.timeArrival)?.intersect(workInterval)
     }
+    // «Ожидание следования пассажиром»: остаток рабочего времени, СТРОГО
+    // примыкающий концом к отправлению пассажиром внутри смены (сдал локомотив →
+    // ждёт → поехал пассажиром). Считается только при наличии следования
+    // пассажиром — в чисто грузовом маршруте ожидание отсутствует.
+    val passengerWaitingIntervals = passengerWaitingIntervals(
+        workInterval = workInterval,
+        breakInterval = breakInterval,
+    )
     val nightIntervals = nightWindow?.let { window ->
         CalculateNightTime.getNightIntervals(
             startMillis = start,
@@ -94,6 +102,9 @@ fun Route.buildSalarySegments(
         if (nightIntervals.isNotEmpty()) put(AccrualCondition.NIGHT, nightIntervals)
         if (holidayIntervals.isNotEmpty()) put(AccrualCondition.HOLIDAY, holidayIntervals)
         if (passengerIntervals.isNotEmpty()) put(AccrualCondition.PASSENGER, passengerIntervals)
+        if (passengerWaitingIntervals.isNotEmpty()) {
+            put(AccrualCondition.PASSENGER_WAITING, passengerWaitingIntervals)
+        }
         if (freightOnePersonIntervals.isNotEmpty()) {
             put(AccrualCondition.ONE_PERSON_FREIGHT, freightOnePersonIntervals)
         }
@@ -190,6 +201,54 @@ fun Route.buildTieredTrainSurchargeSegments(
             }
         }
     }
+}
+
+/**
+ * Интервалы «ожидания следования пассажиром» — непокрытый остаток рабочего
+ * времени, примыкающий концом к моменту отправления пассажиром (внутри смены).
+ *
+ * Покрытием считаются: работа на локомотиве (от начала приёмки до конца сдачи),
+ * следование с поездом (первое отправление — последнее прибытие) и следование
+ * пассажиром. Перерыв исключается (он не оплачивается). Из полученного остатка
+ * берутся только куски, чей конец совпадает с отправлением пассажиром — то есть
+ * время «строго перед» посадкой пассажиром. Крайние остатки (подготовительно-
+ * заключительное время) и остатки без последующего следования пассажиром
+ * ожиданием не считаются и остаются обычной работой по тарифу.
+ */
+private fun Route.passengerWaitingIntervals(
+    workInterval: TimeInterval,
+    breakInterval: TimeInterval?,
+): List<TimeInterval> {
+    // Отправления пассажиром внутри смены — границы, к которым примыкает ожидание.
+    val passengerWithinWork = passengers
+        .filterNot { it.isWorkStartByArrival }
+        .mapNotNull { validInterval(it.timeDeparture, it.timeArrival)?.intersect(workInterval) }
+    if (passengerWithinWork.isEmpty()) return emptyList()
+    val passengerDepartures = passengerWithinWork.map { it.startMillis }.toSet()
+
+    // Работа на локомотиве: от начала приёмки до конца сдачи; если заданы не все
+    // отметки — используем доступные подынтервалы приёмки/сдачи по отдельности.
+    val locomotiveIntervals = locomotives.flatMap { loco ->
+        listOfNotNull(
+            validInterval(loco.timeStartOfAcceptance, loco.timeEndOfDelivery),
+            validInterval(loco.timeStartOfAcceptance, loco.timeEndOfAcceptance),
+            validInterval(loco.timeStartOfDelivery, loco.timeEndOfDelivery),
+        )
+    }.mapNotNull { it.intersect(workInterval) }
+
+    val trainFollowingIntervals = trains.mapNotNull { train ->
+        validInterval(
+            train.stations.firstOrNull()?.timeDeparture,
+            train.stations.lastOrNull()?.timeArrival,
+        )?.intersect(workInterval)
+    }
+
+    val coveredIntervals = (locomotiveIntervals + trainFollowingIntervals + passengerWithinWork)
+        .mergeTimeIntervals()
+    val exclusions = coveredIntervals + listOfNotNull(breakInterval)
+
+    return workInterval.subtractAll(exclusions)
+        .filter { it.endMillis in passengerDepartures }
 }
 
 private fun Route.trainIntervals(

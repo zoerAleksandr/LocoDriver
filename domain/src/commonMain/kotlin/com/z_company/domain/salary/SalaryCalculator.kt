@@ -254,19 +254,18 @@ class SalaryCalculationHelper(
         val otherSurchargeEnabled =
             salarySetting.otherSurcharge.nonNegativeFiniteOrZero() > 0.0
         segments.map { segment ->
+            val isPassenger = AccrualCondition.PASSENGER in segment.conditions
+            val isPassengerWaiting = AccrualCondition.PASSENGER_WAITING in segment.conditions
             val additionalConditions = buildSet {
+                // Вредность (4%) начисляется и на следование, и на ожидание пассажиром.
                 if (harmfulnessEnabled) add(AccrualCondition.HARMFUL)
-                if (zonalEnabled) add(AccrualCondition.ZONAL)
-                if (
-                    qualificationClassEnabled &&
-                    AccrualCondition.PASSENGER !in segment.conditions
-                ) {
+                // Зональная надбавка — на следование пассажиром начисляется, на
+                // ожидание следования пассажиром НЕ начисляется (памятка, п. 1.4).
+                if (zonalEnabled && !isPassengerWaiting) add(AccrualCondition.ZONAL)
+                if (qualificationClassEnabled && !isPassenger && !isPassengerWaiting) {
                     add(AccrualCondition.QUALIFICATION_CLASS)
                 }
-                if (
-                    otherSurchargeEnabled &&
-                    AccrualCondition.PASSENGER !in segment.conditions
-                ) {
+                if (otherSurchargeEnabled && !isPassenger && !isPassengerWaiting) {
                     add(AccrualCondition.OTHER_SURCHARGE)
                 }
             }
@@ -328,7 +327,10 @@ class SalaryCalculationHelper(
             if (tierIndex >= 0) {
                 result[tierIndex].addAll(
                     salarySegments(listOf(route))
-                        .filter { AccrualCondition.PASSENGER !in it.conditions },
+                        .filter {
+                            AccrualCondition.PASSENGER !in it.conditions &&
+                                    AccrualCondition.PASSENGER_WAITING !in it.conditions
+                        },
                 )
             }
         }
@@ -387,12 +389,13 @@ class SalaryCalculationHelper(
             val personalNormaHoursInLong = getPersonalNormaInLong()
             val totalWorkTime = getTotalWorkTime(routeList).first()
             val passengerTime = getPassengerTime(routeList)
+            val passengerWaitingTime = getPassengerWaitingTime(routeList)
             val singleLocoTime = getSingleLocomotiveTime(routeList)
             val paymentHolidayHours = getHolidayTime(routeList)
             val overtime = getOvertime(totalWorkTime = totalWorkTime, holidayTime = paymentHolidayHours, personalNormaHoursInLong =  personalNormaHoursInLong, )
 
             var result =
-                totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours - overtime
+                totalWorkTime - passengerTime - passengerWaitingTime - singleLocoTime - paymentHolidayHours - overtime
             if (result < 0) result = 0
             trySend(result)
             awaitClose()
@@ -404,11 +407,12 @@ class SalaryCalculationHelper(
 
             val totalWorkTime = getTotalWorkTime().first()
             val passengerTime = getPassengerTime(routeList)
+            val passengerWaitingTime = getPassengerWaitingTime(routeList)
             val singleLocoTime = getSingleLocomotiveTime(routeList)
             val paymentHolidayHours = getHolidayTime(routeList)
 
             var result =
-                totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours
+                totalWorkTime - passengerTime - passengerWaitingTime - singleLocoTime - paymentHolidayHours
             if (result < 0) result = 0
             trySend(result)
             awaitClose()
@@ -424,12 +428,13 @@ class SalaryCalculationHelper(
             val personalNormaHoursInLong = getPersonalNormaHoursToPeriod(period)
             val totalWorkTime = getTotalWorkTime(routeList).first()
             val passengerTime = getPassengerTime(routeList)
+            val passengerWaitingTime = getPassengerWaitingTime(routeList)
             val singleLocoTime = getSingleLocomotiveTime(routeList)
             val paymentHolidayHours = getHolidayTime(routeList)
             val overtime = getOvertime(totalWorkTime = totalWorkTime, holidayTime = paymentHolidayHours, personalNormaHoursInLong = personalNormaHoursInLong)
 
             var result =
-                totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours - overtime
+                totalWorkTime - passengerTime - passengerWaitingTime - singleLocoTime - paymentHolidayHours - overtime
             if (result < 0) result = 0
 
             trySend(result)
@@ -446,11 +451,12 @@ class SalaryCalculationHelper(
 
                 val totalWorkTime = getTotalWorkTime(routeList).first()
                 val passengerTime = getPassengerTime(routeList)
+                val passengerWaitingTime = getPassengerWaitingTime(routeList)
                 val singleLocoTime = getSingleLocomotiveTime(routeList)
                 val paymentHolidayHours = getHolidayTime(routeList)
 
                 var result =
-                    totalWorkTime - passengerTime - singleLocoTime - paymentHolidayHours
+                    totalWorkTime - passengerTime - passengerWaitingTime - singleLocoTime - paymentHolidayHours
                 if (result < 0) result = 0
 
                 trySend(result)
@@ -577,6 +583,24 @@ class SalaryCalculationHelper(
         return flow {
             emit(salarySegments()
                 .filter { AccrualCondition.PASSENGER in it.conditions }
+                .sumOf { it.tariffMoney })
+        }
+    }
+
+    // Ожидание следования пассажиром — остаток рабочего времени строго перед
+    // отправлением пассажиром. Оплачивается по тарифу (как следование), но без
+    // зональной надбавки, премии ПХД и допремирования (памятка, п. 1.4).
+    fun getPassengerWaitingTimeFlow(routes: List<Route> = routeList): Flow<Long> {
+        return channelFlow {
+            trySend(getPassengerWaitingTime(routes))
+            awaitClose()
+        }
+    }
+
+    fun getMoneyAtPassengerWaitingFlow(): Flow<Double> {
+        return flow {
+            emit(salarySegments()
+                .filter { AccrualCondition.PASSENGER_WAITING in it.conditions }
                 .sumOf { it.tariffMoney })
         }
     }
@@ -879,7 +903,10 @@ class SalaryCalculationHelper(
 
     fun getTimeZonalSurchargeFlow(routes: List<Route> = routeList): Flow<Long> {
         return flow {
-            val insideAndWorking = salarySegments(routes).sumOf { it.interval.durationMillis }
+            // Ожидание следования пассажиром в базу зональной надбавки не входит.
+            val insideAndWorking = salarySegments(routes)
+                .filter { AccrualCondition.PASSENGER_WAITING !in it.conditions }
+                .sumOf { it.interval.durationMillis }
             val passengerBeforeWork = routes.getPassengerTimeOutsideWork(
                 currentMonthOfYear,
                 timeCalculationContext,
@@ -891,7 +918,10 @@ class SalaryCalculationHelper(
     fun getMoneyZonalSurchargeFlow(): Flow<Double> {
         return flow {
             val percent = getPercentZonalSurchargeFlow().first()
-            val insideAndWorking = salarySegments().sumOf { it.tariffMoney }
+            // Ожидание следования пассажиром в базу зональной надбавки не входит.
+            val insideAndWorking = salarySegments()
+                .filter { AccrualCondition.PASSENGER_WAITING !in it.conditions }
+                .sumOf { it.tariffMoney }
             val passengerBeforeWork = getMoneyAtPassengerOutsideWorkFlow().first()
             emit((insideAndWorking + passengerBeforeWork) * percent / 100)
         }
@@ -1526,6 +1556,7 @@ class SalaryCalculationHelper(
         return flow {
             val paymentAtTariffMoney = getMoneyAtWorkTimeAtTariff().first()
             val paymentAtPassengerMoney = getMoneyAtPassengerFlow().first()
+            val paymentAtPassengerWaitingMoney = getMoneyAtPassengerWaitingFlow().first()
             val paymentAtSingleLocomotiveMoney = getMoneyAtSingleLocomotiveFlow().first()
             val zonalSurchargeMoney = getMoneyZonalSurchargeFlow().first()
             val paymentNightTimeMoney = getMoneyAtNightTimeFlow().first()
@@ -1546,7 +1577,8 @@ class SalaryCalculationHelper(
             val surchargeDoubledTrainFirst = getMoneyDoubledTrainFirstSurchargeFlow().first()
             val surchargeDoubledTrainSecond = getMoneyDoubledTrainSecondSurchargeFlow().first()
             val basicMoney = listOf(
-                paymentAtTariffMoney, paymentAtPassengerMoney, paymentAtSingleLocomotiveMoney,
+                paymentAtTariffMoney, paymentAtPassengerMoney, paymentAtPassengerWaitingMoney,
+                paymentAtSingleLocomotiveMoney,
                 zonalSurchargeMoney, paymentNightTimeMoney, surchargeQualificationClassMoney,
                 surchargeExtendedServicePhaseMoney, surchargeOnePersonOperationMoney,
                 surchargeOnePersonOperationPassengerTrainFlow, surchargeHarmfulnessSurchargeMoney,
@@ -1580,7 +1612,10 @@ class SalaryCalculationHelper(
 
         val overtimeSegments = selectLatestOvertimeSegments(
             workSegments = salarySegments()
-                .filter { AccrualCondition.PASSENGER !in it.conditions },
+                .filter {
+                    AccrualCondition.PASSENGER !in it.conditions &&
+                            AccrualCondition.PASSENGER_WAITING !in it.conditions
+                },
             overtimeDurationMillis = overtime,
         )
         val breakdown = calculateOvertimeBreakdown(
@@ -1655,6 +1690,10 @@ class SalaryCalculationHelper(
         .filter { AccrualCondition.PASSENGER in it.conditions }
         .sumOf { it.interval.durationMillis }
 
+    private fun getPassengerWaitingTime(routeList: List<Route>) = salarySegments(routeList)
+        .filter { AccrualCondition.PASSENGER_WAITING in it.conditions }
+        .sumOf { it.interval.durationMillis }
+
     private fun getSingleLocomotiveTime(routeList: List<Route>) =
         routeList.getSingleLocomotiveTime()
 
@@ -1686,5 +1725,8 @@ class SalaryCalculationHelper(
     }
 
     private fun basicSurchargeSegments(routes: List<Route> = routeList) = salarySegments(routes)
-        .filter { AccrualCondition.PASSENGER !in it.conditions }
+        .filter {
+            AccrualCondition.PASSENGER !in it.conditions &&
+                    AccrualCondition.PASSENGER_WAITING !in it.conditions
+        }
 }

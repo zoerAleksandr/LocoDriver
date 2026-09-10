@@ -17,6 +17,8 @@ data class SalaryCalculationUIState(
     val paymentAtTariffMoney: Double? = null,
     val paymentAtPassengerHours: Long? = null,
     val paymentAtPassengerMoney: Double? = null,
+    val paymentAtPassengerWaitingHours: Long? = null,
+    val paymentAtPassengerWaitingMoney: Double? = null,
     val paymentAtSingleLocomotiveHours: Long? = null,
     val paymentAtSingleLocomotiveMoney: Double? = null,
     val paymentHolidayHours: Long? = null,

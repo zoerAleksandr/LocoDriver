@@ -175,6 +175,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                     async { setNightTimeData(salarySetting, salaryCalculationHelper) },
                     async { setSingleLocomotiveData(salaryCalculationHelper) },
                     async { setPassengerData(salaryCalculationHelper) },
+                    async { setPassengerWaitingData(salaryCalculationHelper) },
                     async { setHolidayData(salaryCalculationHelper) },
                     async {
                         setQualificationClassSurchargeData(
@@ -228,6 +229,10 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                             ?: acc.paymentAtPassengerHours,
                         paymentAtPassengerMoney = partial.paymentAtPassengerMoney
                             ?: acc.paymentAtPassengerMoney,
+                        paymentAtPassengerWaitingHours = partial.paymentAtPassengerWaitingHours
+                            ?: acc.paymentAtPassengerWaitingHours,
+                        paymentAtPassengerWaitingMoney = partial.paymentAtPassengerWaitingMoney
+                            ?: acc.paymentAtPassengerWaitingMoney,
                         paymentAtSingleLocomotiveHours = partial.paymentAtSingleLocomotiveHours
                             ?: acc.paymentAtSingleLocomotiveHours,
                         paymentAtSingleLocomotiveMoney = partial.paymentAtSingleLocomotiveMoney
@@ -378,6 +383,8 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         paymentAtTariffMoney = combinedPartial.paymentAtTariffMoney,
                         paymentAtPassengerHours = combinedPartial.paymentAtPassengerHours,
                         paymentAtPassengerMoney = combinedPartial.paymentAtPassengerMoney,
+                        paymentAtPassengerWaitingHours = combinedPartial.paymentAtPassengerWaitingHours,
+                        paymentAtPassengerWaitingMoney = combinedPartial.paymentAtPassengerWaitingMoney,
                         paymentAtSingleLocomotiveHours = combinedPartial.paymentAtSingleLocomotiveHours,
                         paymentAtSingleLocomotiveMoney = combinedPartial.paymentAtSingleLocomotiveMoney,
                         paymentHolidayHours = combinedPartial.paymentHolidayHours,
@@ -570,6 +577,17 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         return PartialState(
             paymentAtPassengerHours = passengerInsideTime + passengerOutsideTime,
             paymentAtPassengerMoney = money
+        )
+    }
+
+    // Ожидание следования пассажиром (часы, сумма) — отдельная строка 018M.
+    private suspend fun setPassengerWaitingData(helper: SalaryCalculationHelper): PartialState {
+        val time = helper.getPassengerWaitingTimeFlow().first()
+        val money = helper.getMoneyAtPassengerWaitingFlow().first()
+
+        return PartialState(
+            paymentAtPassengerWaitingHours = time,
+            paymentAtPassengerWaitingMoney = money
         )
     }
 
@@ -917,6 +935,8 @@ data class PartialState(
     val paymentAtTariffMoney: Double? = null,
     val paymentAtPassengerHours: Long? = null,
     val paymentAtPassengerMoney: Double? = null,
+    val paymentAtPassengerWaitingHours: Long? = null,
+    val paymentAtPassengerWaitingMoney: Double? = null,
     val paymentAtSingleLocomotiveHours: Long? = null,
     val paymentAtSingleLocomotiveMoney: Double? = null,
     val paymentHolidayHours: Long? = null,

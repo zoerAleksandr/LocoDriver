@@ -128,6 +128,7 @@ object PwaSalaryBridge {
         add(SalaryPaymentId.TARIFF, tariffHours, amount = helper.getMoneyAtWorkTimeAtTariff().first())
         add(SalaryPaymentId.NIGHT, helper.getNightTimeFlow().first(), request.salarySetting.nightTimePercent, helper.getMoneyAtNightTimeFlow().first())
         add(SalaryPaymentId.PASSENGER, passengerHours, amount = helper.getMoneyAtPassengerFlow().first())
+        add(SalaryPaymentId.PASSENGER_WAITING, helper.getPassengerWaitingTimeFlow().first(), amount = helper.getMoneyAtPassengerWaitingFlow().first())
         add(SalaryPaymentId.RESERVE, reserveHours, amount = helper.getMoneyAtSingleLocomotiveFlow().first())
         add(SalaryPaymentId.HOLIDAY, holidayHours, amount = helper.getMoneyAtHolidayFlow().first())
         add(SalaryPaymentId.AVERAGE, helper.getDayOffHoursFlow().first(), amount = helper.getMoneyAverageFlow().first())

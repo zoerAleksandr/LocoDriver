@@ -14,6 +14,11 @@ enum class AccrualCondition {
     ONE_PERSON_FREIGHT,
     ONE_PERSON_PASSENGER,
     PASSENGER,
+    // Ожидание следования пассажиром: непокрытый остаток рабочего времени строго
+    // перед отправлением пассажиром (сдал локомотив → ждёт → поехал пассажиром).
+    // Оплачивается по тарифу как PASSENGER, но зональная надбавка на него НЕ
+    // начисляется (в отличие от следования пассажиром).
+    PASSENGER_WAITING,
     RESERVE,
     HEAVY_TRAIN,
     HEAVY_LONG_DISTANCE_TRAIN,

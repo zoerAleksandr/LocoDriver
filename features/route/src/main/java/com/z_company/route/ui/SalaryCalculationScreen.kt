@@ -1178,6 +1178,12 @@ internal fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRo
         uiState.paymentNightTimeMoney
     ),
     AccrualRow(SalaryPaymentId.PASSENGER, "Пассажиром", uiState.paymentAtPassengerHours, null, uiState.paymentAtPassengerMoney),
+    uiState.paymentAtPassengerWaitingMoney?.takeIf { it > 0 }?.let {
+        AccrualRow(
+            SalaryPaymentId.PASSENGER_WAITING, "Ожидание пассажиром",
+            uiState.paymentAtPassengerWaitingHours, null, it,
+        )
+    },
     AccrualRow(
         SalaryPaymentId.RESERVE, "Резервом",
         uiState.paymentAtSingleLocomotiveHours,
