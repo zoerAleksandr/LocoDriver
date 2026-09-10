@@ -34,7 +34,15 @@ kotlin {
     iosSimulatorArm64()
     js(IR) {
         browser()
-        nodejs()
+        nodejs {
+            // Асинхронные тесты моста (PwaSalaryBridge.calculate) на «холодном»
+            // старте Kotlin/JS не укладываются в дефолтный таймаут Mocha 2000 мс.
+            testTask {
+                useMocha {
+                    timeout = "20s"
+                }
+            }
+        }
         binaries.library()
     }
 

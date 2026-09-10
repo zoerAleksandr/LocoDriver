@@ -6,6 +6,8 @@ import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.route.BasicData
+import com.z_company.domain.entities.route.Locomotive
+import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -99,5 +101,51 @@ class PwaSalaryBridgeTest {
         assertEquals(shared.getTotalWorkTimeWithCommute().first().toDouble(), result.getValue("totalWorkedMillis").jsonPrimitive.double)
         assertTrue(result.getValue("accruals").jsonArray.any { it.jsonObject.getValue("id").jsonPrimitive.content == "TARIFF" })
         assertTrue(result.getValue("deductions").jsonArray.any { it.jsonObject.getValue("id").jsonPrimitive.content == "NDFL" })
+    }
+
+    @Test
+    fun `web result exposes passenger waiting line 018M`() = runTest {
+        val tz = TimeZone.of("GMT+3")
+        fun at(day: Int, hour: Int) = LocalDateTime(2025, 1, day, hour, 0).toInstant(tz).toEpochMilliseconds()
+        // Сдал локомотив (22:00) → ждал час → поехал пассажиром (23:00–00:00).
+        val route = Route(
+            basicData = BasicData(timeStartWork = at(10, 20), timeEndWork = at(11, 0)),
+            locomotives = mutableListOf(
+                Locomotive(basicId = "", timeStartOfAcceptance = at(10, 20), timeEndOfDelivery = at(10, 22)),
+            ),
+            passengers = mutableListOf(Passenger(timeDeparture = at(10, 23), timeArrival = at(11, 0))),
+        )
+        val userSettings = UserSettings(
+            selectMonthOfYear = MonthOfYear(
+                year = 2025,
+                month = 0,
+                tariffRate = 100.0,
+                days = (1..31).map { Day(it, TagForDay.WORKING_DAY) },
+            ),
+            timeZone = 0L,
+        )
+        val salarySetting = SalarySetting(zonalSurcharge = 10.0, harmfulnessPercent = 4.0)
+        val shared = SalaryCalculationHelper(userSettings, salarySetting, listOf(route))
+        val request = buildJsonObject {
+            put("userSettings", json.encodeToJsonElement(UserSettings.serializer(), userSettings))
+            put("salarySetting", json.encodeToJsonElement(SalarySetting.serializer(), salarySetting))
+            putJsonArray("routes") { add(json.encodeToJsonElement(Route.serializer(), route)) }
+            put("effectiveNormaHours", 0)
+            put("annualOvertimeBeforePeriod", 0L)
+        }
+
+        val result = json.parseToJsonElement(PwaSalaryBridge.calculate(request.toString()).await()).jsonObject
+        val waiting = result.getValue("accruals").jsonArray
+            .map { it.jsonObject }
+            .first { it.getValue("id").jsonPrimitive.content == "PASSENGER_WAITING" }
+
+        assertEquals("018M", waiting.getValue("code").jsonPrimitive.content)
+        assertEquals(3_600_000.0, waiting.getValue("hoursMillis").jsonPrimitive.double)
+        assertEquals(
+            shared.getMoneyAtPassengerWaitingFlow().first(),
+            waiting.getValue("amount").jsonPrimitive.double,
+            0.001,
+        )
+        assertEquals(100.0, waiting.getValue("amount").jsonPrimitive.double, 0.001)
     }
 }
