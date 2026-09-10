@@ -16,6 +16,7 @@ fun SalaryCalculationDestination(router: Router){
     SalaryCalculationScreen(
         viewModel = viewModel,
         uiState = uiState,
+        onBack = router::back,
         onSettingsSalaryClick = router::showSettingSalary,
     )
 }

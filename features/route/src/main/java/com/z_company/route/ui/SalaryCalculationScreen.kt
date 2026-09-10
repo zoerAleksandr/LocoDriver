@@ -94,6 +94,7 @@ import com.z_company.route.viewmodel.SalaryCalculationViewModel
 fun SalaryCalculationScreen(
     viewModel: SalaryCalculationViewModel,
     uiState: SalaryCalculationUIState,
+    onBack: () -> Unit,
     onSettingsSalaryClick: () -> Unit,
 ) {
     var isCodeSearchActive by rememberSaveable { mutableStateOf(false) }
@@ -109,6 +110,7 @@ fun SalaryCalculationScreen(
             query = codeSearchQuery,
             onQueryChange = { codeSearchQuery = it },
             onBack = { isCodeSearchActive = false },
+            onSettingsSalaryClick = onSettingsSalaryClick,
         )
         return
     }
@@ -129,6 +131,15 @@ fun SalaryCalculationScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
+                            contentDescription = "Назад",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                },
                 title = {
                     Surface(
                         onClick = { isCodeSearchActive = true },
@@ -285,6 +296,7 @@ private fun PayrollCodeSearchScreen(
     query: String,
     onQueryChange: (String) -> Unit,
     onBack: () -> Unit,
+    onSettingsSalaryClick: () -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -337,6 +349,18 @@ private fun PayrollCodeSearchScreen(
                         shape = RoundedCornerShape(12.dp),
                         textStyle = MaterialTheme.typography.bodyLarge,
                     )
+                },
+                actions = {
+                    IconButton(
+                        modifier = Modifier.padding(end = 16.dp),
+                        onClick = onSettingsSalaryClick,
+                    ) {
+                        Icon(
+                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
+                            contentDescription = "Настройки зарплаты",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )

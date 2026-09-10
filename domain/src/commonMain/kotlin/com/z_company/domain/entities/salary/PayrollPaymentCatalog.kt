@@ -76,7 +76,7 @@ object PayrollPaymentCatalog {
         accrual(SalaryPaymentId.TECHNICAL_STUDY, "049A", "ОплПоТарВрТехУчебВНерабВр", "Технические занятия"),
         accrual(SalaryPaymentId.ZONAL, "150A", "ЗоналНадб%ОтОтрабВремФак", "Зональная надбавка"),
         accrual(SalaryPaymentId.QUALIFICATION_CLASS, "025L", "НадбЗаКлассКвалификац/Б", "Надбавка за класс квалификации"),
-        accrual(SalaryPaymentId.LINEAR_MILEAGE, emptyList(), "Доплата за линейный пробег", "Доплата за пробег"),
+        accrual(SalaryPaymentId.LINEAR_MILEAGE, "011L", "Доплата за линейный пробег", "Доплата за пробег"),
         accrual(SalaryPaymentId.ONE_PERSON_FREIGHT, "153L", "ДоплМашЛокомРабБезПомощн", "В одно лицо (грузовые)"),
         accrual(SalaryPaymentId.ONE_PERSON_PASSENGER, "153L", "ДоплМашЛокомРабБезПомощн", "В одно лицо (пассажирские)"),
         accrual(SalaryPaymentId.HARMFULNESS, "057L", "ДоплМастСпСлРабВредДляЛБ", "Вредность"),

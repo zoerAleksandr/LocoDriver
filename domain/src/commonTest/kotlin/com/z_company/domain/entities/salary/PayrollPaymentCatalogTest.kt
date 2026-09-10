@@ -32,6 +32,7 @@ class PayrollPaymentCatalogTest {
         assertEquals("151L", PayrollPaymentCatalog[SalaryPaymentId.EXTENDED_SERVICE].codeLabel)
         assertEquals("152L", PayrollPaymentCatalog[SalaryPaymentId.HEAVY_TRAIN].codeLabel)
         assertEquals("152L", PayrollPaymentCatalog[SalaryPaymentId.LONG_TRAIN].codeLabel)
+        assertEquals("011L", PayrollPaymentCatalog[SalaryPaymentId.LINEAR_MILEAGE].codeLabel)
         assertEquals("158L", PayrollPaymentCatalog[SalaryPaymentId.DOUBLED_TRAIN].codeLabel)
         assertEquals("172L", PayrollPaymentCatalog[SalaryPaymentId.EXCESS_REST].codeLabel)
         assertEquals("153L", PayrollPaymentCatalog[SalaryPaymentId.ONE_PERSON_FREIGHT].codeLabel)
