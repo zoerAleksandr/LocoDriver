@@ -1,5 +1,10 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.npm.NpmExtension
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootEnvSpec
 
 plugins {
     id(Plugins.android_app) version Versions.android_plugin_id apply false
@@ -18,6 +23,34 @@ plugins {
     // Baseline Profile генерация (для AOT-компиляции горячих путей)
     id("com.android.test") version Versions.android_plugin_id apply false
     id("androidx.baselineprofile") version "1.3.4" apply false
+}
+
+@Suppress("DEPRECATION_ERROR")
+plugins.withType<NodeJsRootPlugin>().configureEach {
+    extensions.configure<NodeJsRootExtension> {
+        download = false
+        downloadBaseUrl = null
+        command = "/usr/local/bin/node"
+    }
+}
+
+plugins.withType<YarnPlugin>().configureEach {
+    extensions.configure<YarnRootEnvSpec> {
+        download.set(false)
+        downloadBaseUrl.set("")
+    }
+    extensions.configure<NodeJsRootExtension> {
+        packageManagerExtension.set(extensions.getByType<NpmExtension>())
+    }
+}
+
+tasks.register<Sync>("preparePwa") {
+    dependsOn(":domain:jsBrowserProductionLibraryDistribution")
+    into(layout.projectDirectory.dir("pwa/vendor"))
+    from(layout.projectDirectory.dir("domain/build/dist/js/productionLibrary")) {
+        include("*.js")
+    }
+    from(layout.buildDirectory.file("js/node_modules/@js-joda/core/dist/js-joda.min.js"))
 }
 
 

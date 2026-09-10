@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
 
 plugins {
     id(Plugins.kotlin_multiplatform)
@@ -31,6 +32,11 @@ kotlin {
     iosArm64()
     iosX64()
     iosSimulatorArm64()
+    js(IR) {
+        browser()
+        nodejs()
+        binaries.library()
+    }
 
     sourceSets {
         commonMain.dependencies {
@@ -44,6 +50,11 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${Versions.coroutines_version}")
         }
     }
+}
+
+extensions.configure<NodeJsEnvSpec> {
+    download.set(false)
+    command.set("/usr/local/bin/node")
 }
 
 android {
