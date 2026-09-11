@@ -112,15 +112,15 @@ fun StationPickerSheet(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(onClick = { editorVm.commit(); closeEditor() }) {
-                        Text("Готово", color = MaterialTheme.colorScheme.tertiary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                    }
+                    Spacer(Modifier.size(72.dp))
                     Text(
                         text = if (editStationId == null) "Новая станция" else "Станция",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(Modifier.size(72.dp))
+                    TextButton(onClick = { editorVm.commit(); closeEditor() }) {
+                        Text("Готово", color = MaterialTheme.colorScheme.tertiary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
                 Box(modifier = Modifier.weight(1f)) {
                     SettingsStationEditorContent(
@@ -138,15 +138,15 @@ fun StationPickerSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onClose) {
-                    Text("Отмена", color = MaterialTheme.colorScheme.tertiary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                }
+                Spacer(Modifier.size(72.dp))
                 Text(
                     text = "Станция",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(Modifier.size(72.dp))
+                TextButton(onClick = onClose) {
+                    Text("Готово", color = MaterialTheme.colorScheme.tertiary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
 
             // Search

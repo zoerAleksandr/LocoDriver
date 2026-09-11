@@ -103,15 +103,15 @@ fun SeriesPickerSheet(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(onClick = { editorVm.commit(); closeEditor() }) {
-                        Text("Готово", color = MaterialTheme.colorScheme.tertiary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                    }
+                    Spacer(Modifier.size(72.dp))
                     Text(
                         text = if (editSeriesId == null) "Новая серия" else "Серия",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(Modifier.size(72.dp))
+                    TextButton(onClick = { editorVm.commit(); closeEditor() }) {
+                        Text("Готово", color = MaterialTheme.colorScheme.tertiary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
                 Box(modifier = Modifier.weight(1f)) {
                     SettingsSeriesEditorContent(
@@ -129,15 +129,15 @@ fun SeriesPickerSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onClose) {
-                    Text("Отмена", color = MaterialTheme.colorScheme.tertiary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                }
+                Spacer(Modifier.size(72.dp))
                 Text(
                     text = "Серия",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(Modifier.size(72.dp))
+                TextButton(onClick = onClose) {
+                    Text("Готово", color = MaterialTheme.colorScheme.tertiary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
 
             // Search
