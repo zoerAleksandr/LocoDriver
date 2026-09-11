@@ -5,6 +5,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -28,6 +29,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.R
 import com.z_company.core.ui.component.customDatePicker.noRippleEffect
+import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,22 +57,8 @@ fun DateTimePickerBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(40.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                )
-            }
-        },
+        sheetGesturesEnabled = false,
+        dragHandle = null,
         containerColor = MaterialTheme.colorScheme.secondary
     ) {
         if (uiState.isLoading) {
@@ -80,65 +68,36 @@ fun DateTimePickerBottomSheet(
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                 }
-                // Заголовок
+                // Заголовок и явное закрытие без выбора значения
                 item {
-                    Box(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                            .padding(start = 16.dp, end = 8.dp, bottom = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             text = title,
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
-                    }
-                }
-
-                // переключатель календаря
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        contentAlignment = Alignment.CenterEnd
-                    ) {
-                        Text(
-                            text = if (uiState.isCompactCalendar) "Неделя" else "Месяц",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.clickable { viewModel.toggleCalendarView() })
-                    }
-                }
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                // Календарь
-                item {
-                    AnimatedContent(
-                        targetState = uiState.isCompactCalendar,
-                        label = "calendar_animation",
-                        transitionSpec = {
-                            fadeIn() + expandVertically() togetherWith
-                                    fadeOut() + shrinkVertically()
-                        }
-                    ) { isCompact ->
-                        if (isCompact) {
-                            CompactCalendar(
-                                selectedDate = uiState.selectedDate,
-                                onDateSelected = { viewModel.selectDate(it) },
-                                timeZoneStr = timeZoneStr
-                            )
-
-                        } else {
-                            FullCalendar(
-                                selectedDate = uiState.selectedDate,
-                                onDateSelected = { viewModel.selectDate(it) },
-                                timeZoneStr = timeZoneStr
+                        TextButton(onClick = onDismiss) {
+                            Text(
+                                text = "Закрыть",
+                                color = MaterialTheme.colorScheme.tertiary,
                             )
                         }
                     }
+                }
+
+                // Календарь всегда показывает полный месяц.
+                item {
+                    FullCalendar(
+                        selectedDate = uiState.selectedDate,
+                        onDateSelected = { viewModel.selectDate(it) },
+                        timeZoneStr = timeZoneStr,
+                    )
                 }
 
                 item {
@@ -432,98 +391,70 @@ fun FullCalendar(
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         // Навигация по месяцам
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Кнопка предыдущего месяца
             val prevMonth = Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr)).apply {
                 time = currentMonth.time
                 add(Calendar.MONTH, -1)
             }
-
-            Row(
-                modifier = Modifier.clickable {
-                    currentMonth = prevMonth
-                },
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .clickable { currentMonth = prevMonth },
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.keyboard_arrow_left_24px),
-
-                    contentDescription = "Предыдущий месяц",
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                )
-                Text(
-                    text = "${monthNameFormat.format(prevMonth.time).capitalize(Locale.ROOT)} " +
-                            (if (prevMonth.get(Calendar.YEAR) != currentMonth.get(Calendar.YEAR))
-                                yearFormat.format(prevMonth.time)
-                            else ""),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1
-                )
+                Text("‹", fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary)
             }
 
-            // Текущий месяц
             Text(
-                text = monthNameFormat.format(currentMonth.time).capitalize(Locale.ROOT),
-                style = MaterialTheme.typography.bodyMedium,
+                text = "${monthNameFormat.format(currentMonth.time).replaceFirstChar { it.uppercase() }} ${yearFormat.format(currentMonth.time)}",
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
-                overflow = TextOverflow.Ellipsis,
-                maxLines = 1
+                maxLines = 1,
             )
 
-            // Кнопка следующего месяца
             val nextMonth = Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr)).apply {
                 time = currentMonth.time
                 add(Calendar.MONTH, 1)
             }
-
-            Row(
-                modifier = Modifier.clickable {
-                    currentMonth = nextMonth
-                },
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .clickable { currentMonth = nextMonth },
+                contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = "${monthNameFormat.format(nextMonth.time).capitalize()} " +
-                            (if (nextMonth.get(Calendar.YEAR) != currentMonth.get(Calendar.YEAR))
-                                yearFormat.format(nextMonth.time)
-                            else ""),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1
-                )
-                Icon(
-                    painter = painterResource(R.drawable.keyboard_arrow_right_24px),
-                    contentDescription = "Следующий месяц",
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                )
+                Text("›", fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary)
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Дни недели
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            daysOfWeek.forEach { day ->
+            daysOfWeek.forEachIndexed { index, day ->
                 Text(
-                    text = day,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                    ),
+                    text = day.uppercase(),
+                    fontSize = 10.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    letterSpacing = 0.6.sp,
+                    color = if (index >= 5) MaterialTheme.colorScheme.tertiary
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center
                 )
             }
         }
+        Spacer(modifier = Modifier.height(4.dp))
         // Дни месяца
         val firstDayOfMonth = Calendar.getInstance(TimeZone.getTimeZone(timeZoneStr)).apply {
             time = currentMonth.time
@@ -558,7 +489,7 @@ fun FullCalendar(
                 for (week in 0 until weeks) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         for (dayOfWeek in 0 until 7) {
                             val dayNumber = week * 7 + dayOfWeek - firstDayOfWeek + 1
@@ -582,28 +513,38 @@ fun FullCalendar(
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .aspectRatio(1f)
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .height(52.dp)
+                                        .clip(RoundedCornerShape(10.dp))
                                         .background(
                                             if (isSelected) MaterialTheme.colorScheme.tertiary
-                                            else Color.Transparent
+                                            else MaterialTheme.colorScheme.surface
+                                        )
+                                        .border(
+                                            width = if (isSelected) 1.5.dp else 1.dp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.tertiary
+                                            else MaterialTheme.colorScheme.outlineVariant,
+                                            shape = RoundedCornerShape(10.dp),
                                         )
                                         .clickable { onDateSelected(dayCalendar.timeInMillis) },
-                                    contentAlignment = Alignment.Center
+                                    contentAlignment = Alignment.TopStart,
                                 ) {
                                     Text(
                                         text = dayNumber.toString(),
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.padding(8.dp),
+                                        fontFamily = MonoFont,
+                                        fontSize = 13.sp,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                                         color = if (isSelected)
                                             MaterialTheme.colorScheme.secondary
                                         else MaterialTheme.colorScheme.primary
                                     )
                                 }
                             } else {
-                                Spacer(modifier = Modifier.weight(1f))
+                                Spacer(modifier = Modifier.weight(1f).height(52.dp))
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(3.dp))
                 }
             }
         }
@@ -650,10 +591,6 @@ class DateTimePickerViewModel(initialTimestamp: Long? = null, timeZoneStr: Strin
             _uiState.value.copy(isEditingTime = !_uiState.value.isEditingTime)
     }
 
-    fun toggleCalendarView() {
-        _uiState.value =
-            _uiState.value.copy(isCompactCalendar = !_uiState.value.isCompactCalendar)
-    }
 }
 
 data class DateTimePickerState(
@@ -663,5 +600,4 @@ data class DateTimePickerState(
     val hour: Int = 3,
     val minute: Int = 50,
     val isEditingTime: Boolean = false,
-    val isCompactCalendar: Boolean = true
 )

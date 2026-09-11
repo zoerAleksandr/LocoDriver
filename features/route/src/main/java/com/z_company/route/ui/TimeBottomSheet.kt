@@ -686,8 +686,18 @@ fun TimeBottomSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
-        sheetGesturesEnabled = false,
-        dragHandle = null,
+        dragHandle = {
+            Box(
+                Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    Modifier
+                        .size(32.dp, 4.dp)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f), RoundedCornerShape(2.dp))
+                )
+            }
+        }
     ) {
         Column(
             modifier = Modifier
@@ -695,7 +705,7 @@ fun TimeBottomSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp)
         ) {
-            // ── Header: title + explicit close/confirm actions ──
+            // ── Header: title + "По нормам" pill ──
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -708,44 +718,31 @@ fun TimeBottomSheet(
                     text = if (kind == "acceptance") "Приёмка" else "Сдача",
                     fontSize = 22.sp, fontWeight = FontWeight.W500, color = textColor()
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .clip(Shapes.medium)
-                            .clickable(onClick = onClose)
-                            .padding(horizontal = 8.dp, vertical = 12.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "Закрыть",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = textMuted(),
+                // «Готово» — просто синий текст в шапке.
+                Box(
+                    modifier = Modifier
+                        .clip(Shapes.medium)
+                        .then(
+                            if (!hasSequenceError) Modifier.clickable {
+                                if (kind == "delivery" && workEnd != null) {
+                                    onTimeEndWorkChanged?.invoke(workEnd)
+                                }
+                                scope.launch {
+                                    sheetState.hide()
+                                    // Значения уже сохраняются немедленно при вводе;
+                                    // здесь — финальный флаш и закрытие шторки.
+                                    onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
+                                    onClose()
+                                }
+                            } else Modifier
                         )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .clip(Shapes.medium)
-                            .then(
-                                if (!hasSequenceError) Modifier.clickable {
-                                    if (kind == "delivery" && workEnd != null) {
-                                        onTimeEndWorkChanged?.invoke(workEnd)
-                                    }
-                                    scope.launch {
-                                        sheetState.hide()
-                                        onSave(TimeSheetResult(startTime, endTime, barrierOut, barrierIn, workEnd, selectedStation?.stationId))
-                                        onClose()
-                                    }
-                                } else Modifier
-                            )
-                            .padding(horizontal = 8.dp, vertical = 12.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "Готово", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-                            color = if (hasSequenceError) textFaint() else accent()
-                        )
-                    }
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Готово", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                        color = if (hasSequenceError) textFaint() else accent()
+                    )
                 }
             }
 
