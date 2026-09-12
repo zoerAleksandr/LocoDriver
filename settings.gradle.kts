@@ -3,9 +3,8 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
-        maven(url = "https://artifactory-external.vkpartner.ru/artifactory/vkid-sdk-android/")
-        maven(url = "https://artifactory-external.vkpartner.ru/artifactory/maven/")
-        maven(url = "https://artifactory-external.vkpartner.ru/artifactory/vk-id-captcha/android/")
+        maven(url = "https://nexus-external.vkteam.ru/repository/vkid-sdk-android/")
+        maven(url = "https://nexus-external.vkteam.ru/repository/maven/")
     }
 }
 dependencyResolutionManagement {
@@ -14,9 +13,9 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
 
-        maven(url = "https://artifactory-external.vkpartner.ru/artifactory/vkid-sdk-android/")
-        maven(url = "https://artifactory-external.vkpartner.ru/artifactory/maven/")
-        maven(url = "https://artifactory-external.vkpartner.ru/artifactory/vk-id-captcha/android/")
+        maven(url = "https://nexus-external.vkteam.ru/repository/vkid-sdk-android/")
+        maven(url = "https://nexus-external.vkteam.ru/repository/maven/")
+        maven(url = "https://nexus-external.rustore.ru/repository/maven-rustore-exposed/")
 //        flatDir { dirs("libs") }
         maven {
             setUrl("https://jitpack.io")
