@@ -36,8 +36,19 @@ class RoutesManager(
         bearerToken: String
     ): Flow<ResultState<SaveRouteResult>> = flow {
         emit(ResultState.Loading())
+        // «Явка по прибытию» уходит на сервер полем уровня рейса
+        // (workStartByArrivalPassengerId) — единый контракт с PWA/сервером,
+        // где оно источник истины. Выводим из булевых флагов пассажиров прямо
+        // перед отправкой (в БД поле не хранится). Сервер по нему держит булев
+        // флаг пассажира в согласии для старых клиентов.
+        val routeToSend = route.copy(
+            basicData = route.basicData.copy(
+                workStartByArrivalPassengerId =
+                    route.passengers.firstOrNull { it.isWorkStartByArrival }?.passengerId
+            )
+        )
         val result = try {
-            val response = remoteRestApi.saveRoute(token = bearerToken, data = route)
+            val response = remoteRestApi.saveRoute(token = bearerToken, data = routeToSend)
             ResultState.Success(SaveRouteResult(warnings = response.warnings))
         } catch (e: ClientRequestException) {
             val errorBody = try { e.response.bodyAsText() } catch (_: Exception) { "" }
