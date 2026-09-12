@@ -31,7 +31,12 @@ object RemoteRestClient {
      * 8766 остаётся открытым, пока не обновятся установленные сборки.
      */
     const val PROD_BASE_URL = "https://api.locodriver.ru/"
-    const val PROD_BASE_URL_FOR_SEND_EMAIL = "http://locodrivers.freemyip.com/"
+    /**
+     * Почтовые endpoint'ы обслуживает тот же backend через основной HTTPS-домен.
+     * Отдельный HTTP DDNS-домен здесь не используем: его блокировка DNS/HTTP-
+     * фильтрами на устройстве раньше выглядела для пользователя как отсутствие сети.
+     */
+    const val PROD_BASE_URL_FOR_SEND_EMAIL = PROD_BASE_URL
 
     /**
      * Соединение либо устанавливается быстро, либо не устанавливается вовсе —
