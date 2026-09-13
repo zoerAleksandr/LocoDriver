@@ -51,7 +51,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -696,6 +699,10 @@ private fun PayToggleSlot(
 }
 
 // Filled-инпут: mono-значение + единица справа (suffix). Серый bgSubtle, 12r, без тени.
+// Значение почти всегда предзаполнено («0», «25»), поэтому при получении фокуса
+// текст выделяется целиком: первая набранная цифра заменяет старое значение, а не
+// приписывается к нему («0» + «5» = «05» — так пользователи считали, что поле не
+// редактируется). Тот же приём, что в AppInputBottomSheet для справочников.
 @Composable
 private fun PayInput(
     value: String,
@@ -709,10 +716,29 @@ private fun PayInput(
         fontFamily = MonoFont,
         fontWeight = FontWeight.SemiBold,
     )
+    // Текст хранится снаружи (ViewModel), локально — только выделение, поэтому
+    // значение, пришедшее из состояния, никогда не расходится с показанным.
+    var selection by remember { mutableStateOf(TextRange(value.length)) }
+    var isFocused by remember { mutableStateOf(false) }
+    val fieldValue = TextFieldValue(
+        text = value,
+        selection = TextRange(
+            selection.start.coerceIn(0, value.length),
+            selection.end.coerceIn(0, value.length),
+        ),
+    )
     OutlinedTextFieldApp(
-        modifier = modifier,
-        value = value,
-        onValueChange = onValueChange,
+        modifier = modifier.onFocusChanged { focusState ->
+            if (focusState.isFocused && !isFocused) {
+                selection = TextRange(0, value.length)
+            }
+            isFocused = focusState.isFocused
+        },
+        value = fieldValue,
+        onValueChange = { newValue ->
+            selection = newValue.selection
+            onValueChange(newValue.text)
+        },
         textStyle = style,
         isError = isError,
         supportingText = if (isError) {
