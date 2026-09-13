@@ -34,9 +34,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -68,11 +70,18 @@ fun AppInputBottomSheet(
     onValueChange: ((String) -> Unit)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState()
-    var value by remember { mutableStateOf(initialValue) }
+    var fieldValue by remember(initialValue) {
+        mutableStateOf(
+            TextFieldValue(
+                text = initialValue,
+                selection = TextRange(0, initialValue.length),
+            )
+        )
+    }
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
     val accent = MaterialTheme.colorScheme.tertiary
-    val canConfirm = isValid(value) && !isLoading
+    val canConfirm = isValid(fieldValue.text) && !isLoading
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -102,10 +111,18 @@ fun AppInputBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
-                value = value,
-                onValueChange = {
-                    value = transform(it)
-                    onValueChange?.invoke(value)
+                value = fieldValue,
+                onValueChange = { newValue ->
+                    val transformed = transform(newValue.text)
+                    fieldValue = if (transformed == newValue.text) {
+                        newValue
+                    } else {
+                        TextFieldValue(
+                            text = transformed,
+                            selection = TextRange(transformed.length),
+                        )
+                    }
+                    onValueChange?.invoke(fieldValue.text)
                 },
                 label = label?.let { { Text(it) } },
                 suffix = suffix?.let { { Text(it) } },
@@ -122,7 +139,9 @@ fun AppInputBottomSheet(
                 },
                 shape = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { if (canConfirm) onConfirm(value) }),
+                keyboardActions = KeyboardActions(onDone = {
+                    if (canConfirm) onConfirm(fieldValue.text)
+                }),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = accent,
                     focusedLabelColor = accent,
@@ -136,7 +155,7 @@ fun AppInputBottomSheet(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
                     .background(if (canConfirm) accent else MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable(enabled = canConfirm) { onConfirm(value) }
+                    .clickable(enabled = canConfirm) { onConfirm(fieldValue.text) }
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
