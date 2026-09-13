@@ -2044,16 +2044,14 @@ private fun StackedTile(
     Box(
         modifier = modifier.size(tileSize + stackOffset),
     ) {
-        // Нижняя (фоновая) карточка — выглядывает СПРАВА на stackOffset, вровень
-        // по вертикали с верхней (обе bottom-aligned в общем боксе), чтобы плитка
-        // не была выше соседних («НА РАБОТЕ», «ПОЕЗД» без стопки).
+        // Нижняя (фоновая) карточка — выглядывает справа-СВЕРХУ на stackOffset.
         // Обводка + более тёмный фон, чтобы выглядывающий край читался как
         // отдельная карточка, а не как продолжение верхней.
         if (hasStack) {
             Card(
                 modifier = Modifier
                     .size(tileSize)
-                    .align(Alignment.BottomEnd)
+                    .align(Alignment.TopEnd)
                     .border(
                         width = 1.dp,
                         color = c.outline,
