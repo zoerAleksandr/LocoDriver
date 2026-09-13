@@ -480,11 +480,22 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         editor.putString(TOKEN_THEME_MODE, value).apply()
     }
 
+    override fun getCurrentRouteBlockOrder(): List<String>? =
+        sharedpref.getString(CURRENT_ROUTE_BLOCK_ORDER_KEY, null)
+            ?.split(',')
+            ?.map(String::trim)
+            ?.filter(String::isNotEmpty)
+
+    override fun setCurrentRouteBlockOrder(order: List<String>) {
+        editor.putString(CURRENT_ROUTE_BLOCK_ORDER_KEY, order.joinToString(",")).apply()
+    }
+
     private companion object {
         const val SCHEDULE_PATTERNS_KEY = "SCHEDULE_PATTERNS"
         const val LAST_SEEN_ANNOUNCEMENT_NUMBER = "LAST_SEEN_ANNOUNCEMENT_NUMBER"
         const val TOKEN_THEME_MODE = "TOKEN_THEME_MODE"
         const val WORK_SCHEDULE_PROFILE_KEY = "WORK_SCHEDULE_PROFILE"
+        const val CURRENT_ROUTE_BLOCK_ORDER_KEY = "CURRENT_ROUTE_BLOCK_ORDER"
         val schedulePatternsJson = Json { ignoreUnknownKeys = true }
     }
 }

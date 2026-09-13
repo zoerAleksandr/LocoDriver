@@ -175,4 +175,8 @@ interface SharedPreferencesRepositories {
      */
     fun getThemeMode(): String?
     fun setThemeMode(value: String)
+
+    /** Локальный порядок плиток раздела «Текущий маршрут» на Главном экране. */
+    fun getCurrentRouteBlockOrder(): List<String>?
+    fun setCurrentRouteBlockOrder(order: List<String>)
 }

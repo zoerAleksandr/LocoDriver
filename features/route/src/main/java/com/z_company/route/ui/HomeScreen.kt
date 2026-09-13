@@ -3,6 +3,8 @@ package com.z_company.route.ui
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BasicTooltipBox
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -13,9 +15,15 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.Badge
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -36,8 +44,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberBasicTooltipState
@@ -70,6 +81,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -79,9 +91,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
@@ -112,10 +131,12 @@ import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.toMoneyString
 import com.z_company.route.R
+import kotlin.math.abs
 import kotlin.math.ceil
 import android.net.Uri
 import androidx.compose.runtime.collectAsState
@@ -283,6 +304,51 @@ fun HomeScreen(
 
     val snackbarManager: ISnackbarManager = koinInject()
     val pdfViewModel: PdfViewModel = koinInject()
+    val sharedPreferences: SharedPreferencesRepositories = koinInject()
+
+    val savedCurrentRouteBlockOrder = remember {
+        sharedPreferences.getCurrentRouteBlockOrder()
+            ?.takeIf(::isValidCurrentRouteBlockOrder)
+    }
+    val currentRouteBlockOrder = remember {
+        mutableStateListOf<String>().apply {
+            addAll(savedCurrentRouteBlockOrder ?: defaultCurrentRouteBlockOrder(currentRoute))
+        }
+    }
+    var hasCustomCurrentRouteBlockOrder by remember {
+        mutableStateOf(savedCurrentRouteBlockOrder != null)
+    }
+    var isCurrentRouteReorderMode by remember { mutableStateOf(false) }
+    var draggedCurrentRouteBlock by remember { mutableStateOf<String?>(null) }
+    var currentRouteBoundsInWindow by remember {
+        mutableStateOf<androidx.compose.ui.geometry.Rect?>(null)
+    }
+    var homeContentPositionInWindow by remember { mutableStateOf(Offset.Zero) }
+    val currentRouteListState = rememberLazyListState()
+    val reorderWiggleAngle = remember { Animatable(0f) }
+
+    LaunchedEffect(isCurrentRouteReorderMode) {
+        if (!isCurrentRouteReorderMode) {
+            reorderWiggleAngle.snapTo(0f)
+        } else {
+            while (true) {
+                reorderWiggleAngle.animateTo(1.2f, tween(durationMillis = 110))
+                reorderWiggleAngle.animateTo(-1.2f, tween(durationMillis = 110))
+            }
+        }
+    }
+
+    LaunchedEffect(
+        currentRoute?.basicData?.id,
+        currentRoute?.locomotives?.size,
+        currentRoute?.trains?.size,
+        currentRoute?.passengers?.size,
+    ) {
+        if (!hasCustomCurrentRouteBlockOrder) {
+            currentRouteBlockOrder.clear()
+            currentRouteBlockOrder.addAll(defaultCurrentRouteBlockOrder(currentRoute))
+        }
+    }
 
     var showPdfDialog by remember { mutableStateOf(false) }
     var pdfUri by remember { mutableStateOf<Uri?>(null) }
@@ -758,6 +824,24 @@ fun HomeScreen(
     val brushMain = if (isSystemInDarkTheme()) darkBrushMain else lightBrushMain
 
     Scaffold(
+        modifier = Modifier
+            .onGloballyPositioned { homeContentPositionInWindow = it.positionInWindow() }
+            .pointerInput(isCurrentRouteReorderMode, currentRouteBoundsInWindow) {
+                if (isCurrentRouteReorderMode) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(
+                            requireUnconsumed = false,
+                            pass = PointerEventPass.Initial,
+                        )
+                        val positionInWindow = homeContentPositionInWindow + down.position
+                        if (currentRouteBoundsInWindow?.contains(positionInWindow) != true) {
+                            down.consume()
+                            draggedCurrentRouteBlock = null
+                            isCurrentRouteReorderMode = false
+                        }
+                    }
+                }
+            },
         topBar = {
             val textMonth = currentMonthOfYear?.month?.let {
                 getMonthFullText(it)
@@ -1064,16 +1148,15 @@ fun HomeScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .animateItem()
+                                .onGloballyPositioned {
+                                    currentRouteBoundsInWindow = it.boundsInWindow()
+                                }
                         ) {
                             Text(
                                 modifier = Modifier
                                     .padding(horizontal = 8.dp)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onPress = {
-                                                onRouteClick(route.basicData.id)
-                                            }
-                                        )
+                                    .clickable(enabled = !isCurrentRouteReorderMode) {
+                                        onRouteClick(route.basicData.id)
                                     },
                                 text = "ТЕКУЩИЙ МАРШРУТ",
                                 maxLines = 1,
@@ -1083,95 +1166,125 @@ fun HomeScreen(
                             )
                             LazyRow(
                                 modifier = Modifier.padding(top = 12.dp),
+                                state = currentRouteListState,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                item {
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(start = 8.dp)
-                                            .size(156.dp)
-                                    ) {
-                                        Card(
-                                            modifier = Modifier
-                                                .size(150.dp)
-                                                .align(Alignment.BottomStart)
-                                                .clickable { onRouteClick(route.basicData.id) },
-                                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                                        ) {
-                                            Box(modifier = Modifier.fillMaxSize().background(brushMain)) {
-                                                Column(
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .padding(16.dp),
-                                                    verticalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        text = "НА РАБОТЕ",
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        maxLines = 1,
-                                                        style = MaterialTheme.typography.labelMedium,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                    Column {
-                                                        AnimatedCounter(
-                                                            count = currentRouteWorkTime,
-                                                            style = MaterialTheme.typography.headlineLarge.copy(
-                                                                fontFamily = com.z_company.core.ui.theme.MonoFont,
-                                                                fontWeight = FontWeight.ExtraBold,
-                                                                letterSpacing = (-1).sp,
-                                                            ),
-                                                            color = MaterialTheme.colorScheme.primary
-                                                        )
-                                                        Spacer(modifier = Modifier.height(6.dp))
-                                                        val workMillis = route.basicData.timeStartWork?.let {
-                                                            System.currentTimeMillis() - it
-                                                        } ?: 0L
-                                                        val workHours = workMillis / 3_600_000f
-                                                        val maxHours = 12f
-                                                        val progress = (workHours / maxHours).coerceIn(0f, 1f)
-                                                        val barColor = if (workHours > maxHours) MaterialTheme.colorScheme.error
-                                                            else MaterialTheme.colorScheme.tertiary
-                                                        LinearProgressIndicator(
-                                                            modifier = Modifier
-                                                                .fillMaxWidth()
-                                                                .height(3.dp),
-                                                            trackColor = MaterialTheme.colorScheme.outlineVariant,
-                                                            color = barColor,
-                                                            drawStopIndicator = {},
-                                                            progress = { progress },
-                                                        )
-                                                    }
+                                currentRouteBlockOrder.forEachIndexed { idx, type ->
+                                    item(key = type) {
+                                        val haptics = LocalHapticFeedback.current
+                                        val density = LocalDensity.current
+                                        val reorderThresholdPx = with(density) { 81.dp.toPx() }
+                                        val autoScrollEdgePx = with(density) { 36.dp.toPx() }
+                                        val autoScrollStepPx = with(density) { 18.dp.toPx() }
+                                        var draggedDistance by remember(type) { mutableStateOf(0f) }
+                                        val bringIntoViewRequester = remember { BringIntoViewRequester() }
+                                        val edgePadding = when (idx) {
+                                            0 -> Modifier.padding(start = 8.dp)
+                                            currentRouteBlockOrder.lastIndex -> Modifier.padding(end = 12.dp)
+                                            else -> Modifier
+                                        }
+                                        val reorderModifier = edgePadding
+                                            .animateItem()
+                                            .bringIntoViewRequester(bringIntoViewRequester)
+                                            .graphicsLayer {
+                                                rotationZ = if (isCurrentRouteReorderMode) {
+                                                    reorderWiggleAngle.value * if (idx % 2 == 0) 1f else -1f
+                                                } else 0f
+                                                if (draggedCurrentRouteBlock == type) {
+                                                    scaleX = 1.04f
+                                                    scaleY = 1.04f
+                                                    translationX = draggedDistance
                                                 }
                                             }
+                                            .pointerInput(type, isCurrentRouteReorderMode) {
+                                                val onDragStart: (Offset) -> Unit = {
+                                                    isCurrentRouteReorderMode = true
+                                                    draggedCurrentRouteBlock = type
+                                                    draggedDistance = 0f
+                                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    scope.launch { bringIntoViewRequester.bringIntoView() }
+                                                }
+                                                val onDragCancel: () -> Unit = {
+                                                    draggedCurrentRouteBlock = null
+                                                    draggedDistance = 0f
+                                                }
+                                                val onDragEnd: () -> Unit = {
+                                                    draggedCurrentRouteBlock = null
+                                                    draggedDistance = 0f
+                                                }
+                                                val onDrag: (androidx.compose.ui.input.pointer.PointerInputChange, Offset) -> Unit =
+                                                    { change, dragAmount ->
+                                                        change.consume()
+                                                        draggedDistance += dragAmount.x
+                                                        when {
+                                                            change.position.x < autoScrollEdgePx -> scope.launch {
+                                                                currentRouteListState.scrollBy(-autoScrollStepPx)
+                                                                bringIntoViewRequester.bringIntoView()
+                                                            }
+                                                            change.position.x > size.width - autoScrollEdgePx -> scope.launch {
+                                                                currentRouteListState.scrollBy(autoScrollStepPx)
+                                                                bringIntoViewRequester.bringIntoView()
+                                                            }
+                                                        }
+                                                        if (abs(draggedDistance) >= reorderThresholdPx) {
+                                                            val from = currentRouteBlockOrder.indexOf(type)
+                                                            val to = (from + if (draggedDistance > 0) 1 else -1)
+                                                                .coerceIn(0, currentRouteBlockOrder.lastIndex)
+                                                            if (from != to) {
+                                                                currentRouteBlockOrder.removeAt(from)
+                                                                currentRouteBlockOrder.add(to, type)
+                                                                hasCustomCurrentRouteBlockOrder = true
+                                                                sharedPreferences.setCurrentRouteBlockOrder(
+                                                                    currentRouteBlockOrder.toList()
+                                                                )
+                                                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                scope.launch { bringIntoViewRequester.bringIntoView() }
+                                                            }
+                                                            draggedDistance = 0f
+                                                        }
+                                                    }
+
+                                                if (isCurrentRouteReorderMode) {
+                                                    detectDragGestures(
+                                                        onDragStart = onDragStart,
+                                                        onDragCancel = onDragCancel,
+                                                        onDragEnd = onDragEnd,
+                                                        onDrag = onDrag,
+                                                    )
+                                                } else {
+                                                    detectDragGesturesAfterLongPress(
+                                                        onDragStart = onDragStart,
+                                                        onDragCancel = onDragCancel,
+                                                        onDragEnd = onDragEnd,
+                                                        onDrag = onDrag,
+                                                    )
+                                                }
+                                            }
+
+                                        if (type == CURRENT_ROUTE_WORK_BLOCK) {
+                                            CurrentWorkTile(
+                                                route = route,
+                                                currentRouteWorkTime = currentRouteWorkTime,
+                                                brush = brushMain,
+                                                modifier = reorderModifier,
+                                                enabled = !isCurrentRouteReorderMode,
+                                                onClick = { onRouteClick(route.basicData.id) },
+                                            )
+                                        } else {
+                                            RouteUnitTile(
+                                                type = type,
+                                                route = route,
+                                                modifier = reorderModifier,
+                                                enabled = !isCurrentRouteReorderMode,
+                                                onOpenSheet = { unitsSheetType = it },
+                                                onChangedLoco = onChangedLocoClick,
+                                                onNewLoco = onNewLocoClick,
+                                                onChangedTrain = onChangedTrainClick,
+                                                onNewTrain = onNewTrainClick,
+                                                onChangedPassenger = onChangedPassengerClick,
+                                                onNewPassenger = onNewPassengerClick,
+                                            )
                                         }
-                                    }
-                                }
-                                // Локомотив/Поезд/Пассажир: заполненные плитки левее,
-                                // пустые правее; внутри групп — порядок loco→train→passenger.
-                                val unitOrder = listOf("loco", "train", "passenger").sortedBy { type ->
-                                    val isEmpty = when (type) {
-                                        "loco" -> route.locomotives.isEmpty()
-                                        "train" -> route.trains.isEmpty()
-                                        else -> route.passengers.isEmpty()
-                                    }
-                                    if (isEmpty) 1 else 0
-                                }
-                                unitOrder.forEachIndexed { idx, type ->
-                                    item(key = type) {
-                                        val endMod = if (idx == unitOrder.lastIndex) Modifier.padding(end = 12.dp) else Modifier
-                                        RouteUnitTile(
-                                            type = type,
-                                            route = route,
-                                            modifier = endMod,
-                                            onOpenSheet = { unitsSheetType = it },
-                                            onChangedLoco = onChangedLocoClick,
-                                            onNewLoco = onNewLocoClick,
-                                            onChangedTrain = onChangedTrainClick,
-                                            onNewTrain = onNewTrainClick,
-                                            onChangedPassenger = onChangedPassengerClick,
-                                            onNewPassenger = onNewPassengerClick,
-                                        )
                                     }
                                 }
                             }
@@ -1540,6 +1653,86 @@ fun HomeScreen(
     }
 }
 
+private const val CURRENT_ROUTE_WORK_BLOCK = "work"
+private val CURRENT_ROUTE_BLOCKS = setOf("work", "loco", "train", "passenger")
+
+private fun isValidCurrentRouteBlockOrder(order: List<String>): Boolean =
+    order.size == CURRENT_ROUTE_BLOCKS.size && order.toSet() == CURRENT_ROUTE_BLOCKS
+
+private fun defaultCurrentRouteBlockOrder(route: Route?): List<String> {
+    if (route == null) return listOf("work", "loco", "train", "passenger")
+    val units = listOf("loco", "train", "passenger").sortedBy { type ->
+        val isEmpty = when (type) {
+            "loco" -> route.locomotives.isEmpty()
+            "train" -> route.trains.isEmpty()
+            else -> route.passengers.isEmpty()
+        }
+        if (isEmpty) 1 else 0
+    }
+    return listOf(CURRENT_ROUTE_WORK_BLOCK) + units
+}
+
+@Composable
+private fun CurrentWorkTile(
+    route: Route,
+    currentRouteWorkTime: String,
+    brush: Brush,
+    modifier: Modifier = Modifier,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(modifier = modifier.size(156.dp)) {
+        Card(
+            modifier = Modifier
+                .size(150.dp)
+                .align(Alignment.BottomStart)
+                .clickable(enabled = enabled, onClick = onClick),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        ) {
+            Box(modifier = Modifier.fillMaxSize().background(brush)) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "НА РАБОТЕ",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelMedium,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Column {
+                        AnimatedCounter(
+                            count = currentRouteWorkTime,
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = (-1).sp,
+                            ),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        val workMillis = route.basicData.timeStartWork?.let {
+                            System.currentTimeMillis() - it
+                        } ?: 0L
+                        val workHours = workMillis / 3_600_000f
+                        val maxHours = 12f
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth().height(3.dp),
+                            trackColor = MaterialTheme.colorScheme.outlineVariant,
+                            color = if (workHours > maxHours) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.tertiary,
+                            drawStopIndicator = {},
+                            progress = { (workHours / maxHours).coerceIn(0f, 1f) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 /** Плитка единицы текущего маршрута (локомотив/поезд/пассажир) — единый рендер
  * для всех трёх типов, чтобы рендерить их в произвольном порядке. */
 @Composable
@@ -1547,6 +1740,7 @@ private fun RouteUnitTile(
     type: String,
     route: Route,
     modifier: Modifier,
+    enabled: Boolean,
     onOpenSheet: (String) -> Unit,
     onChangedLoco: (Locomotive) -> Unit,
     onNewLoco: (String) -> Unit,
@@ -1558,6 +1752,7 @@ private fun RouteUnitTile(
     when (type) {
         "loco" -> StackedTile(
             modifier = modifier,
+            enabled = enabled,
             count = route.locomotives.size,
             iconRes = R.drawable.ic_card_locomotive_ref,
             label = "ЛОКОМОТИВ",
@@ -1577,6 +1772,7 @@ private fun RouteUnitTile(
             val last = if ((train?.stations?.size ?: 0) > 1) train?.stations?.last()?.stationName else null
             StackedTile(
                 modifier = modifier,
+                enabled = enabled,
                 count = route.trains.size,
                 iconRes = R.drawable.ic_card_train_ref,
                 label = "ПОЕЗД",
@@ -1596,6 +1792,7 @@ private fun RouteUnitTile(
             val p = route.passengers.lastOrNull()
             StackedTile(
                 modifier = modifier,
+                enabled = enabled,
                 count = route.passengers.size,
                 iconRes = R.drawable.ic_card_passenger_ref,
                 label = "ПАССАЖИРОМ",
@@ -1749,6 +1946,7 @@ private fun UnitSheetAddButton(text: String, onClick: () -> Unit) {
 @Composable
 private fun StackedTile(
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     count: Int,
     iconRes: Int,
     useImage: Boolean = false,
@@ -1830,7 +2028,7 @@ private fun StackedTile(
                     .size(30.dp)
                     .clip(androidx.compose.foundation.shape.CircleShape)
                     .background(c.primaryContainer)
-                    .clickable { onAddClick() },
+                    .clickable(enabled = enabled) { onAddClick() },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -1884,7 +2082,8 @@ private fun StackedTile(
                     },
             ) {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(14.dp).clickable { onClick() },
+                    modifier = Modifier.fillMaxSize().padding(14.dp)
+                        .clickable(enabled = enabled) { onClick() },
                     verticalArrangement = Arrangement.SpaceBetween,
                     content = tileContent,
                 )
@@ -1908,7 +2107,8 @@ private fun StackedTile(
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
             ) {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(14.dp).clickable { onClick() },
+                    modifier = Modifier.fillMaxSize().padding(14.dp)
+                        .clickable(enabled = enabled) { onClick() },
                     verticalArrangement = Arrangement.SpaceBetween,
                     content = tileContent,
                 )

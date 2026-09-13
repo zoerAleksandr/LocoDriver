@@ -65,6 +65,7 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var lastSeenAnnouncementNumber: Int = -1
     private var underworkInfoDismissed: Boolean = false
     private var themeMode: String? = null
+    private var currentRouteBlockOrder: List<String>? = null
 
     override fun setLastSyncTimestamp(time: Long) { lastSyncTimestamp = time }
     override fun getLastSyncTimestamp(): Long = lastSyncTimestamp
@@ -115,6 +116,8 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setUnderworkInfoDismissed() { underworkInfoDismissed = true }
     override fun getThemeMode(): String? = themeMode
     override fun setThemeMode(value: String) { themeMode = value }
+    override fun getCurrentRouteBlockOrder(): List<String>? = currentRouteBlockOrder
+    override fun setCurrentRouteBlockOrder(order: List<String>) { currentRouteBlockOrder = order }
     override fun getSelectedFilters(): Set<String>? = selectedFilters
     override fun setSelectedFilters(values: Set<String>) { selectedFilters = values }
     override fun isExpandedView(): Boolean = expandedView
