@@ -51,7 +51,9 @@ fun AppAlertDialog(
     AlertDialog(
         onDismissRequest = onDismissRequest,
         shape = RoundedCornerShape(28.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
+        // Не используем Material-дефолт surfaceContainerHigh: в теме приложения
+        // этот слот намеренно отведён под оранжевые предупреждения.
+        containerColor = MaterialTheme.colorScheme.secondary,
         titleContentColor = MaterialTheme.colorScheme.primary,
         textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         title = {

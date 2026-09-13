@@ -85,6 +85,7 @@ import com.z_company.route.ui.settings.SettingsPartnerListContent
 import com.z_company.route.ui.settings.SettingsPartnerEditorContent
 import com.z_company.route.viewmodel.SettingsViewModel
 import com.z_company.route.component.PullToSyncContainer
+import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.viewmodel.SettingsUiState
 import com.z_company.route.viewmodel.TimeZoneRussia
 import com.z_company.route.viewmodel.SeriesListViewModel
@@ -1268,7 +1269,7 @@ private fun SettingsAboutCard() {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Экспорт диагностики", style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    "Обезличенный отчёт для поддержки",
+                    "Для поддержки",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1277,49 +1278,48 @@ private fun SettingsAboutCard() {
     }
 
     if (showDiagnosticExportDialog) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showDiagnosticExportDialog = false },
-            title = { Text("Экспортировать диагностику?") },
-            text = {
-                Text(
-                    "В отчёт войдут диагностический код, версии приложения, Android и базы данных, статус миграции и типы последних технических событий. Маршруты, заметки, email и токены не включаются."
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDiagnosticExportDialog = false
-                    runCatching {
-                        val summary = diagnosticRepository.getSummary()
-                        val report = DiagnosticReportFormatter.format(
-                            summary = summary,
-                            appVersion = versionName,
-                            androidVersion = Build.VERSION.RELEASE ?: Build.VERSION.SDK_INT.toString(),
-                            device = "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
+            title = "Экспортировать диагностику?",
+            text = "В поддержку будут отправлены обезличенные диагностические данные без личной информации.",
+            confirmText = "Экспортировать",
+            dismissText = "Отмена",
+            onConfirm = {
+                showDiagnosticExportDialog = false
+                runCatching {
+                    val summary = diagnosticRepository.getSummary()
+                    val report = DiagnosticReportFormatter.format(
+                        summary = summary,
+                        appVersion = versionName,
+                        androidVersion = Build.VERSION.RELEASE ?: Build.VERSION.SDK_INT.toString(),
+                        device = "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
+                    )
+                    val file = File(context.cacheDir, "locodriver-diagnostic-${summary.diagnosticCode}.txt")
+                    file.writeText(report)
+                    val uri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        file,
+                    )
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
+                        putExtra(Intent.EXTRA_SUBJECT, "Диагностика LocoDriver ${summary.diagnosticCode}")
+                        putExtra(
+                            Intent.EXTRA_TEXT,
+                            "Здравствуйте! Прикладываю диагностический отчёт LocoDriver.",
                         )
-                        val file = File(context.cacheDir, "locodriver-diagnostic-${summary.diagnosticCode}.txt")
-                        file.writeText(report)
-                        val uri = FileProvider.getUriForFile(
-                            context,
-                            "${context.packageName}.fileprovider",
-                            file,
-                        )
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_STREAM, uri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        context.startActivity(Intent.createChooser(intent, "Отправить диагностику"))
-                    }.onFailure {
-                        Toast.makeText(
-                            context,
-                            "Не удалось подготовить диагностический отчёт",
-                            Toast.LENGTH_LONG,
-                        ).show()
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                }) { Text("Экспортировать") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDiagnosticExportDialog = false }) { Text("Отмена") }
+                    context.startActivity(Intent.createChooser(intent, "Отправить диагностику в поддержку"))
+                }.onFailure {
+                    Toast.makeText(
+                        context,
+                        "Не удалось подготовить диагностический отчёт",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
             },
         )
     }

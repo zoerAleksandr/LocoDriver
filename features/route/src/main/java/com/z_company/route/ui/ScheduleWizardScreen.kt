@@ -204,7 +204,7 @@ fun ScheduleWizardScreen(
             onDismissRequest = {},
             confirmButton = {},
             shape = RoundedCornerShape(28.dp),
-            containerColor = cs.surface,
+            containerColor = cs.secondary,
             titleContentColor = cs.primary,
             textContentColor = cs.onSurfaceVariant,
             title = { Text("Создаём маршруты") },
@@ -1153,7 +1153,7 @@ private fun TimeInputDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(28.dp),
-        containerColor = colors.surface,
+        containerColor = colors.secondary,
         textContentColor = colors.primary,
         confirmButton = {
             TextButton(onClick = { onConfirm(timeState.hour, timeState.minute) }) {
