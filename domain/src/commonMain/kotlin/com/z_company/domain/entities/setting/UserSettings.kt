@@ -7,7 +7,6 @@ import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.util.generateId
 import kotlin.time.Clock
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
 
 const val SETTINGS_KEY = "User_Settings_Key"
 val timestamp = Clock.System.now().toEpochMilliseconds()
@@ -62,8 +61,7 @@ data class UserSettings(
      * null = используется только стандартный календарь по [country].
      */
     val region: String? = null,
-    /** Локальная настройка: средняя длина пассажирского вагона для подсказки в форме поезда. */
-    @Transient
+    /** Синхронизируемая средняя длина пассажирского вагона для расчёта длины поезда. */
     val passengerWagonLengthMeters: Double = 24.5,
 )
 

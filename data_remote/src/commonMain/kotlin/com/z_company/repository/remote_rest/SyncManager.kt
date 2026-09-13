@@ -574,15 +574,11 @@ class SyncManager(
                             .first { it is ResultState.Success || it is ResultState.Error }
                         val localSubscriptionPeriod = (localSettings as? ResultState.Success)
                             ?.data?.subscriptionPeriod ?: 0L
-                        val localPassengerWagonLength = (localSettings as? ResultState.Success)
-                            ?.data?.passengerWagonLengthMeters ?: 24.5
                         val remoteSubscriptionPeriod = loadState.data.subscriptionPeriod
                         val mergedSubscriptionPeriod = maxOf(localSubscriptionPeriod, remoteSubscriptionPeriod)
                         val userSettings = loadState.data.copy(
                             selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull() ?: com.z_company.domain.entities.MonthOfYear(),
                             subscriptionPeriod = mergedSubscriptionPeriod,
-                            // Поле локальное и @Transient: сервер его не знает.
-                            passengerWagonLengthMeters = localPassengerWagonLength,
                         )
                         settingsUseCase.saveSetting(userSettings)
                             .collect { saveResult ->
@@ -741,6 +737,9 @@ class SyncManager(
         // 1.1 UserSettings — LWW по updateAt + защита подписки (max).
         val localUserSettingsState = settingsUseCase.getFlowCurrentSettingsState()
             .first { it is ResultState.Success || it is ResultState.Error }
+        val userSettingsLocallyChanged = localUserSettingsState is ResultState.Success &&
+                settingsPending &&
+                localUserSettingsState.data.updateAt > sharedPrefs.getLastSyncTimestamp()
         val remoteUserSettings = try {
             (settingManager.getUserSettingFromRemote(bearerToken)
                 .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)?.data
@@ -750,9 +749,10 @@ class SyncManager(
             val local = localUserSettingsState.data
             val remoteSub = remoteUserSettings?.subscriptionPeriod ?: 0L
             val mergedSub = maxOf(local.subscriptionPeriod, remoteSub)
-            // Локальные свежее ИЛИ на сервере ещё нет настроек → выгружаем локальные.
-            val localIsNewer = remoteUserSettings == null || local.updateAt >= remoteUserSettings.updateAt
-            if ((settingsPending || localIsNewer) && mergedSub > Clock.System.now().toEpochMilliseconds()) {
+            // Общий settingsPending также ставят зарплата, календарь и справочники.
+            // Поэтому UserSettings выгружаем только если после последней успешной
+            // синхронизации менялась именно эта запись.
+            if (userSettingsLocallyChanged && mergedSub > Clock.System.now().toEpochMilliseconds()) {
                 val toUpload = local.copy(subscriptionPeriod = mergedSub)
                 var ok = false
                 settingManager.saveUserSettingInRemote(toUpload, bearerToken)
@@ -772,8 +772,10 @@ class SyncManager(
             val localNow = (settingsUseCase.getFlowCurrentSettingsState()
                 .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)?.data
             val localUpdateAt = localNow?.updateAt ?: 0L
-            // Не откатываем локально более свежие настройки (LWW).
-            if (remoteUserSettings.updateAt >= localUpdateAt) {
+            // Если локальных несинхронизированных изменений нет, сервер — источник
+            // истины независимо от часов устройства. Иначе клиентский updateAt,
+            // оказавшийся в будущем, навсегда блокирует изменения из PWA.
+            if (!userSettingsLocallyChanged || remoteUserSettings.updateAt >= localUpdateAt) {
                 val listMonthOfYear = calendarUseCase.loadFlowMonthOfYearListState().first()
                 val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
                 val currentMonthOfYear = listMonthOfYear.find { it.month == now.monthNumber - 1 && it.year == now.year }
@@ -781,8 +783,6 @@ class SyncManager(
                 val userSettings = remoteUserSettings.copy(
                     selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull() ?: com.z_company.domain.entities.MonthOfYear(),
                     subscriptionPeriod = mergedSub,
-                    // Не сбрасываем локальную настройку при pull с сервера.
-                    passengerWagonLengthMeters = localNow?.passengerWagonLengthMeters ?: 24.5,
                 )
                 settingsUseCase.saveSetting(userSettings).collect {}
                 try {
