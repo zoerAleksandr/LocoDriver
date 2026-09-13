@@ -1160,7 +1160,7 @@ internal fun buildDeductionRows(uiState: SalaryCalculationUIState): List<Deducti
     uiState.welfareRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.WELFARE, "Благосостояние", null, it) },
     uiState.alimonyRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.ALIMONY, "Алименты", null, it) },
     uiState.otherRetention?.takeIf { it > 0 }?.let { DeductionRow(SalaryPaymentId.OTHER_DEDUCTION, "Прочие удержания", null, it) },
-)
+).sortedByPayrollCode { it.paymentId }
 
 private fun formatPercent(value: Double): String = "%.1f".format(value).replace('.', ',')
 
@@ -1217,7 +1217,7 @@ internal fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRo
     },
     *uiState.linearMileageAccruals.map { accrual ->
         AccrualRow(
-            SalaryPaymentId.LINEAR_MILEAGE, "Доплата за пробег: ${accrual.phaseName} (${formatMoney(accrual.rate)} ₽/км)",
+            SalaryPaymentId.LINEAR_MILEAGE, "Доплата за пробег: ${accrual.phaseName}",
             null,
             null,
             accrual.money,
@@ -1326,3 +1326,12 @@ internal fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRo
         AccrualRow(SalaryPaymentId.OTHER_SURCHARGE, "Прочие надбавки", null, it, uiState.otherSurchargeMoney)
     },
 ).filter { it.money != null && it.money > 0 }
+    .sortedByPayrollCode { it.paymentId }
+
+/** Сортировка строк как в бумажном расчётном листе: по первому известному коду,
+ * строки без кода остаются в конце в исходном стабильном порядке. */
+private fun <T> List<T>.sortedByPayrollCode(paymentId: (T) -> SalaryPaymentId): List<T> =
+    sortedWith(
+        compareBy<T> { PayrollPaymentCatalog[paymentId(it)].codes.firstOrNull() == null }
+            .thenBy { PayrollPaymentCatalog[paymentId(it)].codes.firstOrNull().orEmpty() }
+    )

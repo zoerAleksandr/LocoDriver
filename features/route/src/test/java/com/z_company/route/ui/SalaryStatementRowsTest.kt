@@ -80,14 +80,14 @@ class SalaryStatementRowsTest {
         assertEquals(
             listOf(
                 SalaryPaymentId.NDFL,
+                SalaryPaymentId.ALIMONY,
                 SalaryPaymentId.UNION,
                 SalaryPaymentId.WELFARE,
-                SalaryPaymentId.ALIMONY,
                 SalaryPaymentId.OTHER_DEDUCTION,
             ),
             rows.map { it.paymentId },
         )
-        assertEquals(listOf(1.0, 2.0, 4.0, 5.0, 3.0), rows.map { it.money })
+        assertEquals(listOf(1.0, 5.0, 2.0, 4.0, 3.0), rows.map { it.money })
         assertEquals("НДФЛ", rows.first().title)
         assertEquals(13.0, rows.first().percent)
     }
@@ -157,22 +157,34 @@ class SalaryStatementRowsTest {
 
         assertEquals(
             listOf(
-                SalaryPaymentId.TARIFF, SalaryPaymentId.NIGHT, SalaryPaymentId.PASSENGER,
-                SalaryPaymentId.RESERVE, SalaryPaymentId.HOLIDAY, SalaryPaymentId.AVERAGE,
-                SalaryPaymentId.UNDERWORK, SalaryPaymentId.DISABLED_CHILD_CARE,
-                SalaryPaymentId.BUSINESS_TRIP, SalaryPaymentId.TECHNICAL_STUDY,
-                SalaryPaymentId.ZONAL, SalaryPaymentId.QUALIFICATION_CLASS,
-                SalaryPaymentId.LINEAR_MILEAGE, SalaryPaymentId.ONE_PERSON_FREIGHT,
-                SalaryPaymentId.ONE_PERSON_PASSENGER, SalaryPaymentId.HARMFULNESS,
-                SalaryPaymentId.DISTRICT, SalaryPaymentId.NORDIC,
-                SalaryPaymentId.EXCESS_REST,
-                SalaryPaymentId.EXTENDED_SERVICE, SalaryPaymentId.HEAVY_TRAIN,
-                SalaryPaymentId.LONG_TRAIN, SalaryPaymentId.HEAVY_LONG_DISTANCE,
-                SalaryPaymentId.DOUBLED_TRAIN, SalaryPaymentId.DOUBLED_TRAIN,
+                SalaryPaymentId.TARIFF, SalaryPaymentId.LINEAR_MILEAGE,
+                SalaryPaymentId.PASSENGER, SalaryPaymentId.NIGHT,
+                SalaryPaymentId.QUALIFICATION_CLASS, SalaryPaymentId.DISTRICT,
+                SalaryPaymentId.NORDIC, SalaryPaymentId.AVERAGE,
+                SalaryPaymentId.BUSINESS_TRIP, SalaryPaymentId.HOLIDAY,
+                SalaryPaymentId.UNDERWORK, SalaryPaymentId.TECHNICAL_STUDY,
+                SalaryPaymentId.RESERVE, SalaryPaymentId.HARMFULNESS,
                 SalaryPaymentId.OVERTIME_BASE, SalaryPaymentId.OVERTIME_HALF,
-                SalaryPaymentId.OVERTIME_FULL, SalaryPaymentId.OTHER_SURCHARGE,
+                SalaryPaymentId.OVERTIME_FULL, SalaryPaymentId.ZONAL,
+                SalaryPaymentId.EXTENDED_SERVICE, SalaryPaymentId.HEAVY_TRAIN,
+                SalaryPaymentId.LONG_TRAIN, SalaryPaymentId.ONE_PERSON_FREIGHT,
+                SalaryPaymentId.ONE_PERSON_PASSENGER,
+                SalaryPaymentId.DOUBLED_TRAIN, SalaryPaymentId.DOUBLED_TRAIN,
+                SalaryPaymentId.EXCESS_REST, SalaryPaymentId.DISABLED_CHILD_CARE,
+                SalaryPaymentId.HEAVY_LONG_DISTANCE, SalaryPaymentId.OTHER_SURCHARGE,
             ),
             buildAccrualRows(state).map { it.paymentId },
         )
+    }
+
+    @Test
+    fun `linear mileage title does not expose rate in parentheses`() {
+        val row = buildAccrualRows(
+            SalaryCalculationUIState(
+                linearMileageAccruals = listOf(LinearMileageAccrual("p", "Плечо", 12.5, 3.0, 37.5)),
+            )
+        ).single()
+
+        assertEquals("Доплата за пробег: Плечо", row.title)
     }
 }

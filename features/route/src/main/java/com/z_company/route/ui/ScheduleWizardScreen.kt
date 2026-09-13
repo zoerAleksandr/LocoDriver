@@ -37,6 +37,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -202,6 +203,10 @@ fun ScheduleWizardScreen(
         AlertDialog(
             onDismissRequest = {},
             confirmButton = {},
+            shape = RoundedCornerShape(28.dp),
+            containerColor = cs.surface,
+            titleContentColor = cs.primary,
+            textContentColor = cs.onSurfaceVariant,
             title = { Text("Создаём маршруты") },
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1143,19 +1148,38 @@ private fun TimeInputDialog(
     onConfirm: (Int, Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val colors = MaterialTheme.colorScheme
     val timeState = rememberTimePickerState(initialHour = initialHour, initialMinute = initialMinute, is24Hour = true)
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(28.dp),
+        containerColor = colors.surface,
+        textContentColor = colors.primary,
         confirmButton = {
-            TextButton(onClick = { onConfirm(timeState.hour, timeState.minute) }) { Text("ОК") }
+            TextButton(onClick = { onConfirm(timeState.hour, timeState.minute) }) {
+                Text("ОК", color = colors.tertiary)
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) {
+                Text("Отмена", color = colors.onSurfaceVariant)
+            }
         },
         text = {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                TimePicker(state = timeState)
+                TimePicker(
+                    state = timeState,
+                    colors = TimePickerDefaults.colors(
+                        clockDialColor = colors.surfaceBright,
+                        selectorColor = colors.tertiary,
+                        clockDialSelectedContentColor = colors.surface,
+                        clockDialUnselectedContentColor = colors.primary,
+                        timeSelectorSelectedContainerColor = colors.surfaceBright,
+                        timeSelectorUnselectedContainerColor = colors.surfaceBright,
+                        timeSelectorSelectedContentColor = colors.tertiary,
+                        timeSelectorUnselectedContentColor = colors.primary,
+                    ),
+                )
             }
         },
     )

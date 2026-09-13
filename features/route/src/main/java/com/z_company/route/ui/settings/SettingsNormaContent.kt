@@ -128,6 +128,7 @@ fun SettingsNormaContent(
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
     val styleHint = MaterialTheme.typography.bodyMedium
+    var customScheduleExpanded by remember { mutableStateOf(true) }
     val styleTitle = MaterialTheme.typography.titleSmall
     val primaryColor = MaterialTheme.colorScheme.primary
 
@@ -386,31 +387,48 @@ fun SettingsNormaContent(
                 WorkScheduleMode.CUSTOM to "Своя настройка",
             ).forEachIndexed { index, (mode, label) ->
                 if (index > 0) SettingsCardSep()
-                Text(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
+                            if (mode == WorkScheduleMode.CUSTOM && workScheduleProfile.mode == mode) {
+                                customScheduleExpanded = !customScheduleExpanded
+                                return@clickable
+                            }
                             val profile = when (mode) {
                                 WorkScheduleMode.STANDARD -> WorkScheduleProfile.standard()
                                 WorkScheduleMode.SIX_DAY_7_5 -> WorkScheduleProfile.sixDaySevenFive()
                                 WorkScheduleMode.CUSTOM -> workScheduleProfile.copy(mode = WorkScheduleMode.CUSTOM)
                             }
+                            if (mode == WorkScheduleMode.CUSTOM) customScheduleExpanded = true
                             setWorkScheduleProfile(profile)
                         }
                         .padding(horizontal = 18.dp, vertical = 13.dp),
-                    text = if (workScheduleProfile.mode == mode) "✓  $label" else label,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = if (workScheduleProfile.mode == mode) FontWeight.SemiBold else FontWeight.Normal
-                    ),
-                    color = if (workScheduleProfile.mode == mode) {
-                        MaterialTheme.colorScheme.tertiary
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    },
-                )
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        modifier = Modifier.weight(1f),
+                        text = if (workScheduleProfile.mode == mode) "✓  $label" else label,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = if (workScheduleProfile.mode == mode) FontWeight.SemiBold else FontWeight.Normal
+                        ),
+                        color = if (workScheduleProfile.mode == mode) {
+                            MaterialTheme.colorScheme.tertiary
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                    )
+                    if (mode == WorkScheduleMode.CUSTOM && workScheduleProfile.mode == mode) {
+                        Text(
+                            text = if (customScheduleExpanded) "⌃" else "⌄",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
 
-            if (workScheduleProfile.mode == WorkScheduleMode.CUSTOM) {
+            if (workScheduleProfile.mode == WorkScheduleMode.CUSTOM && customScheduleExpanded) {
                 DayOfWeek.entries.forEach { day ->
                     SettingsCardSep()
                     WorkDayHoursRow(
