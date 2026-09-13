@@ -699,10 +699,10 @@ private fun PayToggleSlot(
 }
 
 // Filled-инпут: mono-значение + единица справа (suffix). Серый bgSubtle, 12r, без тени.
-// Значение почти всегда предзаполнено («0», «25»), поэтому при получении фокуса
-// текст выделяется целиком: первая набранная цифра заменяет старое значение, а не
-// приписывается к нему («0» + «5» = «05» — так пользователи считали, что поле не
-// редактируется). Тот же приём, что в AppInputBottomSheet для справочников.
+// Если поле предзаполнено нулём, при получении фокуса «0» выделяется целиком:
+// первая набранная цифра заменяет его, а не приписывается («0» + «5» = «05» —
+// так пользователи считали, что поле не редактируется). Любое другое значение
+// не трогаем — курсор остаётся там, куда тапнул пользователь.
 @Composable
 private fun PayInput(
     value: String,
@@ -729,7 +729,7 @@ private fun PayInput(
     )
     OutlinedTextFieldApp(
         modifier = modifier.onFocusChanged { focusState ->
-            if (focusState.isFocused && !isFocused) {
+            if (focusState.isFocused && !isFocused && value == "0") {
                 selection = TextRange(0, value.length)
             }
             isFocused = focusState.isFocused
