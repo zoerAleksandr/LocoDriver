@@ -14,6 +14,7 @@ import com.z_company.repository.remote_rest.request.AddEmailRequest
 import com.z_company.repository.remote_rest.request.AddVKIDRequest
 import com.z_company.repository.remote_rest.request.AuthRequest
 import com.z_company.repository.remote_rest.request.CkassaCheckoutRequest
+import com.z_company.repository.remote_rest.request.AnnouncementSeenRequest
 import com.z_company.repository.remote_rest.request.ClientInfoRequest
 import com.z_company.repository.remote_rest.request.RegisteredRequestByEmail
 import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
@@ -138,6 +139,9 @@ interface RemoteRestApi {
      * `type` ("news" | "update") — только сообщения этого типа; null — любой.
      */
     suspend fun getLatestAnnouncement(platform: String, build: Long, type: String? = null): AnnouncementResponse?
+
+    /** Отметить просмотр сообщения установкой (`POST /v1/announcements/{number}/seen`, без авторизации). */
+    suspend fun postAnnouncementSeen(number: Int, body: AnnouncementSeenRequest)
 
     // --- Tariffs (тарифы подписки: цены и скидки) ---
 

@@ -17,4 +17,11 @@ interface AnnouncementRepository {
      *   сообщения этого типа; null — любой тип (максимальный номер среди всех).
      */
     suspend fun getLatest(platform: String, build: Long, type: String? = null): Announcement?
+
+    /**
+     * Сообщить серверу, что установка увидела сообщение `number` (после
+     * закрытия экрана) — для счётчика просмотров по платформам в кабинете.
+     * Ошибка сети глотается: показ уже состоялся, повторять незачем.
+     */
+    suspend fun reportSeen(number: Int, platform: String, installationId: String)
 }

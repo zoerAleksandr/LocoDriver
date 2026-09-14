@@ -106,6 +106,8 @@ class SqlDelightDiagnosticRepository : DiagnosticRepository, KoinComponent {
         )
     }
 
+    override fun getInstallationId(): String = installationId()
+
     private fun installationId(): String {
         db.diagnosticInstallationQueries.getInstallationId().executeAsOneOrNull()?.let { return it }
         val generated = generateId()

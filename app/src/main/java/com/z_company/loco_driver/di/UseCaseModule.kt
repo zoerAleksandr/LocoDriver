@@ -34,5 +34,5 @@ val useCaseModule = module {
             sharedPreferences = get(),
         )
     }
-    single { AnnouncementUseCase(repository = get(), sharedPreferences = get()) }
+    single { AnnouncementUseCase(repository = get(), sharedPreferences = get(), diagnostics = get()) }
 }

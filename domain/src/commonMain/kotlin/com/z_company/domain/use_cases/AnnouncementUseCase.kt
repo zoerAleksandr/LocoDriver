@@ -2,6 +2,7 @@ package com.z_company.domain.use_cases
 
 import com.z_company.domain.entities.announcement.Announcement
 import com.z_company.domain.repositories.AnnouncementRepository
+import com.z_company.domain.repositories.DiagnosticRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -40,6 +41,7 @@ import kotlinx.coroutines.coroutineScope
 class AnnouncementUseCase(
     private val repository: AnnouncementRepository,
     private val sharedPreferences: SharedPreferencesRepositories,
+    private val diagnostics: DiagnosticRepository,
 ) {
     /**
      * Сообщения, которые нужно показать сейчас, в порядке показа
@@ -81,5 +83,14 @@ class AnnouncementUseCase(
     /** Пометить сообщение показанным (после закрытия полноэкранного экрана). */
     fun markSeen(announcement: Announcement) {
         sharedPreferences.setLastSeenAnnouncementNumber(announcement.type, announcement.number)
+    }
+
+    /**
+     * Сообщить серверу о просмотре — для счётчика «сколько установок на какой
+     * платформе увидели» в кабинете. Вызывать после [markSeen]; сетевые ошибки
+     * репозиторий глотает.
+     */
+    suspend fun reportSeen(announcement: Announcement, platform: String) {
+        repository.reportSeen(announcement.number, platform, diagnostics.getInstallationId())
     }
 }

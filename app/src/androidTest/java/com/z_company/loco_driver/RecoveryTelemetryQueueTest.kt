@@ -73,6 +73,7 @@ class RecoveryTelemetryQueueTest {
         override fun getReadyBatch(now: Long, requestedLimit: Int): List<DiagnosticOutboxEvent> =
             error("unused")
         override fun markUploaded(eventIds: List<String>, uploadedAt: Long) = Unit
+        override fun getInstallationId(): String = "test-installation"
         override fun scheduleRetry(
             eventId: String,
             attemptCount: Long,

@@ -14,5 +14,12 @@ interface DiagnosticRepository {
     fun getSummary(recentLimit: Long = 20): DiagnosticSummary
     fun getReadyBatch(now: Long, requestedLimit: Int = 20): List<DiagnosticOutboxEvent>
     fun markUploaded(eventIds: List<String>, uploadedAt: Long)
+
+    /**
+     * Анонимный идентификатор установки (создаётся при первом обращении,
+     * живёт в локальной БД). Не привязан к аккаунту; используется как ключ
+     * диагностики и для счётчика «увидели сообщение» на сервере.
+     */
+    fun getInstallationId(): String
     fun scheduleRetry(eventId: String, attemptCount: Long, now: Long, errorCode: String?)
 }

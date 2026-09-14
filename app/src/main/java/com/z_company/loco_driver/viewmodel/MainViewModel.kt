@@ -97,6 +97,14 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         val current = _announcements.value.firstOrNull() ?: return
         announcementUseCase.markSeen(current)
         _announcements.value = _announcements.value.drop(1)
+        // Счётчик просмотров на сервере — в фоне, результат не важен.
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                announcementUseCase.reportSeen(current, platform = "android")
+            } catch (e: Exception) {
+                e.sendToSentry("MainViewModel", "reportAnnouncementSeen")
+            }
+        }
     }
 
     private fun loadAnnouncement() {

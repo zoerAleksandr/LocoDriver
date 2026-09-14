@@ -3,6 +3,7 @@ package com.z_company.repository.remote_rest
 import com.z_company.domain.entities.announcement.Announcement
 import com.z_company.domain.entities.announcement.AnnouncementFeature
 import com.z_company.domain.repositories.AnnouncementRepository
+import com.z_company.repository.remote_rest.request.AnnouncementSeenRequest
 
 /**
  * Сетевая реализация [AnnouncementRepository] (эндпоинт `GET /v1/announcements/latest`).
@@ -36,6 +37,14 @@ class RemoteAnnouncementRepository(
             }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    override suspend fun reportSeen(number: Int, platform: String, installationId: String) {
+        try {
+            api.postAnnouncementSeen(number, AnnouncementSeenRequest(platform, installationId))
+        } catch (e: Exception) {
+            // Счётчик просмотров — не критично; офлайн просто не учтётся.
         }
     }
 
