@@ -2871,7 +2871,8 @@ private fun RestSegButton(
 
 
 /** Предупреждение «вторая ночь подряд» — предыдущий и текущий маршрут
- *  оба захватывают ночное окно (00:00–05:00). Только информирование. */
+ *  две соседние ночи заняты работой или отдыхом в ПО (00:00–05:00).
+ *  Только информирование. */
 @Composable
 private fun RouteNightWarn(
     state: NightWarnState,
@@ -2956,7 +2957,7 @@ private fun RouteNightWarn(
             verticalAlignment = Alignment.CenterVertically
         ) {
             NightWarnLegendItem(color = MaterialTheme.colorScheme.surfaceVariant, text = "Маршрут")
-            NightWarnLegendItem(color = MaterialTheme.colorScheme.tertiary, text = "Ночные часы · 00:00–05:00")
+            NightWarnLegendItem(color = MaterialTheme.colorScheme.tertiary, text = "Ночь · 00:00–05:00")
         }
     }
 }

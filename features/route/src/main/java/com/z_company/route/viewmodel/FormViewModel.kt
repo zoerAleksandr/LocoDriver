@@ -717,9 +717,8 @@ class FormViewModel(
     }
 
     /**
-     * Предупреждение «вторая ночь подряд»: текущий маршрут захватывает ночное
-     * окно, и предыдущий по времени маршрут (в пределах ~36 ч) — тоже,
-     * если между маршрутами не было домашнего отдыха.
+     * Предупреждение «вторая ночь подряд»: две соседние ночи 00:00–05:00
+     * заняты работой либо отдыхом в пункте оборота. Домашняя ночь не считается.
      */
     private suspend fun computeNightWarn(route: Route, settings: UserSettings) {
         val start = route.basicData.timeStartWork
@@ -730,51 +729,8 @@ class FormViewModel(
         }
         val offset = currentTimeZoneOffset ?: 0L
 
-        // Правило «вторая ночь подряд» считается по фиксированному окну 00:00–05:00
-        // (не по пользовательским настройкам ночных часов для оплаты).
-        val nightStartHour = 0
-        val nightStartMinute = 0
-        val nightEndHour = 5
-        val nightEndMinute = 0
-
-        suspend fun nightOf(s: Long, e: Long, bs: Long?, be: Long?): Long =
-            CalculateNightTime.getNightTime(
-                startMillis = s, endMillis = e,
-                hourStart = nightStartHour, minuteStart = nightStartMinute,
-                hourEnd = nightEndHour, minuteEnd = nightEndMinute,
-                offsetInMoscow = offset,
-                breakStartMillis = bs, breakEndMillis = be
-            ).first() ?: 0L
-
-        fun intervalsOf(s: Long, e: Long): List<Pair<Long, Long>> =
-            CalculateNightTime.getNightIntervals(
-                startMillis = s, endMillis = e,
-                hourStart = nightStartHour, minuteStart = nightStartMinute,
-                hourEnd = nightEndHour, minuteEnd = nightEndMinute,
-                offsetInMoscow = offset
-            )
-
-        val thisNight = nightOf(start, end, route.basicData.timeStartBreak, route.basicData.timeEndBreak)
-        if (thisNight <= 0L) {
-            _nightWarnState.value = null
-            return
-        }
-
-        // Случай 1: сам маршрут захватывает два ночных окна.
-        val nightWindows = CalculateNightTime.getNightWindowsCount(
-            startMillis = start, endMillis = end,
-            hourStart = nightStartHour, minuteStart = nightStartMinute,
-            hourEnd = nightEndHour, minuteEnd = nightEndMinute,
-            offsetInMoscow = offset
-        )
-        if (nightWindows >= 2) {
-            _nightWarnState.value = NightWarnState(
-                listOf(NightWarnRow("Этот маршрут", start, end, thisNight, intervalsOf(start, end)))
-            )
-            return
-        }
-
-        // Случай 2: предыдущий по времени маршрут (в пределах ~36 ч) тоже ночной.
+        // Предыдущий по времени маршрут нужен и для рабочей ночи, и для ночного
+        // отдыха в пункте оборота между маршрутами.
         val monthRoutesState = routeUseCase
             .listRoutesByMonth(settings.selectMonthOfYear, settings.timeZone)
             .first { it is ResultState.Success }
@@ -785,29 +741,31 @@ class FormViewModel(
             ?.maxByOrNull { it.basicData.timeStartWork ?: 0L }
         val prevStart = prev?.basicData?.timeStartWork
         val prevEnd = prev?.basicData?.timeEndWork
-        val consecutiveLimit = 36L * 3_600_000L
-        if (
-            prev == null ||
-            prevStart == null ||
-            prevEnd == null ||
-            !prev.basicData.restPointOfTurnover ||
-            start - prevEnd > consecutiveLimit
-        ) {
-            _nightWarnState.value = null
-            return
-        }
-        val prevNight = nightOf(prevStart, prevEnd, prev.basicData.timeStartBreak, prev.basicData.timeEndBreak)
-        if (prevNight <= 0L) {
-            _nightWarnState.value = null
-            return
-        }
-
-        _nightWarnState.value = NightWarnState(
-            listOf(
-                NightWarnRow("Предыдущий маршрут", prevStart, prevEnd, prevNight, intervalsOf(prevStart, prevEnd)),
-                NightWarnRow("Этот маршрут", start, end, thisNight, intervalsOf(start, end))
-            )
+        val periods = CalculateNightTime.getConsecutiveNightPeriods(
+            previousStartMillis = prevStart,
+            previousEndMillis = prevEnd,
+            previousRestPointOfTurnover = prev?.basicData?.restPointOfTurnover == true,
+            currentStartMillis = start,
+            currentEndMillis = end,
+            offsetInMoscow = offset,
         )
+        _nightWarnState.value = periods.takeIf { it.isNotEmpty() }?.let { nightPeriods ->
+            NightWarnState(nightPeriods.mapIndexed { index, period ->
+                val label = when {
+                    index == nightPeriods.lastIndex -> "Этот маршрут"
+                    period.source == CalculateNightTime.ConsecutiveNightSource.TURNOVER_REST ->
+                        "Отдых в пункте оборота"
+                    else -> "Предыдущий маршрут"
+                }
+                NightWarnRow(
+                    label,
+                    period.startMillis,
+                    period.endMillis,
+                    period.intervals.sumOf { it.second - it.first },
+                    period.intervals,
+                )
+            })
+        }
     }
 
     private suspend fun getHolidayTimeInRoute(route: Route, settings: UserSettings) {

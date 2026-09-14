@@ -14,6 +14,90 @@ import kotlinx.datetime.toLocalDateTime
 
 object CalculateNightTime {
 
+    enum class ConsecutiveNightSource { WORK, TURNOVER_REST }
+
+    data class ConsecutiveNightPeriod(
+        val source: ConsecutiveNightSource,
+        val startMillis: Long,
+        val endMillis: Long,
+        val intervals: List<Pair<Long, Long>>,
+    )
+
+    /**
+     * Периоды, образующие «вторую ночь подряд» в фиксированном окне 00:00–05:00.
+     * Рабочая ночь учитывается независимо от вида отдыха после маршрута. Ночной
+     * отдых в пункте оборота также считается ночью, а домашний — нет.
+     */
+    fun getConsecutiveNightPeriods(
+        previousStartMillis: Long?,
+        previousEndMillis: Long?,
+        previousRestPointOfTurnover: Boolean,
+        currentStartMillis: Long?,
+        currentEndMillis: Long?,
+        offsetInMoscow: Long,
+    ): List<ConsecutiveNightPeriod> {
+        val currentStart = currentStartMillis ?: return emptyList()
+        val currentEnd = currentEndMillis ?: return emptyList()
+        if (currentEnd <= currentStart) return emptyList()
+
+        fun intervals(start: Long, end: Long) = getNightIntervals(
+            startMillis = start,
+            endMillis = end,
+            hourStart = 0,
+            minuteStart = 0,
+            hourEnd = 5,
+            minuteEnd = 0,
+            offsetInMoscow = offsetInMoscow,
+        )
+
+        val currentIntervals = intervals(currentStart, currentEnd)
+        if (currentIntervals.isEmpty()) return emptyList()
+        val currentPeriod = ConsecutiveNightPeriod(
+            ConsecutiveNightSource.WORK, currentStart, currentEnd, currentIntervals
+        )
+        if (currentIntervals.size >= 2) return listOf(currentPeriod)
+
+        val previousStart = previousStartMillis ?: return emptyList()
+        val previousEnd = previousEndMillis ?: return emptyList()
+        if (
+            previousEnd <= previousStart || previousEnd > currentStart ||
+            currentStart - previousEnd > 36L * 3_600_000L
+        ) return emptyList()
+
+        val timeZone = TimeZone.of(getTimeZone(offsetInMoscow))
+        fun nightDate(interval: Pair<Long, Long>) =
+            Instant.fromEpochMilliseconds(interval.first).toLocalDateTime(timeZone).date
+        val requiredPreviousDate = nightDate(currentIntervals.first()).plus(-1, DateTimeUnit.DAY)
+
+        val previousWorkIntervals = intervals(previousStart, previousEnd)
+            .filter { nightDate(it) == requiredPreviousDate }
+        if (previousWorkIntervals.isNotEmpty()) {
+            return listOf(
+                ConsecutiveNightPeriod(
+                    ConsecutiveNightSource.WORK,
+                    previousStart,
+                    previousEnd,
+                    previousWorkIntervals,
+                ),
+                currentPeriod,
+            )
+        }
+
+        if (!previousRestPointOfTurnover) return emptyList()
+        val turnoverIntervals = intervals(previousEnd, currentStart)
+            .filter { nightDate(it) == requiredPreviousDate }
+        if (turnoverIntervals.isEmpty()) return emptyList()
+        return listOf(
+            ConsecutiveNightPeriod(
+                ConsecutiveNightSource.TURNOVER_REST,
+                previousEnd,
+                currentStart,
+                turnoverIntervals,
+            ),
+            currentPeriod,
+        )
+    }
+
     /** Пересечение двух интервалов [a1,a2) и [b1,b2). */
     private fun overlapDuration(a1: Long, a2: Long, b1: Long, b2: Long): Long {
         val start = maxOf(a1, b1)
