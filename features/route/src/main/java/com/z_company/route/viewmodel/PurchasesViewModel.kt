@@ -69,6 +69,11 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val remoteRestApi: RemoteRestApi by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
 
+    private val _referralStatus = MutableStateFlow<com.z_company.repository.remote_rest.response.ReferralStatusResponse?>(null)
+    val referralStatus = _referralStatus.asStateFlow()
+    private val _referralMessage = MutableStateFlow<String?>(null)
+    val referralMessage = _referralMessage.asStateFlow()
+
     private val _state = MutableStateFlow(BillingState(isLoading = true))
     val state = _state.asStateFlow()
 
@@ -105,6 +110,34 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         loadDateConverter()
         observeSubscription()
         refreshProductsAndPurchases()
+        refreshReferralStatus()
+    }
+
+    fun refreshReferralStatus() {
+        viewModelScope.launch {
+            try {
+                val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+                _referralStatus.value = remoteRestApi.getReferralStatus("Bearer $token")
+            } catch (_: Exception) {
+                _referralStatus.value = null
+            }
+        }
+    }
+
+    fun applyReferralCode(code: String) {
+        viewModelScope.launch {
+            try {
+                val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+                remoteRestApi.applyReferralCode(
+                    "Bearer $token",
+                    com.z_company.repository.remote_rest.response.ApplyReferralCodeRequest(code.trim()),
+                )
+                _referralMessage.value = "Код принят. Бонус начислится после первой оплаты."
+                refreshReferralStatus()
+            } catch (_: Exception) {
+                _referralMessage.value = "Не удалось применить код. Проверьте его и попробуйте снова."
+            }
+        }
     }
 
     /**

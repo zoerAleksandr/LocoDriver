@@ -168,6 +168,9 @@ struct ProfileView: View {
                 NavigationLink("Подписка") {
                     PurchasesView()
                 }
+                NavigationLink("Реферальная программа") {
+                    ReferralView(vm: vm)
+                }
             }
 
             Section {
@@ -182,5 +185,37 @@ struct ProfileView: View {
                 }
             }
         }
+    }
+}
+
+private struct ReferralView: View {
+    @ObservedObject var vm: ProfileViewModelWrapper
+
+    var body: some View {
+        List {
+            Section("Условия") {
+                Text("Пригласите друга. До своей первой оплаты он вводит ваш код на экране подписки. После подтверждения оплаты каждый из вас получит половину срока оплаченного тарифа дополнительно.")
+                Text("Код можно ввести и после регистрации, если оплат ещё не было. Повторные покупки бонуса не дают.")
+            }
+            Section("Ваш код") {
+                if let code = vm.referralCode {
+                    Text(code).font(.title2).textSelection(.enabled)
+                    ShareLink(item: "Мой код Машинист Про: \(code)") {
+                        Label("Поделиться", systemImage: "square.and.arrow.up")
+                    }
+                } else if let error = vm.referralError {
+                    Text(error).foregroundColor(.red)
+                    Button("Повторить") { vm.loadReferrals() }
+                } else {
+                    ProgressView()
+                }
+            }
+            Section("Приглашения") {
+                Text("Приглашений: \(vm.referralCount)")
+                Text("Начислено бонусов: \(vm.referralRewardedCount)")
+            }
+        }
+        .navigationTitle("Реферальная программа")
+        .onAppear { vm.loadReferrals() }
     }
 }

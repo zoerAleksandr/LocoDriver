@@ -34,6 +34,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -331,6 +332,9 @@ fun PurchasesScreen(
 
     // ── Данные состояния ───────────────────────────────────────────────────
     val purchasesEndTimeInLong = viewModel.purchasesEndTime.collectAsState()
+    val referralStatus by viewModel.referralStatus.collectAsState()
+    val referralMessage by viewModel.referralMessage.collectAsState()
+    var referralCode by remember { mutableStateOf("") }
     val currentState by viewModel.state.collectAsState()
     val converter = currentState.dateAndTimeConverter
 
@@ -541,6 +545,24 @@ fun PurchasesScreen(
                             onSelect = { selectedProduct = it },
                         )
                     }
+                }
+
+                if (purchaseState is PurchaseUi.Paywall && referralStatus?.canApplyCode == true) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    SectionLabel("РЕФЕРАЛЬНЫЙ КОД")
+                    Text("Если друг пригласил вас, введите его код до первой оплаты. После оплаты каждый получит половину срока тарифа дополнительно.")
+                    OutlinedTextField(
+                        value = referralCode,
+                        onValueChange = { referralCode = it },
+                        label = { Text("Код друга") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    TextButton(
+                        onClick = { viewModel.applyReferralCode(referralCode) },
+                        enabled = referralCode.isNotBlank(),
+                    ) { Text("Применить код") }
+                    referralMessage?.let { Text(it) }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))

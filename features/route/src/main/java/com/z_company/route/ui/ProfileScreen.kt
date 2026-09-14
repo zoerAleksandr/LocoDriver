@@ -211,6 +211,11 @@ fun ProfileScreen(
     pullSyncMessage: String? = null,
     onPullSyncMessageShown: () -> Unit = {},
 ) {
+    var showReferrals by rememberSaveable { mutableStateOf(false) }
+    if (showReferrals) {
+        ReferralScreen(onBack = { showReferrals = false })
+        return
+    }
     var showTrash by rememberSaveable { mutableStateOf(false) }
     if (showTrash) {
         TrashScreen(viewModel = trashViewModel, onBack = { showTrash = false })
@@ -1191,6 +1196,9 @@ fun ProfileScreen(
                             // ===================== ПОДПИСКА =====================
                             item {
                                 ProfileGroupLabel("ПОДПИСКА")
+                                TextButton(onClick = { showReferrals = true }) {
+                                    Text("Реферальная программа →")
+                                }
                                 val onCard = if (hasSubscription) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
                                 Row(
                                     modifier = Modifier

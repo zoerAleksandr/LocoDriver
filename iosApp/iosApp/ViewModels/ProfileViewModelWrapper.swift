@@ -11,6 +11,12 @@ final class ProfileViewModelWrapper: ObservableObject {
     @Published var userEmail: String? = nil
     @Published var errorMessage: String? = nil
     @Published var syncMessage: String? = nil
+    @Published var referralCode: String? = nil
+    @Published var referralCount: Int = 0
+    @Published var referralRewardedCount: Int = 0
+    @Published var referralError: String? = nil
+    @Published var canApplyReferralCode: Bool = false
+    @Published var appliedReferralCode: String? = nil
 
     init() {
         viewModel.watchIsLoggedIn { [weak self] value in
@@ -31,6 +37,24 @@ final class ProfileViewModelWrapper: ObservableObject {
         viewModel.watchSyncMessage { [weak self] value in
             DispatchQueue.main.async { self?.syncMessage = value }
         }
+        viewModel.watchReferralCode { [weak self] value in
+            DispatchQueue.main.async { self?.referralCode = value }
+        }
+        viewModel.watchReferralCount { [weak self] value in
+            DispatchQueue.main.async { self?.referralCount = value.intValue }
+        }
+        viewModel.watchReferralRewardedCount { [weak self] value in
+            DispatchQueue.main.async { self?.referralRewardedCount = value.intValue }
+        }
+        viewModel.watchReferralError { [weak self] value in
+            DispatchQueue.main.async { self?.referralError = value }
+        }
+        viewModel.watchCanApplyReferralCode { [weak self] value in
+            DispatchQueue.main.async { self?.canApplyReferralCode = value.boolValue }
+        }
+        viewModel.watchAppliedReferralCode { [weak self] value in
+            DispatchQueue.main.async { self?.appliedReferralCode = value }
+        }
     }
 
     func login(email: String, password: String) {
@@ -43,6 +67,14 @@ final class ProfileViewModelWrapper: ObservableObject {
 
     func syncData() {
         viewModel.syncData()
+    }
+
+    func loadReferrals() {
+        viewModel.loadReferrals()
+    }
+
+    func applyReferralCode(_ code: String) {
+        viewModel.applyReferralCode(code: code)
     }
 
     func logout() {

@@ -327,4 +327,19 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             header("Authorization", token)
             setBody(request)
         }.body()
+
+    override suspend fun getReferralStatus(token: String): com.z_company.repository.remote_rest.response.ReferralStatusResponse =
+        client.get("v1/referrals/me") {
+            header("Authorization", token)
+        }.body()
+
+    override suspend fun applyReferralCode(
+        token: String,
+        request: com.z_company.repository.remote_rest.response.ApplyReferralCodeRequest,
+    ): com.z_company.repository.remote_rest.response.ApplyReferralCodeResponse =
+        client.post("v1/referrals/apply") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(request)
+        }.body()
 }
