@@ -135,8 +135,9 @@ interface RemoteRestApi {
     /**
      * Актуальное сообщение-«новость при запуске» для платформы/версии (без авторизации).
      * Возвращает null, если показывать нечего (сервер ответил 204).
+     * `type` ("news" | "update") — только сообщения этого типа; null — любой.
      */
-    suspend fun getLatestAnnouncement(platform: String, build: Long): AnnouncementResponse?
+    suspend fun getLatestAnnouncement(platform: String, build: Long, type: String? = null): AnnouncementResponse?
 
     // --- Tariffs (тарифы подписки: цены и скидки) ---
 

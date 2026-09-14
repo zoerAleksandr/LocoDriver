@@ -13,6 +13,8 @@ interface AnnouncementRepository {
      *
      * @param platform "android" | "ios"
      * @param build номер сборки клиента (versionCode) — для фильтра min/max версии
+     * @param type [Announcement.TYPE_NEWS] | [Announcement.TYPE_UPDATE] — только
+     *   сообщения этого типа; null — любой тип (максимальный номер среди всех).
      */
-    suspend fun getLatest(platform: String, build: Long): Announcement?
+    suspend fun getLatest(platform: String, build: Long, type: String? = null): Announcement?
 }

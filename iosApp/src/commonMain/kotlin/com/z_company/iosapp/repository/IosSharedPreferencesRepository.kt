@@ -62,7 +62,7 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var passenger12hAutoAccepted: Boolean = false
     private var timePickerKeyboardInput: Boolean = false
     private val recentTimesMap = mutableMapOf<String, MutableList<Long>>()
-    private var lastSeenAnnouncementNumber: Int = -1
+    private val lastSeenAnnouncementNumbers = mutableMapOf<String, Int>()
     private var underworkInfoDismissed: Boolean = false
     private var themeMode: String? = null
     private var currentRouteBlockOrder: List<String>? = null
@@ -110,8 +110,8 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var lastOtherWorkType: String? = null
     override fun getLastOtherWorkType(): String? = lastOtherWorkType
     override fun setLastOtherWorkType(value: String?) { lastOtherWorkType = value }
-    override fun getLastSeenAnnouncementNumber(): Int = lastSeenAnnouncementNumber
-    override fun setLastSeenAnnouncementNumber(value: Int) { lastSeenAnnouncementNumber = value }
+    override fun getLastSeenAnnouncementNumber(type: String): Int = lastSeenAnnouncementNumbers[type] ?: -1
+    override fun setLastSeenAnnouncementNumber(type: String, value: Int) { lastSeenAnnouncementNumbers[type] = value }
     override fun isUnderworkInfoDismissed(): Boolean = underworkInfoDismissed
     override fun setUnderworkInfoDismissed() { underworkInfoDismissed = true }
     override fun getThemeMode(): String? = themeMode

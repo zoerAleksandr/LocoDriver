@@ -290,10 +290,17 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
     override suspend fun getSharedRoute(shareId: String): Route =
         client.get("v1/share/route/$shareId").body()
 
-    override suspend fun getLatestAnnouncement(platform: String, build: Long): AnnouncementResponse? {
+    override suspend fun getLatestAnnouncement(
+        platform: String,
+        build: Long,
+        type: String?,
+    ): AnnouncementResponse? {
         val response = client.get("v1/announcements/latest") {
             parameter("platform", platform)
             parameter("build", build)
+            // Старый сервер параметр не знает и просто игнорирует — тогда оба
+            // запроса вернут одно и то же сообщение; use case дедуплицирует по number.
+            if (type != null) parameter("type", type)
         }
         // Сервер отвечает 204, когда показывать нечего — тела нет.
         return if (response.status == HttpStatusCode.NoContent) null else response.body()

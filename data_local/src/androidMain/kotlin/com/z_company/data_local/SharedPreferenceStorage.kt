@@ -466,11 +466,17 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
     override fun getLastScheduleMonth(): String? = sharedpref.getString("last_schedule_month", null)
     override fun setLastScheduleMonth(value: String) { editor.putString("last_schedule_month", value).apply() }
 
-    override fun getLastSeenAnnouncementNumber(): Int =
-        sharedpref.getInt(LAST_SEEN_ANNOUNCEMENT_NUMBER, -1)
+    // Ключ на тип: LAST_SEEN_ANNOUNCEMENT_NUMBER_news / _update. Пока для типа
+    // ничего не сохранено — отдаём старый общий счётчик LAST_SEEN_ANNOUNCEMENT_NUMBER
+    // (клиенты до разделения по типам), чтобы не показать заново уже виденное.
+    override fun getLastSeenAnnouncementNumber(type: String): Int =
+        sharedpref.getInt(
+            "${LAST_SEEN_ANNOUNCEMENT_NUMBER}_$type",
+            sharedpref.getInt(LAST_SEEN_ANNOUNCEMENT_NUMBER, -1),
+        )
 
-    override fun setLastSeenAnnouncementNumber(value: Int) {
-        editor.putInt(LAST_SEEN_ANNOUNCEMENT_NUMBER, value).apply()
+    override fun setLastSeenAnnouncementNumber(type: String, value: Int) {
+        editor.putInt("${LAST_SEEN_ANNOUNCEMENT_NUMBER}_$type", value).apply()
     }
 
     override fun getThemeMode(): String? =

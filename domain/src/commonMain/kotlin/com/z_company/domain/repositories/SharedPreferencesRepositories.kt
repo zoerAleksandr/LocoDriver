@@ -162,11 +162,17 @@ interface SharedPreferencesRepositories {
     /**
      * Номер последнего показанного пользователю сообщения-«новости при запуске»
      * (см. [com.z_company.domain.use_cases.AnnouncementUseCase]).
-     * Возвращает [com.z_company.domain.use_cases.AnnouncementUseCase.NOT_SEEN] (-1),
-     * если ещё ничего не показывалось (первый запуск/переустановка).
+     * Возвращает -1, если ещё ничего не показывалось (первый запуск/переустановка).
+     *
+     * Счётчик ведётся отдельно на каждый тип сообщения (`type` —
+     * [com.z_company.domain.entities.announcement.Announcement.TYPE_NEWS] /
+     * [com.z_company.domain.entities.announcement.Announcement.TYPE_UPDATE]),
+     * чтобы новости и обновления показывались независимо и не затирали друг друга.
+     * Если для типа ещё ничего не сохранено, реализация возвращает старый общий
+     * счётчик (до разделения по типам) — чтобы не показать заново уже виденное.
      */
-    fun getLastSeenAnnouncementNumber(): Int
-    fun setLastSeenAnnouncementNumber(value: Int)
+    fun getLastSeenAnnouncementNumber(type: String): Int
+    fun setLastSeenAnnouncementNumber(type: String, value: Int)
 
     /**
      * Выбранная тема оформления приложения (локально, без синхронизации).

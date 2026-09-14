@@ -40,7 +40,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
@@ -79,25 +82,31 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val _appInitialized = MutableStateFlow(false)
     val appInitialized: StateFlow<Boolean> = _appInitialized.asStateFlow()
 
-    // Сообщение-«новость при запуске» для показа полноэкранным экраном.
-    // null = показывать нечего (нет нового / офлайн / первый запуск).
-    private val _announcement = MutableStateFlow<Announcement?>(null)
-    val announcement: StateFlow<Announcement?> = _announcement.asStateFlow()
+    // Очередь сообщений-«новостей при запуске» для показа полноэкранным экраном:
+    // сначала обновление (карусель фич), потом новость — независимо друг от друга.
+    // Пусто = показывать нечего (нет нового / офлайн / первый запуск).
+    private val _announcements = MutableStateFlow<List<Announcement>>(emptyList())
 
+    /** Сообщение, которое показывается сейчас (первое в очереди), либо null. */
+    val announcement: StateFlow<Announcement?> = _announcements
+        .map { it.firstOrNull() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Закрыть текущее сообщение: пометить виденным и перейти к следующему в очереди. */
     fun dismissAnnouncement() {
-        _announcement.value?.let { announcementUseCase.markSeen(it.number) }
-        _announcement.value = null
+        val current = _announcements.value.firstOrNull() ?: return
+        announcementUseCase.markSeen(current)
+        _announcements.value = _announcements.value.drop(1)
     }
 
     private fun loadAnnouncement() {
         viewModelScope.launch {
             try {
-                val toShow = announcementUseCase.getAnnouncementToShow(
+                _announcements.value = announcementUseCase.getAnnouncementsToShow(
                     platform = "android",
                     build = BuildConfig.VERSION_CODE.toLong(),
                     isFreshInstall = isFreshInstall(),
                 )
-                _announcement.value = toShow
             } catch (e: Exception) {
                 e.sendToSentry("MainViewModel", "loadAnnouncement")
             }

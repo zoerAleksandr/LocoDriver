@@ -12,9 +12,9 @@ class RemoteAnnouncementRepository(
     private val api: RemoteRestApi,
 ) : AnnouncementRepository {
 
-    override suspend fun getLatest(platform: String, build: Long): Announcement? {
+    override suspend fun getLatest(platform: String, build: Long, type: String?): Announcement? {
         return try {
-            api.getLatestAnnouncement(platform, build)?.let { dto ->
+            api.getLatestAnnouncement(platform, build, type)?.let { dto ->
                 Announcement(
                     number = dto.number,
                     title = dto.title,
