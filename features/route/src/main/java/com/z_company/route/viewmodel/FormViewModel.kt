@@ -269,6 +269,7 @@ class FormViewModel(
                         launch { calculationHomeRest(route) }
                         launch { getMinTimeRest(route) }
                         launch { getFullRest(route) }
+                        launch { checkSecondTurnaroundRest(route) }
                         launch { calculationActualRest(route) }
                         launch { isValidTime(route) }
                         launch { getPassengerTime(route) }
@@ -811,6 +812,12 @@ class FormViewModel(
                 )
             }
         }
+    }
+
+    /** Флаг «второй отдых в ПО подряд» для предупреждения в шторке отдыха. */
+    private fun checkSecondTurnaroundRest(route: Route) {
+        val isSecond = isSecondTurnaroundRest(route, routeUseCase.getListRoutes())
+        _dialogRestUiState.update { it.copy(isSecondTurnaroundRest = isSecond) }
     }
 
     private suspend fun getFullRest(route: Route) {

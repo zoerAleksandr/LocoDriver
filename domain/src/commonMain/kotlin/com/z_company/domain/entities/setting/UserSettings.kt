@@ -21,6 +21,7 @@ enum class CrossMonthTimezone { LOCAL, MOSCOW }
 data class UserSettings(
     var key: String = SETTINGS_KEY,
     var minTimeRestPointOfTurnover: Long = 10_800_000L,
+    val minTimeRestPointOfTurnoverSecond: Long = 14_400_000L,
     var minTimeHomeRest: Long = 57_600_000L,
     var lastEnteredDieselCoefficient: Double = 0.83,
     var nightTime: NightTime = NightTime(),

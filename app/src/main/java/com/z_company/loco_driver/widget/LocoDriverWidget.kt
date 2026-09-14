@@ -686,7 +686,14 @@ object WidgetDataLoader : KoinComponent {
         val workTime = previousRoute.getWorkTime() ?: (endWork - startWork)
 
         if (previousRoute.basicData.restPointOfTurnover) {
-            val minTime = userSettings.minTimeRestPointOfTurnover
+            val start = previousRoute.basicData.timeStartWork ?: Long.MIN_VALUE
+            val priorRoute = allRoutes.asSequence()
+                .filter { it.basicData.id != previousRoute.basicData.id && !it.basicData.isDeleted }
+                .filter { (it.basicData.timeStartWork ?: Long.MAX_VALUE) < start }
+                .maxByOrNull { it.basicData.timeStartWork ?: Long.MIN_VALUE }
+            val minTime = if (priorRoute?.basicData?.restPointOfTurnover == true)
+                userSettings.minTimeRestPointOfTurnoverSecond
+            else userSettings.minTimeRestPointOfTurnover
             // Короткий отдых — половина, округлённая вверх до минуты (как в шторке отдыха).
             var halfRest = workTime / 2
             if (halfRest % 60_000L != 0L) halfRest += 60_000L

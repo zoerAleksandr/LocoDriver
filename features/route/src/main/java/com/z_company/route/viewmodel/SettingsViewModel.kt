@@ -404,6 +404,10 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         )
     }
 
+    fun changeMinTimeRestSecond(time: Long) {
+        currentSettings = currentSettings?.copy(minTimeRestPointOfTurnoverSecond = time)
+    }
+
     fun resetUploadState() {
         _uiState.update {
             it.copy(

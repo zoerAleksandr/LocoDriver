@@ -28,13 +28,12 @@ import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.setting.UserSettings
-import com.z_company.domain.repositories.SharedPreferencesRepositories
-import org.koin.compose.koinInject
 
 @Composable
 fun SettingsRestContent(
     currentSettings: UserSettings,
     restTimeChanged: (Long) -> Unit,
+    secondRestTimeChanged: (Long) -> Unit,
     homeRestTimeChanged: (Long) -> Unit,
 ) {
     val styleData = MaterialTheme.typography.bodyLarge
@@ -42,8 +41,8 @@ fun SettingsRestContent(
     val styleHint = MaterialTheme.typography.bodyMedium
     val primaryColor = MaterialTheme.colorScheme.primary
 
-    val sharedPrefs: SharedPreferencesRepositories = koinInject()
     var showRestDialog by remember { mutableStateOf(false) }
+    var showSecondRestDialog by remember { mutableStateOf(false) }
     var showHomeRestDialog by remember { mutableStateOf(false) }
 
     if (showRestDialog) {
@@ -55,8 +54,9 @@ fun SettingsRestContent(
             },
             onDismiss = { showRestDialog = false },
             title = "Минимальный отдых в ПО",
-            recentTimes = sharedPrefs.getRecentTimes("rest_point_of_turnover"),
-            onRecentTimeSaved = { sharedPrefs.addRecentTime("rest_point_of_turnover", it) }
+            showTimeLabel = false,
+            cancelButtonText = "Отмена",
+            swipeToDismiss = false,
         )
     }
 
@@ -69,8 +69,24 @@ fun SettingsRestContent(
             },
             onDismiss = { showHomeRestDialog = false },
             title = "Минимальный домашний отдых",
-            recentTimes = sharedPrefs.getRecentTimes("home_rest"),
-            onRecentTimeSaved = { sharedPrefs.addRecentTime("home_rest", it) }
+            showTimeLabel = false,
+            cancelButtonText = "Отмена",
+            swipeToDismiss = false,
+        )
+    }
+
+    if (showSecondRestDialog) {
+        AppTimePicker(
+            initialTimeMillis = currentSettings.minTimeRestPointOfTurnoverSecond,
+            onTimeSelected = { millis ->
+                secondRestTimeChanged(millis)
+                showSecondRestDialog = false
+            },
+            onDismiss = { showSecondRestDialog = false },
+            title = "Отдых в ПО (второй отдых)",
+            showTimeLabel = false,
+            cancelButtonText = "Отмена",
+            swipeToDismiss = false,
         )
     }
 
@@ -93,6 +109,13 @@ fun SettingsRestContent(
             )
             SettingsCardSep()
             SettingsFieldRow(
+                label = "Отдых в ПО (второй отдых)",
+                value = ConverterLongToTime.getTimeInStringFormat(currentSettings.minTimeRestPointOfTurnoverSecond),
+                mono = true,
+                onClick = { showSecondRestDialog = true },
+            )
+            SettingsCardSep()
+            SettingsFieldRow(
                 label = "Домашний отдых",
                 value = ConverterLongToTime.getTimeInStringFormat(
                     currentSettings.minTimeHomeRest
@@ -101,6 +124,6 @@ fun SettingsRestContent(
                 onClick = { showHomeRestDialog = true },
             )
         }
-        SettingsSectionNote("Установите время минимального отдыха. Это значение будет использовано при расчёте отдыха после поездки.")
+        SettingsSectionNote("Второй минимум применяется, когда два последовательных маршрута заканчиваются отдыхом в ПО.")
     }
 }

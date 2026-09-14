@@ -219,6 +219,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "isShowLocomotive",
             "UserSettings" to "isShowPassenger",
             "UserSettings" to "passengerWagonLengthMeters",
+            "UserSettings" to "minTimeRestSecond",
             "MonthOfYear" to "tariffRate",
             "MonthOfYear" to "dateSetTariffRate",
             "ReleaseDay" to "hours",
@@ -507,6 +508,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.isShowPassenger" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.isShowPartner" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.passengerWagonLengthMeters" to ColumnSpec("REAL", false, "24.5"),
+            "UserSettings.minTimeRestSecond" to ColumnSpec("INTEGER", false, "14400000"),
 
             "LocomotiveSeries.acceptanceHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
             "LocomotiveSeries.deliveryHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),

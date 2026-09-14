@@ -142,8 +142,9 @@ fun AllRouteScreen(
         }
     }
 
-    // Строки списка: одиночная карточка или трей-пара «поездка с отдыхом в ПО».
-    // Пара — два смежных маршрута туда→обратно, обёрнутые в общий контейнер.
+    // Строки списка: одиночная карточка или трей «поездка с отдыхом в ПО».
+    // Трей — цепочка смежных маршрутов, связанных отдыхом в ПО (2+ плеча),
+    // обёрнутая в общий контейнер.
     val allRouteRows = remember(
         displayedRoutes, state.currentMonthOfYear, viewModel.timeCalculationContext,
         state.showTurnaroundRest
@@ -967,74 +968,52 @@ fun AllRouteScreen(
                                     }
 
                                     is TripGroupRow -> {
-                                        // Трей «Поездка с отдыхом»: два плеча в общем фоне,
-                                        // шапка с суммой часов, между карточками — коннектор.
+                                        // Трей «Поездка с отдыхом»: цепочка плеч в общем фоне,
+                                        // шапка с суммой часов, между карточками — коннекторы.
                                         TripGroupTray(
                                             modifier = Modifier.animateItem(placementSpec = placementSpec),
                                             totalWorkText = viewModel.convertTimeToStringFormat(row.totalWorkMs),
+                                            restCount = row.restCount,
                                         ) {
-                                            val upperRoute = row.upper.route
-                                            val lowerRoute = row.lower.route
-                                            RouteCardItem(
-                                                routeState = row.upper,
-                                                number = row.upperNumber,
-                                                isExpand = state.isExpandedView,
-                                                monthOfYear = state.currentMonthOfYear,
-                                                timeCalculationContext = viewModel.timeCalculationContext,
-                                                dateAndTimeConverter = converter,
-                                                convertTimeToString = viewModel::convertTimeToStringFormat,
-                                                shiftPaymentText = state.routePayments[upperRoute.basicData.id],
-                                                selectionMode = isSelectionMode,
-                                                isSelected = selectedIds.contains(upperRoute.basicData.id),
-                                                onClick = {
-                                                    if (isSelectionMode) {
-                                                        viewModel.toggleRouteSelection(upperRoute.basicData.id)
-                                                    } else {
-                                                        onRouteClick(upperRoute.basicData.id)
-                                                    }
-                                                },
-                                                onRequestDelete = { r ->
-                                                    isShowDialogConfirmRemoveRoute = true
-                                                    routeForRemove = r
-                                                },
-                                                onLongClick = {
-                                                    itemForPreview = row.upper
-                                                    showContextDialog = true
-                                                },
-                                            )
-                                            TurnaroundRestConnector(
-                                                station = row.rest.station,
-                                                durationText = viewModel.convertTimeToStringFormat(
-                                                    row.rest.durationMs
-                                                ),
-                                            )
-                                            RouteCardItem(
-                                                routeState = row.lower,
-                                                number = row.lowerNumber,
-                                                isExpand = state.isExpandedView,
-                                                monthOfYear = state.currentMonthOfYear,
-                                                timeCalculationContext = viewModel.timeCalculationContext,
-                                                dateAndTimeConverter = converter,
-                                                convertTimeToString = viewModel::convertTimeToStringFormat,
-                                                shiftPaymentText = state.routePayments[lowerRoute.basicData.id],
-                                                selectionMode = isSelectionMode,
-                                                isSelected = selectedIds.contains(lowerRoute.basicData.id),
-                                                onClick = {
-                                                    if (isSelectionMode) {
-                                                        viewModel.toggleRouteSelection(lowerRoute.basicData.id)
-                                                    } else {
-                                                        onRouteClick(lowerRoute.basicData.id)
-                                                    }
-                                                },
-                                                onRequestDelete = { r ->
-                                                    isShowDialogConfirmRemoveRoute = true
-                                                    routeForRemove = r
-                                                },
-                                                onLongClick = {
-                                                    itemForPreview = row.lower
-                                                    showContextDialog = true
-                                                },
-                                            )
+                                            row.legs.forEachIndexed { index, leg ->
+                                                if (index > 0) {
+                                                    val rest = row.rests[index - 1]
+                                                    TurnaroundRestConnector(
+                                                        station = rest.station,
+                                                        durationText = viewModel.convertTimeToStringFormat(
+                                                            rest.durationMs
+                                                        ),
+                                                    )
+                                                }
+                                                val legRoute = leg.item.route
+                                                RouteCardItem(
+                                                    routeState = leg.item,
+                                                    number = leg.number,
+                                                    isExpand = state.isExpandedView,
+                                                    monthOfYear = state.currentMonthOfYear,
+                                                    timeCalculationContext = viewModel.timeCalculationContext,
+                                                    dateAndTimeConverter = converter,
+                                                    convertTimeToString = viewModel::convertTimeToStringFormat,
+                                                    shiftPaymentText = state.routePayments[legRoute.basicData.id],
+                                                    selectionMode = isSelectionMode,
+                                                    isSelected = selectedIds.contains(legRoute.basicData.id),
+                                                    onClick = {
+                                                        if (isSelectionMode) {
+                                                            viewModel.toggleRouteSelection(legRoute.basicData.id)
+                                                        } else {
+                                                            onRouteClick(legRoute.basicData.id)
+                                                        }
+                                                    },
+                                                    onRequestDelete = { r ->
+                                                        isShowDialogConfirmRemoveRoute = true
+                                                        routeForRemove = r
+                                                    },
+                                                    onLongClick = {
+                                                        itemForPreview = leg.item
+                                                        showContextDialog = true
+                                                    },
+                                                )
+                                            }
                                         }
                                         Spacer(modifier = Modifier.height(12.dp))
                                     }
@@ -1444,7 +1423,7 @@ private fun DashedVerticalLine() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Строки списка «Все маршруты»: одиночная карточка или трей-пара «отдых в ПО».
+// Строки списка «Все маршруты»: одиночная карточка или трей-цепочка «отдых в ПО».
 // ─────────────────────────────────────────────────────────────
 private sealed interface AllRouteRow {
     val key: String
@@ -1457,15 +1436,24 @@ private data class SingleRouteRow(
     override val key: String get() = item.route.basicData.id
 }
 
+/** Плечо внутри трея: карточка + её порядковый номер в списке. */
+private data class TripLeg(
+    val item: ItemState,
+    val number: Int,
+)
+
+/**
+ * Трей «поездка с отдыхом в ПО»: цепочка из 2+ смежных плеч, между каждыми
+ * соседними — коннектор отдыха. `rests[i]` — отдых между `legs[i]` и `legs[i+1]`,
+ * поэтому `rests.size == legs.size - 1`.
+ */
 private data class TripGroupRow(
-    val upper: ItemState,
-    val upperNumber: Int,
-    val lower: ItemState,
-    val lowerNumber: Int,
-    val rest: TurnaroundRest,
+    val legs: List<TripLeg>,
+    val rests: List<TurnaroundRest>,
     val totalWorkMs: Long,
 ) : AllRouteRow {
-    override val key: String get() = "trip_${upper.route.basicData.id}"
+    override val key: String get() = "trip_${legs.first().item.route.basicData.id}"
+    val restCount: Int get() = rests.size
 }
 
 // Отработанное время плеча так же, как показывает карточка (учёт переходных месяцев).
@@ -1479,8 +1467,9 @@ private fun workTimeForCard(
     route.getWorkTime() ?: 0L
 }
 
-// Собирает плоский список в строки: смежные пары туда→обратно (флаг «отдых в ПО»
-// у раннего плеча) сворачиваются в один трей. Три плеча подряд связываются попарно.
+// Собирает плоский список в строки: смежные плечи, связанные отдыхом в ПО (флаг
+// у раннего плеча), сворачиваются в один трей. Цепочка не ограничена парой:
+// A→B→C с двумя отдыхами в ПО — один трей на три плеча («поездка с 2 отдыхами»).
 private fun buildAllRouteRows(
     routes: List<ItemState>,
     monthOfYear: MonthOfYear?,
@@ -1493,24 +1482,27 @@ private fun buildAllRouteRows(
     while (i < total) {
         val cur = routes[i]
         val curNumber = total - i
-        val next = routes.getOrNull(i + 1)
+        val legs = mutableListOf(TripLeg(item = cur, number = curNumber))
+        val rests = mutableListOf<TurnaroundRest>()
         // Если пользователь отключил объединение — плоский список без треев.
-        val rest = if (groupTurnaroundRest) {
-            next?.let { turnaroundRestBetween(cur.route, it.route) }
-        } else null
-        if (rest != null && next != null) {
+        if (groupTurnaroundRest) {
+            var j = i
+            while (j + 1 < total) {
+                val rest = turnaroundRestBetween(routes[j].route, routes[j + 1].route) ?: break
+                rests.add(rest)
+                legs.add(TripLeg(item = routes[j + 1], number = total - (j + 1)))
+                j++
+            }
+        }
+        if (rests.isNotEmpty()) {
             rows.add(
                 TripGroupRow(
-                    upper = cur,
-                    upperNumber = curNumber,
-                    lower = next,
-                    lowerNumber = total - (i + 1),
-                    rest = rest,
-                    totalWorkMs = workTimeForCard(cur.route, monthOfYear, ctx) +
-                        workTimeForCard(next.route, monthOfYear, ctx),
+                    legs = legs,
+                    rests = rests,
+                    totalWorkMs = legs.sumOf { workTimeForCard(it.item.route, monthOfYear, ctx) },
                 )
             )
-            i += 2
+            i += legs.size
         } else {
             rows.add(SingleRouteRow(item = cur, number = curNumber))
             i += 1
@@ -1565,15 +1557,18 @@ private fun RouteCardItem(
     )
 }
 
-// Трей пары «поездка с отдыхом в ПО»: общий фон accentSoft, шапка с итогом часов
-// обоих плеч. Выходит на всю ширину (карточки внутри инсетятся на 8dp и сохраняют
+// Трей «поездка с отдыхом в ПО»: общий фон accentSoft, шапка с итогом часов
+// всех плеч. Выходит на всю ширину (карточки внутри инсетятся на 8dp и сохраняют
 // обычную ширину). Итог часов — единственная суммируемая величина, только отображение.
+// При одном отдыхе шапка — «Поездка с отдыхом», при нескольких — «Поездка с N отдыхами».
 @Composable
 private fun TripGroupTray(
     totalWorkText: String,
     modifier: Modifier = Modifier,
+    restCount: Int = 1,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val title = if (restCount > 1) "Поездка с $restCount отдыхами" else "Поездка с отдыхом"
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -1595,7 +1590,7 @@ private fun TripGroupTray(
                 modifier = Modifier.size(16.dp),
             )
             Text(
-                text = "Поездка с отдыхом · $totalWorkText".uppercase(),
+                text = "$title · $totalWorkText".uppercase(),
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontFamily = com.z_company.core.ui.theme.MonoFont,
                     letterSpacing = 0.8.sp,

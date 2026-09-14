@@ -38,6 +38,7 @@ final class SettingsViewModelWrapper: ObservableObject {
 
     // MARK: - Rest times (millis)
     func setMinTimeRest(_ millis: Int64)     { viewModel.setMinTimeRest(millis: millis) }
+    func setMinTimeRestSecond(_ millis: Int64) { viewModel.setMinTimeRestSecond(millis: millis) }
     func setMinTimeHomeRest(_ millis: Int64) { viewModel.setMinTimeHomeRest(millis: millis) }
 
     // MARK: - Loco display flags

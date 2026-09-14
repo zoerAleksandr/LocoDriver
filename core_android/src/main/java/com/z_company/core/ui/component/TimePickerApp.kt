@@ -56,7 +56,11 @@ fun TimePickerApp(
     recentTimes: List<Long> = emptyList(),
     onRecentTimeSaved: ((Long) -> Unit)? = null,
     showTimeLabel: Boolean = true,
+    swipeToDismiss: Boolean = true,
 ) {
+    // swipeToDismiss = false: у шторки отключены жесты перетаскивания — при
+    // прокрутке барабана палец легко уходит вниз и утягивает её за собой.
+    // Тап по скриму и кнопки закрывают как обычно.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val viewModel = remember { TimePickerViewModel(initialTimeMillis) }
     val uiState by viewModel.uiState.collectAsState()
@@ -64,6 +68,7 @@ fun TimePickerApp(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        sheetGesturesEnabled = swipeToDismiss,
         dragHandle = {
             Box(
                 modifier = Modifier

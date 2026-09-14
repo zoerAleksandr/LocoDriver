@@ -30,6 +30,29 @@ data class HomeRestCalculation(
     val minEndTime: Long,
 )
 
+/**
+ * Второй отдых в ПО подряд: у маршрута стоит «отдых в ПО» и ближайший предыдущий
+ * по явке маршрут тоже завершился отдыхом в ПО.
+ */
+fun isSecondTurnaroundRest(route: Route, routes: List<Route>): Boolean {
+    if (!route.basicData.restPointOfTurnover) return false
+    val start = route.basicData.timeStartWork ?: return false
+    val previous = routes.asSequence()
+        .filter { it.basicData.id != route.basicData.id }
+        .filter { !it.basicData.isDeleted }
+        .filter { (it.basicData.timeStartWork ?: Long.MAX_VALUE) < start }
+        .maxByOrNull { it.basicData.timeStartWork ?: Long.MIN_VALUE }
+    return previous?.basicData?.restPointOfTurnover == true
+}
+
+/** Минимум отдыха в ПО: второй — после ближайшего предыдущего по явке маршрута, тоже с отдыхом в ПО. */
+fun effectiveTurnaroundMinimum(route: Route, routes: List<Route>, settings: com.z_company.domain.entities.setting.UserSettings): Long =
+    if (isSecondTurnaroundRest(route, routes)) {
+        settings.minTimeRestPointOfTurnoverSecond
+    } else {
+        settings.minTimeRestPointOfTurnover
+    }
+
 class RouteActionsHelper() : KoinComponent {
 
     companion object {
@@ -515,7 +538,7 @@ class RouteActionsHelper() : KoinComponent {
         }
 
         val userSettings = settingsUseCase.getUserSettingFlow().first()
-        val minTimeRestPointOfTurnover = userSettings.minTimeRestPointOfTurnover
+        val minTimeRestPointOfTurnover = effectiveTurnaroundMinimum(route, routeUseCase.getListRoutes(), userSettings)
 
         // Отдых считаем от полного отработанного времени (с учётом перерыва
         // и проезда пассажиром до явки), а не от «сдача − явка».
@@ -556,7 +579,7 @@ class RouteActionsHelper() : KoinComponent {
         }
 
         val userSettings = settingsUseCase.getUserSettingFlow().first()
-        val minTimeRestPointOfTurnover = userSettings.minTimeRestPointOfTurnover
+        val minTimeRestPointOfTurnover = effectiveTurnaroundMinimum(route, routeUseCase.getListRoutes(), userSettings)
 
         // Полный отдых в ПО равен всему отработанному времени (с учётом перерыва
         // и проезда пассажиром до явки), но не меньше минимального отдыха.

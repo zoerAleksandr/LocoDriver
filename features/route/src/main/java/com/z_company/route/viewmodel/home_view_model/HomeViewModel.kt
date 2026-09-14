@@ -1527,7 +1527,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
             if (previousRoute.basicData.restPointOfTurnover) {
                 // Turnaround rest
-                val minTime = userSettings.minTimeRestPointOfTurnover
+                val minTime = com.z_company.route.viewmodel.effectiveTurnaroundMinimum(previousRoute, allRoutes, userSettings)
                 val shortRest = maxOf(workTime / 2, minTime)
                 val fullRest = maxOf(workTime, minTime)
                 val shortDuration =

@@ -147,6 +147,7 @@ fun SettingsScreen(
     initialSubScreen: String?,
     workTimeChanged: (Long) -> Unit,
     restTimeChanged: (Long) -> Unit,
+    secondRestTimeChanged: (Long) -> Unit,
     homeRestTimeChanged: (Long) -> Unit,
     logOut: () -> Unit,
     showAbsenceScreen: () -> Unit,
@@ -508,6 +509,7 @@ fun SettingsScreen(
                             SettingsRestContent(
                                 currentSettings = settings,
                                 restTimeChanged = restTimeChanged,
+                                secondRestTimeChanged = secondRestTimeChanged,
                                 homeRestTimeChanged = homeRestTimeChanged,
                             )
                         }

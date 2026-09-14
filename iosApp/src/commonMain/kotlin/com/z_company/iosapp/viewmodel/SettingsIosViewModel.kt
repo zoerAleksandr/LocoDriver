@@ -138,6 +138,11 @@ class SettingsIosViewModel(
         saveSetting(current.copy(minTimeRestPointOfTurnover = millis))
     }
 
+    fun setMinTimeRestSecond(millis: Long) {
+        val current = _settings.value ?: return
+        saveSetting(current.copy(minTimeRestPointOfTurnoverSecond = millis))
+    }
+
     /** minTimeHomeRest in milliseconds */
     fun setMinTimeHomeRest(millis: Long) {
         val current = _settings.value ?: return

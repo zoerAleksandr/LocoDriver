@@ -2667,6 +2667,12 @@ private fun RestBottomSheet(
                     "Невозможно рассчитать время отдыха.\nПроверьте начало и окончание работы."
                 )
             } else {
+                // Предупреждение «второй отдых в ПО подряд» — над временами,
+                // т.к. короткий/полный уже посчитаны от второго минимума.
+                if (dialogRestUiState.isSecondTurnaroundRest) {
+                    SecondTurnaroundRestWarn()
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
                 FormMCard {
                     RestItem(
                         title = "Короткий отдых",
@@ -2823,6 +2829,54 @@ private fun ActualRestFormItem(
 }
 
 /** Карточка «отдых рассчитать невозможно». */
+/**
+ * Плашка «Второй отдых в ПО подряд» в шторке отдыха: тот же визуальный язык, что у
+ * предупреждения «Вторая ночь подряд» (RouteNightWarn), без крестика — она
+ * поясняет, почему нормативы ниже посчитаны от второго минимума.
+ */
+@Composable
+private fun SecondTurnaroundRestWarn() {
+    val warning = MaterialTheme.colorScheme.surfaceContainerHigh
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(Shapes.medium)
+            .background(warning.copy(alpha = 0.10f))
+            .border(width = 1.dp, color = warning.copy(alpha = 0.55f), shape = Shapes.medium)
+            .padding(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(warning.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                modifier = Modifier.size(14.dp),
+                painter = painterResource(R.drawable.hotel_24px),
+                contentDescription = null,
+                tint = warning
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Второй отдых в ПО подряд",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "Предыдущий маршрут тоже завершился отдыхом в пункте оборота. " +
+                    "Нормативы ниже посчитаны от минимума для второго отдыха.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 @Composable
 private fun RestUnavailableCard(message: String) {
     FormMCard {

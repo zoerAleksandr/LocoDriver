@@ -49,6 +49,7 @@ fun AppTimePicker(
     recentTimes: List<Long> = emptyList(),
     onRecentTimeSaved: ((Long) -> Unit)? = null,
     showTimeLabel: Boolean = true,
+    swipeToDismiss: Boolean = true,
 ) {
     val settingsUseCase: SettingsUseCase = koinInject()
     val sharedPrefs: SharedPreferencesRepositories = koinInject()
@@ -139,6 +140,7 @@ fun AppTimePicker(
             recentTimes = recentTimes,
             onRecentTimeSaved = onRecentTimeSaved,
             showTimeLabel = showTimeLabel,
+            swipeToDismiss = swipeToDismiss,
         )
     }
 }

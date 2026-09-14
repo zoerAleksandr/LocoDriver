@@ -35,6 +35,7 @@ fun SettingDestination(
         initialSubScreen = initialSubScreen,
         workTimeChanged = settingsViewModel::changeDefaultWorkTime,
         restTimeChanged = settingsViewModel::changeMinTimeRest,
+        secondRestTimeChanged = settingsViewModel::changeMinTimeRestSecond,
         homeRestTimeChanged = settingsViewModel::changeMinTimeHomeRest,
         showAbsenceScreen = router::showAbsence,
         logOut = router::showSignIn,

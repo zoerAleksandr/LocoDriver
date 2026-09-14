@@ -5,6 +5,8 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.UserSettings
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class SecondTurnaroundRestTest {
     private val settings = UserSettings(
@@ -32,5 +34,15 @@ class SecondTurnaroundRestTest {
         val home = route("home", 2L, false)
         val last = route("last", 3L, true)
         assertEquals(3_600_000L, effectiveTurnaroundMinimum(last, listOf(last, first, home), settings))
+    }
+
+    @Test fun secondTurnaroundFlagFollowsPreviousRoute() {
+        val first = route("first", 1L, true)
+        val second = route("second", 2L, true)
+        val home = route("home", 3L, false)
+        assertFalse(isSecondTurnaroundRest(first, listOf(first, second)))
+        assertTrue(isSecondTurnaroundRest(second, listOf(first, second)))
+        // Домашний отдых у текущего маршрута — предупреждения нет, даже после отдыха в ПО.
+        assertFalse(isSecondTurnaroundRest(home, listOf(first, second, home)))
     }
 }

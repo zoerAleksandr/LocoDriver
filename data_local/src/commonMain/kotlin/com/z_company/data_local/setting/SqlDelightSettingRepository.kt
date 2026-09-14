@@ -28,6 +28,7 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
         db.userSettingsQueries.insertOrReplace(
             settingsKey = us.key,
             minTimeRest = us.minTimeRestPointOfTurnover,
+            minTimeRestSecond = us.minTimeRestPointOfTurnoverSecond,
             minTimeHomeRest = us.minTimeHomeRest,
             lastEnteredDieselCoefficient = us.lastEnteredDieselCoefficient,
             nightTime = SettingsMapper.encodeNightTime(us.nightTime),

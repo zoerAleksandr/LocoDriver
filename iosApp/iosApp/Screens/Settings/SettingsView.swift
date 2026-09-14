@@ -165,12 +165,14 @@ private struct SettingsRestView: View {
     @ObservedObject var vm: SettingsViewModelWrapper
 
     @State private var restMinutes: Int
+    @State private var secondRestMinutes: Int
     @State private var homeRestMinutes: Int
 
     init(settings: DomainUserSettings, vm: SettingsViewModelWrapper) {
         self.settings = settings
         self.vm = vm
         _restMinutes     = State(initialValue: Int(settings.minTimeRestPointOfTurnover / 60_000))
+        _secondRestMinutes = State(initialValue: Int(settings.minTimeRestPointOfTurnoverSecond / 60_000))
         _homeRestMinutes = State(initialValue: Int(settings.minTimeHomeRest / 60_000))
     }
 
@@ -189,6 +191,16 @@ private struct SettingsRestView: View {
                     }
                 }
                 .onChange(of: restMinutes) { vm.setMinTimeRest(Int64($0) * 60_000) }
+
+                Stepper(value: $secondRestMinutes, in: 0...1440, step: 15) {
+                    HStack {
+                        Text("Отдых в ПО (второй отдых)")
+                        Spacer()
+                        Text(Self.formatDuration(minutes: secondRestMinutes))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .onChange(of: secondRestMinutes) { vm.setMinTimeRestSecond(Int64($0) * 60_000) }
 
                 Stepper(value: $homeRestMinutes, in: 0...2880, step: 15) {
                     HStack {

@@ -54,6 +54,7 @@ internal object SettingsMapper {
     fun toData(row: UserSettingsRow): UserSettings = UserSettings(
         key = row.settingsKey,
         minTimeRestPointOfTurnover = row.minTimeRest,
+        minTimeRestPointOfTurnoverSecond = row.minTimeRestSecond,
         minTimeHomeRest = row.minTimeHomeRest,
         lastEnteredDieselCoefficient = row.lastEnteredDieselCoefficient,
         nightTime = decodeNightTime(row.nightTime),
