@@ -1221,7 +1221,7 @@ fun ProfileScreen(
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         Icon(
-                                            painterResource(com.z_company.core.R.drawable.ic_star),
+                                            painterResource(R.drawable.ic_pro_crown),
                                             contentDescription = null,
                                             modifier = Modifier.size(24.dp),
                                             tint = if (hasSubscription) onCard else MaterialTheme.colorScheme.tertiary,
@@ -1272,27 +1272,27 @@ fun ProfileScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(Shapes.medium)
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .shadow(1.dp, Shapes.medium)
+                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
                                         .clickable { showReferrals = true }
                                         .padding(horizontal = 16.dp, vertical = 14.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                                 ) {
                                     Box(
-                                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp))
-                                            .background(MaterialTheme.colorScheme.primaryContainer),
+                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceBright),
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         Icon(
-                                            painterResource(com.z_company.core.R.drawable.ic_star),
+                                            painterResource(R.drawable.ic_pro_crown),
                                             contentDescription = null,
-                                            modifier = Modifier.size(24.dp),
-                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(21.dp),
+                                            tint = MaterialTheme.colorScheme.tertiary,
                                         )
                                     }
                                     Column(Modifier.weight(1f)) {
-                                        Text("Реферальная программа", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                        Text("Реферальная программа", style = styleData, color = primaryColor)
                                         Text("Получите Про вместе с другом", style = styleHint, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Icon(

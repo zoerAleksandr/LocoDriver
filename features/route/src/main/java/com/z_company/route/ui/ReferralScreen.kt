@@ -42,8 +42,8 @@ fun ReferralScreen(onBack: () -> Unit) {
         )
     }) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             ReferralHero()
             when {
@@ -60,15 +60,15 @@ fun ReferralScreen(onBack: () -> Unit) {
 @Composable
 private fun ReferralHero() {
     Column(
-        Modifier.fillMaxWidth().clip(Shapes.medium).background(MaterialTheme.colorScheme.primaryContainer).padding(horizontal = 20.dp, vertical = 24.dp),
+        Modifier.fillMaxWidth().clip(Shapes.medium).background(MaterialTheme.colorScheme.primaryContainer).padding(horizontal = 18.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Box(Modifier.size(56.dp).clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-            Icon(painterResource(com.z_company.core.R.drawable.ic_star), null, Modifier.size(30.dp), MaterialTheme.colorScheme.primary)
+        Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            Icon(painterResource(R.drawable.group_24px), null, Modifier.size(25.dp), MaterialTheme.colorScheme.primary)
         }
-        Text("Про для вас и друга", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("После первой оплаты друга каждый получит половину оплаченного периода дополнительно", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        Text("Про для вас и друга", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("После первой оплаты друга каждый получит половину оплаченного периода дополнительно", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     }
 }
 
@@ -137,7 +137,7 @@ private fun ReferralAppliedCard(code: String, status: String?) {
 
 @Composable
 private fun ReferralRulesCard() {
-    Column(Modifier.fillMaxWidth().clip(Shapes.medium).background(MaterialTheme.colorScheme.surfaceVariant).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth().clip(Shapes.medium).background(MaterialTheme.colorScheme.surfaceVariant).padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
         Text("Как это работает", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         RuleRow("1", "Поделитесь своим кодом с другом")
         RuleRow("2", "Друг вводит код перед своей первой оплатой Про")
@@ -148,11 +148,11 @@ private fun ReferralRulesCard() {
 
 @Composable
 private fun RuleRow(number: String, text: String) {
-    Row(verticalAlignment = Alignment.Top) {
-        Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-            Text(number, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(24.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+            Text(number, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
         }
-        Text(text, Modifier.padding(start = 12.dp, top = 4.dp), style = MaterialTheme.typography.bodyMedium)
+        Text(text, Modifier.padding(start = 11.dp), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
