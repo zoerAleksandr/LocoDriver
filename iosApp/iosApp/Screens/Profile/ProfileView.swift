@@ -165,11 +165,15 @@ struct ProfileView: View {
             }
 
             Section {
-                NavigationLink("Подписка") {
+                NavigationLink {
                     PurchasesView()
+                } label: {
+                    Label("Машинист Про", systemImage: "star.fill")
                 }
-                NavigationLink("Реферальная программа") {
+                NavigationLink {
                     ReferralView(vm: vm)
+                } label: {
+                    Label("Реферальная программа", systemImage: "gift.fill")
                 }
             }
 
@@ -193,13 +197,30 @@ private struct ReferralView: View {
 
     var body: some View {
         List {
-            Section("Условия") {
-                Text("Пригласите друга. До своей первой оплаты он вводит ваш код на экране подписки. После подтверждения оплаты каждый из вас получит половину срока оплаченного тарифа дополнительно.")
-                Text("Код можно ввести и после регистрации, если оплат ещё не было. Повторные покупки бонуса не дают.")
+            Section {
+                VStack(spacing: 12) {
+                    Image(systemName: "gift.fill")
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundStyle(.blue)
+                        .frame(width: 64, height: 64)
+                        .background(Color.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 20))
+                    Text("Про для вас и друга")
+                        .font(.title2.bold())
+                    Text("После первой оплаты друга каждый получит половину оплаченного периода дополнительно")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
             }
             Section("Ваш код") {
                 if let code = vm.referralCode {
-                    Text(code).font(.title2).textSelection(.enabled)
+                    Text(code)
+                        .font(.system(.title, design: .monospaced, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .textSelection(.enabled)
                     ShareLink(item: "Мой код Машинист Про: \(code)") {
                         Label("Поделиться", systemImage: "square.and.arrow.up")
                     }
@@ -211,11 +232,40 @@ private struct ReferralView: View {
                 }
             }
             Section("Приглашения") {
-                Text("Приглашений: \(vm.referralCount)")
-                Text("Начислено бонусов: \(vm.referralRewardedCount)")
+                LabeledContent("Приглашено") {
+                    Text("\(vm.referralCount)").fontWeight(.semibold)
+                }
+                LabeledContent("Бонус начислен") {
+                    Text("\(vm.referralRewardedCount)").fontWeight(.semibold).foregroundStyle(.green)
+                }
+            }
+            Section("Как это работает") {
+                ReferralRuleRow(number: 1, text: "Поделитесь своим кодом с другом")
+                ReferralRuleRow(number: 2, text: "Друг вводит код перед первой оплатой Про")
+                ReferralRuleRow(number: 3, text: "Половина периода добавится каждому автоматически")
+            } footer: {
+                Text("Код можно применить после регистрации, если подписка ещё ни разу не оплачивалась. Повторные покупки бонуса не дают.")
             }
         }
         .navigationTitle("Реферальная программа")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear { vm.loadReferrals() }
+    }
+}
+
+private struct ReferralRuleRow: View {
+    let number: Int
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("\(number)")
+                .font(.caption.bold())
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(Color.blue, in: RoundedRectangle(cornerRadius: 9))
+            Text(text).font(.subheadline)
+        }
+        .padding(.vertical, 2)
     }
 }

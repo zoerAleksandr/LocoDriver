@@ -73,6 +73,8 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     val referralStatus = _referralStatus.asStateFlow()
     private val _referralMessage = MutableStateFlow<String?>(null)
     val referralMessage = _referralMessage.asStateFlow()
+    private val _isApplyingReferral = MutableStateFlow(false)
+    val isApplyingReferral = _isApplyingReferral.asStateFlow()
 
     private val _state = MutableStateFlow(BillingState(isLoading = true))
     val state = _state.asStateFlow()
@@ -126,6 +128,8 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     fun applyReferralCode(code: String) {
         viewModelScope.launch {
+            _isApplyingReferral.value = true
+            _referralMessage.value = null
             try {
                 val token = secureTokenStorage.getAuthBearerTokenFlow().first()
                 remoteRestApi.applyReferralCode(
@@ -136,6 +140,8 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 refreshReferralStatus()
             } catch (_: Exception) {
                 _referralMessage.value = "Не удалось применить код. Проверьте его и попробуйте снова."
+            } finally {
+                _isApplyingReferral.value = false
             }
         }
     }

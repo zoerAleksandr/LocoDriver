@@ -15,7 +15,7 @@
 ## Сделано
 
 - Сервер: аддитивная миграция `040_referral_program`, отметка `user_first_payment`, модели кода/приглашения/двух начислений, `GET /v1/referrals/me`, `POST /v1/referrals/apply`, начисление в callback CKassa и Robokassa, защита Robokassa от повторного платежа через `payment_transaction`, страницы `/admin/referrals` и детализация начислений.
-- Клиент: KMP API и DTO, Android-экран реферальной программы и поле кода на экране покупки, iOS SwiftUI-экран и поле кода в существующем экране подписки; `SCREEN_SPECS.md` обновлён.
+- Клиент: KMP API и DTO; Android-экран приведён к карточкам и цветам существующих профиля/покупок, добавлены копирование, системный share, метрики и состояния; поле кода оформлено отдельной карточкой со статусом отправки. iOS SwiftUI использует существующий стиль `List`/`Section`, системные `Label`, `ShareLink`, моноширинный код и статусные секции. `SCREEN_SPECS.md` обновлён.
 - Android `:data_remote:compileDebugKotlinAndroid :features:route:compileDebugKotlin --offline` прошёл.
 
 ## Обязательное до выпуска

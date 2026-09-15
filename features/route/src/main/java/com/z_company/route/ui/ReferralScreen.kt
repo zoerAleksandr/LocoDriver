@@ -1,64 +1,172 @@
 package com.z_company.route.ui
 
 import android.content.Intent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.z_company.core.ui.theme.MonoFont
+import com.z_company.core.ui.theme.Shapes
+import com.z_company.repository.remote_rest.response.ReferralStatusResponse
+import com.z_company.route.R
 import com.z_company.route.viewmodel.ReferralViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReferralScreen(onBack: () -> Unit) {
     val vm: ReferralViewModel = viewModel()
     val status by vm.status.collectAsState()
     val error by vm.error.collectAsState()
     val loading by vm.loading.collectAsState()
-    val context = LocalContext.current
-
-    Column(
-        modifier = Modifier.fillMaxSize().padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Реферальная программа", style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = onBack) { Text("Назад") }
+    Scaffold(topBar = {
+        TopAppBar(
+            title = { Text("Реферальная программа", fontWeight = FontWeight.SemiBold) },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(painterResource(R.drawable.keyboard_arrow_left_24px), "Назад") } },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+        )
+    }) { padding ->
+        Column(
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            ReferralHero()
+            when {
+                loading && status == null -> ReferralLoadingCard()
+                error != null && status == null -> ReferralErrorCard(error.orEmpty(), vm::refresh)
+                status != null -> ReferralContent(status!!)
+            }
+            ReferralRulesCard()
+            Spacer(Modifier.height(16.dp))
         }
-        Text("Пригласите друга. Если он ещё ни разу не оплачивал Машинист Про, он сможет ввести ваш код перед первой оплатой. После оплаты каждый из вас получит половину срока оплаченного тарифа дополнительно.")
-        Text("Код можно ввести и после регистрации, пока первая оплата ещё не совершена. За повторные покупки бонус не начисляется.")
-        if (loading) Text("Загружаем код…")
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        status?.let { data ->
-            Text("Ваш код: ${data.code}", style = MaterialTheme.typography.titleLarge)
-            Button(onClick = {
-                val send = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, "Мой код Машинист Про: ${data.code}")
+    }
+}
+
+@Composable
+private fun ReferralHero() {
+    Column(
+        Modifier.fillMaxWidth().clip(Shapes.medium).background(MaterialTheme.colorScheme.primaryContainer).padding(horizontal = 20.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(Modifier.size(56.dp).clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            Icon(painterResource(com.z_company.core.R.drawable.ic_star), null, Modifier.size(30.dp), MaterialTheme.colorScheme.primary)
+        }
+        Text("Про для вас и друга", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("После первой оплаты друга каждый получит половину оплаченного периода дополнительно", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun ReferralContent(data: ReferralStatusResponse) {
+    val context = LocalContext.current
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Surface(Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, Shapes.medium), shape = Shapes.medium) {
+            Column(Modifier.padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("ВАШ КОД", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(data.code, fontFamily = MonoFont, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Друг вводит его перед своей первой оплатой", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Реферальный код", data.code))
+                    }) {
+                        Icon(painterResource(R.drawable.outline_content_copy_24), null, Modifier.size(18.dp)); Text("Копировать", Modifier.padding(start = 6.dp))
+                    }
+                    Button(onClick = {
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, "Мой код Машинист Про: ${data.code}")
+                        }
+                        context.startActivity(Intent.createChooser(send, "Поделиться кодом"))
+                    }) {
+                        Icon(painterResource(R.drawable.share_24px), null, Modifier.size(18.dp)); Text("Поделиться", Modifier.padding(start = 6.dp))
+                    }
                 }
-                context.startActivity(Intent.createChooser(send, "Поделиться кодом"))
-            }) { Text("Поделиться") }
-            Text("Приглашений: ${data.invitedCount}. Начислено бонусов: ${data.rewardedCount}.")
-            data.appliedCode?.let {
-                val statusText = when (data.appliedStatus) {
-                    "rewarded" -> "бонус начислен"
-                    "reversed" -> "бонус отменён после возврата платежа"
-                    else -> "ожидает первой оплаты"
-                }
-                Text("Вы применили код $it: $statusText")
             }
         }
-        if (error != null) TextButton(onClick = vm::refresh) { Text("Повторить") }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ReferralMetric(R.drawable.group_24px, "Приглашено", data.invitedCount.toString(), Modifier.weight(1f))
+            ReferralMetric(R.drawable.check_circle_24px, "Начислено", data.rewardedCount.toString(), Modifier.weight(1f))
+        }
+        data.appliedCode?.let { ReferralAppliedCard(it, data.appliedStatus) }
+    }
+}
+
+@Composable
+private fun ReferralMetric(icon: Int, label: String, value: String, modifier: Modifier) {
+    Row(modifier.clip(Shapes.medium).background(MaterialTheme.colorScheme.surfaceVariant).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(painterResource(icon), null, Modifier.size(24.dp), MaterialTheme.colorScheme.tertiary)
+        Column(Modifier.padding(start = 10.dp)) {
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun ReferralAppliedCard(code: String, status: String?) {
+    val (title, body, tone) = when (status) {
+        "rewarded" -> Triple("Бонус начислен", "Код $code успешно сработал", MaterialTheme.colorScheme.surfaceTint)
+        "reversed" -> Triple("Бонус отменён", "Оплата по коду $code была возвращена", MaterialTheme.colorScheme.error)
+        else -> Triple("Код применён", "$code · ожидает первой оплаты", MaterialTheme.colorScheme.tertiary)
+    }
+    Row(Modifier.fillMaxWidth().clip(Shapes.medium).background(tone.copy(alpha = 0.08f)).border(1.dp, tone.copy(alpha = 0.28f), Shapes.medium).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(painterResource(R.drawable.check_circle_24px), null, tint = tone)
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(title, fontWeight = FontWeight.SemiBold, color = tone)
+            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun ReferralRulesCard() {
+    Column(Modifier.fillMaxWidth().clip(Shapes.medium).background(MaterialTheme.colorScheme.surfaceVariant).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Как это работает", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        RuleRow("1", "Поделитесь своим кодом с другом")
+        RuleRow("2", "Друг вводит код перед своей первой оплатой Про")
+        RuleRow("3", "После оплаты половина периода добавится каждому")
+        Text("Код можно применить после регистрации, если подписка ещё ни разу не оплачивалась. За повторные покупки бонус не начисляется.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun RuleRow(number: String, text: String) {
+    Row(verticalAlignment = Alignment.Top) {
+        Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+            Text(number, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+        }
+        Text(text, Modifier.padding(start = 12.dp, top = 4.dp), style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun ReferralLoadingCard() {
+    Box(Modifier.fillMaxWidth().height(150.dp).clip(Shapes.medium).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+}
+
+@Composable
+private fun ReferralErrorCard(message: String, retry: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(Shapes.medium).background(MaterialTheme.colorScheme.errorContainer).padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(message, color = MaterialTheme.colorScheme.onErrorContainer, textAlign = TextAlign.Center)
+        Button(onClick = retry, modifier = Modifier.padding(top = 12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
+            Icon(painterResource(R.drawable.sync_24px), null); Text("Повторить", Modifier.padding(start = 8.dp))
+        }
     }
 }

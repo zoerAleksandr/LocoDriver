@@ -334,6 +334,7 @@ fun PurchasesScreen(
     val purchasesEndTimeInLong = viewModel.purchasesEndTime.collectAsState()
     val referralStatus by viewModel.referralStatus.collectAsState()
     val referralMessage by viewModel.referralMessage.collectAsState()
+    val isApplyingReferral by viewModel.isApplyingReferral.collectAsState()
     var referralCode by remember { mutableStateOf("") }
     val currentState by viewModel.state.collectAsState()
     val converter = currentState.dateAndTimeConverter
@@ -547,22 +548,18 @@ fun PurchasesScreen(
                     }
                 }
 
-                if (purchaseState is PurchaseUi.Paywall && referralStatus?.canApplyCode == true) {
+                if (referralStatus?.canApplyCode == true) {
                     Spacer(modifier = Modifier.height(16.dp))
-                    SectionLabel("РЕФЕРАЛЬНЫЙ КОД")
-                    Text("Если друг пригласил вас, введите его код до первой оплаты. После оплаты каждый получит половину срока тарифа дополнительно.")
-                    OutlinedTextField(
-                        value = referralCode,
-                        onValueChange = { referralCode = it },
-                        label = { Text("Код друга") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                    ReferralCodeInputCard(
+                        code = referralCode,
+                        onCodeChange = { referralCode = it.uppercase().filter(Char::isLetterOrDigit).take(16) },
+                        message = referralMessage,
+                        loading = isApplyingReferral,
+                        onApply = { viewModel.applyReferralCode(referralCode) },
                     )
-                    TextButton(
-                        onClick = { viewModel.applyReferralCode(referralCode) },
-                        enabled = referralCode.isNotBlank(),
-                    ) { Text("Применить код") }
-                    referralMessage?.let { Text(it) }
+                } else if (referralStatus?.appliedCode != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ReferralCodeStatusCard(referralStatus!!.appliedCode.orEmpty(), referralStatus!!.appliedStatus)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -874,6 +871,81 @@ private fun SectionLabel(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(bottom = 10.dp),
     )
+}
+
+@Composable
+private fun ReferralCodeInputCard(
+    code: String,
+    onCodeChange: (String) -> Unit,
+    message: String?,
+    loading: Boolean,
+    onApply: () -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.tertiary
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(Shapes.medium)
+            .background(accent.copy(alpha = 0.07f))
+            .border(1.dp, accent.copy(alpha = 0.25f), Shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                Icon(painterResource(com.z_company.core.R.drawable.ic_star), null, Modifier.size(22.dp), accent)
+            }
+            Column {
+                Text("Есть код друга?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("Введите его до первой оплаты", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Text("После оплаты каждый получит половину срока выбранного тарифа дополнительно.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedTextField(
+            value = code,
+            onValueChange = onCodeChange,
+            label = { Text("Реферальный код") },
+            placeholder = { Text("Например, ABCD2345") },
+            singleLine = true,
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth().testTag("referral_code_input"),
+            shape = Shapes.medium,
+        )
+        Button(
+            onClick = onApply,
+            enabled = code.isNotBlank() && !loading,
+            modifier = Modifier.fillMaxWidth().height(48.dp).testTag("apply_referral_code"),
+            colors = ButtonDefaults.buttonColors(containerColor = accent),
+        ) {
+            if (loading) {
+                CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onTertiary, strokeWidth = 2.dp)
+                Spacer(Modifier.size(8.dp))
+            }
+            Text(if (loading) "Проверяем код…" else "Применить код", fontWeight = FontWeight.SemiBold)
+        }
+        message?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = if (it.startsWith("Код принят")) MaterialTheme.colorScheme.surfaceTint else MaterialTheme.colorScheme.error)
+        }
+    }
+}
+
+@Composable
+private fun ReferralCodeStatusCard(code: String, status: String?) {
+    val (title, body, tone) = when (status) {
+        "rewarded" -> Triple("Реферальный бонус начислен", "Код $code", MaterialTheme.colorScheme.surfaceTint)
+        "reversed" -> Triple("Реферальный бонус отменён", "Оплата по коду $code возвращена", MaterialTheme.colorScheme.error)
+        else -> Triple("Реферальный код применён", "$code · бонус будет начислен после оплаты", MaterialTheme.colorScheme.tertiary)
+    }
+    Row(
+        Modifier.fillMaxWidth().clip(Shapes.medium).background(tone.copy(alpha = 0.07f))
+            .border(1.dp, tone.copy(alpha = 0.25f), Shapes.medium).padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(painterResource(com.z_company.core.R.drawable.ic_star), null, Modifier.size(26.dp), tone)
+        Column {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = tone)
+            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 /** Лоадер на месте списка тарифов, пока они тянутся с сервера. */

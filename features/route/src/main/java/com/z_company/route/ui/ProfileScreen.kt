@@ -1196,9 +1196,6 @@ fun ProfileScreen(
                             // ===================== ПОДПИСКА =====================
                             item {
                                 ProfileGroupLabel("ПОДПИСКА")
-                                TextButton(onClick = { showReferrals = true }) {
-                                    Text("Реферальная программа →")
-                                }
                                 val onCard = if (hasSubscription) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
                                 Row(
                                     modifier = Modifier
@@ -1269,6 +1266,39 @@ fun ProfileScreen(
                                         contentDescription = null,
                                         modifier = Modifier.size(20.dp),
                                         tint = onCard.copy(alpha = 0.5f),
+                                    )
+                                }
+                                Spacer(Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(Shapes.medium)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .clickable { showReferrals = true }
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp))
+                                            .background(MaterialTheme.colorScheme.primaryContainer),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            painterResource(com.z_company.core.R.drawable.ic_star),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(24.dp),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Реферальная программа", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                        Text("Получите Про вместе с другом", style = styleHint, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Icon(
+                                        painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }

@@ -12,23 +12,39 @@ struct PurchasesView: View {
     var body: some View {
         List {
             if profile.canApplyReferralCode {
-                Section("Реферальный код") {
-                    Text("Введите код друга до первой оплаты. После оплаты каждый получит половину срока тарифа дополнительно.")
+                Section {
+                    Label("Есть код друга?", systemImage: "gift.fill")
+                        .font(.headline)
+                        .foregroundStyle(.blue)
+                    Text("Введите его до первой оплаты. После оплаты каждый получит половину срока тарифа дополнительно.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                     TextField("Код друга", text: $referralCode)
+                        .font(.system(.body, design: .monospaced))
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
-                    Button("Применить код") { profile.applyReferralCode(referralCode) }
+                        .onChange(of: referralCode) { value in
+                            referralCode = String(value.uppercased().filter { $0.isLetter || $0.isNumber }.prefix(16))
+                        }
+                    Button { profile.applyReferralCode(referralCode) } label: {
+                        Text("Применить код").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
                         .disabled(referralCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    if let error = profile.referralError { Text(error).foregroundColor(.red) }
-                }
+                    if let error = profile.referralError {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote).foregroundStyle(.red)
+                    }
+                } header: { Text("Реферальный код") }
             } else if let applied = profile.appliedReferralCode {
                 Section("Реферальный код") {
                     if profile.appliedReferralStatus == "reversed" {
-                        Text("Бонус по коду \(applied) отменён после возврата платежа.")
+                        Label("Бонус по коду \(applied) отменён после возврата платежа", systemImage: "xmark.circle.fill").foregroundStyle(.red)
                     } else if profile.appliedReferralStatus == "rewarded" {
-                        Text("Бонус по коду \(applied) начислен.")
+                        Label("Бонус по коду \(applied) начислен", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                     } else {
-                        Text("Код \(applied) применён. Бонус начислится после первой оплаты.")
+                        Label("Код \(applied) применён", systemImage: "clock.fill").foregroundStyle(.blue)
+                        Text("Бонус начислится после первой оплаты.").font(.footnote).foregroundStyle(.secondary)
                     }
                 }
             }
