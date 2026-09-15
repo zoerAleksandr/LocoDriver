@@ -50,7 +50,14 @@ fun ReferralScreen(onBack: () -> Unit) {
                 context.startActivity(Intent.createChooser(send, "Поделиться кодом"))
             }) { Text("Поделиться") }
             Text("Приглашений: ${data.invitedCount}. Начислено бонусов: ${data.rewardedCount}.")
-            data.appliedCode?.let { Text("Вы применили код $it: ${if (data.appliedStatus == "rewarded") "бонус начислен" else "ожидает первой оплаты"}") }
+            data.appliedCode?.let {
+                val statusText = when (data.appliedStatus) {
+                    "rewarded" -> "бонус начислен"
+                    "reversed" -> "бонус отменён после возврата платежа"
+                    else -> "ожидает первой оплаты"
+                }
+                Text("Вы применили код $it: $statusText")
+            }
         }
         if (error != null) TextButton(onClick = vm::refresh) { Text("Повторить") }
     }

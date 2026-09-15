@@ -17,6 +17,7 @@ final class ProfileViewModelWrapper: ObservableObject {
     @Published var referralError: String? = nil
     @Published var canApplyReferralCode: Bool = false
     @Published var appliedReferralCode: String? = nil
+    @Published var appliedReferralStatus: String? = nil
 
     init() {
         viewModel.watchIsLoggedIn { [weak self] value in
@@ -54,6 +55,9 @@ final class ProfileViewModelWrapper: ObservableObject {
         }
         viewModel.watchAppliedReferralCode { [weak self] value in
             DispatchQueue.main.async { self?.appliedReferralCode = value }
+        }
+        viewModel.watchAppliedReferralStatus { [weak self] value in
+            DispatchQueue.main.async { self?.appliedReferralStatus = value }
         }
     }
 

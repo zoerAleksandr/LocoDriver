@@ -22,7 +22,15 @@ struct PurchasesView: View {
                     if let error = profile.referralError { Text(error).foregroundColor(.red) }
                 }
             } else if let applied = profile.appliedReferralCode {
-                Section("Реферальный код") { Text("Код \(applied) применён. Бонус начислится после первой оплаты.") }
+                Section("Реферальный код") {
+                    if profile.appliedReferralStatus == "reversed" {
+                        Text("Бонус по коду \(applied) отменён после возврата платежа.")
+                    } else if profile.appliedReferralStatus == "rewarded" {
+                        Text("Бонус по коду \(applied) начислен.")
+                    } else {
+                        Text("Код \(applied) применён. Бонус начислится после первой оплаты.")
+                    }
+                }
             }
             ForEach(products, id: \.0) { (title, desc) in
                 Section {

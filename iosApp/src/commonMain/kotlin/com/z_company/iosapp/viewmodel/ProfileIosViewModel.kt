@@ -65,6 +65,7 @@ class ProfileIosViewModel(
     private val _referralError = MutableStateFlow<String?>(null)
     private val _canApplyReferralCode = MutableStateFlow(false)
     private val _appliedReferralCode = MutableStateFlow<String?>(null)
+    private val _appliedReferralStatus = MutableStateFlow<String?>(null)
 
     fun loadReferrals() {
         viewModelScope.launch {
@@ -77,6 +78,7 @@ class ProfileIosViewModel(
                 _referralRewardedCount.value = status.rewardedCount
                 _canApplyReferralCode.value = status.canApplyCode
                 _appliedReferralCode.value = status.appliedCode
+                _appliedReferralStatus.value = status.appliedStatus
                 _referralError.value = null
             } catch (_: Exception) {
                 _referralError.value = "Не удалось загрузить реферальную программу"
@@ -106,6 +108,10 @@ class ProfileIosViewModel(
 
     fun watchAppliedReferralCode(callback: (String?) -> Unit) {
         viewModelScope.launch { _appliedReferralCode.collect { callback(it) } }
+    }
+
+    fun watchAppliedReferralStatus(callback: (String?) -> Unit) {
+        viewModelScope.launch { _appliedReferralStatus.collect { callback(it) } }
     }
 
     fun applyReferralCode(code: String) {
