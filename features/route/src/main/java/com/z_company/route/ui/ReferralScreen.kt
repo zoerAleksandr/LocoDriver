@@ -62,13 +62,52 @@ private fun ReferralHero() {
     Column(
         Modifier.fillMaxWidth().clip(Shapes.medium).background(MaterialTheme.colorScheme.primaryContainer).padding(horizontal = 18.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(7.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-            Icon(painterResource(R.drawable.group_24px), null, Modifier.size(25.dp), MaterialTheme.colorScheme.primary)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Box(Modifier.size(34.dp).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(painterResource(R.drawable.group_24px), null, Modifier.size(20.dp), MaterialTheme.colorScheme.primary)
+            }
+            Text("Про для вас и друга", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
-        Text("Про для вас и друга", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("После первой оплаты друга каждый получит половину оплаченного периода дополнительно", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        Text("Друг оплачивает Про впервые — половина периода добавляется каждому", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        ReferralBenefitExample()
+    }
+}
+
+@Composable
+private fun ReferralBenefitExample() {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 3.dp).clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)).padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Icon(painterResource(R.drawable.ic_pro_crown), null, Modifier.size(18.dp), MaterialTheme.colorScheme.tertiary)
+            Text("Друг покупает 3 месяца Про", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            BenefitParticipant("Вам", Modifier.weight(1f))
+            BenefitParticipant("Другу", Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun BenefitParticipant(label: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier.clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)).padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+            Icon(painterResource(R.drawable.person_24px), null, Modifier.size(17.dp), MaterialTheme.colorScheme.onPrimary)
+        }
+        Column {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("+ 1,5 месяца", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        }
     }
 }
 
