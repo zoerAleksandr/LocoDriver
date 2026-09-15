@@ -32,7 +32,7 @@ class ReferralViewModel : ViewModel(), KoinComponent {
                 _status.value = api.getReferralStatus("Bearer $token")
                 _error.value = null
             } catch (_: Exception) {
-                _error.value = "Не удалось загрузить реферальную программу"
+                _error.value = "Не удалось загрузить код"
             } finally {
                 _loading.value = false
             }

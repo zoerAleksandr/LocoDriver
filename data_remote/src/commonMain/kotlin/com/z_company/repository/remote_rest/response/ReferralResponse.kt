@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 data class ReferralStatusResponse(
     val code: String,
     val canApplyCode: Boolean,
+    val canInvite: Boolean = false,
     val appliedCode: String? = null,
     val appliedStatus: String? = null,
     val invitedCount: Int = 0,

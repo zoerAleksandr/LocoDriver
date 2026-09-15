@@ -215,7 +215,11 @@ private struct ReferralView: View {
                 .padding(.vertical, 12)
             }
             Section("Ваш код") {
-                if let code = vm.referralCode {
+                if vm.referralCode != nil && !vm.canInvite {
+                    Label("Реферальная программа доступна для приглашающих, которые уже хотя бы раз оплачивали Про. После вашей первой оплаты здесь появится код.", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Color(red: 0.35, green: 0.24, blue: 0))
+                        .listRowBackground(Color(red: 1, green: 0.94, blue: 0.74))
+                } else if let code = vm.referralCode {
                     Text(code)
                         .font(.system(.title, design: .monospaced, weight: .bold))
                         .frame(maxWidth: .infinity)
@@ -247,7 +251,7 @@ private struct ReferralView: View {
                     Link("Подробные правила программы", destination: rulesURL)
                 }
             } footer: {
-                Text("Код можно применить после регистрации, если подписка ещё ни разу не оплачивалась. Повторные покупки бонуса не дают.")
+                Text("Приглашать может только тот, кто уже хотя бы раз оплачивал Про. Друг может применить код после регистрации, до своей первой оплаты. Повторные покупки бонуса не дают.")
             }
         }
         .navigationTitle("Реферальная программа")

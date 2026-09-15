@@ -60,6 +60,7 @@ class ProfileIosViewModel(
     val syncMessage: StateFlow<String?> = _syncMessage.asStateFlow()
 
     private val _referralCode = MutableStateFlow<String?>(null)
+    private val _canInvite = MutableStateFlow(false)
     private val _referralCount = MutableStateFlow(0)
     private val _referralRewardedCount = MutableStateFlow(0)
     private val _referralError = MutableStateFlow<String?>(null)
@@ -74,6 +75,7 @@ class ProfileIosViewModel(
                 if (token.isNullOrBlank()) return@launch
                 val status = remoteRestApi.getReferralStatus("Bearer $token")
                 _referralCode.value = status.code
+                _canInvite.value = status.canInvite
                 _referralCount.value = status.invitedCount
                 _referralRewardedCount.value = status.rewardedCount
                 _canApplyReferralCode.value = status.canApplyCode
@@ -81,13 +83,17 @@ class ProfileIosViewModel(
                 _appliedReferralStatus.value = status.appliedStatus
                 _referralError.value = null
             } catch (_: Exception) {
-                _referralError.value = "Не удалось загрузить реферальную программу"
+                _referralError.value = "Не удалось загрузить код"
             }
         }
     }
 
     fun watchReferralCode(callback: (String?) -> Unit) {
         viewModelScope.launch { _referralCode.collect { callback(it) } }
+    }
+
+    fun watchCanInvite(callback: (Boolean) -> Unit) {
+        viewModelScope.launch { _canInvite.collect { callback(it) } }
     }
 
     fun watchReferralCount(callback: (Int) -> Unit) {

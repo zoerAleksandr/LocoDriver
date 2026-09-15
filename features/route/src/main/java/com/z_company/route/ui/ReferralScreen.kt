@@ -101,6 +101,19 @@ private fun ReferralHero() {
 private fun ReferralContent(data: ReferralStatusResponse) {
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (!data.canInvite) {
+            Row(
+                Modifier.fillMaxWidth().clip(Shapes.medium).background(Color(0xFFFFF0BD)).padding(16.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(painterResource(R.drawable.ic_pro_crown), null, Modifier.size(24.dp), Color(0xFF805800))
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("Приглашения после первой оплаты", fontWeight = FontWeight.SemiBold, color = Color(0xFF593D00))
+                    Text("Реферальная программа доступна для приглашающих, которые уже хотя бы раз оплачивали Про. После вашей первой оплаты здесь появится код.", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF593D00))
+                }
+            }
+        } else {
         Surface(Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, Shapes.medium), shape = Shapes.medium) {
             Column(Modifier.padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("ВАШ КОД", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -124,6 +137,7 @@ private fun ReferralContent(data: ReferralStatusResponse) {
                     }
                 }
             }
+        }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ReferralMetric(R.drawable.group_24px, "Приглашено", data.invitedCount.toString(), Modifier.weight(1f))
@@ -167,7 +181,7 @@ private fun ReferralRulesCard() {
         RuleRow("1", "Поделитесь своим кодом с другом")
         RuleRow("2", "Друг вводит код перед своей первой оплатой Про")
         RuleRow("3", "После оплаты половина периода добавится каждому")
-        Text("Код можно применить после регистрации, если подписка ещё ни разу не оплачивалась. За повторные покупки бонус не начисляется.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Приглашать может только тот, кто уже хотя бы раз оплачивал Про. Друг может применить код после регистрации, до своей первой оплаты. За повторные покупки бонус не начисляется.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

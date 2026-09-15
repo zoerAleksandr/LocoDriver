@@ -12,6 +12,7 @@ final class ProfileViewModelWrapper: ObservableObject {
     @Published var errorMessage: String? = nil
     @Published var syncMessage: String? = nil
     @Published var referralCode: String? = nil
+    @Published var canInvite: Bool = false
     @Published var referralCount: Int = 0
     @Published var referralRewardedCount: Int = 0
     @Published var referralError: String? = nil
@@ -40,6 +41,9 @@ final class ProfileViewModelWrapper: ObservableObject {
         }
         viewModel.watchReferralCode { [weak self] value in
             DispatchQueue.main.async { self?.referralCode = value }
+        }
+        viewModel.watchCanInvite { [weak self] value in
+            DispatchQueue.main.async { self?.canInvite = value.boolValue }
         }
         viewModel.watchReferralCount { [weak self] value in
             DispatchQueue.main.async { self?.referralCount = value.intValue }
