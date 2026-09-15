@@ -3,6 +3,7 @@
 ## Ветки и расположение
 
 - Клиент: `codex/referral-client` в этом репозитории.
+- PWA: `codex/referral-pwa` в `/Users/zoer/Documents/loco-driver-pwa`, коммит `e167a47`.
 - Сервер: `codex/referral-server` в репозитории `proxy-parser`. Работа выполнена в изолированном клоне `/private/tmp/locodriver-referral-server`; перед продолжением проверьте наличие этой ветки в исходном серверном репозитории.
 - Ничего не развёрнуто на продакшене, миграция БД не запускалась.
 
@@ -16,7 +17,9 @@
 
 - Сервер: аддитивная миграция `040_referral_program`, отметка `user_first_payment`, модели кода/приглашения/двух начислений, `GET /v1/referrals/me`, `POST /v1/referrals/apply`, начисление в callback CKassa и Robokassa, защита Robokassa от повторного платежа через `payment_transaction`, страницы `/admin/referrals` и детализация начислений.
 - Клиент: KMP API и DTO; Android-экран приведён к карточкам и цветам существующих профиля/покупок, добавлены копирование, системный share, метрики и состояния; поле кода оформлено отдельной карточкой со статусом отправки. iOS SwiftUI использует существующий стиль `List`/`Section`, системные `Label`, `ShareLink`, моноширинный код и статусные секции. `SCREEN_SPECS.md` обновлён.
+- PWA: добавлены вход из профиля, отдельный адаптивный экран программы с копированием и системным share, метриками и условиями, а также ввод и статус кода на экране оплаты. Используются те же `GET /v1/referrals/me` и `POST /v1/referrals/apply`; интеграция с платёжной формой CKassa для этого не нужна.
 - Android `:data_remote:compileDebugKotlinAndroid :features:route:compileDebugKotlin --offline` прошёл.
+- PWA: `npm test`, ESLint изменённых файлов и `npm run build` прошли.
 
 ## Обязательное до выпуска
 
