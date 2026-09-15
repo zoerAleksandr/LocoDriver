@@ -4,6 +4,7 @@
 
 - Клиент: `codex/referral-client` в этом репозитории.
 - PWA: `codex/referral-pwa` в `/Users/zoer/Documents/loco-driver-pwa`, коммит `e167a47`.
+- Сайт: `codex/referral-docs` в `/Users/zoer/AndroidStudioProjects/locodriver-site`; страница `referral.html` и ссылка из главной. Перед выпуском клиентов опубликовать страницу, чтобы ссылка на подробные правила работала.
 - Сервер: `codex/referral-server` в репозитории `proxy-parser`. Работа выполнена в изолированном клоне `/private/tmp/locodriver-referral-server`; перед продолжением проверьте наличие этой ветки в исходном серверном репозитории.
 - Ничего не развёрнуто на продакшене, миграция БД не запускалась.
 

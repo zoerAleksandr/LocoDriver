@@ -20,6 +20,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import android.webkit.WebView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
@@ -52,6 +54,16 @@ fun ReferralScreen(onBack: () -> Unit) {
                 status != null -> ReferralContent(status!!)
             }
             ReferralRulesCard()
+            val context = LocalContext.current
+            TextButton(
+                onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://locodriver.ru/referral.html")))
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Подробные правила программы")
+                Icon(painterResource(R.drawable.keyboard_arrow_right_24px), null, Modifier.padding(start = 4.dp).size(18.dp))
+            }
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -59,56 +71,28 @@ fun ReferralScreen(onBack: () -> Unit) {
 
 @Composable
 private fun ReferralHero() {
-    Column(
-        Modifier.fillMaxWidth().clip(Shapes.medium).background(MaterialTheme.colorScheme.primaryContainer).padding(horizontal = 18.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Box(Modifier.size(34.dp).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                Icon(painterResource(R.drawable.group_24px), null, Modifier.size(20.dp), MaterialTheme.colorScheme.primary)
+    AndroidView(
+        modifier = Modifier.fillMaxWidth().aspectRatio(360f / 320f).clip(Shapes.medium),
+        factory = { context ->
+            WebView(context).apply {
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                isVerticalScrollBarEnabled = false
+                isHorizontalScrollBarEnabled = false
+                overScrollMode = android.view.View.OVER_SCROLL_NEVER
+                contentDescription = "Пример: друг впервые оплачивает год Про, каждому добавляется половина оплаченного периода — примерно шесть месяцев"
+                settings.apply {
+                    javaScriptEnabled = false
+                    blockNetworkLoads = true
+                    allowFileAccess = false
+                    allowContentAccess = false
+                }
+                val svg = context.assets.open("referral_v3_animated.svg").bufferedReader().use { it.readText() }
+                val html = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent}svg{display:block;width:100%;height:100%}</style></head><body>$svg</body></html>"""
+                loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
             }
-            Text("Про для вас и друга", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-        Text("Друг оплачивает Про впервые — половина периода добавляется каждому", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-        ReferralBenefitExample()
-    }
-}
-
-@Composable
-private fun ReferralBenefitExample() {
-    Column(
-        Modifier.fillMaxWidth().padding(top = 3.dp).clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)).padding(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(9.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            Icon(painterResource(R.drawable.ic_pro_crown), null, Modifier.size(18.dp), MaterialTheme.colorScheme.tertiary)
-            Text("Друг покупает 3 месяца Про", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            BenefitParticipant("Вам", Modifier.weight(1f))
-            BenefitParticipant("Другу", Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun BenefitParticipant(label: String, modifier: Modifier = Modifier) {
-    Row(
-        modifier.clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)).padding(horizontal = 10.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-            Icon(painterResource(R.drawable.person_24px), null, Modifier.size(17.dp), MaterialTheme.colorScheme.onPrimary)
-        }
-        Column {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("+ 1,5 месяца", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        }
-    }
+        },
+        onRelease = { it.stopLoading(); it.destroy() },
+    )
 }
 
 @Composable
