@@ -87,8 +87,10 @@ private fun ReferralHero() {
                     allowContentAccess = false
                 }
                 val svg = context.assets.open("referral_v3_animated.svg").bufferedReader().use { it.readText() }
-                val html = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent}svg{display:block;width:100%;height:100%}</style></head><body>$svg</body></html>"""
-                loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+                val html = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0;width:100%;overflow:hidden;background:transparent}svg{display:block;width:100%;height:auto}</style></head><body>$svg</body></html>"""
+                // A real base URL keeps inline SVG fragment references and color values
+                // out of data-URL parsing. Network loads remain disabled.
+                loadDataWithBaseURL("https://appassets.androidplatform.net/", html, "text/html", "UTF-8", null)
             }
         },
         onRelease = { it.stopLoading(); it.destroy() },
