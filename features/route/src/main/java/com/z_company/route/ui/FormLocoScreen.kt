@@ -872,6 +872,8 @@ fun FormLocoScreen(
                                             considerHeatingInTotal = userSettings?.isConsiderLocoHeatingInTotal != false,
                                             considerAuxiliaryInTotal = userSettings?.isConsiderLocoAuxiliaryInTotal != false,
                                             onSettingsClick = onSettingsClick,
+                                            norma1Text = formUiState.norma1Text,
+                                            norma2Text = formUiState.norma2Text,
                                             onNorma1Change = { viewModel.setNormaElectricCurrent1(it) },
                                             onNorma2Change = { viewModel.setNormaElectricCurrent2(it) }
                                         )

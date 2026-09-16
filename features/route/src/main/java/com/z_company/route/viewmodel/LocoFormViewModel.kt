@@ -22,6 +22,7 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.CalculationEnergy
 import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
+import com.z_company.domain.util.sanitizeNumericInput
 import com.z_company.domain.util.str
 import com.z_company.route.Const.NULLABLE_ID
 import kotlinx.coroutines.CoroutineScope
@@ -467,18 +468,27 @@ class LocoFormViewModel(
                 isBlankOrZero(s.accepted2.data) && isBlankOrZero(s.delivery2.data) &&
                 isBlankOrZero(s.recoveryAccepted2.data) && isBlankOrZero(s.recoveryDelivery2.data)
 
+    // Норма: допускаем дробные значения. Ввод нормализуем (запятая → точка,
+    // один разделитель, только цифры), а в UI показываем именно введённый
+    // текст (norma1Text/norma2Text), а не Double.str() — иначе «12.» и «12,5»
+    // схлопывались/очищались при наборе.
     fun setNormaElectricCurrent1(value: String) {
-        _uiState.update { it.copy(norma1Text = value) }
-        _currentLoco.update { it?.copy(normaElectricCurrent1 = value.toDoubleOrNull()) }
+        val text = value.sanitizeNumericInput(allowDecimal = true)
+        _uiState.update { it.copy(norma1Text = text) }
+        _currentLoco.update { it?.copy(normaElectricCurrent1 = text.toDoubleOrNull()) }
     }
 
     fun setNormaElectricCurrent2(value: String) {
-        _uiState.update { it.copy(norma2Text = value) }
-        _currentLoco.update { it?.copy(normaElectricCurrent2 = value.toDoubleOrNull()) }
+        val text = value.sanitizeNumericInput(allowDecimal = true)
+        _uiState.update { it.copy(norma2Text = text) }
+        _currentLoco.update { it?.copy(normaElectricCurrent2 = text.toDoubleOrNull()) }
     }
 
     fun setNormaDiesel(value: String) {
-        _currentLoco.update { it?.copy(normaDiesel = value) }
+        // Строка уходит на сервер как есть — только с точкой, иначе float() на
+        // сервере не разберёт «12,5» и запишет NULL.
+        val text = value.sanitizeNumericInput(allowDecimal = true)
+        _currentLoco.update { it?.copy(normaDiesel = text.ifBlank { null }) }
     }
 
     fun setHeatingCounterAccepted(value: String) {

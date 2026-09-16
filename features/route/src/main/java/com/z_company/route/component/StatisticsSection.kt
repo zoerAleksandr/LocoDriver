@@ -54,6 +54,10 @@ fun ElectricStatisticsSection(
     considerHeatingInTotal: Boolean,
     considerAuxiliaryInTotal: Boolean,
     onSettingsClick: () -> Unit,
+    // Текст поля нормы как введён пользователем (uiState.norma1Text/norma2Text),
+    // а не Double.str(): иначе «12.» при наборе дробного превращалось бы в «12».
+    norma1Text: String = locomotive.normaElectricCurrent1?.str() ?: "",
+    norma2Text: String = locomotive.normaElectricCurrent2?.str() ?: "",
     onNorma1Change: (String) -> Unit = {},
     onNorma2Change: (String) -> Unit = {},
     modifier: Modifier = Modifier
@@ -101,7 +105,7 @@ fun ElectricStatisticsSection(
             currentLabel = if (isShowOtherCurrent) "ТОК 1" else null,
             consumed = overResult,
             recovery = overRecovery,
-            norma = locomotive.normaElectricCurrent1?.str() ?: "",
+            norma = norma1Text,
             onNormaChange = onNorma1Change,
             monoLabel = monoLabel
         )
@@ -111,7 +115,7 @@ fun ElectricStatisticsSection(
                 currentLabel = "ТОК 2",
                 consumed = overResult2,
                 recovery = overRecovery2,
-                norma = locomotive.normaElectricCurrent2?.str() ?: "",
+                norma = norma2Text,
                 onNormaChange = onNorma2Change,
                 monoLabel = monoLabel
             )
