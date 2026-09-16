@@ -1,7 +1,9 @@
 package com.z_company.repository.remote_rest
 
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.DefaultRequest
+import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
@@ -9,7 +11,10 @@ import io.ktor.client.plugins.HttpRedirect
 import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
@@ -165,6 +170,26 @@ object RemoteRestClient {
         }
         install(DefaultRequest) {
             url(baseUrl())
+        }
+        HttpResponseValidator {
+            // Обработчик срабатывает после того, как expectSuccess уже превратил
+            // 4xx в исключение; исходное исключение Ktor бросает дальше сам,
+            // поэтому здесь только сигналим — поведение вызывающего кода не меняется.
+            handleResponseExceptionWithRequest { cause, request ->
+                if (cause !is ClientRequestException) return@handleResponseExceptionWithRequest
+                if (cause.response.status != HttpStatusCode.Unauthorized) return@handleResponseExceptionWithRequest
+                val hadAuthorization = request.headers.contains(HttpHeaders.Authorization)
+                // Тело сохранено вместе с исключением (call.save()), читать можно повторно.
+                val body = runCatching { cause.response.bodyAsText() }.getOrNull()
+                if (NetworkErrorMapper.isSessionExpiredResponse(
+                        statusCode = cause.response.status.value,
+                        detailOrBody = body,
+                        hadAuthorization = hadAuthorization,
+                    )
+                ) {
+                    SessionExpiredNotifier.signal()
+                }
+            }
         }
     }
 }

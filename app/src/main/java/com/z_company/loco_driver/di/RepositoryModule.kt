@@ -33,6 +33,7 @@ import com.z_company.core.theme.ThemeManager
 import com.z_company.loco_driver.ui.theme.ThemeManagerImpl
 import com.z_company.loco_driver.BuildConfig
 import com.z_company.repository.SecureTokenStorage
+import com.z_company.route.session.SessionExpiredHandler
 import com.z_company.repository.ShareManager
 import com.z_company.repository.remote_rest.ApiForSendEmail
 import com.z_company.repository.remote_rest.AuthManager
@@ -88,6 +89,9 @@ val repositoryModule = module {
 
     // Шаг 3 KMP-миграции: абстракция Context (SecureDataStore → SecureTokenStorage)
     single { SecureTokenStorage(androidContext()) }
+
+    // Разлогин по 401 с любого запроса; подписку запускает StartApp.
+    single { SessionExpiredHandler(secureTokenStorage = get(), sharedPrefs = get()) }
 
     // Ktor-based API (заменяет Retrofit RemoteRestClient)
     single<RemoteRestApi> { RemoteRestClient.remoteRestApi }

@@ -43,6 +43,7 @@ import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.repository.remote_rest.UserRemote
 import com.z_company.repository.remote_rest.VkAuthError
+import com.z_company.route.session.SessionExpiredHandler
 import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
@@ -93,6 +94,9 @@ data class ProfileUiState(
     val syncRoutesSavedCount: Int = 0,
     val syncReportUserId: String? = null,
     val isNetworkError: Boolean = false,
+    // Сервер отверг bearer-токен (401) во время синхронизации: диалог показывает
+    // «Сессия истекла», а разлогин делает SessionExpiredHandler.
+    val isSessionExpired: Boolean = false,
     val isProfileNetworkError: Boolean = false,
     // Маршруты, пропавшие с сервера в объёме, который SyncManager счёл значительным
     // (см. SyncManager.isSignificantRouteDeletion) — ждут явного подтверждения
@@ -134,6 +138,7 @@ data class MigrationState(
 
 class ProfileViewModel : ViewModel(), KoinComponent {
     private val sharedPrefs: SharedPreferencesRepositories by inject()
+    private val sessionExpiredHandler: SessionExpiredHandler by inject()
     private val settingsUseCase: SettingsUseCase by inject()
 
     private val salarySettingUseCase: SalarySettingUseCase by inject()
@@ -221,6 +226,13 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             _isFirstAppEntry.value = sharedPrefs.tokenIsFirstAppEntry()
             _isMigrated.value = sharedPrefs.isMigrated()
+        }
+        // Сессию могли закрыть по 401 с другого экрана (SessionExpiredHandler):
+        // токен пропал из хранилища, а профиль всё ещё показывает аккаунт.
+        viewModelScope.launch(Dispatchers.IO) {
+            secureTokenStorage.getAuthBearerTokenFlow().onEach { token ->
+                if (token.isNullOrBlank() && _isLoggedIn.value) showLoggedOutState()
+            }.launchIn(viewModelScope)
         }
         viewModelScope.launch(Dispatchers.IO) {
             secureTokenStorage.getVkIdFlow().onEach { vkId ->
@@ -321,6 +333,11 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                             if (isNetworkErrorMessage(cleanMsg)) {
                                 networkErrorStopped = true
                                 _uiState.update { it.copy(isNetworkError = true, isSyncComplete = true) }
+                                return@collect
+                            }
+                            if (NetworkErrorMapper.isSessionExpiredMessage(cleanMsg)) {
+                                networkErrorStopped = true
+                                _uiState.update { it.copy(isSessionExpired = true, isSyncComplete = true) }
                                 return@collect
                             }
                             val stepKey = parseSyncStep(msg)
@@ -430,6 +447,11 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                             if (isNetworkErrorMessage(cleanMsg)) {
                                 networkErrorStopped = true
                                 _uiState.update { it.copy(isNetworkError = true, isSyncComplete = true) }
+                                return@collect
+                            }
+                            if (NetworkErrorMapper.isSessionExpiredMessage(cleanMsg)) {
+                                networkErrorStopped = true
+                                _uiState.update { it.copy(isSessionExpired = true, isSyncComplete = true) }
                                 return@collect
                             }
                             val stepKey = parseSyncUploadStep(msg)
@@ -566,6 +588,11 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                                 _uiState.update { it.copy(isNetworkError = true, isSyncComplete = true) }
                                 return@collect
                             }
+                            if (NetworkErrorMapper.isSessionExpiredMessage(cleanMsg)) {
+                                networkErrorStopped = true
+                                _uiState.update { it.copy(isSessionExpired = true, isSyncComplete = true) }
+                                return@collect
+                            }
                             val stepKey = parseSyncDownloadStep(msg)
                             val newProgress = _uiState.value.syncDownloadProgress.toMutableMap()
                             if (stepKey != null) {
@@ -611,6 +638,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 isSyncComplete = false,
                 isSyncSuccess = false,
                 isNetworkError = false,
+                isSessionExpired = false,
                 syncType = null,
                 syncRouteErrors = emptyList(),
                 syncRoutesTotalAttempted = 0,
@@ -788,18 +816,21 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     }
 
     /**
-     * Централизованная обработка просроченного (невалидного) bearer-токена.
+     * Просроченный (невалидный) bearer-токен при загрузке профиля.
      *
-     * Сервер вернул 401 — локальная сессия больше не действительна. Полностью
-     * разлогиниваем пользователя (как [logOut]), чтобы стухший токен не остался
-     * в хранилище и не вызывал мигание «залогинен → форма входа» при следующем
-     * открытии экрана. Профиль сбрасываем в состояние формы входа
-     * (`Success(null)`), а не «ошибка загрузки», и поясняем причину.
+     * Сам разлогин делает [SessionExpiredHandler] — он же срабатывает на 401
+     * с любого другого экрана, поэтому здесь его вызываем, а не дублируем
+     * (handler идемпотентен). Экран сбрасываем в форму входа (`Success(null)`),
+     * а не в «ошибку загрузки», и поясняем причину.
      */
     private suspend fun handleSessionExpired() {
-        secureTokenStorage.saveAuthToken("")
-        secureTokenStorage.saveVkId("")
-        sharedPrefs.setRouteSyncCursor(null)
+        sessionExpiredHandler.logOutExpiredSession()
+        showLoggedOutState()
+        snackbarManager.show(NetworkErrorMapper.SESSION_EXPIRED_MESSAGE)
+    }
+
+    /** Форма входа вместо профиля: сессии больше нет. */
+    private fun showLoggedOutState() {
         _isLoggedIn.value = false
         _uiState.update {
             it.copy(
@@ -808,7 +839,6 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 isProfileNetworkError = false
             )
         }
-        snackbarManager.show("Сессия истекла. Войдите снова.")
     }
 
     // Чтобы выполнять вход с email и password, обновлять состояние авторизации, сохранять токен при успехе и обновлять _isLoggedIn. Это вызывается из кнопки "Войти" в ProfileScreen.

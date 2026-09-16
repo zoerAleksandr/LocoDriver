@@ -1264,6 +1264,11 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                 _uiState.update { it.copy(isNetworkError = true, isSyncComplete = true) }
                                 return@collect
                             }
+                            if (NetworkErrorMapper.isSessionExpiredMessage(cleanMsg)) {
+                                networkErrorStopped = true
+                                _uiState.update { it.copy(isSessionExpired = true, isSyncComplete = true) }
+                                return@collect
+                            }
                             val stepKey = parseSyncStep(msg)
                             val newProgress = _uiState.value.syncUploadProgress.toMutableMap()
                             if (stepKey != null) {
@@ -1300,6 +1305,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 isSyncComplete = false,
                 isSyncSuccess = false,
                 isNetworkError = false,
+                isSessionExpired = false,
                 syncType = null,
                 syncRouteErrors = emptyList(),
                 syncRoutesTotalAttempted = 0,

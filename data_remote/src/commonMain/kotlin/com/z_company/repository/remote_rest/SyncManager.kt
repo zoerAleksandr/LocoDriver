@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.sync.Mutex
 import kotlin.time.Clock
 import kotlinx.datetime.Instant
@@ -358,6 +359,13 @@ class SyncManager(
                             allErrors.add("[$routeId] $label: ${saveResult.entity.message ?: saveResult.entity.throwable?.message ?: "Ошибка"}")
                         }
                     }
+                // Ошибки маршрутов копятся до конца этапа, поэтому истёкшую
+                // сессию здесь надо выносить наверх явно — иначе цикл дойдёт
+                // до последнего маршрута, получая 401 на каждом.
+                if (NetworkErrorMapper.isSessionExpiredMessage(allErrors.lastOrNull())) {
+                    emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.SESSION_EXPIRED_MESSAGE)))
+                    return@flow
+                }
             }
         }
         result.routesSavedCount = savedCount
@@ -380,7 +388,7 @@ class SyncManager(
         } finally {
             endSync()
         }
-    }.flowOn(Dispatchers.Default).withSyncDeadline()
+    }.flowOn(Dispatchers.Default).abortOnSessionExpired().withSyncDeadline()
 
     /**
      * Синхронизирует один маршрут на сервер.
@@ -418,7 +426,7 @@ class SyncManager(
         } finally {
             endSync()
         }
-    }.flowOn(Dispatchers.Default).withSyncDeadline()
+    }.flowOn(Dispatchers.Default).abortOnSessionExpired().withSyncDeadline()
 
     fun syncFromRemote(bearerToken: String): Flow<ResultState<SyncDownloadResult>> = flow {
         beginSync()
@@ -692,7 +700,7 @@ class SyncManager(
         } finally {
             endSync()
         }
-    }.flowOn(Dispatchers.Default).withSyncDeadline()
+    }.flowOn(Dispatchers.Default).abortOnSessionExpired().withSyncDeadline()
 
     /**
      * ДВУСТОРОННЯЯ синхронизация — за одной кнопкой «Синхронизация».
@@ -1144,7 +1152,7 @@ class SyncManager(
         } finally {
             endSync()
         }
-    }.flowOn(Dispatchers.Default).withSyncDeadline()
+    }.flowOn(Dispatchers.Default).abortOnSessionExpired().withSyncDeadline()
 
     /**
      * «Значительное» удаление — либо абсолютно большое количество маршрутов, либо
@@ -1316,7 +1324,7 @@ class SyncManager(
         } finally {
             endSync()
         }
-    }.flowOn(Dispatchers.Default).withSyncDeadline()
+    }.flowOn(Dispatchers.Default).abortOnSessionExpired().withSyncDeadline()
 
     fun firstSyncAfterRegistration(bearerToken: String): Flow<ResultState<SyncUploadResult>> = flow {
         beginSync()
@@ -1477,7 +1485,7 @@ class SyncManager(
         } finally {
             endSync()
         }
-    }.flowOn(Dispatchers.Default).withSyncDeadline()
+    }.flowOn(Dispatchers.Default).abortOnSessionExpired().withSyncDeadline()
 
     companion object {
         /** Даём экрану завершить первый кадр и локальные расчёты до тихой синхронизации. */
@@ -1516,6 +1524,19 @@ class SyncManager(
         }
     }
 }
+
+/**
+ * Сессия истекла — каждый следующий запрос с тем же токеном получит 401.
+ * Первая такая ошибка завершает поток: не гоняем сервер по каждому из
+ * десятков маршрутов и не показываем пользователю столбик одинаковых
+ * строк, а разлогин уже запустил [SessionExpiredNotifier] из Ktor-клиента.
+ * Отмена upstream проходит через `finally { endSync() }` — мьютекс отпускается.
+ */
+internal fun <T> Flow<ResultState<T>>.abortOnSessionExpired(): Flow<ResultState<T>> =
+    transformWhile { state ->
+        emit(state)
+        !(state is ResultState.Error && NetworkErrorMapper.isSessionExpiredMessage(state.entity.message))
+    }
 
 /** Явный серверный tombstone может применяться только к clean-маршруту. */
 internal fun canDeleteLocalRouteMissingFromServer(local: Route): Boolean =

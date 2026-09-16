@@ -70,6 +70,10 @@ object NetworkErrorMapper {
         val code = e.response.status.value
         val fields = extractRejectedFields(e.message)
         return when {
+            // Ktor кладёт тело ответа в текст исключения — по нему отличаем
+            // просроченный bearer-токен от 401 «VK не подтвердил токен».
+            isSessionExpiredResponse(code, e.message, hadAuthorization = true) ->
+                SESSION_EXPIRED_MESSAGE
             code == 422 && fields.isNotEmpty() ->
                 "Сервер отклонил данные (код 422). Не поддерживаются поля: " +
                     "${fields.joinToString(", ")}. Обновите приложение или сервер."
@@ -95,6 +99,39 @@ object NetworkErrorMapper {
             .toList()
     }
 
+    /**
+     * Бэкенд отвечает 401 на любой запрос с просроченным или отозванным
+     * bearer-токеном (`get_current_user` → «Invalid creadential»). Токен живёт
+     * 180 дней и не продлевается, так что это штатный сценарий для каждого,
+     * кто давно не перелогинивался. Показывать сырой `detail` нельзя —
+     * пользователь должен понять, что делать.
+     */
+    const val SESSION_EXPIRED_MESSAGE = "Сессия истекла. Войдите в аккаунт заново."
+
+    /**
+     * Сессия истекла? 401 на запросе с bearer-токеном — да, кроме VK-привязки:
+     * там 401 `vk_token_invalid` означает, что VK не подтвердил *свой* токен,
+     * а наша сессия жива. [detailOrBody] — `detail` из тела ответа либо всё
+     * тело/текст исключения, где этот `detail` содержится.
+     */
+    fun isSessionExpiredResponse(
+        statusCode: Int,
+        detailOrBody: String?,
+        hadAuthorization: Boolean,
+    ): Boolean = statusCode == 401 &&
+        hadAuthorization &&
+        detailOrBody?.contains(VK_DETAIL_TOKEN_INVALID) != true
+
+    /**
+     * Готовое сообщение — про истёкшую сессию? Ошибки шагов синхронизации
+     * приходят с префиксом («Ошибка сохранения UserSettings: …»), поэтому
+     * ищем маркер, а не сравниваем строки целиком.
+     */
+    fun isSessionExpiredMessage(message: String?): Boolean =
+        message?.contains(SESSION_EXPIRED_MARKER, ignoreCase = true) == true
+
+    private const val SESSION_EXPIRED_MARKER = "Сессия истекла"
+
     const val NO_CONNECTION_MESSAGE =
         "Нет соединения с сервером. Проверьте интернет и попробуйте снова."
     const val TIMEOUT_MESSAGE =
@@ -113,6 +150,8 @@ object NetworkErrorMapper {
         val reason = message?.trim()?.takeIf { it.isNotEmpty() }
             ?: humanMessage(throwable)
         if (reason.startsWith("Синхронизация не выполнена", ignoreCase = true)) return reason
+        // Без префикса шага: в snackbar важно только «что делать».
+        if (isSessionExpiredMessage(reason)) return SESSION_EXPIRED_MESSAGE
         val conciseReason = reason.lineSequence().firstOrNull().orEmpty().take(240)
         return conciseReason
     }

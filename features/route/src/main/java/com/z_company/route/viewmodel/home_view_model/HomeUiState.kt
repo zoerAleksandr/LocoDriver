@@ -74,6 +74,9 @@ data class HomeUiState(
     val syncRoutesSavedCount: Int = 0,
     val syncReportUserId: String? = null,
     val isNetworkError: Boolean = false,
+    // Сервер отверг bearer-токен (401): синхронизация остановлена, пользователь
+    // разлогинен — диалог показывает «Сессия истекла» вместо отчёта об ошибках.
+    val isSessionExpired: Boolean = false,
     /**
      * Норма часов за выбранный месяц, рассчитанная через NormaUseCase.
      * Учитывает региональный календарь, дни отвлечений и производственный календарь.

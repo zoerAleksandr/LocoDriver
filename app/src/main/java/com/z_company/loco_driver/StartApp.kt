@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import com.my.tracker.MyTracker
 import com.my.tracker.MyTrackerConfig.LocationTrackingMode
+import com.z_company.route.session.SessionExpiredHandler
 import com.z_company.core.initSentry
 import com.vk.id.VKID
 import com.z_company.data_local.route.di.sqlDelightRouteModule
@@ -37,6 +38,9 @@ import com.z_company.repository.remote_rest.recovery.RecoveryCloudHttpException
 import com.z_company.domain.repositories.DiagnosticRepository
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 
 internal sealed interface CloudRecoveryOutcome {
@@ -49,6 +53,7 @@ internal sealed interface CloudRecoveryOutcome {
 class StartApp : Application() {
 
     private val mainGraphStarted = AtomicBoolean(false)
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var migrationBootstrap: MigrationRecoveryBootstrap
 
     @Volatile
@@ -171,6 +176,9 @@ class StartApp : Application() {
                 updateModule
             )
         }
+        // Истёкший bearer-токен ловится на любом запросе (см. SessionExpiredHandler);
+        // без этой подписки о 401 узнавал бы только экран «Профиль».
+        koinApplication.koin.get<SessionExpiredHandler>().start(appScope)
         runCatching {
             RecoveryTelemetryQueue(this).drainTo(
                 diagnostics = koinApplication.koin.get<DiagnosticRepository>(),

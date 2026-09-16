@@ -145,6 +145,11 @@ class RoutesManager(
          * 422: {"detail": [{"loc": [...], "msg": "...", "type": "..."}]}
          */
         fun parseServerError(statusCode: Int, body: String): String {
+            // Иначе в отчёт об ошибках уезжает сырой detail «Invalid creadential»
+            // по каждому маршруту, и человек не понимает, что нужно перелогиниться.
+            if (NetworkErrorMapper.isSessionExpiredResponse(statusCode, body, hadAuthorization = true)) {
+                return NetworkErrorMapper.SESSION_EXPIRED_MESSAGE
+            }
             if (body.isBlank()) return "Ошибка сервера: $statusCode"
             return try {
                 val jsonElement = json.parseToJsonElement(body)

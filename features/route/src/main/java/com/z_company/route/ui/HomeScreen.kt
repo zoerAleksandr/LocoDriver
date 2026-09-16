@@ -252,6 +252,7 @@ fun HomeScreen(
     syncRoutesSavedCount: Int = 0,
     syncReportUserId: String? = null,
     isNetworkError: Boolean = false,
+    isSessionExpired: Boolean = false,
     onResetSyncState: () -> Unit = {},
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
@@ -492,6 +493,7 @@ fun HomeScreen(
         syncRoutesSavedCount = syncRoutesSavedCount,
         userId = syncReportUserId,
         isNetworkError = isNetworkError,
+        isSessionExpired = isSessionExpired,
         showPercentageProgress = true,
         onDismiss = onResetSyncState
     )

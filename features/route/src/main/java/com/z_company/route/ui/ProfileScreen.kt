@@ -587,6 +587,7 @@ fun ProfileScreen(
         syncRoutesSavedCount = uiState.syncRoutesSavedCount,
         userId = uiState.syncReportUserId,
         isNetworkError = uiState.isNetworkError,
+        isSessionExpired = uiState.isSessionExpired,
         onDismiss = viewModel::resetSyncState
     )
 

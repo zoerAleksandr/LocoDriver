@@ -135,6 +135,7 @@ fun HomeDestination(
         syncRoutesSavedCount = uiState.syncRoutesSavedCount,
         syncReportUserId = uiState.syncReportUserId,
         isNetworkError = uiState.isNetworkError,
+        isSessionExpired = uiState.isSessionExpired,
         onResetSyncState = homeViewModel::resetSyncState,
         normaHours = uiState.normaHours,
         isBackgroundSyncing = uiState.isBackgroundSyncing,

@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -56,10 +57,61 @@ fun SyncProgressDialog(
     syncRoutesSavedCount: Int,
     userId: String? = null,
     isNetworkError: Boolean = false,
+    isSessionExpired: Boolean = false,
     showPercentageProgress: Boolean = false,
     onDismiss: () -> Unit
 ) {
     val ctx = LocalContext.current
+
+    // --- Сессия истекла ---
+    // Отдельный экран, а не строки ошибок по шагам: причина одна и лечится
+    // только повторным входом, кнопка «Отправить отчёт» здесь бессмысленна.
+    if (isSessionExpired) {
+        AnimationDialog(showDialog = showDialog, onDismissRequest = onDismiss) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .background(MaterialTheme.colorScheme.surface, Shapes.medium)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.account_circle_24px),
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Сессия истекла",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Войдите в аккаунт заново в разделе «Профиль». " +
+                        "Данные на устройстве сохранены и будут синхронизированы после входа.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    shape = Shapes.medium,
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                ) {
+                    Text("Понятно", style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+        return
+    }
 
     // --- Нет интернета ---
     if (isNetworkError) {
