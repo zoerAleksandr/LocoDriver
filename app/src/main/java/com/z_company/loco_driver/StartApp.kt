@@ -4,8 +4,10 @@ import android.app.Application
 import android.util.Log
 import com.my.tracker.MyTracker
 import com.my.tracker.MyTrackerConfig.LocationTrackingMode
+import com.z_company.repository.remote_rest.SessionRefresher
 import com.z_company.route.session.SessionExpiredHandler
 import com.z_company.core.initSentry
+import com.z_company.core.sendToSentry
 import com.vk.id.VKID
 import com.z_company.data_local.route.di.sqlDelightRouteModule
 import com.z_company.data_local.setting.di.sqlDelightSettingsModule
@@ -42,6 +44,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 internal sealed interface CloudRecoveryOutcome {
     data object Success : CloudRecoveryOutcome
@@ -179,6 +182,14 @@ class StartApp : Application() {
         // Истёкший bearer-токен ловится на любом запросе (см. SessionExpiredHandler);
         // без этой подписки о 401 узнавал бы только экран «Профиль».
         koinApplication.koin.get<SessionExpiredHandler>().start(appScope)
+        // Токен старше недели меняем на свежий, чтобы сессия активного
+        // пользователя не истекала; 401 здесь уйдёт в тот же handler.
+        appScope.launch {
+            val outcome = koinApplication.koin.get<SessionRefresher>().refreshIfDue()
+            if (outcome is SessionRefresher.Outcome.Failed) {
+                outcome.cause.sendToSentry("StartApp", "refreshSession")
+            }
+        }
         runCatching {
             RecoveryTelemetryQueue(this).drainTo(
                 diagnostics = koinApplication.koin.get<DiagnosticRepository>(),

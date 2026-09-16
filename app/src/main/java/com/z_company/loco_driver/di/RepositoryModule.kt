@@ -44,6 +44,7 @@ import com.z_company.domain.repositories.AnnouncementRepository
 import com.z_company.repository.remote_rest.RoutesManager
 import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.repository.remote_rest.ShareRouteManager
+import com.z_company.repository.remote_rest.SessionRefresher
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.core.widget.WidgetUpdater
 import com.z_company.loco_driver.widget.GlanceWidgetUpdater
@@ -92,6 +93,8 @@ val repositoryModule = module {
 
     // Разлогин по 401 с любого запроса; подписку запускает StartApp.
     single { SessionExpiredHandler(secureTokenStorage = get(), sharedPrefs = get()) }
+    // Продление токена при старте приложения (POST /v1/auth/refresh); зовёт StartApp.
+    single { SessionRefresher(remoteRestApi = get(), secureTokenStorage = get()) }
 
     // Ktor-based API (заменяет Retrofit RemoteRestClient)
     single<RemoteRestApi> { RemoteRestClient.remoteRestApi }

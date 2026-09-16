@@ -53,6 +53,13 @@ interface RemoteRestApi {
     suspend fun getUserProfile(token: String): UserResponse
 
     /**
+     * Продлить сессию: `POST /v1/auth/refresh` по текущему bearer-токену
+     * (сервер принимает и просроченный в пределах своего грейса) отдаёт
+     * новый. См. [SessionRefresher].
+     */
+    suspend fun refreshToken(token: String): AuthResponse
+
+    /**
      * Отвязать VK. Сервер отвечает SuccessResponse
      * (`{"status_code":200,"content":"..."}`), а не пользователем, — тело
      * не разбираем, свежий профиль берём отдельным getUserProfile.

@@ -91,6 +91,11 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             header("Authorization", token)
         }.body()
 
+    override suspend fun refreshToken(token: String): AuthResponse =
+        client.post("v1/auth/refresh") {
+            header("Authorization", token)
+        }.body()
+
     override suspend fun removeVKID(token: String) {
         client.patch("v1/auth/vkId/remove") {
             header("Authorization", token)
