@@ -23,6 +23,7 @@ import com.z_company.repository.remote_rest.response.AnnouncementResponse
 import com.z_company.repository.remote_rest.response.CkassaCheckoutResponse
 import com.z_company.repository.remote_rest.response.TariffsResponse
 import com.z_company.repository.remote_rest.response.AuthResponse
+import com.z_company.repository.remote_rest.response.RevokeSessionsResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
 import com.z_company.repository.remote_rest.response.RouteDeltaResponse
 import com.z_company.repository.remote_rest.response.SaveRouteResponse
@@ -60,11 +61,11 @@ interface RemoteRestApi {
     suspend fun refreshToken(token: String): AuthResponse
 
     /**
-     * Отвязать VK. Сервер отвечает SuccessResponse
-     * (`{"status_code":200,"content":"..."}`), а не пользователем, — тело
-     * не разбираем, свежий профиль берём отдельным getUserProfile.
+     * Отвязать VK. Сервер отзывает все токены пользователя и отдаёт новый в
+     * `access_token` ([RevokeSessionsResponse]) — прежний bearer после этого
+     * не принимается. Профиль берём отдельным getUserProfile уже с новым.
      */
-    suspend fun removeVKID(token: String)
+    suspend fun removeVKID(token: String): RevokeSessionsResponse
 
     suspend fun saveRoute(token: String, data: Route): SaveRouteResponse
 

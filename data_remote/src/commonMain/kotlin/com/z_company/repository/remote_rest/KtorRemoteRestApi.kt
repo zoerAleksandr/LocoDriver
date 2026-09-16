@@ -26,6 +26,7 @@ import com.z_company.repository.remote_rest.request.RegisteredRequestByEmail
 import com.z_company.repository.remote_rest.request.RegisteredRequestByVKID
 import com.z_company.repository.remote_rest.request.UpdateEmailRequest
 import com.z_company.repository.remote_rest.response.AuthResponse
+import com.z_company.repository.remote_rest.response.RevokeSessionsResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
 import com.z_company.repository.remote_rest.response.RouteDeltaResponse
 import com.z_company.repository.remote_rest.response.SaveRouteResponse
@@ -96,11 +97,10 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             header("Authorization", token)
         }.body()
 
-    override suspend fun removeVKID(token: String) {
+    override suspend fun removeVKID(token: String): RevokeSessionsResponse =
         client.patch("v1/auth/vkId/remove") {
             header("Authorization", token)
-        }.bodyAsText()
-    }
+        }.body()
 
     override suspend fun saveRoute(token: String, data: Route): SaveRouteResponse {
         val responseText = client.post("v1/route/") {

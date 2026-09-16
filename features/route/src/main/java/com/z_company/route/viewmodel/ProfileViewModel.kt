@@ -1043,6 +1043,9 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     _uiState.update { it.copy(vkLinkMessage = state.message) }
                 }
                 if (state is GetUserProfileState.Success) {
+                    // Отвязка отозвала все токены, включая наш: без сохранения
+                    // нового следующий запрос даст 401 и форму входа.
+                    state.accessToken?.let { secureTokenStorage.saveAuthToken(it) }
                     secureTokenStorage.saveVkId("")  // Очистка VK ID
                     VKID.instance.logout(
                         callback = object : VKIDLogoutCallback {

@@ -175,11 +175,15 @@ class AuthManager(
     fun removeVKID(token: String): Flow<GetUserProfileState> = flow {
         emit(GetUserProfileState.Loading)
         try {
-            remoteRestApi.removeVKID(token = token)
-            val body = remoteRestApi.getUserProfile(token = token)
+            // Сервер отзывает все токены и отдаёт новый: профиль дочитываем уже
+            // с ним, иначе прежний bearer даст 401 и разлогин на этом же устройстве.
+            val newAccessToken = remoteRestApi.removeVKID(token = token).accessToken
+            val tokenForProfile = newAccessToken?.let { "Bearer $it" } ?: token
+            val body = remoteRestApi.getUserProfile(token = tokenForProfile)
             emit(
                 GetUserProfileState.Success(
                     user = body.user,
+                    accessToken = newAccessToken,
                 )
             )
         } catch (e: ClientRequestException) {
@@ -440,7 +444,8 @@ sealed class RegistrationState {
 sealed class GetUserProfileState {
     object Initial : GetUserProfileState()
     object Loading : GetUserProfileState()
-    data class Success(val user: UserRemote) : GetUserProfileState()
+    /** [accessToken] — новый токен, если запрос отозвал прежние (отвязка VK); сохранить. */
+    data class Success(val user: UserRemote, val accessToken: String? = null) : GetUserProfileState()
     data class Error(val message: String, val code: Int = 0) : GetUserProfileState()
 }
 
