@@ -164,7 +164,8 @@ object UtilForMonthOfYear {
         this.days.forEach { day ->
             if (!day.reducesNorma()) {
                 if (day.dayOfMonth in period.first..period.second) {
-                    val date = LocalDate(year, month + 1, day.dayOfMonth)
+                    // Как в getPersonalNormaHours: «31 сентября» пропускаем, а не падаем.
+                    val date = dateOfDayOrNull(day.dayOfMonth) ?: return@forEach
                     normaOfMonth += profile.effectiveHours(date, day.tag)
                 }
             }

@@ -2,6 +2,7 @@ package com.z_company.domain.entities
 
 import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursIncludingWeekends
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
+import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHoursInPeriod
 import com.z_company.domain.util.daysInMonth
 import com.z_company.domain.util.validFor
 import kotlin.test.Test
@@ -27,6 +28,12 @@ class InvalidDayOfMonthTest {
     @Test
     fun nonExistentDayIsSkippedInPersonalNorma() {
         assertEquals(16, september.getPersonalNormaHours())
+    }
+
+    @Test
+    fun nonExistentDayIsSkippedInPersonalNormaForPeriod() {
+        // Период захватывает 31-е: та же защита, что и для нормы за месяц.
+        assertEquals(16, september.getPersonalNormaHoursInPeriod(16 to 31, WorkScheduleProfile.standard()))
     }
 
     @Test
