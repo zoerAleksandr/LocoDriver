@@ -151,6 +151,24 @@ object PwaSalaryBridge {
     }
 
     /**
+     * Только сверхурочные месяца (для годового порога 120 ч по ФЗ-144):
+     * PWA считает их по каждому предыдущему месяцу года, полный расчётный
+     * листок для этого не нужен и в Kotlin/JS слишком дорог.
+     */
+    fun overtimeMillis(requestJson: String): Promise<String> = GlobalScope.promise {
+        val request = json.decodeFromString<PwaSalaryRequest>(requestJson)
+        val helper = SalaryCalculationHelper(
+            userSettings = request.userSettings,
+            salarySetting = request.salarySetting,
+            allRoutes = request.routes,
+            effectiveNormaHoursForUnderwork = request.effectiveNormaHours,
+            annualOvertimeBeforePeriod = request.annualOvertimeBeforePeriod,
+            workScheduleProfile = request.workScheduleProfile,
+        )
+        json.encodeToString(mapOf("overtimeMillis" to helper.getTimeOvertimeFlow().first()))
+    }
+
+    /**
      * Расчёт одной поездки — 1:1 с Android FormViewModel.calculateSalary:
      * тот же SalaryCalculationHelper на списке из одного маршрута, без
      * сверхурочных, недоработки и удержаний; переотдых — от предыдущего

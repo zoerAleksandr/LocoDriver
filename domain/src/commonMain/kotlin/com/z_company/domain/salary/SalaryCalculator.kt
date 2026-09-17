@@ -230,8 +230,21 @@ class SalaryCalculationHelper(
     // allRoutes: командировочные часы тоже закрывают норму.
     private val routeList: List<Route> = this.allRoutes.flatMap { it.fragments(businessTrip = false) }
 
+    // Сегменты маршрутов месяца запрашивают почти все flow расчёта (≈30 раз за
+    // полный расчётный листок), а их построение — самая дорогая часть
+    // (ночные окна, праздники, тарифные границы через kotlinx-datetime; в
+    // Kotlin/JS с эмуляцией Long это секунды на месяц). Входные данные
+    // helper'а неизменяемы, поэтому результат для routeList считается один
+    // раз; lazy потокобезопасен для параллельных async на Android.
+    private val routeListSegments: List<com.z_company.domain.util.SalarySegment> by lazy {
+        computeSalarySegments(routeList)
+    }
+
+    private fun salarySegments(routes: List<Route> = routeList) =
+        if (routes === routeList) routeListSegments else computeSalarySegments(routes)
+
     @OptIn(kotlin.time.ExperimentalTime::class)
-    private fun salarySegments(routes: List<Route> = routeList) = routes.flatMap { route ->
+    private fun computeSalarySegments(routes: List<Route>) = routes.flatMap { route ->
         val tariffChange = dateSetTariffRate
         val initialRate = if (tariffChange != null) oldTariffRate else currentTariffRate
         val changes = tariffChange?.let {
