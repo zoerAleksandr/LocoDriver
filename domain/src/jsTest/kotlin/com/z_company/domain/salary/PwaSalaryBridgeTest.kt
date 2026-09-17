@@ -149,6 +149,89 @@ class PwaSalaryBridgeTest {
     }
 
     @Test
+    fun `trip result matches shared calculator components for a worked route`() = runTest {
+        val tz = TimeZone.of("GMT+3")
+        val start = LocalDateTime(2025, 1, 10, 8, 0).toInstant(tz).toEpochMilliseconds()
+        val end = LocalDateTime(2025, 1, 10, 12, 0).toInstant(tz).toEpochMilliseconds()
+        val userSettings = UserSettings(
+            selectMonthOfYear = MonthOfYear(
+                year = 2025,
+                month = 0,
+                tariffRate = 100.0,
+                days = (1..31).map { Day(it, TagForDay.WORKING_DAY) },
+            ),
+            timeZone = 0L,
+        )
+        val salarySetting = SalarySetting(
+            nightTimePercent = 0.0,
+            harmfulnessPercent = 4.0,
+            zonalSurcharge = 25.0,
+            surchargeQualificationClass = 10.0,
+            districtCoefficient = 0.0,
+            nordicPercent = 0.0,
+            surchargeHeavyTrainsList = emptyList(),
+            surchargeLongTrainsList = emptyList(),
+        )
+        val route = Route(basicData = BasicData(timeStartWork = start, timeEndWork = end))
+        val shared = SalaryCalculationHelper(userSettings, salarySetting, listOf(route))
+        val request = buildJsonObject {
+            put("userSettings", json.encodeToJsonElement(UserSettings.serializer(), userSettings))
+            put("salarySetting", json.encodeToJsonElement(SalarySetting.serializer(), salarySetting))
+            put("route", json.encodeToJsonElement(Route.serializer(), route))
+        }
+
+        val result = json.parseToJsonElement(PwaSalaryBridge.calculateTrip(request.toString()).await()).jsonObject
+        val rows = result.getValue("rows").jsonArray.associate {
+            it.jsonObject.getValue("id").jsonPrimitive.content to it.jsonObject.getValue("amount").jsonPrimitive.double
+        }
+
+        assertTrue(result.getValue("isCalculated").jsonPrimitive.content.toBoolean())
+        assertTrue(result.getValue("isSetTariffRate").jsonPrimitive.content.toBoolean())
+        assertEquals(shared.getMoneyAtWorkTimeAtTariffSingleRoute().first(), rows.getValue("TARIFF"), 0.001)
+        assertEquals(shared.getMoneyZonalSurchargeFlow().first(), rows.getValue("ZONAL"), 0.001)
+        assertEquals(
+            shared.getMoneyAtQualificationClassFlow().first() + shared.getMoneyHarmfulnessFlow().first(),
+            rows.getValue("OTHER_SURCHARGE"),
+            0.001,
+        )
+        assertEquals(rows.values.sum(), result.getValue("totalPayment").jsonPrimitive.double, 0.001)
+        assertEquals(4 * 3_600_000.0, result.getValue("workTimeMillis").jsonPrimitive.double)
+    }
+
+    @Test
+    fun `trip result pays over-rest after previous turnover rest`() = runTest {
+        val tz = TimeZone.of("GMT+3")
+        fun at(day: Int, hour: Int) = LocalDateTime(2025, 1, day, hour, 0).toInstant(tz).toEpochMilliseconds()
+        val userSettings = UserSettings(
+            selectMonthOfYear = MonthOfYear(
+                year = 2025,
+                month = 0,
+                tariffRate = 100.0,
+                days = (1..31).map { Day(it, TagForDay.WORKING_DAY) },
+            ),
+            timeZone = 0L,
+            minTimeRestPointOfTurnover = 3 * 3_600_000L,
+        )
+        val salarySetting = SalarySetting(zonalSurcharge = 0.0, nightTimePercent = 0.0, harmfulnessPercent = 0.0)
+        // Предыдущий: работа 4 ч, отдых в ПО → оплачиваемый переотдых с 16:00 + 4 ч = 20:00.
+        val previous = Route(basicData = BasicData(id = "prev", timeStartWork = at(9, 12), timeEndWork = at(9, 16), restPointOfTurnover = true))
+        // Явка в 22:00 → переотдых 2 ч × 100 × 2/3.
+        val route = Route(basicData = BasicData(id = "cur", timeStartWork = at(9, 22), timeEndWork = at(10, 2)))
+        val request = buildJsonObject {
+            put("userSettings", json.encodeToJsonElement(UserSettings.serializer(), userSettings))
+            put("salarySetting", json.encodeToJsonElement(SalarySetting.serializer(), salarySetting))
+            put("route", json.encodeToJsonElement(Route.serializer(), route))
+            put("previousRoute", json.encodeToJsonElement(Route.serializer(), previous))
+        }
+
+        val result = json.parseToJsonElement(PwaSalaryBridge.calculateTrip(request.toString()).await()).jsonObject
+        val overRest = result.getValue("rows").jsonArray.first { it.jsonObject.getValue("id").jsonPrimitive.content == "OVER_REST" }.jsonObject
+
+        assertEquals(2 * 3_600_000.0, overRest.getValue("hoursMillis").jsonPrimitive.double)
+        assertEquals(2 * 100.0 * 2.0 / 3.0, overRest.getValue("amount").jsonPrimitive.double, 0.001)
+    }
+
+    @Test
     fun `web result exposes passenger waiting line 018M`() = runTest {
         val tz = TimeZone.of("GMT+3")
         fun at(day: Int, hour: Int) = LocalDateTime(2025, 1, day, hour, 0).toInstant(tz).toEpochMilliseconds()

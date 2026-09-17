@@ -4,6 +4,10 @@ package com.z_company.domain.salary
 
 import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
+import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
+import com.z_company.domain.util.toIntOrZero
 import com.z_company.domain.entities.salary.PayrollPaymentCatalog
 import com.z_company.domain.entities.salary.PayrollCodeReferenceCatalog
 import com.z_company.domain.entities.salary.PayrollPaymentType
@@ -58,6 +62,39 @@ private data class PwaSalaryResult(
     val payable: Double,
 )
 
+/** Расчёт одной поездки — вход FormViewModel.calculateSalary. */
+@Serializable
+private data class PwaTripRequest(
+    val userSettings: UserSettings,
+    val salarySetting: SalarySetting,
+    val route: Route,
+    // Предыдущий по времени маршрут — для переотдыха в пункте оборота.
+    val previousRoute: Route? = null,
+    val workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
+)
+
+@Serializable
+private data class PwaTripRow(
+    val id: String,
+    val amount: Double,
+    val hoursMillis: Long? = null,
+    val percent: Double? = null,
+    val hint: String? = null,
+)
+
+/** Зеркало SalaryForRouteState: итог и составляющие расчёта одной поездки. */
+@Serializable
+private data class PwaTripResult(
+    val isCalculated: Boolean,
+    val isSetTariffRate: Boolean,
+    val tariffRate: Double,
+    val totalPayment: Double,
+    val isBusinessTrip: Boolean,
+    val businessTripMoney: Double,
+    val workTimeMillis: Long,
+    val rows: List<PwaTripRow>,
+)
+
 @Serializable
 private data class PwaCatalogItem(
     val code: String,
@@ -98,6 +135,171 @@ object PwaSalaryBridge {
         )
         json.encodeToString(buildResult(request, helper))
     }
+
+    /**
+     * Расчёт одной поездки — 1:1 с Android FormViewModel.calculateSalary:
+     * тот же SalaryCalculationHelper на списке из одного маршрута, без
+     * сверхурочных, недоработки и удержаний; переотдых — от предыдущего
+     * маршрута с отдыхом в пункте оборота.
+     */
+    fun calculateTrip(requestJson: String): Promise<String> = GlobalScope.promise {
+        val request = json.decodeFromString<PwaTripRequest>(requestJson)
+        json.encodeToString(buildTripResult(request))
+    }
+
+    private suspend fun buildTripResult(request: PwaTripRequest): PwaTripResult {
+        val route = request.route
+        val settings = request.userSettings
+        val salary = request.salarySetting
+        val tariffRate = settings.selectMonthOfYear.tariffRate
+        val isSetTariffRate = tariffRate != 0.0
+        val workTime = route.getPureWorkTime()
+            ?: return PwaTripResult(
+                isCalculated = false,
+                isSetTariffRate = isSetTariffRate,
+                tariffRate = tariffRate,
+                totalPayment = 0.0,
+                isBusinessTrip = false,
+                businessTripMoney = 0.0,
+                workTimeMillis = 0L,
+                rows = emptyList(),
+            )
+        val helper = SalaryCalculationHelper(
+            userSettings = settings,
+            salarySetting = salary,
+            allRoutes = listOf(route),
+            workScheduleProfile = request.workScheduleProfile,
+        )
+
+        val businessTripMoney = helper.getMoneyBusinessTripFlow().first()
+        if (helper.isEntirelyBusinessTrip()) {
+            return PwaTripResult(
+                isCalculated = true,
+                isSetTariffRate = isSetTariffRate,
+                tariffRate = tariffRate,
+                totalPayment = businessTripMoney,
+                isBusinessTrip = true,
+                businessTripMoney = businessTripMoney,
+                workTimeMillis = workTime,
+                rows = if (businessTripMoney > 0.0) {
+                    listOf(PwaTripRow(id = "BUSINESS_TRIP", amount = businessTripMoney, hoursMillis = workTime))
+                } else {
+                    emptyList()
+                },
+            )
+        }
+
+        val moneyAtTariffRate = helper.getMoneyAtWorkTimeAtTariffSingleRoute().first().coerceAtLeast(0.0)
+        val workTimeForPay = helper.getWorkTimeAtTariffSingleRouteFlow().first().coerceAtLeast(0L)
+        val moneyAtNightHours = helper.getMoneyAtNightTimeFlow().first()
+        val nightTime = helper.getNightTimeFlow().first()
+        val zonalSurchargeMoney = helper.getMoneyZonalSurchargeFlow().first()
+        val zonalPercent = helper.getPercentZonalSurchargeFlow().first()
+        val zonalTime = helper.getTimeZonalSurchargeFlow().first()
+        val moneyAtPassengerTime = helper.getMoneyAtPassengerFlow().first()
+        val passengerTime = helper.getPassengerTimeFlow().first()
+        val moneyAtPassengerWaiting = helper.getMoneyAtPassengerWaitingFlow().first()
+        val passengerWaitingTime = helper.getPassengerWaitingTimeFlow().first()
+        val moneyAtPassengerOutside = helper.getMoneyAtPassengerOutsideWorkFlow().first()
+        val passengerOutsideTime = helper.getPassengerOutsideWorkTimeFlow().first()
+        val moneyAtHoliday = helper.getMoneyAtHolidayFlow().first()
+        val holidayTime = helper.getHolidayTimeFlow().first()
+        val linearMileageMoney = helper.getMoneyLinearMileageFlow().first()
+        val linearMileageAccruals = helper.getLinearMileageAccrualsFlow().first()
+        val surchargeAtExtendedServicePhase = helper.getMoneyListSurchargeExtendedServicePhaseFlow().first().sum()
+        val surchargeAtHeavyTrains = helper.getMoneyListSurchargeExtendedHeavyTrainsFlow().first().sum()
+        val surchargeAtLongTrains = helper.getMoneyListSurchargeLongTrainsFlow().first().sum()
+        val surchargeAtDoubledTrainFirst = helper.getMoneyDoubledTrainFirstSurchargeFlow(listOf(route)).first()
+        val surchargeAtDoubledTrainSecond = helper.getMoneyDoubledTrainSecondSurchargeFlow(listOf(route)).first()
+        val moneyAtQualificationClass = helper.getMoneyAtQualificationClassFlow().first()
+        val nordicSurcharge = helper.getMoneyNordicSurcharge().first()
+        val districtSurcharge = helper.getMoneyDistrictSurcharge().first()
+        val moneyAtHarmfulness = helper.getMoneyHarmfulnessFlow().first()
+        val otherSurchargeMoney = helper.getMoneyOtherSurchargeFlow().first()
+
+        val isPassengerTrain = route.trains.any { train ->
+            passengerTrainNumberList.any { it.contains(train.number.toIntOrZero()) }
+        }
+        val moneyAtOnePerson = if (isPassengerTrain) {
+            helper.getMoneyOnePersonOperationPassengerTrainFlow().first()
+        } else {
+            helper.getMoneyOnePersonOperationFlow().first()
+        }
+        val onePersonTime = if (isPassengerTrain) {
+            helper.getTimeOnePersonOperationPassengerTrainFlow().first()
+        } else {
+            helper.getTimeOnePersonOperationFlow().first()
+        }
+        val onePersonPercent = if (isPassengerTrain) {
+            salary.onePersonOperationPassengerTrainPercent
+        } else {
+            salary.onePersonOperationPercent
+        }
+
+        // Переотдых: предыдущий маршрут с отдыхом в пункте оборота, 2/3 тарифа.
+        val previous = request.previousRoute
+        val overRestTime = if (previous != null && previous.basicData.restPointOfTurnover) {
+            previous.getOverRestTime(route, settings.minTimeRestPointOfTurnover)
+        } else {
+            0L
+        }
+        val overRestMoney = if (overRestTime > 0L) {
+            overRestTime * (tariffRate * (2.0 / 3.0)) / 3_600_000.0
+        } else {
+            0.0
+        }
+
+        val surchargeAtTrains = surchargeAtExtendedServicePhase + surchargeAtHeavyTrains +
+            surchargeAtLongTrains + surchargeAtDoubledTrainFirst + surchargeAtDoubledTrainSecond
+        val trainSurchargeTypes = buildList {
+            if (surchargeAtHeavyTrains != 0.0) add("тяжеловесный")
+            if (surchargeAtLongTrains != 0.0) add("длинносоставный")
+            if (surchargeAtExtendedServicePhase != 0.0) add("удлинённое плечо")
+            if (surchargeAtDoubledTrainFirst + surchargeAtDoubledTrainSecond != 0.0) add("сдвоенный")
+        }
+        val otherSurcharge = moneyAtQualificationClass + nordicSurcharge + districtSurcharge +
+            moneyAtHarmfulness + otherSurchargeMoney
+
+        val totalMoney = moneyAtTariffRate + moneyAtNightHours + zonalSurchargeMoney +
+            moneyAtPassengerTime + moneyAtPassengerWaiting + moneyAtPassengerOutside +
+            moneyAtHoliday + linearMileageMoney + surchargeAtTrains + moneyAtOnePerson +
+            otherSurcharge + overRestMoney + businessTripMoney
+
+        val rows = buildList {
+            fun add(id: String, amount: Double, hours: Long? = null, percent: Double? = null, hint: String? = null) {
+                if (amount.isFinite() && amount != 0.0) add(PwaTripRow(id, amount, hours, percent, hint))
+            }
+            add("TARIFF", moneyAtTariffRate, workTimeForPay)
+            add("HOLIDAY", moneyAtHoliday, holidayTime)
+            add("ZONAL", zonalSurchargeMoney, zonalTime, zonalPercent)
+            add("NIGHT", moneyAtNightHours, nightTime, salary.nightTimePercent)
+            add("PASSENGER", moneyAtPassengerTime, passengerTime)
+            add("PASSENGER_WAITING", moneyAtPassengerWaiting, passengerWaitingTime)
+            add("PASSENGER_OUTSIDE", moneyAtPassengerOutside, passengerOutsideTime)
+            linearMileageAccruals.forEach { accrual ->
+                add("LINEAR_MILEAGE", accrual.money, hint = "${accrual.phaseName}: ${formatDistance(accrual.distance)} км × ${accrual.rate}/км")
+            }
+            add("ONE_PERSON", moneyAtOnePerson, onePersonTime, onePersonPercent)
+            add("TRAIN_SURCHARGE", surchargeAtTrains, hint = trainSurchargeTypes.joinToString(", "))
+            add("OTHER_SURCHARGE", otherSurcharge)
+            add("OVER_REST", overRestMoney, overRestTime, 200.0 / 3.0)
+            add("BUSINESS_TRIP", businessTripMoney)
+        }
+
+        return PwaTripResult(
+            isCalculated = true,
+            isSetTariffRate = isSetTariffRate,
+            tariffRate = tariffRate,
+            totalPayment = totalMoney,
+            isBusinessTrip = helper.hasBusinessTripRoutes(),
+            businessTripMoney = businessTripMoney,
+            workTimeMillis = workTime,
+            rows = rows,
+        )
+    }
+
+    private fun formatDistance(distance: Double): String =
+        if (distance % 1.0 == 0.0) distance.toLong().toString() else distance.toString().replace('.', ',')
 
     private suspend fun buildResult(
         request: PwaSalaryRequest,
