@@ -3,9 +3,11 @@ package com.z_company.core
 import io.sentry.kotlin.multiplatform.Sentry
 import io.sentry.kotlin.multiplatform.protocol.Breadcrumb
 
-internal actual fun platformInitSentry(dsn: String) {
+internal actual fun platformInitSentry(dsn: String, release: String?, environment: String?) {
     Sentry.init { options ->
         options.dsn = dsn
+        release?.let { options.release = it }
+        environment?.let { options.environment = it }
         options.beforeSend = { event ->
             val isCloseSystemDialogs = event.exceptions?.any { exception ->
                 exception.type?.contains("SecurityException") == true &&

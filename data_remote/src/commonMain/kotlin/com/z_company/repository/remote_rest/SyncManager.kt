@@ -17,6 +17,7 @@ import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.entities.route.Route
 import com.z_company.repository.remote_rest.request.ClientInfoRequest
+import io.ktor.client.plugins.ClientRequestException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
@@ -733,7 +734,13 @@ class SyncManager(
             } catch (e: Exception) {
                 // Метаданные клиента не должны блокировать основную синхронизацию,
                 // в том числе во время поэтапного выката нового эндпоинта сервера.
-                e.sendToSentry("SyncManager", "reportClientInfo")
+                // В Sentry — только неожиданное. Нет сети и протухшая сессия —
+                // штатные случаи: дальше их обработает основной sync
+                // (abortOnSessionExpired / «Нет соединения»), а здесь они давали
+                // треть всех событий проекта (UnknownHost, Connect, 401).
+                if (!isExpectedClientInfoFailure(e)) {
+                    e.sendToSentry("SyncManager", "reportClientInfo")
+                }
             }
         }
         val result = SyncBidirectionalResult()
@@ -1532,6 +1539,16 @@ class SyncManager(
  * строк, а разлогин уже запустил [SessionExpiredNotifier] из Ktor-клиента.
  * Отмена upstream проходит через `finally { endSync() }` — мьютекс отпускается.
  */
+/** Сбой транспорта или 401 по bearer-токену — не повод для события в Sentry. */
+internal fun isExpectedClientInfoFailure(e: Throwable): Boolean =
+    NetworkErrorMapper.isConnectivityError(e) ||
+        (e is ClientRequestException &&
+            NetworkErrorMapper.isSessionExpiredResponse(
+                statusCode = e.response.status.value,
+                detailOrBody = e.message,
+                hadAuthorization = true,
+            ))
+
 internal fun <T> Flow<ResultState<T>>.abortOnSessionExpired(): Flow<ResultState<T>> =
     transformWhile { state ->
         emit(state)

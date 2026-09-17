@@ -72,7 +72,11 @@ class StartApp : Application() {
         if (BuildConfig.DEBUG) {
             Log.i("StartApp", "API: ${RemoteRestClient.BASE_URL}")
         }
-        initSentry(BuildConfig.SENTRY_DSN)
+        initSentry(
+            dsn = BuildConfig.SENTRY_DSN,
+            release = BuildConfig.SENTRY_RELEASE,
+            environment = if (BuildConfig.DEBUG) "debug" else "production",
+        )
         VKID.init(this)
         VKID.instance.setLocale(Locale("ru"))
         val myTrackerConfig = MyTracker.getTrackerConfig()
