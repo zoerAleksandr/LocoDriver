@@ -179,8 +179,8 @@ private fun ReferralRulesCard() {
     Column(Modifier.fillMaxWidth().clip(Shapes.medium).background(MaterialTheme.colorScheme.surfaceVariant).padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
         Text("Как это работает", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         RuleRow("1", "Поделитесь своим кодом с другом")
-        RuleRow("2", "Друг вводит код перед своей первой оплатой Про")
-        RuleRow("3", "После оплаты половина периода добавится каждому")
+        RuleRow("2", "Друг может применить код до своей первой оплаты")
+        RuleRow("3", "После оплаты половина периода добавится каждому в течение суток")
         Text("Приглашать может только тот, кто уже хотя бы раз оплачивал Про. Друг может применить код после регистрации, до своей первой оплаты. За повторные покупки бонус не начисляется.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
