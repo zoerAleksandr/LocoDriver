@@ -216,8 +216,9 @@ class RouteSalarySegmentsTest {
                 timeEndBreak = start + 4 * hour,
             ),
             trains = mutableListOf(
-                train(weight = "6000", fromHour = 1, toHour = 5),
-                train(weight = "10000", fromHour = 2, toHour = 6),
+                // Строгие пороги: 6001 > 6000 (1-я ступень), 10001 > 10000 (2-я).
+                train(weight = "6001", fromHour = 1, toHour = 5),
+                train(weight = "10001", fromHour = 2, toHour = 6),
             ),
         )
 
@@ -242,7 +243,7 @@ class RouteSalarySegmentsTest {
             basicData = BasicData(timeStartWork = start, timeEndWork = start + 6 * hour),
             trains = mutableListOf(
                 Train(
-                    weight = "6000",
+                    weight = "6001",
                     stations = mutableListOf(
                         Station(timeDeparture = start + hour),
                         Station(timeArrival = start + 5 * hour),
@@ -291,6 +292,37 @@ class RouteSalarySegmentsTest {
             condition = AccrualCondition.LONG_TRAIN,
             thresholdIsInclusive = false,
             valueOf = { it.conditionalLength?.toIntOrNull() },
+        ).single()
+
+        assertEquals(2 * hour, tier.sumOf { it.interval.durationMillis })
+    }
+
+    @Test
+    fun heavyTrainThresholdIsStrictByDefaultLikeLongTrains() {
+        val start = instant(month = 1, day = 10, hour = 8)
+        fun train(weight: String, fromHour: Int, toHour: Int) = Train(
+            weight = weight,
+            stations = mutableListOf(
+                Station(timeDeparture = start + fromHour * hour),
+                Station(timeArrival = start + toHour * hour),
+            ),
+        )
+        val route = Route(
+            basicData = BasicData(timeStartWork = start, timeEndWork = start + 4 * hour),
+            trains = mutableListOf(
+                // Равен порогу — тяжеловесным НЕ считается; 6001 — считается.
+                train(weight = "6000", fromHour = 0, toHour = 2),
+                train(weight = "6001", fromHour = 2, toHour = 4),
+            ),
+        )
+
+        val tier = route.buildTieredTrainSurchargeSegments(
+            monthOfYear = MonthOfYear(year = 2025, month = 0),
+            context = context,
+            initialTariffRatePerHour = 100.0,
+            thresholds = listOf(6000),
+            condition = AccrualCondition.HEAVY_TRAIN,
+            valueOf = { it.weight?.toIntOrNull() },
         ).single()
 
         assertEquals(2 * hour, tier.sumOf { it.interval.durationMillis })

@@ -74,7 +74,7 @@ class TrainSurchargeSegmentIntegrationTest {
     @Test
     fun heavyAndLongSurchargesUseTrainIntervalBreakPassengerAndTariffBoundary() = runTest {
         val train = Train(
-            weight = "6000",
+            weight = "6001",
             conditionalLength = "81",
             stations = mutableListOf(
                 Station(timeDeparture = instant(day = 10, hour = 22, minute = 30)),
@@ -157,10 +157,11 @@ class TrainSurchargeSegmentIntegrationTest {
             long = emptyList(),
         ).getMoneyListSurchargeExtendedHeavyTrainsFlow().first()
 
+        // Строгий порог: равенство порогу ступень не включает.
         assertEquals(listOf(0.0, 0.0), money("5999"))
-        assertEquals(listOf(35.0, 0.0), money("6000"))
-        assertEquals(listOf(35.0, 0.0), money("9999"))
-        assertEquals(listOf(0.0, 70.0), money("10000"))
+        assertEquals(listOf(0.0, 0.0), money("6000"))
+        assertEquals(listOf(35.0, 0.0), money("6001"))
+        assertEquals(listOf(35.0, 0.0), money("10000"))
         assertEquals(listOf(0.0, 70.0), money("10001"))
     }
 }

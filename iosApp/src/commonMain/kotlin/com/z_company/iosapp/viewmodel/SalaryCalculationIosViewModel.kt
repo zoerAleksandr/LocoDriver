@@ -9,6 +9,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.salary.SalaryCalculationHelper
+import com.z_company.domain.salary.isUnderworkPeriodClosed
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.NormaUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
@@ -205,20 +206,12 @@ class SalaryCalculationIosViewModel(
 
     // ── Calculations ──────────────────────────────────────────────────────────
 
+    // Недоработка — только по закрытому месяцу (см. isUnderworkPeriodClosed).
     private suspend fun effectiveNormaHours(monthOfYear: MonthOfYear): Int {
         val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
-        val selectedIndex = monthOfYear.year * 12 + monthOfYear.month
-        val currentIndex = today.year * 12 + today.monthNumber - 1
-        return when {
-            selectedIndex > currentIndex -> 0
-            selectedIndex < currentIndex -> normaUseCase
-                .normaHoursFlow(monthOfYear.year, monthOfYear.month).first()
-            else -> normaUseCase.normaHoursToDateFlow(
-                monthOfYear.year,
-                monthOfYear.month,
-                today.dayOfMonth,
-            ).first()
-        }
+        return if (isUnderworkPeriodClosed(monthOfYear.year, monthOfYear.month, today)) {
+            normaUseCase.normaHoursFlow(monthOfYear.year, monthOfYear.month).first()
+        } else 0
     }
 
     // ── Formatting ────────────────────────────────────────────────────────────

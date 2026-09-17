@@ -3,6 +3,7 @@ package com.z_company.route.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.salary.isUnderworkPeriodClosed
 import java.util.Calendar
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
@@ -530,17 +531,15 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
 
     // Норма для расчёта недоработки: текущий месяц → на сегодня; завершённый →
     // полная; будущий → 0. Такая же, как на экране ЗП (единый источник — NormaUseCase).
+    // Недоработка — только по закрытому месяцу (см. isUnderworkPeriodClosed).
     private suspend fun effectiveNormaForUnderwork(month: MonthOfYear): Int {
-        val calendar = Calendar.getInstance()
-        val nowYm = calendar.get(Calendar.YEAR) * 12 + calendar.get(Calendar.MONTH)
-        val selectedYm = month.year * 12 + month.month
-        return when {
-            selectedYm > nowYm -> 0
-            selectedYm < nowYm -> normaUseCase.normaHoursFlow(month.year, month.month).first()
-            else -> normaUseCase.normaHoursToDateFlow(
-                month.year, month.month, calendar.get(Calendar.DAY_OF_MONTH)
-            ).first()
-        }
+        val cal = Calendar.getInstance()
+        val today = kotlinx.datetime.LocalDate(
+            cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH)
+        )
+        return if (isUnderworkPeriodClosed(month.year, month.month, today)) {
+            normaUseCase.normaHoursFlow(month.year, month.month).first()
+        } else 0
     }
 
     private suspend fun rawYear(year: Int): Raw {
