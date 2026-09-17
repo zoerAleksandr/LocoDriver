@@ -145,7 +145,10 @@ class PwaSalaryBridgeTest {
             .maxOfOrNull { it.jsonObject.getValue("hoursMillis").jsonPrimitive.content.toLong() } ?: 0L
 
         assertEquals(0L, overtimeMillis(PwaSalaryBridge.calculate(request(withProfile = false).toString()).await()))
-        assertEquals(2 * 3_600_000L, overtimeMillis(PwaSalaryBridge.calculate(request(withProfile = true).toString()).await()))
+        val withProfile = PwaSalaryBridge.calculate(request(withProfile = true).toString()).await()
+        assertEquals(2 * 3_600_000L, overtimeMillis(withProfile))
+        // Сверхурочные месяца отдаются и отдельным полем — для годового порога в PWA.
+        assertEquals(2 * 3_600_000L, json.parseToJsonElement(withProfile).jsonObject.getValue("overtimeMillis").jsonPrimitive.content.toLong())
     }
 
     @Test

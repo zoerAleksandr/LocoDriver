@@ -55,6 +55,10 @@ private data class PwaSalaryResult(
     val tariffRate: Double,
     val normaHours: Int,
     val totalWorkedMillis: Long,
+    // Сверхурочные месяца (getTimeOvertimeFlow) — PWA суммирует их по
+    // предыдущим месяцам года для annualOvertimeBeforePeriod (порог 120 ч,
+    // ФЗ-144), как SalaryCalculationViewModel.computeAnnualOvertimeBeforeMonth.
+    val overtimeMillis: Long = 0L,
     val accruals: List<PwaSalaryLine>,
     val deductions: List<PwaSalaryLine>,
     val totalAccrued: Double,
@@ -375,6 +379,7 @@ object PwaSalaryBridge {
             tariffRate = request.userSettings.selectMonthOfYear.tariffRate,
             normaHours = request.effectiveNormaHours,
             totalWorkedMillis = helper.getTotalWorkTimeWithCommute().first(),
+            overtimeMillis = helper.getTimeOvertimeFlow().first(),
             accruals = accruals,
             deductions = deductions,
             totalAccrued = totalAccrued,
