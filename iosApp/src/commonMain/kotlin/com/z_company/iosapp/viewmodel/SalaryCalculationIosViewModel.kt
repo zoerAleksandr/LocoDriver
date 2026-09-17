@@ -13,10 +13,12 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.NormaUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.util.TimeCalculationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
@@ -148,10 +150,17 @@ class SalaryCalculationIosViewModel(
         routesJob?.cancel()
         routesJob = viewModelScope.launch {
             _isLoading.value = true
-            routeUseCase.routeListByMonthFlow(
-                monthOfYear = settings.selectMonthOfYear,
-                offsetInMoscow = settings.timeZone,
-            ).collect { routes ->
+            combine(
+                routeUseCase.routeListByMonthFlow(
+                    monthOfYear = settings.selectMonthOfYear,
+                    offsetInMoscow = settings.timeZone,
+                ),
+                // Соседи месяца — только для переотдыха на стыке месяцев.
+                routeUseCase.adjacentRoutesOfMonthFlow(
+                    settings.selectMonthOfYear,
+                    TimeCalculationContext.from(settings),
+                ),
+            ) { routes, adjacent -> routes to adjacent }.collect { (routes, adjacentRoutes) ->
                 val normaHours = normaUseCase.normaHoursFlow(
                     settings.selectMonthOfYear.year,
                     settings.selectMonthOfYear.month,
@@ -163,6 +172,7 @@ class SalaryCalculationIosViewModel(
                     salarySetting = salarySettingUseCase.getSalarySetting(),
                     allRoutes = routes,
                     effectiveNormaHoursForUnderwork = effectiveNormaHours,
+                    adjacentRoutes = adjacentRoutes,
                 )
                 val totalWorkMs = calculator.getTotalWorkTimeWithCommute().first()
                 val nightTimeMs = calculator.getNightTimeFlow().first()

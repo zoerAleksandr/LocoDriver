@@ -1,7 +1,8 @@
 package com.z_company.route.viewmodel
 
 import com.z_company.domain.entities.route.Route
-import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
+import com.z_company.domain.entities.route.OverRestRoutes.overRestPayment
+import com.z_company.domain.entities.route.OverRestRoutes.previousRouteFor
 import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
 import com.z_company.domain.entities.setting.SalarySetting
@@ -20,8 +21,10 @@ import kotlinx.coroutines.flow.first
  * Считается через [SalaryCalculationHelper] с `allRoutes = listOf(route)`, как
  * это делает форма при редактировании одного маршрута.
  *
- * @param monthRoutesSorted маршруты месяца, отсортированные по timeStartWork —
- *   нужны только для доплаты за переотдых (берётся предыдущий маршрут).
+ * @param candidateRoutes маршруты, среди которых ищется предыдущий по явке
+ *   (для доплаты за переотдых): маршруты месяца плюс последний маршрут
+ *   предыдущего месяца (`RouteUseCase.adjacentRoutesOfMonthFlow`), чтобы
+ *   первый маршрут месяца видел отдых в ПО в конце прошлого — как FormViewModel.
  * @return сумма в рублях/валюте пользователя, либо null если по маршруту нельзя
  *   посчитать время работы (пустой маршрут).
  */
@@ -29,7 +32,7 @@ suspend fun computeRouteTotalPayment(
     route: Route,
     userSettings: UserSettings,
     salarySetting: SalarySetting,
-    monthRoutesSorted: List<Route>,
+    candidateRoutes: List<Route>,
 ): Double? {
     if (route.getPureWorkTime() == null) return null
 
@@ -86,21 +89,12 @@ suspend fun computeRouteTotalPayment(
         }
 
         // Переотдых: доплата 2/3 тарифа за часы сверх нормы отдыха в пункте
-        // оборота предыдущего маршрута месяца (как в FormViewModel).
-        val overRestMoney = run {
-            val index = monthRoutesSorted.indexOfFirst { it.basicData.id == route.basicData.id }
-            if (index > 0) {
-                val prev = monthRoutesSorted[index - 1]
-                if (prev.basicData.restPointOfTurnover) {
-                    val overRestTime =
-                        prev.getOverRestTime(route, userSettings.minTimeRestPointOfTurnover)
-                    if (overRestTime > 0L) {
-                        overRestTime * (userSettings.selectMonthOfYear.tariffRate * (2.0 / 3.0)) /
-                            3_600_000.0
-                    } else 0.0
-                } else 0.0
-            } else 0.0
-        }
+        // оборота ближайшего по явке предыдущего маршрута (как в FormViewModel).
+        val overRestMoney = route.overRestPayment(
+            previous = candidateRoutes.previousRouteFor(route),
+            minTimeRest = userSettings.minTimeRestPointOfTurnover,
+            tariffRate = userSettings.selectMonthOfYear.tariffRate,
+        ).money
 
         tariff.await() + night.await() + zonal.await() + passenger.await() +
             passengerWaiting.await() +

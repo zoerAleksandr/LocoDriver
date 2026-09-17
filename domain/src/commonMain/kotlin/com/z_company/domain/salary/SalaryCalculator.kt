@@ -142,6 +142,12 @@ class SalaryCalculationHelper(
     // Используется только после вступления ФЗ №144-ФЗ.
     private val annualOvertimeBeforePeriod: Long = 0L,
     private val workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
+    // Соседи месяца для переотдыха: последний маршрут предыдущего и первый
+    // маршрут следующего месяца (см. OverRestRoutes.adjacentRoutesOfMonth).
+    // В отработанное время, тариф и надбавки не входят — только «предыдущий/
+    // следующий» при расчёте интервала переотдыха, который затем обрезается
+    // по границам месяца.
+    adjacentRoutes: List<Route> = emptyList(),
 ) {
     // Повреждённые или устаревшие записи могут содержать сдачу раньше явки.
     // Они не должны ронять расчёт и не должны давать отрицательные начисления:
@@ -150,6 +156,10 @@ class SalaryCalculationHelper(
         val start = route.basicData.timeStartWork
         val end = route.basicData.timeEndWork
         start == null || end == null || end >= start
+    }
+    private val adjacentRoutes: List<Route> = adjacentRoutes.filter { adjacent ->
+        adjacent.basicData.timeStartWork != null &&
+            this.allRoutes.none { it.basicData.id == adjacent.basicData.id }
     }
     val currentMonthOfYear = userSettings.selectMonthOfYear
     val dateSetTariffRate = currentMonthOfYear.dateSetTariffRate
@@ -220,8 +230,21 @@ class SalaryCalculationHelper(
     // allRoutes: командировочные часы тоже закрывают норму.
     private val routeList: List<Route> = this.allRoutes.flatMap { it.fragments(businessTrip = false) }
 
+    // Сегменты маршрутов месяца запрашивают почти все flow расчёта (≈30 раз за
+    // полный расчётный листок), а их построение — самая дорогая часть
+    // (ночные окна, праздники, тарифные границы через kotlinx-datetime; в
+    // Kotlin/JS с эмуляцией Long это секунды на месяц). Входные данные
+    // helper'а неизменяемы, поэтому результат для routeList считается один
+    // раз; lazy потокобезопасен для параллельных async на Android.
+    private val routeListSegments: List<com.z_company.domain.util.SalarySegment> by lazy {
+        computeSalarySegments(routeList)
+    }
+
+    private fun salarySegments(routes: List<Route> = routeList) =
+        if (routes === routeList) routeListSegments else computeSalarySegments(routes)
+
     @OptIn(kotlin.time.ExperimentalTime::class)
-    private fun salarySegments(routes: List<Route> = routeList) = routes.flatMap { route ->
+    private fun computeSalarySegments(routes: List<Route>) = routes.flatMap { route ->
         val tariffChange = dateSetTariffRate
         val initialRate = if (tariffChange != null) oldTariffRate else currentTariffRate
         val changes = tariffChange?.let {
@@ -1521,7 +1544,11 @@ class SalaryCalculationHelper(
             listOf(TariffChange(effectiveAt, currentTariffRate))
         }.orEmpty()
 
-        val sorted = routeList.sortedBy { it.basicData.timeStartWork }
+        // Соседи из смежных месяцев участвуют только как «предыдущий/следующий»:
+        // их интервал переотдыха, как и у маршрутов месяца, обрезается по
+        // monthInterval, поэтому части одного переотдыха в двух месяцах в сумме
+        // дают полный переотдых.
+        val sorted = (routeList + adjacentRoutes).sortedBy { it.basicData.timeStartWork }
         return sorted.mapIndexedNotNull { index, route ->
             route.getOverRestInterval(sorted.getOrNull(index + 1), minTimeRest)
                 ?.intersect(monthInterval)

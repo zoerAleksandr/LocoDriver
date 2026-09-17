@@ -339,14 +339,17 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 .collectLatest { (raw, settings) ->
                     val user = settings.userSettings ?: return@collectLatest
                     val salary = settings.salarySetting ?: return@collectLatest
-                    // Сортировка по началу работы нужна для доплаты за переотдых.
-                    val sortedRoutes = raw.map { it.route }
-                        .sortedBy { it.basicData.timeStartWork ?: Long.MAX_VALUE }
+                    val monthRoutes = raw.map { it.route }
+                    // Для переотдыха первому маршруту месяца нужен последний
+                    // маршрут предыдущего (отдых в ПО на стыке месяцев).
+                    val candidates = monthRoutes + routeUseCase.adjacentRoutesOfMonthFlow(
+                        user.selectMonthOfYear, timeCalculationContext
+                    ).first()
                     val currency = currencySymbol(user.country)
                     val payments = LinkedHashMap<String, String>()
-                    sortedRoutes.forEach { route ->
+                    monthRoutes.forEach { route ->
                         val total = try {
-                            computeRouteTotalPayment(route, user, salary, sortedRoutes)
+                            computeRouteTotalPayment(route, user, salary, candidates)
                         } catch (e: Exception) {
                             e.sendToSentry("AllRouteViewModel", "recomputePayments")
                             null

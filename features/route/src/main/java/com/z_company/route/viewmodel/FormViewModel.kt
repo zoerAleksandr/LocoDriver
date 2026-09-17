@@ -20,7 +20,7 @@ import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.reidentifyForImport
 import com.z_company.domain.entities.route.Train
-import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
+import com.z_company.domain.entities.route.OverRestRoutes.overRestPayment
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
@@ -37,6 +37,7 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.SharedRouteHolder
+import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.sum
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.repository.SecureDataStore
@@ -532,24 +533,19 @@ class FormViewModel(
                 salaryCalculationHelper.getMoneyOtherSurchargeFlow().first()
             }
 
-            // Расчёт переотдыха: ищем предыдущий маршрут с restPointOfTurnover
+            // Расчёт переотдыха: предыдущий по явке маршрут ищется среди маршрутов
+            // месяца явки и предыдущего месяца (не по selectMonthOfYear), чтобы
+            // отдых в ПО в конце прошлого месяца тоже давал переотдых.
             val deferredOverRestMoney = async {
-                val monthRoutes = routeUseCase.listRoutesByMonth(
-                    setting.selectMonthOfYear, setting.timeZone
-                ).first { it is ResultState.Success }
-                if (monthRoutes is ResultState.Success) {
-                    val sorted = monthRoutes.data.sortedBy { it.basicData.timeStartWork }
-                    val currentIndex = sorted.indexOfFirst { it.basicData.id == route.basicData.id }
-                    if (currentIndex > 0) {
-                        val prevRoute = sorted[currentIndex - 1]
-                        if (prevRoute.basicData.restPointOfTurnover) {
-                            val overRestTime = prevRoute.getOverRestTime(route, setting.minTimeRestPointOfTurnover)
-                            if (overRestTime > 0L) {
-                                (overRestTime.times(setting.selectMonthOfYear.tariffRate * (2.0 / 3.0)) / 3_600_000.toDouble()) to overRestTime
-                            } else 0.0 to 0L
-                        } else 0.0 to 0L
-                    } else 0.0 to 0L
-                } else 0.0 to 0L
+                val previous = routeUseCase.previousRouteForOverRestFlow(
+                    route, TimeCalculationContext.from(setting)
+                ).first()
+                val payment = route.overRestPayment(
+                    previous = previous,
+                    minTimeRest = setting.minTimeRestPointOfTurnover,
+                    tariffRate = setting.selectMonthOfYear.tariffRate,
+                )
+                payment.money to payment.timeMillis
             }
 
             // Синхронная логика (не требует async)
