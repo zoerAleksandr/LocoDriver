@@ -12,6 +12,7 @@ plugins {
     id(Plugins.vkIdManifest)
     id("org.jetbrains.kotlin.plugin.serialization")
     id("androidx.baselineprofile")
+    id(Plugins.sentry_android)
 }
 
 android {
@@ -53,6 +54,13 @@ android {
             type = "String",
             name = "SENTRY_DSN",
             value = "\"${properties.getProperty("SENTRY_DSN", "")}\""
+        )
+        // Release для Sentry в формате SDK по умолчанию (package@version+build),
+        // чтобы события группировались по сборке и работал «resolved in release».
+        buildConfigField(
+            type = "String",
+            name = "SENTRY_RELEASE",
+            value = "\"${Apps.application_id}@${Apps.version_name}+${Apps.version_code}\""
         )
         buildConfigField(
             type = "boolean",
@@ -202,4 +210,35 @@ dependencies {
 }
 configurations.all {
     exclude (group = "com.squareup.okhttp3", module = "okhttp-bom")
+}
+
+// Sentry Android Gradle Plugin — только ради загрузки R8-mapping: без него
+// стеки в Sentry обфусцированы (U6.i.o, l5.ic) и крэши не разобрать.
+// Сам SDK ставит core через sentry-kotlin-multiplatform, поэтому
+// автоустановка и инструментирование трейсинга выключены — иначе плагин
+// подтянет вторую версию sentry-android и начнёт патчить байткод.
+//
+// Токен для загрузки НЕ кладём в secret.properties (файл в git): плагин
+// читает env SENTRY_AUTH_TOKEN либо sentry.properties в корне проекта
+// (auth.token=…, файл в .gitignore). Нужен org auth token со scope
+// project:releases (Sentry → Settings → Auth Tokens). Без токена
+// uploadSentryProguardMappingsRelease падает и валит assembleRelease,
+// поэтому автозагрузка включается только при наличии токена — иначе
+// mapping лежит в app/build/outputs/mapping/release/ для ручной загрузки.
+val sentryTokenPresent = !System.getenv("SENTRY_AUTH_TOKEN").isNullOrBlank() ||
+    rootProject.file("sentry.properties").exists()
+sentry {
+    org.set("zcompany-of")
+    projectName.set("android")
+    // Организация в регионе EU — sentry-cli сам резолвит de.sentry.io по org.
+    autoInstallation { enabled.set(false) }
+    tracingInstrumentation { enabled.set(false) }
+    includeProguardMapping.set(true)
+    autoUploadProguardMapping.set(sentryTokenPresent)
+    // По UUID из sentry-debug-meta.properties SDK сам сопоставит событие с mapping.
+    dexguardEnabled.set(false)
+    uploadNativeSymbols.set(false)
+    includeSourceContext.set(false)
+    ignoredBuildTypes.set(setOf("debug", "nonMinifiedRelease", "benchmarkRelease"))
+    telemetry.set(false)
 }

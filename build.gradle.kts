@@ -18,6 +18,7 @@ plugins {
     id(Plugins.ksp) version Versions.ksp_ver apply false
     id(Plugins.sqldelight) version Versions.sqldelight_ver apply false
     id(Plugins.sentry_kmp) version Versions.sentry_kmp_plugin_ver apply false
+    id(Plugins.sentry_android) version Versions.sentry_android_plugin_ver apply false
     id(Plugins.vkIdManifest) version Versions.vkIdManifestPluginVer apply true
     id("org.jetbrains.kotlin.plugin.serialization") version Versions.kotlin_version
     // Baseline Profile генерация (для AOT-компиляции горячих путей)

@@ -56,6 +56,7 @@ object Plugins {
     const val vkIdManifest = "vkid.manifest.placeholders"
     const val sqldelight = "app.cash.sqldelight"
     const val sentry_kmp = "io.sentry.kotlin.multiplatform.gradle"
+    const val sentry_android = "io.sentry.android.gradle"
 }
 
 object Apps {
@@ -116,6 +117,7 @@ object Versions {
     const val mytracker_sdk_ver = "3.3.2"
     const val sentry_kmp_ver = "0.23.1"
     const val sentry_kmp_plugin_ver = "0.24.0"
+    const val sentry_android_plugin_ver = "6.22.0"
     const val retrofit_ver = "2.11.0"
     const val lifecycle_runtime_compose_ver = "2.8.7"
     const val vkIdVer = "2.6.0"
