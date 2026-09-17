@@ -1234,7 +1234,8 @@ object UtilsForEntities {
             val endInterval =
                 if (index + 1 < listDistance.size) listDistance[index + 1] else Int.MAX_VALUE
 
-            val searchIntervalDistance = startInterval until endInterval
+            // Строгий порог: значение БОЛЬШЕ порога ступени, не больше следующего.
+            val searchIntervalDistance = (startInterval + 1)..endInterval
             var summaryDistance = 0
             var summaryTimeFollowing = 0L
             val trainsWithDistance = mutableListOf<Train>()
@@ -1281,7 +1282,8 @@ object UtilsForEntities {
         val startInterval = listLength[index]
         val endInterval =
             if (index + 1 < listLength.size) listLength[index + 1] else Int.MAX_VALUE
-        val searchIntervalLength = startInterval until endInterval
+        // Строгий порог: значение БОЛЬШЕ порога ступени, не больше следующего.
+            val searchIntervalLength = (startInterval + 1)..endInterval
         var resultTime = 0L
         this.trains.forEach { train ->
             val length = train.conditionalLength.toIntOrZero()
@@ -1327,7 +1329,8 @@ object UtilsForEntities {
         val startInterval = listWeight[index]
         val endInterval =
             if (index + 1 < listWeight.size) listWeight[index + 1] else Int.MAX_VALUE
-        val searchIntervalWeight = startInterval until endInterval
+        // Строгий порог: значение БОЛЬШЕ порога ступени, не больше следующего.
+            val searchIntervalWeight = (startInterval + 1)..endInterval
         var resultTime = 0L
         this.trains.forEach { train ->
             val weight = train.weight.toIntOrZero()

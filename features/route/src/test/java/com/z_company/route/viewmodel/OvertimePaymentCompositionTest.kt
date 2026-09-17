@@ -460,8 +460,8 @@ class OvertimePaymentCompositionTest {
                 nightTimePercent = 0.0,
             ),
             allRoutes = listOf(
-                route(day = 5, weight = "5999"),
-                route(day = 20, weight = "6000"),
+                route(day = 5, weight = "6000"),
+                route(day = 20, weight = "6001"),
             ),
         )
 

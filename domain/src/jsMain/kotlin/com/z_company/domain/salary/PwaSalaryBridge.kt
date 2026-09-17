@@ -7,6 +7,8 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.OverRestRoutes.overRestPayment
 import com.z_company.domain.entities.route.OverRestRoutes.previousRouteFor
 import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
+import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.domain.entities.salary.PayrollPaymentCatalog
@@ -148,6 +150,21 @@ object PwaSalaryBridge {
             adjacentRoutes = request.adjacentRoutes,
         )
         json.encodeToString(buildResult(request, helper))
+    }
+
+    /**
+     * «Отработано» за месяц для главного экрана — как Android HomeViewModel
+     * (`List<Route>.getWorkTime(month, context)`): переходные маршруты
+     * обрезаются по границе месяца в crossMonthTZ, проезд пассажиром до явки
+     * входит, перерыв вычитается.
+     */
+    fun workedMillis(requestJson: String): Promise<String> = GlobalScope.promise {
+        val request = json.decodeFromString<PwaSalaryRequest>(requestJson)
+        val worked = request.routes.getWorkTime(
+            request.userSettings.selectMonthOfYear,
+            TimeCalculationContext.from(request.userSettings),
+        )
+        json.encodeToString(mapOf("workedMillis" to worked))
     }
 
     /**

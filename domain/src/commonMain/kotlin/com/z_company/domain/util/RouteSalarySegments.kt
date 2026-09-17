@@ -148,7 +148,10 @@ fun Route.buildTieredTrainSurchargeSegments(
     initialTariffRatePerHour: Double,
     thresholds: List<Int>,
     condition: AccrualCondition,
-    thresholdIsInclusive: Boolean = true,
+    // Порог — строгая граница: ступень действует при значении БОЛЬШЕ порога,
+    // равенство порогу доплату не включает (тяжеловесный, длинносоставный,
+    // удлинённое плечо — одно правило на Android и PWA).
+    thresholdIsInclusive: Boolean = false,
     tariffChanges: Iterable<TariffChange> = emptyList(),
     valueOf: (Train) -> Int?,
 ): List<List<SalarySegment>> {
