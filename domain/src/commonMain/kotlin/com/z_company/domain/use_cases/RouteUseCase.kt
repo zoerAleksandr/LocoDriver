@@ -6,6 +6,9 @@ import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Photo
+import com.z_company.domain.entities.route.OverRestRoutes.adjacentRoutesOfMonth
+import com.z_company.domain.entities.route.OverRestRoutes.previousMonthStartMillis
+import com.z_company.domain.entities.route.OverRestRoutes.previousRouteFor
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.UtilsForEntities.filterByMonth
@@ -24,6 +27,7 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -143,6 +147,51 @@ class RouteUseCase(private val repository: RouteRepository) {
                     } else state
                 }
         )
+    }
+
+    /**
+     * Предыдущий по явке маршрут для переотдыха [route] в пункте оборота:
+     * ближайший с явкой раньше явки [route] среди маршрутов месяца явки и
+     * предыдущего месяца. Месяц берётся от самого маршрута, а не из
+     * `selectMonthOfYear`, поэтому переотдых считается и для маршрута другого
+     * месяца, и для первого маршрута месяца после отдыха в ПО в конце прошлого.
+     */
+    fun previousRouteForOverRestFlow(
+        route: Route,
+        context: TimeCalculationContext
+    ): Flow<Route?> {
+        val start = route.basicData.timeStartWork ?: return flowOf(null)
+        return repository.loadRouteByPeriodFlow(
+            startPeriod = previousMonthStartMillis(start, context),
+            endPeriod = start
+        ).map { candidates -> candidates.previousRouteFor(route) }
+    }
+
+    /**
+     * Соседи месяца для месячного расчёта переотдыха: последний маршрут
+     * предыдущего и первый маршрут следующего месяца
+     * (см. [adjacentRoutesOfMonth]). Загружаются отдельно от маршрутов месяца
+     * и в `allRoutes` расчёта не попадают.
+     */
+    fun adjacentRoutesOfMonthFlow(
+        monthOfYear: MonthOfYear,
+        context: TimeCalculationContext
+    ): Flow<List<Route>> {
+        val tz = context.crossMonthTZ
+        val firstDay = LocalDate(monthOfYear.year, monthOfYear.month + 1, 1)
+        val monthStart = firstDay.atStartOfDayIn(tz).toEpochMilliseconds()
+        val previousMonthStart = firstDay.minus(1, DateTimeUnit.MONTH)
+            .atStartOfDayIn(tz).toEpochMilliseconds()
+        val nextMonthStart = firstDay.plus(1, DateTimeUnit.MONTH)
+            .atStartOfDayIn(tz).toEpochMilliseconds()
+        val nextMonthEnd = firstDay.plus(2, DateTimeUnit.MONTH)
+            .atStartOfDayIn(tz).toEpochMilliseconds()
+        // Два узких запроса вместо одного на три месяца: сами маршруты месяца
+        // уже загружены экраном, собирать их повторно незачем.
+        return combine(
+            repository.loadRouteByPeriodFlow(previousMonthStart, monthStart),
+            repository.loadRouteByPeriodFlow(nextMonthStart, nextMonthEnd),
+        ) { before, after -> (before + after).adjacentRoutesOfMonth(monthOfYear, context) }
     }
 
     fun listRouteWithDeleting(): List<Route> {

@@ -142,6 +142,12 @@ class SalaryCalculationHelper(
     // Используется только после вступления ФЗ №144-ФЗ.
     private val annualOvertimeBeforePeriod: Long = 0L,
     private val workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
+    // Соседи месяца для переотдыха: последний маршрут предыдущего и первый
+    // маршрут следующего месяца (см. OverRestRoutes.adjacentRoutesOfMonth).
+    // В отработанное время, тариф и надбавки не входят — только «предыдущий/
+    // следующий» при расчёте интервала переотдыха, который затем обрезается
+    // по границам месяца.
+    adjacentRoutes: List<Route> = emptyList(),
 ) {
     // Повреждённые или устаревшие записи могут содержать сдачу раньше явки.
     // Они не должны ронять расчёт и не должны давать отрицательные начисления:
@@ -150,6 +156,10 @@ class SalaryCalculationHelper(
         val start = route.basicData.timeStartWork
         val end = route.basicData.timeEndWork
         start == null || end == null || end >= start
+    }
+    private val adjacentRoutes: List<Route> = adjacentRoutes.filter { adjacent ->
+        adjacent.basicData.timeStartWork != null &&
+            this.allRoutes.none { it.basicData.id == adjacent.basicData.id }
     }
     val currentMonthOfYear = userSettings.selectMonthOfYear
     val dateSetTariffRate = currentMonthOfYear.dateSetTariffRate
@@ -1521,7 +1531,11 @@ class SalaryCalculationHelper(
             listOf(TariffChange(effectiveAt, currentTariffRate))
         }.orEmpty()
 
-        val sorted = routeList.sortedBy { it.basicData.timeStartWork }
+        // Соседи из смежных месяцев участвуют только как «предыдущий/следующий»:
+        // их интервал переотдыха, как и у маршрутов месяца, обрезается по
+        // monthInterval, поэтому части одного переотдыха в двух месяцах в сумме
+        // дают полный переотдых.
+        val sorted = (routeList + adjacentRoutes).sortedBy { it.basicData.timeStartWork }
         return sorted.mapIndexedNotNull { index, route ->
             route.getOverRestInterval(sorted.getOrNull(index + 1), minTimeRest)
                 ?.intersect(monthInterval)

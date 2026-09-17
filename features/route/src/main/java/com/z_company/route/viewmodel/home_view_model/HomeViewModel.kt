@@ -30,6 +30,7 @@ import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.OverRestRoutes.adjacentRoutesOfMonth
 import com.z_company.domain.entities.route.UtilsForEntities.filterByConsiderFutureRoute
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.findNextFutureRoute
@@ -151,6 +152,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
     // Все маршруты (все месяцы) для поиска следующей явки
     private var allRoutesGlobal: List<Route> = emptyList()
+    // Соседи месяца (id), использованные в последнем расчёте зарплаты: если
+    // getListRoutesAsFlow() приносит других соседей (первая загрузка, правка
+    // маршрута в смежном месяце) — пересчёт переотдыха на стыке месяцев.
+    private var lastAdjacentRouteIds: List<String> = emptyList()
 
     var isConsiderFutureRoute by mutableStateOf(false)
         private set
@@ -960,15 +965,25 @@ class HomeViewModel : ViewModel(), KoinComponent {
             }
         }
 
+        val calcContext = TimeCalculationContext.from(userSettings)
+        // Соседи месяца из всех маршрутов — для переотдыха на стыке месяцев,
+        // чтобы «К выдаче» на главном совпадало с экраном расчёта.
+        val adjacentRoutes = allRoutesGlobal
+            .filterByConsiderFutureRoute(
+                isConsiderFutureRoute = userSettings.isConsiderFutureRoute,
+                currentTimeInMillis = currentTimeInMillis,
+            )
+            .adjacentRoutesOfMonth(userSettings.selectMonthOfYear, calcContext)
+        lastAdjacentRouteIds = adjacentRoutes.map { it.basicData.id }
         val salaryCalculationHelper = SalaryCalculationHelper(
             userSettings = userSettings,
             salarySetting = salarySetting,
             allRoutes = filteredRouteList,
             workScheduleProfile = sharedPreferenceStorage.getWorkScheduleProfile(),
+            adjacentRoutes = adjacentRoutes,
         )
 
         viewModelScope.launch(Dispatchers.Default) {
-            val calcContext = TimeCalculationContext.from(userSettings)
             coroutineScope {
                 launch { calculationOfExtendedServicePhaseTime(salaryCalculationHelper) }
                 launch { calculationOfLongDistanceTrainsTime(salaryCalculationHelper) }
@@ -1652,10 +1667,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
         val salary = currentSalarySetting ?: return
         if (route == null) return
         viewModelScope.launch(Dispatchers.Default) {
-            val monthRoutesSorted = routeUseCase.getListRoutes()
-                .sortedBy { it.basicData.timeStartWork ?: Long.MAX_VALUE }
+            // Все маршруты: предыдущий по явке может быть в прошлом месяце.
+            val candidates = routeUseCase.getListRoutes()
             val total = try {
-                computeRouteTotalPayment(route, user, salary, monthRoutesSorted)
+                computeRouteTotalPayment(route, user, salary, candidates)
             } catch (e: Exception) {
                 e.sendToSentry("HomeViewModel", "computeRoutePayment")
                 null
@@ -1758,7 +1773,42 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 // изменении маршрутов (удаление/добавление/правка) в любом месяце.
                 updateCurrentAndNextRoute(allRoutes)
                 recomputeRestBlock(allRoutes)
+                recalcIfAdjacentRoutesChanged(allRoutes)
             }
+        }
+    }
+
+    /**
+     * Соседи выбранного месяца приходят из этого коллектора, а расчёт зарплаты
+     * запускает коллектор routesFlow — порядок первых эмитов не гарантирован.
+     * Если соседи изменились относительно последнего расчёта, пересчитываем
+     * по закэшированным маршрутам месяца (без повторной загрузки из БД).
+     */
+    private fun recalcIfAdjacentRoutesChanged(allRoutes: List<Route>) {
+        val userSettings = currentUserSetting ?: return
+        val salarySetting = currentSalarySetting ?: return
+        // До первого успешного эмита routesFlow кэш пуст — считать нечего.
+        if (routesFlow.value !is ResultState.Success) return
+        val routes = cachedRouteList
+        val tz = java.util.TimeZone.getTimeZone(DateAndTimeConverter(userSettings).timeZoneText)
+        val currentTimeInMillis = getInstance(tz).timeInMillis
+        val adjacentIds = allRoutes
+            .filterByConsiderFutureRoute(
+                isConsiderFutureRoute = userSettings.isConsiderFutureRoute,
+                currentTimeInMillis = currentTimeInMillis,
+            )
+            .adjacentRoutesOfMonth(userSettings.selectMonthOfYear, TimeCalculationContext.from(userSettings))
+            .map { it.basicData.id }
+        if (adjacentIds == lastAdjacentRouteIds) return
+        recalcOnSalarySettingChangeJob?.cancel()
+        recalcOnSalarySettingChangeJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(150) // debounce от частых эмитов
+            runAllCalculations(
+                fullRouteList = routes,
+                userSettings = userSettings,
+                salarySetting = salarySetting,
+                currentTimeInMillis = currentTimeInMillis,
+            )
         }
     }
 

@@ -89,15 +89,17 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                 }.flatMapLatest { (userRes, salaryRes) ->
                     // Реактивная подписка на маршруты: при добавлении/удалении маршрута
                     // автоматически пересчитывается зарплата без смены настроек.
-                    routeUseCase.listRoutesByMonth(
-                        userRes.selectMonthOfYear,
-                        TimeCalculationContext.from(userRes)
-                    )
-                        .filter { it is ResultState.Success }
-                        .map { Triple(userRes, salaryRes, (it as ResultState.Success).data) }
-                }.collectLatest { (userRes, salaryRes, routes) ->
+                    val context = TimeCalculationContext.from(userRes)
+                    combine(
+                        routeUseCase.listRoutesByMonth(userRes.selectMonthOfYear, context)
+                            .filter { it is ResultState.Success }
+                            .map { (it as ResultState.Success).data },
+                        // Соседи месяца — только для переотдыха на стыке месяцев.
+                        routeUseCase.adjacentRoutesOfMonthFlow(userRes.selectMonthOfYear, context),
+                    ) { routes, adjacent -> MonthRoutes(userRes, salaryRes, routes, adjacent) }
+                }.collectLatest { (userRes, salaryRes, routes, adjacent) ->
                     _uiState.update { it.copy(screenState = ResultState.Loading("Пересчет...")) }
-                    calculationSalary(userRes, salaryRes, routes)
+                    calculationSalary(userRes, salaryRes, routes, adjacent)
                 }
             } catch (e: Exception) {
                 e.sendToSentry("SalaryCalculationViewModel", "init")
@@ -137,10 +139,19 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    /** Маршруты месяца и соседи из смежных месяцев (для переотдыха). */
+    private data class MonthRoutes(
+        val userSettings: UserSettings,
+        val salarySetting: SalarySetting,
+        val routes: List<Route>,
+        val adjacentRoutes: List<Route>,
+    )
+
     private suspend fun calculationSalary(
         userSettings: UserSettings,
         salarySetting: SalarySetting,
-        allRoutes: List<Route>
+        allRoutes: List<Route>,
+        adjacentRoutes: List<Route> = emptyList(),
     ) {
         val currentTimeInMillis = Calendar.getInstance().timeInMillis
         val currentMonthOfYear = userSettings.selectMonthOfYear
@@ -149,6 +160,12 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             allRoutes
         } else {
             allRoutes.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
+        }
+        // Соседи месяца — по тому же правилу учёта будущих маршрутов.
+        val adjacentRouteList = if (userSettings.isConsiderFutureRoute) {
+            adjacentRoutes
+        } else {
+            adjacentRoutes.filter { it.basicData.timeStartWork!! < currentTimeInMillis }
         }
         val effectiveNormaHours = computeEffectiveNormaHours(currentMonthOfYear)
         val annualOvertimeBeforeMonth = computeAnnualOvertimeBeforeMonth(
@@ -164,6 +181,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                 effectiveNormaHoursForUnderwork = effectiveNormaHours,
                 annualOvertimeBeforePeriod = annualOvertimeBeforeMonth,
                 workScheduleProfile = sharedPreferenceStorage.getWorkScheduleProfile(),
+                adjacentRoutes = adjacentRouteList,
             )
             job?.cancel()
             // Параллельный вызов методов с ожиданием завершения

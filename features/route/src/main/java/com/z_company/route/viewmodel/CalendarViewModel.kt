@@ -789,13 +789,14 @@ class CalendarViewModel : ViewModel(), KoinComponent {
             } else emptyMap()
 
             val routePayments: Map<String, String> = if (salary != null) {
-                // Сортировка по началу работы нужна для доплаты за переотдых.
-                val sortedRoutes = routes.sortedBy { it.basicData.timeStartWork ?: Long.MAX_VALUE }
+                // Для переотдыха первому маршруту месяца нужен последний
+                // маршрут предыдущего (отдых в ПО на стыке месяцев).
+                val candidates = routes + routeUseCase.adjacentRoutesOfMonthFlow(month, calendarContext).first()
                 val currency = currencySymbol(setting.country)
                 buildMap {
-                    sortedRoutes.forEach { route ->
+                    routes.forEach { route ->
                         val total = runCatching {
-                            computeRouteTotalPayment(route, setting, salary, sortedRoutes)
+                            computeRouteTotalPayment(route, setting, salary, candidates)
                         }.onFailure { it.sendToSentry("CalendarViewModel", "routePayments") }
                             .getOrNull()
                         if (total != null) put(route.basicData.id, total.toMoneyString(currency))

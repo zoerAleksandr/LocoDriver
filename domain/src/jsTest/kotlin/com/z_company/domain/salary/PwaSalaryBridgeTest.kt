@@ -235,6 +235,74 @@ class PwaSalaryBridgeTest {
     }
 
     @Test
+    fun `trip result pays over-rest across month boundary from candidate routes`() = runTest {
+        // Явка 1 мая после отдыха в ПО 30 апреля: previousRoute выбирается из
+        // candidateRoutes тем же правилом, что в Android FormViewModel
+        // (ближайшая явка раньше явки маршрута, без привязки к месяцу).
+        val tz = TimeZone.of("GMT+3")
+        fun at(month: Int, day: Int, hour: Int) = LocalDateTime(2025, month, day, hour, 0).toInstant(tz).toEpochMilliseconds()
+        val userSettings = UserSettings(
+            selectMonthOfYear = MonthOfYear(
+                year = 2025,
+                month = 4,
+                tariffRate = 100.0,
+                days = (1..31).map { Day(it, TagForDay.WORKING_DAY) },
+            ),
+            timeZone = 0L,
+            minTimeRestPointOfTurnover = 3 * 3_600_000L,
+        )
+        val salarySetting = SalarySetting(zonalSurcharge = 0.0, nightTimePercent = 0.0, harmfulnessPercent = 0.0)
+        // Работа 4 ч, отдых в ПО → оплачиваемый переотдых с 19:00 + 4 ч = 23:00 30 апреля.
+        val lastOfApril = Route(basicData = BasicData(id = "apr-last", timeStartWork = at(4, 30, 15), timeEndWork = at(4, 30, 19), restPointOfTurnover = true))
+        val earlierInApril = Route(basicData = BasicData(id = "apr-early", timeStartWork = at(4, 10, 8), timeEndWork = at(4, 10, 12)))
+        // Явка 1 мая 03:00 → переотдых 4 ч (1 ч в апреле + 3 ч в мае) × 100 × 2/3.
+        val route = Route(basicData = BasicData(id = "may-first", timeStartWork = at(5, 1, 3), timeEndWork = at(5, 1, 9)))
+        val request = buildJsonObject {
+            put("userSettings", json.encodeToJsonElement(UserSettings.serializer(), userSettings))
+            put("salarySetting", json.encodeToJsonElement(SalarySetting.serializer(), salarySetting))
+            put("route", json.encodeToJsonElement(Route.serializer(), route))
+            putJsonArray("candidateRoutes") {
+                add(json.encodeToJsonElement(Route.serializer(), earlierInApril))
+                add(json.encodeToJsonElement(Route.serializer(), route))
+                add(json.encodeToJsonElement(Route.serializer(), lastOfApril))
+            }
+        }
+
+        val result = json.parseToJsonElement(PwaSalaryBridge.calculateTrip(request.toString()).await()).jsonObject
+        val overRest = result.getValue("rows").jsonArray.first { it.jsonObject.getValue("id").jsonPrimitive.content == "OVER_REST" }.jsonObject
+
+        assertEquals(4 * 3_600_000.0, overRest.getValue("hoursMillis").jsonPrimitive.double)
+        assertEquals(4 * 100.0 * 2.0 / 3.0, overRest.getValue("amount").jsonPrimitive.double, 0.001)
+
+        // Месячный расчёт с соседями: части по месяцам в сумме дают переотдых поездки.
+        fun monthRequest(month0: Int, routes: List<Route>, adjacent: List<Route>) = buildJsonObject {
+            put(
+                "userSettings",
+                json.encodeToJsonElement(
+                    UserSettings.serializer(),
+                    userSettings.copy(selectMonthOfYear = userSettings.selectMonthOfYear.copy(month = month0)),
+                ),
+            )
+            put("salarySetting", json.encodeToJsonElement(SalarySetting.serializer(), salarySetting))
+            putJsonArray("routes") { routes.forEach { add(json.encodeToJsonElement(Route.serializer(), it)) } }
+            putJsonArray("adjacentRoutes") { adjacent.forEach { add(json.encodeToJsonElement(Route.serializer(), it)) } }
+        }
+        fun overRestOf(resultJson: String): Pair<Double, Double> {
+            val line = json.parseToJsonElement(resultJson).jsonObject.getValue("accruals").jsonArray
+                .map { it.jsonObject }
+                .firstOrNull { it.getValue("id").jsonPrimitive.content == "EXCESS_REST" }
+                ?: return 0.0 to 0.0
+            return line.getValue("hoursMillis").jsonPrimitive.double to line.getValue("amount").jsonPrimitive.double
+        }
+        val april = overRestOf(PwaSalaryBridge.calculate(monthRequest(3, listOf(earlierInApril, lastOfApril), listOf(route)).toString()).await())
+        val may = overRestOf(PwaSalaryBridge.calculate(monthRequest(4, listOf(route), listOf(lastOfApril)).toString()).await())
+
+        assertEquals(1 * 3_600_000.0, april.first)
+        assertEquals(3 * 3_600_000.0, may.first)
+        assertEquals(overRest.getValue("amount").jsonPrimitive.double, april.second + may.second, 0.001)
+    }
+
+    @Test
     fun `web result exposes passenger waiting line 018M`() = runTest {
         val tz = TimeZone.of("GMT+3")
         fun at(day: Int, hour: Int) = LocalDateTime(2025, 1, day, hour, 0).toInstant(tz).toEpochMilliseconds()

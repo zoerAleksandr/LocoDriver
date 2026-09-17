@@ -4,7 +4,8 @@ package com.z_company.domain.salary
 
 import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.route.Route
-import com.z_company.domain.entities.route.UtilsForEntities.getOverRestTime
+import com.z_company.domain.entities.route.OverRestRoutes.overRestPayment
+import com.z_company.domain.entities.route.OverRestRoutes.previousRouteFor
 import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
 import com.z_company.domain.util.toIntOrZero
@@ -34,6 +35,10 @@ private data class PwaSalaryRequest(
     // Личный график продолжительности рабочей недели (PWA: stores/settingsPreferences).
     // Отсутствует в запросе → стандартная пятидневка, как раньше.
     val workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
+    // Соседи месяца для переотдыха на стыке месяцев: последний маршрут
+    // предыдущего и первый маршрут следующего месяца. В отработанное время и
+    // тариф не входят (см. SalaryCalculationHelper.adjacentRoutes).
+    val adjacentRoutes: List<Route> = emptyList(),
 )
 
 @Serializable
@@ -72,8 +77,12 @@ private data class PwaTripRequest(
     val userSettings: UserSettings,
     val salarySetting: SalarySetting,
     val route: Route,
-    // Предыдущий по времени маршрут — для переотдыха в пункте оборота.
+    // Предыдущий по явке маршрут — для переотдыха в пункте оборота.
     val previousRoute: Route? = null,
+    // Альтернатива previousRoute: маршруты месяца явки и предыдущего месяца —
+    // предыдущий выбирается здесь тем же правилом, что в Android FormViewModel
+    // (ближайшая явка раньше явки route). Если задан, имеет приоритет.
+    val candidateRoutes: List<Route> = emptyList(),
     val workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
 )
 
@@ -136,6 +145,7 @@ object PwaSalaryBridge {
             effectiveNormaHoursForUnderwork = request.effectiveNormaHours,
             annualOvertimeBeforePeriod = request.annualOvertimeBeforePeriod,
             workScheduleProfile = request.workScheduleProfile,
+            adjacentRoutes = request.adjacentRoutes,
         )
         json.encodeToString(buildResult(request, helper))
     }
@@ -240,18 +250,18 @@ object PwaSalaryBridge {
             salary.onePersonOperationPercent
         }
 
-        // Переотдых: предыдущий маршрут с отдыхом в пункте оборота, 2/3 тарифа.
-        val previous = request.previousRoute
-        val overRestTime = if (previous != null && previous.basicData.restPointOfTurnover) {
-            previous.getOverRestTime(route, settings.minTimeRestPointOfTurnover)
-        } else {
-            0L
-        }
-        val overRestMoney = if (overRestTime > 0L) {
-            overRestTime * (tariffRate * (2.0 / 3.0)) / 3_600_000.0
-        } else {
-            0.0
-        }
+        // Переотдых: предыдущий маршрут с отдыхом в пункте оборота, 2/3 тарифа —
+        // та же формула и тот же выбор предыдущего, что в FormViewModel.
+        val previous = request.candidateRoutes.takeIf { it.isNotEmpty() }
+            ?.previousRouteFor(route)
+            ?: request.previousRoute
+        val overRestPayment = route.overRestPayment(
+            previous = previous,
+            minTimeRest = settings.minTimeRestPointOfTurnover,
+            tariffRate = tariffRate,
+        )
+        val overRestTime = overRestPayment.timeMillis
+        val overRestMoney = overRestPayment.money
 
         val surchargeAtTrains = surchargeAtExtendedServicePhase + surchargeAtHeavyTrains +
             surchargeAtLongTrains + surchargeAtDoubledTrainFirst + surchargeAtDoubledTrainSecond
