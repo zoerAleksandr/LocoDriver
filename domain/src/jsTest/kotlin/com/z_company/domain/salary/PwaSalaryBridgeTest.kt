@@ -5,6 +5,7 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.TagForDay
+import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
@@ -24,6 +25,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -101,6 +103,49 @@ class PwaSalaryBridgeTest {
         assertEquals(shared.getTotalWorkTimeWithCommute().first().toDouble(), result.getValue("totalWorkedMillis").jsonPrimitive.double)
         assertTrue(result.getValue("accruals").jsonArray.any { it.jsonObject.getValue("id").jsonPrimitive.content == "TARIFF" })
         assertTrue(result.getValue("deductions").jsonArray.any { it.jsonObject.getValue("id").jsonPrimitive.content == "NDFL" })
+    }
+
+    @Test
+    fun `web request applies work schedule profile to monthly norma`() = runTest {
+        // 10.01.2025 — пятница. Единственный день месяца в календаре: стандартная
+        // норма 8 ч, по личному графику (пятница 2 ч) — 2 ч → 4-часовая смена
+        // даёт 2 ч сверхурочных только с профилем.
+        val tz = TimeZone.of("GMT+3")
+        val start = LocalDateTime(2025, 1, 10, 8, 0).toInstant(tz).toEpochMilliseconds()
+        val end = LocalDateTime(2025, 1, 10, 12, 0).toInstant(tz).toEpochMilliseconds()
+        val userSettings = UserSettings(
+            selectMonthOfYear = MonthOfYear(
+                year = 2025,
+                month = 0,
+                tariffRate = 100.0,
+                days = listOf(Day(10, TagForDay.WORKING_DAY)),
+            ),
+            timeZone = 0L,
+        )
+        val salarySetting = SalarySetting(
+            nightTimePercent = 0.0,
+            harmfulnessPercent = 0.0,
+            zonalSurcharge = 0.0,
+            surchargeHeavyTrainsList = emptyList(),
+            surchargeLongTrainsList = emptyList(),
+        )
+        val route = Route(basicData = BasicData(timeStartWork = start, timeEndWork = end))
+        val profile = WorkScheduleProfile.standard().withHours(DayOfWeek.FRIDAY, 2)
+        fun request(withProfile: Boolean) = buildJsonObject {
+            put("userSettings", json.encodeToJsonElement(UserSettings.serializer(), userSettings))
+            put("salarySetting", json.encodeToJsonElement(SalarySetting.serializer(), salarySetting))
+            putJsonArray("routes") { add(json.encodeToJsonElement(Route.serializer(), route)) }
+            put("effectiveNormaHours", 0)
+            put("annualOvertimeBeforePeriod", 0L)
+            if (withProfile) put("workScheduleProfile", json.encodeToJsonElement(WorkScheduleProfile.serializer(), profile))
+        }
+        fun overtimeMillis(result: String): Long = json.parseToJsonElement(result).jsonObject
+            .getValue("accruals").jsonArray
+            .filter { it.jsonObject.getValue("id").jsonPrimitive.content.startsWith("OVERTIME") }
+            .maxOfOrNull { it.jsonObject.getValue("hoursMillis").jsonPrimitive.content.toLong() } ?: 0L
+
+        assertEquals(0L, overtimeMillis(PwaSalaryBridge.calculate(request(withProfile = false).toString()).await()))
+        assertEquals(2 * 3_600_000L, overtimeMillis(PwaSalaryBridge.calculate(request(withProfile = true).toString()).await()))
     }
 
     @Test

@@ -2,6 +2,7 @@
 
 package com.z_company.domain.salary
 
+import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.salary.PayrollPaymentCatalog
 import com.z_company.domain.entities.salary.PayrollCodeReferenceCatalog
@@ -26,6 +27,9 @@ private data class PwaSalaryRequest(
     val routes: List<Route>,
     val effectiveNormaHours: Int = 0,
     val annualOvertimeBeforePeriod: Long = 0L,
+    // Личный график продолжительности рабочей недели (PWA: stores/settingsPreferences).
+    // Отсутствует в запросе → стандартная пятидневка, как раньше.
+    val workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
 )
 
 @Serializable
@@ -90,6 +94,7 @@ object PwaSalaryBridge {
             allRoutes = request.routes,
             effectiveNormaHoursForUnderwork = request.effectiveNormaHours,
             annualOvertimeBeforePeriod = request.annualOvertimeBeforePeriod,
+            workScheduleProfile = request.workScheduleProfile,
         )
         json.encodeToString(buildResult(request, helper))
     }
