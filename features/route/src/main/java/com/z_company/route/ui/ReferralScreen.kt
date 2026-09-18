@@ -141,7 +141,7 @@ private fun ReferralContent(data: ReferralStatusResponse) {
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ReferralMetric(R.drawable.group_24px, "Приглашено", data.invitedCount.toString(), Modifier.weight(1f))
-            ReferralMetric(R.drawable.check_circle_24px, "Начислено", data.rewardedCount.toString(), Modifier.weight(1f))
+            ReferralMetric(R.drawable.check_circle_24px, "Начислено", "${data.awardedDays} дн.", Modifier.weight(1f))
         }
         data.appliedCode?.let { ReferralAppliedCard(it, data.appliedStatus) }
     }

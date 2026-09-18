@@ -11,6 +11,8 @@ data class ReferralStatusResponse(
     val appliedStatus: String? = null,
     val invitedCount: Int = 0,
     val rewardedCount: Int = 0,
+    // Суммарные подаренные дни этому пользователю (для метрики «Начислено»).
+    val awardedDays: Int = 0,
 )
 
 @Serializable
