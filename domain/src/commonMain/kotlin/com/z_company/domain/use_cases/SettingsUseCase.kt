@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlin.time.Clock
 
 class SettingsUseCase(private val settingsRepository: SettingsRepository) {
 
@@ -102,9 +103,18 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
         return settingsRepository.setWorkTimeDefault(timeInMillis)
     }
 
+    /** Сохраняет как есть (updateAt из [settings]) — для данных с сервера и правок, уже проштампованных [nextUpdateAt]. */
     fun saveSetting(settings: UserSettings): Flow<ResultState<Unit>> {
         return settingsRepository.setSettings(settings)
     }
+
+    /**
+     * Метка локальной правки: строго больше прежней. LWW в SyncManager
+     * сравнивает её с серверным `updateAt`, и отстающие часы устройства не
+     * должны «состарить» правку относительно только что загруженной версии.
+     */
+    fun nextUpdateAt(previous: Long): Long =
+        maxOf(Clock.System.now().toEpochMilliseconds(), previous + 1)
 
     fun setCurrentMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
         return settingsRepository.setCurrentMonthOfYear(monthOfYear)
@@ -192,7 +202,8 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
                 val newList = (listOf(type) + s.otherWorkTypeList)
                     .filter { it.isNotBlank() }
                     .distinct()
-                settingsRepository.setSettings(s.copy(otherWorkTypeList = newList))
+                if (newList == s.otherWorkTypeList) return@let
+                settingsRepository.setSettings(s.copy(otherWorkTypeList = newList, updateAt = nextUpdateAt(s.updateAt)))
                     .first { it is ResultState.Success || it is ResultState.Error }
             }
         }
@@ -206,7 +217,8 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
             val settings = if (result is ResultState.Success) result.data else null
             settings?.let { s ->
                 val newList = s.otherWorkTypeList.filterNot { it == type }
-                settingsRepository.setSettings(s.copy(otherWorkTypeList = newList))
+                if (newList == s.otherWorkTypeList) return@let
+                settingsRepository.setSettings(s.copy(otherWorkTypeList = newList, updateAt = nextUpdateAt(s.updateAt)))
                     .first { it is ResultState.Success || it is ResultState.Error }
             }
         }

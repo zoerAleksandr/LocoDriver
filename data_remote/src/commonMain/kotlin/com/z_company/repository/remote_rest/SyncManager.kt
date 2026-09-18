@@ -707,11 +707,13 @@ class SyncManager(
      * ДВУСТОРОННЯЯ синхронизация — за одной кнопкой «Синхронизация».
      *
      * Модель (как в современных приложениях: почта, заметки):
-     *  - **Настройки**: push локальных на сервер только если они менялись локально
-     *    (флаг [SharedPreferencesRepositories.getSettingsSyncPending]) — иначе устройство,
-     *    которое настройки не трогало, не затирает свежие серверные; затем pull с сервера.
-     *    Для UserSettings — LWW по `updateAt` + защита подписки (max). Локальные правки
-     *    настроек выгружаются сразу при сохранении (см. [autoPushSettings]).
+     *  - **UserSettings и SalarySetting**: LWW только по дате (`updateAt` /
+     *    серверное `updated_at`): локальная новее → push, серверная новее → pull,
+     *    равны → ничего. Для UserSettings — плюс защита подписки (max). Флаг
+     *    [SharedPreferencesRepositories.getSettingsSyncPending] — только триггер
+     *    «есть что пушить» для коллекций без дат (тарифы, отвлечения, нормы, напарники).
+     *    Локальные правки настроек выгружаются сразу при сохранении (см. [autoPushSettings]).
+     *  - Без активной подписки синхронизация не запускается вовсе.
      *  - **Маршруты**: fetch список с сервера → merge по `id` с LWW по `updatedAt` →
      *    apply. Удаления распространяются в ОБЕ стороны:
      *      • удалённый локально (isDeleted) → DELETE на сервере + жёсткое удаление локально;
@@ -744,17 +746,30 @@ class SyncManager(
             }
         }
         val result = SyncBidirectionalResult()
+        val nowMillis = Clock.System.now().toEpochMilliseconds()
+
+        // Без активной подписки синхронизация недоступна: ничего не тянем и не
+        // шлём (UI-входы гейтятся так же, это страховка для всех остальных).
+        val localUserSettingsState = settingsUseCase.getFlowCurrentSettingsState()
+            .first { it is ResultState.Success || it is ResultState.Error }
+        val localSubscription = (localUserSettingsState as? ResultState.Success)?.data?.subscriptionPeriod ?: 0L
+        if (localSubscription <= nowMillis) {
+            emit(ResultState.Error(ErrorEntity(message = SUBSCRIPTION_REQUIRED_MESSAGE)))
+            return@flow
+        }
+
         val settingsPending = sharedPrefs.getSettingsSyncPending()
         var settingsUploadSucceeded = true
 
         // ============ ЧАСТЬ 1. НАСТРОЙКИ ============
 
-        // 1.1 UserSettings — LWW по updateAt + защита подписки (max).
-        val localUserSettingsState = settingsUseCase.getFlowCurrentSettingsState()
-            .first { it is ResultState.Success || it is ResultState.Error }
-        val userSettingsLocallyChanged = localUserSettingsState is ResultState.Success &&
-                settingsPending &&
-                localUserSettingsState.data.updateAt > sharedPrefs.getLastSyncTimestamp()
+        // 1.1 UserSettings — LWW только по updateAt (как маршруты в 2.3) + защита
+        // подписки (max). settingsPending на решение НЕ влияет: флаг общий для
+        // всех настроек и снимается после каждого успешного синка, даже если push
+        // не состоялся, — раньше следующий синк затирал локальные станции/серии
+        // серверной строкой (в т.ч. дефолтами, созданными сервером при оплате с
+        // updateAt = 0). После push перенимаем серверный updateAt: сервер ставит
+        // свой, иначе следующий синк увидел бы remote > local и сделал лишний pull.
         val remoteUserSettings = try {
             (settingManager.getUserSettingFromRemote(bearerToken)
                 .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)?.data
@@ -762,58 +777,61 @@ class SyncManager(
 
         if (localUserSettingsState is ResultState.Success) {
             val local = localUserSettingsState.data
-            val remoteSub = remoteUserSettings?.subscriptionPeriod ?: 0L
-            val mergedSub = maxOf(local.subscriptionPeriod, remoteSub)
-            // Общий settingsPending также ставят зарплата, календарь и справочники.
-            // Поэтому UserSettings выгружаем только если после последней успешной
-            // синхронизации менялась именно эта запись.
-            if (userSettingsLocallyChanged && mergedSub > Clock.System.now().toEpochMilliseconds()) {
-                val toUpload = local.copy(subscriptionPeriod = mergedSub)
-                var ok = false
-                settingManager.saveUserSettingInRemote(toUpload, bearerToken)
-                    .catch { e ->
-                        settingsUploadSucceeded = false
-                        emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${NetworkErrorMapper.humanMessage(e)}")))
-                    }
-                    .collect { s ->
-                        if (s is ResultState.Success) ok = true
-                        if (s is ResultState.Error) settingsUploadSucceeded = false
-                    }
-                if (ok) { result.userSettingsSynced = true; emit(ResultState.Success(result.copy())) }
-            }
-        }
-        // Pull UserSettings (сервер мог отдать более свежие — с другого устройства).
-        if (remoteUserSettings != null) {
-            val localNow = (settingsUseCase.getFlowCurrentSettingsState()
-                .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)?.data
-            val localUpdateAt = localNow?.updateAt ?: 0L
-            // Если локальных несинхронизированных изменений нет, сервер — источник
-            // истины независимо от часов устройства. Иначе клиентский updateAt,
-            // оказавшийся в будущем, навсегда блокирует изменения из PWA.
-            if (!userSettingsLocallyChanged || remoteUserSettings.updateAt >= localUpdateAt) {
-                val listMonthOfYear = calendarUseCase.loadFlowMonthOfYearListState().first()
-                val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-                val currentMonthOfYear = listMonthOfYear.find { it.month == now.monthNumber - 1 && it.year == now.year }
-                val mergedSub = maxOf(localNow?.subscriptionPeriod ?: 0L, remoteUserSettings.subscriptionPeriod)
-                val userSettings = remoteUserSettings.copy(
-                    selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull() ?: com.z_company.domain.entities.MonthOfYear(),
-                    subscriptionPeriod = mergedSub,
-                )
-                settingsUseCase.saveSetting(userSettings).collect {}
-                try {
-                    settingManager.getProductionCalendarFromRemote(userSettings.country, now.year).collect { calState ->
-                        if (calState is ResultState.Success) {
-                            productionCalendarUseCase.saveCalendar(calState.data).collect {}
-                            calendarUseCase.applyProductionCalendar(calState.data).collect {}
+            if (remoteUserSettings != null) {
+                val remote = remoteUserSettings
+                val mergedSub = maxOf(local.subscriptionPeriod, remote.subscriptionPeriod)
+                when (SettingsLww.decide(local.updateAt, remote.updateAt)) {
+                    SettingsSyncAction.PUSH -> {
+                        // Push гейтится подпиской; если не прошёл — noop, локальное не трогаем.
+                        if (mergedSub > nowMillis) {
+                            var ok = false
+                            settingManager.saveUserSettingInRemote(local.copy(subscriptionPeriod = mergedSub), bearerToken)
+                                .catch { e ->
+                                    settingsUploadSucceeded = false
+                                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения UserSettings: ${NetworkErrorMapper.humanMessage(e)}")))
+                                }
+                                .collect { s ->
+                                    if (s is ResultState.Success) ok = true
+                                    if (s is ResultState.Error) settingsUploadSucceeded = false
+                                }
+                            if (ok) {
+                                if (mergedSub > local.subscriptionPeriod) {
+                                    settingsUseCase.updateSubscriptionPeriod(mergedSub).collect {}
+                                }
+                                adoptRemoteUserSettingsUpdateAt(bearerToken, pushedUpdateAt = local.updateAt)
+                            }
                         }
                     }
-                    userSettings.region?.let { region -> calendarUseCase.applyRegionalHolidays(region, now.year).collect {} }
-                } catch (e: Exception) { e.sendToSentry("SyncManager", "syncBidirectional_calendar") }
+                    SettingsSyncAction.PULL -> {
+                        // Pull: настройки изменены на другом устройстве.
+                        val listMonthOfYear = calendarUseCase.loadFlowMonthOfYearListState().first()
+                        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                        val currentMonthOfYear = listMonthOfYear.find { it.month == now.monthNumber - 1 && it.year == now.year }
+                        val userSettings = remote.copy(
+                            selectMonthOfYear = currentMonthOfYear ?: listMonthOfYear.firstOrNull() ?: com.z_company.domain.entities.MonthOfYear(),
+                            subscriptionPeriod = mergedSub,
+                        )
+                        settingsUseCase.saveSetting(userSettings).collect {}
+                        try {
+                            settingManager.getProductionCalendarFromRemote(userSettings.country, now.year).collect { calState ->
+                                if (calState is ResultState.Success) {
+                                    productionCalendarUseCase.saveCalendar(calState.data).collect {}
+                                    calendarUseCase.applyProductionCalendar(calState.data).collect {}
+                                }
+                            }
+                            userSettings.region?.let { region -> calendarUseCase.applyRegionalHolidays(region, now.year).collect {} }
+                        } catch (e: Exception) { e.sendToSentry("SyncManager", "syncBidirectional_calendar") }
+                    }
+                    SettingsSyncAction.NOOP -> {
+                        // Метки равны — ничего не переносим; подписку (например,
+                        // продлённую вебхуком без изменения updateAt) подтягиваем.
+                        if (mergedSub > local.subscriptionPeriod) {
+                            settingsUseCase.updateSubscriptionPeriod(mergedSub).collect {}
+                        }
+                    }
+                }
             }
-            result.userSettingsSynced = true
-            emit(ResultState.Success(result.copy()))
-        } else if (remoteUserSettings == null && localUserSettingsState is ResultState.Success) {
-            // Сервер не отдал настройки (первый вход) — локальные останутся, флаг снимем ниже.
+            // Сервер не отдал настройки (первый вход / нет строки) — локальные остаются.
             result.userSettingsSynced = true
             emit(ResultState.Success(result.copy()))
         }
@@ -821,22 +839,42 @@ class SyncManager(
         // 1.1.1 Отдельный профиль рабочей недели — LWW по client updatedAt.
         if (!syncWorkScheduleProfile(bearerToken)) settingsUploadSucceeded = false
 
-        // 1.2 SalarySetting — push (если менялось локально), затем pull (сервер → локально).
-        if (settingsPending) {
-            val localSalary = salarySettingUseCase.salarySettingFlow().first()
-            settingManager.saveSalarySettingInRemote(localSalary, bearerToken)
-                .catch { settingsUploadSucceeded = false }
-                .collect { if (it is ResultState.Error) settingsUploadSucceeded = false }
+        // 1.2 SalarySetting — та же схема LWW: локальный updatedAt против серверного
+        // `updated_at` (SalarySettingResponse). Нет строки на сервере или сеть —
+        // выгружаем только если есть что пушить (settingsPending).
+        val localSalary = salarySettingUseCase.salarySettingFlow().first()
+        val remoteSalary = try {
+            (settingManager.getSalarySettingFromRemote(bearerToken)
+                .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)?.data
+        } catch (e: Exception) { null }
+        val salaryAction = if (remoteSalary == null) {
+            if (settingsPending) SettingsSyncAction.PUSH else SettingsSyncAction.NOOP
+        } else {
+            SettingsLww.decide(localSalary.updatedAt, remoteSalary.updatedAt)
         }
-        settingManager.getSalarySettingFromRemote(bearerToken)
-            .catch { e -> emit(ResultState.Error(ErrorEntity(message = "Ошибка загрузки SalarySetting: ${NetworkErrorMapper.humanMessage(e)}"))) }
-            .collect { loadState ->
-                if (loadState is ResultState.Success) {
-                    salarySettingUseCase.saveSalarySetting(loadState.data).collect {}
-                    result.salarySettingsSynced = true
-                    emit(ResultState.Success(result.copy()))
+        if (salaryAction == SettingsSyncAction.PUSH) {
+            var ok = false
+            settingManager.saveSalarySettingInRemote(localSalary, bearerToken)
+                .catch { e ->
+                    settingsUploadSucceeded = false
+                    emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения SalarySetting: ${NetworkErrorMapper.humanMessage(e)}")))
                 }
+                .collect { s ->
+                    if (s is ResultState.Success) ok = true
+                    if (s is ResultState.Error) settingsUploadSucceeded = false
+                }
+            if (ok) {
+                adoptRemoteSalaryUpdatedAt(bearerToken, pushedUpdatedAt = localSalary.updatedAt)
+                result.salarySettingsSynced = true
+                emit(ResultState.Success(result.copy()))
             }
+        } else if (remoteSalary != null) {
+            if (salaryAction == SettingsSyncAction.PULL) {
+                salarySettingUseCase.saveSalarySetting(remoteSalary).collect {}
+            }
+            result.salarySettingsSynced = true
+            emit(ResultState.Success(result.copy()))
+        }
 
         // 1.3 Тарифные ставки (monthOfYear / /year/) — push если менялось, pull-merge.
         val localMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
@@ -1257,6 +1295,35 @@ class SyncManager(
      * чтобы двусторонняя синхронизация знала, нужно ли пушить настройки.
      * Гейт по подписке — как у остальной синхронизации.
      */
+    /**
+     * После успешного push сервер ставит СВОЙ updateAt (клиентский игнорирует).
+     * Перенимаем его локально, чтобы следующий синк не делал лишний pull/push.
+     * Только если за время push локальная запись не менялась (иначе новая
+     * правка стала бы «равной» серверной и потерялась бы).
+     */
+    private suspend fun adoptRemoteUserSettingsUpdateAt(bearerToken: String, pushedUpdateAt: Long) {
+        val remote = try {
+            (settingManager.getUserSettingFromRemote(bearerToken)
+                .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)?.data
+        } catch (e: Exception) { null } ?: return
+        val localNow = settingsUseCase.getUserSetting()
+        if (localNow.updateAt == pushedUpdateAt && remote.updateAt != localNow.updateAt) {
+            settingsUseCase.setUpdateAt(remote.updateAt).collect {}
+        }
+    }
+
+    /** То же для SalarySetting (серверное `updated_at`); см. [adoptRemoteUserSettingsUpdateAt]. */
+    private suspend fun adoptRemoteSalaryUpdatedAt(bearerToken: String, pushedUpdatedAt: Long) {
+        val remote = try {
+            (settingManager.getSalarySettingFromRemote(bearerToken)
+                .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)?.data
+        } catch (e: Exception) { null } ?: return
+        val localNow = salarySettingUseCase.getSalarySetting()
+        if (localNow.updatedAt == pushedUpdatedAt && remote.updatedAt != localNow.updatedAt) {
+            salarySettingUseCase.setUpdatedAt(remote.updatedAt).collect {}
+        }
+    }
+
     fun autoPushSettings(bearerToken: String): Flow<ResultState<Unit>> = flow {
         beginSync()
         try {
@@ -1278,12 +1345,24 @@ class SyncManager(
                 .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)?.data?.subscriptionPeriod ?: 0L
         } catch (e: Exception) { 0L }
         val mergedSub = maxOf(local.subscriptionPeriod, remoteSub)
+        var userOk = false
         settingManager.saveUserSettingInRemote(local.copy(subscriptionPeriod = mergedSub), bearerToken)
-            .catch { allOk = false }.collect { if (it is ResultState.Error) allOk = false }
+            .catch { allOk = false }
+            .collect {
+                if (it is ResultState.Success) userOk = true
+                if (it is ResultState.Error) allOk = false
+            }
+        if (userOk) adoptRemoteUserSettingsUpdateAt(bearerToken, pushedUpdateAt = local.updateAt)
 
+        var salaryOk = false
         val localSalary = salarySettingUseCase.salarySettingFlow().first()
         settingManager.saveSalarySettingInRemote(localSalary, bearerToken)
-            .catch { allOk = false }.collect { if (it is ResultState.Error) allOk = false }
+            .catch { allOk = false }
+            .collect {
+                if (it is ResultState.Success) salaryOk = true
+                if (it is ResultState.Error) allOk = false
+            }
+        if (salaryOk) adoptRemoteSalaryUpdatedAt(bearerToken, pushedUpdatedAt = localSalary.updatedAt)
 
         val localMonths = calendarUseCase.loadFlowMonthOfYearListState().first()
         if (localMonths.isNotEmpty()) {
@@ -1496,6 +1575,7 @@ class SyncManager(
 
     companion object {
         /** Даём экрану завершить первый кадр и локальные расчёты до тихой синхронизации. */
+        const val SUBSCRIPTION_REQUIRED_MESSAGE = "Синхронизация доступна по подписке"
         const val BACKGROUND_SYNC_START_DELAY_MILLIS: Long = 1_500L
         const val AUTOMATIC_SYNC_COOLDOWN_MILLIS: Long = 5 * 60 * 1000L
         /**

@@ -29,6 +29,7 @@ import com.z_company.repository.remote_rest.response.AuthResponse
 import com.z_company.repository.remote_rest.response.RevokeSessionsResponse
 import com.z_company.repository.remote_rest.response.LoginResponse
 import com.z_company.repository.remote_rest.response.RouteDeltaResponse
+import com.z_company.repository.remote_rest.response.SalarySettingResponse
 import com.z_company.repository.remote_rest.response.SaveRouteResponse
 import com.z_company.repository.remote_rest.response.ShareRouteResponse
 import com.z_company.repository.remote_rest.response.UserResponse
@@ -162,14 +163,14 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
         client.post("v1/salary_settings/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
-            setBody(body)
+            setBody(SalarySettingResponse.fromDomain(body))
         }.bodyAsText()
     }
 
     override suspend fun getSalarySetting(token: String): SalarySetting =
         client.get("v1/salary_settings/") {
             header("Authorization", token)
-        }.body()
+        }.body<SalarySettingResponse>().toDomain()
 
     override suspend fun saveMonthOfYearList(token: String, body: List<MonthOfYear>) {
         client.post("v1/year/") {

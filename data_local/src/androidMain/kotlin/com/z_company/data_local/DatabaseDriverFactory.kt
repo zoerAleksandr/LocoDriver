@@ -381,6 +381,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "SalarySetting" to "alimonyPercent",
             // Миграция 5: тумблер «Показывать оплаты недоработки»
             "SalarySetting" to "showUnderworkPayments",
+            // Миграция 6: метка updatedAt для LWW-синхронизации
+            "SalarySetting" to "updatedAt",
             primaryTable = "SalarySetting")
         return createDriver(SalarySettingDatabase.Schema, "SalarySetting.db")
     }
@@ -550,7 +552,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "SalarySetting.onePersonOperationPassengerTrainPercent" to ColumnSpec("REAL", false, "50.0"),
             "SalarySetting.welfarePercent" to ColumnSpec("REAL", false, "0.0"),
             "SalarySetting.alimonyPercent" to ColumnSpec("REAL", false, "0.0"),
-            "SalarySetting.showUnderworkPayments" to ColumnSpec("INTEGER", false, "1")
+            "SalarySetting.showUnderworkPayments" to ColumnSpec("INTEGER", false, "1"),
+            "SalarySetting.updatedAt" to ColumnSpec("INTEGER", false, "0")
         )
     }
 

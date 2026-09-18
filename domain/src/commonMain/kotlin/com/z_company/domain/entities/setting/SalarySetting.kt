@@ -37,7 +37,12 @@ data class SalarySetting(
     // Показывать в начислениях строку «Оплата недоработки» (доплата по среднему
     // часу за часы ниже индивидуальной нормы). Выключено — строка не считается
     // и не отображается на экране «Расчёт зарплаты».
-    val showUnderworkPayments: Boolean = true
+    val showUnderworkPayments: Boolean = true,
+    // Метка последнего изменения (epoch ms) для LWW в SyncManager.syncBidirectional
+    // по аналогии с UserSettings.updateAt. Локальная правка ставит её через
+    // SalarySettingUseCase.saveLocalEdit; после pull/push здесь серверное
+    // `updated_at`. В JSON на сервер не уходит (см. SalarySettingResponse).
+    val updatedAt: Long = 0L
 )
 
 @Serializable

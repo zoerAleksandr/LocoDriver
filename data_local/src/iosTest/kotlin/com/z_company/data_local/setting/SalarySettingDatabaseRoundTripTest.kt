@@ -39,6 +39,7 @@ class SalarySettingDatabaseRoundTripTest {
                 welfarePercent = 4.0,
                 alimonyPercent = 25.0,
                 showUnderworkPayments = 0L,
+                updatedAt = 1_700_000_000_000L,
             )
 
             val row = database.salarySettingQueries.getByKey("main").executeAsOne()
@@ -65,6 +66,7 @@ class SalarySettingDatabaseRoundTripTest {
             assertEquals(4.0, row.welfarePercent)
             assertEquals(25.0, row.alimonyPercent)
             assertEquals(0L, row.showUnderworkPayments)
+            assertEquals(1_700_000_000_000L, row.updatedAt)
         } finally {
             driver.close()
         }

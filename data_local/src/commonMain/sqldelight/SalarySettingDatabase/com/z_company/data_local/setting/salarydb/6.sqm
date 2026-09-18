@@ -1,0 +1,4 @@
+-- Миграция 6: метка последнего изменения для LWW-синхронизации зарплатных
+-- настроек (epoch ms, как UserSettings.updateAt). 0 = «никогда не менялись
+-- локально» — серверная версия всегда новее.
+ALTER TABLE SalarySetting ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0;

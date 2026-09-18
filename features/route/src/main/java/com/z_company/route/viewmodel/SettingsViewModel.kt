@@ -360,7 +360,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 saveSettingsJob?.cancel()
                 saveSettingsJob = viewModelScope.launch {
                     val localSettings = settings.copy(
-                        updateAt = Clock.System.now().toEpochMilliseconds()
+                        updateAt = settingsUseCase.nextUpdateAt(settings.updateAt)
                     )
                     settingsUseCase.saveSetting(localSettings).collect { result ->
                         if (result is ResultState.Success) autoPushSettings()

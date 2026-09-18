@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import kotlin.time.Clock
 
 class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
     private val db: SettingsDatabase by inject()
@@ -72,6 +73,24 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
         return flowRequest { insertUserSettings(userSettings) }
     }
 
+    /**
+     * Точечная правка пользователя (станции, серии, ночное время и т.п.).
+     * Ничего не пишем, если значение не изменилось, иначе ставим `updateAt`
+     * строго больше прежнего: LWW в SyncManager.syncBidirectional сравнивает
+     * его с серверным, и правка не должна «состариться» из-за отстающих часов
+     * устройства. Данные с сервера, подписка и выбранный месяц идут мимо —
+     * через [setSettings] / [updateSubscriptionPeriod] / [setCurrentMonthOfYear].
+     */
+    private fun editLocally(transform: (UserSettings) -> UserSettings) {
+        val current = getUserSettings()
+        val updated = transform(current)
+        if (updated == current) return
+        insertUserSettings(updated.copy(updateAt = nextUpdateAt(current.updateAt)))
+    }
+
+    private fun nextUpdateAt(previous: Long): Long =
+        maxOf(Clock.System.now().toEpochMilliseconds(), previous + 1)
+
     override fun getFlowSettingsState(): Flow<ResultState<UserSettings>> {
         return db.userSettingsQueries.getAll()
             .asFlow()
@@ -107,17 +126,11 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
     }
 
     override fun setWorkTimeDefault(timeInMillis: Long): Flow<ResultState<Unit>> {
-        return flowRequest {
-            val current = getUserSettings()
-            insertUserSettings(current.copy(defaultWorkTime = timeInMillis))
-        }
+        return flowRequest { editLocally { it.copy(defaultWorkTime = timeInMillis) } }
     }
 
     override fun updateNightTime(nightTime: NightTime): Flow<ResultState<Unit>> {
-        return flowRequest {
-            val current = getUserSettings()
-            insertUserSettings(current.copy(nightTime = nightTime))
-        }
+        return flowRequest { editLocally { it.copy(nightTime = nightTime) } }
     }
 
     override fun updateMonthOfYearInUserSetting(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> {
@@ -132,10 +145,7 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
     }
 
     override fun setDieselCoefficient(value: Double): Flow<ResultState<Unit>> {
-        return flowRequest {
-            val current = getUserSettings()
-            insertUserSettings(current.copy(lastEnteredDieselCoefficient = value))
-        }
+        return flowRequest { editLocally { it.copy(lastEnteredDieselCoefficient = value) } }
     }
 
     override fun updateSubscriptionPeriod(time: Long): Flow<ResultState<Unit>> {
@@ -146,28 +156,19 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
     }
 
     override fun setStations(stations: List<String>): Flow<ResultState<Unit>> {
-        return flowRequest {
-            val current = getUserSettings()
-            insertUserSettings(current.copy(stationList = stations))
-        }
+        return flowRequest { editLocally { it.copy(stationList = stations) } }
     }
 
     override fun getStations(): List<String> = getUserSettings().stationList
 
     override fun setLocomotiveSeriesList(locomotiveSeries: List<String>): Flow<ResultState<Unit>> {
-        return flowRequest {
-            val current = getUserSettings()
-            insertUserSettings(current.copy(locomotiveSeriesList = locomotiveSeries))
-        }
+        return flowRequest { editLocally { it.copy(locomotiveSeriesList = locomotiveSeries) } }
     }
 
     override fun getLocomotiveSeriesList(): List<String> = getUserSettings().locomotiveSeriesList
 
     override fun setShowBreak(value: Boolean): Flow<ResultState<Unit>> {
-        return flowRequest {
-            val current = getUserSettings()
-            insertUserSettings(current.copy(isShowBreak = value))
-        }
+        return flowRequest { editLocally { it.copy(isShowBreak = value) } }
     }
 
     override fun clearRepository(): Flow<ResultState<Unit>> {

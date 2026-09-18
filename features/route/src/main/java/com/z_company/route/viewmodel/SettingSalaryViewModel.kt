@@ -284,7 +284,8 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
 
             if (salarySetting != null) {
                 applyValidEditableLists(salarySetting)
-                salarySettingUseCase.saveSalarySetting(salarySetting).collect { saveResult ->
+                // saveLocalEdit штампует updatedAt — по нему LWW в SyncManager.
+                salarySettingUseCase.saveLocalEdit(salarySetting).collect { saveResult ->
                     if (saveResult is ResultState.Success) isChangeSaved = true
                 }
             }
@@ -346,7 +347,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
             if (state is ResultState.Success) {
                 state.data?.let { salarySetting ->
                     applyValidEditableLists(salarySetting)
-                    salarySettingUseCase.saveSalarySetting(salarySetting).collect {}
+                    salarySettingUseCase.saveLocalEdit(salarySetting).collect {}
                 }
             }
             // 2. Сохраняем MonthOfYear целиком (tariffRate + dateSetTariffRate).

@@ -8,6 +8,8 @@ interface SalarySettingRepository {
     fun getSalarySetting(): SalarySetting
     fun getSalarySettingState(): Flow<ResultState<SalarySetting>>
     fun saveSalarySetting(setting: SalarySetting): Flow<ResultState<Unit>>
+    /** Меняет только метку [SalarySetting.updatedAt] (после push — на серверную). */
+    fun setUpdatedAt(timestamp: Long): Flow<ResultState<Unit>>
 
     fun getSalarySettingFlow(): Flow<SalarySetting>
 }

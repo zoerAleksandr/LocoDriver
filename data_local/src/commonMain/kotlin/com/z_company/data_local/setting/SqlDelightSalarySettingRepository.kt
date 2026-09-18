@@ -13,6 +13,7 @@ import com.z_company.domain.entities.setting.SurchargeLongTrains
 import com.z_company.domain.repositories.SalarySettingRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -64,7 +65,8 @@ class SqlDelightSalarySettingRepository : SalarySettingRepository, KoinComponent
             otherRetention = row.otherRetention,
             welfarePercent = row.welfarePercent,
             alimonyPercent = row.alimonyPercent,
-            showUnderworkPayments = row.showUnderworkPayments != 0L
+            showUnderworkPayments = row.showUnderworkPayments != 0L,
+            updatedAt = row.updatedAt
         )
 
     override fun getSalarySetting(): SalarySetting {
@@ -108,8 +110,21 @@ class SqlDelightSalarySettingRepository : SalarySettingRepository, KoinComponent
                 otherRetention = setting.otherRetention,
                 welfarePercent = setting.welfarePercent,
                 alimonyPercent = setting.alimonyPercent,
-                showUnderworkPayments = if (setting.showUnderworkPayments) 1L else 0L
+                showUnderworkPayments = if (setting.showUnderworkPayments) 1L else 0L,
+                updatedAt = setting.updatedAt
             )
+        }
+    }
+
+    override fun setUpdatedAt(timestamp: Long): Flow<ResultState<Unit>> {
+        return flowRequest {
+            // Строки может ещё не быть (дефолты не сохранялись) — тогда пишем их.
+            val current = getSalarySetting()
+            if (db.salarySettingQueries.getByKey(current.key).executeAsOneOrNull() == null) {
+                saveSalarySetting(current.copy(updatedAt = timestamp)).collect {}
+            } else {
+                db.salarySettingQueries.setUpdatedAt(updatedAt = timestamp, key = current.key)
+            }
         }
     }
 

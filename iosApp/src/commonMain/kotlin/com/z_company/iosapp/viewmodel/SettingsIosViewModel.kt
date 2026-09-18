@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
 
 /**
  * KMP ViewModel для экрана настроек.
@@ -54,7 +53,7 @@ class SettingsIosViewModel(
     fun saveSetting(settings: UserSettings) {
         viewModelScope.launch {
             settingsUseCase.saveSetting(
-                settings.copy(updateAt = Clock.System.now().toEpochMilliseconds())
+                settings.copy(updateAt = settingsUseCase.nextUpdateAt(settings.updateAt))
             ).collect {}
         }
     }

@@ -10,8 +10,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlin.time.Clock
 
 class SalarySettingUseCase(
     val repository: SalarySettingRepository,
@@ -25,8 +27,28 @@ class SalarySettingUseCase(
     fun getFlowSalarySetting(): Flow<ResultState<SalarySetting>> =
         repository.getSalarySettingState()
 
+    /** Сохраняет как есть (updatedAt из [setting]) — для данных с сервера. */
     fun saveSalarySetting(setting: SalarySetting): Flow<ResultState<Unit>> =
         repository.saveSalarySetting(setting)
+
+    /**
+     * Сохранение правки пользователя. Если данные не изменились — не пишем
+     * (не плодим лишних push). Иначе ставим [SalarySetting.updatedAt] строго
+     * больше прежнего: LWW в SyncManager сравнивает его с серверным
+     * `updated_at`, и отстающие часы устройства не должны «состарить» правку.
+     */
+    fun saveLocalEdit(setting: SalarySetting): Flow<ResultState<Unit>> = flow {
+        val stored = repository.getSalarySetting()
+        if (setting.copy(updatedAt = stored.updatedAt) == stored) {
+            emit(ResultState.Success(Unit))
+            return@flow
+        }
+        val stamp = maxOf(Clock.System.now().toEpochMilliseconds(), stored.updatedAt + 1)
+        emitAll(repository.saveSalarySetting(setting.copy(updatedAt = stamp)))
+    }
+
+    fun setUpdatedAt(timestamp: Long): Flow<ResultState<Unit>> =
+        repository.setUpdatedAt(timestamp)
 
     fun updateMonthOfYear(monthOfYear: MonthOfYear): Flow<ResultState<Unit>> =
         calendarUseCase.updateMonthOfYear(monthOfYear)
