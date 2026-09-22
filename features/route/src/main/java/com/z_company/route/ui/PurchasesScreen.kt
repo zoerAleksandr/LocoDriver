@@ -490,10 +490,14 @@ fun PurchasesScreen(
                             },
                         )
 
-                        val awardedDays = referralStatus?.awardedDays ?: 0
-                        if (awardedDays > 0) {
+                        // remainingBonusDays, не awardedDays: показываем не больше, чем
+                        // реально осталось до конца подписки, и это должно обнулиться
+                        // после того, как подписка когда-либо истечёт — иначе строка
+                        // считала бы бонусом уже полностью оплаченный деньгами период.
+                        val remainingBonusDays = referralStatus?.remainingBonusDays ?: 0
+                        if (remainingBonusDays > 0) {
                             Text(
-                                text = "Из них $awardedDays дн. — бонус за приглашённых друзей",
+                                text = "Из них $remainingBonusDays дн. — бонус по реферальной программе",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 4.dp),

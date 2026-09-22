@@ -126,7 +126,6 @@ private fun ReferralContent(data: ReferralStatusResponse) {
             Column(Modifier.padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("ВАШ КОД", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(data.code, fontFamily = MonoFont, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text("Друг вводит его перед своей первой оплатой", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                 Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = {
                         val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
