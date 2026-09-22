@@ -479,6 +479,13 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         editor.putInt("${LAST_SEEN_ANNOUNCEMENT_NUMBER}_$type", value).apply()
     }
 
+    override fun getLastSeenReferralAwardedDays(): Int =
+        sharedpref.getInt(LAST_SEEN_REFERRAL_AWARDED_DAYS, -1)
+
+    override fun setLastSeenReferralAwardedDays(value: Int) {
+        editor.putInt(LAST_SEEN_REFERRAL_AWARDED_DAYS, value).apply()
+    }
+
     override fun getThemeMode(): String? =
         sharedpref.getString(TOKEN_THEME_MODE, null)
 
@@ -499,6 +506,7 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
     private companion object {
         const val SCHEDULE_PATTERNS_KEY = "SCHEDULE_PATTERNS"
         const val LAST_SEEN_ANNOUNCEMENT_NUMBER = "LAST_SEEN_ANNOUNCEMENT_NUMBER"
+        const val LAST_SEEN_REFERRAL_AWARDED_DAYS = "LAST_SEEN_REFERRAL_AWARDED_DAYS"
         const val TOKEN_THEME_MODE = "TOKEN_THEME_MODE"
         const val WORK_SCHEDULE_PROFILE_KEY = "WORK_SCHEDULE_PROFILE"
         const val CURRENT_ROUTE_BLOCK_ORDER_KEY = "CURRENT_ROUTE_BLOCK_ORDER"

@@ -101,6 +101,14 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val _showPaymentProcessingDialog = MutableStateFlow(false)
     val showPaymentProcessingDialog = _showPaymentProcessingDialog.asStateFlow()
 
+    // Сколько дней бонуса начислила рефералка с прошлого просмотра — null,
+    // если показывать нечего. Общий механизм для ОБОИХ участников: и
+    // пригласивший, и приглашённый одинаково получают ReferralReward за
+    // один и тот же платёж, поэтому один и тот же diff-по-awardedDays
+    // ловит начисление у каждого, кто открыл этот экран.
+    private val _bonusAwardedDays = MutableStateFlow<Int?>(null)
+    val bonusAwardedDays = _bonusAwardedDays.asStateFlow()
+
     private val _event = MutableSharedFlow<BillingEvent>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -119,11 +127,32 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             try {
                 val token = secureTokenStorage.getAuthBearerTokenFlow().first()
-                _referralStatus.value = remoteRestApi.getReferralStatus("Bearer $token")
+                val status = remoteRestApi.getReferralStatus("Bearer $token")
+                _referralStatus.value = status
+                checkBonusAwarded(status.awardedDays)
             } catch (_: Exception) {
                 _referralStatus.value = null
             }
         }
+    }
+
+    /**
+     * Сравнивает свежий [awardedDays] с последним увиденным на устройстве.
+     * -1 в хранилище — первый запуск трекинга: просто запоминаем базу, без
+     * диалога (иначе показали бы «начислен бонус» за старую, давно
+     * начисленную историю). Рост — показываем диалог с разницей; падение
+     * (после отмены при возврате оплаты) — молча обновляем базу.
+     */
+    private fun checkBonusAwarded(awardedDays: Int) {
+        val lastSeen = sharedPrefs.getLastSeenReferralAwardedDays()
+        if (lastSeen in 0 until awardedDays) {
+            _bonusAwardedDays.value = awardedDays - lastSeen
+        }
+        sharedPrefs.setLastSeenReferralAwardedDays(awardedDays)
+    }
+
+    fun dismissBonusAwardedDialog() {
+        _bonusAwardedDays.value = null
     }
 
     fun applyReferralCode(code: String) {

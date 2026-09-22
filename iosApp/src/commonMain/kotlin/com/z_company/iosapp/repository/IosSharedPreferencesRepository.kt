@@ -112,6 +112,9 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setLastOtherWorkType(value: String?) { lastOtherWorkType = value }
     override fun getLastSeenAnnouncementNumber(type: String): Int = lastSeenAnnouncementNumbers[type] ?: -1
     override fun setLastSeenAnnouncementNumber(type: String, value: Int) { lastSeenAnnouncementNumbers[type] = value }
+    private var lastSeenReferralAwardedDays: Int = -1
+    override fun getLastSeenReferralAwardedDays(): Int = lastSeenReferralAwardedDays
+    override fun setLastSeenReferralAwardedDays(value: Int) { lastSeenReferralAwardedDays = value }
     override fun isUnderworkInfoDismissed(): Boolean = underworkInfoDismissed
     override fun setUnderworkInfoDismissed() { underworkInfoDismissed = true }
     override fun getThemeMode(): String? = themeMode

@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -36,6 +37,13 @@ fun ReferralScreen(onBack: () -> Unit) {
     val status by vm.status.collectAsState()
     val error by vm.error.collectAsState()
     val loading by vm.loading.collectAsState()
+    // ReferralScreen — тумблер внутри ProfileScreen, а не отдельный nav-
+    // destination, поэтому viewModel() возвращает один и тот же экземпляр
+    // на весь ProfileScreen: init{} вьюмодели отрабатывает один раз при
+    // первом открытии, а при повторном (например, после оплаты другом)
+    // данные оставались бы старыми. LaunchedEffect(Unit) перезапускается
+    // при каждом новом входе в composition — обновляем счётчики и код.
+    LaunchedEffect(Unit) { vm.refresh() }
     Scaffold(topBar = {
         TopAppBar(
             title = { Text("Реферальная программа", fontWeight = FontWeight.SemiBold) },
@@ -149,7 +157,14 @@ private fun ReferralContent(data: ReferralStatusResponse) {
 
 @Composable
 private fun ReferralMetric(icon: Int, label: String, value: String, modifier: Modifier) {
-    Row(modifier.clip(Shapes.medium).background(MaterialTheme.colorScheme.surfaceVariant).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier
+            .clip(Shapes.medium)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, Shapes.medium)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Icon(painterResource(icon), null, Modifier.size(24.dp), MaterialTheme.colorScheme.tertiary)
         Column(Modifier.padding(start = 10.dp)) {
             Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -176,7 +191,15 @@ private fun ReferralAppliedCard(code: String, status: String?) {
 
 @Composable
 private fun ReferralRulesCard() {
-    Column(Modifier.fillMaxWidth().clip(Shapes.medium).background(MaterialTheme.colorScheme.surfaceVariant).padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(Shapes.medium)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, Shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp),
+    ) {
         Text("Как это работает", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         RuleRow("1", "Поделитесь своим кодом с другом")
         RuleRow("2", "Друг может применить код до своей первой оплаты")

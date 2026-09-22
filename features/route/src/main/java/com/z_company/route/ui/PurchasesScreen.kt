@@ -235,6 +235,22 @@ fun PurchasesScreen(
         )
     }
 
+    // Показываем и пригласившему, и приглашённому — оба получают награду
+    // за один и тот же платёж друга (см. checkBonusAwarded в ViewModel).
+    val bonusAwardedDays by viewModel.bonusAwardedDays.collectAsState()
+
+    if (bonusAwardedDays != null) {
+        PaymentDialog(
+            iconRes = R.drawable.check_circle_24px,
+            iconTone = MaterialTheme.colorScheme.primary,
+            title = "Начислен бонус!",
+            body = "Друг оплатил подписку — вам добавлено $bonusAwardedDays дн. по реферальной программе.",
+            onDismiss = { viewModel.dismissBonusAwardedDialog() },
+            primaryLabel = "Отлично!",
+            onPrimary = { viewModel.dismissBonusAwardedDialog() },
+        )
+    }
+
     val snackbarManager: ISnackbarManager = koinInject()
 
     LaunchedEffect(Unit) {
@@ -473,6 +489,16 @@ fun PurchasesScreen(
                                 )
                             },
                         )
+
+                        val awardedDays = referralStatus?.awardedDays ?: 0
+                        if (awardedDays > 0) {
+                            Text(
+                                text = "Из них $awardedDays дн. — бонус за приглашённых друзей",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
 
                         if (purchaseState.daysLeft in 0..EXPIRING_SOON_DAYS) {
                             Spacer(modifier = Modifier.height(10.dp))
