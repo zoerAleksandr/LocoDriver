@@ -4,15 +4,6 @@
      (features/route/src/main/assets/, копия 1:1); держите оба в синхроне. -->
 <svg viewBox="0 0 360 334" xmlns="http://www.w3.org/2000/svg" font-family="Roboto, 'Segoe UI', Inter, DejaVu Sans, sans-serif">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="var(--accent-soft, #EDF5FF)"/><stop offset="100%" stop-color="var(--surface-alt, #F5F2FC)"/>
-    </linearGradient>
-    <linearGradient id="termG" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#7CC4F5"/><stop offset="100%" stop-color="var(--accent, #3DA5F5)"/>
-    </linearGradient>
-    <linearGradient id="bonusFillG" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#6EE7B7"/><stop offset="100%" stop-color="var(--success, #00B341)"/>
-    </linearGradient>
     <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
       <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="var(--shadow-color, rgba(43,111,168,0.12))"/>
     </filter>
@@ -57,7 +48,7 @@
 
     @media (prefers-reduced-motion: reduce) { * { animation: none !important } }
   </style>
-  <rect width="360" height="334" rx="26" fill="url(#bg)"/>
+  <rect width="360" height="334" rx="26" fill="var(--accent-soft, #EDF5FF)"/>
 
   <use class="tw" href="#star" x="22" y="64" fill="#FFC24D"/>
   <use class="tw2" href="#star" x="338" y="74" fill="#7FD8F0"/>
@@ -107,8 +98,8 @@
        (статично) и зелёный «бонус» (растёт анимацией из нуля, поэтому ДО
        начала анимации виден нейтральный трек, а не синий). -->
   <rect x="30" y="246" width="130" height="13" rx="6.5" fill="var(--border-strong, #E4EDF5)"/>
-  <g clip-path="url(#clipL)"><rect x="30" y="246" width="87" height="13" fill="url(#termG)"/></g>
-  <g clip-path="url(#clipL)"><rect id="fillL" class="fill" x="117" y="246" width="43" height="13" fill="url(#bonusFillG)"/></g>
+  <g clip-path="url(#clipL)"><rect x="30" y="246" width="87" height="13" fill="var(--accent, #3DA5F5)"/></g>
+  <g clip-path="url(#clipL)"><rect id="fillL" class="fill" x="117" y="246" width="43" height="13" fill="var(--success, #00B341)"/></g>
   <text x="72" y="274" text-anchor="middle" font-size="10.5" font-weight="500" fill="var(--text-faint, #93A3B0)">ваш срок</text>
   <text id="labL" class="lab" x="138" y="274" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--success, #00B341)">бонус</text>
 
@@ -123,8 +114,8 @@
   <text id="numR" class="num b" x="265" y="217" text-anchor="middle" font-size="34" font-weight="800" fill="var(--success, #00B341)">+6</text>
   <text x="265" y="234" text-anchor="middle" font-size="12" font-weight="500" fill="var(--text-muted, #6B7C8A)">месяцев</text>
   <rect x="200" y="246" width="130" height="13" rx="6.5" fill="var(--border-strong, #E4EDF5)"/>
-  <g clip-path="url(#clipR)"><rect x="200" y="246" width="87" height="13" fill="url(#termG)"/></g>
-  <g clip-path="url(#clipR)"><rect id="fillR" class="fill b" x="287" y="246" width="43" height="13" fill="url(#bonusFillG)"/></g>
+  <g clip-path="url(#clipR)"><rect x="200" y="246" width="87" height="13" fill="var(--accent, #3DA5F5)"/></g>
+  <g clip-path="url(#clipR)"><rect id="fillR" class="fill b" x="287" y="246" width="43" height="13" fill="var(--success, #00B341)"/></g>
   <text x="242" y="274" text-anchor="middle" font-size="10.5" font-weight="500" fill="var(--text-faint, #93A3B0)">12 месяцев</text>
   <text id="labR" class="lab b" x="308" y="274" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--success, #00B341)">бонус</text>
 
