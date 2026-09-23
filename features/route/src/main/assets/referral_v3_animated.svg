@@ -1,13 +1,20 @@
-<svg viewBox="0 0 360 320" xmlns="http://www.w3.org/2000/svg" font-family="Roboto, 'Segoe UI', Inter, DejaVu Sans, sans-serif" xmlns:c2pa="http://c2pa.org/manifest"><metadata><c2pa:manifest>AAAWgmp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAABZcanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46YzJwYTo0YTY4ZjJlMC04ZjAwLTRmNjUtOTA5Ni0wMmU2YTZlMDI5MWQAAAADl2p1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAALxqdW1iAAAARGp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuaW5ncmVkaWVudC52MwAAAAAYYzJzaOp45OiHz+wjPgOvQBp7WY0AAABwY2JvcqNpZGM6Zm9ybWF0bWltYWdlL3N2Zyt4bWxqaW5zdGFuY2VJRHgseG1wOmlpZDo4ZTcyZTk3Zi1kMTEzLTQyN2UtOTlkMS02ODc5YmE3OTdhYmRscmVsYXRpb25zaGlwaHBhcmVudE9mAAAB4mp1bWIAAABBanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5hY3Rpb25zLnYyAAAAABhjMnNo0pjA5iedBRoeEJnoLxayOgAAAZljYm9yomdhY3Rpb25zgqJmYWN0aW9ua2MycGEub3BlbmVkanBhcmFtZXRlcnOha2luZ3JlZGllbnRzgaJjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFgg6btatDch+PnhXlicUjUWK2JBuHS8uwxCzRXObWPbdb2kZmFjdGlvbngdY29tLmFudGhyb3BpYy5jbGF1ZGUucHJvdmlkZWRqcGFyYW1ldGVyc6F4H2NvbS5hbnRocm9waWMub3JpZ2luLWNvbmZpZGVuY2VndW5rbm93bmtkZXNjcmlwdGlvbnhmQ2xhdWRlIHByb3ZpZGVkIHRoaXMgZmlsZSBhdCB0aGUgcmVxdWVzdCBvZiBhIHVzZXIgYW5kIG1heSBoYXZlIGNyZWF0ZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGUgY29udGVudHMubXNvZnR3YXJlQWdlbnShZG5hbWVmQ2xhdWRlcmFsbEFjdGlvbnNJbmNsdWRlZPUAAADIanVtYgAAAEBqdW1kY2JvcgARABCAAACqADibcRNjMnBhLmhhc2guZGF0YQAAAAAYYzJzaE2AG+p6vniF308ctvcP/fYAAACAY2JvcqVjYWxnZnNoYTI1NmNwYWRNAAAAAAAAAAAAAAAAAGRoYXNoWCAoKVbmm+eDhuG4UnEkTyxV1S574WJ0QJdVq18BKRtv8mRuYW1lbmp1bWJmIG1hbmlmZXN0amV4Y2x1c2lvbnOBomVzdGFydBi+Zmxlbmd0aBkeBAAAAj5qdW1iAAAAJ2p1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0udjIAAAACD2Nib3KlY2FsZ2ZzaGEyNTZpc2lnbmF0dXJleE1zZWxmI2p1bWJmPS9jMnBhL3VybjpjMnBhOjRhNjhmMmUwLThmMDAtNGY2NS05MDk2LTAyZTZhNmUwMjkxZC9jMnBhLnNpZ25hdHVyZWppbnN0YW5jZUlEeCx4bXA6aWlkOjUyM2UzYWRiLTIzYjQtNGZmZS05ZWExLWRjNGVjMGFiODNjZnJjcmVhdGVkX2Fzc2VydGlvbnODomN1cmx4LXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaW5ncmVkaWVudC52M2RoYXNoWCDpu1q0NyH4+eFeWJxSNRYrYkG4dLy7DELNFc5tY9t1vaJjdXJseCpzZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmFjdGlvbnMudjJkaGFzaFggepA3GL88km+7xFHPyBCVoAeqg81gLzespGeEdY+w+VmiY3VybHgpc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5oYXNoLmRhdGFkaGFzaFggD8WOfQ5xo44evTI4VmuVa7anhPj0YL+qp+nk8D3qy550Y2xhaW1fZ2VuZXJhdG9yX2luZm+jZG5hbWVvQW50aHJvcGljIEZpbGVzZ3ZlcnNpb25lMS4wLjBrc3BlY1ZlcnNpb25lMi40LjAAABA4anVtYgAAAChqdW1kYzJjcwARABCAAACqADibcQNjMnBhLnNpZ25hdHVyZQAAABAIY2JvctKEWQISogEmGCFZAgowggIGMIIBjaADAgECAhRA5aAK7sI50L64g/oGQgU9Z1UTADAKBggqhkjOPQQDAzBJMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEuMCwGA1UEAxMlQW50aHJvcGljIENvbnRlbnQgQ3JlZGVudGlhbHMgUm9vdCBDQTAeFw0yNjA4MDcxODQzNTZaFw0yODA4MDYxOTQzNTZaMEQxFzAVBgNVBAoTDkFudGhyb3BpYywgUEJDMSkwJwYDVQQDEyBBbnRocm9waWMgQ2xhdWRlIENvbnRlbnQgU2lnbmluZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJh6CmvLUBgFFNU0vUKlOVtE6djd17L5SuwX0LemFisBM3dkd/3cyjxFA3Qo5S46fX0/ihY0VZ7mfb9KF703t5OjWDBWMA4GA1UdDwEB/wQEAwIHgDAVBgNVHSUEDjAMBgorBgEEAYPoXgIBMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUzlHiBIFOZFsj+OPEz5o+nMHXXMIwCgYIKoZIzj0EAwMDZwAwZAIwMXMdFJ4BetLLVY7ORuE9noqbbAZOZn/aArXyTwFAZfKrPzxF2vPoJNf1+UCdg1XGAjBwX1zd9WGqYkqmL5SFqw1QySjr1zJfpJM9+1rdDwSPLMOPOjKuiXjoU/pUUeG9RwmhY3BhZFkNngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPZYQJX1aBOrLXxU1MfIOsdlH3VCjLZkZ/Grh0WK1epOFbkbpYE5g6PzcbAST4M96lByUWEU9Ojs6L0/HnfxXPZQ5Yc=</c2pa:manifest></metadata>
+<!-- Не используется напрямую в PWA (см. src/components/ReferralHeroIllustration.vue —
+     та же разметка, инлайнена в Vue-шаблон, чтобы var() резолвился из
+     живых CSS-токенов main.css). Этот файл — asset для Android WebView
+     (features/route/src/main/assets/, копия 1:1); держите оба в синхроне. -->
+<svg viewBox="0 0 360 334" xmlns="http://www.w3.org/2000/svg" font-family="Roboto, 'Segoe UI', Inter, DejaVu Sans, sans-serif">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#EDF5FF"/><stop offset="100%" stop-color="#F5F2FC"/>
+      <stop offset="0%" stop-color="var(--accent-soft, #EDF5FF)"/><stop offset="100%" stop-color="var(--surface-alt, #F5F2FC)"/>
     </linearGradient>
-    <linearGradient id="bonusG" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#5BD0E6"/><stop offset="100%" stop-color="#3DA5F5"/>
+    <linearGradient id="termG" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7CC4F5"/><stop offset="100%" stop-color="var(--accent, #3DA5F5)"/>
+    </linearGradient>
+    <linearGradient id="bonusFillG" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6EE7B7"/><stop offset="100%" stop-color="var(--success, #00B341)"/>
     </linearGradient>
     <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#2B6FA8" flood-opacity="0.12"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="var(--shadow-color, rgba(43,111,168,0.12))"/>
     </filter>
     <clipPath id="clipL"><rect x="30" y="246" width="130" height="13" rx="6.5"/></clipPath>
     <clipPath id="clipR"><rect x="200" y="246" width="130" height="13" rx="6.5"/></clipPath>
@@ -50,7 +57,7 @@
 
     @media (prefers-reduced-motion: reduce) { * { animation: none !important } }
   </style>
-  <rect width="360" height="320" rx="26" fill="url(#bg)"/>
+  <rect width="360" height="334" rx="26" fill="url(#bg)"/>
 
   <use class="tw" href="#star" x="22" y="64" fill="#FFC24D"/>
   <use class="tw2" href="#star" x="338" y="74" fill="#7FD8F0"/>
@@ -58,7 +65,7 @@
   <!-- top pill -->
   <g class="pill">
   <g filter="url(#soft)">
-    <rect x="27" y="14" width="306" height="44" rx="22" fill="#FFFFFF"/>
+    <rect x="27" y="14" width="306" height="44" rx="22" fill="var(--surface, #FFFFFF)"/>
   </g>
   <g transform="translate(42,25)">
     <rect x="0" y="6" width="22" height="14" rx="3" fill="#FFB65C"/>
@@ -67,52 +74,60 @@
     <circle cx="8" cy="2.5" r="3.4" fill="#FF9F3D"/>
     <circle cx="14" cy="2.5" r="3.4" fill="#FFB65C"/>
   </g>
-  <text x="204" y="41" text-anchor="middle" font-size="13" font-weight="700" fill="#22323F">Друг оплачивает 1 год подписки</text>
+  <text x="204" y="41" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text, #22323F)">Друг оплачивает 1 год подписки</text>
   </g>
 
-  <!-- split -->
-  <path class="flow" id="pathL" d="M180 66 H120 Q106 66 106 80 V94" fill="none" stroke="#9FD3F0" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="6 7"/>
-  <path class="flow" id="pathR" d="M180 66 H240 Q254 66 254 80 V94" fill="none" stroke="#9FD3F0" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="6 7"/>
-  <path class="tip" d="M99.5 94 L112.5 94 L106 102 Z" fill="#9FD3F0"/>
-  <path class="tip" d="M247.5 94 L260.5 94 L254 102 Z" fill="#9FD3F0"/>
+  <!-- split: линии и бейджи «Бонус» окрашены в зелёный — тот же цвет, что и
+       анимированная бонусная часть прогресса ниже, чтобы визуально читалось
+       как один и тот же поток. -->
+  <path class="flow" id="pathL" d="M180 66 H120 Q106 66 106 80 V94" fill="none" stroke="var(--success, #00B341)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="6 7"/>
+  <path class="flow" id="pathR" d="M180 66 H240 Q254 66 254 80 V94" fill="none" stroke="var(--success, #00B341)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="6 7"/>
+  <path class="tip" d="M99.5 94 L112.5 94 L106 102 Z" fill="var(--success, #00B341)"/>
+  <path class="tip" d="M247.5 94 L260.5 94 L254 102 Z" fill="var(--success, #00B341)"/>
   <g id="badgeL" class="badge">
-    <rect x="111" y="53" width="60" height="26" rx="13" fill="#FFFFFF" stroke="#CDE7F8" stroke-width="1.6"/>
-    <text x="141" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#3DA5F5">Бонус</text>
+    <rect x="111" y="53" width="60" height="26" rx="13" fill="var(--surface, #FFFFFF)" stroke="var(--success, #00B341)" stroke-opacity="0.35" stroke-width="1.6"/>
+    <text x="141" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="var(--success, #00B341)">Бонус</text>
   </g>
   <g id="badgeR" class="badge b">
-    <rect x="189" y="53" width="60" height="26" rx="13" fill="#FFFFFF" stroke="#CDE7F8" stroke-width="1.6"/>
-    <text x="219" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="#3DA5F5">Бонус</text>
+    <rect x="189" y="53" width="60" height="26" rx="13" fill="var(--surface, #FFFFFF)" stroke="var(--success, #00B341)" stroke-opacity="0.35" stroke-width="1.6"/>
+    <text x="219" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="var(--success, #00B341)">Бонус</text>
   </g>
 
   <!-- left card -->
-  <g filter="url(#soft)"><rect x="14" y="110" width="162" height="174" rx="24" fill="#FFFFFF"/></g>
+  <g filter="url(#soft)"><rect x="14" y="110" width="162" height="174" rx="24" fill="var(--surface, #FFFFFF)"/></g>
   <g id="avaL" class="ava">
     <circle cx="95" cy="142" r="22" fill="#D9EAF9"/>
     <circle cx="95" cy="136.5" r="6.2" fill="#2E86D6"/>
     <path d="M85 152.5 q0 -9.5 10 -9.5 q10 0 10 9.5 z" fill="#2E86D6"/>
   </g>
-  <text x="95" y="182" text-anchor="middle" font-size="14" font-weight="700" fill="#22323F">Вам</text>
-  <text id="numL" class="num" x="95" y="217" text-anchor="middle" font-size="34" font-weight="800" fill="#3DA5F5">+6</text>
-  <text x="95" y="234" text-anchor="middle" font-size="12" font-weight="500" fill="#6B7C8A">месяцев</text>
-  <rect x="30" y="246" width="130" height="13" rx="6.5" fill="#E4EDF5"/>
-  <g clip-path="url(#clipL)"><rect id="fillL" class="fill" x="117" y="246" width="43" height="13" fill="url(#bonusG)"/></g>
-  <text x="72" y="274" text-anchor="middle" font-size="10.5" font-weight="500" fill="#93A3B0">ваш срок</text>
-  <text id="labL" class="lab" x="138" y="274" text-anchor="middle" font-size="10.5" font-weight="700" fill="#3DA5F5">бонус</text>
+  <text x="95" y="182" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text, #22323F)">Вам</text>
+  <text id="numL" class="num" x="95" y="217" text-anchor="middle" font-size="34" font-weight="800" fill="var(--success, #00B341)">+6</text>
+  <text x="95" y="234" text-anchor="middle" font-size="12" font-weight="500" fill="var(--text-muted, #6B7C8A)">месяцев</text>
+  <!-- прогресс: нейтральный трек на всю ширину, поверх — синий «ваш срок»
+       (статично) и зелёный «бонус» (растёт анимацией из нуля, поэтому ДО
+       начала анимации виден нейтральный трек, а не синий). -->
+  <rect x="30" y="246" width="130" height="13" rx="6.5" fill="var(--border-strong, #E4EDF5)"/>
+  <g clip-path="url(#clipL)"><rect x="30" y="246" width="87" height="13" fill="url(#termG)"/></g>
+  <g clip-path="url(#clipL)"><rect id="fillL" class="fill" x="117" y="246" width="43" height="13" fill="url(#bonusFillG)"/></g>
+  <text x="72" y="274" text-anchor="middle" font-size="10.5" font-weight="500" fill="var(--text-faint, #93A3B0)">ваш срок</text>
+  <text id="labL" class="lab" x="138" y="274" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--success, #00B341)">бонус</text>
 
   <!-- right card -->
-  <g filter="url(#soft)"><rect x="184" y="110" width="162" height="174" rx="24" fill="#FFFFFF"/></g>
+  <g filter="url(#soft)"><rect x="184" y="110" width="162" height="174" rx="24" fill="var(--surface, #FFFFFF)"/></g>
   <g id="avaR" class="ava b">
     <circle cx="265" cy="142" r="22" fill="#FCE8CE"/>
     <circle cx="265" cy="136.5" r="6.2" fill="#D3882F"/>
     <path d="M255 152.5 q0 -9.5 10 -9.5 q10 0 10 9.5 z" fill="#D3882F"/>
   </g>
-  <text x="265" y="182" text-anchor="middle" font-size="14" font-weight="700" fill="#22323F">Другу</text>
-  <text id="numR" class="num b" x="265" y="217" text-anchor="middle" font-size="34" font-weight="800" fill="#3DA5F5">+6</text>
-  <text x="265" y="234" text-anchor="middle" font-size="12" font-weight="500" fill="#6B7C8A">месяцев</text>
-  <rect x="200" y="246" width="130" height="13" rx="6.5" fill="#E4EDF5"/>
-  <g clip-path="url(#clipR)"><rect id="fillR" class="fill b" x="287" y="246" width="43" height="13" fill="url(#bonusG)"/></g>
-  <text x="242" y="274" text-anchor="middle" font-size="10.5" font-weight="500" fill="#93A3B0">12 месяцев</text>
-  <text id="labR" class="lab b" x="308" y="274" text-anchor="middle" font-size="10.5" font-weight="700" fill="#3DA5F5">бонус</text>
+  <text x="265" y="182" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text, #22323F)">Другу</text>
+  <text id="numR" class="num b" x="265" y="217" text-anchor="middle" font-size="34" font-weight="800" fill="var(--success, #00B341)">+6</text>
+  <text x="265" y="234" text-anchor="middle" font-size="12" font-weight="500" fill="var(--text-muted, #6B7C8A)">месяцев</text>
+  <rect x="200" y="246" width="130" height="13" rx="6.5" fill="var(--border-strong, #E4EDF5)"/>
+  <g clip-path="url(#clipR)"><rect x="200" y="246" width="87" height="13" fill="url(#termG)"/></g>
+  <g clip-path="url(#clipR)"><rect id="fillR" class="fill b" x="287" y="246" width="43" height="13" fill="url(#bonusFillG)"/></g>
+  <text x="242" y="274" text-anchor="middle" font-size="10.5" font-weight="500" fill="var(--text-faint, #93A3B0)">12 месяцев</text>
+  <text id="labR" class="lab b" x="308" y="274" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--success, #00B341)">бонус</text>
 
-  <text x="180" y="304" text-anchor="middle" font-size="11.5" font-weight="500" fill="#7A8B98">Бонус придёт обоим сразу после первой оплаты</text>
+  <text x="180" y="300" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text-muted, #7A8B98)">Пример.</text>
+  <text x="180" y="317" text-anchor="middle" font-size="10.5" font-weight="500" fill="var(--text-muted, #7A8B98)">Бонусы начисляются при оплате любого срока подписки</text>
 </svg>

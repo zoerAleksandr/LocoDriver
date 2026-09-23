@@ -1292,7 +1292,7 @@ fun ProfileScreen(
                                         )
                                     }
                                     Column(Modifier.weight(1f)) {
-                                        Text("Реферальная программа", style = styleData, color = primaryColor)
+                                        Text("Пригласить друга", style = styleData, color = primaryColor)
                                         Text("Получите Про вместе с другом", style = styleHint, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Icon(
