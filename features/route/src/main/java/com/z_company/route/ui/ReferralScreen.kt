@@ -185,7 +185,7 @@ private fun ReferralRulesCard() {
     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
         Text("Как это работает", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(
-            "Приглашать может только тот, кто уже хотя бы раз оплачивал Про.",
+            "Приглашать может только тот, кто уже хотя бы раз оплачивал Про. Друг может пользоваться Android или iOS — код работает одинаково на обеих платформах.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
