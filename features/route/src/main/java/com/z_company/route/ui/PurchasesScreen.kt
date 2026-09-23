@@ -235,21 +235,9 @@ fun PurchasesScreen(
         )
     }
 
-    // Показываем и пригласившему, и приглашённому — оба получают награду
-    // за один и тот же платёж друга (см. checkBonusAwarded в ViewModel).
-    val bonusAwardedDays by viewModel.bonusAwardedDays.collectAsState()
-
-    if (bonusAwardedDays != null) {
-        PaymentDialog(
-            iconRes = R.drawable.check_circle_24px,
-            iconTone = MaterialTheme.colorScheme.primary,
-            title = "Начислен бонус!",
-            body = "Друг оплатил подписку — вам добавлено $bonusAwardedDays дн. по реферальной программе.",
-            onDismiss = { viewModel.dismissBonusAwardedDialog() },
-            primaryLabel = "Отлично!",
-            onPrimary = { viewModel.dismissBonusAwardedDialog() },
-        )
-    }
+    // Диалог «Бонус начислен!» теперь глобальный (ReferralBonusViewModel,
+    // рендерится в LocoDriverApp) — показывается на любом экране, а не
+    // только на экране Подписки.
 
     val snackbarManager: ISnackbarManager = koinInject()
 
@@ -587,9 +575,14 @@ fun PurchasesScreen(
                         loading = isApplyingReferral,
                         onApply = { viewModel.applyReferralCode(referralCode) },
                     )
-                } else if (referralStatus?.appliedCode != null) {
+                } else if (referralStatus?.appliedCode != null && referralStatus?.appliedStatus == "pending") {
+                    // Показываем карточку только для pending — код применён,
+                    // но приглашённый ещё не оплачивал. Для rewarded/reversed
+                    // эту роль теперь играют диалог «Начислен бонус!» (в момент
+                    // события) и строка «Из них N дн.» выше (всегда актуальна,
+                    // в отличие от статичной карточки).
                     Spacer(modifier = Modifier.height(16.dp))
-                    ReferralCodeStatusCard(referralStatus!!.appliedCode.orEmpty(), referralStatus!!.appliedStatus)
+                    ReferralCodeStatusCard(referralStatus!!.appliedCode.orEmpty())
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -667,8 +660,10 @@ fun PurchasesScreen(
 }
 
 // ── Единый диалог возврата с оплаты (стиль ConfirmDeleteDialog) ─────────────
+// Публичный: переиспользуется в LocoDriverApp для глобального диалога
+// «Бонус начислен!» (ReferralBonusViewModel).
 @Composable
-private fun PaymentDialog(
+fun PaymentDialog(
     title: String,
     onDismiss: () -> Unit,
     body: String? = null,
@@ -957,13 +952,10 @@ private fun ReferralCodeInputCard(
     }
 }
 
+/** Код применён, но приглашённый ещё не оплачивал (status == "pending"). */
 @Composable
-private fun ReferralCodeStatusCard(code: String, status: String?) {
-    val (title, body, tone) = when (status) {
-        "rewarded" -> Triple("Реферальный бонус начислен", "Код $code", MaterialTheme.colorScheme.surfaceTint)
-        "reversed" -> Triple("Реферальный бонус отменён", "Оплата по коду $code возвращена", MaterialTheme.colorScheme.error)
-        else -> Triple("Реферальный код применён", "$code · бонус будет начислен после оплаты", MaterialTheme.colorScheme.tertiary)
-    }
+private fun ReferralCodeStatusCard(code: String) {
+    val tone = MaterialTheme.colorScheme.tertiary
     Row(
         Modifier.fillMaxWidth().clip(Shapes.medium).background(tone.copy(alpha = 0.07f))
             .border(1.dp, tone.copy(alpha = 0.25f), Shapes.medium).padding(16.dp),
@@ -972,8 +964,12 @@ private fun ReferralCodeStatusCard(code: String, status: String?) {
     ) {
         Icon(painterResource(com.z_company.core.R.drawable.ic_star), null, Modifier.size(26.dp), tone)
         Column {
-            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = tone)
-            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Код $code применён", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = tone)
+            Text(
+                "При первой оплате вам и другу начислится по половине оплаченного периода. Бонус можно получить только один раз — при первой оплате.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

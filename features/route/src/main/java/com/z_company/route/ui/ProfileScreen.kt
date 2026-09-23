@@ -1285,7 +1285,7 @@ fun ProfileScreen(
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         Icon(
-                                            painterResource(R.drawable.ic_pro_crown),
+                                            painterResource(R.drawable.card_giftcard_24px),
                                             contentDescription = null,
                                             modifier = Modifier.size(21.dp),
                                             tint = MaterialTheme.colorScheme.tertiary,

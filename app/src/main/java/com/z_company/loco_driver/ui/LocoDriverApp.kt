@@ -27,6 +27,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.z_company.route.viewmodel.ReferralBonusViewModel
 import com.z_company.route.viewmodel.RouteActionsHelper
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -35,6 +37,7 @@ import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.route.Route
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance // Изменено: Добавлен импорт для luminance() — это метод Color, чтобы вычислить яркость цвета (0..1).
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -49,6 +52,7 @@ import com.z_company.core.theme.ThemeManager
 import com.z_company.core.theme.ThemeMode
 import com.z_company.loco_driver.ui.navigation.RouterImpl
 import com.z_company.loco_driver.ui.theme.LocoDriverTheme
+import com.z_company.route.R
 import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.component.BottomNavigationBar
 import com.z_company.route.navigation.FormRoute
@@ -61,6 +65,7 @@ import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.UpdatePresentationBlockDestination
 import com.z_company.route.navigation.homeGraph
 import com.z_company.route.navigation.rememberShowPurchasesScreen
+import com.z_company.route.ui.PaymentDialog
 import androidx.activity.ComponentActivity // Изменено: Уже был, но подтверждено — нужен для доступа к window.
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -90,6 +95,12 @@ fun LocoDriverApp(
     pendingOpenTrainWithId: Pair<String, String>? = null,
     onTrainOpenedWithId: () -> Unit = {}
 ) {
+    // Activity-scoped (создаётся здесь, вне NavHost) — один экземпляр на
+    // всю сессию приложения, поэтому диалог «Бонус начислен!» всплывает
+    // на любом экране, а не только на экране Подписки.
+    val referralBonusViewModel: ReferralBonusViewModel = viewModel()
+    val bonusAwardedDays by referralBonusViewModel.bonusAwardedDays.collectAsState()
+
     val themeManager: ThemeManager = koinInject()
     val themeMode by themeManager.themeMode.collectAsState()
     val darkTheme = when (themeMode) {
@@ -349,6 +360,22 @@ fun LocoDriverApp(
                     onConfirm = onConfirmImport,
                     dismissText = "Отмена",
                     onDismiss = onDismissImport
+                )
+            }
+
+            // Диалог «Бонус начислен!» по реферальной программе — глобальный,
+            // всплывает поверх любого экрана (тот же тёплый «подарочный» тон,
+            // что и в PWA: #8a6200 на #ffedb2 — момент халявы, а не системное
+            // уведомление).
+            if (bonusAwardedDays != null) {
+                PaymentDialog(
+                    iconRes = R.drawable.card_giftcard_24px,
+                    iconTone = Color(0xFF8A6200),
+                    title = "Бонус начислен! 🎉",
+                    body = "Друг оплатил подписку — вам добавлено $bonusAwardedDays дн. по реферальной программе.",
+                    onDismiss = { referralBonusViewModel.dismissBonusAwardedDialog() },
+                    primaryLabel = "Ура!",
+                    onPrimary = { referralBonusViewModel.dismissBonusAwardedDialog() },
                 )
             }
 

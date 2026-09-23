@@ -479,11 +479,11 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         editor.putInt("${LAST_SEEN_ANNOUNCEMENT_NUMBER}_$type", value).apply()
     }
 
-    override fun getLastSeenReferralAwardedDays(): Int =
-        sharedpref.getInt(LAST_SEEN_REFERRAL_AWARDED_DAYS, -1)
+    override fun getLastSeenReferralAwardedDays(userId: String): Int =
+        sharedpref.getInt("${LAST_SEEN_REFERRAL_AWARDED_DAYS}_$userId", -1)
 
-    override fun setLastSeenReferralAwardedDays(value: Int) {
-        editor.putInt(LAST_SEEN_REFERRAL_AWARDED_DAYS, value).apply()
+    override fun setLastSeenReferralAwardedDays(userId: String, value: Int) {
+        editor.putInt("${LAST_SEEN_REFERRAL_AWARDED_DAYS}_$userId", value).apply()
     }
 
     override fun getThemeMode(): String? =

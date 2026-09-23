@@ -182,9 +182,14 @@ interface SharedPreferencesRepositories {
      * текущее значение как базовое, чтобы не считать «новым» уже имевшийся
      * бонус. Растёт и у пригласившего, и у приглашённого — оба получают
      * награду за один и тот же платёж.
+     *
+     * Ключ привязан к [userId]: SharedPreferences общие на всё приложение,
+     * а не на аккаунт, поэтому без этого счётчик одного пользователя
+     * перепутался бы со счётчиком другого при входе под другим аккаунтом
+     * на том же устройстве.
      */
-    fun getLastSeenReferralAwardedDays(): Int
-    fun setLastSeenReferralAwardedDays(value: Int)
+    fun getLastSeenReferralAwardedDays(userId: String): Int
+    fun setLastSeenReferralAwardedDays(userId: String, value: Int)
 
     /**
      * Выбранная тема оформления приложения (локально, без синхронизации).

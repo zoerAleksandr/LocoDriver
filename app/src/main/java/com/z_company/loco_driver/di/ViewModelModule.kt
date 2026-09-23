@@ -10,6 +10,7 @@ import com.z_company.route.viewmodel.PassengerFormViewModel
 import com.z_company.route.viewmodel.PdfViewModel
 import com.z_company.route.viewmodel.ProfileViewModel
 import com.z_company.route.viewmodel.PurchasesViewModel
+import com.z_company.route.viewmodel.ReferralBonusViewModel
 import com.z_company.route.viewmodel.PullToSyncViewModel
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
 import com.z_company.route.viewmodel.SearchViewModel
@@ -49,6 +50,7 @@ val viewModelModule = module {
     }
     viewModel { SearchViewModel() }
     viewModel { PurchasesViewModel() }
+    viewModel { ReferralBonusViewModel() }
     viewModel { PullToSyncViewModel() }
     single(createdAtStart = true) { SalaryCalculationViewModel() }
     viewModel { SettingSalaryViewModel() }
