@@ -200,7 +200,7 @@ private fun ReferralRulesCard() {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             RuleRow("2", "Друг вводит код", "Применить код можно до его первой оплаты Про.")
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            RuleRow("3", "Получите бонус вместе", "После оплаты каждому добавится половина оплаченного периода — в течение суток.")
+            RuleRow("3", "Получите бонус вместе", "После оплаты каждому добавится половина оплаченного периода.")
         }
         Text(
             "При возврате платежа неиспользованный бонус отменяется у обоих участников.",
