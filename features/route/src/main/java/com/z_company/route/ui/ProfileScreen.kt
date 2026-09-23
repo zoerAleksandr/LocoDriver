@@ -1293,7 +1293,7 @@ fun ProfileScreen(
                                     }
                                     Column(Modifier.weight(1f)) {
                                         Text("Пригласить друга", style = styleData, color = primaryColor)
-                                        Text("Получите Про вместе с другом", style = styleHint, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Получите бесплатные дни обслуживания", style = styleHint, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Icon(
                                         painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
