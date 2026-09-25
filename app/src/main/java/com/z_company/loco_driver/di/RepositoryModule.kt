@@ -34,6 +34,7 @@ import com.z_company.loco_driver.ui.theme.ThemeManagerImpl
 import com.z_company.loco_driver.BuildConfig
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.route.session.SessionExpiredHandler
+import com.z_company.route.subscription.SubscriptionPeriodTracker
 import com.z_company.repository.ShareManager
 import com.z_company.repository.remote_rest.ApiForSendEmail
 import com.z_company.repository.remote_rest.AuthManager
@@ -93,6 +94,8 @@ val repositoryModule = module {
 
     // Разлогин по 401 с любого запроса; подписку запускает StartApp.
     single { SessionExpiredHandler(secureTokenStorage = get(), sharedPrefs = get()) }
+    // Связь экрана Подписки с глобальным диалогом «Подписка продлена».
+    single { SubscriptionPeriodTracker(secureTokenStorage = get(), sharedPrefs = get()) }
     // Продление токена при старте приложения (POST /v1/auth/refresh); зовёт StartApp.
     single { SessionRefresher(remoteRestApi = get(), secureTokenStorage = get()) }
 

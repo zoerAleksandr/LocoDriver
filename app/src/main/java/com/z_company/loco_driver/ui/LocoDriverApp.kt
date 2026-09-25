@@ -27,7 +27,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.z_company.route.ui.SubscriptionPeriodChangedDialog
 import com.z_company.route.viewmodel.RouteActionsHelper
+import com.z_company.route.viewmodel.SubscriptionPeriodViewModel
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import com.z_company.core.ui.theme.Shapes
@@ -90,6 +93,11 @@ fun LocoDriverApp(
     pendingOpenTrainWithId: Pair<String, String>? = null,
     onTrainOpenedWithId: () -> Unit = {}
 ) {
+    // Activity-scoped (вне NavHost) — диалог об изменении срока подписки
+    // всплывает на любом экране, а не только на экране Подписки.
+    val subscriptionPeriodViewModel: SubscriptionPeriodViewModel = viewModel()
+    val subscriptionPeriodChange by subscriptionPeriodViewModel.change.collectAsState()
+
     val themeManager: ThemeManager = koinInject()
     val themeMode by themeManager.themeMode.collectAsState()
     val darkTheme = when (themeMode) {
@@ -349,6 +357,15 @@ fun LocoDriverApp(
                     onConfirm = onConfirmImport,
                     dismissText = "Отмена",
                     onDismiss = onDismissImport
+                )
+            }
+
+            // Срок подписки изменился без диалога «Платёж принят!» на экране
+            // Подписки (автопродление, оплата на другой платформе) — глобально.
+            subscriptionPeriodChange?.let { change ->
+                SubscriptionPeriodChangedDialog(
+                    change = change,
+                    onDismiss = { subscriptionPeriodViewModel.dismiss() },
                 )
             }
 

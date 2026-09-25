@@ -619,7 +619,7 @@ fun PurchasesScreen(
 
 // ── Единый диалог возврата с оплаты (стиль ConfirmDeleteDialog) ─────────────
 @Composable
-private fun PaymentDialog(
+fun PaymentDialog(
     title: String,
     onDismiss: () -> Unit,
     body: String? = null,

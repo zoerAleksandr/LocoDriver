@@ -175,6 +175,20 @@ interface SharedPreferencesRepositories {
     fun setLastSeenAnnouncementNumber(type: String, value: Int)
 
     /**
+     * Срок подписки (`UserSettings.subscriptionPeriod`, ms epoch), который
+     * пользователь уже видел — в диалоге «Платёж принят!» на экране Подписки
+     * или в глобальном диалоге об изменении срока. -1 — ещё не отслеживали
+     * для этого аккаунта на устройстве: текущее значение запоминается как
+     * базовое без диалога (иначе вход в аккаунт с уже оплаченной подпиской
+     * выглядел бы как «продление»).
+     *
+     * Ключ привязан к [userId]: SharedPreferences общие на приложение, а не
+     * на аккаунт.
+     */
+    fun getLastSeenSubscriptionPeriod(userId: String): Long
+    fun setLastSeenSubscriptionPeriod(userId: String, value: Long)
+
+    /**
      * Выбранная тема оформления приложения (локально, без синхронизации).
      * Хранится строкой — имя [com.z_company.core.theme.ThemeMode]. null —
      * пользователь ещё не выбирал (по умолчанию — как в системе).
