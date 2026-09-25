@@ -189,6 +189,33 @@ interface SharedPreferencesRepositories {
     fun setLastSeenSubscriptionPeriod(userId: String, value: Long)
 
     /**
+     * `awardedDays` реферальной программы, уже учтённые в
+     * [getLastSeenSubscriptionPeriod]: разница с текущим `awardedDays` —
+     * бонусные дни, пришедшие в срок после последнего увиденного. Нужна,
+     * чтобы бонус не показывался как «Подписка продлена». -1 — неизвестно
+     * (не отслеживали или срок только что подтверждён экраном Подписки).
+     */
+    fun getSubscriptionPeriodReferralDays(userId: String): Int
+    fun setSubscriptionPeriodReferralDays(userId: String, value: Int)
+
+    /**
+     * Суммарные бонусные дни от реферальной программы (`awardedDays` из
+     * `GET /v1/referrals/me`), которые пользователь уже видел. -1 — ещё
+     * ни разу не отслеживали на этом устройстве (первый запуск/переустановка);
+     * в этом случае диалог о начислении не показываем — просто запоминаем
+     * текущее значение как базовое, чтобы не считать «новым» уже имевшийся
+     * бонус. Растёт и у пригласившего, и у приглашённого — оба получают
+     * награду за один и тот же платёж.
+     *
+     * Ключ привязан к [userId]: SharedPreferences общие на всё приложение,
+     * а не на аккаунт, поэтому без этого счётчик одного пользователя
+     * перепутался бы со счётчиком другого при входе под другим аккаунтом
+     * на том же устройстве.
+     */
+    fun getLastSeenReferralAwardedDays(userId: String): Int
+    fun setLastSeenReferralAwardedDays(userId: String, value: Int)
+
+    /**
      * Выбранная тема оформления приложения (локально, без синхронизации).
      * Хранится строкой — имя [com.z_company.core.theme.ThemeMode]. null —
      * пользователь ещё не выбирал (по умолчанию — как в системе).

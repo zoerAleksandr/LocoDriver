@@ -11,6 +11,8 @@ import com.z_company.repository.remote_rest.GetUserProfileState
 import com.z_company.repository.remote_rest.RegistrationState
 import com.z_company.repository.remote_rest.SyncDownloadResult
 import com.z_company.repository.remote_rest.SyncManager
+import com.z_company.repository.remote_rest.RemoteRestApi
+import com.z_company.repository.remote_rest.response.ApplyReferralCodeRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +36,7 @@ class ProfileIosViewModel(
     private val syncManager: SyncManager,
     private val secureTokenStorage: SecureTokenStorage,
     private val sharedPrefs: SharedPreferencesRepositories,
+    private val remoteRestApi: RemoteRestApi,
 ) : ViewModel() {
 
     // ── State ─────────────────────────────────────────────────────────────────
@@ -55,6 +58,80 @@ class ProfileIosViewModel(
 
     private val _syncMessage = MutableStateFlow<String?>(null)
     val syncMessage: StateFlow<String?> = _syncMessage.asStateFlow()
+
+    private val _referralCode = MutableStateFlow<String?>(null)
+    private val _canInvite = MutableStateFlow(false)
+    private val _referralCount = MutableStateFlow(0)
+    private val _referralRewardedCount = MutableStateFlow(0)
+    private val _referralError = MutableStateFlow<String?>(null)
+    private val _canApplyReferralCode = MutableStateFlow(false)
+    private val _appliedReferralCode = MutableStateFlow<String?>(null)
+    private val _appliedReferralStatus = MutableStateFlow<String?>(null)
+
+    fun loadReferrals() {
+        viewModelScope.launch {
+            try {
+                val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+                if (token.isNullOrBlank()) return@launch
+                val status = remoteRestApi.getReferralStatus("Bearer $token")
+                _referralCode.value = status.code
+                _canInvite.value = status.canInvite
+                _referralCount.value = status.invitedCount
+                _referralRewardedCount.value = status.rewardedCount
+                _canApplyReferralCode.value = status.canApplyCode
+                _appliedReferralCode.value = status.appliedCode
+                _appliedReferralStatus.value = status.appliedStatus
+                _referralError.value = null
+            } catch (_: Exception) {
+                _referralError.value = "Не удалось загрузить код"
+            }
+        }
+    }
+
+    fun watchReferralCode(callback: (String?) -> Unit) {
+        viewModelScope.launch { _referralCode.collect { callback(it) } }
+    }
+
+    fun watchCanInvite(callback: (Boolean) -> Unit) {
+        viewModelScope.launch { _canInvite.collect { callback(it) } }
+    }
+
+    fun watchReferralCount(callback: (Int) -> Unit) {
+        viewModelScope.launch { _referralCount.collect { callback(it) } }
+    }
+
+    fun watchReferralRewardedCount(callback: (Int) -> Unit) {
+        viewModelScope.launch { _referralRewardedCount.collect { callback(it) } }
+    }
+
+    fun watchReferralError(callback: (String?) -> Unit) {
+        viewModelScope.launch { _referralError.collect { callback(it) } }
+    }
+
+    fun watchCanApplyReferralCode(callback: (Boolean) -> Unit) {
+        viewModelScope.launch { _canApplyReferralCode.collect { callback(it) } }
+    }
+
+    fun watchAppliedReferralCode(callback: (String?) -> Unit) {
+        viewModelScope.launch { _appliedReferralCode.collect { callback(it) } }
+    }
+
+    fun watchAppliedReferralStatus(callback: (String?) -> Unit) {
+        viewModelScope.launch { _appliedReferralStatus.collect { callback(it) } }
+    }
+
+    fun applyReferralCode(code: String) {
+        viewModelScope.launch {
+            try {
+                val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+                if (token.isNullOrBlank()) return@launch
+                remoteRestApi.applyReferralCode("Bearer $token", ApplyReferralCodeRequest(code.trim()))
+                loadReferrals()
+            } catch (_: Exception) {
+                _referralError.value = "Не удалось применить код. Проверьте его."
+            }
+        }
+    }
 
     // ── Init: восстановление сессии из Keychain ───────────────────────────────
 

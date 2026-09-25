@@ -115,6 +115,12 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setLastSeenAnnouncementNumber(type: String, value: Int) { lastSeenAnnouncementNumbers[type] = value }
     override fun getLastSeenSubscriptionPeriod(userId: String): Long = lastSeenSubscriptionPeriods[userId] ?: -1L
     override fun setLastSeenSubscriptionPeriod(userId: String, value: Long) { lastSeenSubscriptionPeriods[userId] = value }
+    private val subscriptionPeriodReferralDays = mutableMapOf<String, Int>()
+    override fun getSubscriptionPeriodReferralDays(userId: String): Int = subscriptionPeriodReferralDays[userId] ?: -1
+    override fun setSubscriptionPeriodReferralDays(userId: String, value: Int) { subscriptionPeriodReferralDays[userId] = value }
+    private val lastSeenReferralAwardedDays = mutableMapOf<String, Int>()
+    override fun getLastSeenReferralAwardedDays(userId: String): Int = lastSeenReferralAwardedDays[userId] ?: -1
+    override fun setLastSeenReferralAwardedDays(userId: String, value: Int) { lastSeenReferralAwardedDays[userId] = value }
     override fun isUnderworkInfoDismissed(): Boolean = underworkInfoDismissed
     override fun setUnderworkInfoDismissed() { underworkInfoDismissed = true }
     override fun getThemeMode(): String? = themeMode

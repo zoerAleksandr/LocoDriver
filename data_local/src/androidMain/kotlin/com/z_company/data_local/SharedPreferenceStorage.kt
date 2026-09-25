@@ -486,6 +486,20 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         editor.putLong("${LAST_SEEN_SUBSCRIPTION_PERIOD}_$userId", value).apply()
     }
 
+    override fun getSubscriptionPeriodReferralDays(userId: String): Int =
+        sharedpref.getInt("${SUBSCRIPTION_PERIOD_REFERRAL_DAYS}_$userId", -1)
+
+    override fun setSubscriptionPeriodReferralDays(userId: String, value: Int) {
+        editor.putInt("${SUBSCRIPTION_PERIOD_REFERRAL_DAYS}_$userId", value).apply()
+    }
+
+    override fun getLastSeenReferralAwardedDays(userId: String): Int =
+        sharedpref.getInt("${LAST_SEEN_REFERRAL_AWARDED_DAYS}_$userId", -1)
+
+    override fun setLastSeenReferralAwardedDays(userId: String, value: Int) {
+        editor.putInt("${LAST_SEEN_REFERRAL_AWARDED_DAYS}_$userId", value).apply()
+    }
+
     override fun getThemeMode(): String? =
         sharedpref.getString(TOKEN_THEME_MODE, null)
 
@@ -507,6 +521,8 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         const val SCHEDULE_PATTERNS_KEY = "SCHEDULE_PATTERNS"
         const val LAST_SEEN_ANNOUNCEMENT_NUMBER = "LAST_SEEN_ANNOUNCEMENT_NUMBER"
         const val LAST_SEEN_SUBSCRIPTION_PERIOD = "LAST_SEEN_SUBSCRIPTION_PERIOD"
+        const val SUBSCRIPTION_PERIOD_REFERRAL_DAYS = "SUBSCRIPTION_PERIOD_REFERRAL_DAYS"
+        const val LAST_SEEN_REFERRAL_AWARDED_DAYS = "LAST_SEEN_REFERRAL_AWARDED_DAYS"
         const val TOKEN_THEME_MODE = "TOKEN_THEME_MODE"
         const val WORK_SCHEDULE_PROFILE_KEY = "WORK_SCHEDULE_PROFILE"
         const val CURRENT_ROUTE_BLOCK_ORDER_KEY = "CURRENT_ROUTE_BLOCK_ORDER"

@@ -34,6 +34,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -234,6 +235,10 @@ fun PurchasesScreen(
         )
     }
 
+    // Диалог «Бонус начислен!» теперь глобальный (SubscriptionNoticesViewModel,
+    // рендерится в LocoDriverApp) — показывается на любом экране, а не
+    // только на экране Подписки.
+
     val snackbarManager: ISnackbarManager = koinInject()
 
     LaunchedEffect(Unit) {
@@ -331,6 +336,10 @@ fun PurchasesScreen(
 
     // ── Данные состояния ───────────────────────────────────────────────────
     val purchasesEndTimeInLong = viewModel.purchasesEndTime.collectAsState()
+    val referralStatus by viewModel.referralStatus.collectAsState()
+    val referralMessage by viewModel.referralMessage.collectAsState()
+    val isApplyingReferral by viewModel.isApplyingReferral.collectAsState()
+    var referralCode by remember { mutableStateOf("") }
     val currentState by viewModel.state.collectAsState()
     val converter = currentState.dateAndTimeConverter
 
@@ -469,6 +478,20 @@ fun PurchasesScreen(
                             },
                         )
 
+                        // remainingBonusDays, не awardedDays: показываем не больше, чем
+                        // реально осталось до конца подписки, и это должно обнулиться
+                        // после того, как подписка когда-либо истечёт — иначе строка
+                        // считала бы бонусом уже полностью оплаченный деньгами период.
+                        val remainingBonusDays = referralStatus?.remainingBonusDays ?: 0
+                        if (remainingBonusDays > 0) {
+                            Text(
+                                text = "Из них $remainingBonusDays дн. — бонус по реферальной программе",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+
                         if (purchaseState.daysLeft in 0..EXPIRING_SOON_DAYS) {
                             Spacer(modifier = Modifier.height(10.dp))
                             WarningBanner(daysLeft = purchaseState.daysLeft)
@@ -541,6 +564,25 @@ fun PurchasesScreen(
                             onSelect = { selectedProduct = it },
                         )
                     }
+                }
+
+                if (referralStatus?.canApplyCode == true) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ReferralCodeInputCard(
+                        code = referralCode,
+                        onCodeChange = { referralCode = it.uppercase().filter(Char::isLetterOrDigit).take(16) },
+                        message = referralMessage,
+                        loading = isApplyingReferral,
+                        onApply = { viewModel.applyReferralCode(referralCode) },
+                    )
+                } else if (referralStatus?.appliedCode != null && referralStatus?.appliedStatus == "pending") {
+                    // Показываем карточку только для pending — код применён,
+                    // но приглашённый ещё не оплачивал. Для rewarded/reversed
+                    // эту роль теперь играют диалог «Начислен бонус!» (в момент
+                    // события) и строка «Из них N дн.» выше (всегда актуальна,
+                    // в отличие от статичной карточки).
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ReferralCodeStatusCard(referralStatus!!.appliedCode.orEmpty())
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -618,6 +660,8 @@ fun PurchasesScreen(
 }
 
 // ── Единый диалог возврата с оплаты (стиль ConfirmDeleteDialog) ─────────────
+// Публичный: переиспользуется для глобальных диалогов «Бонус начислен!» и
+// «Подписка продлена» (SubscriptionNoticesViewModel).
 @Composable
 fun PaymentDialog(
     title: String,
@@ -852,6 +896,82 @@ private fun SectionLabel(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(bottom = 10.dp),
     )
+}
+
+@Composable
+private fun ReferralCodeInputCard(
+    code: String,
+    onCodeChange: (String) -> Unit,
+    message: String?,
+    loading: Boolean,
+    onApply: () -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.tertiary
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(Shapes.medium)
+            .background(accent.copy(alpha = 0.07f))
+            .border(1.dp, accent.copy(alpha = 0.25f), Shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                Icon(painterResource(com.z_company.core.R.drawable.ic_star), null, Modifier.size(22.dp), accent)
+            }
+            Column {
+                Text("Есть код друга?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("Введите его до первой оплаты", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Text("После оплаты каждый получит половину срока выбранного тарифа дополнительно.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedTextField(
+            value = code,
+            onValueChange = onCodeChange,
+            label = { Text("Реферальный код") },
+            placeholder = { Text("Например, ABCD2345") },
+            singleLine = true,
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth().testTag("referral_code_input"),
+            shape = Shapes.medium,
+        )
+        Button(
+            onClick = onApply,
+            enabled = code.isNotBlank() && !loading,
+            modifier = Modifier.fillMaxWidth().height(48.dp).testTag("apply_referral_code"),
+            colors = ButtonDefaults.buttonColors(containerColor = accent),
+        ) {
+            if (loading) {
+                CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onTertiary, strokeWidth = 2.dp)
+                Spacer(Modifier.size(8.dp))
+            }
+            Text(if (loading) "Проверяем код…" else "Применить код", fontWeight = FontWeight.SemiBold)
+        }
+        message?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = if (it.startsWith("Код принят")) MaterialTheme.colorScheme.surfaceTint else MaterialTheme.colorScheme.error)
+        }
+    }
+}
+
+/** Код применён, но приглашённый ещё не оплачивал (status == "pending"). */
+@Composable
+private fun ReferralCodeStatusCard(code: String) {
+    val tone = MaterialTheme.colorScheme.tertiary
+    Row(
+        Modifier.fillMaxWidth().clip(Shapes.medium).background(tone.copy(alpha = 0.07f))
+            .border(1.dp, tone.copy(alpha = 0.25f), Shapes.medium).padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(painterResource(com.z_company.core.R.drawable.ic_star), null, Modifier.size(26.dp), tone)
+        Column {
+            Text("Код $code применён", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = tone)
+            Text(
+                "При первой оплате вам и другу начислится по половине оплаченного периода. Бонус можно получить только один раз — при первой оплате.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 /** Лоадер на месте списка тарифов, пока они тянутся с сервера. */

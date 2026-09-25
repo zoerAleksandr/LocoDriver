@@ -9,12 +9,12 @@ import kotlinx.coroutines.flow.first
 
 /**
  * Общая (singleton) точка между экраном Подписки и глобальным диалогом
- * «Срок подписки изменён» ([com.z_company.route.viewmodel.SubscriptionPeriodViewModel]).
+ * «Срок подписки изменён» ([com.z_company.route.viewmodel.SubscriptionNoticesViewModel]).
  *
  * Экран Подписки сам показывает «Платёж принят!» — в этом случае глобальный
- * диалог не нужен. Пока идёт поллинг оплаты, [paymentCheckInProgress] = true
- * и глобальная проверка молчит; при успехе экран вызывает [acknowledge] ДО
- * снятия флага — новый срок уже «увиден», и глобальный диалог не всплывёт.
+ * диалог о сроке не нужен. Пока идёт поллинг оплаты, [paymentCheckInProgress]
+ * = true и глобальная проверка молчит; при успехе экран вызывает
+ * [acknowledge] ДО снятия флага — новый срок уже «увиден».
  */
 class SubscriptionPeriodTracker(
     private val secureTokenStorage: SecureTokenStorage,
@@ -27,30 +27,15 @@ class SubscriptionPeriodTracker(
         _paymentCheckInProgress.value = value
     }
 
-    /** Запомнить [period] как увиденный пользователем текущего аккаунта. */
-    suspend fun acknowledge(period: Long) {
-        val userId = currentUserId() ?: return
-        sharedPrefs.setLastSeenSubscriptionPeriod(userId, period)
-    }
-
     /**
-     * Сравнить [period] с последним увиденным и запомнить его. Возвращает
-     * предыдущий увиденный срок, если об изменении нужно сообщить, иначе null.
-     *
-     * Не сообщаем: без аккаунта; при `period <= 0` (пустые настройки до
-     * загрузки — не запоминаем, чтобы следующий реальный срок не выглядел
-     * «изменением»); при первом отслеживании аккаунта на устройстве (-1 —
-     * только база, иначе вход с уже оплаченной подпиской дал бы ложный диалог).
+     * Запомнить [period] как увиденный пользователем текущего аккаунта.
+     * Бонус рефералки за эту же оплату (у приглашённого) уже внутри срока —
+     * учтённые бонусные дни сбрасываем в «неизвестно», глобальная проверка
+     * возьмёт текущий awardedDays как базу.
      */
-    suspend fun consumeChange(period: Long): Long? {
-        if (period <= 0L) return null
-        val userId = currentUserId() ?: return null
-        val lastSeen = sharedPrefs.getLastSeenSubscriptionPeriod(userId)
-        if (lastSeen == period) return null
+    suspend fun acknowledge(period: Long) {
+        val userId = secureTokenStorage.getUserIdFlow().first()?.takeIf { it.isNotBlank() } ?: return
         sharedPrefs.setLastSeenSubscriptionPeriod(userId, period)
-        return lastSeen.takeIf { it > 0L }
+        sharedPrefs.setSubscriptionPeriodReferralDays(userId, -1)
     }
-
-    private suspend fun currentUserId(): String? =
-        secureTokenStorage.getUserIdFlow().first()?.takeIf { it.isNotBlank() }
 }
