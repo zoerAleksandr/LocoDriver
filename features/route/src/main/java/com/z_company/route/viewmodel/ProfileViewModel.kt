@@ -43,6 +43,8 @@ import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.repository.remote_rest.UserRemote
 import com.z_company.repository.remote_rest.VkAuthError
+import com.z_company.route.session.AccountSwitcher
+import com.z_company.route.session.RemoteAccountSwitchGateway
 import com.z_company.route.session.SessionExpiredHandler
 import com.z_company.route.subscription.SubscriptionPeriodTracker
 import com.z_company.use_case.SubscriptionHelper
@@ -148,6 +150,12 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     private val releaseDayUseCase: ReleaseDayUseCase by inject()
     private val authManager: AuthManager by inject()
     private val subscriptionPeriodTracker: SubscriptionPeriodTracker by inject()
+    private val accountSwitcher by lazy {
+        AccountSwitcher(
+            RemoteAccountSwitchGateway(secureTokenStorage, settingManager, settingsUseCase, authManager),
+            subscriptionPeriodTracker,
+        )
+    }
     private val routesManager: RoutesManager by inject()
     private val syncManager: SyncManager by inject()
     private val settingManager: SettingManager by inject()
@@ -854,10 +862,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 if (state is AuthState.Success) {
                     val token = state.accessToken
                     if (token.isNotEmpty()) {
-                        switchAccount(token) {
-                            _isLoggedIn.value = true  // Обновляем состояние логина после успеха
-                            restoreSubscriptionAfterLogin(token)
-                        }
+                        logInAs(token)
                         refresh()  // Перезагружаем данные после входа
                         syncManager.syncFromRemote("Bearer $token").collect {}
                     }
@@ -889,10 +894,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     if (state is AuthState.Success) {
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
-                            switchAccount(token, vkid) {
-                                _isLoggedIn.value = true
-                                restoreSubscriptionAfterLogin(token)
-                            }
+                            logInAs(token, vkid)
                             refresh()
                             syncManager.syncFromRemote("Bearer $token").collect {}
                         }
@@ -927,47 +929,23 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
     private var pendingVkRegistration: PendingVkRegistration? = null
 
-    /**
-     * Вход/регистрация под аккаунтом с токеном [token]. userId — ключ
-     * «увиденного» глобальных диалогов подписки (SCREEN_SPECS §32.1a) и
-     * user_id оплаты Robokassa, поэтому id прежнего аккаунта стираем ДО смены
-     * токена, а новый сохраняем сразу, не дожидаясь открытия профиля.
-     *
-     * Всё идёт под [SubscriptionPeriodTracker.runPeriodUpdate]: [beforeBind]
-     * подтягивает срок нового аккаунта, и глобальная проверка не должна
-     * увидеть его раньше, чем станет известен userId (иначе срок B сравнился
-     * бы с «увиденным» A или база B записалась бы от чужого срока).
-     */
+    /** Смена аккаунта на устройстве — см. [AccountSwitcher]. */
     private suspend fun switchAccount(
         token: String,
         vkid: String? = null,
         beforeBind: suspend () -> Unit = {},
-    ) = subscriptionPeriodTracker.runPeriodUpdate {
-        secureTokenStorage.saveUserId("")
-        secureTokenStorage.saveAuthToken(token)  // Сохранение зашифрованного токена
-        vkid?.let { secureTokenStorage.saveVkId(it) }
-        beforeBind()
-        // Без сети id останется пустым — его узнает getUserInfo() или
-        // SubscriptionNoticesViewModel при следующей проверке.
-        val profile = authManager.getUserProfile("Bearer $token")
-            .first { it !is GetUserProfileState.Loading }
-        if (profile is GetUserProfileState.Success && profile.user.id.isNotBlank()) {
-            secureTokenStorage.saveUserId(profile.user.id)
-        }
-    }
+    ): Boolean = accountSwitcher.switchTo(token, vkid, beforeBind)
 
     /**
-     * Срок подписки должен обновиться как обязательная часть успешного входа,
-     * а не побочный эффект последующего refresh/full sync. Полная синхронизация
-     * может занять заметное время или завершиться частично, при этом вход уже
-     * считается успешным и локальное значение иначе осталось бы равным 0.
+     * Вход: срок подписки аккаунта обновляется как обязательная часть входа
+     * (внутри [switchAccount]), а не побочный эффект последующего
+     * refresh/full sync, которые могут затянуться или пройти частично.
      */
-    private suspend fun restoreSubscriptionAfterLogin(token: String) {
-        when (subscriptionHelper.restorePurchases(token = token)) {
-            is ResultState.Error -> snackbarManager.show(
-                "Вход выполнен, но данные подписки не загрузились"
-            )
-            else -> Unit
+    private suspend fun logInAs(token: String, vkid: String? = null) {
+        val subscriptionLoaded = switchAccount(token, vkid)
+        _isLoggedIn.value = true  // Обновляем состояние логина после успеха
+        if (!subscriptionLoaded) {
+            snackbarManager.show("Вход выполнен, но данные подписки не загрузились")
         }
     }
 

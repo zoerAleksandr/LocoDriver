@@ -1,11 +1,8 @@
 package com.z_company.route.subscription
 
-import com.z_company.domain.repositories.SharedPreferencesRepositories
-import com.z_company.repository.SecureTokenStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 
 /**
@@ -22,8 +19,9 @@ import kotlinx.coroutines.flow.update
  * [runPeriodUpdate] — новый срок уже «увиден».
  */
 class SubscriptionPeriodTracker(
-    private val secureTokenStorage: SecureTokenStorage,
-    private val sharedPrefs: SharedPreferencesRepositories,
+    /** Текущий userId (ключ «увиденного»); пустой/null — аккаунт неизвестен. */
+    private val currentUserId: suspend () -> String?,
+    private val store: SubscriptionSeenStore,
 ) {
     private val _periodUpdatesInProgress = MutableStateFlow(0)
     val periodUpdatesInProgress: StateFlow<Int> = _periodUpdatesInProgress.asStateFlow()
@@ -44,8 +42,8 @@ class SubscriptionPeriodTracker(
      * возьмёт текущий awardedDays как базу.
      */
     suspend fun acknowledge(period: Long) {
-        val userId = secureTokenStorage.getUserIdFlow().first()?.takeIf { it.isNotBlank() } ?: return
-        sharedPrefs.setLastSeenSubscriptionPeriod(userId, period)
-        sharedPrefs.setSubscriptionPeriodReferralDays(userId, -1)
+        val userId = currentUserId()?.takeIf { it.isNotBlank() } ?: return
+        store.setLastSeenSubscriptionPeriod(userId, period)
+        store.setSubscriptionPeriodReferralDays(userId, -1)
     }
 }

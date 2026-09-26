@@ -35,6 +35,7 @@ import com.z_company.loco_driver.BuildConfig
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.route.session.SessionExpiredHandler
 import com.z_company.route.subscription.SubscriptionPeriodTracker
+import com.z_company.route.subscription.asSubscriptionSeenStore
 import com.z_company.repository.ShareManager
 import com.z_company.repository.remote_rest.ApiForSendEmail
 import com.z_company.repository.remote_rest.AuthManager
@@ -51,6 +52,7 @@ import com.z_company.core.widget.WidgetUpdater
 import com.z_company.loco_driver.widget.GlanceWidgetUpdater
 import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.use_case.SubscriptionHelper
+import kotlinx.coroutines.flow.first
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -95,7 +97,13 @@ val repositoryModule = module {
     // Разлогин по 401 с любого запроса; подписку запускает StartApp.
     single { SessionExpiredHandler(secureTokenStorage = get(), sharedPrefs = get()) }
     // Связь экрана Подписки с глобальным диалогом «Подписка продлена».
-    single { SubscriptionPeriodTracker(secureTokenStorage = get(), sharedPrefs = get()) }
+    single {
+        val secureTokenStorage: SecureTokenStorage = get()
+        SubscriptionPeriodTracker(
+            currentUserId = { secureTokenStorage.getUserIdFlow().first() },
+            store = get<SharedPreferencesRepositories>().asSubscriptionSeenStore(),
+        )
+    }
     // Продление токена при старте приложения (POST /v1/auth/refresh); зовёт StartApp.
     single { SessionRefresher(remoteRestApi = get(), secureTokenStorage = get()) }
 
