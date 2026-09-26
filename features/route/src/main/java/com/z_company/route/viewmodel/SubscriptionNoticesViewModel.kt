@@ -17,10 +17,8 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
-/** Срок подписки сменился: был [previous], стал [current] (ms epoch). */
-data class SubscriptionPeriodChange(val previous: Long, val current: Long) {
-    val isExtended: Boolean get() = current > previous
-}
+/** Подписка продлена: срок вырос с [previous] до [current] (ms epoch). */
+data class SubscriptionPeriodChange(val previous: Long, val current: Long)
 
 /**
  * Глобальный (Activity-scoped, создаётся в LocoDriverApp вне NavHost)
@@ -28,9 +26,11 @@ data class SubscriptionPeriodChange(val previous: Long, val current: Long) {
  *
  * - «Бонус начислен!» — выросли бонусные дни реферальной программы
  *   (`awardedDays` из `GET /v1/referrals/me`);
- * - «Подписка продлена / Срок подписки изменён» — `subscriptionPeriod`
- *   поменялся НЕ за счёт бонуса и пользователь этого ещё не видел
- *   (автопродление, оплата на другой платформе, правка на сервере).
+ * - «Подписка продлена» — `subscriptionPeriod` вырос НЕ за счёт бонуса и
+ *   пользователь этого ещё не видел (автопродление, оплата на другой
+ *   платформе, правка на сервере). Уменьшение срока диалогом не сообщаем:
+ *   пользователь может не помнить прежний срок, и «срок изменён» читался бы
+ *   двусмысленно.
  *
  * Бонус сервер кладёт в тот же `subscriptionPeriod`, поэтому оба решения
  * принимаются в одном месте: из изменения срока вычитаются бонусные дни,
@@ -100,7 +100,7 @@ class SubscriptionNoticesViewModel : ViewModel(), KoinComponent {
      * Не сообщаем: при `period <= 0` (пустые настройки до загрузки — не
      * запоминаем); при первом отслеживании аккаунта на устройстве (только
      * база — иначе вход с оплаченной подпиской выглядел бы «продлением»);
-     * если изменение целиком объясняется бонусом рефералки.
+     * при уменьшении срока; если рост целиком объясняется бонусом рефералки.
      */
     private fun checkPeriod(userId: String, period: Long, awardedDays: Int) {
         if (period <= 0L) return
@@ -123,18 +123,18 @@ class SubscriptionNoticesViewModel : ViewModel(), KoinComponent {
         } else {
             0
         }
-        if (!isChangedBeyondBonus(lastSeen, period, bonusDays)) return
+        if (!isExtendedBeyondBonus(lastSeen, period, bonusDays)) return
         _periodChange.value = SubscriptionPeriodChange(lastSeen, period)
     }
 
     /**
      * Сервер начисляет бонус как `max(срок, сейчас) + бонус`. Без бонуса —
-     * любое изменение. С бонусом — только если срок ушёл дальше, чем мог
-     * увести один бонус (запас [TOLERANCE_MS] на округление awardedDays вниз).
-     * Уменьшение срока бонусом не объясняется — сообщаем.
+     * любой рост. С бонусом — только если срок ушёл дальше, чем мог увести
+     * один бонус (запас [TOLERANCE_MS] на округление awardedDays вниз).
      */
-    private fun isChangedBeyondBonus(lastSeen: Long, period: Long, bonusDays: Int): Boolean {
-        if (bonusDays == 0 || period < lastSeen) return true
+    private fun isExtendedBeyondBonus(lastSeen: Long, period: Long, bonusDays: Int): Boolean {
+        if (period <= lastSeen) return false
+        if (bonusDays == 0) return true
         val bonusBase = maxOf(lastSeen, System.currentTimeMillis())
         return period - bonusDays * DAY_MS > bonusBase + TOLERANCE_MS
     }

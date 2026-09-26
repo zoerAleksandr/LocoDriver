@@ -11,9 +11,10 @@ import java.time.format.DateTimeFormatter
 private val SUBSCRIPTION_DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
 /**
- * Глобальный диалог об изменении срока подписки (рекуррентное списание,
- * оплата на другой платформе, правка на сервере). Тот же [PaymentDialog],
- * что у «Платёж принят!» и «Бонус начислен!».
+ * Глобальный диалог «Подписка продлена» (рекуррентное списание, оплата на
+ * другой платформе, правка на сервере). Только рост срока — см.
+ * SubscriptionNoticesViewModel. Тот же [PaymentDialog], что у «Платёж
+ * принят!» и «Бонус начислен!».
  */
 @Composable
 fun SubscriptionPeriodChangedDialog(
@@ -24,25 +25,13 @@ fun SubscriptionPeriodChangedDialog(
         .atZone(ZoneId.systemDefault())
         .toLocalDate()
         .format(SUBSCRIPTION_DATE_FORMAT)
-    if (change.isExtended) {
-        PaymentDialog(
-            iconRes = R.drawable.check_circle_24px,
-            iconTone = MaterialTheme.colorScheme.surfaceTint,
-            title = "Подписка продлена",
-            body = "Подписка действует до $until. Спасибо за поддержку приложения!",
-            onDismiss = onDismiss,
-            primaryLabel = "Отлично!",
-            onPrimary = onDismiss,
-        )
-    } else {
-        PaymentDialog(
-            iconRes = R.drawable.ic_pro_schedule,
-            iconTone = MaterialTheme.colorScheme.tertiary,
-            title = "Срок подписки изменён",
-            body = "Подписка действует до $until.",
-            onDismiss = onDismiss,
-            primaryLabel = "Понятно",
-            onPrimary = onDismiss,
-        )
-    }
+    PaymentDialog(
+        iconRes = R.drawable.check_circle_24px,
+        iconTone = MaterialTheme.colorScheme.surfaceTint,
+        title = "Подписка продлена",
+        body = "Срок подписки продлён до $until. Спасибо за поддержку приложения!",
+        onDismiss = onDismiss,
+        primaryLabel = "Отлично!",
+        onPrimary = onDismiss,
+    )
 }

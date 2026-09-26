@@ -376,13 +376,13 @@ fun LocoDriverApp(
                     iconRes = R.drawable.card_giftcard_24px,
                     iconTone = Color(0xFF8A6200),
                     title = "Бонус начислен! 🎉",
-                    body = "Друг оплатил подписку — вам добавлено $bonusDays дн. по реферальной программе.",
+                    body = "Вам добавлено $bonusDays дн. подписки по реферальной программе.",
                     onDismiss = { subscriptionNoticesViewModel.dismissBonusAwardedDialog() },
                     primaryLabel = "Ура!",
                     onPrimary = { subscriptionNoticesViewModel.dismissBonusAwardedDialog() },
                 )
             } else if (periodChange != null) {
-                // Срок изменился не за счёт бонуса и без «Платёж принят!» на
+                // Срок вырос не за счёт бонуса и без «Платёж принят!» на
                 // экране Подписки (автопродление, оплата на другой платформе).
                 // Если пришло и то и другое — показываем по очереди.
                 SubscriptionPeriodChangedDialog(
