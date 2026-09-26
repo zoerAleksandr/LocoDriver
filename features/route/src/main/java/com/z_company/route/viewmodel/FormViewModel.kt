@@ -42,7 +42,6 @@ import com.z_company.domain.util.sum
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.repository.SecureDataStore
 import com.z_company.repository.remote_rest.SyncManager
-import io.sentry.kotlin.multiplatform.Sentry
 import com.z_company.route.Const.NULLABLE_ID
 import com.z_company.route.viewmodel.home_view_model.AlertBeforePurchasesEvent
 import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
@@ -1377,13 +1376,6 @@ class FormViewModel(
             return
         }
         viewModelScope.launch {
-            // Sentry-лог для пользователя VKID 17260416
-            val vkId = SecureDataStore.getVkIdFlow(application).first()
-            if (vkId == "17260416") {
-                val setting = settingsUseCase.getUserSettingFlow().first()
-                val subscriptionPeriod = setting.subscriptionPeriod
-                Sentry.captureMessage("[VKID:$vkId] onSaveClick: subscriptionPeriod=$subscriptionPeriod (${java.util.Date(subscriptionPeriod)})")
-            }
             // Подписка проверена до входа на экран (кнопка + нижнего меню навигации)
             checkDuplicateAndSave(exitAfterSave = false)
         }
