@@ -46,6 +46,8 @@ class SessionExpiredHandler(
         if (token.isNullOrBlank()) return@withLock
         secureTokenStorage.saveAuthToken("")
         secureTokenStorage.saveVkId("")
+        // userId — ключ «увиденного» диалогов подписки и user_id оплаты: см. logOut.
+        secureTokenStorage.saveUserId("")
         // Курсор дельта-синхронизации привязан к аккаунту — см. logOut.
         sharedPrefs.setRouteSyncCursor(null)
     }

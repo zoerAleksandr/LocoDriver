@@ -26,6 +26,7 @@ import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -250,7 +251,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         }
         viewModelScope.launch {
 //            val opKey = sharedPrefs.getOPKeyRobokassa()
-            val userId = secureTokenStorage.getUserIdFlow().first()
+            val userId = currentUserId()
             if (userId != null) {
                 val paymentParams =
                     createPaymentParams(product = product, opKey = null, userId = userId)
@@ -259,6 +260,23 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 _event.tryEmit(BillingEvent.ShowError(Throwable(message = "Отсутствует User ID")))
             }
         }
+    }
+
+    /**
+     * user_id в оплате Robokassa — по нему вебхук начисляет срок. Сохранённый
+     * id пуст, пока профиль нового аккаунта не загрузился; тогда берём его с
+     * сервера, а не оплачиваем «в никуда».
+     */
+    private suspend fun currentUserId(): String? {
+        secureTokenStorage.getUserIdFlow().first()?.takeIf { it.isNotBlank() }?.let { return it }
+        val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+            ?.takeIf { it.isNotBlank() } ?: return null
+        val state = authManager.getUserProfile("Bearer $token")
+            .first { it !is GetUserProfileState.Loading }
+        val userId = (state as? GetUserProfileState.Success)?.user?.id
+            ?.takeIf { it.isNotBlank() } ?: return null
+        secureTokenStorage.saveUserId(userId)
+        return userId
     }
 
     /**
@@ -366,17 +384,19 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
      * - не обновился + !sdkConfirmed → showPaymentFailedDialog
      */
     fun checkPaymentOnServer(sdkConfirmed: Boolean) {
-        viewModelScope.launch {
+        // Второй поллинг поверх идущего (повторный возврат в приложение во
+        // время проверки) дал бы два результата на один платёж.
+        if (paymentCheckJob?.isActive == true) return
+        paymentCheckJob = viewModelScope.launch {
             // Глобальный диалог «Подписка продлена» молчит, пока идёт проверка:
             // об успехе здесь сообщит «Платёж принят!».
-            subscriptionPeriodTracker.setPaymentCheckInProgress(true)
-            try {
+            subscriptionPeriodTracker.runPeriodUpdate {
                 pollPaymentOnServer(sdkConfirmed)
-            } finally {
-                subscriptionPeriodTracker.setPaymentCheckInProgress(false)
             }
         }
     }
+
+    private var paymentCheckJob: Job? = null
 
     private suspend fun pollPaymentOnServer(sdkConfirmed: Boolean) {
         val previousEndTime = _purchasesEndTime.value

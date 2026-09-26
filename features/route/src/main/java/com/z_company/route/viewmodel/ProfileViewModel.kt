@@ -44,6 +44,7 @@ import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.repository.remote_rest.UserRemote
 import com.z_company.repository.remote_rest.VkAuthError
 import com.z_company.route.session.SessionExpiredHandler
+import com.z_company.route.subscription.SubscriptionPeriodTracker
 import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
@@ -146,6 +147,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     private val calendarUseCase: CalendarUseCase by inject()
     private val releaseDayUseCase: ReleaseDayUseCase by inject()
     private val authManager: AuthManager by inject()
+    private val subscriptionPeriodTracker: SubscriptionPeriodTracker by inject()
     private val routesManager: RoutesManager by inject()
     private val syncManager: SyncManager by inject()
     private val settingManager: SettingManager by inject()
@@ -807,6 +809,9 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch(Dispatchers.IO) {
             secureTokenStorage.saveAuthToken("")
             secureTokenStorage.saveVkId("")
+            // userId — ключ «увиденного» глобальных диалогов подписки и user_id
+            // оплаты Robokassa: чужой id после входа в другой аккаунт недопустим.
+            secureTokenStorage.saveUserId("")
             // Курсор дельта-синхронизации привязан к аккаунту. Вход под другим
             // аккаунтом с чужим курсором дал бы почти пустую дельту поверх чужих
             // маршрутов, то есть «синхронизировано» на неверном наборе.
@@ -849,9 +854,10 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 if (state is AuthState.Success) {
                     val token = state.accessToken
                     if (token.isNotEmpty()) {
-                        secureTokenStorage.saveAuthToken(token)  // Сохранение зашифрованного токена
-                        _isLoggedIn.value = true  // Обновляем состояние логина после успеха
-                        restoreSubscriptionAfterLogin(token)
+                        switchAccount(token) {
+                            _isLoggedIn.value = true  // Обновляем состояние логина после успеха
+                            restoreSubscriptionAfterLogin(token)
+                        }
                         refresh()  // Перезагружаем данные после входа
                         syncManager.syncFromRemote("Bearer $token").collect {}
                     }
@@ -883,10 +889,10 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     if (state is AuthState.Success) {
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
-                            secureTokenStorage.saveAuthToken(token)
-                            secureTokenStorage.saveVkId(vkid)
-                            _isLoggedIn.value = true
-                            restoreSubscriptionAfterLogin(token)
+                            switchAccount(token, vkid) {
+                                _isLoggedIn.value = true
+                                restoreSubscriptionAfterLogin(token)
+                            }
                             refresh()
                             syncManager.syncFromRemote("Bearer $token").collect {}
                         }
@@ -920,6 +926,35 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     )
 
     private var pendingVkRegistration: PendingVkRegistration? = null
+
+    /**
+     * Вход/регистрация под аккаунтом с токеном [token]. userId — ключ
+     * «увиденного» глобальных диалогов подписки (SCREEN_SPECS §32.1a) и
+     * user_id оплаты Robokassa, поэтому id прежнего аккаунта стираем ДО смены
+     * токена, а новый сохраняем сразу, не дожидаясь открытия профиля.
+     *
+     * Всё идёт под [SubscriptionPeriodTracker.runPeriodUpdate]: [beforeBind]
+     * подтягивает срок нового аккаунта, и глобальная проверка не должна
+     * увидеть его раньше, чем станет известен userId (иначе срок B сравнился
+     * бы с «увиденным» A или база B записалась бы от чужого срока).
+     */
+    private suspend fun switchAccount(
+        token: String,
+        vkid: String? = null,
+        beforeBind: suspend () -> Unit = {},
+    ) = subscriptionPeriodTracker.runPeriodUpdate {
+        secureTokenStorage.saveUserId("")
+        secureTokenStorage.saveAuthToken(token)  // Сохранение зашифрованного токена
+        vkid?.let { secureTokenStorage.saveVkId(it) }
+        beforeBind()
+        // Без сети id останется пустым — его узнает getUserInfo() или
+        // SubscriptionNoticesViewModel при следующей проверке.
+        val profile = authManager.getUserProfile("Bearer $token")
+            .first { it !is GetUserProfileState.Loading }
+        if (profile is GetUserProfileState.Success && profile.user.id.isNotBlank()) {
+            secureTokenStorage.saveUserId(profile.user.id)
+        }
+    }
 
     /**
      * Срок подписки должен обновиться как обязательная часть успешного входа,
@@ -980,16 +1015,16 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
-                            // Сохранение зашифрованного токена
-                            secureTokenStorage.saveAuthToken(token)
-                            val localUserSettings = settingsUseCase.getUserSettingFlow().first()
-                            val endTimeSubscription = sharedPrefs.getSubscriptionExpiration()
-                            if (endTimeSubscription != 0L) {
-                                val l = localUserSettings.copy(
-                                    subscriptionPeriod = endTimeSubscription
-                                )
-                                settingsUseCase.saveSetting(l)
-                                    .first { it is ResultState.Success || it is ResultState.Error }
+                            switchAccount(token) {
+                                val localUserSettings = settingsUseCase.getUserSettingFlow().first()
+                                val endTimeSubscription = sharedPrefs.getSubscriptionExpiration()
+                                if (endTimeSubscription != 0L) {
+                                    val l = localUserSettings.copy(
+                                        subscriptionPeriod = endTimeSubscription
+                                    )
+                                    settingsUseCase.saveSetting(l)
+                                        .first { it is ResultState.Success || it is ResultState.Error }
+                                }
                             }
 
                             firstUpload()
@@ -1012,9 +1047,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
-                            // Сохранение зашифрованного токена
-                            secureTokenStorage.saveAuthToken(token)
-                            secureTokenStorage.saveVkId(vkid)
+                            switchAccount(token, vkid)
                             firstUpload()
                             _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                             refresh()  // Перезагружаем данные после входа}
@@ -1547,8 +1580,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
-                            // Сохранение зашифрованного токена
-                            secureTokenStorage.saveAuthToken(token)
+                            switchAccount(token)
                             startMigration()
                             _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                             refresh()  // Перезагружаем данные после входа}
@@ -1569,9 +1601,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                     if (state is RegistrationState.Success) {
                         val token = state.accessToken
                         if (token.isNotEmpty()) {
-                            // Сохранение зашифрованного токена
-                            secureTokenStorage.saveAuthToken(token)
-                            secureTokenStorage.saveVkId(vkid)
+                            switchAccount(token, vkid)
                             startMigration()
                             _isLoggedIn.value = true  // Обновляем состояние логина после успеха
                             refresh()  // Перезагружаем данные после входа}
