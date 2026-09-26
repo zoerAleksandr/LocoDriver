@@ -165,8 +165,15 @@ struct ProfileView: View {
             }
 
             Section {
-                NavigationLink("Подписка") {
+                NavigationLink {
                     PurchasesView()
+                } label: {
+                    Label("Машинист Про", systemImage: "star.fill")
+                }
+                NavigationLink {
+                    ReferralView(vm: vm)
+                } label: {
+                    Label("Реферальная программа", systemImage: "gift.fill")
                 }
             }
 
@@ -182,5 +189,90 @@ struct ProfileView: View {
                 }
             }
         }
+    }
+}
+
+private struct ReferralView: View {
+    @ObservedObject var vm: ProfileViewModelWrapper
+
+    var body: some View {
+        List {
+            Section {
+                VStack(spacing: 12) {
+                    Image(systemName: "gift.fill")
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundStyle(.blue)
+                        .frame(width: 64, height: 64)
+                        .background(Color.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 20))
+                    Text("Про для вас и друга")
+                        .font(.title2.bold())
+                    Text("После первой оплаты друга каждый получит половину оплаченного периода дополнительно")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            }
+            Section("Ваш код") {
+                if vm.referralCode != nil && !vm.canInvite {
+                    Label("Реферальная программа доступна для приглашающих, которые уже хотя бы раз оплачивали Про. После вашей первой оплаты здесь появится код.", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Color(red: 0.35, green: 0.24, blue: 0))
+                        .listRowBackground(Color(red: 1, green: 0.94, blue: 0.74))
+                } else if let code = vm.referralCode {
+                    Text(code)
+                        .font(.system(.title, design: .monospaced, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .textSelection(.enabled)
+                    ShareLink(item: "Мой код Машинист Про: \(code)") {
+                        Label("Поделиться", systemImage: "square.and.arrow.up")
+                    }
+                } else if let error = vm.referralError {
+                    Text(error).foregroundColor(.red)
+                    Button("Повторить") { vm.loadReferrals() }
+                } else {
+                    ProgressView()
+                }
+            }
+            Section("Приглашения") {
+                LabeledContent("Приглашено") {
+                    Text("\(vm.referralCount)").fontWeight(.semibold)
+                }
+                LabeledContent("Бонус начислен") {
+                    Text("\(vm.referralRewardedCount)").fontWeight(.semibold).foregroundStyle(.green)
+                }
+            }
+            Section("Как это работает") {
+                ReferralRuleRow(number: 1, text: "Поделитесь своим кодом с другом")
+                ReferralRuleRow(number: 2, text: "Друг вводит код перед первой оплатой Про")
+                ReferralRuleRow(number: 3, text: "Половина периода добавится каждому автоматически")
+                if let rulesURL = URL(string: "https://locodriver.ru/referral.html") {
+                    Link("Подробные правила программы", destination: rulesURL)
+                }
+            } footer: {
+                Text("Приглашать может только тот, кто уже хотя бы раз оплачивал Про. Друг может применить код после регистрации, до своей первой оплаты. Повторные покупки бонуса не дают.")
+            }
+        }
+        .navigationTitle("Реферальная программа")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { vm.loadReferrals() }
+    }
+}
+
+private struct ReferralRuleRow: View {
+    let number: Int
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("\(number)")
+                .font(.caption.bold())
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(Color.blue, in: RoundedRectangle(cornerRadius: 9))
+            Text(text).font(.subheadline)
+        }
+        .padding(.vertical, 2)
     }
 }

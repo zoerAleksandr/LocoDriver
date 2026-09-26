@@ -19,6 +19,7 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.repository.remote_rest.request.CkassaCheckoutRequest
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.SecureTokenStorage
+import com.z_company.route.subscription.SubscriptionPeriodTracker
 import com.z_company.repository.remote_rest.AuthManager
 import com.z_company.repository.remote_rest.GetUserProfileState
 import com.z_company.repository.remote_rest.RemoteRestApi
@@ -68,6 +69,14 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val settingManager: SettingManager by inject()
     private val remoteRestApi: RemoteRestApi by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
+    private val subscriptionPeriodTracker: SubscriptionPeriodTracker by inject()
+
+    private val _referralStatus = MutableStateFlow<com.z_company.repository.remote_rest.response.ReferralStatusResponse?>(null)
+    val referralStatus = _referralStatus.asStateFlow()
+    private val _referralMessage = MutableStateFlow<String?>(null)
+    val referralMessage = _referralMessage.asStateFlow()
+    private val _isApplyingReferral = MutableStateFlow(false)
+    val isApplyingReferral = _isApplyingReferral.asStateFlow()
 
     private val _state = MutableStateFlow(BillingState(isLoading = true))
     val state = _state.asStateFlow()
@@ -105,6 +114,38 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         loadDateConverter()
         observeSubscription()
         refreshProductsAndPurchases()
+        refreshReferralStatus()
+    }
+
+    fun refreshReferralStatus() {
+        viewModelScope.launch {
+            try {
+                val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+                _referralStatus.value = remoteRestApi.getReferralStatus("Bearer $token")
+            } catch (_: Exception) {
+                _referralStatus.value = null
+            }
+        }
+    }
+
+    fun applyReferralCode(code: String) {
+        viewModelScope.launch {
+            _isApplyingReferral.value = true
+            _referralMessage.value = null
+            try {
+                val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+                remoteRestApi.applyReferralCode(
+                    "Bearer $token",
+                    com.z_company.repository.remote_rest.response.ApplyReferralCodeRequest(code.trim()),
+                )
+                _referralMessage.value = "Код принят. Бонус начислится после первой оплаты."
+                refreshReferralStatus()
+            } catch (_: Exception) {
+                _referralMessage.value = "Не удалось применить код. Проверьте его и попробуйте снова."
+            } finally {
+                _isApplyingReferral.value = false
+            }
+        }
     }
 
     /**
@@ -326,39 +367,54 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
      */
     fun checkPaymentOnServer(sdkConfirmed: Boolean) {
         viewModelScope.launch {
-            val previousEndTime = _purchasesEndTime.value
-            _showPaymentLoadingDialog.value = true
-            val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+            // Глобальный диалог «Подписка продлена» молчит, пока идёт проверка:
+            // об успехе здесь сообщит «Платёж принят!».
+            subscriptionPeriodTracker.setPaymentCheckInProgress(true)
+            try {
+                pollPaymentOnServer(sdkConfirmed)
+            } finally {
+                subscriptionPeriodTracker.setPaymentCheckInProgress(false)
+            }
+        }
+    }
 
-            // SDK подтвердила — ждём дольше (сервер точно должен обновиться)
-            // SDK не подтвердила — проверяем быстрее (возможно платёж не прошёл)
-            val maxAttempts = if (sdkConfirmed) 10 else 5
-            val retryDelayMs = 3000L
+    private suspend fun pollPaymentOnServer(sdkConfirmed: Boolean) {
+        val previousEndTime = _purchasesEndTime.value
+        _showPaymentLoadingDialog.value = true
+        val token = secureTokenStorage.getAuthBearerTokenFlow().first()
 
-            var updated = false
-            for (attempt in 0 until maxAttempts) {
-                val result = subscriptionHelper.restorePurchases(null, token)
-                if (result is ResultState.Success) {
-                    val updatedSetting = settingsUseCase.getUserSettingFlow().first()
-                    if (updatedSetting.subscriptionPeriod > previousEndTime) {
-                        _purchasesEndTime.value = updatedSetting.subscriptionPeriod
-                        updated = true
-                        break
-                    }
-                }
-                if (attempt < maxAttempts - 1) {
-                    delay(retryDelayMs)
+        // SDK подтвердила — ждём дольше (сервер точно должен обновиться)
+        // SDK не подтвердила — проверяем быстрее (возможно платёж не прошёл)
+        val maxAttempts = if (sdkConfirmed) 10 else 5
+        val retryDelayMs = 3000L
+
+        var updated = false
+        for (attempt in 0 until maxAttempts) {
+            val result = subscriptionHelper.restorePurchases(null, token)
+            if (result is ResultState.Success) {
+                val updatedSetting = settingsUseCase.getUserSettingFlow().first()
+                if (updatedSetting.subscriptionPeriod > previousEndTime) {
+                    _purchasesEndTime.value = updatedSetting.subscriptionPeriod
+                    updated = true
+                    break
                 }
             }
-
-            _showPaymentLoadingDialog.value = false
-            when {
-                updated -> _showPaymentSuccessDialog.value = true
-                // Robokassa подтвердила оплату, но сервер ещё не обработал webhook —
-                // показываем "обрабатывается" вместо "не завершена"
-                sdkConfirmed -> _showPaymentProcessingDialog.value = true
-                else -> _showPaymentFailedDialog.value = true
+            if (attempt < maxAttempts - 1) {
+                delay(retryDelayMs)
             }
+        }
+
+        _showPaymentLoadingDialog.value = false
+        when {
+            updated -> {
+                // Новый срок увиден здесь — глобальный диалог не нужен.
+                subscriptionPeriodTracker.acknowledge(_purchasesEndTime.value)
+                _showPaymentSuccessDialog.value = true
+            }
+            // Robokassa подтвердила оплату, но сервер ещё не обработал webhook —
+            // показываем "обрабатывается" вместо "не завершена"
+            sdkConfirmed -> _showPaymentProcessingDialog.value = true
+            else -> _showPaymentFailedDialog.value = true
         }
     }
 

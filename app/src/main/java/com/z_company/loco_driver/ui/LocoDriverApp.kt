@@ -27,7 +27,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.z_company.route.ui.SubscriptionPeriodChangedDialog
 import com.z_company.route.viewmodel.RouteActionsHelper
+import com.z_company.route.viewmodel.SubscriptionNoticesViewModel
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import com.z_company.core.ui.theme.Shapes
@@ -35,6 +38,7 @@ import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.route.Route
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance // Изменено: Добавлен импорт для luminance() — это метод Color, чтобы вычислить яркость цвета (0..1).
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -49,6 +53,7 @@ import com.z_company.core.theme.ThemeManager
 import com.z_company.core.theme.ThemeMode
 import com.z_company.loco_driver.ui.navigation.RouterImpl
 import com.z_company.loco_driver.ui.theme.LocoDriverTheme
+import com.z_company.route.R
 import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.component.BottomNavigationBar
 import com.z_company.route.navigation.FormRoute
@@ -61,6 +66,7 @@ import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.UpdatePresentationBlockDestination
 import com.z_company.route.navigation.homeGraph
 import com.z_company.route.navigation.rememberShowPurchasesScreen
+import com.z_company.route.ui.PaymentDialog
 import androidx.activity.ComponentActivity // Изменено: Уже был, но подтверждено — нужен для доступа к window.
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -90,6 +96,13 @@ fun LocoDriverApp(
     pendingOpenTrainWithId: Pair<String, String>? = null,
     onTrainOpenedWithId: () -> Unit = {}
 ) {
+    // Activity-scoped (вне NavHost) — один экземпляр на сессию приложения,
+    // поэтому «Бонус начислен!» и «Подписка продлена» всплывают на любом
+    // экране, а не только на экране Подписки.
+    val subscriptionNoticesViewModel: SubscriptionNoticesViewModel = viewModel()
+    val bonusAwardedDays by subscriptionNoticesViewModel.bonusAwardedDays.collectAsState()
+    val subscriptionPeriodChange by subscriptionNoticesViewModel.periodChange.collectAsState()
+
     val themeManager: ThemeManager = koinInject()
     val themeMode by themeManager.themeMode.collectAsState()
     val darkTheme = when (themeMode) {
@@ -349,6 +362,32 @@ fun LocoDriverApp(
                     onConfirm = onConfirmImport,
                     dismissText = "Отмена",
                     onDismiss = onDismissImport
+                )
+            }
+
+            // Диалог «Бонус начислен!» по реферальной программе — глобальный,
+            // всплывает поверх любого экрана (тот же тёплый «подарочный» тон,
+            // что и в PWA: #8a6200 на #ffedb2 — момент халявы, а не системное
+            // уведомление).
+            val bonusDays = bonusAwardedDays
+            val periodChange = subscriptionPeriodChange
+            if (bonusDays != null) {
+                PaymentDialog(
+                    iconRes = R.drawable.card_giftcard_24px,
+                    iconTone = Color(0xFF8A6200),
+                    title = "Бонус начислен! 🎉",
+                    body = "Вам добавлено $bonusDays дн. подписки по реферальной программе.",
+                    onDismiss = { subscriptionNoticesViewModel.dismissBonusAwardedDialog() },
+                    primaryLabel = "Ура!",
+                    onPrimary = { subscriptionNoticesViewModel.dismissBonusAwardedDialog() },
+                )
+            } else if (periodChange != null) {
+                // Срок вырос не за счёт бонуса и без «Платёж принят!» на
+                // экране Подписки (автопродление, оплата на другой платформе).
+                // Если пришло и то и другое — показываем по очереди.
+                SubscriptionPeriodChangedDialog(
+                    change = periodChange,
+                    onDismiss = { subscriptionNoticesViewModel.dismissPeriodChangeDialog() },
                 )
             }
 

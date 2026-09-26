@@ -211,6 +211,11 @@ fun ProfileScreen(
     pullSyncMessage: String? = null,
     onPullSyncMessageShown: () -> Unit = {},
 ) {
+    var showReferrals by rememberSaveable { mutableStateOf(false) }
+    if (showReferrals) {
+        ReferralScreen(onBack = { showReferrals = false })
+        return
+    }
     var showTrash by rememberSaveable { mutableStateOf(false) }
     if (showTrash) {
         TrashScreen(viewModel = trashViewModel, onBack = { showTrash = false })
@@ -1217,7 +1222,7 @@ fun ProfileScreen(
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         Icon(
-                                            painterResource(com.z_company.core.R.drawable.ic_star),
+                                            painterResource(R.drawable.ic_pro_crown),
                                             contentDescription = null,
                                             modifier = Modifier.size(24.dp),
                                             tint = if (hasSubscription) onCard else MaterialTheme.colorScheme.tertiary,
@@ -1262,6 +1267,39 @@ fun ProfileScreen(
                                         contentDescription = null,
                                         modifier = Modifier.size(20.dp),
                                         tint = onCard.copy(alpha = 0.5f),
+                                    )
+                                }
+                                Spacer(Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .shadow(1.dp, Shapes.medium)
+                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+                                        .clickable { showReferrals = true }
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceBright),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            painterResource(R.drawable.card_giftcard_24px),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(21.dp),
+                                            tint = MaterialTheme.colorScheme.tertiary,
+                                        )
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Пригласить друга", style = styleData, color = primaryColor)
+                                        Text("Получите бесплатные дни обслуживания", style = styleHint, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Icon(
+                                        painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }

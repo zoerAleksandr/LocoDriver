@@ -174,6 +174,15 @@ interface RemoteRestApi {
         request: CkassaCheckoutRequest,
     ): CkassaCheckoutResponse
 
+    /** Личный код и право применить чужой код до первой оплаты. */
+    suspend fun getReferralStatus(token: String): com.z_company.repository.remote_rest.response.ReferralStatusResponse
+
+    /** Привязать код к аккаунту перед первой оплатой. */
+    suspend fun applyReferralCode(
+        token: String,
+        request: com.z_company.repository.remote_rest.response.ApplyReferralCodeRequest,
+    ): com.z_company.repository.remote_rest.response.ApplyReferralCodeResponse
+
     // --- ProductionCalendar (производственный календарь) ---
 
     /** Получить производственный календарь для страны и года (без авторизации) */
