@@ -6,6 +6,7 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.RemoteRestApi
+import com.z_company.route.subscription.PaymentReturnChecker
 import com.z_company.route.subscription.SubscriptionNoticesPolicy
 import com.z_company.route.subscription.SubscriptionPeriodTracker
 import com.z_company.route.subscription.asSubscriptionSeenStore
@@ -40,8 +41,10 @@ data class SubscriptionPeriodChange(val previous: Long, val current: Long)
  * пришедшие с прошлого увиденного срока, и о сроке сообщаем, только если
  * остаётся что-то кроме бонуса.
  *
- * Оплата на экране Подписки гасит диалог о сроке через
- * [SubscriptionPeriodTracker] — там уже показан «Платёж принят!». Вход в
+ * Оплата, начатая в приложении, гасит диалог о сроке: пока она не
+ * подтверждена ([PaymentReturnChecker.hasPending]) срок не оцениваем, а при
+ * подтверждении показывается «Платёж принят!» и срок отмечается увиденным
+ * ([SubscriptionPeriodTracker]). Вход в
  * аккаунт тоже идёт под трекером: срок нового аккаунта приходит раньше его
  * userId.
  *
@@ -52,6 +55,7 @@ data class SubscriptionPeriodChange(val previous: Long, val current: Long)
 class SubscriptionNoticesViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val tracker: SubscriptionPeriodTracker by inject()
+    private val paymentReturnChecker: PaymentReturnChecker by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
     private val remoteRestApi: RemoteRestApi by inject()
     private val sharedPrefs: SharedPreferencesRepositories by inject()
@@ -76,10 +80,14 @@ class SubscriptionNoticesViewModel : ViewModel(), KoinComponent {
                 settingsUseCase.getUserSettingFlow()
                     .map { it.subscriptionPeriod }
                     .distinctUntilChanged(),
-                tracker.periodUpdatesInProgress
-                    .map { it > 0 }
+                combine(
+                    tracker.periodUpdatesInProgress.map { it > 0 },
+                    paymentReturnChecker.hasPending,
+                ) { inProgress, paymentPending -> inProgress to paymentPending }
                     .distinctUntilChanged(),
-            ) { token, userId, period, inProgress -> CheckInput(token, userId, period, inProgress) }
+            ) { token, userId, period, (inProgress, paymentPending) ->
+                CheckInput(token, userId, period, inProgress, paymentPending)
+            }
                 // Смена аккаунта посреди сетевого запроса — старая проверка
                 // уже не про текущего пользователя.
                 .collectLatest { input ->
@@ -95,6 +103,8 @@ class SubscriptionNoticesViewModel : ViewModel(), KoinComponent {
         val userId: String,
         val period: Long,
         val inProgress: Boolean,
+        /** Ждём подтверждения оплаты из приложения — о сроке сообщит «Платёж принят!». */
+        val paymentPending: Boolean,
     )
 
     private suspend fun check(input: CheckInput) {
@@ -107,7 +117,9 @@ class SubscriptionNoticesViewModel : ViewModel(), KoinComponent {
             return
         }
         val awardedDays = fetchAwardedDays(input.token) ?: return // офлайн — проверим при следующем изменении/запуске
-        val notices = policy.check(input.userId, input.period, awardedDays)
+        val notices = policy.check(
+            input.userId, input.period, awardedDays, includePeriod = !input.paymentPending,
+        )
         notices.bonusDays?.let { days -> _bonusAwardedDays.value = (_bonusAwardedDays.value ?: 0) + days }
         notices.periodChange?.let { _periodChange.value = it }
     }

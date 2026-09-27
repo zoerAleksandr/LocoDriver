@@ -19,7 +19,7 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.repository.remote_rest.request.CkassaCheckoutRequest
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.SecureTokenStorage
-import com.z_company.route.subscription.SubscriptionPeriodTracker
+import com.z_company.route.subscription.PaymentReturnChecker
 import com.z_company.repository.remote_rest.AuthManager
 import com.z_company.repository.remote_rest.GetUserProfileState
 import com.z_company.repository.remote_rest.RemoteRestApi
@@ -70,7 +70,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     private val settingManager: SettingManager by inject()
     private val remoteRestApi: RemoteRestApi by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
-    private val subscriptionPeriodTracker: SubscriptionPeriodTracker by inject()
+    private val paymentReturnChecker: PaymentReturnChecker by inject()
 
     private val _referralStatus = MutableStateFlow<com.z_company.repository.remote_rest.response.ReferralStatusResponse?>(null)
     val referralStatus = _referralStatus.asStateFlow()
@@ -90,9 +90,6 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     // нейтральный лоадинг (мы узнаём реальный статус ещё в Профиле, быстро).
     private val _isSubscriptionLoaded = MutableStateFlow(false)
     val isSubscriptionLoaded = _isSubscriptionLoaded.asStateFlow()
-
-    private val _showPaymentSuccessDialog = MutableStateFlow(false)
-    val showPaymentSuccessDialog = _showPaymentSuccessDialog.asStateFlow()
 
     private val _showPaymentLoadingDialog = MutableStateFlow(false)
     val showPaymentLoadingDialog = _showPaymentLoadingDialog.asStateFlow()
@@ -255,6 +252,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
             if (userId != null) {
                 val paymentParams =
                     createPaymentParams(product = product, opKey = null, userId = userId)
+                markPaymentStarted(userId, product)
                 _event.tryEmit(BillingEvent.StartPayment(paymentParams))
             } else {
                 _event.tryEmit(BillingEvent.ShowError(Throwable(message = "Отсутствует User ID")))
@@ -299,6 +297,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                         platform = CKASSA_PLATFORM,
                     ),
                 )
+                currentUserId()?.let { markPaymentStarted(it, product) }
                 _event.tryEmit(BillingEvent.OpenPaymentUrl(response.paymentUrl))
             } catch (t: Throwable) {
                 t.sendToSentry("PurchasesViewModel", "startCkassaCheckout")
@@ -364,87 +363,55 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     }
 
     /**
-     * Проверяет обновление подписки на сервере с retry-поллингом.
-     * Вызывается после любого результата от Robokassa SDK.
+     * Запомнить переход в оплату — [PaymentReturnChecker] подтвердит её при
+     * любом возврате в приложение, даже если экран Покупок не доживёт.
+     */
+    private fun markPaymentStarted(userId: String, product: Product) {
+        paymentReturnChecker.markStarted(
+            userId = userId,
+            periodBefore = _purchasesEndTime.value,
+            periodDays = product.periodDays,
+        )
+    }
+
+    /**
+     * Проверка оплаты после результата Robokassa SDK / возврата со страницы
+     * CKassa. Сервер обновляет подписку асинхронным вебхуком, поэтому —
+     * поллинг: `sdkConfirmed=true` → 10 попыток × 3 с, иначе 5 × 3 с. Сам
+     * поллинг и «Платёж принят!» — в [PaymentReturnChecker] (глобально, на
+     * любом экране); проверка по возврату в приложение идёт тем же заданием,
+     * второй раз не запускается.
      *
-     * @param sdkConfirmed true — SDK вернула Success (Robokassa подтвердила платёж через API).
-     *                     false — Error или Canceled (SDK не подтвердила, но платёж мог пройти).
-     *
-     * Проблема: сервер обновляет подписку через Result URL (webhook), который Robokassa
-     * отправляет асинхронно. К моменту возврата пользователя webhook может ещё не прийти.
-     * Решение: поллинг сервера с повторами вместо одного запроса.
-     *
-     * Стратегия:
-     * - sdkConfirmed=true  → 10 попыток × 3с (Robokassa точно знает об оплате, webhook может задержаться)
-     * - sdkConfirmed=false → 5 попыток × 3с (SDK не уверена, проверяем на всякий случай)
-     *
-     * Результат:
-     * - subscriptionPeriod обновился → showPaymentSuccessDialog
-     * - не обновился + sdkConfirmed → showPaymentProcessingDialog (Robokassa подтвердила, сервер пока не обработал)
-     * - не обновился + !sdkConfirmed → showPaymentFailedDialog
+     * Здесь — только диалоги экрана: «Получаем данные…» на время проверки;
+     * не подтвердилось + SDK подтвердила → «Платёж обрабатывается»; не
+     * подтвердилось без подтверждения SDK → «Оплата не завершена».
      */
     fun checkPaymentOnServer(sdkConfirmed: Boolean) {
-        // Второй поллинг поверх идущего (повторный возврат в приложение во
-        // время проверки) дал бы два результата на один платёж.
         if (paymentCheckJob?.isActive == true) return
         paymentCheckJob = viewModelScope.launch {
-            // Глобальный диалог «Подписка продлена» молчит, пока идёт проверка:
-            // об успехе здесь сообщит «Платёж принят!».
-            subscriptionPeriodTracker.runPeriodUpdate {
-                pollPaymentOnServer(sdkConfirmed)
+            _showPaymentLoadingDialog.value = true
+            val result = try {
+                paymentReturnChecker.checkNow(attempts = if (sdkConfirmed) 10 else 5)
+            } finally {
+                _showPaymentLoadingDialog.value = false
+            }
+            when (result) {
+                // «Платёж принят!» показан глобально; NO_PENDING — оплату уже
+                // подтвердила проверка по возврату в приложение.
+                PaymentReturnChecker.Result.PAID,
+                PaymentReturnChecker.Result.NO_PENDING -> Unit
+                PaymentReturnChecker.Result.NOT_CONFIRMED ->
+                    if (sdkConfirmed) _showPaymentProcessingDialog.value = true
+                    else _showPaymentFailedDialog.value = true
             }
         }
     }
 
     private var paymentCheckJob: Job? = null
 
-    private suspend fun pollPaymentOnServer(sdkConfirmed: Boolean) {
-        val previousEndTime = _purchasesEndTime.value
-        _showPaymentLoadingDialog.value = true
-        val token = secureTokenStorage.getAuthBearerTokenFlow().first()
-
-        // SDK подтвердила — ждём дольше (сервер точно должен обновиться)
-        // SDK не подтвердила — проверяем быстрее (возможно платёж не прошёл)
-        val maxAttempts = if (sdkConfirmed) 10 else 5
-        val retryDelayMs = 3000L
-
-        var updated = false
-        for (attempt in 0 until maxAttempts) {
-            val result = subscriptionHelper.restorePurchases(null, token)
-            if (result is ResultState.Success) {
-                val updatedSetting = settingsUseCase.getUserSettingFlow().first()
-                if (updatedSetting.subscriptionPeriod > previousEndTime) {
-                    _purchasesEndTime.value = updatedSetting.subscriptionPeriod
-                    updated = true
-                    break
-                }
-            }
-            if (attempt < maxAttempts - 1) {
-                delay(retryDelayMs)
-            }
-        }
-
-        _showPaymentLoadingDialog.value = false
-        when {
-            updated -> {
-                // Новый срок увиден здесь — глобальный диалог не нужен.
-                subscriptionPeriodTracker.acknowledge(_purchasesEndTime.value)
-                _showPaymentSuccessDialog.value = true
-            }
-            // Robokassa подтвердила оплату, но сервер ещё не обработал webhook —
-            // показываем "обрабатывается" вместо "не завершена"
-            sdkConfirmed -> _showPaymentProcessingDialog.value = true
-            else -> _showPaymentFailedDialog.value = true
-        }
-    }
-
     @Deprecated("Используй checkPaymentOnServer(sdkConfirmed)")
     fun handlePaymentSuccess(success: RobokassaPayLauncher.Success?) {
         checkPaymentOnServer(sdkConfirmed = success != null)
-    }
-
-    fun dismissPaymentSuccessDialog() {
-        _showPaymentSuccessDialog.value = false
     }
 
     fun dismissPaymentFailedDialog() {

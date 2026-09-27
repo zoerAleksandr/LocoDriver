@@ -493,6 +493,14 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         editor.putInt("${SUBSCRIPTION_PERIOD_REFERRAL_DAYS}_$userId", value).apply()
     }
 
+    override fun getPendingPayment(): String? =
+        sharedpref.getString(PENDING_PAYMENT, null)
+
+    override fun setPendingPayment(value: String?) {
+        if (value == null) editor.remove(PENDING_PAYMENT).apply()
+        else editor.putString(PENDING_PAYMENT, value).apply()
+    }
+
     override fun getLastSeenReferralAwardedDays(userId: String): Int =
         sharedpref.getInt("${LAST_SEEN_REFERRAL_AWARDED_DAYS}_$userId", -1)
 
@@ -522,6 +530,7 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
         const val LAST_SEEN_ANNOUNCEMENT_NUMBER = "LAST_SEEN_ANNOUNCEMENT_NUMBER"
         const val LAST_SEEN_SUBSCRIPTION_PERIOD = "LAST_SEEN_SUBSCRIPTION_PERIOD"
         const val SUBSCRIPTION_PERIOD_REFERRAL_DAYS = "SUBSCRIPTION_PERIOD_REFERRAL_DAYS"
+        const val PENDING_PAYMENT = "PENDING_PAYMENT"
         const val LAST_SEEN_REFERRAL_AWARDED_DAYS = "LAST_SEEN_REFERRAL_AWARDED_DAYS"
         const val TOKEN_THEME_MODE = "TOKEN_THEME_MODE"
         const val WORK_SCHEDULE_PROFILE_KEY = "WORK_SCHEDULE_PROFILE"

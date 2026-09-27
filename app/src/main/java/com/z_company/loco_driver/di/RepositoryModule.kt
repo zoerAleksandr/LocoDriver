@@ -35,6 +35,13 @@ import com.z_company.loco_driver.BuildConfig
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.route.session.SessionExpiredHandler
 import com.z_company.route.subscription.SubscriptionPeriodTracker
+import com.z_company.route.subscription.PaymentReturnChecker
+import com.z_company.route.subscription.asPendingPaymentStore
+import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.core.ResultState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import com.z_company.route.subscription.asSubscriptionSeenStore
 import com.z_company.repository.ShareManager
 import com.z_company.repository.remote_rest.ApiForSendEmail
@@ -102,6 +109,27 @@ val repositoryModule = module {
         SubscriptionPeriodTracker(
             currentUserId = { secureTokenStorage.getUserIdFlow().first() },
             store = get<SharedPreferencesRepositories>().asSubscriptionSeenStore(),
+        )
+    }
+    // Подтверждение оплаты при любом возврате в приложение → «Платёж принят!».
+    single {
+        val secureTokenStorage: SecureTokenStorage = get()
+        val subscriptionHelper: SubscriptionHelper = get()
+        val settingsUseCase: SettingsUseCase = get()
+        PaymentReturnChecker(
+            store = get<SharedPreferencesRepositories>().asPendingPaymentStore(),
+            currentUserId = { secureTokenStorage.getUserIdFlow().first() },
+            refreshPeriodFromServer = {
+                val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+                val result = subscriptionHelper.restorePurchases(null, token)
+                if (result is ResultState.Success) {
+                    settingsUseCase.getUserSettingFlow().first().subscriptionPeriod
+                } else {
+                    null
+                }
+            },
+            tracker = get(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
     }
     // Продление токена при старте приложения (POST /v1/auth/refresh); зовёт StartApp.

@@ -118,6 +118,9 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private val subscriptionPeriodReferralDays = mutableMapOf<String, Int>()
     override fun getSubscriptionPeriodReferralDays(userId: String): Int = subscriptionPeriodReferralDays[userId] ?: -1
     override fun setSubscriptionPeriodReferralDays(userId: String, value: Int) { subscriptionPeriodReferralDays[userId] = value }
+    private var pendingPayment: String? = null
+    override fun getPendingPayment(): String? = pendingPayment
+    override fun setPendingPayment(value: String?) { pendingPayment = value }
     private val lastSeenReferralAwardedDays = mutableMapOf<String, Int>()
     override fun getLastSeenReferralAwardedDays(userId: String): Int = lastSeenReferralAwardedDays[userId] ?: -1
     override fun setLastSeenReferralAwardedDays(userId: String, value: Int) { lastSeenReferralAwardedDays[userId] = value }
