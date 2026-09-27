@@ -165,8 +165,7 @@ Purchases, авторизация по VK ID, чистка от Compose Multipla
   имён в DieselSection.
 - `surchargeLongTrainsList` (доплаты за длинные составы) есть и на
   сервере, и в Kotlin `SalarySetting.kt` (синхронизируется, хранится в
-  SQLDelight, учитывается в `SalaryCalculator`). Не удалять: из-за
-  full-replace настроек клиент без поля затрёт серверный список.
+  SQLDelight, учитывается в `SalaryCalculator`).
 - `photos` в SyncData — устаревшее поле, в БД нет таблицы. Сервер
   игнорирует, клиент шлёт `[]`. Не удалять без координированной миграции.
 
