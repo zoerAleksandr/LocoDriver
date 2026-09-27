@@ -207,19 +207,8 @@ fun PurchasesScreen(
         )
     }
 
-    val showPaymentSuccessDialog by viewModel.showPaymentSuccessDialog.collectAsState()
-
-    if (showPaymentSuccessDialog) {
-        PaymentDialog(
-            iconRes = R.drawable.check_circle_24px,
-            iconTone = MaterialTheme.colorScheme.surfaceTint,
-            title = "Платёж принят!",
-            body = "Спасибо за поддержку приложения!",
-            onDismiss = { viewModel.dismissPaymentSuccessDialog() },
-            primaryLabel = "Отлично!",
-            onPrimary = { viewModel.dismissPaymentSuccessDialog() },
-        )
-    }
+    // «Платёж принят!» — глобальный (PaymentReturnChecker → LocoDriverApp):
+    // появляется при любом возврате из оплаты, даже если этот экран не дожил.
 
     val showPaymentProcessingDialog by viewModel.showPaymentProcessingDialog.collectAsState()
 

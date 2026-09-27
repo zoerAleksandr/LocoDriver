@@ -199,6 +199,15 @@ interface SharedPreferencesRepositories {
     fun setSubscriptionPeriodReferralDays(userId: String, value: Int)
 
     /**
+     * Ожидаемая оплата подписки: запись ставится при переходе в оплату и
+     * снимается, когда сервер подтвердил срок (или истёк её срок жизни).
+     * Переживает выгрузку приложения, пока пользователь в банке. Формат —
+     * строка `PendingPayment.encode()` из features/route; null — оплаты нет.
+     */
+    fun getPendingPayment(): String?
+    fun setPendingPayment(value: String?)
+
+    /**
      * Суммарные бонусные дни от реферальной программы (`awardedDays` из
      * `GET /v1/referrals/me`), которые пользователь уже видел. -1 — ещё
      * ни разу не отслеживали на этом устройстве (первый запуск/переустановка);

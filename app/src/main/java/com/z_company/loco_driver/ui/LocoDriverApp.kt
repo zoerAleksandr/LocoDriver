@@ -33,6 +33,12 @@ import com.z_company.route.viewmodel.RouteActionsHelper
 import com.z_company.route.viewmodel.SubscriptionNoticesViewModel
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import com.z_company.route.subscription.PaymentReturnChecker
+import com.z_company.route.ui.PaymentAcceptedDialog
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.ui.theme.custom.AppTypography
 import com.z_company.domain.entities.route.Route
@@ -102,6 +108,20 @@ fun LocoDriverApp(
     val subscriptionNoticesViewModel: SubscriptionNoticesViewModel = viewModel()
     val bonusAwardedDays by subscriptionNoticesViewModel.bonusAwardedDays.collectAsState()
     val subscriptionPeriodChange by subscriptionNoticesViewModel.periodChange.collectAsState()
+
+    // «Платёж принят!» — при любом возврате из оплаты (кнопка «Назад»,
+    // недавние, иконка, холодный старт после выгрузки), на любом экране.
+    // ON_RESUME активности ловит и возврат из Robokassa SDK, и из браузера.
+    val paymentReturnChecker: PaymentReturnChecker = koinInject()
+    val paidUntil by paymentReturnChecker.paidUntil.collectAsState()
+    val activityLifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(activityLifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) paymentReturnChecker.onAppResumed()
+        }
+        activityLifecycle.addObserver(observer)
+        onDispose { activityLifecycle.removeObserver(observer) }
+    }
 
     val themeManager: ThemeManager = koinInject()
     val themeMode by themeManager.themeMode.collectAsState()
@@ -371,7 +391,13 @@ fun LocoDriverApp(
             // уведомление).
             val bonusDays = bonusAwardedDays
             val periodChange = subscriptionPeriodChange
-            if (bonusDays != null) {
+            val paidUntilValue = paidUntil
+            if (paidUntilValue != null) {
+                PaymentAcceptedDialog(
+                    paidUntil = paidUntilValue,
+                    onDismiss = { paymentReturnChecker.dismissPaidDialog() },
+                )
+            } else if (bonusDays != null) {
                 PaymentDialog(
                     iconRes = R.drawable.card_giftcard_24px,
                     iconTone = Color(0xFF8A6200),

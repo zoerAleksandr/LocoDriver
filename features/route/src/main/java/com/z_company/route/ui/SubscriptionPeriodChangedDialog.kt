@@ -35,3 +35,28 @@ fun SubscriptionPeriodChangedDialog(
         onPrimary = onDismiss,
     )
 }
+
+/**
+ * Глобальный диалог «Платёж принят!» — оплата, начатая в этом приложении,
+ * подтверждена сервером (PaymentReturnChecker). Показывается на любом
+ * экране, каким бы способом пользователь ни вернулся из оплаты.
+ */
+@Composable
+fun PaymentAcceptedDialog(
+    paidUntil: Long,
+    onDismiss: () -> Unit,
+) {
+    val until = Instant.ofEpochMilli(paidUntil)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+        .format(SUBSCRIPTION_DATE_FORMAT)
+    PaymentDialog(
+        iconRes = R.drawable.check_circle_24px,
+        iconTone = MaterialTheme.colorScheme.surfaceTint,
+        title = "Платёж принят!",
+        body = "Подписка активна до $until. Спасибо за поддержку приложения!",
+        onDismiss = onDismiss,
+        primaryLabel = "Отлично!",
+        onPrimary = onDismiss,
+    )
+}

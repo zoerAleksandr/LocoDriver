@@ -50,9 +50,14 @@ class SubscriptionNoticesPolicy(
         val periodChange: SubscriptionPeriodChange?,
     )
 
-    fun check(userId: String, period: Long, awardedDays: Int): Notices = Notices(
+    /**
+     * [includePeriod] = false — срок сейчас не оцениваем и «увиденное» по
+     * нему не трогаем: ждём подтверждения оплаты, начатой в приложении
+     * (PaymentReturnChecker покажет «Платёж принят!» и сам отметит срок).
+     */
+    fun check(userId: String, period: Long, awardedDays: Int, includePeriod: Boolean = true): Notices = Notices(
         bonusDays = checkReferralBonus(userId, awardedDays),
-        periodChange = checkPeriod(userId, period, awardedDays),
+        periodChange = if (includePeriod) checkPeriod(userId, period, awardedDays) else null,
     )
 
     /**
