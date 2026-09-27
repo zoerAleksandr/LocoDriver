@@ -11,6 +11,9 @@ import com.z_company.domain.entities.norma_time.StationNorm
 import com.z_company.domain.entities.partner.Partner
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
+import io.ktor.client.plugins.ClientRequestException
+import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
@@ -42,6 +45,22 @@ class SettingManager(
         emit(ResultState.Success(setting))
     }.catch { e ->
         emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
+    }
+
+    /**
+     * Срок подписки аккаунта по данным сервера — единственного источника
+     * срока (клиентский `subscriptionPeriod` сервер при сохранении
+     * игнорирует). 404 — у аккаунта ещё нет настроек, значит и подписки: 0.
+     * null — сервер не ответил, срок неизвестен.
+     */
+    suspend fun getAccountSubscriptionPeriod(bearerToken: String): Long? = try {
+        remoteRestApi.getUserSetting(token = bearerToken).subscriptionPeriod
+    } catch (e: ClientRequestException) {
+        if (e.response.status == HttpStatusCode.NotFound) 0L else null
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
     }
 
     fun saveSalarySettingInRemote(

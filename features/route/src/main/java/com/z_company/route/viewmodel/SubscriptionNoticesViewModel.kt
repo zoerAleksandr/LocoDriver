@@ -6,12 +6,15 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.repository.remote_rest.RemoteRestApi
+import com.z_company.route.subscription.SubscriptionNoticesPolicy
 import com.z_company.route.subscription.SubscriptionPeriodTracker
+import com.z_company.route.subscription.asSubscriptionSeenStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
@@ -38,7 +41,13 @@ data class SubscriptionPeriodChange(val previous: Long, val current: Long)
  * остаётся что-то кроме бонуса.
  *
  * Оплата на экране Подписки гасит диалог о сроке через
- * [SubscriptionPeriodTracker] — там уже показан «Платёж принят!».
+ * [SubscriptionPeriodTracker] — там уже показан «Платёж принят!». Вход в
+ * аккаунт тоже идёт под трекером: срок нового аккаунта приходит раньше его
+ * userId.
+ *
+ * «Увиденное» хранится по userId, поэтому проверка перезапускается и при
+ * смене токена/userId (выход, вход под другим аккаунтом), а не только при
+ * изменении срока.
  */
 class SubscriptionNoticesViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
@@ -53,90 +62,70 @@ class SubscriptionNoticesViewModel : ViewModel(), KoinComponent {
     private val _periodChange = MutableStateFlow<SubscriptionPeriodChange?>(null)
     val periodChange = _periodChange.asStateFlow()
 
+    private val policy = SubscriptionNoticesPolicy(sharedPrefs.asSubscriptionSeenStore())
+
     init {
         viewModelScope.launch {
             combine(
+                secureTokenStorage.getAuthBearerTokenFlow()
+                    .map { it.orEmpty() }
+                    .distinctUntilChanged(),
+                secureTokenStorage.getUserIdFlow()
+                    .map { it.orEmpty() }
+                    .distinctUntilChanged(),
                 settingsUseCase.getUserSettingFlow()
                     .map { it.subscriptionPeriod }
                     .distinctUntilChanged(),
-                tracker.paymentCheckInProgress,
-            ) { period, inProgress -> period to inProgress }
-                .collect { (period, inProgress) ->
-                    // Во время поллинга оплаты решение за экраном Подписки;
-                    // когда флаг снимется, combine перепроверит текущий срок.
-                    if (!inProgress) check(period)
+                tracker.periodUpdatesInProgress
+                    .map { it > 0 }
+                    .distinctUntilChanged(),
+            ) { token, userId, period, inProgress -> CheckInput(token, userId, period, inProgress) }
+                // Смена аккаунта посреди сетевого запроса — старая проверка
+                // уже не про текущего пользователя.
+                .collectLatest { input ->
+                    // Во время поллинга оплаты или входа решение за тем экраном;
+                    // когда счётчик обнулится, combine перепроверит текущий срок.
+                    if (!input.inProgress) check(input)
                 }
         }
     }
 
-    private suspend fun check(period: Long) {
-        val userId = secureTokenStorage.getUserIdFlow().first()?.takeIf { it.isNotBlank() } ?: return
-        val awardedDays = fetchAwardedDays() ?: return // офлайн — проверим при следующем изменении/запуске
-        checkReferralBonus(userId, awardedDays)
-        checkPeriod(userId, period, awardedDays)
+    private data class CheckInput(
+        val token: String,
+        val userId: String,
+        val period: Long,
+        val inProgress: Boolean,
+    )
+
+    private suspend fun check(input: CheckInput) {
+        if (input.token.isBlank()) return // не вошёл — «увиденное» не трогаем
+        if (input.userId.isBlank()) {
+            // Ключ аккаунта неизвестен (профиль ещё не загружался или не
+            // загрузился при входе). Узнаём сами; сохранение id перезапустит
+            // проверку уже под верным ключом.
+            resolveUserId(input.token)?.let { secureTokenStorage.saveUserId(it) }
+            return
+        }
+        val awardedDays = fetchAwardedDays(input.token) ?: return // офлайн — проверим при следующем изменении/запуске
+        val notices = policy.check(input.userId, input.period, awardedDays)
+        notices.bonusDays?.let { days -> _bonusAwardedDays.value = (_bonusAwardedDays.value ?: 0) + days }
+        notices.periodChange?.let { _periodChange.value = it }
     }
 
-    private suspend fun fetchAwardedDays(): Int? = try {
-        val token = secureTokenStorage.getAuthBearerTokenFlow().first()
-        remoteRestApi.getReferralStatus("Bearer $token").awardedDays
+    private suspend fun resolveUserId(token: String): String? = try {
+        remoteRestApi.getUserProfile("Bearer $token").user.id.takeIf { it.isNotBlank() }
+    } catch (e: CancellationException) {
+        throw e
     } catch (_: Exception) {
         null
     }
 
-    /**
-     * Сравнивает свежий awardedDays с последним увиденным ДЛЯ ЭТОГО userId
-     * (см. checkNewReferralBonus в PWA). -1 — первый запуск трекинга: только
-     * запоминаем базу, без диалога.
-     */
-    private fun checkReferralBonus(userId: String, awardedDays: Int) {
-        val lastSeen = sharedPrefs.getLastSeenReferralAwardedDays(userId)
-        if (lastSeen in 0 until awardedDays) {
-            _bonusAwardedDays.value = (_bonusAwardedDays.value ?: 0) + awardedDays - lastSeen
-        }
-        sharedPrefs.setLastSeenReferralAwardedDays(userId, awardedDays)
-    }
-
-    /**
-     * Не сообщаем: при `period <= 0` (пустые настройки до загрузки — не
-     * запоминаем); при первом отслеживании аккаунта на устройстве (только
-     * база — иначе вход с оплаченной подпиской выглядел бы «продлением»);
-     * при уменьшении срока; если рост целиком объясняется бонусом рефералки.
-     */
-    private fun checkPeriod(userId: String, period: Long, awardedDays: Int) {
-        if (period <= 0L) return
-        val lastSeen = sharedPrefs.getLastSeenSubscriptionPeriod(userId)
-        val referralDaysInLastSeen = sharedPrefs.getSubscriptionPeriodReferralDays(userId)
-        if (period == lastSeen) {
-            // Срок подтверждён экраном Подписки — бонус, пришедший вместе с
-            // этой оплатой, уже внутри него.
-            if (referralDaysInLastSeen < 0) {
-                sharedPrefs.setSubscriptionPeriodReferralDays(userId, awardedDays)
-            }
-            return
-        }
-        sharedPrefs.setLastSeenSubscriptionPeriod(userId, period)
-        sharedPrefs.setSubscriptionPeriodReferralDays(userId, awardedDays)
-        if (lastSeen <= 0L) return
-
-        val bonusDays = if (referralDaysInLastSeen >= 0) {
-            (awardedDays - referralDaysInLastSeen).coerceAtLeast(0)
-        } else {
-            0
-        }
-        if (!isExtendedBeyondBonus(lastSeen, period, bonusDays)) return
-        _periodChange.value = SubscriptionPeriodChange(lastSeen, period)
-    }
-
-    /**
-     * Сервер начисляет бонус как `max(срок, сейчас) + бонус`. Без бонуса —
-     * любой рост. С бонусом — только если срок ушёл дальше, чем мог увести
-     * один бонус (запас [TOLERANCE_MS] на округление awardedDays вниз).
-     */
-    private fun isExtendedBeyondBonus(lastSeen: Long, period: Long, bonusDays: Int): Boolean {
-        if (period <= lastSeen) return false
-        if (bonusDays == 0) return true
-        val bonusBase = maxOf(lastSeen, System.currentTimeMillis())
-        return period - bonusDays * DAY_MS > bonusBase + TOLERANCE_MS
+    private suspend fun fetchAwardedDays(token: String): Int? = try {
+        remoteRestApi.getReferralStatus("Bearer $token").awardedDays
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
     }
 
     fun dismissBonusAwardedDialog() {
@@ -145,10 +134,5 @@ class SubscriptionNoticesViewModel : ViewModel(), KoinComponent {
 
     fun dismissPeriodChangeDialog() {
         _periodChange.value = null
-    }
-
-    private companion object {
-        const val DAY_MS = 86_400_000L
-        const val TOLERANCE_MS = DAY_MS
     }
 }
