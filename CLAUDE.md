@@ -163,9 +163,10 @@ Purchases, авторизация по VK ID, чистка от Compose Multipla
 - `GET /v1/route/` возвращает 404 при пустом списке (должно быть `200 []`).
 - `fuelSupplyKg` (GET) vs `fuelSupplyInKilo` (POST) — расхождение
   имён в DieselSection.
-- `surchargeLongTrainsList` есть на сервере, нет в Kotlin
-  `SalarySetting.kt` — НЕ добавлять до релиза iOS, чтобы не было
-  сюрпризов с full-replace.
+- `surchargeLongTrainsList` (доплаты за длинные составы) есть и на
+  сервере, и в Kotlin `SalarySetting.kt` (синхронизируется, хранится в
+  SQLDelight, учитывается в `SalaryCalculator`). Не удалять: из-за
+  full-replace настроек клиент без поля затрёт серверный список.
 - `photos` в SyncData — устаревшее поле, в БД нет таблицы. Сервер
   игнорирует, клиент шлёт `[]`. Не удалять без координированной миграции.
 
