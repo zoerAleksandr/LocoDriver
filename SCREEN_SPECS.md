@@ -23,72 +23,247 @@
 
 ## 0. Общие соглашения (важно для всех платформ)
 
-- **Время** — `Long`, миллисекунды от Unix epoch (UTC). Отображение — с
-  учётом тайм-зоны пользователя (строка вида `GMT+3`), конвертация только на
-  уровне UI/DTO.
-- **Месяц в API** — 0-based (январь = 0). Конвертация только в DTO-маппере.
-- **Нормы времени** — `Int`, **минуты**. Значение `0` трактуется как
-  «не задано» → хранится как `null`. Нигде не сохранять `0` как норму.
-- **UUID** — строки, генерируются клиентом (`generateId()`), сервер не
-  присваивает.
-- **Числа топлива/энергии** — `Double`, но по сети сериализуются строками
-  (наследие; не терять дробную часть).
+### 0.1. Время, часовой пояс, форматы
+
+- **Время** — `Long`, миллисекунды от Unix epoch (UTC). Все поля времени в моделях
+  хранят абсолютный момент; часовой пояс применяется только при отображении/вводе.
+- **Часовой пояс пользователя** — `UserSettings.timeZone: Long` = смещение **в
+  миллисекундах относительно Москвы (UTC+3)**, `0` = московское время. Строка
+  пояса строится `getTimeZone(ms)`: смещение `ms + 10 800 000` → `"GMT+N"` (целые
+  часы) или `"GMT+HH:MM"` (с минутами); отрицательное → `"GMT-…"`.
+- **Пояс отображения и ввода** (`UserSettings.displayTimeZone()`, он же
+  `DateAndTimeConverter.timeZoneText`): страна `KZ` → `getTimeZone(timeZone)`
+  (местное время); любая другая страна (`RU`, `BY`, …) → **всегда `"GMT+3"`**,
+  независимо от `timeZone`. Пикеры даты/времени получают эту же строку.
+- **Пояс расчётов** (`TimeCalculationContext.from(settings)`): `localTZ =
+  getTimeZone(timeZone)` — для ночных/праздничных часов; `crossMonthTZ` — для
+  границ месяца у переходных маршрутов: `CrossMonthTimezone.MOSCOW` → `GMT+3`,
+  `LOCAL` (по умолчанию) → `localTZ`.
+- **Форматы дат** (в поясе отображения): время `HH:mm`; «мини-дата+время»
+  `dd.MM HH:mm`; дата `dd.MM.yy`; дата+время `dd.MM.yy HH:mm` (для `0L` —
+  «Нет данных»). Пустое значение → пустая строка.
+- **Длительности** (`ConverterLongToTime`): обычный режим — `ЧЧ:ММ`, часы не
+  ограничены 24 и дополняются нулём до двух знаков (`05:07`, `168:30`); `null` →
+  строка из пробелов; отрицательное → `00:00`. При `UserSettings.isDecimalTime =
+  true` — десятичные часы `Ч,ММ`, где `ММ` — сотые доли часа (30 мин → `7,50`).
+  Секундомеры/обратные отсчёты на Главном всегда в `ЧЧ:ММ`. Длительности отдыха
+  в виджете — `formatDurationFromMillis`: `«1д 2ч 5м»`.
+- **Деньги** (`toMoneyString`): округление до копеек, группировка тысяч
+  пробелом, запятая, ровно 2 знака, пробел и символ валюты: `12 345,67 ₽`.
+  `null` → `0 ₽`. Валюта по `UserSettings.country`: `KZ` → `₸`, `BY` → `Br`,
+  остальное (в т.ч. `RU`/`null`) → `₽`.
+- **Месяц** — 0-based везде: в `MonthOfYear.month`, `ReleaseDay.month`, в API
+  (январь = 0). Конвертация в 1-based — только в DTO-маппере/при построении дат.
+- **Нормы времени** (`StationNorm`, `LocomotiveSeries`) — `Int`, **минуты**.
+  Значение `0` трактуется как «не задано» → хранится как `null`; редакторы норм
+  ограничивают ввод диапазоном `0..240` и `0` сохраняют как `null`.
+  ⚠️ Поведение Android: кнопка «Сохранить норму станции …» в шторке времени (§2.8)
+  записывает вычисленный интервал как есть и может сохранить `0` или
+  отрицательное число (возможный баг).
+- **UUID** — строки, генерируются клиентом: `generateId()` = `Uuid.random()
+  .toString()` (строчный UUID v4 с дефисами). Сервер id не присваивает.
+- **Числа по сети** (сериализация `kotlinx.serialization`):
+  - `SectionElectric.*` (энергия/рекуперация) — `@Contextual Double`,
+    сериализуются **строкой** через `DoubleAsStringSerializer`: целое → `"1783"`,
+    дробное → `"1783.32"`; при чтении принимаются и строка, и JSON-число.
+  - `SectionDiesel.*` и счётчики `heating*/auxiliary*` локомотива — обычные
+    JSON-числа `Double`.
+  - `Locomotive.normaElectricCurrent1/2` — `NumberAsDoubleSerializer`: целое
+    уходит как `12`, дробное как `12.5`; принимается Int/Long/Double.
+  - `Locomotive.normaDiesel` — **строка** с точкой (`"12.5"`).
+  - `BasicData.updatedAt` — `DateAsLongSerializer`: пишется `Long`, при чтении
+    принимается `Long` или строка Gson-формата `"Feb 17, 2026 17:24:45"` (UTC).
 - **Реактивность** — репозитории отдают `Flow`; UI подписывается и
   перерисовывается при изменениях (везде, где сказано «getAllFlow()», на iOS —
   эквивалент: наблюдаемый источник, публикующий обновления).
 
-### Доменные модели (сущности)
+### 0.2. Доменные модели (сущности)
+
+Нотация: `?` — nullable; `= x` — значение по умолчанию. Все классы —
+`@Serializable`. Поля с `@Transient` в JSON не попадают (только локально).
 
 ```
+Route(                              // маршрут (рейс) целиком — единица синхронизации
+  basicData: BasicData = BasicData(),
+  locomotives: [Locomotive] = [], trains: [Train] = [], passengers: [Passenger] = [],
+  otherWorks: [OtherWork] = [], partners: [RoutePartner] = [],
+  photos: [Photo] = []              // устаревшее, клиент шлёт []
+)
+
+BasicData(
+  id: String = generateId(),        // id маршрута
+  remoteRouteId?: String, remoteObjectId?: String,
+  isSynchronized: Boolean = false,  // отправлен ли текущий вариант на сервер
+  isOnePersonOperation: Boolean = false,   // «в одно лицо»
+  isDeleted: Boolean = false,       // soft-delete (корзина)
+  @Transient deletedAt?: Long, @Transient deletionReason?: String,
+  @Transient remoteDeletionPending: Boolean = false, @Transient remoteDeletedAt?: Long,
+  updatedAt: Long = now,            // DateAsLongSerializer
+  number?: String,                  // номер маршрутного листа
+  timeStartWork?: Long,             // явка
+  timeEndWork?: Long,               // окончание работы (сдача)
+  restPointOfTurnover: Boolean = false,    // после маршрута — отдых в пункте оборота
+  notes?: String, isFavorite: Boolean = false,
+  timeStartBreak?: Long, timeEndBreak?: Long,  // перерыв
+  workStartByArrivalPassengerId?: String,  // «явка по прибытию»: id пассажира; в БД не хранится
+  @Transient timeStartWorkBeforeArrival?: Long
+)
+
 Locomotive(
-  locoId, basicId, remoteObjectId?,
+  locoId: String = generateId(), basicId: String, remoteObjectId?: String,
   series?: String, number?: String, type: LocoType = ELECTRIC,
-  electricSectionList: [SectionElectric], dieselSectionList: [SectionDiesel],
+  electricSectionList: [SectionElectric] = [], dieselSectionList: [SectionDiesel] = [],
   timeStartOfAcceptance?: Long, timeEndOfAcceptance?: Long,      // приёмка: начало, конец
   timeStartOfDelivery?: Long,   timeEndOfDelivery?: Long,        // сдача: начало, конец
+  normaElectricCurrent1?: Double, normaElectricCurrent2?: Double, // норма расхода, ток 1/2
+  normaDiesel?: String,                                          // норма тепловоза, кг
+  heatingCounterAccepted?: Double, heatingCounterDelivery?: Double,     // отопление, кВт·ч
+  auxiliaryCounterAccepted?: Double, auxiliaryCounterDelivery?: Double, // собств. нужды, кВт·ч
   timeBarrierOut?: Long,   // приёмка: «Выход на КП»
   timeBarrierIn?: Long,    // сдача: «Заход на КП»
-  acceptanceStationId?: String, deliveryStationId?: String,      // ссылки на StationNorm
-  normaElectricCurrent1?: Double, normaElectricCurrent2?: Double,
-  normaDiesel?: String,
-  heatingCounterAccepted?/Delivery?: Double,                     // счётчик отопления
-  auxiliaryCounterAccepted?/Delivery?: Double,                   // счётчик собственных нужд
+  acceptanceStationId?: String, deliveryStationId?: String       // ссылки на StationNorm
 )
-LocoType = { ELECTRIC, DIESEL }
+// Оба списка секций сохраняются всегда, независимо от type (см. §1.2).
+
+LocoType = { ELECTRIC("Электротяга"), DIESEL("Теплотяга") }   // text — подпись в UI
+
+SectionElectric(                   // показания счётчиков секции электровоза, кВт·ч
+  sectionId: String = generateId(), locoId: String = "", type: LocoType = ELECTRIC,
+  acceptedEnergy?, deliveryEnergy?,                    // расход, ток 1: принял/сдал
+  acceptedRecovery?, deliveryRecovery?,                // рекуперация, ток 1
+  acceptedEnergyOtherCurrent?, deliveryEnergyOtherCurrent?,     // расход, ток 2
+  acceptedRecoveryOtherCurrent?, deliveryRecoveryOtherCurrent?  // рекуперация, ток 2
+)                                  // все показания — Double?, по сети строками
+
+SectionDiesel(                     // топливо секции тепловоза
+  sectionId: String = generateId(), locoId: String = "", type: LocoType = DIESEL,
+  acceptedFuel?: Double, deliveryFuel?: Double,   // литры: принял/сдал
+  coefficient?: Double,                            // k секции (плотность, кг/л)
+  fuelSupply?: Double,                             // экипировка, л
+  fuelSupplyInKilo?: Double,                       // экипировка, кг
+  coefficientSupply?: Double                       // k экипировки
+)
+
+Train(
+  trainId: String = generateId(), basicId: String = "",
+  number?: String, additionalNumbers: [String] = [],
+  distance?: String, weight?: String, axle?: String, conditionalLength?: String, // строки!
+  stations: [Station] = [], servicePhase?: ServicePhase,
+  pusher?: TrainAssist, doubleTraction?: TrainAssist, doubledTrain?: TrainAssist,
+  dataVersions: [TrainDataVersion] = [], carInspector?: CarInspector
+)
+TrainAssist(locomotiveNumber?, locomotiveSeries?, driverName?, notes?: String,
+            isFirst?: Boolean)     // null — не задано, true «Я первый», false «Я второй»
+CarInspector(fullName?, tabNumber?: String, couplingTime?: Long)
+TrainDataVersion(stationId?, stationName?, weight?, axle?, conditionalLength?: String,
+                 changedAt: Long = 0)
+Station(
+  stationId: String = generateId(), trainId: String = "",
+  stationName?: String,            // JSON-имя "name"
+  timeArrival?: Long, timeDeparture?: Long, orderIndex: Int = 0,
+  trackNumber?: String,            // JSON-имя "track_number"
+  isFinalStation: Boolean = false,
+  isPassingStation: Boolean = false,  // проходная: одно время в timeArrival, timeDeparture = null
+  segmentTrackNumber?: String, segmentNotes?: String  // перегон ПЕРЕД станцией
+)
+
+Passenger(
+  passengerId: String = generateId(), basicId: String = "", remoteObjectId?: String,
+  trainNumber?, stationDeparture?, stationArrival?: String,
+  timeArrival?: Long, timeDeparture?: Long, notes?: String,
+  isWorkStartByArrival: Boolean = false     // см. §7.2
+)
+
+OtherWork(
+  otherWorkId: String = generateId(), basicId: String = "", remoteObjectId?: String,
+  workType?: String,               // "Маневровая" | "Вывозная" | "При депо" | пользовательский
+  timeStart?: Long, timeEnd?: Long, station?: String, notes?: String
+)                                  // в расчёте времени/зарплаты не участвует
+
+Photo(photoId: String = generateId(), basicId: String = "", remoteObjectId?: String,
+      url: String, dateOfCreate: Long)   // устаревшее
 
 StationNorm(
-  stationId, name,
+  stationId: String = generateId(), name: String,
   appearanceToStartMin?: Int,   // Явка → Начало приёмки
   endToBarrierMin?: Int,        // Окончание приёмки → Выход на КП
   barrierToStartMin?: Int,      // Заход на КП → Начало сдачи
   endToWorkEndMin?: Int,        // Окончание сдачи → Окончание работы
-  updatedAt: Long
+  updatedAt: Long = now
 )
 
 LocomotiveSeries(
-  seriesId, name, type: LocoType,
+  seriesId: String = generateId(), name: String, type: LocoType,
   acceptanceDurationMin?: Int,      // «После отстоя»: длительность приёмки
   deliveryDurationMin?: Int,        // «После отстоя»: длительность сдачи
   acceptanceHandToHandMin?: Int,    // «Из рук в руки»: длительность приёмки
   deliveryHandToHandMin?: Int,      // «Из рук в руки»: длительность сдачи
-  sectionNumberingType: { NUMERIC, LETTERS }, // подписи секций; default NUMERIC
-  updatedAt: Long
+  sectionNumberingType: SectionNumberingType = NUMERIC,
+  updatedAt: Long = now
 )
+SectionNumberingType = { NUMERIC, LETTERS }   // «Секция 1/2/3» | «Секция А/Б/В»
 ```
 
 ```
 Partner(                     // запись справочника напарников
-  partnerId, fullName,
+  partnerId: String = generateId(), fullName: String = "",
   tabNumber?: String,        // табельный номер (строка: ведущие нули)
   notes?: String,
-  updatedAt: Long
+  updatedAt: Long = now
 )
 
 RoutePartner(                // напарник внутри маршрута (копия + ссылка)
-  routePartnerId, basicId, remoteObjectId?,
+  routePartnerId: String = generateId(), basicId: String = "", remoteObjectId?: String,
   sourcePartnerId?: String,  // ссылка на Partner в справочнике (может быть null)
   fullName?: String, tabNumber?: String, notes?: String
 )
+```
+
+```
+UserSettings(                                // одна запись, key = "User_Settings_Key"
+  minTimeRestPointOfTurnover: Long = 10 800 000,        // 3 ч — мин. отдых в ПО
+  minTimeRestPointOfTurnoverSecond: Long = 14 400 000,  // 4 ч — второй подряд отдых в ПО
+  minTimeHomeRest: Long = 57 600 000,                   // 16 ч — мин. домашний отдых
+  lastEnteredDieselCoefficient: Double = 0.83,          // k секции по умолчанию
+  nightTime: NightTime = 22:00–06:00,
+  defaultLocoType: LocoType = ELECTRIC,
+  defaultWorkTime: Long = 43 200 000 (12 ч), usingDefaultWorkTime: Boolean = false,
+  isConsiderFutureRoute: Boolean = true,                // «Учитывать будущие маршруты»
+  updateAt: Long, selectMonthOfYear: MonthOfYear = текущий месяц,
+  stationList: [String] = [], locomotiveSeriesList: [String] = [],  // автодополнение
+  timeZone: Long = 0,                                   // мс от Москвы, см. 0.1
+  servicePhases: [ServicePhase] = [],
+  standardTimesStartWork: [Long] = [8 ч, 20 ч],         // мс от полуночи
+  subscriptionPeriod: Long = 0,                         // конец подписки, epoch ms; 0 — не было
+  isDecimalTime: Boolean = false,
+  isShowBreak, isShowOnePersonSwitch, isShowLocomotive, isShowTrain, isShowPassenger,
+  isShowOtherWork, isShowPartner: Boolean = true,       // видимость блоков формы
+  otherWorkTypeList: [String] = [],
+  isShowLocoHeating, isShowLocoAuxiliary: Boolean = true,
+  isConsiderLocoHeatingInTotal, isConsiderLocoAuxiliaryInTotal: Boolean = true,
+  isShowLocoStatistics, isShowLocoNorma: Boolean = true,
+  isShowOtherCurrent: Boolean = false,                  // «Смена рода тока»
+  country: String = "RU", crossMonthTimezone = LOCAL,
+  useStandardTimePicker: Boolean = false,               // системный пикер вместо шторки
+  region?: String,                                      // ISO 3166-2, напр. "RU-TA"
+  passengerWagonLengthMeters: Double = 24.5
+)
+ServicePhase(id = generateId(), departureStation, arrivalStation: String,
+             distance: Int /* км */, linearMileageRate: Double = 0.0 /* руб/км */)
+NightTime(startNightHour = 22, startNightMinute = 0, endNightHour = 6, endNightMinute = 0)
+CrossMonthTimezone = { LOCAL, MOSCOW }
+
+MonthOfYear(id = generateId(), year: Int, month: Int /* 0-based */, days: [Day] = [],
+            tariffRate: Double = 0.0, dateSetTariffRate?: DateSetTariffRate)
+Day(dayOfMonth: Int, tag: TagForDay, isReleaseDay = false, releaseType?: ReleaseType,
+    hours?: Double /* только «Технические занятия» */)
+TagForDay = { WORKING_DAY, NON_WORKING_DAY, SHORTENED_DAY, HOLIDAY }
+ReleaseType (по сети — строка text) = Отпуск | Больничный | Курсы | Донорские |
+  По уходу за ребенком-инвалидом | Выходной | Командировка | Технические занятия | Прочее
+ReleaseDay(id = generateId(), year, month /* 0-based */, dayOfMonth: Int,
+           releaseType: ReleaseType, hours?: Double)
+
+SalarySetting — ставки/проценты для расчёта зарплаты; поля и смысл — §11–12.
 ```
 
 Репозитории: `LocomotiveSeriesRepository`, `StationNormRepository`, `PartnerRepository`
@@ -105,29 +280,75 @@ RoutePartner(                // напарник внутри маршрута (
 трогаем). **PII:** ФИО/табельные не логируются на сервере и не отдаются публичным
 `GET /v1/share/route/{id}`.
 
+### 0.3. Общие производные величины маршрута
+
+Используются на Главном (§4), в карточках и расчётах отдыха:
+- **Перерыв** `getBreakDuration()` = `floorMin(timeEndBreak) − floorMin(timeStartBreak)`,
+  если оба заданы и конец > начала, иначе `0` (`floorMin` — отбросить секунды).
+- **Чистая работа** `getPureWorkTime()` = `floorMin(timeEndWork) −
+  floorMin(timeStartWork) − перерыв`; `null`, если нет явки или сдачи.
+- **Отработано по маршруту** `getWorkTime()` = чистая работа + проезд пассажиром
+  до явки («явка по прибытию», §7.2).
+- **Текущий маршрут** (`findCurrentRoute(now)`, по всем маршрутам всех месяцев):
+  `timeStartWork < now` и (`now < timeEndWork` либо `timeEndWork == null` и после
+  его явки не стартовал другой маршрут с явкой `≤ now`); из подходящих — с самой
+  поздней явкой.
+- **Следующий маршрут** (`findNextFutureRoute(now)`): минимальный `timeStartWork >
+  now`; сдача не обязательна.
+- **Переходный маршрут** (`isTransition`): явка и сдача попадают в разные
+  календарные месяцы (в `crossMonthTZ`).
+
+Источник: `domain/.../entities/route/{Route,BasicData,Locomotive,LocoType,Train,Passenger,OtherWork,RoutePartner,Photo,UtilsForEntities}.kt`,
+`domain/.../entities/norma_time/{StationNorm,LocomotiveSeries}.kt`, `domain/.../entities/partner/Partner.kt`,
+`domain/.../entities/setting/{UserSettings,SalarySetting}.kt`, `domain/.../entities/{MonthOfYear,ReleaseDay}.kt`,
+`domain/.../entities/serializers/Serializers.kt`, `domain/.../util/{IdGenerator,TimeZoneUtils,TimeCalculationContext,DoubleUtil,Currency}.kt`,
+`core_android/.../util/{DateAndTimeConverter,ConverterLongToTime,DateAndTimeFormat}.kt`.
+
 ---
 
 ## 1. Экран «Локомотив» (FormLocoScreen)
 
 Форма одного локомотива внутри маршрута. Открывается из FormScreen
-(«ЛОКОМОТИВ» → карточка локомотива или «Добавить локомотив»).
+(«ЛОКОМОТИВ» → карточка локомотива или «Добавить локомотив») и с Главного
+(плитка «Локомотив» текущего маршрута, §4.3).
 
 ### 1.1. Вход / выход и данные
 
-- **Навигация**: `FormLocoDestination` c параметрами `locoId`, `basicId`.
-  Колбэки навигации: `onNavigateToSeriesSettings`, `onNavigateToStationSettings`,
-  `onEditStation(stationId)` → `router.showSettingsStationEditor`,
-  `onEditSeries(seriesId)` → `router.showSettingsSeriesEditor`.
-- **ViewModel**: `LocoFormViewModel` (Koin `viewModel { (locoId, basicId) -> ... }`).
-  Наблюдаемые состояния:
-  - `currentLoco: Locomotive?` — редактируемый локомотив.
-  - `electricSectionListState / dieselSectionListState` — секции по виду тяги.
-  - `routeStartWork: Long? / routeEndWork: Long?` — время явки/сдачи **маршрута**
-    (из `basicData` через `RouteUseCase`); нужны шторке времени.
-  - `uiState` — флаги (в т.ч. `changesHaveState`).
-- **Загрузка**: по `locoId` через `locomotiveUseCase.getLocoById`; секции
-  раскладываются по типу. Новый локомотив создаётся с одной секцией по
-  умолчанию (тип из формы).
+- **Навигация**: `FormLoco` c параметрами `locoId` (null → новый) и `basicId`
+  (id маршрута). Колбэки: «Готово» → `router.back()`; ⚙ →
+  `router.showSettingsLoco(series)`; из шторки времени —
+  `showSettingsSeriesList`, `showSettingsStationList`,
+  `showSettingsStationEditor(id)`, `showSettingsSeriesEditor(id)`.
+  При каждом `ON_RESUME` экрана флаги видимости перечитываются из настроек
+  (`reloadSettingsFromPrefs`), чтобы изменения в Настройках → Локомотив
+  применились без пересоздания экрана.
+- **ViewModel**: `LocoFormViewModel(locoId, basicId)`. Наблюдаемые состояния:
+  - `currentLoco: Locomotive?` — редактируемый локомотив (`null` до загрузки →
+    экран пуст).
+  - `electricSectionListState / dieselSectionListState` — **текстовые** состояния
+    полей секций (строки ввода), в модель переводятся при сохранении
+    (`toDoubleOrNull()`).
+  - `routeStartWork: Long? / routeEndWork: Long?` — явка/окончание работы
+    **маршрута** (из `basicData` через `RouteUseCase.routeDetails(basicId)`);
+    нужны шторке времени. Ошибка загрузки не критична — поля остаются `null`.
+  - `sectionNumberingType` — текущие подписи секций.
+  - `uiState: LocoFormUiState` — флаги (`changesHaveState`, `isKiloMode`,
+    `isShowOtherCurrent`, `confirmDelete*SectionId`, тексты счётчиков/норм и др.).
+- **Новый локомотив** (`locoId == null`): `Locomotive(basicId, type =
+  UserSettings.defaultLocoType)` и **сразу обе** стартовые секции: одна
+  электрическая (пустая) и одна дизельная с `k секции =
+  lastEnteredDieselCoefficient` и `k экипировки = последний k экипировки`
+  (SharedPreferences, по умолчанию `0.83`).
+- **Существующий**: загрузка `locomotiveUseCase.getLocoById(locoId)`; тип
+  нумерации секций берётся у записи `LocomotiveSeries` с совпадающим (без
+  регистра, по `trim`) именем, иначе — локальный тип по умолчанию
+  (SharedPreferences `defaultLocoSectionNumberingType`). Секции раскладываются
+  только для текущего `type` (секции другого вида в форму не грузятся).
+  ⚠️ Поведение Android: при следующем сохранении список секций другого вида
+  пишется пустым — ранее сохранённые секции другого вида теряются (возможный
+  баг; на практике у локомотива заполнен только один вид).
+  Тексты: счётчики отопления/собств. нужд и нормы электровоза — значение `0.0`
+  показывается пустым полем.
 - **Порядок секций является частью данных и не меняется самопроизвольно.**
   Локальная БД хранит секции в порядке JSON-массива. Сервер сохраняет индекс
   каждой секции (`position`) из порядка входного массива и возвращает секции
@@ -138,108 +359,193 @@ RoutePartner(                // напарник внутри маршрута (
 
 ### 1.2. Сохранение (persistence)
 
-- **Автосохранение с дебаунсом 500 мс**: любое изменение вызывает
-  `changesHave()` → `triggerAutoSave()` (отменяет прошлую задачу, ждёт 500 мс,
-  затем `saveLoco()` → `locomotiveUseCase.saveLocomotive`).
-- **Guard пустого локомотива** (`isLocoEmpty`): полностью пустой локомотив
-  (без серии/номера/времён/станций/счётчиков/данных секций) не сохраняется,
-  чтобы «открыл-закрыл новую форму» не создавало мусор.
-- iOS/PWA: повторить дебаунс-автосейв и guard пустого объекта.
+- **Автосохранение с дебаунсом 500 мс**: изменение вызывает `changesHave()` →
+  `triggerAutoSave()` (отменяет прошлую задачу, ждёт 500 мс, затем `saveLoco()` →
+  `locomotiveUseCase.saveLocomotive`). `changesHave()` вызывают: серия, номер,
+  тип тяги, все времена/станции из шторки, поля секций, добавление/удаление
+  секций, смена нумерации, удаление подсказки серии.
+  ⚠️ Поведение Android: ввод **нормы** (`setNorma*`) и **счётчиков отопления/
+  собственных нужд** не вызывает `changesHave()` — эти значения попадают в БД
+  только при следующем автосохранении от другого поля или при уходе с экрана
+  (`onCleared`) (возможный баг: потеря ввода при убийстве процесса).
+- **Что сохраняется**: `currentLoco` + **оба** списка секций (`dieselSectionList`
+  и `electricSectionList`) из текстовых состояний, независимо от `type`; пустая
+  строка/невалидное число → `null`. Перед записью: непустая `series`
+  добавляется в `UserSettings.locomotiveSeriesList` (`setLocomotiveSeries`), а
+  если после тапа по нумерации (§1.3 п.4) серия есть в справочнике — у неё
+  обновляется `sectionNumberingType` (`replaceAll`).
+- **Финальное сохранение в `onCleared()`** (`NonCancellable + IO`) тем же
+  способом.
+- **Guard пустого локомотива** (`isLocoEmpty`): новый локомотив не сохраняется в
+  `onCleared`, если пусты серия, номер, все 6 времён, обе станции, нормы
+  (`0`/`null`/пусто), все 4 счётчика (`0`/`null`) и все секции (в дизельной
+  проверяются принял/сдал/экипировка л/кг, в электрической — все 8 показаний;
+  значение `0` считается пустым; коэффициенты вводом не считаются).
+  ⚠️ Автосохранение с дебаунсом guard не проверяет: если пользователь ввёл и
+  затем стёр значение, запись уже могла быть сохранена.
+- Ошибка сохранения → snackbar «Ошибка: <message>».
+- iOS/PWA: повторить дебаунс-автосейв, финальное сохранение при уходе и guard.
 
 ### 1.3. Разделы UI (сверху вниз)
 
-1. **Топ-бар**: слева кнопка **«Готово»** (синий текст) — сохраняет и
-   возвращает к форме маршрута (вместо стрелки «назад»); по центру заголовок
-   «Локомотив»; справа иконка настроек (⚙, ведёт в настройки). Аналогично
-   оформлены топ-бары формы маршрута и дочерних экранов Поезд / Пассажиром /
-   Прочая работа — везде вместо стрелки «‹» слово «Готово».
+Все блоки — карточки с тенью 2dp на фоне экрана, над каждой — моноширинный
+заголовок группы капсом (`ОСНОВНЫЕ ДАННЫЕ`, `ВРЕМЯ`, `СЕКЦИИ`, `ДРУГОЕ`, `ИТОГО`).
+
+1. **Топ-бар**: слева текстовая кнопка **«Готово»** (акцентный цвет) — скрывает
+   клавиатуру и выполняет `router.back()` (данные уже сохранены автосейвом и
+   `onCleared`); по центру «Локомотив»; справа ⚙ → `showSettingsLoco(series)`
+   (раздел «Настройки → Локомотив», §17; при выбранной серии в нём сверху
+   кнопка «Настройки <имя>» либо «Создать серию <имя> в справочнике»). Так же
+   оформлены топ-бары формы маршрута и Поезд/Пассажиром/Прочая работа.
+   При прокрутке списка под топ-баром появляется тень (fade 300 мс).
 2. **ОСНОВНЫЕ ДАННЫЕ**
-   - Переключатель вида тяги — сегмент из двух иконок: **капля** = Тепловоз
-     (DIESEL), **молния** = Электровоз (ELECTRIC). `changeLocoType(type)`
-     гарантирует минимум одну секцию нужного вида.
-   - **Серия** — поле с автодополнением (`ExposedDropdownMenu`, список
-     `dropDownSeriesMenuList`). Ввод → `onSeriesChanged(text)` → `setSeries`
-     (`currentLoco.series`). ⚠️ Локальное состояние поля синхронизируется с
-     `locomotive.series` через `LaunchedEffect(locomotive.series)` — чтобы
-     смена серии из шторки времени сразу отражалась в поле (см. 2.12).
-     При выборе готового значения форма также применяет сохранённый у серии
-     вид тяги (`ELECTRIC`/`DIESEL`). Список — объединение legacy-имён и записей `LocomotiveSeries`, поэтому
-     серия из справочника (включая синхронизированную) доступна для выбора.
-     Удаление из автодополнения удаляет только legacy-предложение, но не
-     справочную запись и её нормы/тип нумерации.
-   - **Номер** — текст → `setNumber` (`currentLoco.number`).
-3. **ВРЕМЯ** — карточка с двумя строками, каждая открывает шторку времени:
-   - Значения времени используют тот же стиль `bodyLarge + MonoFont`, что поля
-     серии и номера локомотива.
+   - Справа от заголовка — переключатель вида тяги: **молния** = Электровоз
+     (ELECTRIC, «включено»), **капля** = Тепловоз (DIESEL). `changeLocoType`
+     гарантирует минимум одну секцию нового вида; секции прежнего вида не
+     удаляются.
+   - Карточка из двух ячеек через вертикальный разделитель: **«Серия»** и
+     **«Номер»** (моноширинный `bodyLarge`, однострочные, IME «Done»).
+   - **Серия** — поле с автодополнением (`ExposedDropdownMenu`). Список = legacy
+     `UserSettings.locomotiveSeriesList` ∪ имена записей `LocomotiveSeries`
+     (без дублей без учёта регистра; недостающие имена справочника
+     дописываются в `locomotiveSeriesList`). Фильтр: `startsWith(ввод,
+     ignoreCase)`, точное совпадение с вводом скрывается; при пустом вводе —
+     весь список. Ввод → `setSeries(text)`. Выбор строки → `selectSeries(name)`:
+     ставит серию, **применяет `type` записи справочника** (и добавляет секцию
+     нужного вида, если её нет) и её `sectionNumberingType`. У каждой строки —
+     удаление: убирает имя только из `locomotiveSeriesList` (запись
+     `LocomotiveSeries` с нормами остаётся).
+     ⚠️ Локальное значение поля синхронизируется с `locomotive.series` (эффект по
+     изменению серии) — чтобы выбор серии в шторке времени сразу отражался в
+     поле (см. 2.12), не мешая набору.
+   - **Номер** — свободный текст → `setNumber`.
+3. **ВРЕМЯ** — карточка из двух строк; тап по строке открывает шторку времени.
+   Долгого нажатия нет (удаление значений — внутри шторки, §2.9).
+   - Строка: слева заголовок капсом (`ПРИЁМКА`/`СДАЧА`), справа шеврон `›`;
+     ниже три ячейки `ЧЧ:ММ` (моноширинный `bodyLarge`, пустое — `—:—`
+     приглушённо) с подписями капсом под ними, между ячейками стрелки `→`.
    - **ПРИЁМКА**: `начало` (`timeStartOfAcceptance`) → `конец`
      (`timeEndOfAcceptance`) → `КП` (`timeBarrierOut`). Тап → шторка
      `kind="acceptance"`.
    - **СДАЧА**: `КП` (`timeBarrierIn`) → `начало` (`timeStartOfDelivery`) →
      `конец` (`timeEndOfDelivery`). Тап → шторка `kind="delivery"`.
-   - Отображение времени — через конвертер тайм-зоны.
-4. **СЕКЦИИ** — счётчик `−/N/+` (добавить/удалить секцию текущего вида).
-   Подписи секций зависят от настройки выбранной серии, а до её выбора — от
-   локального типа по умолчанию:
-   `NUMERIC` → «Секция 1/2/3», `LETTERS` → «Секция А/Б/В». Тап по номеру
-   (букве) любой секции переключает тип сразу для всех секций локомотива и
-   сразу запоминает его как тип по умолчанию для следующих локомотивов. Если
-   локомотив затем сохраняют с уже существующей записью серии в справочнике,
-   тип сохраняется и для этой серии; неизвестная серия в справочник не добавляется.
-   Настройка хранится в локальной SQLDelight-БД и синхронизируется через
-   `/v1/norma_time/locomotives/`. Поле JSON необязательное; сервер и клиент
-   используют `NUMERIC` для новых/старых записей без значения. При full-replace
-   от старого клиента, который вообще не присылает поле, сервер сохраняет уже
-   записанный тип этой серии и не сбрасывает его.
-   Нажатие доступно по всей шапке карточки секции, а не только по тексту, и
-   не показывает ripple-анимацию.
-   Для каждой секции:
-   - **Электровоз**: энергия принято/сдано (расход/рекуперация, при наличии
-     «другого рода тока» — доп. поля), поля `SectionElectric`.
-   - **Тепловоз**: топливо принято/сдано (`accepted/deliveryFuel`),
-     коэффициент, экипировка (`refuel`/`refuelInKilo`, пересчёт л↔кг по
-     коэффициенту экипировки), «Расход» по секции. Ввод
-     экипировки/коэффициента — через нижние шторки
-     `EnteredRefuelDialog`/`EnteredCoefficientDialog` (ввод в шторке, не в
-     диалоге).
-     - **Очистка литров экипировки → очистка кг**: если коэффициент
-       экипировки задан и поле литров стало пустым/невалидным, поле кг
-       ТОЖЕ очищается (`setRefuelDiesel`). Раньше кг оставалось от
-       предыдущего ввода — это был баг.
-     - «Расход» по секции в кг = `(accepted − delivery) × k секции +
-       refuelInKilo` (`getTotalFuelInKiloConsumption`). Экипировка берётся
-       из отдельного поля `refuelInKilo` (свой коэффициент), а не
-       пересчитывается по коэффициенту секции.
-   - **Коэффициенты по умолчанию в НОВОЙ секции тепловоза**:
-     - `coefficient` (k секции) — `lastEnteredDieselCoefficient` из
-       `UserSettings` (по умолчанию `0.83`); запоминается при вводе
-       (`setDieselCoefficient`).
-     - `refuelCoefficient` (k экипировки) — последний введённый коэффициент
-       экипировки из SharedPreferences (`getLastRefuelCoefficient`, по
-       умолчанию `0.83`). При изменении в шторке экипировки значение
-       сохраняется (`setLastRefuelCoefficient`) и подставляется в следующую
-       новую секцию. Пустое значение трактуется в расчёте как `1.0`.
-   - Переключатель единиц топлива Л/КГ.
-5. **ИТОГО** — суммарный расход по локомотиву. Кг считается тем же
-   способом, что и в карточке секции (`DieselStatisticsSection`):
-   по каждой секции `(accepted − delivery) × k секции + refuelInKilo`,
-   затем суммируется. НЕ умножать суммарные литры (топливо + экипировка)
-   на коэффициент секции — иначе экипировка пересчитывается по чужому
-   коэффициенту и итог расходится с суммой секций (был баг: 498 вместо 500).
-   Для электровоза к расходу секций первого рода тока дополнительно
-   прибавляются разности `сдано − принято` счётчиков отопления и собственных
-   нужд, но только при включённых настройках
-   `isConsiderLocoHeatingInTotal` / `isConsiderLocoAuxiliaryInTotal`.
-   Оба флага по умолчанию `true`; неполная пара показаний ничего не добавляет.
-   - **Поле «НОРМА»** (`NormaPill`, клавиатура `Decimal`, до 7 символов) —
-     **допускает дробные значения** («2710.5», «12.5»). Ввод нормализуется во
-     ViewModel через `sanitizeNumericInput(allowDecimal = true)`: запятая →
-     точка, один разделитель, только ASCII-цифры (`setNormaElectricCurrent1/2`,
+   - Время — в поясе отображения (§0.1). При крупном системном шрифте
+     (`fontScale > 1.15`) ячейки выстраиваются столбцом «ПОДПИСЬ … ЧЧ:ММ».
+4. **СЕКЦИИ** — справа от заголовка степпер `[−] N [+]` (N — число секций
+   текущего вида). «−» неактивен при `N ≤ 1` и удаляет **последнюю** секцию
+   (через подтверждение, см. ниже); «+» добавляет секцию текущего вида.
+   - **Подписи секций**: `NUMERIC` → «Секция 1/2/3», `LETTERS` → «Секция
+     А/Б/В/Г/Д/Е/Ж/З» (с 9-й — снова цифры). Тап по всей шапке карточки секции
+     (без ripple) переключает тип для всех секций, запоминает его как тип по
+     умолчанию (SharedPreferences) и, если текущая серия есть в справочнике,
+     сразу пишет его в `LocomotiveSeries.sectionNumberingType` (`replaceAll`).
+     Неизвестная серия в справочник не добавляется. Поле синхронизируется через
+     `/v1/norma_time/locomotives/`; оно необязательное, сервер и клиент
+     используют `NUMERIC` для записей без значения; при full-replace от старого
+     клиента, который вообще не присылает поле, сервер сохраняет уже записанный
+     тип серии.
+   - **Удаление секции**: свайп карточки влево открывает красную кнопку удаления
+     (`SwipeToRevealDelete`). Пустая секция (все поля пусты или `0`) удаляется
+     сразу; иначе — нижняя шторка «Удалить секцию?» с действием «Да, удалить».
+   - **Электровоз** (`ElectricSectionItem`): блок `РАСХОД` — поля «Принял» →
+     «Сдал» (при включённом втором роде тока подписи «Ток 1 принял/сдал» и
+     второй ряд «Ток 2 принял/сдал»); раскрываемый блок `РЕКУПЕРАЦИЯ` (по тапу
+     на заголовок; изначально раскрыт, если есть данные рекуперации) с теми же
+     полями. Ввод: клавиатура Decimal, до 10 символов, без фильтрации (строка с
+     запятой даёт `null` при сохранении). Второй род тока показывается, если
+     включена настройка `isShowOtherCurrent` или у секций есть данные тока 2
+     (или `normaElectricCurrent2 ≠ 0`).
+     Под пунктиром итоги секции: «Расход» = `сдал − принял` (всегда, `0` при
+     отсутствии пары), «Рекуперация», «Расход (ток 2)», «Рекуперация (ток 2)» —
+     только если обе величины пары заданы. Округление — до максимального числа
+     знаков после точки среди двух введённых значений.
+   - **Тепловоз** (`DieselSectionItem`):
+     - Шапка: «Секция <подпись>» и справа пилюля **«k секции <значение>»** (пусто
+       → «1.0»). Тап → шторка коэффициента (см. ниже).
+     - `ТОПЛИВО` + переключатель единиц **Л | КГ** (`isKiloMode`, запоминается
+       в SharedPreferences, общий для всех секций). Поля «Принял» → «Сдал»
+       (плейсхолдер `0`, суффикс «л.»/«кг.»). Ввод фильтруется до цифр и одной
+       точки, максимум 6 символов. **В модели всегда литры**: в режиме КГ
+       введённое значение делится на `k секции` (`coeff = k ?: 1.0`; при `k = 0`
+       сохраняется пусто); в режиме Л — округляется до 2 знаков. Под полем —
+       подсказка-конвертация во вторую единицу («N кг» / «N л», округление 2
+       знака; видна только при заданных значении и `k`).
+     - `ЭКИПИРОВКА` — раскрываемый блок (шеврон; изначально раскрыт, если есть
+       данные). В раскрытом виде справа пилюля **«k экипировки <значение>»**.
+       Поля «Объём» (л.) и «Масса» (кг.), ввод до 7 символов:
+       - ввод литров: если `k экипировки` задан — кг = `round2(л × k)`; если
+         литры очищены/невалидны — **кг тоже очищаются**; если `k` не задан —
+         кг не трогаются;
+       - ввод кг: если `k` задан и `≠ 0` — л = `round2(кг ÷ k)`; иначе литры не
+         трогаются;
+       - смена `k экипировки`: при заданных литрах кг пересчитываются.
+     - Пунктир и строка **«Расход» `<кг> кг / <л> л`** (всегда, `0` без данных):
+       - л = `(round2(принял) − round2(сдал))` (округление до max знаков, ≤ 2) `+
+         экипировка л`;
+       - кг = `(принял × k секции − сдал × k секции) + экипировка кг
+         (refuelInKilo)` — экипировка берётся из своего поля кг, а не
+         пересчитывается по `k секции`. Если `k секции` пуст — кг-итог
+         отсутствует (показывается `0 кг`).
+       - Если нет пары принял/сдал — итог `null` (экипировка без пары не
+         учитывается).
+     - **Шторка коэффициента** (`CoeffSheet`, заголовок «Коэффициент секции» /
+       «Коэффициент экипировки», справа «Готово»): степпер `[−] значение [+]`
+       с шагом `0.01` (или `0.001`, если введено ≥ 3 знаков; минимум 0; пустое
+       значение шагает от `1.0`), поле ввода до 5 символов (цифры и одна точка),
+       плейсхолдер `1.0`; ниже `ИЗ ИСТОРИИ` — чипы последних 5 введённых
+       коэффициентов (SharedPreferences; активный подсвечен). Изменения
+       применяются сразу. В режиме КГ при смене `k секции` введённые **кг
+       сохраняются**, а литры пересчитываются (снимок кг на момент открытия).
+       Для экипировки есть чекбокс «Применить ко всем значениям этой секции»
+       (по умолчанию включён): значение копируется и в `k секции`.
+       Закрытие («Готово»/свайп): коэффициент добавляется в историю; `k секции`
+       сохраняется как `UserSettings.lastEnteredDieselCoefficient`; `k
+       экипировки` — как последний k экипировки (для новых секций).
+       ⚠️ `EnteredCoefficientDialog`/`EnteredRefuelDialog` в Android-коде
+       объявлены, но нигде не вызываются — актуальный UI только `CoeffSheet`.
+   - **Валидация секций** (сообщения в `errorMessage` состояния секции):
+     дизель — «Принял меньше чем сдал» / «Сдал больше чем принял» / «Не хватает
+     экипировки» при отрицательном расходе, «Коэффициент больше 1.0» при `k > 1`;
+     электро — «Принято больше чем сдано» / «Сдано меньше чем принято».
+     ⚠️ Поведение Android: эти сообщения **нигде не отображаются** в UI и не
+     блокируют сохранение; для электровоза сравнение идёт **строк**, а не чисел
+     (`"9" > "10"`) (возможный баг). iOS: не показывать, пока не решено.
+5. **ДРУГОЕ** (показания счётчиков) — карточка появляется, если включено хотя бы
+   одно из `isShowLocoHeating` / `isShowLocoAuxiliary` (по умолчанию оба). Строки
+   **«Отопление»** и **«Собств. нужды»**: иконка, название, поля «Принял» →
+   «Сдал» (Decimal, без фильтрации; значение → `toDoubleOrNull()`), под ними
+   «Расход: `сдал − принял`» (округление 2 знака; только при двух валидных
+   числах). При `fontScale > 1.15` поля стопкой.
+6. **ИТОГО** — показывается всегда.
+   - **Электровоз** (`ElectricStatisticsSection`): для тока 1 и (если показан
+     второй род тока) для тока 2 — подзаголовок «ТОК 1»/«ТОК 2» (только когда
+     токов два), `РАСХОД` (крупно), при наличии рекуперации — `РЕКУПЕРАЦИЯ`
+     (зелёным) и `ЧИСТЫЙ РАСХОД` = расход − рекуперация. Числа: округление 2
+     знака, тысячи через пробел, дробная часть через запятую (`12 345,6`),
+     пусто → `0`.
+     - Расход тока 1 = Σ по секциям `(сдал − принял)` (секции без пары не
+       участвуют; если ни у одной нет пары — `null`), затем прибавляются
+       `сдал − принял` счётчиков отопления и собственных нужд, но только при
+       `isConsiderLocoHeatingInTotal` / `isConsiderLocoAuxiliaryInTotal`
+       (оба по умолчанию `true`) и только если расход секций не `null`;
+       неполная пара показаний ничего не добавляет. Ток 2 — только секции.
+   - **Тепловоз** (`DieselStatisticsSection`): `РАСХОД` — крупно кг (если у
+     секций есть `k`) с пилюлей «N л», иначе крупно литры (`—`, если данных
+     нет); при наличии экипировки — `ЭКИПИРОВКА` тем же стилем (Σ л и Σ кг).
+     Кг-итог = Σ по секциям `(принял×k − сдал×k) + refuelInKilo` — **тем же
+     способом, что в карточке секции**. НЕ умножать суммарные литры (топливо +
+     экипировка) на коэффициент секции — иначе итог расходится с суммой секций
+     (был баг: 498 вместо 500).
+   - **Поле «НОРМА»** (`NormaPill`, клавиатура Decimal, до 7 символов; суффикс
+     «кг» у тепловоза, без единицы у электровоза) — **допускает дробные
+     значения** («2710.5», «12.5»). Ввод нормализуется во ViewModel через
+     `sanitizeNumericInput(allowDecimal = true)`: запятая → точка, один
+     разделитель, только ASCII-цифры (`setNormaElectricCurrent1/2`,
      `setNormaDiesel`).
      - Электровоз: поле показывает **введённый текст** (`uiState.norma1Text` /
        `norma2Text`), а не `Double.str()` — иначе «12.» при наборе схлопывается
-       в «12», а «12,5» очищает поле. Модель: `normaElectricCurrent1/2: Double?`
-       (`NumberAsDoubleSerializer`: целое уходит как `12`, дробное как `12.5`).
-       Инициализация текста — один раз при загрузке (`setSectionData`).
+       в «12», а «12,5» очищает поле. Модель: `normaElectricCurrent1/2: Double?`.
+       Инициализация текста — один раз при загрузке.
      - Тепловоз: `normaDiesel: String?`, хранится и уходит на сервер строкой
        **с точкой** (`"12.5"`); пустая строка → `null`.
      - Сервер: `locomotive.normaDiesel` — `DOUBLE PRECISION` (миграция 042,
@@ -247,34 +553,33 @@ RoutePartner(                // напарник внутри маршрута (
        десятичную запятую от старых клиентов. В `GET /v1/route/` целое
        значение отдаётся как `12`, дробное как `12.5` (`_compact_number`) —
        чтобы старые клиенты со строковым `normaDiesel` не показывали «12.0».
-     - Результат («ЭКОНОМИЯ/ПЕРЕРАСХОД») считается от нормы через
-       `toDoubleOrZero()` (терпит запятую в старых данных).
-6. **Удалить** локомотив (нижняя панель / кнопка).
-7. **Настройки формы локомотива** (⚙): если серия выбрана, сверху показывается
-   одна кнопка «Настройки <имя>», открывающая её редактор; если записи в
-   справочнике нет — «Создать серию <имя> в справочнике», с предзаполненным
-   именем в новом редакторе.
-   Под каждым включённым полем «Отопление» / «Собственные нужды» показывается
-   отдельный переключатель «Учитывать в общем расходе». При скрытии поля
-   переключатель учёта скрывается, но его значение не сбрасывается. Настройки
-   хранятся в `UserSettings`, локально в SQLDelight и синхронизируются через
-   `/v1/user_settings/`. Серверные и клиентские значения по умолчанию — `true`.
-   Старый клиент, не приславший новые поля, не должен перезаписывать уже
-   сохранённый на сервере выбор. Android и PWA используют одну формулу и
-   одинаковые значения флагов; PWA хранит их в persisted Pinia `settings.data`.
+   - **Результат** (только при непустой норме): `результат = норма − расход`
+     (для электровоза — расход, а не чистый расход; для тепловоза — кг-итог;
+     норма через `toDoubleOrZero()`, терпит запятую). `результат < 0` →
+     красная плашка «↓ ПЕРЕРАСХОД −X», иначе зелёная «↑ ЭКОНОМИЯ +X», где
+     `X = |результат|` (2 знака) и в скобках `(±P%)`, `P = |результат/норма×100|`
+     (целое, `0` при норме 0). ⚠️ Если у тепловоза нет кг-итога (не задан `k
+     секции`), результат считается как `0` → «ЭКОНОМИЯ +0» (возможный баг).
+7. Удаления локомотива на этом экране **нет** — он удаляется из формы маршрута
+   (§5). Флаги `isShowLocoStatistics`/`isShowLocoNorma` на экран не влияют.
 
 ### 1.4. Запись времени из шторки
 
 - Приёмка: `saveAcceptanceFromSheet(startTime, endTime, barrierOut, stationId)`
   → `currentLoco.copy(timeStartOfAcceptance, timeEndOfAcceptance,
-  timeBarrierOut, acceptanceStationId)`.
+  timeBarrierOut, acceptanceStationId)` + `changesHave()`.
 - Сдача: `saveDeliveryFromSheet(barrierIn, startTime, endTime, stationId)`
   → `currentLoco.copy(timeBarrierIn, timeStartOfDelivery, timeEndOfDelivery,
-  deliveryStationId)`.
+  deliveryStationId)` + `changesHave()`.
 - **Окончание работы** (сдача) пишется НЕ в локомотив, а в **маршрут**:
-  `setTimeEndWork(value)` → `RouteUseCase.saveRoute(basicData.timeEndWork=value)`
-  и обновляет `routeEndWork`. Вызывается из шторки колбэком
-  `onTimeEndWorkChanged` (мгновенная синхронизация).
+  `setTimeEndWork(value)` → перечитывает маршрут, `RouteUseCase.saveRoute(
+  basicData.timeEndWork = value)` и обновляет `routeEndWork`. Вызывается из
+  шторки колбэком `onTimeEndWorkChanged` (мгновенная синхронизация).
+- Выбор/сброс серии в шторке → `setSeries(name)` (сброс — пустая строка).
+
+Источник: `features/route/.../ui/FormLocoScreen.kt`, `.../navigation/FormLocoDestination.kt`,
+`.../viewmodel/{LocoFormViewModel,LocoFormUiState}.kt`, `.../component/{DieselSectionItem,ElectricSectionItem,StatisticsSection,SwipeToRevealDelete,EnteredCoefficientDialog,EnteredRefuelDialog}.kt`,
+`.../ui/settings/SettingsLocoContent.kt`, `.../ui/UIHelper.kt`, `domain/.../util/{CalculationEnergy,DoubleUtil,StringUtil}.kt`.
 
 ---
 
@@ -282,6 +587,8 @@ RoutePartner(                // напарник внутри маршрута (
 
 Нижняя шторка расчёта и ручного ввода времени приёмки **или** сдачи
 локомотива. Один компонент, два режима: `kind = "acceptance" | "delivery"`.
+Раскрывается сразу полностью (без промежуточного состояния), содержимое
+прокручивается; закрывается свайпом вниз / тапом вне.
 
 ### 2.1. Параметры входа
 
@@ -298,10 +605,15 @@ TimeBottomSheet(
 TimeSheetResult(startTime?, endTime?, barrierOut?, barrierIn?, routeEndWork?, stationId?)
 ```
 
+Для приёмки `startTime/endTime` = начало/конец приёмки, для сдачи — начало/
+конец сдачи. `timeZoneText` — пояс отображения (§0.1), им форматируются все
+`ЧЧ:ММ` в шторке и открываются пикеры.
+
 Внутреннее состояние (mutable, инициализируется из initial*):
 `startTime, endTime, barrierOut, barrierIn, workEnd(=routeEndWork),
 selectedStation (из StationNormRepository по initialStationId),
-selectedSeriesName`.
+selectedSeriesName (= seriesName, пустая строка → null)`. Серия из справочника
+ищется по **точному** совпадению имени.
 
 ⚠️ `selectedStation` **НЕ** пере-ключается на `initialStationId` (иначе при
 немедленном сохранении id «догоняет» выбор, state пересоздаётся и на кадр
@@ -309,170 +621,253 @@ selectedSeriesName`.
 восстановление из справочника, пока выбор пуст. Авто-сейв считает станцию
 изменённой только когда она реально выбрана (`selectedStation != null`).
 
-### 2.2. Смысл полей по режимам
+### 2.2. Состав сверху вниз
 
-| Строка (acceptance)      | Поле        | Норма-интервал (StationNorm)      |
+1. Шапка: заголовок «Приёмка»/«Сдача» (22sp) и справа «Готово» (§2.11).
+2. Две строки-поля контекста (подпись капсом + значение + шеврон): **«СЕРИЯ»**
+   (значение или «Выберите серию») → `SeriesPickerSheet`; **«СТАНЦИЯ
+   ПРИЁМКИ»/«СТАНЦИЯ СДАЧИ»** (имя или «Выберите станцию») → `StationPickerSheet`.
+3. Только при выбранной серии — сегмент **«После отстоя | Из рук в руки»** (§2.4).
+4. Оранжевые предупреждения (§2.7).
+5. Баннер выбора якоря (только в режиме ASKING, §2.5).
+6. Строки времени (§2.3), соединённые короткими вертикальными линиями.
+7. Кнопки «Сохранить норму …» (§2.8) — только когда доступны.
+8. Кнопка **«Рассчитать время»** (§2.5).
+
+### 2.3. Строки времени и смысл полей
+
+| Строка (acceptance)      | Поле        | Отклонение считается от нормы    |
 |--------------------------|-------------|-----------------------------------|
 | Явка (locked, из маршрута) | routeStartWork | —                              |
 | Начало приёмки           | startTime   | appearanceToStartMin (явка→начало)|
 | Окончание приёмки        | endTime     | *длительность серии* (приёмка)    |
 | Выход на КП              | barrierOut  | endToBarrierMin (конец→КП)        |
 
-| Строка (delivery)        | Поле        | Норма-интервал                    |
+| Строка (delivery)        | Поле        | Отклонение считается от нормы     |
 |--------------------------|-------------|-----------------------------------|
 | Заход на КП              | barrierIn   | —                                 |
 | Начало сдачи             | startTime   | barrierToStartMin (КП→начало)     |
 | Окончание сдачи          | endTime     | *длительность серии* (сдача)      |
 | Окончание работы         | workEnd     | endToWorkEndMin (конец→работа); пишется в маршрут |
 
-### 2.3. Иконка статуса строки
-
-- Время **задано** → зелёная галочка (`check_circle`, зелёный `#00B341`,
-  фон — светло-зелёный).
-- Время **не задано** → серые часы (`outline_access_time`).
-- В режиме выбора якоря (ASKING) строка подсвечивается акцентом (мигание).
-- Под «Явка» отдельной строкой подпись **«из маршрута»** (Явка не редактируется
-  здесь; меняется только в форме маршрута).
+Строка: слева круглая иконка статуса, в центре название (+ подписи), справа
+«кнопка» времени `ЧЧ:ММ` (моноширинный 18sp; пусто — `—:—`).
+- **Иконка статуса**: время задано → зелёная галочка (`#00B341` на светло-
+  зелёном фоне 14%); не задано → серые часы.
+- Под «Явка» — подпись **«из маршрута»** (Явка здесь не редактируется, тап по
+  ней ничего не делает вне режима ASKING; меняется только в форме маршрута).
+- **Отклонение** (под названием, для строк с нормой, когда заданы обе
+  соседние точки): `фактМин = (время − предыдущее) / 60 000` (целые минуты),
+  текст `+N мин` / `−N мин`. Нет нормы → только `+N мин` серым. Есть норма:
+  совпадает → `+N мин норма` серым; больше → `+N мин на D мин больше`
+  красным; меньше → `+N мин на D мин меньше` зелёным.
+- **Тап** по строке → пикер даты+времени `AppDateTimePicker` (§24.2) с
+  заголовком строки; стартовое значение — текущее значение поля или «сейчас».
+  Результат — с обнулёнными секундами. Для «Окончание работы» выбор сразу
+  вызывает `onTimeEndWorkChanged(value)`.
+- В режиме ASKING строка подсвечивается акцентом (мигание 800 мс) — см. 2.5.
 
 ### 2.4. Норма серии и вариант «После отстоя / Из рук в руки»
 
 - Серия берётся из `LocomotiveSeriesRepository` по имени (`selectedSeries`).
 - Переключатель варианта: `normHandToHand` (false = «После отстоя», true =
   «Из рук в руки»), запоминается в `SharedPreferencesRepositories`
-  (`setLocoNormHandToHand`). Определяет, какая пара норм серии активна:
+  (`setLocoNormHandToHand`), общий для приёмки и сдачи. Определяет, какая пара
+  норм серии активна:
   - acceptance: `acceptanceDurationMin` / `acceptanceHandToHandMin`;
   - delivery: `deliveryDurationMin` / `deliveryHandToHandMin`.
-- **Отклонения в строке длительности** («+N мин норма» / «на X мин больше/
-  меньше») считаются относительно **применённого** варианта
-  `appliedHandToHand`, а не текущего тумблера. Поэтому переключение тумблера
-  НЕ мигает красным.
-- При переключении тумблера, если время задано и норма нового варианта реально
-  другая, показывается **диалог** «Другая норма — Пересчитать / Оставить»
-  (`AppAlertDialog`). Пересчёт — только по согласию; если время не задано —
-  диалог не показывается. После пересчёта `appliedHandToHand` = выбранный.
+- **Отклонения в строке длительности** считаются относительно **применённого**
+  варианта `appliedHandToHand`, а не текущего тумблера. Поэтому переключение
+  тумблера НЕ мигает красным. `appliedHandToHand` = тумблер при открытии и после
+  любого расчёта.
+- При переключении тумблера, если заданы начало и окончание, у нового варианта
+  норма задана и отличается от нормы применённого — диалог (`AppAlertDialog`)
+  «Другая норма»: «Для условия «Из рук в руки|После отстоя» действует другая
+  норма длительности. Пересчитать время по ней?», кнопки «Пересчитать» /
+  «Оставить». «Пересчитать» → расчёт от ранее выбранного якоря, а если его не
+  было — от «Начало приёмки/сдачи».
 
 ### 2.5. Кнопка «Рассчитать время» и выбор точки отсчёта (якоря)
 
-Нижняя кнопка «Рассчитать время» активна, только если существует хотя бы один
-заполненный якорь, от которого по реально заданной норме можно рассчитать
-соседнее время. Например, одно «Окончание работы» и выбранная серия без станции
-не дают ни одного доступного интервала — кнопка неактивна. Станция не
-обязательна для расчёта длительности приёмки/сдачи по норме серии; серия не
-обязательна для расчёта отдельного станционного интервала. Логика `applyNorms`:
+Кнопка во всю ширину; активна (акцентный фон, белый текст), только если есть
+хотя бы один **пригодный якорь**; иначе серая с рамкой и не нажимается.
+Пригодность (норма = реально заданное значение, не `null`):
 
-- **Acceptance**: собираются присутствующие якоря `{Явка(если есть),
-  Начало, Окончание, Выход}`.
-  - 0 якорей → ничего;
-  - 1 пригодный якорь → считаем сразу от него (`applyFromAcceptanceField`);
-  - ≥2 → режим **ASKING**: баннер «Нажмите на момент времени, от которого
-    рассчитать», строки мигают; тап по строке выбирает якорь.
-- **Delivery**: якоря `{Заход, Начало, Окончание, Окончание работы}`; та же
-  схема (0 / 1 / ASKING).
-- В режиме **ASKING** мигают и нажимаются только заполненные пригодные якоря.
-  Пустые поля и заполненные точки, от которых без недостающей нормы ничего
-  рассчитать нельзя, не подсвечиваются.
-- **Явка НИКОГДА не пересчитывается** (она из маршрута). При расчёте «от начала
-  приёмки» и позже время явки остаётся прежним, даже если интервал вне нормы.
-- Расчёт вперёд/назад применяет только реально заданные нормы. Доступные
-  соседние участки рассчитываются независимо, а участок без нормы не создаёт
-  фиктивного нулевого времени. Если не задана норма КП (`endToBarrierMin` для
-  acceptance, `barrierToStartMin` для delivery), поле «Выход на КП» / «Заход
-  на КП» остаётся прочерком (`null`).
-- Выбранный якорь запоминается (`accAnchor`/`delAnchor`) — для корректного
-  пересчёта при смене варианта нормы.
+| Якорь | acceptance: пригоден, если | delivery: пригоден, если |
+|---|---|---|
+| Явка / Заход на КП | явка есть и `appearanceToStartMin` задан | заход есть и `barrierToStartMin` задан |
+| Начало | время есть и норма серии (текущий вариант) задана | то же |
+| Окончание | время есть и (норма серии или `endToBarrierMin` задан) | время есть и (норма серии или `endToWorkEndMin` задан) |
+| Выход на КП / Окончание работы | время есть и `endToBarrierMin` задан | время есть и `endToWorkEndMin` задан |
+
+Станция не обязательна для расчёта длительности по норме серии; серия не
+обязательна для станционного интервала. Логика `applyNorms`: 0 пригодных
+якорей → ничего; ровно 1 → расчёт сразу от него; ≥ 2 → режим **ASKING**:
+баннер **«Выберите, от какой операции начать отсчёт времени»**, пригодные
+строки мигают, тап по пригодной строке выбирает якорь и считает; непригодные
+строки в ASKING не реагируют на тап.
+
+Формулы (интервалы в минутах × 60 000 мс; «нет нормы» → участок пропускается,
+фиктивного нулевого времени не создаётся):
+- **Acceptance** (явка никогда не меняется):
+  - от Явки: `начало = явка + appearanceToStart`; при норме серии `конец =
+    начало + длит.`; далее `КП = конец + endToBarrier`, если норма КП задана,
+    иначе КП = `null`.
+  - от Начала: при норме серии `конец = начало + длит.`, `КП` — как выше.
+  - от Окончания: `КП` — как выше; при норме серии `начало = конец − длит.`.
+  - от КП: `конец = КП − endToBarrier`; при норме серии `начало = конец − длит.`.
+- **Delivery**:
+  - от Захода на КП: `начало = заход + barrierToStart`; при норме серии `конец =
+    начало + длит.` и далее окончание работы `= конец + endToWorkEnd` (если задано).
+  - от Начала: при норме серии `конец = начало + длит.` (+ окончание работы);
+    `заход = начало − barrierToStart`, если норма КП задана, иначе `null`.
+  - от Окончания: окончание работы `= конец + endToWorkEnd` (если задано); при
+    норме серии `начало = конец − длит.`, `заход` — как выше.
+  - от Окончания работы: `конец = работа − endToWorkEnd`; при норме серии
+    `начало`, `заход` — как выше. Окончание работы остаётся прежним.
+- **Вычисленное окончание работы**: если у маршрута уже есть `routeEndWork` и
+  результат от него отличается — поле **не** меняется, вместо кнопки времени в
+  строке появляется кнопка **«Обновить ЧЧ:ММ»**; её нажатие принимает значение и
+  сразу вызывает `onTimeEndWorkChanged`. Пока висит это предложение, тап по
+  строке пикер не открывает. Если у маршрута окончания не было — значение
+  подставляется сразу (в маршрут уходит по «Готово»).
+- Выбранный якорь запоминается (`accAnchor`/`delAnchor`) для пересчёта при смене
+  варианта нормы.
 
 ### 2.6. Валидация последовательности
 
-Красное «Время должно быть позже предыдущего» показывается, когда время
-**меньше** предыдущего. Для интервалов, которые могут быть нулевыми (норма не
-задана), используется строгое «<» (равенство — не ошибка):
-- acceptance: «Выход на КП» vs «Окончание приёмки» — строгое `<`;
-- delivery: «Начало сдачи» vs «Заход на КП» — строгое `<`;
-- остальные интервалы — `<=` (равенство считается ошибкой).
+Красная подпись под строкой «⛔ Время должно быть позже предыдущего»:
+- acceptance: «Начало приёмки» `≤` явки; «Окончание приёмки» `≤` начала;
+  «Выход на КП» **`<`** окончания (равенство допустимо — интервал может быть
+  нулевым);
+- delivery: «Начало сдачи» **`<`** захода на КП (равенство допустимо);
+  «Окончание сдачи» `≤` начала; «Окончание работы» `≤` окончания сдачи.
+Проверяются только пары, где оба значения заданы. При любой ошибке «Готово»
+неактивно (бледное), но немедленное сохранение (§2.11) продолжает работать.
 
 ### 2.7. Предупреждения (WarnItem, оранжевые инфо-блоки)
 
-Порядок сборки:
-- Серия не выбрана (нет CTA) / **«Нет нормы для серии …»** (CTA «Настроить
-  серию»).
-- Если не выбраны ни серия, ни станция, показывается только просьба выбрать
-  локомотив/серию. Для приёмки с выбранной серией, но без станции:
-  - начало приёмки задано и у серии есть норма → «Будет рассчитано только
-    время приёмки»;
-  - задана только явка → «Укажите время начала / окончания приёмки или выберите
-    станцию».
-  Для сдачи без станции показывается «Выберите станцию или укажите начало /
-  окончание сдачи локомотива». **«Нет нормы для станции …»** показывается, когда у выбранной
-  станции отсутствуют обе относящиеся к операции нормы (CTA «Настроить
-  станцию»; предупреждение закрывается ✕).
-- **«Нет нормы интервала: …»** показывается только для основного станционного
-  интервала: «явка → начало приёмки» или «окончание сдачи → окончание работы».
-  Отсутствие опционального интервала «окончание приёмки → выход на КП» /
-  «заход на КП → начало сдачи» предупреждения не создаёт: КП может быть не
-  актуален на выбранной станции. Предупреждение закрывается ✕.
-- Delivery без единого якоря — «Укажите время захода на КП или окончания
-  работы».
-- Закрытые крестиком предупреждения хранятся в `dismissedWarnings` (на сессию
-  открытия шторки).
+Плашка: оранжевая рамка и фон `#D98F20` (10%), значок «!», заголовок, серая
+подсказка, опционально кнопка-CTA «… ›» и крестик ✕. Порядок сборки:
+1. Серия: не выбрана → «Серия не выбрана» / «Выберите серию, чтобы применить
+   нормы» (без CTA); выбрана, но у серии нет нормы текущего варианта для этой
+   операции (или записи нет) → **«Нет нормы для серии <имя>»**, CTA «Настроить
+   серию».
+2. Станция не выбрана **и серия выбрана**:
+   - acceptance, начало приёмки задано и норма серии есть → «Будет рассчитано
+     только время приёмки» / «Чтобы применить нормы станции, выберите станцию»;
+   - acceptance, иначе → «Укажите время начала / окончания приёмки или выберите
+     станцию» / «Начало нужно для расчёта времени приёмки по норме локомотива»;
+   - delivery → «Станция сдачи не выбрана» / «Выберите станцию или укажите
+     начало / окончание сдачи локомотива».
+   Если не выбраны ни серия, ни станция — показывается только п.1.
+3. Иначе, если станция выбрана и у неё нет **обеих** относящихся к операции
+   норм (acceptance: `appearanceToStartMin` и `endToBarrierMin`; delivery:
+   `endToWorkEndMin` и `barrierToStartMin`) → **«Нет нормы для станции <имя>»**,
+   CTA «Настроить станцию», закрывается ✕.
+4. Иначе, если нет только **основной** станционной нормы → «Нет нормы времени:
+   от явки до начала приёмки» (acceptance) / «Нет нормы времени: от окончания
+   сдачи до окончания работы» (delivery), подсказка «Расчёт выполнится без этой
+   нормы», CTA «Настроить станцию», ✕. Отсутствие опционального интервала КП
+   предупреждения не создаёт: КП может быть не актуален на станции.
+5. Delivery без единого заполненного времени (заход/начало/окончание/работа) →
+   «Укажите время захода на КП или время окончания работы» / «От него будет
+   выполнен расчёт по нормам».
+
+- Закрытые крестиком предупреждения хранятся в `dismissedWarnings` (по тексту,
+  на сессию открытия шторки).
 - **CTA «Настроить серию/станцию»** открывает редактирование **прямо в
-  шторке-пикере** (см. 2.10), передавая `initialEditSeries/Station` = текущую
-  серию/станцию. Шторка времени при этом НЕ закрывается.
+  шторке-пикере** (см. 2.10) для текущей серии/станции; шторка времени НЕ
+  закрывается. Если записи серии в справочнике нет — шторка закрывается и
+  открывается список серий в Настройках (`onNavigateToSeriesSettings`).
 
 ### 2.8. Сохранение нормы серии/станции из шторки
 
-Внизу появляются кнопки «Сохранить норму серии …» / «Сохранить норму станции …»
-когда введённые времена дают интервалы, **отличные** от сохранённых норм:
-- `canSaveSeriesNorm` — длительность (start→end) ≠ норма выбранного варианта.
-- `canSaveStationNorm` — любой из относящихся к операции интервалов ≠ сохранённого.
-  Сравнение нормализует значения: вычисленный интервал `≤0` и сохранённый `0`
-  трактуются как `null` («не задано»), чтобы «0 == не задано» не считалось
-  отличием.
-- Клик → запись в репозиторий через `replaceAll` (full-replace списка).
+Внизу появляются кнопки-плашки (заголовок + подзаголовок, акцентный фон):
+- **«Сохранить норму серии <имя>»** — если серия выбрана, заданы начало и
+  окончание и (серии нет в справочнике **или** `длит. = (конец − начало)/60 000`
+  отличается от нормы текущего варианта / норма не задана). Подзаголовок:
+  «Добавить в справочник · после отстоя|из рук в руки» (нет записи) либо
+  «Длительность приёмки|сдачи · после отстоя|из рук в руки». Нажатие пишет
+  длительность в поле текущего варианта; если записи не было — создаётся новая
+  `LocomotiveSeries(name = trim(имя), type = locoType)` с этим одним полем.
+- **«Сохранить норму станции <имя>»** — если станция выбрана и:
+  acceptance — заданы явка, начало и конец, и (интервал явка→начало ≠
+  сохранённому или (КП задан и конец→КП ≠ сохранённому)); delivery — заданы
+  заход, начало, конец и окончание работы, и (заход→начало ≠ сохранённому или
+  конец→работа ≠ сохранённому). Сравнение нормализует: вычисленный интервал
+  `≤ 0` и сохранённый `0` трактуются как «не задано». Подзаголовок: «Добавить в
+  справочник» (если нет обеих норм операции) либо «явка -> приемка / приемка ->
+  выход на КП» / «КП -> сдача / сдача -> окончание работы». Нажатие записывает
+  оба интервала операции (если соответствующие времена заданы; иначе
+  оставляет прежнее значение) и обновляет выбранную станцию.
+  ⚠️ Интервал записывается без нормализации — возможен `0`/отрицательный (§0.1).
+- Запись — через `replaceAll` (full-replace списка справочника).
 
 ### 2.9. Удаление значения времени
 
-Долгое нажатие на строку с заданным временем → нижняя шторка подтверждения
-`AppBottomSheet` с действием **«Удалить значение»** (как «время явки» в
-FormScreen). Явка (locked) не удаляется. Для «Окончание работы» удаление также
-сбрасывает pending-обновление и синхронизирует маршрут (`onTimeEndWorkChanged(null)`).
+Долгое нажатие на строку с заданным временем → нижняя шторка `AppBottomSheet`
+с заголовком-названием строки и действием **«Удалить значение»** (как «время
+явки» в FormScreen). Явка (locked) не удаляется; для пустой строки long-press
+ничего не делает. Для «Окончание работы» удаление также сбрасывает
+предложение «Обновить …» и сразу синхронизирует маршрут
+(`onTimeEndWorkChanged(null)`).
 
 ### 2.10. Пикеры серии/станции (внутри шторки)
 
-`SeriesPickerSheet` / `StationPickerSheet` — вложенные нижние шторки:
-- **Список** с поиском, группами и подписями норм. Тап по строке — **выбор**
-  серии/станции; текущая выбранная строка подсвечивается голубым. Справа
-  **карандаш** — переход в редактирование.
-- Повторный тап по уже выбранной строке снимает выбор и закрывает пикер.
-- Подпись станции: `Приёмка A/B · Сдача C/D` (незаданный интервал = 0);
-  полностью пустая — «Норма не задана».
+`SeriesPickerSheet` / `StationPickerSheet` — вложенные нижние шторки высотой
+85% экрана, открываются сразу полностью, без видимой ручки:
+- **Шапка списка**: заголовок «Серия»/«Станция» по центру и справа
+  увеличенная кнопка **«Готово»** (17sp, закрывает пикер без изменения выбора).
+  Левой кнопки нет.
+- **Поиск** «Поиск серии...» / «Поиск станции...» — `contains(ignoreCase)` по
+  имени.
+- Первая строка списка — текстовая кнопка **«+ Добавить серию» / «+ Добавить
+  станцию»** → форма создания в этой же шторке.
+- Пустой справочник: «Нет серий. Добавьте в Настройках → Серии.» / «Нет станций.
+  Добавьте в Настройках → Станции.» (не кликабельно).
+- **Группы**: серии — «ЭЛЕКТРОВОЗЫ» и «ТЕПЛОВОЗЫ» (по `type`); станции — «С
+  НОРМАМИ» (задана хотя бы одна из 4 норм) и «БЕЗ НОРМ». Порядок внутри групп —
+  как в справочнике.
+- **Строка**: имя (серия — моноширинным) и подпись норм:
+  - серия: `acc = acceptanceDurationMin ?: acceptanceHandToHandMin`, `del` —
+    аналогично; «Приёмка A мин · Сдача D мин» / только одна часть / «Нормы не
+    заданы»;
+  - станция: `Приёмка A/B · Сдача C/D` (A = явка→начало, B = конец→КП, C =
+    КП→начало, D = конец→работа; незаданный = 0); полностью пустая — «Норма не
+    задана».
+  Справа **карандаш** — редактирование в этой же шторке. Текущая выбранная
+  строка подсвечена акцентом 14%.
+- Тап по строке — **выбор** и закрытие пикера; повторный тап по уже выбранной —
+  **снимает выбор** и закрывает пикер (станция → `null` с немедленным `onSave`;
+  серия → `onSeriesChanged("")`). Выбор серии вызывает `onSeriesChanged(name)`.
 - **Редактирование и создание — прямо в этой же шторке** (свап контента):
-  карандаш → редактор существующей; «+ Добавить …» → форма создания («Новая
-  станция/серия»). Увеличенная кнопка **«Готово»** возвращает к списку (а не на форму
-  локомотива). Редакторы — те же `SettingsStationEditorContent` /
-  `SettingsSeriesEditorContent`, ViewModel через `koinViewModel(parametersOf(id, null))`.
+  карандаш → редактор существующей; «+ Добавить …» → форма создания (заголовок
+  «Новая станция/серия», иначе «Станция/Серия»); справа «Готово»
+  (`commit()` + возврат к списку, а не на форму локомотива). Редакторы — те же
+  `SettingsStationEditorContent` / `SettingsSeriesEditorContent` (§30),
+  ViewModel через `koinViewModel(parametersOf(id, null))`.
 - `initialEditStation/Series` (из CTA «Настроить …») открывает пикер сразу в
-  редакторе нужного элемента. В списке и в редакторе кнопка **«Готово»**
-  расположена справа; отдельная левая кнопка «Отмена» в списке не показывается.
+  редакторе нужного элемента.
 - Все редактируемые поля автоматически сохраняются через 500 мс после изменения
-  (`save()` в VM). Кнопка «Готово» дополнительно вызывает финальный `commit()`:
-  последний ввод сохраняется без ожидания debounce, а имя новой станции/серии
-  регистрируется в общем справочнике.
-- Верхний отступ до заголовка вложенной шторки уменьшен; правая кнопка «Готово»
-  в списке и редакторе отображается увеличенным шрифтом.
+  (`save()` в VM; новая серия без единой нормы не создаётся). «Готово» вызывает
+  финальный `commit()`: последний ввод сохраняется без ожидания debounce, а имя
+  новой станции/серии регистрируется в общем справочнике автодополнения.
 
-### 2.11. Шапка и завершение
+### 2.11. Шапка, немедленное сохранение и завершение
 
-- Заголовок: «Приёмка» или «Сдача». Справа — **«Готово»** (просто синий текст):
+- **«Готово»** (синий текст, неактивен при ошибке последовательности): для
+  сдачи с заданным `workEnd` — `onTimeEndWorkChanged(workEnd)`; затем
   `sheetState.hide()` + финальный `onSave(TimeSheetResult)` + `onClose()`.
-  При ошибке последовательности «Готово» неактивно.
 - **Немедленное сохранение (не только по «Готово»):** любое изменение времени
-  или станции пишется в форму сразу — `LaunchedEffect` на
+  или станции пишется в форму сразу — эффект на
   `startTime/endTime/barrierOut/barrierIn/selectedStation` вызывает `onSave`, как
   только состояние отличается от переданных `initial*` (при открытии и при
   асинхронной загрузке станции лишних записей нет). Поэтому данные не теряются
   при закрытии шторки свайпом. «Окончание работы» (delivery) синхронизируется в
-  маршрут через `onTimeEndWorkChanged` сразу при вводе из пикера (а также при
-  принятии pending-обновления и удалении значения — см. 2.9).
+  маршрут через `onTimeEndWorkChanged` сразу при вводе из пикера, при принятии
+  «Обновить …» и при удалении значения (§2.9); значение, подставленное расчётом
+  без конфликта, уходит в маршрут только по «Готово».
 - `onSave` в форме локомотива вызывает `saveAcceptanceFromSheet` /
   `saveDeliveryFromSheet` (см. 1.4) и **не закрывает** шторку; закрытие — только
   через `onClose` («Готово» или свайп).
@@ -481,30 +876,78 @@ FormScreen). Явка (locked) не удаляется. Для «Окончан�
 
 Смена/выбор серии в шторке (`onSeriesChanged` = `viewModel::setSeries`)
 обновляет `currentLoco.series`; поле «Серия» на форме подхватывает изменение
-через `LaunchedEffect(locomotive.series)` (не мешая ручному вводу).
+через эффект по `locomotive.series` (не мешая ручному вводу). Тип тяги при
+выборе серии в шторке не меняется (в отличие от выбора в поле формы, §1.3).
 
 ### 2.13. История именования
 
 Кнопка расчёта раньше называлась «Установить по ПЗВ» (плашка справа сверху);
 сейчас: «Готово» — синий текст в шапке, а расчёт — нижняя кнопка «Рассчитать
-время».
+время». В коде остался неиспользуемый `AnchorSelectionBanner` («От какого
+момента рассчитать время?» с чипами) — не переносить.
+
+Источник: `features/route/.../ui/{TimeBottomSheet,SeriesPickerSheet,StationPickerSheet,NormaTimeComponents}.kt`,
+`.../viewmodel/SeriesEditorViewModel.kt`, `.../ui/settings/{SettingsSeriesEditorContent,SettingsStationEditorContent}.kt`,
+`.../component/{AppDateTimePicker,AppBottomSheet,AppAlertDialog}.kt`,
+`core_android/.../ui/component/DateTimePickerApp.kt`.
 
 ---
 
 ## 3. Навигация и общая структура приложения
 
-Единая `Activity` (Android) с Compose-навигацией; на iOS — `TabView` (5 вкладок).
-Навигация вынесена в интерфейс `Router` (`domain.navigation.Router`), реализуемый
-на каждой платформе (`RouterImpl` на Android). Экраны НЕ знают про `NavController` —
-дёргают методы `router.showX()`.
+Единая `Activity` (Android) с Compose-навигацией (`NavHost`, старт —
+`HomeFeature` → `HomeRoute`; переходы — fade in/out). Навигация вынесена в
+интерфейс `Router` (`domain.navigation.Router`), реализуемый на каждой платформе
+(`RouterImpl` на Android). Экраны НЕ знают про `NavController` — дёргают методы
+`router.showX()`.
 
-### 3.1. Точка входа и стартовый экран
+### 3.1. Точка входа, оверлеи запуска и нижнее меню
 
-- Старт: `showStartScreen()` → `HomeFeature` → `HomeRoute` (Главный).
-- Первый запуск: онбординг `FirstPresentationBlockScreen` (приветственный блок,
-  единственная кнопка «Далее» → `onNextClick`), затем главный экран.
-- Deep link шаринга: `locodriver://share/{id}` — загружает расшаренный маршрут в
-  `SharedRouteHolder` и открывает форму маршрута в режиме preview (см. 5.6).
+- **Старт**: сплэш (Android 12+ — системный, держится до инициализации и не
+  менее 0,9 с; ниже — свой брендовый, не менее 1,5 с) → Главный экран.
+  Отдельного экрана входа/онбординга при запуске **нет**: вход выполняется из
+  «Профиля» (§18).
+- **`FirstPresentationBlockScreen`** (онбординг 7 слайдов, кнопка → `showSignIn`)
+  в Android-коде объявлен, но **не зарегистрирован** в `NavHost` и нигде не
+  показывается (флаг `showFirstPresentation` не используется) — не переносить,
+  пока не решено иначе.
+- **«Что нового» после обновления** (`UpdatePresentationBlockScreen`) —
+  полноэкранный оверлей поверх приложения, если при старте
+  `isShowUpdatePresentation()` (SharedPreferences, по умолчанию `true`) и это не
+  первый запуск. Слайды: «Часовой пояс» — «Для учета переходных маршрутов,
+  ночных и праздничных часов установите свой часовой пояс»; «Главный экран» —
+  «Добавили обшее отработанное время на главный экран». Сверху стрелка «назад»
+  (предыдущий слайд) и «Пропустить», внизу индикатор и кнопка «Далее» / «Начать»
+  (последний слайд); «Пропустить» и «Начать» → `router.showHome`. Флаг сбрасывается в `false` при первой
+  инициализации `HomeViewModel`, поэтому оверлей показывается один раз.
+  ⚠️ Поведение Android: видимость оверлея — неизменяемое значение на время
+  жизни Activity, поэтому после «Начать» оверлей не скрывается до пересоздания
+  Activity (возможный баг).
+- **«Новость при запуске»** (`AnnouncementScreen`) — полноэкранный оверлей после
+  сплэша, очередь сообщений; поведение и контракт — §23.
+- **Глобальные диалоги поверх любого экрана** (Activity-уровень): «Платёж
+  принят!», «Бонус начислен! 🎉» / «Вам добавлено N дн. подписки по
+  реферальной программе.» / «Ура!», «Подписка продлена» (изменение срока) — см.
+  §19; «Импорт маршрута» («Импортировать маршрут от dd.MM.yyyy?», «Импортировать»
+  / «Отмена») при открытии файла `.zroute`.
+- **Тап по пустому месту** любого экрана снимает фокус и скрывает клавиатуру.
+- **Нижнее меню** (`BottomNavigationBar`) показывается **только** на корневых
+  экранах: Главная, Расчёт зарплаты, Настройки, Профиль. Пункты слева направо:
+  «Главная» → `HomeRoute`; «Зарплата» → `SalaryCalculationRoute`; центральная
+  **«Добавить»** (круглая «+») — не вкладка, а действие «новый маршрут» (§3.4);
+  «Настройки» → `SettingsScreenRoute`; «Профиль» → `ProfileRoute`. Переход по
+  вкладке: `popUpTo(start) { saveState }`, `launchSingleTop`, `restoreState`;
+  повторный тап по текущей вкладке ничего не делает. На iOS — `TabView` из 4
+  вкладок + отдельная кнопка «+» с тем же действием.
+- **Deep links / внешние входы**:
+  - `locodriver://share/{id}` и `https://locodriver.ru/r/{id}` — загрузка
+    расшаренного маршрута в `SharedRouteHolder` и открытие формы маршрута в
+    режиме preview (см. 5.6);
+  - `locodriver://profile` — переход на вкладку «Профиль» (как `showProfile`);
+  - возврат из оплаты Robokassa (`robokassa://…`) — обработка платежа (§19);
+  - виджет: «добавить маршрут» → новая форма маршрута; тап по телу → Главная
+    (`popBackStack(HomeRoute)`); малый виджет → форма текущего маршрута или
+    форма его поезда.
 
 ### 3.2. Карта переходов (методы Router)
 
@@ -515,17 +958,20 @@ FormScreen). Явка (locked) не удаляется. Для «Окончан�
 `SettingSalaryRoute`, `UpdatePresentationBlockRoute`, `AllRouteScreenRoute`,
 `SettingsScreenRoute`, `SelectReleaseDaysScreenRoute`, `ProfileRoute`,
 `StatisticsRoute`, `CalendarRoute`, `ScheduleWizardRoute`, `AbsenceRoute`.
-`DetailsRoute` — исключение/legacy по §22.
+`DetailsRoute` — исключение/legacy по §22. `SignInScreenRoute`,
+`LogInScreenRoute`, `FirstPresentationBlockRoute` объявлены, но в `NavHost` не
+зарегистрированы.
 
 | Метод | Экран назначения | Раздел |
 |---|---|---|
-| `showStartScreen` / `showHome` | Главный (HomeScreen) | 4 |
+| `showStartScreen` | граф `HomeFeature` (Главный) | 4 |
+| `showHome(startingRoute)` | Главный (`HomeRoute`; аргумент не используется) | 4 |
 | `showRouteForm(basicId?, isMakeCopy)` | Форма маршрута (FormScreen) | 5 |
-| `showEmpty/ChangedLocoForm` | Локомотив (FormLocoScreen) | 1 |
-| `showEmpty/ChangeTrainForm` | Поезд (FormTrainScreen) | 6 |
-| `showEmpty/ChangePassengerForm` | Пассажиром (FormPassengerScreen) | 7 |
-| `showEmpty/ChangeOtherWorkForm` | Прочая работа (FormOtherWorkScreen) | 8 |
-| `showPartnersManage` / `showPartnerPicker(basicId)` / `showNew/EditPartnerEditor` | Напарники (справочник/выбор/редактор) | 8.5 |
+| `showEmptyLocoForm(basicId)` / `showChangedLocoForm(loco)` | Локомотив (FormLocoScreen) | 1 |
+| `showEmptyTrainForm(basicId)` / `showChangeTrainForm(train)` | Поезд (FormTrainScreen) | 6 |
+| `showEmptyPassengerForm` / `showChangePassengerForm` | Пассажиром (FormPassengerScreen) | 7 |
+| `showEmptyOtherWorkForm` / `showChangeOtherWorkForm` | Прочая работа (FormOtherWorkScreen) | 8 |
+| `showPartnersManage` / `showPartnerPicker(basicId)` / `showNewPartnerEditor` / `showEditPartnerEditor(id)` | Напарники (справочник/выбор/редактор) | 8.5 |
 | `showAllRoute` | Все маршруты (AllRouteScreen) | 9 |
 | `showSearch` | Поиск (SearchScreen) | 10 |
 | `showSalaryCalculation` | Расчёт зарплаты (SalaryCalculationScreen) | 11 |
@@ -534,14 +980,23 @@ FormScreen). Явка (locked) не удаляется. Для «Окончан�
 | `showCalendar` | Календарь (CalendarScreen) | 14 |
 | `showScheduleWizard` | Мастер «Заполнить месяц» | 15 |
 | `showAbsence` / `showSelectReleaseDayScreen` | Отвлечения | 16 |
-| `showSettings*` | Настройки + под-разделы (ROUTE/LOCOMOTIVE/REST/SERIES_LIST/STATION_LIST/…) | 17 |
-| `showPurchasesScreen` | Покупки/подписка (только для авторизованных, см. ниже) | 19 |
+| `showSettings` и под-разделы (см. ниже) | Настройки | 17 |
+| `showPurchasesScreen` | Покупки/подписка (только через гейт, см. ниже) | 19 |
 | `showProfile` | Профиль (вкладка нижнего меню) | 18 |
-| `showSignIn` / `showLogIn` | Вход / регистрация (аутентификация ведётся из Профиля) | 18 |
+| `showSignIn` / `showLogIn` | маршруты входа — в NavHost не зарегистрированы (вход — в Профиле) | 18 |
+| `showRouteDetails(basicData)` | `DetailsRoute` — legacy, в NavHost нет | 22 |
+| `back()` / `navigationUp()` | возврат по стеку (`popBackStack` / `navigateUp`) | — |
 
-- `showSettingsSeriesEditor(id)` / `showSettingsStationEditor(id)` открывают
-  редактор нормы серии/станции внутри раздела «Настройки» (те же редакторы, что и
-  в пикерах шторки времени — см. 2.10).
+Под-разделы Настроек открываются как `SettingsScreenRoute` с аргументом
+под-экрана: `showSettingsRoute` → `ROUTE`; `showSettingsRouteForm` →
+`ROUTE_FORM`; `showSettingsLoco(series?)` → `LOCOMOTIVE` либо
+`LOCOMOTIVE_SERIES_<имя>` (при непустой серии); `showSettingsTrain` → `TRAIN`;
+`showSettingsRest` → `REST`; `showSettingsSeriesList` → `SERIES_LIST`;
+`showSettingsSeriesEditor(id)` → `SERIES_EDITOR_<id>`;
+`showCreateSettingsSeriesEditor(name)` → `SERIES_NEW_<имя>`;
+`showSettingsStationList` → `STATION_LIST`; `showSettingsStationEditor(id)` →
+`STATION_EDITOR_<id>` (те же редакторы, что в пикерах шторки времени, §2.10).
+
 - `showPartnersManage()` — полноэкранный справочник напарников (из Настроек);
   `showPartnerPicker(basicId)` — экран мультивыбора напарников в маршрут (из формы);
   `showNewPartnerEditor()` / `showEditPartnerEditor(id)` — экран создания/редактирования
@@ -559,13 +1014,12 @@ FormScreen). Явка (locked) не удаляется. Для «Окончан�
   авторизованного пользователя. Оплата без входа спишет деньги, но срок
   в приложении не обновится.
   Через гейт проходят все точки входа: карточки подписки/бесплатного лимита на
-  Главном (4.4), нижние шторки в форме маршрута и «Все маршруты», мастер
-  «Заполнить месяц», строка подписки в Профиле, диалоги «Подписка завершена» /
-  «Пробный период» при создании маршрута.
+  Главном (4.5), нижние шторки в форме маршрута и «Все маршруты», мастер
+  «Заполнить месяц», строка подписки в Профиле, диалоги «Бесплатный лимит
+  исчерпан» / «Пробный период» при создании маршрута.
 - `showProfile()` — переход на корневую вкладку «Профиль» с той же семантикой,
   что и нижнее меню (`popUpTo(startDestination) { saveState }`, `launchSingleTop`,
   `restoreState`); если пользователь уже на Профиле — no-op.
-- `back()` / `navigationUp()` — возврат по стеку.
 
 ### 3.3. Инварианты, общие для всех форм
 
@@ -580,171 +1034,384 @@ FormScreen). Явка (locked) не удаляется. Для «Окончан�
    `onCleared` дополнительно требует `changesHaveState` — новая запись без реальных
    правок пользователя не сохраняется, даже если тип непустой.
 3. **Финальное сохранение в `onCleared()`** через `NonCancellable + IO`.
-4. **Выход с несохранёнными изменениями** → диалог подтверждения
-   (`confirmExitDialogShow` / `ConfirmExitDialog`). «Выйти без сохранения» для
-   нового объекта — удаляет его из БД (`exitWithoutSaving`).
+4. **Выход без подтверждения**: кнопка «Готово» и системный Back просто
+   закрывают форму — всё уже сохранено автосейвом и `onCleared`. Компонент
+   `ConfirmExitDialog` («Внимание» / «При выходе все несохранённые данные будут
+   утеряны…», «Выйти» / «Сохранить и выйти») и флаги `confirmExitDialogShow` /
+   `exitWithoutSaving()` в Android-коде остались, но **ни одна форма их не
+   показывает и не вызывает** — не переносить.
 5. **Автодополнение станций/серий**: общий список станций/серий из `UserSettings`,
    фильтр по префиксу (`startsWith`, ignoreCase), удаление строки из общего списка
    через `removeStation`/`removeLocomotiveSeries`.
-6. Времена — `Long` (epoch ms), обрезаются до минуты (`truncateToMinute`).
+6. Времена — `Long` (epoch ms) с точностью до минуты: пикеры возвращают значение с
+   обнулёнными секундами (форма маршрута дополнительно обрезает
+   `truncateToMinute`).
+
+### 3.4. Создание нового маршрута (кнопка «+»)
+
+Единое действие для центральной кнопки нижнего меню (и других «добавить
+маршрут», см. §9, §5) — `RouteActionsHelper.newRouteClick()`:
+- подписка активна, если `subscriptionPeriod ≠ 0` и `subscriptionPeriod + 24 ч ≥
+  now` (грейс 1 сутки) → сразу открыть новую форму маршрута;
+- иначе считается число всех локальных маршрутов **включая удалённые в
+  корзину** (`listRouteWithDeleting`); лимит `FREE_ROUTES_LIMIT = 20`:
+  - `≥ 20` → диалог «Бесплатный лимит исчерпан» / «Для добавления новых
+    маршрутов оформите подписку.», кнопки «Оформить подписку» (через гейт
+    покупок) / «Отмена»;
+  - `< 20` → диалог «Пробный период» / «Осталось бесплатных маршрутов: N из 20.
+    Оформите подписку для неограниченного использования или продолжите
+    бесплатно.», кнопки «Продолжить бесплатно» (открыть форму) / «Оформить
+    подписку» (через гейт покупок);
+- ошибка — ничего не происходит.
+Из нижнего меню форма открывается с `popUpTo(start) { saveState }` +
+`launchSingleTop`, чтобы после неё вкладки восстанавливались корректно.
+
+Источник: `domain/.../navigation/Router.kt`, `app/.../ui/navigation/RouterImpl.kt`, `app/.../ui/LocoDriverApp.kt`,
+`app/.../MainActivity.kt`, `app/.../viewmodel/MainViewModel.kt`, `features/route/.../navigation/{Navigation,HomeDestination,FormLocoDestination,PurchasesEntry,UpdatePresentationBlockdestination}.kt`,
+`.../navigation/login/{FirstPresentationBlockDestination,Routes}.kt`, `.../component/{BottomNavigationBar,ConfirmExitDialog}.kt`,
+`.../ui/{UpdatePresentationBlockScreen,login/FirstPresentationBlockScreen}.kt`, `core_android/.../ui/component/{PresentationBlock,OnBoardingItems}.kt`,
+`.../viewmodel/RouteActionsHelper.kt`.
 
 ---
 
 ## 4. Главный экран (HomeScreen)
 
-- При каждом открытии экрана при наличии авторизации и активной подписки тихо
-  запускается двусторонняя облачная синхронизация, если после последней успешной
-  синхронизации прошло не менее 5 минут. Автоматический запуск откладывается на
-  1,5 секунды, чтобы первый кадр, загрузка локальных данных и расчёты экрана не
-  конкурировали с обработкой сетевых данных. Локальное сохранение и ручная
-  синхронизация cooldown не ограничивает. Пока синхронизация идёт, непосредственно
-  под верхним app bar отображается тонкий `LinearProgressIndicator`; модальный
-  диалог для фоновой операции не показывается. Изменения локальной БД сразу
-  попадают в реактивный список и расчёты экрана.
+Дашборд выбранного рабочего месяца: отработанное время и «К выдаче», карусель
+метрик, карточки-уведомления, живые блоки «текущий/следующий маршрут» и
+«отдых», два последних маршрута месяца, инструменты.
 
-Дашборд выбранного рабочего месяца: маршруты, суммарные метрики, итоговая
-зарплата, живые блоки «текущий/следующий маршрут» и «отдых», быстрые переходы.
+### 4.1. Данные, загрузка, фоновая синхронизация
 
-### 4.1. Данные и загрузка
-
-- **ViewModel**: `HomeViewModel` (`KoinComponent`). Реактивно наблюдает настройки,
-  список маршрутов выбранного месяца (`routeUseCase.routeListByMonthFlow`, с
-  `debounce(300)` и `flatMapLatest` по `routeParams`), настройки зарплаты.
-- Выбранный месяц — `UserSettings.selectMonthOfYear`; списки доступных месяцев/лет
-  и `monthYearList` (год, месяц) — для стрелок и пикера переключения месяца.
-- Все тяжёлые расчёты идут параллельно (`Dispatchers.Default`, `coroutineScope`) и
-  реактивно пересчитываются при изменении маршрутов ИЛИ настроек зарплаты.
+- **ViewModel**: `HomeViewModel` (`KoinComponent`). Реактивно наблюдает
+  `UserSettings` + `SalarySetting` (`combine`), список маршрутов выбранного месяца
+  (`routeUseCase.routeListByMonthFlow(month, TimeCalculationContext)`, с
+  `debounce(300)` и `flatMapLatest` по паре (месяц, контекст)) и отдельно **все**
+  маршруты (`getListRoutesAsFlow`) — для живых блоков, счётчика
+  несинхронизированных и бесплатного лимита.
+- Маршруты месяца = не удалённые маршруты, пересекающиеся с месяцем в
+  `crossMonthTZ` (`start < конец месяца` и (`сдача == null` или `сдача ≥ начало
+  месяца`)), отсортированы по явке **по убыванию**.
+- Выбранный месяц — `UserSettings.selectMonthOfYear` (сохраняется при смене).
+  Доступные месяцы — все `MonthOfYear` из календаря (`loadFlowMonthOfYearListState`):
+  отдельные отсортированные списки месяцев и лет для шторки и упорядоченный
+  список пар (год, месяц) для стрелок.
+- **Состояния экрана**: пока не загружены обе настройки — скелетон
+  (`HomeScreenSkeleton`: плашка 140dp вместо карусели, индикатор из 3 точек и 4
+  скелетона карточек `SkeletonItemHomeScreen`, шиммер 1 с). После этого экран
+  больше не возвращается в скелетон: при смене месяца показываются старые данные,
+  пока грузятся новые. Ошибка загрузки маршрутов — полноэкранная ошибка
+  (иконка + «Что-то пошло не так…»). Отдельные метрики до расчёта показывают
+  маленький спиннер, при ошибке — текст «Ошибка».
+- Все тяжёлые расчёты идут параллельно (`Dispatchers.Default`) и реактивно
+  пересчитываются при изменении маршрутов месяца, настроек зарплаты/пользователя
+  (debounce 150 мс, без повторной загрузки из БД) и при смене соседних маршрутов
+  месяца (переотдых на стыке месяцев).
+- **Фоновая синхронизация при открытии экрана** (`syncOnScreenOpen`): при каждом
+  входе на Главный, если нет идущей синхронизации и прошло ≥ 5 мин с последней
+  успешной (или есть неотправленные настройки), через 1,5 с проверяются активная
+  подписка (`subscriptionPeriod > now`, без грейса) и токен; при успехе —
+  двусторонняя синхронизация. Пока идёт — тонкий `LinearProgressIndicator` сразу
+  под верхней строкой; модального диалога нет. Ошибка → snackbar с понятным
+  текстом; если сервер «потерял» маршруты → snackbar «На сервере пропало
+  маршрутов: N. Проверьте корзину в Настройках.». Уход с экрана отменяет фоновую
+  синхронизацию. Изменения локальной БД сразу попадают в список и расчёты.
+- При инициализации VM: однократно (флаг в SharedPreferences) собирает серии и
+  станции из всех маршрутов в списки автодополнения; проверяет обновление в RuStore
+  (flexible): когда загружено — snackbar «Обновление загружено» с действием
+  «Установить».
 
 ### 4.2. Метрики месяца (все в `HomeUiState`)
 
-Считаются по отфильтрованному списку (`filterByConsiderFutureRoute` — с учётом
-настройки «Учитывать будущие маршруты»):
+Считаются по списку месяца, отфильтрованному `filterByConsiderFutureRoute`: при
+`isConsiderFutureRoute = true` — все маршруты месяца, иначе только с `явка <
+now`.
 
-- `totalTimeWithHoliday` — отработано (с праздничными); `timeWithoutHoliday` — без.
-- `nightTimeInRouteList` — ночные (по `CalculateNightTime`, местный ЧП).
-- `holidayHours` — работа в праздники; `dayOffHours` — выходные (личные дни ×2).
-- `singleLocomotiveTimeState` — одиночное следование.
+- `totalTimeWithHoliday` — отработано всего = Σ `getWorkTime()` по маршрутам; для
+  переходных — только часть внутри месяца + проезд пассажиром до явки.
+- `timeWithoutHoliday` (`totalTime` в UI) — отработано без праздничных часов.
+- `nightTimeInRouteList` — ночные (по `UserSettings.nightTime`, `localTZ`).
+- `holidayHours` — работа в праздники; `dayOffHours` — часы личных выходных
+  («Выходной» ×2). ⚠️ Эти две метрики считаются, но на Главном не выводятся.
+- `singleLocomotiveTimeState` — следование резервом (одиночным локомотивом).
 - `extendedServicePhaseTime` / `heavyTrainsTime` / `longDistanceTrainsTime` —
-  удлинённое плечо / тяжеловесные / длинносоставные.
-- `onePersonOperationTime` — «в одно лицо» (грузовые + пассажирские).
+  удлинённое плечо / тяжеловесные / длинносоставные (через
+  `SalaryCalculationHelper`, по настройкам доплат).
+- `onePersonOperationTime` — «в одно лицо» (грузовые + пассажирские). ⚠️ Считается,
+  но на Главном не выводится.
 - `passengerTimeInRouteList` — время следования пассажиром.
-- `toBeCredited` — итоговая зарплата «К выдаче» (через `SalaryCalculationHelper`).
-  Рассчитывается отдельно от основной загрузки экрана; пока расчёт не завершён,
-  под блоком «ОТРАБОТАНО» показывается «считаем деньги». После расчёта сумма
-  отображается компактным текстом с валютой по `UserSettings.country`:
-  `RU` — ₽, `KZ` — ₸, `BY` — Br. При ошибке показывается «—».
+- `toBeCredited` — «К выдаче» (`SalaryCalculationHelper.getMoneyToBeCredited()`,
+  с соседними маршрутами для переотдыха — чтобы совпадало с экраном расчёта).
 - `normaHours` — норма часов месяца (через `NormaUseCase`: регион + отвлечения +
-  производственный календарь). Остаток/переработка = `отработано − норма`.
-  «Выходной» и «Технические занятия» норму не уменьшают — см. §16.1.1.
-- Первая карточка карусели метрик всегда содержит три строки. При включённой
-  настройке «Учитывать будущие маршруты» третья строка показывает «Отработано на
-  <дату>»; при выключенной — модуль разницы между отработанным временем и нормой
-  с подписью «Осталось до нормы» либо «Сверх нормы». Это сохраняет постоянную
-  высоту карусели при свайпе.
-  Все страницы карусели используют одинаковый внешний отступ `12.dp`, стандартную
-  форму `Card` и располагаются на одной вертикальной линии.
+  производственный календарь; реактивно по выбранному месяцу). Пока `null` —
+  используется `MonthOfYear.getPersonalNormaHours()`. «Выходной» и «Технические
+  занятия» норму не уменьшают — см. §16.1.1.
+- `todayWorkTime` — только при `isConsiderFutureRoute`: отработано по маршрутам
+  месяца, **уже завершённым** (`сдача ≤ now`).
+- ⚠️ Поведение Android: при ошибке расчёта праздничных часов в состояние
+  ошибки ставится поле ночных часов (опечатка, возможный баг).
 - Виджет главного экрана перерисовывается по сигналу `WidgetUpdater`, но цифры
-  берёт не из состояния экрана: `WidgetDataLoader.loadAndPush` заново читает БД.
-  Чтобы «отработано» и «до нормы» совпадали с экраном, виджет обязан считать по
-  тем же правилам: `TimeCalculationContext.from(userSettings)`, отбор маршрутов
-  месяца через `UtilsForEntities.filterByMonth` (границы месяца в `crossMonthTZ`,
-  а не в жёстко зашитом GMT+3), время — `calculateWorkTimeWithSettings`, норма —
-  через `NormaUseCase`.
+  берёт не из состояния экрана: `WidgetDataLoader.loadAndPush` заново читает БД
+  (значения, которые `HomeViewModel.pushWidgetData` передаёт в `update(...)`,
+  игнорируются). Чтобы «отработано» и «до нормы» совпадали с экраном, виджет обязан
+  считать по тем же правилам: `TimeCalculationContext.from(userSettings)`, отбор
+  маршрутов месяца через `UtilsForEntities.filterByMonth` (границы месяца в
+  `crossMonthTZ`, а не в жёстко зашитом GMT+3), время —
+  `calculateWorkTimeWithSettings`, норма — через `NormaUseCase`.
 
 ### 4.3. Живые блоки состояния (счётчики реального времени)
 
-- **Текущий маршрут** (`findCurrentRoute`): секундомер «в работе» (`workTimer`) от
-  явки; при наступлении `timeEndWork` (даже пока приложение было закрыто/Doze) —
-  `handleRouteEnded()` пересчитывает без БД. Секундомер считает от РЕАЛЬНОГО
-  времени (не накопительно), чтобы не отставать после блокировки.
-  Горизонтальный ряд содержит плитки «На работе», «Локомотив», «Поезд» и
-  «Пассажиром». Долгое нажатие на любую плитку начинает её перетаскивание;
-  при активации режима все плитки покачиваются, а удерживаемая плитка слегка
-  увеличивается и следует за пальцем. Режим остаётся активным после отпускания:
-  можно без повторного долгого нажатия брать и переставлять любую плитку.
-  Обычные клики по плиткам и кнопкам «Добавить» в этом режиме отключены; касание
-  вне всей секции «Текущий маршрут» завершает перестановку и не выполняет действие
-  элемента под касанием. Движение влево/вправо меняет последовательность плиток
-  с тактильной обратной связью; у краёв ряд автоматически прокручивается вслед
-  за перетаскиваемой плиткой, а захваченная плитка удерживается в видимой области.
-  Пользовательский порядок сохраняется локально в SharedPreferences и
-  восстанавливается после перезапуска приложения, но не синхронизируется с
-  сервером. Пока порядок не меняли вручную, «На работе» идёт первой, затем
-  заполненные плитки единиц маршрута и после них пустые в порядке
-  «Локомотив» → «Поезд» → «Пассажиром».
+Блоки не зависят от выбранного месяца: считаются по всем маршрутам
+(`updateCurrentAndNextRoute`/`recomputeRestBlock` вызываются из коллектора всех
+маршрутов И из коллектора настроек — идемпотентно; это защита от гонки старта:
+если список маршрутов эмитится до настроек, без повторного вызова «Следующий
+маршрут» навсегда завис бы в `null`). Таймеры перезапускаются только при реальной
+смене маршрута (id или явка).
+
+- **Текущий маршрут** (`findCurrentRoute`, §0.3): заголовок «ТЕКУЩИЙ МАРШРУТ»
+  (тап → форма маршрута) и горизонтальный ряд плиток 150×150dp:
+  - **«НА РАБОТЕ»** — секундомер `ЧЧ:ММ` = `now − явка`, обновляется на границе
+    каждой минуты и считается от РЕАЛЬНОГО времени (не накопительно, чтобы не
+    отставать после блокировки/Doze); при возврате на экран (`RESUMED`)
+    перезапускается. Под ним полоса прогресса `часы/12` (красная после 12 ч).
+    Тап → форма маршрута. При наступлении `timeEndWork` (в т.ч. пока телефон был
+    заблокирован) — `handleRouteEnded()`: блок исчезает, пересчитываются
+    `todayWorkTime`, «Следующий маршрут» и отдых без обращения к БД.
+  - **«ЛОКОМОТИВ» / «ПОЕЗД» / «ПАССАЖИРОМ»** — иконка, подпись, имя последней
+    единицы (моноширинный, автоуменьшение 17→11sp), подзаголовок станций; при
+    нескольких единицах — бейдж-счётчик и «стопка» (вторая карточка выглядывает
+    справа сверху); пустая плитка — пунктирная рамка. Имена:
+    локомотив `серия-номер` / `серия б/н` / `Электротяга|Теплотяга номер` /
+    `Электротяга|Теплотяга N` (N — порядковый); поезд/пассажир `№номер` (тогда
+    подзаголовок — станции плеча или «первая — последняя»), иначе станции плеча,
+    иначе «A — B» / «A — » / « — B», иначе «б/н». Круглая «+» в углу —
+    добавить новую единицу. Тап по плитке: 0 единиц → новая форма; 1 → её форма;
+    > 1 → шторка списка «Локомотивы · N» / «Поезда · N» / «Пассажиром · N»
+    (строки с иконкой и именем, внизу пунктирная «+ Добавить локомотив|поезд|
+    пассажиром»; выбор закрывает шторку, затем навигация).
+  - **Перестановка плиток**: долгое нажатие на любую плитку начинает её
+    перетаскивание (тактильный отклик); все плитки покачиваются (±1,2°, 110 мс),
+    удерживаемая увеличивается до 1,04 и следует за пальцем; сдвиг на ≥ 81dp
+    меняет её местами с соседней (отклик). Режим остаётся после отпускания —
+    можно сразу брать другие плитки; клики по плиткам и «+» в режиме
+    отключены; касание вне всей секции «Текущий маршрут» завершает режим и не
+    выполняет действие под касанием. У краёв (36dp) ряд автопрокручивается шагом
+    18dp, захваченная плитка удерживается в видимой области. Порядок (4 ключа
+    `work`, `loco`, `train`, `passenger`) сохраняется локально
+    (SharedPreferences), восстанавливается после перезапуска, не синхронизируется.
+    Пока порядок не меняли: «На работе» первой, затем заполненные единицы, потом
+    пустые в порядке «Локомотив» → «Поезд» → «Пассажиром».
 - **Приоритет блоков** (когда нет текущего маршрута): Отдых в ПО > Следующий
   маршрут > Домашний отдых. Т.е. если во время домашнего отдыха уже известна
-  следующая явка — вместо карточки «Домашний отдых» показывается «Следующий
-  маршрут» (обратный отсчёт до явки); отдых в ПО этим не перекрывается (сам
-  учитывает явку обратного маршрута через границу окна).
-- **Следующий маршрут** (`findNextFutureRoute`): обратный отсчёт до явки
-  (`countdownTimer`); при обнулении маршрут становится «текущим» без ожидания БД.
-  `currentRoute`/`nextFutureRoute` пересчитываются в `HomeViewModel` при КАЖДОМ
-  эмите списка маршрутов (`getListRoutesAsFlow`) И при каждом эмите настроек
-  (`updateCurrentAndNextRoute`/`recomputeRestBlock` вызываются из обоих
-  коллекторов — идемпотентно). Это защита от гонки старта: список маршрутов и
-  настройки пользователя грузятся двумя независимыми коллекторами, и если
-  список маршрутов эмитится первым (до того как подтянутся настройки),
-  расчёт без повторного вызова из ветки настроек навсегда завис бы с
-  `nextFutureRoute == null`, пока список маршрутов не изменится ещё раз.
-- **Блок отдыха** (`recomputeRestBlock`): по последнему завершённому маршруту и его
-  флагу `restPointOfTurnover` — либо отдых в пункте оборота (короткий+полный), либо
-  домашний (две границы). Границы — те же формулы, что в шторке отдыха
-  (`RouteActionsHelper`). Автоскрытие по достижении границы окна (`restTransitionJob`).
-  Для домашнего отдыха показываются окончание минимального отдыха
-  (`сдача + minTimeHomeRest`), отдельная точка на шкале и окончание расчётного
-  полного отдыха; в быстром просмотре показываются обе строки окончания.
-  Виджет также показывает окончание минимального отдыха. Блок
-  скрывается по окончании расчётного полного отдыха.
-  ⚠️ **Полный отдых в ПО = всё отработанное время** (`getWorkTime`: сдача − явка −
-  перерыв + проезд пассажиром до явки), но не меньше `minTimeRestPointOfTurnover`.
-  **Короткий** — половина того же отработанного времени, округлённая вверх до минуты,
-  и тоже не меньше минимума. Считать именно от `getWorkTime`, а НЕ от «сдача − явка»
-  (иначе полный отдых расходится с показанным «Отработано»). Единый расчёт — в
-  `UtilsForEntities.fullRest`/`shortRest` и `RouteActionsHelper.calculate*Rest`;
-  виджет (`LocoDriverWidget.computeRestHome`) обязан считать так же.
-- **Кнопка «GO»** (`onGoClicked`): для текущего маршрута сохраняет время
-  отправления/прибытия на станции последнего поезда (чередование departure/arrival,
-  с учётом плеча обслуживания). Секунды сохраняются для точного старта секундомера.
+  следующая явка — вместо «Домашний отдых» показывается «Следующий маршрут»;
+  отдых в ПО этим не перекрывается (сам учитывает явку обратного маршрута через
+  границу окна).
+- **Следующий маршрут** (`findNextFutureRoute`): заголовок «СЛЕДУЮЩИЙ МАРШРУТ» и
+  карточка «ДО ЯВКИ ОСТАЛОСЬ» + обратный отсчёт `ЧЧ:ММ` (`явка − now`,
+  обновление на границе минуты от реального времени), разделитель, строка
+  «Явка» `dd.MM HH:mm`. Тап по карточке/заголовку → форма маршрута. При
+  обнулении маршрут сразу становится «текущим» без ожидания БД.
+- **Блок отдыха** (`recomputeRestBlock`): берётся последний завершённый маршрут
+  (`сдача < now`, максимальная сдача) и его флаг `restPointOfTurnover`.
+  - **«ОТДЫХ В ПУНКТЕ ОБОРОТА»** (флаг = true): `короткий = max(ceil_мин(
+    getWorkTime/2), минимум)`, `полный = max(getWorkTime, минимум)`, где минимум =
+    `minTimeRestPointOfTurnover` (3 ч), а если предыдущий по явке маршрут тоже
+    закончился отдыхом в ПО — `minTimeRestPointOfTurnoverSecond` (4 ч). Окончания
+    = `сдача + длительность`. Считать именно от `getWorkTime` (сдача − явка −
+    перерыв + проезд пассажиром до явки), а НЕ от «сдача − явка». Окно показа —
+    до явки следующего маршрута, а если его нет — до конца полного отдыха.
+    Карточка: «ОТДЫХАЕТЕ» + счётчик `now − сдача` (обновление раз в секунду),
+    «начало отдыха dd.MM HH:mm», шкала (прогресс `(now − сдача)/(полный −
+    сдача)`, зелёная точка короткого, оранжевая точка в конце, подписи `HH:mm`
+    начала/короткого/полного), строки «Короткий отдых» и «Полный отдых»: «до
+    dd.MM HH:mm» и «осталось ЧЧ:ММ».
+    ⚠️ «Округление вверх до минуты» в коде: если половина не кратна минуте, к ней
+    прибавляется целая минута (а не округляется) — при нечётном числе минут
+    работы окончание получается с `:30` секунд (возможный баг; на экране не
+    видно).
+  - **«ДОМАШНИЙ ОТДЫХ»** (флаг = false): цепочка = этот маршрут + идущие перед ним
+    подряд маршруты с `restPointOfTurnover = true` (из выбранного и предыдущего
+    месяца); `длительность = max(Σ(сдача − явка) × 2.6 − Σ отдыхов между ними,
+    minTimeHomeRest)`; `полный = сдача + длительность`; `минимальный = сдача +
+    minTimeHomeRest` (16 ч). Окно показа — до полного. Карточка: как выше, на
+    шкале оранжевая точка минимального; строки «Минимальный отдых» и «Полный
+    отдых».
+    ⚠️ Цепочка берётся из маршрутов **выбранного в UI** месяца и предыдущего, а не
+    месяца самого маршрута — при просмотре другого месяца расчёт может
+    отличаться (возможный баг). Здесь берётся `сдача − явка`, а не `getWorkTime`.
+  - Автоскрытие по достижении границы окна (`restTransitionJob`). При крупном
+    шрифте строки отдыха раскладываются в столбец.
+  Единый расчёт — в `UtilsForEntities.fullRest`/`shortRest` и
+  `RouteActionsHelper.calculate*Rest`/`calculationHomeRest`; виджет
+  (`LocoDriverWidget.computeRestHome`) обязан считать так же.
+- **Кнопки «GO» на Главном нет.** `onGoClicked` (запись времени отправления/
+  прибытия на станции последнего поезда текущего маршрута) используется только
+  виджетом (`GoActionCallback`), см. §22/виджет.
 
-### 4.4. UI-разделы и действия
+### 4.4. UI сверху вниз
 
-1. **Топ-бар**: выбранный месяц (стрелки/пикер месяца-года), сумма «К выдаче»,
-   иконка поиска.
-2. Карточки-плитки быстрого доступа: «Календарь», «Статистика», «Поиск», «График»,
-   «Отвлечения» и др.
-3. Блоки метрик месяца + блоки текущего/следующего маршрута/отдыха.
-4. Список маршрутов месяца (карточки). Действия по маршруту: избранное
-   (`setFavoriteRoute`), удалить (`removeRoute` — soft-delete + snackbar), поделиться
-   (`shareRoute` → публичная ссылка + системный share-sheet), синхронизировать
-   (`syncRoute`). В заголовке карточки явка, сдача и итоговая продолжительность
-   показываются моноширинным шрифтом одинакового размера и начертания, без фона у
-   итогового времени. Компоновка остаётся однострочной, пока фактические значения
-   помещаются в доступную ширину; иначе явка и сдача переносятся в столбец, а итог
-   остаётся справа. Единый внешний горизонтальный отступ всех секций Главного
-   экрана — `8.dp`. Карточки маршрутов на Главном, в «Календаре» и на экране
-   «Все маршруты» используют то же поле, поэтому их ширина и компоновка совпадают.
-5. Кнопка «+» — новый маршрут (через проверку подписки, `newRouteClick`):
-   лимит не исчерпан → диалог «Пробный период» с остатком («Осталось бесплатных
-   маршрутов: N из 20… или продолжите бесплатно»), кнопки «Продолжить бесплатно»
-   (открыть форму) / «Оформить подписку»; лимит исчерпан → диалог «Бесплатный
-   лимит исчерпан» с «Оформить подписку» / «Отмена». Обе кнопки покупок идут
-   через гейт авторизации (3.2).
-5.1. Карточки «Бесплатный период / лимит исчерпан» и «Подписка скоро
-   закончится / закончилась» — кнопка «Оформить подписку» ведёт на экран покупок
-   только у авторизованного пользователя; без входа показывается диалог
-   «Нужен вход в аккаунт» с переходом в «Профиль» (гейт покупок, см. 3.2).
-6. **Ручная синхронизация** (`manualSync`): диалог показывает текущий этап,
-   линейный индикатор и общий процент выполнения — так же, как в разделе «Профиль»;
-   обрабатывает сетевые ошибки и формирует отчёт по числу
-   сохранённых/ошибочных маршрутов. Истёкшая сессия (401) показывается
-   отдельным экраном «Сессия истекла» и разлогинивает пользователя — см. §31.3.
-   Pull-to-refresh показывает результат на том экране, где пользователь выполнил
-   жест; сообщение не ставится в глобальную очередь и не переносится на Главный
-   экран. До сетевого запроса проверяется подписка, затем авторизация: без активной
-   подписки показывается «Синхронизация доступна по подписке», при активной подписке
-   без токена — «Необходимо войти в профиль».
-7. Обновление приложения через RuStore (`initUpdateManager`, flexible update).
+Единый внешний горизонтальный отступ секций — `8.dp`; между секциями 32dp.
+Весь экран поддерживает pull-to-refresh (§4.6).
+
+1. **Верхняя строка**: слева логотип «М» + «Машинист» (тап → шторка «Перейти на
+   сайт?» / «Будет выполнен переход на официальный сайт приложения
+   locodriver.ru», действие «Перейти» открывает `https://locodriver.ru`); справа
+   иконка поиска → `showSearch`. Под строкой — индикатор фоновой синхронизации
+   (§4.1).
+2. **Строка месяца**: крупно «Месяц» (именительный: «Январь»…) и год (приглушённо);
+   тап → шторка выбора (ниже). Справа стрелки `‹` `›` — предыдущая/следующая
+   пара (год, месяц) из списка доступных; на краях неактивны (приглушены).
+   - **Шторка месяца**: «Выберите месяц и год», чипы месяцев (из доступных),
+     чипы лет, кнопка «Применить» → `setCurrentMonth(год, месяц)` и закрытие.
+     Выбор чипа сам по себе ничего не применяет. Если выбранной пары нет в
+     календаре — ничего не происходит.
+3. **Блок «ОТРАБОТАНО»**: строка «ОТРАБОТАНО» слева и сумма «К выдаче» справа
+   (`toMoneyString`, §0.1; пока считается — «считаем деньги»; ошибка — «—»).
+   Ниже крупно (46sp) отработано всего `totalTimeWithHoliday`; если есть
+   праздничные часы — рядом ` (без_праздн + праздн)`; справа чип «еще ЧЧ:ММ»
+   (не хватает до нормы) или «сверх ЧЧ:ММ», считается от `totalTime` (без
+   праздничных) и `normaHours`; при норме 0 чипа нет. Тап по числу — подсказка
+   «Общее отработанное время», по разбивке — «Рабочие + праздничные часы».
+   Раскладка адаптивна: если не помещается, чип уходит строкой выше, разбивка —
+   под число.
+4. **Карусель метрик** (3 страницы, свайп; под ней линейный индикатор страниц).
+   Тап по карусели → «Статистика» (§13). Каждая страница — карточка с тремя
+   строками «подпись … значение» и тонкой полосой прогресса под каждой (высота
+   карусели постоянна). Отступ страниц `12.dp`.
+   - **Стр. 1**: «Норма на месяц» `N ч.` (прогресс `totalTime / норма`);
+     «Норма на dd.MM.yy» (сегодня) `N ч.` — норма по календарю на сегодня
+     (прогресс `totalTime / норма_на_сегодня`); третья строка: при
+     `isConsiderFutureRoute` — «Отработано на dd.MM.yy» `todayWorkTime`
+     (прогресс к норме на сегодня), иначе «Осталось до нормы» / «Сверх нормы»
+     `|норма − totalTime|` (прогресс `|разница|/норма`). Здесь `totalTime` —
+     **без праздничных часов**.
+   - **Стр. 2**: «Ночные», «Пассажиром», «Резервом» (одиночное следование) —
+     прогресс = доля от `totalTimeWithHoliday`.
+   - **Стр. 3**: «Удл. плечи обслуживания», «Длинносоставные», «Тяжелые» — то же.
+   - `MetricInfoSheet` (шторка пояснения метрики) на Главном **не используется** —
+     он есть только на экране «Статистика» (§13).
+5. **Карточки-уведомления** (карусель, если их больше одной; с индикатором).
+   Каждая: иконка, заголовок, крестик «Закрыть», текст, подсказка, кнопка.
+   Скрытие крестиком — до изменения соответствующего состояния (числа/статуса).
+   - **Подписка** (если подписка когда-либо была, `subscriptionEndTime ≠ 0`):
+     осталось `ceil(дней) ≤ 7` → оранжевая «Подписка заканчивается»: «Осталось N
+     день|дня|дней — до dd.MM.yy» (или «Заканчивается сегодня, dd.MM.yy»),
+     «Продлите заранее — новый срок прибавится к текущему, дни не сгорят.»,
+     кнопка «Продлить»; истекла → красная «Подписка закончилась»: «Закончилась
+     dd.MM.yy», «Маршруты и история сохранены. Но добавлять новые и пользоваться
+     синхронизацией нельзя, пока подписка не возобновлена.», «Возобновить».
+   - **Бесплатный период** (подписки никогда не было, `subscriptionEndTime = 0`),
+     used = `freeRoutesUsedCount` (все маршруты, включая корзину), лимит 20,
+     полоса прогресса `used/20`: used ≥ 20 → красная «Бесплатный лимит исчерпан»
+     / «Использовано 20 из 20 бесплатных маршрутов» / «Маршруты и история
+     сохранены. Чтобы добавлять новые и пользоваться синхронизацией — оформите
+     подписку.»; осталось ≤ 5 → оранжевая «Бесплатный период» / «Осталось N из 20
+     бесплатных маршрутов» / «Оформите подписку заранее, чтобы не потерять
+     возможность добавлять маршруты.»; иначе нейтральная «Бесплатный период» /
+     «Использовано N из 20 бесплатных маршрутов» / «Оформите подписку в любой
+     момент — снимет лимит и откроет синхронизацию.». Кнопка «Оформить подписку».
+   - **Не синхронизировано** (подписка активна и несинхронизированных маршрутов
+     > 2): «Внимание!» / «Не синхронизировано маршрутов: N» / «Проверьте
+     подключение к интернету и выполните синхронизацию.», кнопка
+     «Синхронизировать» → ручная синхронизация (§4.6).
+   - Кнопки «Оформить подписку/Продлить/Возобновить» ведут на покупки только у
+     авторизованного пользователя; без входа — диалог «Нужен вход в аккаунт»
+     (гейт покупок, §3.2).
+6. Живые блоки (§4.3): «ТЕКУЩИЙ МАРШРУТ» или (по приоритету) «ОТДЫХ В ПУНКТЕ
+   ОБОРОТА» / «СЛЕДУЮЩИЙ МАРШРУТ» / «ДОМАШНИЙ ОТДЫХ».
+7. **«ПОСЛЕДНИЕ МАРШРУТЫ»** и справа кнопка «Все (N)» (N — число маршрутов
+   месяца) → «Все маршруты» (§9). Показываются **только первые два** маршрута
+   месяца (по убыванию явки, в т.ч. будущие) карточками `ItemHomeScreen` (§4.5),
+   с номерами `#N` и `#N−1`. Пусто — текст по центру «Список пуст / Нажмите  +
+   чтобы добавить маршрут / или создайте график работы».
+8. **«ИНСТРУМЕНТЫ»** — горизонтальный ряд квадратных карточек (сторона ≈ ⅓
+   ширины экрана, одинаковая высота): «Календарь» → §14; «Статистика» → §13;
+   «PDF» → выбор содержимого PDF (§21/§32; карточка неактивна, пока PDF
+   формируется); «Поиск» → §10.
+9. Отступ 50dp снизу. Кнопки «+» на самом экране нет — новый маршрут создаётся
+   центральной кнопкой нижнего меню (§3.4).
+
+Snackbar-сообщения экрана показываются по очереди (не перебивают друг друга).
+
+### 4.5. Карточка маршрута `ItemHomeScreen`
+
+Общий компонент Главной, «Все маршруты» и Календаря.
+- **Фон**: будущий маршрут (`явка > now + timeZone`) — `surfaceBright`;
+  переходный — `surfaceDim`; иначе обычный. ⚠️ `isFuture` прибавляет к `now`
+  смещение пояса пользователя от Москвы (`UserSettings.timeZone`), хотя оба
+  значения — абсолютные моменты (возможный баг для KZ).
+- **Заголовок**: «явка − сдача» и справа продолжительность. Явка —
+  `dd.MM HH:mm`; сдача — `HH:mm`, если в тот же день (в поясе отображения),
+  иначе `dd.MM HH:mm`. Продолжительность = `getWorkTimeInMonth` (для переходного
+  — только часть в месяце) в формате §0.1. Шрифт одинаковый (`bodyLarge` 18sp,
+  Medium), без фона у итога. Если строка не помещается в ширину без
+  уменьшения — явка и сдача (обе с датой) столбцом слева, итог справа; иначе
+  одна строка с автоуменьшением до 10sp.
+- **Свёрнутый вид** (Главная, Календарь): одна строка моноширинным 14sp —
+  поезд с самой поздней отправлением с первой станции: «№номер Первая —
+  Последняя» (пустые части пропускаются); если поездов нет — первая «Прочая
+  работа»: «Тип — Станция».
+- **Развёрнутый вид** (только «Все маршруты», `isExpand`): группы
+  «ЛОКОМОТИВЫ» (серия или «Локомотив» · номер), «ПОЕЗДА» (№ или «Поезд»,
+  станции), «ПАССАЖИРОМ» (№ или «Поездка», станции), «ПРОЧАЯ РАБОТА» (тип,
+  станция), примечание маршрута, блок «Расчёт за смену» (§9).
+- **Нижняя строка**: слева `#номер` (порядковый, от количества), справа значки
+  (долгое нажатие на значки → шторка «Обозначения», `RouteLegendSheet`, §25.3):
+  праздник, перерыв (`перерыв > 0`), длинносоставный, тяжеловесный, удлинённое
+  плечо, «в одно лицо», пассажиром (`время пассажиром > 0`), «орден» (работа
+  > 12 ч), толкач, двойная тяга, сдвоенный поезд, избранное, статус синхронизации
+  (синхронизирован / нет).
+- **Жесты**: тап → форма маршрута; долгое нажатие → быстрый просмотр
+  `RouteQuickViewSheet` (§9.1; на Главном при открытии пересчитываются домашний
+  отдых, фактический отдых и оплата смены); свайп влево → красная кнопка
+  удаления → шторка «Удалить маршрут?» / «от dd.MM HH:mm» / «Да, удалить».
+  Удаление — soft-delete в корзину, snackbar «Маршрут перемещён в корзину».
+- **Действия из быстрого просмотра** (шторка сначала закрывается): избранное
+  (snackbar «Маршрут добавлен в избранное» / «Маршрут удален из избранного»);
+  копия → шторка «Создать копию маршрута?» / «Откроется редактирование копии —
+  исходный маршрут не изменится.» / «Создать копию» → `showRouteForm(id,
+  isMakeCopy = true)`; поделиться → без токена snackbar «Неавторизованный
+  пользователь», иначе создание публичной ссылки (повторный запрос во время
+  создания игнорируется) и системный share-sheet, ошибка → «Не удалось создать
+  ссылку»; синхронизация одного маршрута → без токена «Войдите в аккаунт, чтобы
+  синхронизировать маршрут», без подписки «Синхронизация доступна по
+  подписке», успех «Маршрут сохранен в облаке», иначе текст ошибки; удаление →
+  шторка выше.
+- **Скелетон** `SkeletonItemHomeScreen` — карточка min 65dp: полоса 70% + 20%
+  высотой 18dp и полоса 50% высотой 14dp, шиммер.
+
+### 4.6. Синхронизация с Главного
+
+- **Pull-to-refresh** (`PullToSyncViewModel.refresh`, без cooldown): без
+  активной подписки → «Синхронизация доступна по подписке»; без токена →
+  «Необходимо войти в профиль»; иначе двусторонняя синхронизация, по итогу
+  сообщение: текст ошибки / «Синхронизация не выполнена: сервер не завершил
+  обработку данных» / «На сервере пропало маршрутов: N. Проверьте корзину в
+  Настройках.» / «Синхронизация завершена». Сообщение показывается snackbar'ом
+  внутри контейнера того экрана, где сделан жест; в глобальную очередь не
+  ставится. Повторный жест во время синхронизации игнорируется.
+- **Ручная синхронизация** («Синхронизировать» в карточке несинхронизированных,
+  `manualSync`) — **выгрузка** на сервер (`syncToRemote`): без подписки →
+  snackbar «Синхронизация доступна по подписке»; без токена → диалог с ошибкой
+  «Неавторизованный пользователь». Иначе `SyncProgressDialog` в режиме
+  процентов: заголовок «Выгрузка данных», название текущего шага («Настройки
+  пользователя» → «Настройки зарплаты» → «Отвлечения» → «Маршруты»; до старта —
+  «Подготовка», в конце — «Завершено»), линейный прогресс = доля завершённых
+  шагов из 4, «N%», текст первой ошибки. Полный успех (есть timestamp и нет
+  ошибок маршрутов) → диалог «Выгрузка завершена!» / «Данные успешно
+  синхронизированы.» / «Отлично!» и сохранение времени последней синхронизации.
+  Частичный успех по маршрутам → шаг «Маршруты» с ошибкой «синхронизировано N из
+  M». Транспортная ошибка → экран «Нет интернета» / «Понятно»; 401 → экран
+  «Сессия истекла» / «Войдите в аккаунт заново в разделе «Профиль». Данные на
+  устройстве сохранены и будут синхронизированы после входа.» / «Понятно» (и
+  разлогин, §31.3). По завершении с не-сетевыми ошибками — кнопка «Отправить
+  отчет об ошибке» (письмо на `locodriver.app@yandex.ru` с файлом-отчётом) и
+  «Понятно». Закрытие диалога сбрасывает состояние синхронизации.
+
+Источник: `features/route/.../ui/{HomeScreen,HomeStateBlocks,SyncProgressDialog}.kt`,
+`.../navigation/HomeDestination.kt`, `.../viewmodel/home_view_model/{HomeViewModel,HomeUiState}.kt`,
+`.../viewmodel/{RouteActionsHelper,PullToSyncViewModel}.kt`, `.../component/{ItemHomeScreen,SkeletonHomeScreen,WorkedTimeHeader,PullToSyncContainer,RouteLegendSheet}.kt`,
+`domain/.../entities/route/UtilsForEntities.kt`, `domain/.../use_cases/RouteUseCase.kt`,
+`data_remote/.../remote_rest/SyncManager.kt`, `core_android/.../ui/component/{AsyncData,GenericError}.kt`.
 
 ---
 
