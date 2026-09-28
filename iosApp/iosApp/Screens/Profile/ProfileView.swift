@@ -243,13 +243,15 @@ private struct ReferralView: View {
                     Text("\(vm.referralRewardedCount)").fontWeight(.semibold).foregroundStyle(.green)
                 }
             }
-            Section("Как это работает") {
+            Section {
                 ReferralRuleRow(number: 1, text: "Поделитесь своим кодом с другом")
                 ReferralRuleRow(number: 2, text: "Друг вводит код перед первой оплатой Про")
                 ReferralRuleRow(number: 3, text: "Половина периода добавится каждому автоматически")
                 if let rulesURL = URL(string: "https://locodriver.ru/referral.html") {
                     Link("Подробные правила программы", destination: rulesURL)
                 }
+            } header: {
+                Text("Как это работает")
             } footer: {
                 Text("Приглашать может только тот, кто уже хотя бы раз оплачивал Про. Друг может применить код после регистрации, до своей первой оплаты. Повторные покупки бонуса не дают.")
             }
