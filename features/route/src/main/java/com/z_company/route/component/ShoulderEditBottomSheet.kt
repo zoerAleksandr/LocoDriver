@@ -187,6 +187,23 @@ fun ShoulderEditBottomSheet(
                 }
             },
             onDelete = editingStation?.let { st -> { stations.removeAll { it.id == st.id } } },
+            findCoordinates = { query ->
+                // Ищем рядом с соседями по плечу, у которых координаты уже известны.
+                val idx = stations.indexOfFirst { it.id == editingStation?.id }
+                val near = buildList {
+                    stations.getOrNull(idx - 1)?.takeIf { it.hasCoordinates }?.let { add(it.latitude!! to it.longitude!!) }
+                    stations.getOrNull(idx + 1)?.takeIf { it.hasCoordinates }?.let { add(it.latitude!! to it.longitude!!) }
+                    depPoint?.first?.let { add(it.latitude to it.longitude) }
+                    arrPoint?.first?.let { add(it.latitude to it.longitude) }
+                }
+                autoVm.lookup(query, country, near)
+            },
+            neighbours = run {
+                val idx = stations.indexOfFirst { it.id == editingStation?.id }
+                val prev = stations.getOrNull(idx - 1)?.name ?: departure.text.trim().takeIf { idx == 0 }
+                val next = stations.getOrNull(idx + 1)?.name ?: arrival.text.trim().takeIf { idx == stations.lastIndex }
+                prev to next
+            },
             onDismiss = {
                 stationSheetOpen = false
                 editingStation = null

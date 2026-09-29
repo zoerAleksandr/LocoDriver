@@ -23,6 +23,11 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import com.z_company.repository.remote_rest.response.OsmStationCandidate
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,8 +57,8 @@ import com.z_company.route.component.AppAlertDialog
  * Шторка станции плеча («Станция» / «Новая станция»), поверх редактора плеча.
  * Закрытие ✕ / свайпом / «назад» — отмена без сохранения.
  *
- * [onFindCoordinates] и [onPickOnMap] — действия карточки «Координаты»; пока null,
- * карточка показывает только состояние.
+ * [findCoordinates] и [onPickOnMap] — действия карточки «Координаты»; null — действия нет.
+ * Найденные координаты применяются по «Готово».
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +70,10 @@ internal fun PhaseStationSheet(
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
     onPickOnMap: ((ServicePhaseStation) -> Unit)? = null,
+    /** Поиск координат по названию (сервер); null в ответе — ошибка сети/сервиса. */
+    findCoordinates: (suspend (String) -> List<OsmStationCandidate>?)? = null,
+    /** Соседи по плечу — для подписи найденной станции «между A и B». */
+    neighbours: Pair<String?, String?> = null to null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isNew = station == null
@@ -75,6 +84,9 @@ internal fun PhaseStationSheet(
     }
     var suggestionsOpen by remember { mutableStateOf(isNew) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var coords by remember { mutableStateOf<CoordState>(CoordState.Idle) }
+    val scope = rememberCoroutineScope()
+    var searchJob by remember { mutableStateOf<Job?>(null) }
     val nameFocus = remember { FocusRequester() }
 
     val km = kmText.text.replace(',', '.').toDoubleOrNull()
@@ -177,7 +189,27 @@ internal fun PhaseStationSheet(
                     )
                 }
                 if (station != null) {
-                    CoordinatesCard(station = station, onPickOnMap = onPickOnMap)
+                    CoordinatesCard(
+                        station = station,
+                        state = coords,
+                        neighbours = neighbours,
+                        onPickOnMap = onPickOnMap,
+                        onFind = findCoordinates?.let { find ->
+                            {
+                                val query = name.text.trim().ifBlank { station.name }
+                                coords = CoordState.Searching(query)
+                                searchJob = scope.launch {
+                                    val found = find(query)
+                                    coords = found?.firstOrNull()?.let { CoordState.Found(it) } ?: CoordState.NotFound
+                                }
+                            }
+                        },
+                        onCancelSearch = {
+                            searchJob?.cancel()
+                            coords = CoordState.Idle
+                        },
+                        onReject = { coords = CoordState.Idle },
+                    )
                     if (station.source == ServicePhaseStationSource.OSM) {
                         Text(
                             text = "Добавлена автоподбором" + (station.esr?.let { " · ЕСР $it" } ?: ""),
@@ -197,8 +229,16 @@ internal fun PhaseStationSheet(
                     onClick = {
                         val trimmed = name.text.trim()
                         val kmValue = km?.let { kotlin.math.round(it * 10) / 10 }
-                        val result = station?.copy(name = trimmed, kind = kind, kmFromStart = kmValue)
-                            ?: ServicePhaseStation(name = trimmed, kind = kind, kmFromStart = kmValue)
+                        val found = (coords as? CoordState.Found)?.candidate
+                        val result = station?.copy(
+                            name = trimmed,
+                            kind = kind,
+                            kmFromStart = kmValue,
+                            latitude = found?.latitude ?: station.latitude,
+                            longitude = found?.longitude ?: station.longitude,
+                            esr = station.esr ?: found?.esr?.takeIf(String::isNotBlank),
+                            osmId = found?.osmId ?: station.osmId,
+                        ) ?: ServicePhaseStation(name = trimmed, kind = kind, kmFromStart = kmValue)
                         onSave(result)
                         onDismiss()
                     },
@@ -218,36 +258,96 @@ internal fun PhaseStationSheet(
     }
 }
 
+internal sealed interface CoordState {
+    data object Idle : CoordState
+    data class Searching(val query: String) : CoordState
+    data class Found(val candidate: OsmStationCandidate) : CoordState
+    data object NotFound : CoordState
+}
+
 @Composable
-private fun CoordinatesCard(station: ServicePhaseStation, onPickOnMap: ((ServicePhaseStation) -> Unit)?) {
+private fun CoordinatesCard(
+    station: ServicePhaseStation,
+    state: CoordState,
+    neighbours: Pair<String?, String?>,
+    onPickOnMap: ((ServicePhaseStation) -> Unit)?,
+    onFind: (() -> Unit)?,
+    onCancelSearch: () -> Unit,
+    onReject: () -> Unit,
+) {
     val has = station.hasCoordinates
-    val color = if (has) Pst.success else Pst.warning
     PstCard {
         Column {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier = Modifier.size(36.dp).background(color.copy(alpha = 0.14f), RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center,
-                ) { PstIcon(PstIcons.MapPin, 18.dp, color) }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (has) "Координаты есть" else "Нет координат",
-                        style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
-                        color = Pst.text,
+            when (state) {
+                is CoordState.Searching -> CoordRow(
+                    color = Pst.accent,
+                    spinner = true,
+                    title = "Ищем «${state.query}» на карте…",
+                    subtitle = "Обычно несколько секунд",
+                    trailing = {
+                        PstButton(text = "Отменить", onClick = onCancelSearch, kind = PstButtonKind.TEXT, height = 36.dp, fontSize = 14)
+                    },
+                )
+                is CoordState.Found -> {
+                    val c = state.candidate
+                    val between = listOfNotNull(neighbours.first, neighbours.second)
+                    val place = listOfNotNull(
+                        c.operator ?: c.region,
+                        between.takeIf { it.size == 2 }?.let { "между ${it[0]} и ${it[1]}" },
+                    ).joinToString(" · ")
+                    CoordRow(
+                        color = Pst.success,
+                        title = "Нашлось: ${c.name}, ${if (c.kind == "halt") "О.П." else "станция"}",
+                        subtitle = place.ifBlank { c.esr?.let { "ЕСР $it" } ?: "" },
                     )
-                    Text(
-                        text = when {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 6.dp, bottom = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Сохранится вместе со станцией",
+                            style = Pst.sans.copy(fontSize = 13.sp),
+                            color = Pst.textMuted,
+                            modifier = Modifier.weight(1f),
+                        )
+                        PstButton(text = "Не та станция", onClick = onReject, kind = PstButtonKind.TEXT, height = 36.dp, fontSize = 14)
+                    }
+                }
+                CoordState.NotFound -> {
+                    CoordRow(
+                        color = Pst.warning,
+                        title = "Не нашлось на карте",
+                        subtitle = "Проверьте название или укажите точку на карте вручную.",
+                    )
+                    if (onFind != null) {
+                        PstButton(
+                            text = "Искать ещё раз",
+                            onClick = onFind,
+                            kind = PstButtonKind.OUTLINED,
+                            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                        )
+                    }
+                }
+                CoordState.Idle -> {
+                    CoordRow(
+                        color = if (has) Pst.success else Pst.warning,
+                        title = if (has) "Координаты есть" else "Нет координат",
+                        subtitle = when {
                             !has -> "Без них станция не определится по GPS"
                             station.source == ServicePhaseStationSource.MAP -> "Указаны на карте"
                             else -> "Станция определится по GPS"
                         },
-                        style = Pst.sans.copy(fontSize = 12.sp),
-                        color = Pst.textMuted,
                     )
+                    if (!has && onFind != null) {
+                        PstButton(
+                            text = "Найти координаты",
+                            onClick = onFind,
+                            kind = PstButtonKind.TONAL,
+                            icon = PstIcons.Search,
+                            iconSize = 17.dp,
+                            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                        )
+                    }
                 }
             }
             if (onPickOnMap != null) {
@@ -274,6 +374,41 @@ private fun CoordinatesCard(station: ServicePhaseStation, onPickOnMap: ((Service
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CoordRow(
+    color: androidx.compose.ui.graphics.Color,
+    title: String,
+    subtitle: String,
+    spinner: Boolean = false,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(if (spinner) androidx.compose.ui.graphics.Color.Transparent else color.copy(alpha = 0.14f), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (spinner) {
+                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = Pst.accent, trackColor = Pst.accent.copy(alpha = 0.22f))
+            } else {
+                PstIcon(PstIcons.MapPin, 18.dp, color)
+            }
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+            if (subtitle.isNotBlank()) {
+                Text(text = subtitle, style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted)
+            }
+        }
+        trailing?.invoke()
     }
 }
 
