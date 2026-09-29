@@ -91,6 +91,7 @@ object Versions {
     const val lifecycle_runtime_version = "2.6.1"
     const val lifecycle_viewmodel_version = "2.6.1"
     const val material_compose3 = "1.4.0"
+    const val reorderable_version = "3.1.0"
     const val room_version = "2.7.1"
     const val test_ext_version = "1.1.5"
     const val test_runner_version = "1.6.0-alpha01"
@@ -180,6 +181,9 @@ object Libs {
         "androidx.compose.ui:ui:$compose_ui_version"
     const val compose_material3 =
         "androidx.compose.material3:material3:$material_compose3"
+    // Перетаскивание строк в LazyColumn (станции плеча)
+    const val reorderable =
+        "sh.calvin.reorderable:reorderable:${Versions.reorderable_version}"
     const val core_ktx =
         "androidx.core:core-ktx:$core_ktx_version"
     const val kotlinx_coroutines_core =

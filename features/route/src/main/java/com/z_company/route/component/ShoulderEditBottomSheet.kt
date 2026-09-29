@@ -5,58 +5,80 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import com.z_company.core.ui.theme.Shapes
+import androidx.compose.ui.unit.sp
 import com.z_company.domain.entities.setting.ServicePhase
+import com.z_company.domain.entities.setting.ServicePhaseStation
+import com.z_company.domain.entities.setting.ServicePhaseStationKind
 import com.z_company.domain.util.toIntOrZero
-import kotlinx.coroutines.launch
+import com.z_company.route.component.servicephase.PhaseInsertRow
+import com.z_company.route.component.servicephase.PhaseStationSheet
+import com.z_company.route.component.servicephase.PhaseStopRow
+import com.z_company.route.component.servicephase.Pst
+import com.z_company.route.component.servicephase.PstButton
+import com.z_company.route.component.servicephase.PstButtonKind
+import com.z_company.route.component.servicephase.PstCard
+import com.z_company.route.component.servicephase.PstGrabber
+import com.z_company.route.component.servicephase.PstGroupHead
+import com.z_company.route.component.servicephase.PstIcon
+import com.z_company.route.component.servicephase.PstIcons
+import com.z_company.route.component.servicephase.PstNote
+import com.z_company.route.component.servicephase.PstSheetFooter
+import com.z_company.route.component.servicephase.PstSheetHeader
+import com.z_company.route.component.servicephase.PstTextField
+import com.z_company.route.component.servicephase.SchemeMode
+import com.z_company.route.component.servicephase.StopType
+import kotlinx.coroutines.delay
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
+
+private const val KEY_DEPARTURE = "stop:departure"
+private const val KEY_ARRIVAL = "stop:arrival"
 
 /**
- * Вторая шторка (поверх «Плечи») — создание и редактирование плеча.
- * Бизнес-логика (сохранение в UserSettings) — снаружи через колбэки, по образцу
- * SettingsShouldersContent.
+ * Шторка создания и редактирования плеча (поверх «Плечи» — в Настройках и в форме поезда).
+ * Макет — design/service_phase_stations (экраны 02–08). Изменения попадают в плечо
+ * только по «Добавить»/«Сохранить»; ✕, свайп и «назад» — отмена.
+ * Бизнес-логика (сохранение в UserSettings) — снаружи через колбэки.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,344 +91,521 @@ fun ShoulderEditBottomSheet(
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
-
     val isNew = phase == null
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val hintColor = primaryColor.copy(alpha = 0.5f)
-    val dataStyle = MaterialTheme.typography.bodyLarge
-    val fieldColor = MaterialTheme.colorScheme.surfaceBright
-    val fieldShape = RoundedCornerShape(14.dp)
 
-    var departure by remember {
-        mutableStateOf(
-            TextFieldValue(
-                phase?.departureStation ?: "",
-                TextRange(phase?.departureStation?.length ?: 0)
-            )
+    var departure by remember { mutableStateOf(textValue(phase?.departureStation)) }
+    var arrival by remember { mutableStateOf(textValue(phase?.arrivalStation)) }
+    var distance by remember { mutableStateOf(TextFieldValue(phase?.distance?.takeIf { it > 0 }?.toString() ?: "")) }
+    var rate by remember {
+        mutableStateOf(TextFieldValue(phase?.linearMileageRate?.takeIf { it > 0.0 }?.toString()?.replace('.', ',') ?: ""))
+    }
+    var createReverse by remember { mutableStateOf(true) }
+    val stations = remember { mutableStateListOf<ServicePhaseStation>().apply { addAll(phase?.intermediateStations.orEmpty()) } }
+    var editMode by remember { mutableStateOf(false) }
+    var confirmDeletePhase by remember { mutableStateOf(false) }
+
+    // Шторка станции: editing — существующая; insertAt — позиция новой (null = по км / в конец)
+    var stationSheetOpen by remember { mutableStateOf(false) }
+    var editingStation by remember { mutableStateOf<ServicePhaseStation?>(null) }
+    var insertAt by remember { mutableStateOf<Int?>(null) }
+
+    var snackbar by remember { mutableStateOf<EditorSnackbar?>(null) }
+
+    val distanceKm = distance.text.toIntOrZero()
+    val isValid = departure.text.isNotBlank() && arrival.text.isNotBlank() && distanceKm > 0
+
+    val listState = rememberLazyListState()
+    val reorderState = rememberReorderableLazyListState(listState) { from, to ->
+        val fromIdx = stations.indexOfFirst { it.id == from.key }
+        val toIdx = stations.indexOfFirst { it.id == to.key }
+        if (fromIdx >= 0 && toIdx >= 0) stations.add(toIdx, stations.removeAt(fromIdx))
+    }
+
+    fun openStation(station: ServicePhaseStation?, at: Int?) {
+        editingStation = station
+        insertAt = at
+        stationSheetOpen = true
+    }
+
+    if (stationSheetOpen) {
+        PhaseStationSheet(
+            station = editingStation,
+            stationList = stationList,
+            phaseDistance = distanceKm,
+            onSave = { saved ->
+                val idx = stations.indexOfFirst { it.id == saved.id }
+                when {
+                    idx >= 0 -> stations[idx] = saved
+                    insertAt != null -> stations.add(insertAt!!.coerceIn(0, stations.size), saved)
+                    else -> stations.add(positionByKm(stations, saved.kmFromStart), saved)
+                }
+            },
+            onDelete = editingStation?.let { st -> { stations.removeAll { it.id == st.id } } },
+            onDismiss = {
+                stationSheetOpen = false
+                editingStation = null
+                insertAt = null
+            },
         )
     }
-    var arrival by remember {
-        mutableStateOf(
-            TextFieldValue(
-                phase?.arrivalStation ?: "",
-                TextRange(phase?.arrivalStation?.length ?: 0)
-            )
+
+    if (confirmDeletePhase && onDelete != null) {
+        AppAlertDialog(
+            onDismissRequest = { confirmDeletePhase = false },
+            title = "Удалить плечо?",
+            text = "«${phase?.departureStation} — ${phase?.arrivalStation}» будет удалено из справочника вместе со станциями.",
+            confirmText = "Удалить",
+            onConfirm = {
+                confirmDeletePhase = false
+                onDelete()
+                onDismiss()
+            },
+            isDestructive = true,
+            dismissText = "Отмена",
         )
     }
-    var distance by remember { mutableStateOf(phase?.distance?.takeIf { it > 0 }?.toString() ?: "") }
-    var linearMileageRate by remember {
-        mutableStateOf(phase?.linearMileageRate?.takeIf { it > 0.0 }?.toString() ?: "")
-    }
-    var createReverse by remember { mutableStateOf(false) }
-
-    var depFiltered by remember { mutableStateOf(stationList) }
-    var arrFiltered by remember { mutableStateOf(stationList) }
-    var depExpanded by remember { mutableStateOf(false) }
-    var arrExpanded by remember { mutableStateOf(false) }
-
-    val isValid = departure.text.isNotBlank() && arrival.text.isNotBlank() && distance.toIntOrZero() > 0
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.secondary,
-        shape = Shapes.large
+        containerColor = Pst.bg,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        dragHandle = { PstGrabber() },
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 40.dp)
-        ) {
-            // ── Заголовок + закрытие ──
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 18.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (isNew) "Новое плечо" else "Редактировать плечо",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = primaryColor
-                )
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceBright)
-                        .clickable { onDismiss() },
-                    contentAlignment = Alignment.Center
+        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.94f).imePadding()) {
+            PstSheetHeader(title = if (isNew) "Новое плечо" else "Редактировать плечо", onClose = onDismiss)
+            Box(modifier = Modifier.weight(1f)) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
                 ) {
-                    Icon(
-                        modifier = Modifier.size(18.dp),
-                        painter = painterResource(com.z_company.core.R.drawable.ic_clear),
-                        contentDescription = "Закрыть",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // ── От станции ──
-            ExposedDropdownMenuBox(
-                expanded = depExpanded,
-                onExpandedChange = { depExpanded = it }
-            ) {
-                OutlinedTextFieldApp(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
-                    value = departure,
-                    onValueChange = { v ->
-                        departure = v
-                        depFiltered = stationList.filter { it.contains(v.text, ignoreCase = true) }
-                        depExpanded = v.text.isNotEmpty()
-                    },
-                    placeholder = { Text("От станции", style = dataStyle, color = hintColor) },
-                    textStyle = dataStyle,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text, imeAction = ImeAction.Next
-                    ),
-                    keyboardActions = KeyboardActions(onNext = {
-                        depExpanded = false
-                        scope.launch { focusManager.moveFocus(FocusDirection.Down) }
-                    }),
-                    singleLine = true,
-                    shape = fieldShape,
-                    fieldElevation = 0.dp,
-                    colorBackgroundEmptyField = fieldColor,
-                    colorBackgroundNotEmptyField = fieldColor
-                )
-                StationDropdownMenu(
-                    expanded = depExpanded,
-                    stations = depFiltered,
-                    onSelect = {
-                        departure = TextFieldValue(it, TextRange(it.length))
-                        depExpanded = false
-                    },
-                    onDelete = onDeleteStationName,
-                    onDismiss = { depExpanded = false },
-                    textStyle = dataStyle
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ── До станции ──
-            ExposedDropdownMenuBox(
-                expanded = arrExpanded,
-                onExpandedChange = { arrExpanded = it }
-            ) {
-                OutlinedTextFieldApp(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
-                    value = arrival,
-                    onValueChange = { v ->
-                        arrival = v
-                        arrFiltered = stationList.filter { it.contains(v.text, ignoreCase = true) }
-                        arrExpanded = v.text.isNotEmpty()
-                    },
-                    placeholder = { Text("До станции", style = dataStyle, color = hintColor) },
-                    textStyle = dataStyle,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text, imeAction = ImeAction.Next
-                    ),
-                    keyboardActions = KeyboardActions(onNext = {
-                        arrExpanded = false
-                        scope.launch { focusManager.moveFocus(FocusDirection.Down) }
-                    }),
-                    singleLine = true,
-                    shape = fieldShape,
-                    fieldElevation = 0.dp,
-                    colorBackgroundEmptyField = fieldColor,
-                    colorBackgroundNotEmptyField = fieldColor
-                )
-                StationDropdownMenu(
-                    expanded = arrExpanded,
-                    stations = arrFiltered,
-                    onSelect = {
-                        arrival = TextFieldValue(it, TextRange(it.length))
-                        arrExpanded = false
-                    },
-                    onDelete = onDeleteStationName,
-                    onDismiss = { arrExpanded = false },
-                    textStyle = dataStyle
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ── Расстояние ──
-            OutlinedTextFieldApp(
-                modifier = Modifier.fillMaxWidth(),
-                value = distance,
-                onValueChange = { distance = it },
-                placeholder = { Text("Расстояние", style = dataStyle, color = hintColor) },
-                suffix = {
-                    Text(
-                        "км",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = hintColor
-                    )
-                },
-                textStyle = dataStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(onDone = {
-                    scope.launch { focusManager.clearFocus() }
-                }),
-                singleLine = true,
-                shape = fieldShape,
-                fieldElevation = 0.dp,
-                colorBackgroundEmptyField = fieldColor,
-                colorBackgroundNotEmptyField = fieldColor
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ── Стоимость линейного пробега ──
-            OutlinedTextFieldApp(
-                modifier = Modifier.fillMaxWidth(),
-                value = linearMileageRate,
-                onValueChange = { value ->
-                    linearMileageRate = value.filter { it.isDigit() || it == ',' || it == '.' }
-                },
-                placeholder = { Text("Доплата за пробег", style = dataStyle, color = hintColor) },
-                suffix = {
-                    Text(
-                        "₽/км",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = hintColor
-                    )
-                },
-                textStyle = dataStyle.copy(fontFamily = com.z_company.core.ui.theme.MonoFont),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(onDone = {
-                    scope.launch { focusManager.clearFocus() }
-                }),
-                singleLine = true,
-                shape = fieldShape,
-                fieldElevation = 0.dp,
-                colorBackgroundEmptyField = fieldColor,
-                colorBackgroundNotEmptyField = fieldColor
-            )
-
-            // ── Обратное направление (только для нового) ──
-            if (isNew) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Создать плечо в обратном направлении",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f).padding(end = 12.dp)
-                    )
-                    Switch(
-                        checked = createReverse,
-                        onCheckedChange = { createReverse = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.secondary,
-                            checkedTrackColor = MaterialTheme.colorScheme.tertiary
+                    item(key = "fields") {
+                        PhaseFields(
+                            departure = departure,
+                            onDeparture = { departure = it },
+                            arrival = arrival,
+                            onArrival = { arrival = it },
+                            distance = distance,
+                            onDistance = { v -> distance = v.copy(text = v.text.filter(Char::isDigit)) },
+                            rate = rate,
+                            onRate = { v -> rate = v.copy(text = v.text.filter { it.isDigit() || it == ',' || it == '.' }) },
+                            stationList = stationList,
+                            onDeleteStationName = onDeleteStationName,
+                            onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                            onDone = { focusManager.clearFocus() },
                         )
+                    }
+                    if (isNew) {
+                        item(key = "reverse") {
+                            Column(modifier = Modifier.padding(top = 12.dp)) {
+                                PstCard {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { createReverse = !createReverse }
+                                            .padding(horizontal = 18.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = "Создать плечо в обратном направлении",
+                                            style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                                            color = Pst.text,
+                                            modifier = Modifier.weight(1f).padding(end = 12.dp),
+                                        )
+                                        Switch(
+                                            checked = createReverse,
+                                            onCheckedChange = { createReverse = it },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = Pst.surface,
+                                                checkedTrackColor = Pst.accent,
+                                            ),
+                                        )
+                                    }
+                                }
+                                PstNote(
+                                    text = "Промежуточные станции тоже скопируются — в обратном порядке.",
+                                    modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp),
+                                )
+                            }
+                        }
+                    }
+                    item(key = "stationsHead") {
+                        PstGroupHead(
+                            text = "Промежуточные станции · ${stations.size}",
+                            modifier = Modifier.padding(top = 22.dp, bottom = 8.dp).heightIn(min = 32.dp),
+                            action = if (stations.isEmpty()) null else {
+                                {
+                                    PstButton(
+                                        text = if (editMode) "Готово" else "Изменить",
+                                        onClick = { editMode = !editMode },
+                                        kind = PstButtonKind.TEXT,
+                                        height = 32.dp,
+                                        fontSize = 14,
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    if (stations.isEmpty()) {
+                        item(key = "empty") {
+                            EmptyStations(onAddManually = { openStation(null, null) })
+                        }
+                    } else {
+                        stationScheme(
+                            departure = departure.text.trim(),
+                            arrival = arrival.text.trim(),
+                            distanceKm = distanceKm,
+                            stations = stations,
+                            editMode = editMode,
+                            reorderState = reorderState,
+                            freshIds = emptySet(),
+                            activeInsert = if (stationSheetOpen && editingStation == null) insertAt else null,
+                            onOpen = { openStation(it, null) },
+                            onInsert = { at -> openStation(null, at) },
+                            onRemove = { st ->
+                                val idx = stations.indexOfFirst { it.id == st.id }
+                                if (idx >= 0) {
+                                    stations.removeAt(idx)
+                                    snackbar = EditorSnackbar("Станция убрана") {
+                                        stations.add(idx.coerceAtMost(stations.size), st)
+                                    }
+                                }
+                            },
+                        )
+                        item(key = "stationsActions") {
+                            if (editMode) {
+                                PstNote(
+                                    text = "Перетащите за ≡, чтобы изменить порядок. «+» — вставить станцию " +
+                                        "между соседними, ✕ — убрать.",
+                                    modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp),
+                                )
+                            } else {
+                                Row(modifier = Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    PstButton(
+                                        text = "Станция",
+                                        onClick = { openStation(null, null) },
+                                        kind = PstButtonKind.TONAL,
+                                        icon = PstIcons.Plus,
+                                        iconSize = 17.dp,
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (!isNew && !editMode && onDelete != null) {
+                        item(key = "deletePhase") {
+                            Box(Modifier.fillMaxWidth().padding(top = 18.dp), contentAlignment = Alignment.Center) {
+                                PstButton(
+                                    text = "Удалить плечо",
+                                    onClick = { confirmDeletePhase = true },
+                                    kind = PstButtonKind.DANGER,
+                                    icon = PstIcons.Trash,
+                                    iconSize = 16.dp,
+                                )
+                            }
+                        }
+                    }
+                }
+                snackbar?.let { bar ->
+                    EditorSnackbarView(
+                        bar = bar,
+                        onDismiss = { snackbar = null },
+                        modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 }
             }
-
-            // ── Разделитель ──
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 20.dp)
-                    .height(1.dp)
-                    .background(primaryColor.copy(alpha = 0.1f))
-            )
-
-            // ── Сохранить / Добавить ──
-            Button(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = Shapes.medium,
-                enabled = isValid,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceBright,
-                    disabledContentColor = hintColor
-                ),
-                onClick = {
-                    val dist = distance.toIntOrZero()
-                    if (dist > 0 && departure.text.isNotBlank() && arrival.text.isNotBlank()) {
+            PstSheetFooter {
+                PstButton(
+                    text = if (isNew) "Добавить" else "Сохранить",
+                    kind = PstButtonKind.CTA,
+                    enabled = isValid,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
                         val dep = departure.text.trim()
                         val arr = arrival.text.trim()
-                        val mileageRate = linearMileageRate.replace(',', '.').toDoubleOrNull()
-                            ?.coerceAtLeast(0.0) ?: 0.0
-                        // Для редактирования сохраняем id через copy, для нового — новый id по умолчанию.
-                        val result = phase?.copy(
+                        val mileageRate = rate.text.replace(',', '.').toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+                        val base = phase ?: ServicePhase(departureStation = dep, arrivalStation = arr, distance = distanceKm)
+                        val result = base.copy(
                             departureStation = dep,
                             arrivalStation = arr,
-                            distance = dist,
+                            distance = distanceKm,
                             linearMileageRate = mileageRate,
-                        ) ?: ServicePhase(
-                            departureStation = dep,
-                            arrivalStation = arr,
-                            distance = dist,
-                            linearMileageRate = mileageRate,
+                            intermediateStations = stations.toList(),
+                            // Координаты относились к прежней станции — при переименовании сбрасываем.
+                            departurePoint = base.departurePoint.takeIf { sameName(phase?.departureStation, dep) },
+                            arrivalPoint = base.arrivalPoint.takeIf { sameName(phase?.arrivalStation, arr) },
                         )
                         onSave(result, createReverse && isNew)
                         onDismiss()
-                    }
-                }
-            ) {
-                Text(
-                    text = if (isNew) "Добавить" else "Сохранить",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold
+                    },
                 )
             }
+        }
+    }
+}
 
-            // ── Удалить плечо (только редактирование) ──
-            if (onDelete != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = Shapes.medium,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(
-                        defaultElevation = 0.dp,
-                        pressedElevation = 0.dp
-                    ),
-                    onClick = {
-                        onDelete()
-                        onDismiss()
+// ─── Поля плеча ────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PhaseFields(
+    departure: TextFieldValue,
+    onDeparture: (TextFieldValue) -> Unit,
+    arrival: TextFieldValue,
+    onArrival: (TextFieldValue) -> Unit,
+    distance: TextFieldValue,
+    onDistance: (TextFieldValue) -> Unit,
+    rate: TextFieldValue,
+    onRate: (TextFieldValue) -> Unit,
+    stationList: List<String>,
+    onDeleteStationName: (String) -> Unit,
+    onNext: () -> Unit,
+    onDone: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        StationNameField("От станции", departure, onDeparture, stationList, onDeleteStationName, onNext)
+        StationNameField("До станции", arrival, onArrival, stationList, onDeleteStationName, onNext)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PstTextField(
+                value = distance,
+                onValueChange = onDistance,
+                label = "Расстояние, км",
+                placeholder = "—",
+                mono = true,
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { onNext() }),
+            )
+            PstTextField(
+                value = rate,
+                onValueChange = onRate,
+                label = "Доплата за пробег, ₽/км",
+                placeholder = "—",
+                mono = true,
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onDone() }),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StationNameField(
+    label: String,
+    value: TextFieldValue,
+    onValue: (TextFieldValue) -> Unit,
+    stationList: List<String>,
+    onDeleteStationName: (String) -> Unit,
+    onNext: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val filtered = remember(value.text, stationList) { stationList.filter { it.contains(value.text, ignoreCase = true) } }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        PstTextField(
+            value = value,
+            onValueChange = {
+                onValue(it)
+                expanded = it.text.isNotEmpty()
+            },
+            label = label,
+            placeholder = "Начните вводить название",
+            leadingIcon = PstIcons.MapPin,
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            keyboardActions = KeyboardActions(onNext = {
+                expanded = false
+                onNext()
+            }),
+        )
+        StationDropdownMenu(
+            expanded = expanded && filtered.isNotEmpty(),
+            stations = filtered,
+            onSelect = {
+                onValue(TextFieldValue(it, TextRange(it.length)))
+                expanded = false
+            },
+            onDelete = onDeleteStationName,
+            onDismiss = { expanded = false },
+        )
+    }
+}
+
+@Composable
+private fun EmptyStations(onAddManually: () -> Unit) {
+    PstCard {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Станции между крайними — по порядку от отправления к прибытию. Добавьте их вручную.",
+                style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                color = Pst.textMuted,
+            )
+            PstButton(
+                text = "Добавить вручную",
+                onClick = onAddManually,
+                kind = PstButtonKind.OUTLINED,
+                icon = PstIcons.Plus,
+                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+            )
+        }
+    }
+}
+
+// ─── Схема участка в LazyColumn ────────────────────────────────────────
+// Карточка разбита на элементы списка: у крайних станций скруглён верх/низ.
+
+private fun LazyListScope.stationScheme(
+    departure: String,
+    arrival: String,
+    distanceKm: Int,
+    stations: List<ServicePhaseStation>,
+    editMode: Boolean,
+    reorderState: sh.calvin.reorderable.ReorderableLazyListState,
+    freshIds: Set<String>,
+    activeInsert: Int?,
+    onOpen: (ServicePhaseStation) -> Unit,
+    onInsert: (Int) -> Unit,
+    onRemove: (ServicePhaseStation) -> Unit,
+) {
+    val mode = if (editMode) SchemeMode.EDIT else SchemeMode.VIEW
+    item(key = KEY_DEPARTURE) {
+        CardSegment(top = true) {
+            PhaseStopRow(
+                name = departure.ifBlank { "Станция отправления" },
+                type = StopType.TERMINAL,
+                isStart = true,
+                isFirst = true,
+                isLast = false,
+                mode = mode,
+            )
+        }
+    }
+    stations.forEachIndexed { index, st ->
+        item(key = st.id) {
+            ReorderableItem(reorderState, key = st.id) { isDragging ->
+                CardSegment {
+                    Column {
+                        if (editMode) PhaseInsertRow(active = activeInsert == index, onClick = { onInsert(index) })
+                        PhaseStopRow(
+                            name = st.name,
+                            type = if (st.kind == ServicePhaseStationKind.HALT) StopType.HALT else StopType.STATION,
+                            isFirst = false,
+                            isLast = false,
+                            mode = mode,
+                            km = st.kmFromStart,
+                            esr = st.esr,
+                            noCoordinates = !st.hasCoordinates,
+                            lifted = isDragging,
+                            fresh = st.id in freshIds,
+                            onClick = if (editMode) null else ({ onOpen(st) }),
+                            onRemove = { onRemove(st) },
+                            modifier = if (editMode) Modifier.longPressDraggableHandle() else Modifier,
+                            dragHandle = {
+                                PstIcon(
+                                    PstIcons.Drag,
+                                    20.dp,
+                                    if (isDragging) Pst.accent else Pst.textMuted,
+                                    modifier = Modifier.draggableHandle(),
+                                    description = "Перетащить",
+                                )
+                            },
+                        )
                     }
-                ) {
-                    Text(
-                        text = "Удалить плечо",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
                 }
             }
         }
     }
+    item(key = KEY_ARRIVAL) {
+        CardSegment(bottom = true) {
+            Column {
+                if (editMode) PhaseInsertRow(active = activeInsert == stations.size, onClick = { onInsert(stations.size) })
+                PhaseStopRow(
+                    name = arrival.ifBlank { "Станция прибытия" },
+                    type = StopType.TERMINAL,
+                    isStart = false,
+                    isFirst = false,
+                    isLast = true,
+                    mode = mode,
+                    terminalKm = distanceKm.takeIf { it > 0 },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CardSegment(top: Boolean = false, bottom: Boolean = false, content: @Composable () -> Unit) {
+    val shape = RoundedCornerShape(
+        topStart = if (top) 16.dp else 0.dp,
+        topEnd = if (top) 16.dp else 0.dp,
+        bottomStart = if (bottom) 16.dp else 0.dp,
+        bottomEnd = if (bottom) 16.dp else 0.dp,
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Pst.surface, shape)
+            .padding(start = 6.dp, end = 8.dp, top = if (top) 4.dp else 0.dp, bottom = if (bottom) 4.dp else 0.dp),
+    ) { content() }
+}
+
+// ─── Снекбар с «Отменить» ──────────────────────────────────────────────
+
+private class EditorSnackbar(val text: String, val undo: () -> Unit)
+
+@Composable
+private fun EditorSnackbarView(bar: EditorSnackbar, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    LaunchedEffect(bar) {
+        delay(6_000)
+        onDismiss()
+    }
+    // На инверсном фоне акцент берём контрастный: в светлой теме — светлый, в тёмной — тёмный.
+    val darkTheme = Pst.bg.luminance() < 0.5f
+    val actionColor = if (darkTheme) Color(0xFF0091D9) else Color(0xFF33BFFF)
+    Row(
+        modifier = modifier
+            .padding(12.dp)
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .background(Pst.cta, RoundedCornerShape(8.dp))
+            .padding(start = 16.dp, top = 6.dp, bottom = 6.dp, end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = bar.text,
+            style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 19.sp),
+            color = Pst.ctaInk,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = "Отменить",
+            style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+            color = actionColor,
+            modifier = Modifier
+                .clickable {
+                    bar.undo()
+                    onDismiss()
+                }
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+        )
+    }
+}
+
+// ─── Утилиты ───────────────────────────────────────────────────────────
+
+private fun textValue(text: String?) = TextFieldValue(text ?: "", TextRange(text?.length ?: 0))
+
+private fun sameName(a: String?, b: String) = a != null && a.trim().equals(b.trim(), ignoreCase = true)
+
+/** Позиция новой станции по км: перед первой станцией с большим км; без км — в конец. */
+private fun positionByKm(stations: List<ServicePhaseStation>, km: Double?): Int {
+    if (km == null) return stations.size
+    val idx = stations.indexOfFirst { (it.kmFromStart ?: return@indexOfFirst false) > km }
+    return if (idx < 0) stations.size else idx
 }

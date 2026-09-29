@@ -77,6 +77,7 @@ dependencies {
 
     implementation(Libs.compose_ui)
     implementation(Libs.compose_material3)
+    implementation(Libs.reorderable)
     implementation(Libs.ui_tooling_preview)
 
     implementation(Libs.koin_core)
