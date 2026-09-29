@@ -14,6 +14,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -39,6 +40,10 @@ class AuthManager(
         password: String
     ): Flow<RegistrationState> = flow {
         emit(RegistrationState.Loading)
+        // Результат отправляем ПОСЛЕ try/catch: emit внутри try превращал бы
+        // исключения подписчика (first { }, код в collect) в Error — это
+        // нарушение прозрачности исключений Flow и падение приложения.
+        val results = mutableListOf<RegistrationState>()
         try {
             val request = RegisteredRequestByEmail(
                 login = email,
@@ -46,19 +51,23 @@ class AuthManager(
                 email = email,
             )
             val body = remoteRestApi.registerUserByEmail(request)
-            emit(
+            results.add(
                 RegistrationState.Success(
                     accessToken = body.accessToken,
                     tokenType = body.tokenType
                 )
             )
+        } catch (e: CancellationException) {
+            // Отмена/остановка потока (в т.ч. first { } у подписчика) — не ошибка запроса.
+            throw e
         } catch (e: ClientRequestException) {
-            emit(RegistrationState.Error("Ошибка: ${e.response.status.value}", code = e.response.status.value))
+            results.add(RegistrationState.Error("Ошибка: ${e.response.status.value}", code = e.response.status.value))
         } catch (e: ServerResponseException) {
-            emit(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value))
+            results.add(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value))
         } catch (e: Exception) {
-            emit(RegistrationState.Error("Ошибка: ${e.message}"))
+            results.add(RegistrationState.Error("Ошибка: ${e.message}"))
         }
+        results.forEach { emit(it) }
     }
 
     /**
@@ -74,6 +83,10 @@ class AuthManager(
         email: String
     ): Flow<RegistrationState> = flow {
         emit(RegistrationState.Loading)
+        // Результат отправляем ПОСЛЕ try/catch: emit внутри try превращал бы
+        // исключения подписчика (first { }, код в collect) в Error — это
+        // нарушение прозрачности исключений Flow и падение приложения.
+        val results = mutableListOf<RegistrationState>()
         try {
             val request = RegisteredRequestByVKID(
                 login = vkId,
@@ -84,23 +97,31 @@ class AuthManager(
                 vkClientId = vkClientId
             )
             val body = remoteRestApi.registerUserByVKID(request)
-            emit(
+            results.add(
                 RegistrationState.Success(
                     accessToken = body.accessToken,
                     tokenType = body.tokenType
                 )
             )
+        } catch (e: CancellationException) {
+            // Отмена/остановка потока (в т.ч. first { } у подписчика) — не ошибка запроса.
+            throw e
         } catch (e: ClientRequestException) {
-            emit(RegistrationState.Error("Ошибка: ${e.response.status.value}", code = e.response.status.value))
+            results.add(RegistrationState.Error("Ошибка: ${e.response.status.value}", code = e.response.status.value))
         } catch (e: ServerResponseException) {
-            emit(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value))
+            results.add(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value))
         } catch (e: Exception) {
-            emit(RegistrationState.Error("Ошибка: ${e.message}"))
+            results.add(RegistrationState.Error("Ошибка: ${e.message}"))
         }
+        results.forEach { emit(it) }
     }
 
     fun authWithEmail(email: String, password: String): Flow<AuthState> = flow {
         emit(AuthState.Loading)
+        // Результат отправляем ПОСЛЕ try/catch: emit внутри try превращал бы
+        // исключения подписчика (first { }, код в collect) в Error — это
+        // нарушение прозрачности исключений Flow и падение приложения.
+        val results = mutableListOf<AuthState>()
         try {
             val authRequest = AuthRequest(
                 auth_param = email,
@@ -108,21 +129,25 @@ class AuthManager(
                 methodAuth = "email",
             )
             val body = remoteRestApi.authWithEmail(authRequest)
-            emit(
+            results.add(
                 AuthState.Success(
                     accessToken = body.accessToken,
                     tokenType = body.tokenType
                 )
             )
+        } catch (e: CancellationException) {
+            // Отмена/остановка потока (в т.ч. first { } у подписчика) — не ошибка запроса.
+            throw e
         } catch (e: ClientRequestException) {
             val text = when (e.response.status.value) {
                 401 -> "Неверная почта или пароль"
                 else -> "Ошибка: ${e.response.status.value} - ${e.message}"
             }
-            emit(AuthState.Error(text))
+            results.add(AuthState.Error(text))
         } catch (e: Exception) {
-            emit(AuthState.Error("Ошибка: ${e.message}"))
+            results.add(AuthState.Error("Ошибка: ${e.message}"))
         }
+        results.forEach { emit(it) }
     }
 
     /**
@@ -139,6 +164,10 @@ class AuthManager(
      */
     fun authWithVKID(vkId: String, vkAccessToken: String): Flow<AuthState> = flow {
         emit(AuthState.Loading)
+        // Результат отправляем ПОСЛЕ try/catch: emit внутри try превращал бы
+        // исключения подписчика (first { }, код в collect) в Error — это
+        // нарушение прозрачности исключений Flow и падение приложения.
+        val results = mutableListOf<AuthState>()
         try {
             val authRequest = AuthRequest(
                 auth_param = vkId,
@@ -148,19 +177,23 @@ class AuthManager(
                 vkClientId = vkClientId,
             )
             val body = remoteRestApi.authWithEmail(authRequest)
-            emit(
+            results.add(
                 AuthState.Success(
                     accessToken = body.accessToken,
                     tokenType = body.tokenType
                 )
             )
+        } catch (e: CancellationException) {
+            // Отмена/остановка потока (в т.ч. first { } у подписчика) — не ошибка запроса.
+            throw e
         } catch (e: ClientRequestException) {
-            emit(vkAuthError(e.response.status.value, detailOf(e.response)))
+            results.add(vkAuthError(e.response.status.value, detailOf(e.response)))
         } catch (e: ServerResponseException) {
-            emit(vkAuthError(e.response.status.value, detailOf(e.response)))
+            results.add(vkAuthError(e.response.status.value, detailOf(e.response)))
         } catch (e: Exception) {
-            emit(AuthState.Error("Ошибка: ${e.message}"))
+            results.add(AuthState.Error("Ошибка: ${e.message}"))
         }
+        results.forEach { emit(it) }
     }
 
 
@@ -174,23 +207,31 @@ class AuthManager(
      */
     fun removeVKID(token: String): Flow<GetUserProfileState> = flow {
         emit(GetUserProfileState.Loading)
+        // Результат отправляем ПОСЛЕ try/catch: emit внутри try превращал бы
+        // исключения подписчика (first { }, код в collect) в Error — это
+        // нарушение прозрачности исключений Flow и падение приложения.
+        val results = mutableListOf<GetUserProfileState>()
         try {
             // Сервер отзывает все токены и отдаёт новый: профиль дочитываем уже
             // с ним, иначе прежний bearer даст 401 и разлогин на этом же устройстве.
             val newAccessToken = remoteRestApi.removeVKID(token = token).accessToken
             val tokenForProfile = newAccessToken?.let { "Bearer $it" } ?: token
             val body = remoteRestApi.getUserProfile(token = tokenForProfile)
-            emit(
+            results.add(
                 GetUserProfileState.Success(
                     user = body.user,
                     accessToken = newAccessToken,
                 )
             )
+        } catch (e: CancellationException) {
+            // Отмена/остановка потока (в т.ч. first { } у подписчика) — не ошибка запроса.
+            throw e
         } catch (e: ClientRequestException) {
-            emit(GetUserProfileState.Error("Ошибка: ${e.message}", code = e.response.status.value))
+            results.add(GetUserProfileState.Error("Ошибка: ${e.message}", code = e.response.status.value))
         } catch (e: Exception) {
-            emit(GetUserProfileState.Error("Ошибка: ${e.message}"))
+            results.add(GetUserProfileState.Error("Ошибка: ${e.message}"))
         }
+        results.forEach { emit(it) }
     }
 
     /**
@@ -209,6 +250,10 @@ class AuthManager(
         vkAccessToken: String
     ): Flow<GetUserProfileState> = flow {
         emit(GetUserProfileState.Loading)
+        // Результат отправляем ПОСЛЕ try/catch: emit внутри try превращал бы
+        // исключения подписчика (first { }, код в collect) в Error — это
+        // нарушение прозрачности исключений Flow и падение приложения.
+        val results = mutableListOf<GetUserProfileState>()
         try {
             val addVKIDRequest = AddVKIDRequest(
                 token = vkId,
@@ -217,20 +262,24 @@ class AuthManager(
             )
             remoteRestApi.attachVKID(token = bearerToken, data = addVKIDRequest)
             val body = remoteRestApi.getUserProfile(token = bearerToken)
-            emit(
+            results.add(
                 GetUserProfileState.Success(
                     user = body.user,
                 )
             )
+        } catch (e: CancellationException) {
+            // Отмена/остановка потока (в т.ч. first { } у подписчика) — не ошибка запроса.
+            throw e
         } catch (e: ClientRequestException) {
             val code = e.response.status.value
-            emit(GetUserProfileState.Error(attachErrorMessage(code, detailOf(e.response)), code = code))
+            results.add(GetUserProfileState.Error(attachErrorMessage(code, detailOf(e.response)), code = code))
         } catch (e: ServerResponseException) {
             val code = e.response.status.value
-            emit(GetUserProfileState.Error(attachErrorMessage(code, detailOf(e.response)), code = code))
+            results.add(GetUserProfileState.Error(attachErrorMessage(code, detailOf(e.response)), code = code))
         } catch (e: Exception) {
-            emit(GetUserProfileState.Error("Ошибка: ${e.message}"))
+            results.add(GetUserProfileState.Error("Ошибка: ${e.message}"))
         }
+        results.forEach { emit(it) }
     }
 
     /**
@@ -247,18 +296,26 @@ class AuthManager(
 
     fun getUserProfile(token: String): Flow<GetUserProfileState> = flow {
         emit(GetUserProfileState.Loading)
+        // Результат отправляем ПОСЛЕ try/catch: emit внутри try превращал бы
+        // исключения подписчика (first { }, код в collect) в Error — это
+        // нарушение прозрачности исключений Flow и падение приложения.
+        val results = mutableListOf<GetUserProfileState>()
         try {
             val body = remoteRestApi.getUserProfile(token = token)
-            emit(
+            results.add(
                 GetUserProfileState.Success(
                     user = body.user,
                 )
             )
+        } catch (e: CancellationException) {
+            // Отмена/остановка потока (в т.ч. first { } у подписчика) — не ошибка запроса.
+            throw e
         } catch (e: ClientRequestException) {
-            emit(GetUserProfileState.Error(message = "Ошибка: ${e.message}", code = e.response.status.value))
+            results.add(GetUserProfileState.Error(message = "Ошибка: ${e.message}", code = e.response.status.value))
         } catch (e: Exception) {
-            emit(GetUserProfileState.Error("Ошибка: ${e.message}"))
+            results.add(GetUserProfileState.Error("Ошибка: ${e.message}"))
         }
+        results.forEach { emit(it) }
     }
 
     /**
@@ -276,20 +333,28 @@ class AuthManager(
      */
     fun forgotPassword(email: String): Flow<ForgotPasswordState> = flow {
         emit(ForgotPasswordState.Loading)
+        // Результат отправляем ПОСЛЕ try/catch: emit внутри try превращал бы
+        // исключения подписчика (first { }, код в collect) в Error — это
+        // нарушение прозрачности исключений Flow и падение приложения.
+        val results = mutableListOf<ForgotPasswordState>()
         try {
             apiForSendEmail.forgotPassword(email)
-            emit(ForgotPasswordState.Success)
+            results.add(ForgotPasswordState.Success)
+        } catch (e: CancellationException) {
+            // Отмена/остановка потока (в т.ч. first { } у подписчика) — не ошибка запроса.
+            throw e
         } catch (e: ClientRequestException) {
             if (e.response.status == HttpStatusCode.TooManyRequests) {
-                emit(ForgotPasswordState.RateLimited)
+                results.add(ForgotPasswordState.RateLimited)
             } else {
-                emit(ForgotPasswordState.Error("Не удалось отправить запрос. Попробуйте позже."))
+                results.add(ForgotPasswordState.Error("Не удалось отправить запрос. Попробуйте позже."))
             }
         } catch (e: ServerResponseException) {
-            emit(ForgotPasswordState.Error("Сервер временно недоступен. Попробуйте позже."))
+            results.add(ForgotPasswordState.Error("Сервер временно недоступен. Попробуйте позже."))
         } catch (e: Exception) {
-            emit(ForgotPasswordState.Error("Не удалось отправить запрос. Проверьте подключение к интернету."))
+            results.add(ForgotPasswordState.Error("Не удалось отправить запрос. Проверьте подключение к интернету."))
         }
+        results.forEach { emit(it) }
     }
 
     /**
@@ -301,39 +366,55 @@ class AuthManager(
      */
     fun addEmail(token: String, email: String, password: String): Flow<ResponseState> = flow {
         emit(ResponseState.Loading)
+        // Результат отправляем ПОСЛЕ try/catch: emit внутри try превращал бы
+        // исключения подписчика (first { }, код в collect) в Error — это
+        // нарушение прозрачности исключений Flow и падение приложения.
+        val results = mutableListOf<ResponseState>()
         try {
             val request = AddEmailRequest(email = email, password = password)
             remoteRestApi.addEmailToUser(token = token, body = request)
-            emit(ResponseState.Success)
+            results.add(ResponseState.Success)
+        } catch (e: CancellationException) {
+            // Отмена/остановка потока (в т.ч. first { } у подписчика) — не ошибка запроса.
+            throw e
         } catch (e: ClientRequestException) {
-            emit(
+            results.add(
                 ResponseState.Error(
                     addEmailErrorMessage(e.response.status.value, detailOf(e.response))
                 )
             )
         } catch (e: ServerResponseException) {
-            emit(
+            results.add(
                 ResponseState.Error(
                     addEmailErrorMessage(e.response.status.value, detailOf(e.response))
                 )
             )
         } catch (e: Exception) {
-            emit(ResponseState.Error("Ошибка: ${e.message}"))
+            results.add(ResponseState.Error("Ошибка: ${e.message}"))
         }
+        results.forEach { emit(it) }
     }
 
     fun updateEmail(token: String, email: String): Flow<ResponseState> = flow {
         emit(ResponseState.Loading)
         delay(2000L)
+        // Результат отправляем ПОСЛЕ try/catch: emit внутри try превращал бы
+        // исключения подписчика (first { }, код в collect) в Error — это
+        // нарушение прозрачности исключений Flow и падение приложения.
+        val results = mutableListOf<ResponseState>()
         try {
             val request = UpdateEmailRequest(email)
             remoteRestApi.updateEmail(token = token, data = request)
-            emit(ResponseState.Success)
+            results.add(ResponseState.Success)
+        } catch (e: CancellationException) {
+            // Отмена/остановка потока (в т.ч. first { } у подписчика) — не ошибка запроса.
+            throw e
         } catch (e: ClientRequestException) {
-            emit(ResponseState.Error("Ошибка: ${e.response.status.value} - ${e.message}"))
+            results.add(ResponseState.Error("Ошибка: ${e.response.status.value} - ${e.message}"))
         } catch (e: Exception) {
-            emit(ResponseState.Error("Ошибка: ${e.message}"))
+            results.add(ResponseState.Error("Ошибка: ${e.message}"))
         }
+        results.forEach { emit(it) }
     }
 
     private companion object {
