@@ -53,6 +53,8 @@ fun SettingsShouldersContent(
     deleteServicePhase: (ServicePhase) -> Unit,
     updateServicePhase: (ServicePhase, Int) -> Unit,
     onDeleteStationName: (String) -> Unit = {},
+    country: String = "RU",
+    onAddStationNames: (List<String>) -> Unit = {},
 ) {
     val phases = servicePhases?.toList() ?: emptyList()
 
@@ -80,6 +82,8 @@ fun SettingsShouldersContent(
             onDelete = editingPhase?.let { p -> { deleteServicePhase(p) } },
             onDeleteStationName = onDeleteStationName,
             onDismiss = { showEditSheet = false },
+            country = country,
+            onAddStationNames = onAddStationNames,
         )
     }
 

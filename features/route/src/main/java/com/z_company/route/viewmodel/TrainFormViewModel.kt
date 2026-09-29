@@ -22,6 +22,9 @@ import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.sanitizeNumericInput
 import com.z_company.route.Const.NULLABLE_ID
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -32,6 +35,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -180,6 +185,7 @@ class TrainFormViewModel(
                 val initJob = this.launch {
                     val setting = settingsUseCase.getUserSettingFlow().first()
                     timeZoneText = "GMT+3"
+                    userCountry = setting.country
                 }
                 initJob.join()
 
@@ -454,24 +460,50 @@ class TrainFormViewModel(
         }
     }
 
+    // Правки плеч и справочника станций — read-modify-write одних настроек: по очереди.
+    private val settingsMutex = Mutex()
+
+    /** Страна пользователя — для автоподбора станций плеча. */
+    var userCountry by mutableStateOf("RU")
+        private set
+
+    /** Новые названия из автоподбора станций плеча — в справочник станций. */
+    fun addStationNames(names: List<String>) {
+        viewModelScope.launch {
+            settingsMutex.withLock {
+                val settings = settingsUseCase.getUserSettingFlow().first()
+                val existing = settings.stationList.map { it.trim().lowercase() }.toSet()
+                val fresh = names.map(String::trim).filter { it.isNotBlank() && it.lowercase() !in existing }.distinct()
+                if (fresh.isEmpty()) return@withLock
+                settingsUseCase.saveSetting(settings.copy(stationList = fresh + settings.stationList)).first()
+                sharedPreferenceStorage.setSettingsSyncPending(true)
+                fresh.forEach { if (it !in mutableStationList) mutableStationList.add(it) }
+            }
+        }
+    }
+
     /** Добавить новое плечо в настройки (сохраняется в UserSettings.servicePhases). */
     fun addServicePhase(phase: ServicePhase) {
         viewModelScope.launch {
+            settingsMutex.withLock {
             val settings = settingsUseCase.getUserSettingFlow().first()
             val updated = settings.copy(servicePhases = settings.servicePhases + phase)
             settingsUseCase.saveSetting(updated).first()
             sharedPreferenceStorage.setSettingsSyncPending(true)
+            }
         }
     }
 
     /** Обновить существующее плечо (по id). Если оно сейчас выбрано — обновляем ссылку. */
     fun updateServicePhase(newPhase: ServicePhase) {
         viewModelScope.launch {
-            val settings = settingsUseCase.getUserSettingFlow().first()
-            val updatedList = settings.servicePhases.map {
-                if (it.id == newPhase.id) newPhase else it
+            settingsMutex.withLock {
+                val settings = settingsUseCase.getUserSettingFlow().first()
+                val updatedList = settings.servicePhases.map {
+                    if (it.id == newPhase.id) newPhase else it
+                }
+                settingsUseCase.saveSetting(settings.copy(servicePhases = updatedList)).first()
             }
-            settingsUseCase.saveSetting(settings.copy(servicePhases = updatedList)).first()
             sharedPreferenceStorage.setSettingsSyncPending(true)
             if (_uiState.value.selectedServicePhase?.id == newPhase.id) {
                 _uiState.update { it.copy(selectedServicePhase = newPhase.forTrain()) }

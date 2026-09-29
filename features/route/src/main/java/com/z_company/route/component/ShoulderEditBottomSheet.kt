@@ -27,6 +27,13 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel
+import com.z_company.route.viewmodel.PhaseEnd
+import com.z_company.route.component.servicephase.PhaseAutoFillSheet
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -89,6 +96,10 @@ fun ShoulderEditBottomSheet(
     onDelete: (() -> Unit)? = null,
     onDeleteStationName: (String) -> Unit = {},
     onDismiss: () -> Unit,
+    /** Страна пользователя (UserSettings.country) — для автоподбора. */
+    country: String = "RU",
+    /** Новые названия для справочника станций (из автоподбора) — вызывается при сохранении. */
+    onAddStationNames: (List<String>) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusManager = LocalFocusManager.current
@@ -111,6 +122,40 @@ fun ShoulderEditBottomSheet(
     var insertAt by remember { mutableStateOf<Int?>(null) }
 
     var snackbar by remember { mutableStateOf<EditorSnackbar?>(null) }
+
+    // Автоподбор: координаты крайних станций запоминаются вместе с названием, к которому относятся.
+    val autoVm: ServicePhaseAutoFillViewModel = viewModel()
+    val autoState by autoVm.state.collectAsState()
+    var autoFillOpen by remember { mutableStateOf(false) }
+    var depPoint by remember { mutableStateOf(phase?.departurePoint?.let { it to phase.departureStation }) }
+    var arrPoint by remember { mutableStateOf(phase?.arrivalPoint?.let { it to phase.arrivalStation }) }
+    var pendingNames by remember { mutableStateOf<List<String>>(emptyList()) }
+    var freshIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val departureFocus = remember { FocusRequester() }
+    val arrivalFocus = remember { FocusRequester() }
+    LaunchedEffect(freshIds) {
+        if (freshIds.isNotEmpty()) {
+            delay(2_000)
+            freshIds = emptySet()
+        }
+    }
+    val canAutoFill = departure.text.isNotBlank() && arrival.text.isNotBlank()
+    fun startAutoFill() {
+        val dep = departure.text.trim()
+        val arr = arrival.text.trim()
+        autoVm.start(
+            departure = dep,
+            arrival = arr,
+            country = country,
+            departureOsmId = depPoint?.takeIf { sameName(it.second, dep) }?.first?.osmId,
+            arrivalOsmId = arrPoint?.takeIf { sameName(it.second, arr) }?.first?.osmId,
+        )
+        autoFillOpen = true
+    }
+    fun closeAutoFill() {
+        autoVm.cancel()
+        autoFillOpen = false
+    }
 
     val distanceKm = distance.text.toIntOrZero()
     val isValid = departure.text.isNotBlank() && arrival.text.isNotBlank() && distanceKm > 0
@@ -147,6 +192,54 @@ fun ShoulderEditBottomSheet(
                 editingStation = null
                 insertAt = null
             },
+        )
+    }
+
+    if (autoFillOpen) {
+        PhaseAutoFillSheet(
+            state = autoState,
+            departure = departure.text.trim(),
+            arrival = arrival.text.trim(),
+            distanceKm = distanceKm,
+            existing = stations.toList(),
+            stationList = stationList,
+            onChoose = autoVm::choose,
+            onRetry = autoVm::retry,
+            onSetDistance = { km -> distance = TextFieldValue(km.toString(), TextRange(km.toString().length)) },
+            onApply = { result ->
+                val before = stations.toList()
+                val beforeNames = pendingNames
+                val beforeDep = depPoint
+                val beforeArr = arrPoint
+                stations.clear()
+                stations.addAll(result.stations)
+                pendingNames = (pendingNames + result.newNames).distinct()
+                depPoint = result.departurePoint to departure.text.trim()
+                arrPoint = result.arrivalPoint to arrival.text.trim()
+                freshIds = result.addedIds
+                closeAutoFill()
+                val n = result.addedIds.size
+                val m = result.newNames.size
+                val text = "Добавлено $n ${pluralStations(n)}" +
+                    if (m > 0) " · $m ${pluralNames(m)} — в справочник" else ""
+                snackbar = EditorSnackbar(text) {
+                    stations.clear()
+                    stations.addAll(before)
+                    pendingNames = beforeNames
+                    depPoint = beforeDep
+                    arrPoint = beforeArr
+                    freshIds = emptySet()
+                }
+            },
+            onEditName = { end ->
+                closeAutoFill()
+                (if (end == PhaseEnd.DEPARTURE) departureFocus else arrivalFocus).requestFocus()
+            },
+            onAddManually = {
+                closeAutoFill()
+                openStation(null, null)
+            },
+            onDismiss = ::closeAutoFill,
         )
     }
 
@@ -195,6 +288,8 @@ fun ShoulderEditBottomSheet(
                             onDeleteStationName = onDeleteStationName,
                             onNext = { focusManager.moveFocus(FocusDirection.Down) },
                             onDone = { focusManager.clearFocus() },
+                            departureFocus = departureFocus,
+                            arrivalFocus = arrivalFocus,
                         )
                     }
                     if (isNew) {
@@ -250,7 +345,11 @@ fun ShoulderEditBottomSheet(
                     }
                     if (stations.isEmpty()) {
                         item(key = "empty") {
-                            EmptyStations(onAddManually = { openStation(null, null) })
+                            EmptyStations(
+                                canAutoFill = canAutoFill,
+                                onAutoFill = ::startAutoFill,
+                                onAddManually = { openStation(null, null) },
+                            )
                         }
                     } else {
                         stationScheme(
@@ -260,7 +359,7 @@ fun ShoulderEditBottomSheet(
                             stations = stations,
                             editMode = editMode,
                             reorderState = reorderState,
-                            freshIds = emptySet(),
+                            freshIds = freshIds,
                             activeInsert = if (stationSheetOpen && editingStation == null) insertAt else null,
                             onOpen = { openStation(it, null) },
                             onInsert = { at -> openStation(null, at) },
@@ -283,6 +382,16 @@ fun ShoulderEditBottomSheet(
                                 )
                             } else {
                                 Row(modifier = Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    PstButton(
+                                        text = "Найти автоматически",
+                                        onClick = ::startAutoFill,
+                                        enabled = canAutoFill,
+                                        kind = PstButtonKind.TONAL,
+                                        icon = PstIcons.Search,
+                                        iconSize = 17.dp,
+                                        contentPadding = PaddingValues(horizontal = 12.dp),
+                                        modifier = Modifier.weight(1f),
+                                    )
                                     PstButton(
                                         text = "Станция",
                                         onClick = { openStation(null, null) },
@@ -335,9 +444,10 @@ fun ShoulderEditBottomSheet(
                             linearMileageRate = mileageRate,
                             intermediateStations = stations.toList(),
                             // Координаты относились к прежней станции — при переименовании сбрасываем.
-                            departurePoint = base.departurePoint.takeIf { sameName(phase?.departureStation, dep) },
-                            arrivalPoint = base.arrivalPoint.takeIf { sameName(phase?.arrivalStation, arr) },
+                            departurePoint = depPoint?.takeIf { sameName(it.second, dep) }?.first,
+                            arrivalPoint = arrPoint?.takeIf { sameName(it.second, arr) }?.first,
                         )
+                        if (pendingNames.isNotEmpty()) onAddStationNames(pendingNames)
                         onSave(result, createReverse && isNew)
                         onDismiss()
                     },
@@ -364,10 +474,12 @@ private fun PhaseFields(
     onDeleteStationName: (String) -> Unit,
     onNext: () -> Unit,
     onDone: () -> Unit,
+    departureFocus: FocusRequester,
+    arrivalFocus: FocusRequester,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        StationNameField("От станции", departure, onDeparture, stationList, onDeleteStationName, onNext)
-        StationNameField("До станции", arrival, onArrival, stationList, onDeleteStationName, onNext)
+        StationNameField("От станции", departure, onDeparture, stationList, onDeleteStationName, onNext, departureFocus)
+        StationNameField("До станции", arrival, onArrival, stationList, onDeleteStationName, onNext, arrivalFocus)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PstTextField(
                 value = distance,
@@ -402,6 +514,7 @@ private fun StationNameField(
     stationList: List<String>,
     onDeleteStationName: (String) -> Unit,
     onNext: () -> Unit,
+    focusRequester: FocusRequester,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val filtered = remember(value.text, stationList) { stationList.filter { it.contains(value.text, ignoreCase = true) } }
@@ -417,6 +530,7 @@ private fun StationNameField(
             leadingIcon = PstIcons.MapPin,
             modifier = Modifier
                 .fillMaxWidth()
+                .focusRequester(focusRequester)
                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             keyboardActions = KeyboardActions(onNext = {
@@ -438,21 +552,38 @@ private fun StationNameField(
 }
 
 @Composable
-private fun EmptyStations(onAddManually: () -> Unit) {
+private fun EmptyStations(canAutoFill: Boolean, onAutoFill: () -> Unit, onAddManually: () -> Unit) {
     PstCard {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Станции между крайними — по порядку от отправления к прибытию. Добавьте их вручную.",
+                text = "Станции между крайними — по порядку от отправления к прибытию. " +
+                    "Найдём их по карте или добавьте вручную.",
                 style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp),
                 color = Pst.textMuted,
             )
-            PstButton(
-                text = "Добавить вручную",
-                onClick = onAddManually,
-                kind = PstButtonKind.OUTLINED,
-                icon = PstIcons.Plus,
-                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-            )
+            Column(modifier = Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PstButton(
+                    text = "Найти автоматически",
+                    onClick = onAutoFill,
+                    enabled = canAutoFill,
+                    icon = PstIcons.Search,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                PstButton(
+                    text = "Добавить вручную",
+                    onClick = onAddManually,
+                    kind = PstButtonKind.OUTLINED,
+                    icon = PstIcons.Plus,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (!canAutoFill) {
+                PstNote(
+                    text = "Для автоподбора укажите обе крайние станции",
+                    align = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                )
+            }
         }
     }
 }
@@ -608,4 +739,18 @@ private fun positionByKm(stations: List<ServicePhaseStation>, km: Double?): Int 
     if (km == null) return stations.size
     val idx = stations.indexOfFirst { (it.kmFromStart ?: return@indexOfFirst false) > km }
     return if (idx < 0) stations.size else idx
+}
+
+private fun pluralStations(n: Int) = when {
+    n % 100 in 11..19 -> "станций"
+    n % 10 == 1 -> "станция"
+    n % 10 in 2..4 -> "станции"
+    else -> "станций"
+}
+
+private fun pluralNames(n: Int) = when {
+    n % 100 in 11..19 -> "названий"
+    n % 10 == 1 -> "название"
+    n % 10 in 2..4 -> "названия"
+    else -> "названий"
 }

@@ -157,6 +157,14 @@ class SettingsViewModel : ViewModel(), KoinComponent {
         scheduleAutoSave()
     }
 
+    /** Новые названия из автоподбора станций плеча — в начало справочника, без дублей. */
+    fun addStationNames(names: List<String>) {
+        val settings = currentSettings ?: return
+        val existing = settings.stationList.map { it.trim().lowercase() }.toSet()
+        val fresh = names.map(String::trim).filter { it.isNotBlank() && it.lowercase() !in existing }.distinct()
+        if (fresh.isNotEmpty()) currentSettings = settings.copy(stationList = fresh + settings.stationList)
+    }
+
     fun removeStationName(name: String) {
         viewModelScope.launch {
             settingsUseCase.removeStation(name)

@@ -1016,7 +1016,9 @@ fun FormTrainScreen(
                     }
                 } else null,
                 onDeleteStationName = { viewModel.removeStationName(it) },
-                onDismiss = { showEditPhaseSheet = false }
+                onDismiss = { showEditPhaseSheet = false },
+                country = viewModel.userCountry,
+                onAddStationNames = viewModel::addStationNames,
             )
         }
 
