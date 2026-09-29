@@ -39,11 +39,12 @@ struct HomeView: View {
                     .padding(.bottom, 16)
             }
         }
+        .background(DSColor.bg.ignoresSafeArea())
         .navigationTitle(currentMonthTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Image(systemName: "magnifyingglass").foregroundColor(.accentColor)
+                Image(systemName: "magnifyingglass").foregroundColor(DSColor.accent)
             }
         }
         .alert("Удалить маршрут?", isPresented: $showDeleteConfirm) {
@@ -64,13 +65,13 @@ struct HomeView: View {
     private var monthNavigationHeader: some View {
         HStack {
             Button { prevMonth() } label: {
-                Image(systemName: "chevron.left").font(.title3).foregroundColor(.accentColor)
+                Image(systemName: "chevron.left").font(.title3).foregroundColor(DSColor.accent)
             }.buttonStyle(.plain)
             Spacer()
-            Text(currentMonthTitle).font(.headline)
+            Text(currentMonthTitle).dsTextStyle(.navTitle)
             Spacer()
             Button { nextMonth() } label: {
-                Image(systemName: "chevron.right").font(.title3).foregroundColor(.accentColor)
+                Image(systemName: "chevron.right").font(.title3).foregroundColor(DSColor.accent)
             }.buttonStyle(.plain)
         }.padding(.vertical, 4)
     }
@@ -96,8 +97,9 @@ struct HomeView: View {
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .frame(height: statsCardHeight)
-        .background(Color(UIColor.secondarySystemBackground))
-        .cornerRadius(12)
+        .background(DSColor.surface)
+        .clipShape(RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous))
+        .dsShadow(.md)
     }
 
     /// Высота карточки зависит от количества строк на самой высокой странице.
@@ -115,7 +117,7 @@ struct HomeView: View {
         HStack(spacing: 8) {
             ForEach(0..<pageCount, id: \.self) { i in
                 Circle()
-                    .fill(i == statsPage ? Color.primary : Color.secondary.opacity(0.35))
+                    .fill(i == statsPage ? DSColor.textMuted : DSColor.borderStrong)
                     .frame(width: 7, height: 7)
                     .animation(.easeInOut(duration: 0.2), value: statsPage)
             }
@@ -261,8 +263,8 @@ struct HomeView: View {
     private var pageMainInfo: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(TimeFormatter.formatWorkDuration(ms: totalWorkMs, isDecimal: isDecimal))
-                .font(.title2).fontWeight(.semibold)
-                .foregroundColor(.secondary)
+                .font(DSFont.mono(22, .semibold))
+                .foregroundColor(DSColor.textMuted)
 
             Spacer().frame(height: 18)
 
@@ -287,8 +289,8 @@ struct HomeView: View {
     private var pageDetailWorkTime: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(TimeFormatter.formatWorkDuration(ms: totalWorkMs, isDecimal: isDecimal))
-                .font(.title2).fontWeight(.semibold)
-                .foregroundColor(.secondary)
+                .font(DSFont.mono(22, .semibold))
+                .foregroundColor(DSColor.textMuted)
 
             Spacer().frame(height: 18)
 
@@ -323,8 +325,8 @@ struct HomeView: View {
     private var pageDetailTrain: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(TimeFormatter.formatWorkDuration(ms: totalWorkMs, isDecimal: isDecimal))
-                .font(.title2).fontWeight(.semibold)
-                .foregroundColor(.secondary)
+                .font(DSFont.mono(22, .semibold))
+                .foregroundColor(DSColor.textMuted)
 
             Spacer().frame(height: 18)
 
@@ -367,17 +369,17 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(label)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(DSFont.sans(14))
+                    .foregroundColor(DSColor.textMuted)
                     .lineLimit(1)
                 Spacer()
                 Text(value)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(DSFont.mono(14, .semibold))
+                    .foregroundColor(DSColor.text)
             }
             ProgressView(value: progress)
                 .progressViewStyle(.linear)
-                .tint(Color.secondary)
+                .tint(DSColor.accent)
         }
     }
 
@@ -386,20 +388,20 @@ struct HomeView: View {
     private var routesSection: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Маршруты").font(.headline).padding(.leading)
+                Text("Маршруты").dsTextStyle(.sectionH2).padding(.leading)
                 Spacer()
                 NavigationLink(destination: AllRoutesView(vm: vm)) {
                     HStack(spacing: 4) {
-                        Text("Все (\(vm.routes.count))").font(.subheadline)
+                        Text("Все (\(vm.routes.count))").font(DSFont.sans(13))
                         Image(systemName: "chevron.right").font(.caption)
-                    }.foregroundColor(.accentColor)
+                    }.foregroundColor(DSColor.accent)
                 }.padding(.trailing)
             }
             .padding(.vertical, 10)
 
             if vm.routes.isEmpty {
                 Text("Нет маршрутов за этот месяц")
-                    .font(.subheadline).foregroundColor(.secondary)
+                    .font(DSFont.sans(14)).foregroundColor(DSColor.textMuted)
                     .frame(maxWidth: .infinity).padding(.vertical, 20)
             } else {
                 let last2 = Array(vm.routes.prefix(2))
@@ -429,7 +431,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 0) {
             Divider().padding(.horizontal)
             Text("Инструменты")
-                .font(.headline)
+                .dsTextStyle(.sectionH2)
                 .padding(.horizontal)
                 .padding(.top, 16)
                 .padding(.bottom, 10)
@@ -449,20 +451,21 @@ struct HomeView: View {
     private func toolCard(_ title: String, _ icon: String, _ dest: AnyView) -> some View {
         NavigationLink(destination: dest) {
             VStack(spacing: 10) {
-                Image(systemName: icon).font(.system(size: 26)).foregroundColor(.primary)
-                Text(title).font(.caption).foregroundColor(.primary)
+                Image(systemName: icon).font(.system(size: 26)).foregroundColor(DSColor.text)
+                Text(title).font(DSFont.sans(13, .medium)).foregroundColor(DSColor.text)
             }
             .frame(width: 88, height: 88)
-            .background(Color(UIColor.secondarySystemBackground))
-            .cornerRadius(14)
+            .background(DSColor.surface)
+            .clipShape(RoundedRectangle(cornerRadius: DSRadius.card, style: .continuous))
+            .dsShadow(.sm)
         }.buttonStyle(.plain)
     }
 
     private func stubScreen(_ title: String) -> some View {
         VStack(spacing: 12) {
-            Image(systemName: "moon.zzz.fill").font(.system(size: 48)).foregroundColor(.secondary)
-            Text(title).font(.title2).fontWeight(.semibold)
-            Text("Скоро").foregroundColor(.secondary)
+            Image(systemName: "moon.zzz.fill").font(.system(size: 48)).foregroundColor(DSColor.textFaint)
+            Text(title).font(DSFont.sans(19, .bold)).foregroundColor(DSColor.text)
+            Text("Скоро").foregroundColor(DSColor.textMuted)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle(title)
@@ -511,41 +514,41 @@ struct RouteItemView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(route.basicData.number.map { "Маршрут \($0)" } ?? "Маршрут")
-                    .font(.headline)
-                    .foregroundColor(route.basicData.number != nil ? .primary : .secondary)
+                    .font(DSFont.sans(16, .semibold))
+                    .foregroundColor(route.basicData.number != nil ? DSColor.text : DSColor.textMuted)
                 Spacer()
                 if (route.trains as! [DomainTrain]).contains(where: {
                     let length = $0.conditionalLength
                     return length != nil && !(length!.isEmpty)
                 }) {
-                    Image(systemName: "arrow.left.and.right").font(.caption).foregroundColor(.orange)
+                    Image(systemName: "arrow.left.and.right").font(.caption).foregroundColor(DSColor.warning)
                 }
             }
             HStack(spacing: 16) {
                 if startMs > 0 {
                     Label(TimeFormatter.formatDateTime(ms: startMs), systemImage: "clock")
-                        .font(.caption).foregroundColor(.secondary)
+                        .font(DSFont.mono(12)).foregroundColor(DSColor.textMuted)
                 }
                 if durationMs > 0 {
                     Label(TimeFormatter.formatDuration(ms: durationMs), systemImage: "timer")
-                        .font(.caption).foregroundColor(.secondary)
+                        .font(DSFont.mono(12)).foregroundColor(DSColor.textMuted)
                 }
             }
             if let loco = (route.locomotives as! [DomainLocomotive]).first {
                 let n = [loco.series, loco.number].compactMap { $0 }.joined(separator: " ")
                 if !n.isEmpty {
-                    Label(n, systemImage: "tram.fill").font(.caption).foregroundColor(.secondary)
+                    Label(n, systemImage: "tram.fill").font(DSFont.mono(12)).foregroundColor(DSColor.textMuted)
                 }
             }
             if let train = (route.trains as! [DomainTrain]).first, let num = train.number {
                 Label("Поезд \(num)", systemImage: "car.2.fill")
-                    .font(.caption).foregroundColor(.secondary)
+                    .font(DSFont.sans(12)).foregroundColor(DSColor.textMuted)
             }
         }
         .padding(.vertical, 12)
         .padding(.horizontal)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(UIColor.systemBackground))
+        .background(DSColor.surface)
     }
 }
 
