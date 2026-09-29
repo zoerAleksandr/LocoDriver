@@ -37,21 +37,6 @@ android {
     defaultConfig {
         buildConfigField(
             type = "String",
-            name = "MERCHANT_LOGIN",
-            value = "\"${properties.getProperty("MERCHANT_LOGIN", "default_value")}\""
-        )
-        buildConfigField(
-            type = "String",
-            name = "PASSWORD_1",
-            value = "\"${properties.getProperty("PASSWORD_1", "default_value")}\""
-        )
-        buildConfigField(
-            type = "String",
-            name = "PASSWORD_2",
-            value = "\"${properties.getProperty("PASSWORD_2", "default_value")}\""
-        )
-        buildConfigField(
-            type = "String",
             name = "SENTRY_DSN",
             value = "\"${properties.getProperty("SENTRY_DSN", "")}\""
         )
@@ -155,7 +140,6 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
-    implementation(project(Libs.project_robokassa_sdk))
     implementation (Libs.ksp_api)
     implementation(Libs.mytracker_sdk)
     implementation(platform(Libs.rustore_bom))

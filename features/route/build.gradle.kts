@@ -69,7 +69,6 @@ dependencies {
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_data_remote))
-    implementation(project(Libs.project_robokassa_sdk))
 
 //    implementation(Libs.lifecycle_runtime_compose)
     implementation(Libs.activity_compose)

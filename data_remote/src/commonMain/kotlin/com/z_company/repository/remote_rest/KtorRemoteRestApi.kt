@@ -334,6 +334,38 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             setBody(request)
         }.body()
 
+    override suspend fun createRobokassaCheckout(
+        token: String,
+        request: com.z_company.repository.remote_rest.request.RobokassaCheckoutRequest,
+    ): com.z_company.repository.remote_rest.response.RobokassaCheckoutResponse =
+        try {
+            client.post("v1/payment/checkout") {
+                contentType(ContentType.Application.Json)
+                header("Authorization", token)
+                setBody(request)
+            }.body()
+        } catch (e: io.ktor.client.plugins.ClientRequestException) {
+            if (e.response.status == io.ktor.http.HttpStatusCode.Conflict) {
+                throw RecurringConditionsChangedException(e.message)
+            }
+            throw e
+        }
+
+    override suspend fun getRecurringTerms(tariffCode: String): com.z_company.repository.remote_rest.response.RecurringTermsResponse =
+        client.get("v1/payment/recurring/terms") {
+            parameter("tariff_code", tariffCode)
+        }.body()
+
+    override suspend fun getRecurringStatus(token: String): com.z_company.repository.remote_rest.response.RecurringStatusResponse =
+        client.get("v1/payment/recurring") {
+            header("Authorization", token)
+        }.body()
+
+    override suspend fun disableRecurring(token: String): com.z_company.repository.remote_rest.response.RecurringStatusResponse =
+        client.post("v1/payment/recurring/disable") {
+            header("Authorization", token)
+        }.body()
+
     override suspend fun getReferralStatus(token: String): com.z_company.repository.remote_rest.response.ReferralStatusResponse =
         client.get("v1/referrals/me") {
             header("Authorization", token)

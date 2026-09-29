@@ -56,7 +56,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withLink
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.OutlinedButton
+import com.z_company.repository.remote_rest.response.RecurringStatusResponse
+import com.z_company.repository.remote_rest.response.RecurringTermsResponse
+import com.z_company.route.component.AppAlertDialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -69,7 +78,6 @@ import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.flowWithLifecycle
-import com.robokassa.library.pay.RobokassaPayLauncher
 import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.ui.theme.Shapes
@@ -159,9 +167,9 @@ fun PurchasesScreen(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val scope = rememberCoroutineScope()
 
-    // true после открытия ссылки оплаты CKassa — при следующем возврате в
+    // true после открытия страницы оплаты — при следующем возврате в
     // приложение (ON_RESUME) поллим статус подписки.
-    var awaitingCkassaReturn by remember { mutableStateOf(false) }
+    var awaitingPaymentReturn by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -252,25 +260,6 @@ fun PurchasesScreen(
             }
     }
 
-    val payLauncher = rememberLauncherForActivityResult(RobokassaPayLauncher.Contract) { result ->
-        when (result) {
-            is RobokassaPayLauncher.Success -> {
-                Log.d("zzz", "RobokassaPayLauncher.Success")
-                viewModel.checkPaymentOnServer(sdkConfirmed = true)
-            }
-
-            is RobokassaPayLauncher.Error -> {
-                Log.d("zzz", "RobokassaPayLauncher.Error: ${result.desc}")
-                viewModel.checkPaymentOnServer(sdkConfirmed = false)
-            }
-
-            is RobokassaPayLauncher.Canceled -> {
-                Log.d("zzz", "RobokassaPayLauncher.Canceled")
-                viewModel.checkPaymentOnServer(sdkConfirmed = false)
-            }
-        }
-    }
-
     LaunchedEffect(Unit) {
         scope.launch {
             eventSharedFlow.flowWithLifecycle(lifecycle).collect { event ->
@@ -279,28 +268,22 @@ fun PurchasesScreen(
                         snackbarHostState.showSnackbar(message = "Ошибка: ${event.error.message.orEmpty()}")
                     }
 
-                    is BillingEvent.StartPayment -> {
-                        payLauncher.launch(
-                            RobokassaPayLauncher.StartPay(
-                                paymentParams = event.params,
-                                onlyCheck = event.onlyChek,
-                                testMode = false
-                            )
-                        )
+                    is BillingEvent.ShowMessage -> {
+                        snackbarHostState.showSnackbar(message = event.message)
                     }
 
                     is BillingEvent.OpenPaymentUrl -> {
-                        // CKassa: открываем хостовую страницу оплаты во внешнем
-                        // браузере. Возврат в приложение ловим по ON_RESUME и
-                        // тогда поллим статус подписки (см. DisposableEffect).
-                        awaitingCkassaReturn = true
+                        // Страница оплаты Robokassa/CKassa (ссылку формирует
+                        // сервер) — во внешнем браузере. Возврат в приложение
+                        // ловим по ON_RESUME и поллим статус подписки.
+                        awaitingPaymentReturn = true
                         try {
                             context.startActivity(
                                 Intent(Intent.ACTION_VIEW, event.url.toUri())
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             )
                         } catch (t: Throwable) {
-                            awaitingCkassaReturn = false
+                            awaitingPaymentReturn = false
                             snackbarHostState.showSnackbar("Не удалось открыть страницу оплаты")
                         }
                     }
@@ -309,14 +292,15 @@ fun PurchasesScreen(
         }
     }
 
-    // CKassa: оплата идёт во внешнем браузере, поэтому результат ловим не через
-    // ActivityResult, а по возврату в приложение. На ON_RESUME (если мы ждём
-    // возврата с оплаты) запускаем тот же поллинг статуса, что и Robokassa.
+    // Оплата идёт во внешнем браузере, поэтому результат ловим по возврату в
+    // приложение: на ON_RESUME (если ждём возврата с оплаты) поллим сервер и
+    // перечитываем автопродление (первый платёж с галочкой его включает).
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && awaitingCkassaReturn) {
-                awaitingCkassaReturn = false
+            if (event == Lifecycle.Event.ON_RESUME && awaitingPaymentReturn) {
+                awaitingPaymentReturn = false
                 viewModel.checkPaymentOnServer(sdkConfirmed = false)
+                viewModel.refreshRecurringStatus()
             }
         }
         lifecycle.addObserver(observer)
@@ -357,6 +341,15 @@ fun PurchasesScreen(
     val anyPromo = remember(plans) { plans.any { it.discountActive && it.discountPercent > 0 } }
     var selectedProduct by remember(plans) { mutableStateOf(plans.firstOrNull()) }
 
+    // Автопродление: текст согласия грузится под выбранный тариф.
+    val recurringTerms by viewModel.recurringTerms.collectAsState()
+    val autoRenewChecked by viewModel.autoRenewChecked.collectAsState()
+    val recurringStatus by viewModel.recurringStatus.collectAsState()
+    val isDisablingRecurring by viewModel.isDisablingRecurring.collectAsState()
+    val isStartingPayment by viewModel.isStartingPayment.collectAsState()
+    var showDisableRecurringDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(selectedProduct?.code) { viewModel.onPlanSelected(selectedProduct) }
+
     // Статус подписки известен (загружен из локальных настроек). Пока нет —
     // держим нейтральный лоадинг, не показываем «неактивную» шапку.
     val isSubscriptionLoaded by viewModel.isSubscriptionLoaded.collectAsState()
@@ -364,6 +357,23 @@ fun PurchasesScreen(
 
     val showRestore = isSubscriptionLoaded &&
         (purchaseState is PurchaseUi.Paywall || purchaseState is PurchaseUi.Expired)
+
+    if (showDisableRecurringDialog) {
+        val until = purchasesEndTimeInLong.value.takeIf { it > System.currentTimeMillis() }
+            ?.let { converter?.getDate(it) }
+        AppAlertDialog(
+            onDismissRequest = { if (!isDisablingRecurring) showDisableRecurringDialog = false },
+            title = "Отключить автопродление?",
+            text = (until?.let { "Подписка продолжит действовать до $it. " } ?: "") +
+                "Дальше деньги списываться не будут — продлить можно будет вручную.",
+            confirmText = if (isDisablingRecurring) "Отключаем…" else "Отключить",
+            onConfirm = {
+                viewModel.disableRecurring { ok -> if (ok) showDisableRecurringDialog = false }
+            },
+            isDestructive = true,
+            dismissText = "Оставить",
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -555,6 +565,17 @@ fun PurchasesScreen(
                     }
                 }
 
+                if (isSubscriptionLoaded && !tariffsLoading && selectedProduct != null) {
+                    AutoRenewSection(
+                        status = recurringStatus,
+                        terms = recurringTerms?.takeIf { it.tariffCode == selectedProduct?.code },
+                        checked = autoRenewChecked,
+                        onCheckedChange = viewModel::setAutoRenewChecked,
+                        formatDate = { converter?.getDate(it) ?: "" },
+                        onDisableClick = { showDisableRecurringDialog = true },
+                    )
+                }
+
                 if (referralStatus?.canApplyCode == true) {
                     Spacer(modifier = Modifier.height(16.dp))
                     ReferralCodeInputCard(
@@ -616,6 +637,8 @@ fun PurchasesScreen(
             ) {
                 Button(
                     onClick = onCta,
+                    // Пока сервер создаёт платёж — повторный тап игнорируем.
+                    enabled = !isStartingPayment,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp),
@@ -1331,5 +1354,179 @@ private fun DateChunk(
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             color = if (accent) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
         )
+    }
+}
+
+
+// ── Автопродление (рекуррент Robokassa) ──────────────────────────────────────
+
+/**
+ * Блок автопродления под тарифами:
+ * - автопродление включено → карточка с датой и суммой следующего списания и
+ *   кнопкой «Отключить» (подтверждение — диалог на экране);
+ * - иначе, если сервер его предлагает → чекбокс согласия (по умолчанию снят)
+ *   с текстом от сервера; слово «оферты» — ссылка на оферту;
+ * - если автопродление выключилось после неудачных списаний — пояснение.
+ */
+@Composable
+private fun AutoRenewSection(
+    status: RecurringStatusResponse?,
+    terms: RecurringTermsResponse?,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    formatDate: (Long) -> String,
+    onDisableClick: () -> Unit,
+) {
+    if (status?.enabled == true) {
+        Spacer(modifier = Modifier.height(12.dp))
+        AutoRenewStatusCard(status = status, formatDate = formatDate, onDisableClick = onDisableClick)
+        return
+    }
+    if (status?.disabledReason == "charge_failed") {
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Автопродление отключено: несколько списаний подряд не прошли. Продлите подписку вручную — при оплате его можно включить снова.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(Shapes.medium)
+                .background(MaterialTheme.colorScheme.error.copy(alpha = 0.05f))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        )
+    }
+    if (terms?.available == true && terms.consentText.isNotBlank()) {
+        Spacer(modifier = Modifier.height(12.dp))
+        AutoRenewConsentCard(terms = terms, checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun AutoRenewConsentCard(
+    terms: RecurringTermsResponse,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.tertiary
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val consent = remember(terms.consentText, terms.offerUrl, accent) {
+        consentAnnotated(terms.consentText, terms.offerUrl, accent)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(Shapes.medium)
+            .background(MaterialTheme.colorScheme.secondary)
+            .border(
+                width = if (checked) 1.5.dp else 1.dp,
+                color = if (checked) accent else muted.copy(alpha = 0.25f),
+                shape = Shapes.medium,
+            )
+            .clickable(role = androidx.compose.ui.semantics.Role.Checkbox) { onCheckedChange(!checked) }
+            .padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 14.dp)
+            .testTag("auto_renew_consent"),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = CheckboxDefaults.colors(checkedColor = accent),
+        )
+        Column(modifier = Modifier.padding(top = 12.dp)) {
+            Text(
+                text = "Автопродление",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = consent, style = MaterialTheme.typography.bodySmall, color = muted)
+        }
+    }
+}
+
+/**
+ * Текст согласия приходит с сервера целиком (его же сервер пишет в журнал
+ * согласий) — формулировку не меняем, только превращаем адрес оферты в ссылку
+ * на слове перед ним: «…условия публичной оферты (https://…).» → «…[оферты].»
+ */
+private fun consentAnnotated(text: String, offerUrl: String, linkColor: Color) = buildAnnotatedString {
+    val marker = listOf(" ($offerUrl)", "($offerUrl)", offerUrl)
+        .firstOrNull { offerUrl.isNotBlank() && text.contains(it) }
+    if (marker == null) {
+        append(text)
+        return@buildAnnotatedString
+    }
+    val index = text.indexOf(marker)
+    val before = text.substring(0, index)
+    val word = before.substringAfterLast(' ')
+    append(before.removeSuffix(word))
+    withLink(
+        LinkAnnotation.Url(
+            url = offerUrl,
+            styles = TextLinkStyles(style = SpanStyle(color = linkColor, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)),
+        )
+    ) { append(word.ifBlank { "оферта" }) }
+    append(text.substring(index + marker.length))
+}
+
+@Composable
+private fun AutoRenewStatusCard(
+    status: RecurringStatusResponse,
+    formatDate: (Long) -> String,
+    onDisableClick: () -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.tertiary
+    val danger = MaterialTheme.colorScheme.error
+    val amount = status.amount?.let { if (it % 1.0 == 0.0) "${it.toInt()} ₽" else "%.2f ₽".format(it) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(Shapes.medium)
+            .background(MaterialTheme.colorScheme.secondary)
+            .border(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f), Shapes.medium)
+            .padding(14.dp)
+            .testTag("auto_renew_status"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(painterResource(R.drawable.sync_24px), null, Modifier.size(22.dp), accent)
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Автопродление включено", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            val next = status.nextChargeAt?.let(formatDate)?.takeIf { it.isNotBlank() }
+            Text(
+                text = when {
+                    next != null && amount != null -> "Следующее списание $next · $amount"
+                    amount != null -> "$amount за период"
+                    else -> "Подписка продлится автоматически"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (status.lastChargeStatus == "failed") {
+                Text(
+                    text = "Последнее списание не прошло — повторим через сутки.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = danger,
+                )
+            }
+        }
+        OutlinedButton(
+            onClick = onDisableClick,
+            shape = RoundedCornerShape(11.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, danger.copy(alpha = 0.35f)),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = danger.copy(alpha = 0.08f),
+                contentColor = danger,
+            ),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+            modifier = Modifier.testTag("auto_renew_disable"),
+        ) {
+            Text("Отключить", fontWeight = FontWeight.SemiBold)
+        }
     }
 }

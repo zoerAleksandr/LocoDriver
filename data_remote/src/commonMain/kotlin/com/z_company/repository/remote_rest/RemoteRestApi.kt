@@ -174,6 +174,28 @@ interface RemoteRestApi {
         request: CkassaCheckoutRequest,
     ): CkassaCheckoutResponse
 
+    // --- Robokassa: серверный checkout и автопродление ---
+
+    /**
+     * Создать платёж Robokassa на сервере и получить подписанную ссылку оплаты
+     * (`POST /v1/payment/checkout`, требует токен). Цена, срок и подпись — на
+     * сервере; с `autoRenew` сервер фиксирует согласие и включает автопродление
+     * после оплаты. 409 — автопродление недоступно или условия обновились.
+     */
+    suspend fun createRobokassaCheckout(
+        token: String,
+        request: com.z_company.repository.remote_rest.request.RobokassaCheckoutRequest,
+    ): com.z_company.repository.remote_rest.response.RobokassaCheckoutResponse
+
+    /** Текст согласия на автопродление для тарифа (без авторизации). */
+    suspend fun getRecurringTerms(tariffCode: String): com.z_company.repository.remote_rest.response.RecurringTermsResponse
+
+    /** Состояние автопродления текущего пользователя. */
+    suspend fun getRecurringStatus(token: String): com.z_company.repository.remote_rest.response.RecurringStatusResponse
+
+    /** Отключить автопродление. Оплаченный период сохраняется. */
+    suspend fun disableRecurring(token: String): com.z_company.repository.remote_rest.response.RecurringStatusResponse
+
     /** Личный код и право применить чужой код до первой оплаты. */
     suspend fun getReferralStatus(token: String): com.z_company.repository.remote_rest.response.ReferralStatusResponse
 
