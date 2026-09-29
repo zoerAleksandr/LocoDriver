@@ -999,12 +999,7 @@ fun FormTrainScreen(
                         onAddServicePhase(phase)
                         if (reverse) {
                             onAddServicePhase(
-                                ServicePhase(
-                                    departureStation = phase.arrivalStation,
-                                    arrivalStation = phase.departureStation,
-                                    distance = phase.distance,
-                                    linearMileageRate = phase.linearMileageRate,
-                                )
+                                phase.reversed()
                             )
                         }
                     } else {

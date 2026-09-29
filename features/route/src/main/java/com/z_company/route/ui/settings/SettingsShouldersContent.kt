@@ -68,12 +68,7 @@ fun SettingsShouldersContent(
                 addServicePhase(phase, index)
                 if (createReverse) {
                     addServicePhase(
-                        ServicePhase(
-                            departureStation = phase.arrivalStation,
-                            arrivalStation = phase.departureStation,
-                            distance = phase.distance,
-                            linearMileageRate = phase.linearMileageRate,
-                        ),
+                        phase.reversed(),
                         -1
                     )
                 }

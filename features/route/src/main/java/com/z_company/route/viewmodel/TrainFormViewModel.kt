@@ -106,7 +106,9 @@ class TrainFormViewModel(
             }
         }
 
-    fun setSelectedServicePhase(servicePhase: ServicePhase?) {
+    fun setSelectedServicePhase(selected: ServicePhase?) {
+        // В рейс кладём копию без станций плеча — они берутся из справочника по id.
+        val servicePhase = selected?.forTrain()
         if (servicePhase != null) {
             setDistance(servicePhase.distance.toString())
             if (servicePhase != uiState.value.selectedServicePhase || uiState.value.selectedServicePhase == null) {
@@ -445,7 +447,7 @@ class TrainFormViewModel(
             val state = _uiState.value.trainDetailState
             if (state is ResultState.Success) {
                 state.data?.let { train ->
-                    train.servicePhase = newPhase
+                    train.servicePhase = newPhase.forTrain()
                     performSave(train)
                 }
             }
@@ -472,7 +474,7 @@ class TrainFormViewModel(
             settingsUseCase.saveSetting(settings.copy(servicePhases = updatedList)).first()
             sharedPreferenceStorage.setSettingsSyncPending(true)
             if (_uiState.value.selectedServicePhase?.id == newPhase.id) {
-                _uiState.update { it.copy(selectedServicePhase = newPhase) }
+                _uiState.update { it.copy(selectedServicePhase = newPhase.forTrain()) }
                 setDistance(newPhase.distance.toString())
             }
         }
