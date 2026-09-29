@@ -3,553 +3,440 @@ import ComposeApp
 
 // MARK: - HomeView
 
+/// Главный экран — SCREEN_SPECS §4. Макет: design/src/ios-screens.jsx → IOSScreenTrips
+/// (HeroCard, HeroStatRow, CurrentTile, UpcomingRoute, RestAtTurnaround, TripRow, ToolTile).
+///
+/// Данные и расчёты — `HomeScreenIosViewModel` (Kotlin); экран только раскладывает
+/// готовые строки. Системный навбар скрыт: верхняя строка и строка месяца — часть
+/// экрана (заголовок месяца показывается один раз).
 struct HomeView: View {
-    @StateObject private var vm = HomeViewModelWrapper()
-    @State private var statsPage = 0
-    @State private var showDeleteConfirm = false
-    @State private var routeToDelete: String? = nil
+    @StateObject private var vm = HomeScreenViewModelWrapper()
+    @ObservedObject private var router = AppRouter.shared
+    @Environment(\.openURL) private var openURL
 
-    private let monthNames = [
-        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
-    ]
-    private let pageCount = 3
+    @State private var metricsPage = 0
+    @State private var isMonthSheetShown = false
+    @State private var isSiteSheetShown = false
+    @State private var unitsSheet: HomeUnitsSheetItem? = nil
+    @State private var routeToDelete: HomeDeleteRequest? = nil
+    @State private var isReorderMode = false
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                monthNavigationHeader
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
-
-                // Свайпаемые блоки статистики
-                statsCardPager
-                    .padding(.horizontal)
-                    .padding(.top, 4)
-
-                // Точки-индикатор СНАРУЖИ карточки
-                pageIndicator
-                    .padding(.top, 8)
-                    .padding(.bottom, 12)
-
-                routesSection
-
-                toolsSection
-                    .padding(.bottom, 16)
+            VStack(alignment: .leading, spacing: 0) {
+                topBar
+                if vm.ui?.isBackgroundSyncing == true {
+                    ProgressView()
+                        .progressViewStyle(.linear)
+                        .tint(DSColor.accent)
+                        .frame(maxWidth: .infinity)
+                }
+                content
             }
+            .padding(.horizontal, DSMetrics.screenPadX)
+            .padding(.bottom, 50)
+            .background(
+                // Касание вне секции «Текущий маршрут» завершает режим перестановки (§4.3).
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { if isReorderMode { isReorderMode = false } }
+            )
         }
+        .refreshable { await vm.pullToSync() }
         .background(DSColor.bg.ignoresSafeArea())
-        .navigationTitle(currentMonthTitle)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Image(systemName: "magnifyingglass").foregroundColor(DSColor.accent)
-            }
+        .dsHideSystemNavBar()
+        .dsSnackbarQueue(vm.messages) { vm.popMessage() }
+        .onAppear { vm.onAppear() }
+        .onDisappear {
+            vm.onDisappear()
+            isReorderMode = false
         }
-        .alert("Удалить маршрут?", isPresented: $showDeleteConfirm) {
-            Button("Удалить", role: .destructive) {
-                if let id = routeToDelete { vm.deleteRoute(routeId: id); routeToDelete = nil }
-            }
-            Button("Отмена", role: .cancel) { routeToDelete = nil }
-        } message: { Text("Это действие нельзя отменить.") }
-    }
-
-    // MARK: - Month
-
-    private var currentMonthTitle: String {
-        let idx = vm.currentMonth
-        return "\((idx >= 0 && idx < monthNames.count) ? monthNames[idx] : "?") \(vm.currentYear)"
-    }
-
-    private var monthNavigationHeader: some View {
-        HStack {
-            Button { prevMonth() } label: {
-                Image(systemName: "chevron.left").font(.title3).foregroundColor(DSColor.accent)
-            }.buttonStyle(.plain)
-            Spacer()
-            Text(currentMonthTitle).dsTextStyle(.navTitle)
-            Spacer()
-            Button { nextMonth() } label: {
-                Image(systemName: "chevron.right").font(.title3).foregroundColor(DSColor.accent)
-            }.buttonStyle(.plain)
-        }.padding(.vertical, 4)
-    }
-
-    private func prevMonth() {
-        var m = vm.currentMonth, y = vm.currentYear
-        if m == 0 { m = 11; y -= 1 } else { m -= 1 }
-        vm.setCurrentMonth(month: m, year: y)
-    }
-    private func nextMonth() {
-        var m = vm.currentMonth, y = vm.currentYear
-        if m == 11 { m = 0; y += 1 } else { m += 1 }
-        vm.setCurrentMonth(month: m, year: y)
-    }
-
-    // MARK: - Stats pager (карточки без встроенного индикатора)
-
-    private var statsCardPager: some View {
-        TabView(selection: $statsPage) {
-            pageMainInfo.tag(0)
-            pageDetailWorkTime.tag(1)
-            pageDetailTrain.tag(2)
+        .dsSheet(isPresented: $isMonthSheetShown, detents: [.medium, .large]) {
+            HomeMonthSheet(
+                months: (vm.ui?.monthOptions ?? []).map { Int($0.int32Value) },
+                years: (vm.ui?.yearOptions ?? []).map { Int($0.int32Value) },
+                selectedMonth: Int(vm.ui?.selectedMonth ?? 0),
+                selectedYear: Int(vm.ui?.selectedYear ?? 0),
+                onApply: { year, month in
+                    vm.setMonth(year: year, month: month)
+                    isMonthSheetShown = false
+                },
+                onClose: { isMonthSheetShown = false }
+            )
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .frame(height: statsCardHeight)
-        .background(DSColor.surface)
-        .clipShape(RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous))
-        .dsShadow(.md)
-    }
-
-    /// Высота карточки зависит от количества строк на самой высокой странице.
-    private var statsCardHeight: CGFloat {
-        // Страница 3 самая высокая: заголовок + пробел + 4 прогресс-ряда
-        let rowH: CGFloat = 38   // label + bar + gap
-        let headerH: CGFloat = 42
-        let paddingV: CGFloat = 32
-        let page3Rows: CGFloat = 4
-        return headerH + 12 + page3Rows * rowH + paddingV
-    }
-
-    // Индикатор страниц ВНЕ карточки
-    private var pageIndicator: some View {
-        HStack(spacing: 8) {
-            ForEach(0..<pageCount, id: \.self) { i in
-                Circle()
-                    .fill(i == statsPage ? DSColor.textMuted : DSColor.borderStrong)
-                    .frame(width: 7, height: 7)
-                    .animation(.easeInOut(duration: 0.2), value: statsPage)
-            }
+        .dsSheet(isPresented: $isSiteSheetShown, detents: [.height(260)]) {
+            HomeSiteSheet(
+                onGo: {
+                    isSiteSheetShown = false
+                    if let url = URL(string: "https://locodriver.ru") { openURL(url) }
+                },
+                onClose: { isSiteSheetShown = false }
+            )
         }
-    }
-
-    // MARK: - Calculations
-
-    private var isDecimal: Bool       { vm.settings?.isDecimalTime ?? false }
-    private var isConsiderFuture: Bool { vm.settings?.isConsiderFutureRoute ?? true }
-
-    /// Суммарное рабочее время за месяц (мс).
-    private var totalWorkMs: Int64 {
-        vm.routes.reduce(Int64(0)) { acc, r in
-            routeWorkMs(r).map { acc + $0 } ?? acc
-        }
-    }
-
-    /// Рабочее время сегодня.
-    private var todayWorkMs: Int64 {
-        let cal = Calendar.current
-        let s0 = Int64(cal.startOfDay(for: Date()).timeIntervalSince1970 * 1000)
-        let e0 = s0 + 86_400_000
-        return vm.routes.reduce(Int64(0)) { acc, r in
-            let s = r.basicData.timeStartWork?.int64Value ?? 0
-            guard s >= s0 && s < e0 else { return acc }
-            return routeWorkMs(r).map { acc + $0 } ?? acc
-        }
-    }
-
-    /// Ночное время за месяц.
-    private var nightWorkMs: Int64 {
-        guard let st = vm.settings else { return 0 }
-        let nh = Int(st.nightTime.startNightHour), nm = Int(st.nightTime.startNightMinute)
-        let eh = Int(st.nightTime.endNightHour),   em = Int(st.nightTime.endNightMinute)
-        return vm.routes.reduce(Int64(0)) { acc, r in
-            let s = r.basicData.timeStartWork?.int64Value ?? 0
-            let e = r.basicData.timeEndWork?.int64Value ?? 0
-            guard e > s else { return acc }
-            return acc + calcNightMs(s, e, nh, nm, eh, em)
-        }
-    }
-
-    /// Время пассажиром (сумма интервалов из списка Passenger каждого маршрута).
-    private var passengerWorkMs: Int64 {
-        vm.routes.reduce(Int64(0)) { acc, r in
-            let pMs = (r.passengers as! [DomainPassenger]).reduce(Int64(0)) { pAcc, p in
-                let dep = p.timeDeparture?.int64Value ?? 0
-                let arr = p.timeArrival?.int64Value ?? 0
-                return arr > dep ? pAcc + (arr - dep) : pAcc
-            }
-            return acc + pMs
-        }
-    }
-
-    /// Время резервом (маршруты без поездов).
-    private var reserveWorkMs: Int64 {
-        vm.routes.reduce(Int64(0)) { acc, r in
-            guard (r.trains as! [DomainTrain]).isEmpty else { return acc }
-            return routeWorkMs(r).map { acc + $0 } ?? acc
-        }
-    }
-
-    /// Удлинённые плечи обслуживания (маршруты с заданной сервисной фазой поезда).
-    private var extServicePhaseMs: Int64 {
-        vm.routes.reduce(Int64(0)) { acc, r in
-            guard (r.trains as! [DomainTrain]).contains(where: { $0.servicePhase != nil }) else { return acc }
-            return routeWorkMs(r).map { acc + $0 } ?? acc
-        }
-    }
-
-    /// Поезда с указанной условной длиной (отдельный устаревший флаг удалён из модели).
-    private var longCompositionMs: Int64 {
-        vm.routes.reduce(Int64(0)) { acc, r in
-            guard (r.trains as! [DomainTrain]).contains(where: {
-                let length = $0.conditionalLength
-                return length != nil && !(length!.isEmpty)
-            }) else { return acc }
-            return routeWorkMs(r).map { acc + $0 } ?? acc
-        }
-    }
-
-    /// Тяжёлые (поезда с указанной массой).
-    private var heavyTrainMs: Int64 {
-        vm.routes.reduce(Int64(0)) { acc, r in
-            guard (r.trains as! [DomainTrain]).contains(where: {
-                let w = $0.weight; return w != nil && !(w!.isEmpty)
-            }) else { return acc }
-            return routeWorkMs(r).map { acc + $0 } ?? acc
-        }
-    }
-
-    /// Одно лицо (isOnePersonOperation).
-    private var onePersonMs: Int64 {
-        vm.routes.reduce(Int64(0)) { acc, r in
-            guard r.basicData.isOnePersonOperation else { return acc }
-            return routeWorkMs(r).map { acc + $0 } ?? acc
-        }
-    }
-
-    private func routeWorkMs(_ r: DomainRoute) -> Int64? {
-        let s = r.basicData.timeStartWork?.int64Value ?? 0
-        let e = r.basicData.timeEndWork?.int64Value ?? 0
-        guard e > s else { return nil }
-        let bs = r.basicData.timeStartBreak?.int64Value ?? 0
-        let be = r.basicData.timeEndBreak?.int64Value ?? 0
-        return e - s - (be > bs ? be - bs : 0)
-    }
-
-    // Норма
-    private var normaHoursMonth: Int {
-        guard let moy = vm.settings?.selectMonthOfYear else { return 165 }
-        let t = (moy.days as! [DomainDay]).filter { !$0.isReleaseDay }.reduce(0) { acc, d in
-            acc + (d.tag == DomainTagForDay.workingDay ? 8 : d.tag == DomainTagForDay.shortenedDay ? 7 : 0)
-        }
-        return t > 0 ? t : 165
-    }
-
-    private var normaHoursToday: Int {
-        guard let moy = vm.settings?.selectMonthOfYear else { return 0 }
-        let cal = Calendar.current
-        let td = cal.component(.day, from: Date())
-        let tm = cal.component(.month, from: Date()) - 1
-        guard tm == Int(moy.month) else { return 0 }
-        return (moy.days as! [DomainDay]).filter { !$0.isReleaseDay && Int($0.dayOfMonth) <= td }.reduce(0) { acc, d in
-            acc + (d.tag == DomainTagForDay.workingDay ? 8 : d.tag == DomainTagForDay.shortenedDay ? 7 : 0)
-        }
-    }
-
-    private func pct(_ ms: Int64, _ total: Int64) -> Double {
-        guard total > 0 else { return 0 }
-        return min(Double(ms) / Double(total), 1.0)
-    }
-    private func pctH(_ ms: Int64, _ hours: Int) -> Double {
-        pct(ms, Int64(hours) * 3_600_000)
-    }
-    private func todayStr() -> String {
-        let f = DateFormatter(); f.dateFormat = "dd.MM"; return f.string(from: Date())
-    }
-
-    // MARK: - Page 1: MainInfo (как в Android)
-
-    private var pageMainInfo: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(TimeFormatter.formatWorkDuration(ms: totalWorkMs, isDecimal: isDecimal))
-                .font(DSFont.mono(22, .semibold))
-                .foregroundColor(DSColor.textMuted)
-
-            Spacer().frame(height: 18)
-
-            statRow("Норма на месяц",         "\(normaHoursMonth) ч.",  pctH(totalWorkMs, normaHoursMonth))
-            Spacer().frame(height: 7)
-            statRow("Норма на \(todayStr())",  "\(normaHoursToday) ч.", pctH(totalWorkMs, normaHoursToday))
-
-            if isConsiderFuture {
-                Spacer().frame(height: 7)
-                statRow("Отработано на \(todayStr())",
-                         TimeFormatter.formatWorkDuration(ms: todayWorkMs, isDecimal: isDecimal),
-                         pctH(todayWorkMs, normaHoursToday))
-            }
-            Spacer()
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-    }
-
-    // MARK: - Page 2: DetailWorkTimeCard (как в Android)
-
-    private var pageDetailWorkTime: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(TimeFormatter.formatWorkDuration(ms: totalWorkMs, isDecimal: isDecimal))
-                .font(DSFont.mono(22, .semibold))
-                .foregroundColor(DSColor.textMuted)
-
-            Spacer().frame(height: 18)
-
-            // Ночные
-            if nightWorkMs > 0 {
-                statRow("Ночные",
-                         TimeFormatter.formatWorkDuration(ms: nightWorkMs, isDecimal: isDecimal),
-                         pct(nightWorkMs, max(totalWorkMs, 1)))
-                Spacer().frame(height: 7)
-            }
-            // Пассажиром
-            if passengerWorkMs > 0 {
-                statRow("Пассажиром",
-                         TimeFormatter.formatWorkDuration(ms: passengerWorkMs, isDecimal: isDecimal),
-                         pct(passengerWorkMs, max(totalWorkMs, 1)))
-                Spacer().frame(height: 7)
-            }
-            // Резервом
-            if reserveWorkMs > 0 {
-                statRow("Резервом",
-                         TimeFormatter.formatWorkDuration(ms: reserveWorkMs, isDecimal: isDecimal),
-                         pct(reserveWorkMs, max(totalWorkMs, 1)))
-            }
-            Spacer()
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-    }
-
-    // MARK: - Page 3: DetailTrainCard (как в Android)
-
-    private var pageDetailTrain: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(TimeFormatter.formatWorkDuration(ms: totalWorkMs, isDecimal: isDecimal))
-                .font(DSFont.mono(22, .semibold))
-                .foregroundColor(DSColor.textMuted)
-
-            Spacer().frame(height: 18)
-
-            // Удл. плечи обслуживания
-            if extServicePhaseMs > 0 {
-                statRow("Удл. плечи обслуживания",
-                         TimeFormatter.formatWorkDuration(ms: extServicePhaseMs, isDecimal: isDecimal),
-                         pct(extServicePhaseMs, max(totalWorkMs, 1)))
-                Spacer().frame(height: 7)
-            }
-            // Длинносоставные
-            if longCompositionMs > 0 {
-                statRow("Длинносоставные",
-                         TimeFormatter.formatWorkDuration(ms: longCompositionMs, isDecimal: isDecimal),
-                         pct(longCompositionMs, max(totalWorkMs, 1)))
-                Spacer().frame(height: 7)
-            }
-            // Тяжёлые
-            if heavyTrainMs > 0 {
-                statRow("Тяжелые",
-                         TimeFormatter.formatWorkDuration(ms: heavyTrainMs, isDecimal: isDecimal),
-                         pct(heavyTrainMs, max(totalWorkMs, 1)))
-                Spacer().frame(height: 7)
-            }
-            // Одно лицо
-            if onePersonMs > 0 {
-                statRow("Одно лицо",
-                         TimeFormatter.formatWorkDuration(ms: onePersonMs, isDecimal: isDecimal),
-                         pct(onePersonMs, max(totalWorkMs, 1)))
-            }
-            Spacer()
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-    }
-
-    // Строка метка + значение + прогресс-бар (аналог Android LinearProgressIndicator)
-    @ViewBuilder
-    private func statRow(_ label: String, _ value: String, _ progress: Double) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(label)
-                    .font(DSFont.sans(14))
-                    .foregroundColor(DSColor.textMuted)
-                    .lineLimit(1)
-                Spacer()
-                Text(value)
-                    .font(DSFont.mono(14, .semibold))
-                    .foregroundColor(DSColor.text)
-            }
-            ProgressView(value: progress)
-                .progressViewStyle(.linear)
-                .tint(DSColor.accent)
-        }
-    }
-
-    // MARK: - Routes section
-
-    private var routesSection: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Маршруты").dsTextStyle(.sectionH2).padding(.leading)
-                Spacer()
-                NavigationLink(destination: AllRoutesView(vm: vm)) {
-                    HStack(spacing: 4) {
-                        Text("Все (\(vm.routes.count))").font(DSFont.sans(13))
-                        Image(systemName: "chevron.right").font(.caption)
-                    }.foregroundColor(DSColor.accent)
-                }.padding(.trailing)
-            }
-            .padding(.vertical, 10)
-
-            if vm.routes.isEmpty {
-                Text("Нет маршрутов за этот месяц")
-                    .font(DSFont.sans(14)).foregroundColor(DSColor.textMuted)
-                    .frame(maxWidth: .infinity).padding(.vertical, 20)
-            } else {
-                let last2 = Array(vm.routes.prefix(2))
-                ForEach(Array(last2.enumerated()), id: \.element.basicData.id) { idx, route in
-                    if idx > 0 { Divider().padding(.leading) }
-                    NavigationLink(destination: FormView(routeId: route.basicData.id)) {
-                        RouteItemView(route: route)
+        .dsSheet(item: $unitsSheet) { item in
+            HomeUnitsSheet(
+                tile: item.tile,
+                onSelect: { unitId in
+                    unitsSheet = nil
+                    // Выбор закрывает шторку, затем навигация (§4.3).
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        openUnit(type: item.tile.type, basicId: item.basicId, unitId: unitId)
                     }
-                    .buttonStyle(.plain)
-                    .contextMenu {
-                        Button { vm.copyRoute(routeId: route.basicData.id) } label: {
-                            Label("Скопировать", systemImage: "doc.on.doc")
-                        }
-                        Button(role: .destructive) {
-                            routeToDelete = route.basicData.id; showDeleteConfirm = true
-                        } label: { Label("Удалить", systemImage: "trash") }
+                },
+                onAdd: {
+                    unitsSheet = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        openUnit(type: item.tile.type, basicId: item.basicId, unitId: nil)
+                    }
+                },
+                onClose: { unitsSheet = nil }
+            )
+        }
+        .dsSheet(item: $routeToDelete, detents: [.height(250)]) { request in
+            HomeDeleteRouteSheet(
+                subtitle: request.subtitle,
+                onConfirm: {
+                    routeToDelete = nil
+                    vm.removeRoute(basicId: request.basicId)
+                },
+                onClose: { routeToDelete = nil }
+            )
+        }
+        .dsSheet(isPresented: syncProgressBinding, detents: [.medium]) {
+            if let dialog = vm.syncDialog {
+                HomeSyncProgressSheet(
+                    dialog: dialog,
+                    onSendReport: { sendReport(dialog.reportText) },
+                    onClose: { vm.resetSyncState() }
+                )
+            }
+        }
+        .alert("Выгрузка завершена!", isPresented: syncSuccessBinding) {
+            Button("Отлично!") { vm.resetSyncState() }
+        } message: {
+            Text("Данные успешно синхронизированы.")
+        }
+    }
+
+    // MARK: - Состояния
+
+    @ViewBuilder
+    private var content: some View {
+        if let ui = vm.ui, ui.isReady {
+            if ui.isError {
+                DSEmptyState(icon: .warning, title: "Что-то пошло не так…")
+                    .padding(.top, 80)
+            } else {
+                loaded(ui)
+            }
+        } else {
+            HomeSkeleton()
+        }
+    }
+
+    @ViewBuilder
+    private func loaded(_ ui: HomeIosScreenUi) -> some View {
+        monthRow(ui)
+            .allowsHitTesting(!isReorderMode)
+
+        HomeHeroSection(ui: ui, page: $metricsPage) {
+            router.showStatistics()
+        }
+        .allowsHitTesting(!isReorderMode)
+
+        if !ui.notices.isEmpty {
+            HomeNoticeCarousel(
+                notices: ui.notices,
+                onDismiss: { vm.dismissNotice($0) },
+                onAction: { notice in
+                    if notice.action == "sync" {
+                        vm.manualSync()
+                    } else {
+                        router.showPurchases(isAuthorized: ui.isAuthorized)
+                    }
+                }
+            )
+            .padding(.top, DSSpacing.xxl)
+            .allowsHitTesting(!isReorderMode)
+        }
+
+        if let live = vm.live {
+            HomeLiveSection(
+                live: live,
+                isReorderMode: $isReorderMode,
+                onOpenRoute: { router.showRouteForm(basicId: $0) },
+                onTile: { tile in handleTileTap(tile, basicId: live.basicId) },
+                onAddUnit: { type in openUnit(type: type, basicId: live.basicId, unitId: nil) }
+            )
+        }
+
+        lastRoutesSection(ui)
+            .allowsHitTesting(!isReorderMode)
+
+        toolsSection
+            .allowsHitTesting(!isReorderMode)
+    }
+
+    // MARK: - Верхняя строка (§4.4 п.1)
+
+    private var topBar: some View {
+        HStack(spacing: DSSpacing.sm) {
+            Button { isSiteSheetShown = true } label: {
+                HStack(spacing: DSSpacing.sm) {
+                    Text("М")
+                        .font(DSFont.sans(28, .heavy))
+                        .foregroundColor(DSColor.accent)
+                    Text("Машинист")
+                        .font(DSFont.sans(15, .semibold))
+                        .foregroundColor(DSColor.text)
+                }
+                .padding(.vertical, 4)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(DSPressableStyle())
+            Spacer()
+            DSIconButton(icon: .search, variant: .ghost, accessibilityLabel: "Поиск") {
+                router.showSearch()
+            }
+        }
+        .padding(.top, DSSpacing.sm)
+        .allowsHitTesting(!isReorderMode)
+    }
+
+    // MARK: - Строка месяца (§4.4 п.2)
+
+    private func monthRow(_ ui: HomeIosScreenUi) -> some View {
+        HStack(alignment: .center, spacing: DSSpacing.xs) {
+            Button { isMonthSheetShown = true } label: {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(ui.monthTitle)
+                        .font(DSFont.sans(28, .bold))
+                        .tracking(-0.5)
+                        .foregroundColor(DSColor.text)
+                    Text(ui.yearTitle)
+                        .font(DSFont.mono(22, .medium))
+                        .foregroundColor(DSColor.textMuted)
+                }
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(DSPressableStyle())
+            .accessibilityHint(Text("Выбрать месяц"))
+            Spacer(minLength: DSSpacing.sm)
+            monthArrow(.chevronLeft, enabled: ui.hasPrevMonth, label: "Предыдущий месяц") { vm.previousMonth() }
+            monthArrow(.chevronRight, enabled: ui.hasNextMonth, label: "Следующий месяц") { vm.nextMonth() }
+        }
+        .padding(.top, DSSpacing.md)
+    }
+
+    private func monthArrow(_ icon: DSIcon, enabled: Bool, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            icon.image
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(enabled ? DSColor.accent : DSColor.textFaint)
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(DSPressableStyle())
+        .disabled(!enabled)
+        .accessibilityLabel(Text(label))
+    }
+
+    // MARK: - «Последние маршруты» (§4.4 п.7)
+
+    private func lastRoutesSection(_ ui: HomeIosScreenUi) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            DSSectionHeader(title: "Последние маршруты") {
+                DSTextAction(title: "Все (\(ui.monthRoutesCount))", trailingIcon: .chevronRight) {
+                    router.showAllRoute()
+                }
+            }
+            .padding(.top, DSSpacing.sm)
+            if ui.lastRoutes.isEmpty {
+                VStack(spacing: 6) {
+                    Text("Список пуст")
+                        .font(DSFont.sans(17, .semibold))
+                        .foregroundColor(DSColor.text)
+                    Text("Нажмите  +  чтобы добавить маршрут")
+                        .font(DSFont.sans(14))
+                        .foregroundColor(DSColor.textMuted)
+                    Text("или создайте график работы")
+                        .font(DSFont.sans(14))
+                        .foregroundColor(DSColor.textMuted)
+                }
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, DSSpacing.xxl)
+            } else {
+                DSCard {
+                    ForEach(Array(ui.lastRoutes.enumerated()), id: \.element.basicId) { index, card in
+                        HomeRouteCardRow(
+                            card: card,
+                            onTap: { router.showRouteForm(basicId: card.basicId) },
+                            onLongPress: { router.present(.routeQuickView(basicId: card.basicId)) },
+                            onLegend: { router.present(.routeLegend) },
+                            onDelete: {
+                                routeToDelete = HomeDeleteRequest(
+                                    basicId: card.basicId,
+                                    subtitle: vm.removeRouteSubtitle(basicId: card.basicId)
+                                )
+                            }
+                        )
+                        if index < ui.lastRoutes.count - 1 { DSDivider() }
                     }
                 }
             }
         }
-        .padding(.bottom, 8)
     }
 
-    // MARK: - Tools section
+    // MARK: - «Инструменты» (§4.4 п.8)
 
     private var toolsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Divider().padding(.horizontal)
-            Text("Инструменты")
-                .dsTextStyle(.sectionH2)
-                .padding(.horizontal)
-                .padding(.top, 16)
-                .padding(.bottom, 10)
-
+            DSSectionHeader("Инструменты")
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    toolCard("График",     "calendar",       AnyView(WorkScheduleView()))
-                    toolCard("Отвлечения", "moon.zzz.fill",  AnyView(stubScreen("Отвлечения")))
-                    toolCard("Поиск",      "magnifyingglass", AnyView(SearchView()))
+                HStack(spacing: 10) {
+                    HomeToolTile(systemImage: DSIcon.calendar.rawValue, title: "Календарь") { router.showCalendar() }
+                    HomeToolTile(systemImage: "chart.bar", title: "Статистика") { router.showStatistics() }
+                    // PDF (§21): формирование PDF на iOS ещё не реализовано — карточка всегда активна.
+                    HomeToolTile(systemImage: DSIcon.pdf.rawValue, title: "PDF") { router.present(.pdfContent) }
+                    HomeToolTile(systemImage: DSIcon.search.rawValue, title: "Поиск") { router.showSearch() }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, DSMetrics.screenPadX)
+                .padding(.vertical, 4)
             }
+            .padding(.horizontal, -DSMetrics.screenPadX)
         }
     }
 
-    @ViewBuilder
-    private func toolCard(_ title: String, _ icon: String, _ dest: AnyView) -> some View {
-        NavigationLink(destination: dest) {
-            VStack(spacing: 10) {
-                Image(systemName: icon).font(.system(size: 26)).foregroundColor(DSColor.text)
-                Text(title).font(DSFont.sans(13, .medium)).foregroundColor(DSColor.text)
+    // MARK: - Действия
+
+    private func handleTileTap(_ tile: HomeIosUnitTile, basicId: String) {
+        let count = Int(tile.count)
+        if count > 1 {
+            unitsSheet = HomeUnitsSheetItem(tile: tile, basicId: basicId)
+        } else if count == 1 {
+            openUnit(type: tile.type, basicId: basicId, unitId: tile.items.first?.id)
+        } else {
+            openUnit(type: tile.type, basicId: basicId, unitId: nil)
+        }
+    }
+
+    private func openUnit(type: String, basicId: String, unitId: String?) {
+        switch type {
+        case "loco": router.showLocoForm(basicId: basicId, locoId: unitId)
+        case "train": router.showTrainForm(basicId: basicId, trainId: unitId)
+        default: router.showPassengerForm(basicId: basicId, passengerId: unitId)
+        }
+    }
+
+    private var syncProgressBinding: Binding<Bool> {
+        Binding(
+            get: {
+                guard let dialog = vm.syncDialog else { return false }
+                return dialog.isVisible && !dialog.isSuccess
+            },
+            set: { shown in
+                // Закрытие шторки = resetSyncState (§18.5); сама операция продолжается.
+                if !shown, vm.syncDialog?.isVisible == true, vm.syncDialog?.isSuccess == false {
+                    vm.resetSyncState()
+                }
             }
-            .frame(width: 88, height: 88)
+        )
+    }
+
+    private var syncSuccessBinding: Binding<Bool> {
+        Binding(
+            get: { vm.syncDialog?.isSuccess == true },
+            set: { shown in if !shown, vm.syncDialog?.isSuccess == true { vm.resetSyncState() } }
+        )
+    }
+
+    /// «Отправить отчет об ошибке»: письмо на locodriver.app@yandex.ru с текстом отчёта.
+    private func sendReport(_ report: String) {
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = "locodriver.app@yandex.ru"
+        components.queryItems = [
+            URLQueryItem(name: "subject", value: "Отчет об ошибках синхронизации"),
+            URLQueryItem(name: "body", value: report),
+        ]
+        if let url = components.url { openURL(url) }
+    }
+}
+
+// MARK: - Вспомогательные типы
+
+struct HomeUnitsSheetItem: Identifiable {
+    let tile: HomeIosUnitTile
+    let basicId: String
+    var id: String { "\(basicId)-\(tile.type)" }
+}
+
+struct HomeDeleteRequest: Identifiable {
+    let basicId: String
+    let subtitle: String
+    var id: String { basicId }
+}
+
+/// Карточка инструмента — `ToolTile` макета.
+struct HomeToolTile: View {
+    let systemImage: String
+    let title: String
+    var isEnabled: Bool = true
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 0) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 34, weight: .regular))
+                    .foregroundColor(DSColor.text.opacity(0.85))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text(title)
+                    .font(DSFont.sans(13, .medium))
+                    .foregroundColor(DSColor.text)
+                    .lineLimit(1)
+                    .padding(.horizontal, DSSpacing.lg)
+                    .padding(.bottom, 14)
+            }
+            .frame(width: 120, height: 120)
             .background(DSColor.surface)
             .clipShape(RoundedRectangle(cornerRadius: DSRadius.card, style: .continuous))
             .dsShadow(.sm)
-        }.buttonStyle(.plain)
-    }
-
-    private func stubScreen(_ title: String) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: "moon.zzz.fill").font(.system(size: 48)).foregroundColor(DSColor.textFaint)
-            Text(title).font(DSFont.sans(19, .bold)).foregroundColor(DSColor.text)
-            Text("Скоро").foregroundColor(DSColor.textMuted)
+            .opacity(isEnabled ? 1 : 0.4)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .navigationTitle(title)
-    }
-
-    // MARK: - Night helpers
-
-    private func calcNightMs(_ ws: Int64, _ we: Int64,
-                              _ nsh: Int, _ nsm: Int,
-                              _ neh: Int, _ nem: Int) -> Int64 {
-        let day: Int64 = 86_400_000
-        let nsOff = Int64(nsh * 3_600_000 + nsm * 60_000)
-        let neOff = Int64(neh * 3_600_000 + nem * 60_000)
-        var total: Int64 = 0, base = dayStart(ws)
-        while base < we {
-            let a = base + nsOff
-            let b = nsOff < neOff ? base + neOff : base + day + neOff
-            let os = max(ws, a); let oe = min(we, b)
-            if oe > os { total += oe - os }
-            base += day
-        }
-        return total
-    }
-
-    private func dayStart(_ ms: Int64) -> Int64 {
-        let day: Int64 = 86_400_000
-        let tz = Int64(TimeZone.current.secondsFromGMT()) * 1_000
-        return ((ms + tz) / day) * day - tz
+        .buttonStyle(DSPressableStyle())
+        .disabled(!isEnabled)
     }
 }
 
-// MARK: - RouteItemView
-
-struct RouteItemView: View {
-    let route: DomainRoute
-    private var startMs: Int64 { route.basicData.timeStartWork?.int64Value ?? 0 }
-    private var endMs:   Int64 { route.basicData.timeEndWork?.int64Value ?? 0 }
-    private var durationMs: Int64 {
-        guard endMs > startMs else { return 0 }
-        let bs = route.basicData.timeStartBreak?.int64Value ?? 0
-        let be = route.basicData.timeEndBreak?.int64Value ?? 0
-        return endMs - startMs - (be > bs ? be - bs : 0)
-    }
-
+/// Скелетон первой загрузки (§4.1): плашка вместо карусели, 3 точки и 4 карточки.
+struct HomeSkeleton: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(route.basicData.number.map { "Маршрут \($0)" } ?? "Маршрут")
-                    .font(DSFont.sans(16, .semibold))
-                    .foregroundColor(route.basicData.number != nil ? DSColor.text : DSColor.textMuted)
-                Spacer()
-                if (route.trains as! [DomainTrain]).contains(where: {
-                    let length = $0.conditionalLength
-                    return length != nil && !(length!.isEmpty)
-                }) {
-                    Image(systemName: "arrow.left.and.right").font(.caption).foregroundColor(DSColor.warning)
+        VStack(alignment: .leading, spacing: DSSpacing.lg) {
+            DSSkeletonBlock(width: 180, height: 30, cornerRadius: DSRadius.sm)
+                .padding(.top, DSSpacing.md)
+            DSSkeletonBlock(height: 140, cornerRadius: DSRadius.xl)
+            HStack(spacing: 6) {
+                ForEach(0..<3, id: \.self) { _ in
+                    DSSkeletonBlock(width: 6, height: 6, cornerRadius: 3)
                 }
             }
-            HStack(spacing: 16) {
-                if startMs > 0 {
-                    Label(TimeFormatter.formatDateTime(ms: startMs), systemImage: "clock")
-                        .font(DSFont.mono(12)).foregroundColor(DSColor.textMuted)
-                }
-                if durationMs > 0 {
-                    Label(TimeFormatter.formatDuration(ms: durationMs), systemImage: "timer")
-                        .font(DSFont.mono(12)).foregroundColor(DSColor.textMuted)
-                }
-            }
-            if let loco = (route.locomotives as! [DomainLocomotive]).first {
-                let n = [loco.series, loco.number].compactMap { $0 }.joined(separator: " ")
-                if !n.isEmpty {
-                    Label(n, systemImage: "tram.fill").font(DSFont.mono(12)).foregroundColor(DSColor.textMuted)
-                }
-            }
-            if let train = (route.trains as! [DomainTrain]).first, let num = train.number {
-                Label("Поезд \(num)", systemImage: "car.2.fill")
-                    .font(DSFont.sans(12)).foregroundColor(DSColor.textMuted)
-            }
+            .frame(maxWidth: .infinity)
+            DSSkeletonList(rows: 4)
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DSColor.surface)
     }
 }
 
-#Preview { NavigationStack { HomeView() } }
+#Preview("Главная — light") {
+    NavigationStack { HomeSkeleton().padding().background(DSColor.bg) }
+        .preferredColorScheme(.light)
+}
+
+#Preview("Главная — dark") {
+    NavigationStack { HomeSkeleton().padding().background(DSColor.bg) }
+        .preferredColorScheme(.dark)
+}
