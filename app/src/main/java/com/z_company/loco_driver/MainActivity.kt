@@ -28,8 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.robokassa.library.helper.toParams
-import com.robokassa.library.pay.RobokassaPayLauncher
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.z_company.core.theme.ThemeManager
 import com.z_company.core.theme.ThemeMode
@@ -266,16 +264,9 @@ class MainActivity : ComponentActivity(), KoinComponent {
 
     private fun checkIntent(i: Intent?) {
         val data = i?.data
-        if (data?.scheme == "robokassa") {
-            val prefs = getSharedPreferences("robokassa.pay.prefs", Context.MODE_PRIVATE)
-            val paramStr = prefs.getString("pay", "")
-            try {
-                val params = paramStr?.toParams()
-                mainViewModel.handlePaymentReturn(params)
-            } catch (e: Exception) {
-                // Показать ошибку
-            }
-        }
+        // Возврат из оплаты не обрабатывается здесь: оплата идёт через серверный
+        // checkout, а подтверждение ловит PaymentReturnChecker при возврате в
+        // приложение (прежний возврат встроенного SDK по схеме robokassa:// убран).
 
         // Deep link: переход на экран Профиль с сайта — locodriver://profile
         if (i?.action == Intent.ACTION_VIEW && data != null &&

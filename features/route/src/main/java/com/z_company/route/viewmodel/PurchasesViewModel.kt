@@ -4,19 +4,16 @@ import android.util.Log
 import com.z_company.core.sendToSentry
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.robokassa.library.models.Culture
-import com.robokassa.library.models.PaymentMethod
-import com.robokassa.library.models.Receipt
-import com.robokassa.library.models.ReceiptItem
-import com.robokassa.library.models.Tax
-import com.robokassa.library.params.PaymentParams
-import com.robokassa.library.pay.RobokassaPayLauncher
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.Product
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.repository.remote_rest.request.CkassaCheckoutRequest
+import com.z_company.repository.remote_rest.request.RobokassaCheckoutRequest
+import com.z_company.repository.remote_rest.response.RecurringStatusResponse
+import com.z_company.repository.remote_rest.response.RecurringTermsResponse
+import com.z_company.repository.remote_rest.RecurringConditionsChangedException
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.SecureTokenStorage
 import com.z_company.route.subscription.PaymentReturnChecker
@@ -49,18 +46,15 @@ data class BillingState(
 
 sealed class BillingEvent {
     data class ShowError(val error: Throwable) : BillingEvent()
-    data class StartPayment(val params: PaymentParams, val onlyChek: Boolean = false) :
-        BillingEvent()
 
-    // CKassa: открыть ссылку оплаты (хостовую страницу) во внешнем браузере.
-    // После возврата в приложение экран сам поллит статус подписки.
+    // Открыть страницу оплаты (Robokassa/CKassa) в браузере. Ссылку формирует
+    // сервер; после возврата в приложение экран сам поллит статус подписки.
     data class OpenPaymentUrl(val url: String) : BillingEvent()
+
+    data class ShowMessage(val message: String) : BillingEvent()
 }
 
 class PurchasesViewModel : ViewModel(), KoinComponent {
-    private val MERCHANT_LOGIN = "LOCO_DRIVER_SHOP"
-    private val PASSWORD_1 = "g1hybfLQChf4e508yRIX"
-    private val PASSWORD_2 = "lGOmC8y1iNRbJ9M1fA3w"
     private val sharedPrefs: SharedPreferencesRepositories by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val snackbarManager: ISnackbarManager by inject()
@@ -78,6 +72,28 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     val referralMessage = _referralMessage.asStateFlow()
     private val _isApplyingReferral = MutableStateFlow(false)
     val isApplyingReferral = _isApplyingReferral.asStateFlow()
+
+    // --- Автопродление (рекуррент Robokassa) ---
+    // Текст согласия для выбранного тарифа (формирует сервер).
+    private val _recurringTerms = MutableStateFlow<RecurringTermsResponse?>(null)
+    val recurringTerms = _recurringTerms.asStateFlow()
+
+    // Галочка «Автопродление». По требованию платёжных систем по умолчанию
+    // НЕ стоит; снимается при смене тарифа — согласие даётся на его сумму.
+    private val _autoRenewChecked = MutableStateFlow(false)
+    val autoRenewChecked = _autoRenewChecked.asStateFlow()
+
+    private val _recurringStatus = MutableStateFlow<RecurringStatusResponse?>(null)
+    val recurringStatus = _recurringStatus.asStateFlow()
+
+    private val _isDisablingRecurring = MutableStateFlow(false)
+    val isDisablingRecurring = _isDisablingRecurring.asStateFlow()
+
+    // Защита от двойного тапа по CTA, пока создаётся платёж.
+    private val _isStartingPayment = MutableStateFlow(false)
+    val isStartingPayment = _isStartingPayment.asStateFlow()
+
+    private var termsTariffCode: String? = null
 
     private val _state = MutableStateFlow(BillingState(isLoading = true))
     val state = _state.asStateFlow()
@@ -113,6 +129,78 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         observeSubscription()
         refreshProductsAndPurchases()
         refreshReferralStatus()
+        refreshRecurringStatus()
+    }
+
+    /** Выбран тариф: снять галочку и загрузить текст согласия для него. */
+    fun onPlanSelected(product: Product?) {
+        val code = product?.code?.takeIf { it.isNotBlank() }
+        if (code == termsTariffCode && _recurringTerms.value != null) return
+        termsTariffCode = code
+        _autoRenewChecked.value = false
+        _recurringTerms.value = null
+        if (code == null) return
+        viewModelScope.launch {
+            val terms = try {
+                remoteRestApi.getRecurringTerms(code)
+            } catch (_: Exception) {
+                null
+            }
+            // Пока шёл запрос, пользователь мог выбрать другой тариф.
+            if (termsTariffCode == code) _recurringTerms.value = terms
+        }
+    }
+
+    fun setAutoRenewChecked(checked: Boolean) {
+        _autoRenewChecked.value = checked
+    }
+
+    fun refreshRecurringStatus() {
+        viewModelScope.launch {
+            setRecurringStatus(
+                try {
+                    val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+                    remoteRestApi.getRecurringStatus("Bearer $token")
+                } catch (_: Exception) {
+                    null
+                }
+            )
+        }
+    }
+
+    /**
+     * Новое состояние автопродления. Если оно включилось или выключилось,
+     * галочку согласия снимаем: чекбокс, появившийся снова (например, после
+     * отключения), не должен быть отмечен заранее.
+     */
+    private fun setRecurringStatus(status: RecurringStatusResponse?) {
+        if (status?.enabled != _recurringStatus.value?.enabled) _autoRenewChecked.value = false
+        _recurringStatus.value = status
+    }
+
+    /** Отключить автопродление (после подтверждения в диалоге). */
+    fun disableRecurring(onDone: (Boolean) -> Unit) {
+        if (_isDisablingRecurring.value) return
+        viewModelScope.launch {
+            _isDisablingRecurring.value = true
+            val ok = try {
+                val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+                setRecurringStatus(remoteRestApi.disableRecurring("Bearer $token"))
+                true
+            } catch (t: Throwable) {
+                t.sendToSentry("PurchasesViewModel", "disableRecurring")
+                false
+            } finally {
+                _isDisablingRecurring.value = false
+            }
+            _event.tryEmit(
+                BillingEvent.ShowMessage(
+                    if (ok) "Автопродление отключено"
+                    else "Не удалось отключить автопродление. Попробуйте ещё раз."
+                )
+            )
+            onDone(ok)
+        }
     }
 
     fun refreshReferralStatus() {
@@ -246,16 +334,58 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
             startCkassaCheckout(product)
             return
         }
+        startRobokassaCheckout(product)
+    }
+
+    /**
+     * Robokassa через сервер: сервер берёт цену/срок по коду тарифа, подписывает
+     * платёж и (с галочкой) фиксирует согласие на автопродление. Пароли
+     * мерчанта на клиенте не нужны. Ссылку открываем в браузере; после возврата
+     * экран поллит статус подписки ([PaymentReturnChecker]).
+     */
+    private fun startRobokassaCheckout(product: Product) {
+        if (product.code.isBlank()) {
+            _event.tryEmit(BillingEvent.ShowError(Throwable("Тариф недоступен для оплаты")))
+            return
+        }
+        if (_isStartingPayment.value) return
+        val terms = _recurringTerms.value
+        val withAutoRenew = _autoRenewChecked.value &&
+            terms?.available == true && terms.tariffCode == product.code &&
+            _recurringStatus.value?.enabled != true
         viewModelScope.launch {
-//            val opKey = sharedPrefs.getOPKeyRobokassa()
-            val userId = currentUserId()
-            if (userId != null) {
-                val paymentParams =
-                    createPaymentParams(product = product, opKey = null, userId = userId)
+            _isStartingPayment.value = true
+            try {
+                val userId = currentUserId()
+                if (userId == null) {
+                    _event.tryEmit(BillingEvent.ShowError(Throwable(message = "Отсутствует User ID")))
+                    return@launch
+                }
+                val token = secureTokenStorage.getAuthBearerTokenFlow().first()
+                val response = remoteRestApi.createRobokassaCheckout(
+                    token = "Bearer $token",
+                    request = RobokassaCheckoutRequest(
+                        tariffCode = product.code,
+                        autoRenew = withAutoRenew,
+                        consentVersion = if (withAutoRenew) terms?.consentVersion else null,
+                        platform = PAYMENT_PLATFORM,
+                    ),
+                )
                 markPaymentStarted(userId, product)
-                _event.tryEmit(BillingEvent.StartPayment(paymentParams))
-            } else {
-                _event.tryEmit(BillingEvent.ShowError(Throwable(message = "Отсутствует User ID")))
+                _event.tryEmit(BillingEvent.OpenPaymentUrl(response.paymentUrl))
+            } catch (e: RecurringConditionsChangedException) {
+                // Условия автопродления обновились или услугу выключили —
+                // показываем актуальный текст и просим отметить заново.
+                termsTariffCode = null
+                onPlanSelected(product)
+                _event.tryEmit(
+                    BillingEvent.ShowMessage("Условия автопродления обновились. Проверьте их и нажмите оплату ещё раз.")
+                )
+            } catch (t: Throwable) {
+                t.sendToSentry("PurchasesViewModel", "startRobokassaCheckout")
+                _event.tryEmit(BillingEvent.ShowError(t))
+            } finally {
+                _isStartingPayment.value = false
             }
         }
     }
@@ -294,7 +424,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                     token = "Bearer $token",
                     request = CkassaCheckoutRequest(
                         tariffCode = product.code,
-                        platform = CKASSA_PLATFORM,
+                        platform = PAYMENT_PLATFORM,
                     ),
                 )
                 currentUserId()?.let { markPaymentStarted(it, product) }
@@ -303,62 +433,6 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
                 t.sendToSentry("PurchasesViewModel", "startCkassaCheckout")
                 _event.tryEmit(BillingEvent.ShowError(t))
             }
-        }
-    }
-
-    /**
-     * Создаёт PaymentParams для Robokassa.
-     * @param product Продукт для оплаты.
-     * @param opKey Токен сохранённой карты (null для первой оплаты).
-     * @return PaymentParams.
-     */
-    private fun createPaymentParams(
-        product: Product,
-        opKey: String?,
-        userId: String
-    ): PaymentParams {
-        return PaymentParams().setParams {
-            orderParams {
-                invoiceId = System.currentTimeMillis().toInt()
-                orderSum = product.sum
-                description = product.desc
-                receipt = Receipt(
-                    items = listOf(
-                        ReceiptItem(
-                            name = product.name,
-                            sum = product.sum,
-                            quantity = 1,
-                            paymentMethod = PaymentMethod.FULL_PAYMENT,
-                            tax = Tax.NONE
-                        )
-                    )
-                )
-                if (opKey != null) {
-                    // Для оплаты сохранённой картой
-                    token = opKey
-                }
-            }
-            customerParams {
-                culture = Culture.RU
-                email = currentEmail
-            }
-            viewParams {
-                toolbarText = "Оплата ${product.name}"
-            }
-            // tariff_code — по нему сервер начисляет срок подписки (webhook),
-            // независимо от суммы. Для legacy-дефолтов без кода не добавляем —
-            // тогда сервер откатится к маппингу по сумме.
-            shp = buildMap {
-                put("user_id", userId)
-                if (product.code.isNotBlank()) put("tariff_code", product.code)
-            }
-        }.also {
-            it.setCredentials(
-                MERCHANT_LOGIN,
-                PASSWORD_1,
-                PASSWORD_2,
-                "https://www.rustore.ru/catalog/app/com.z_company.loco_driver"
-            )
         }
     }
 
@@ -375,8 +449,7 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
     }
 
     /**
-     * Проверка оплаты после результата Robokassa SDK / возврата со страницы
-     * CKassa. Сервер обновляет подписку асинхронным вебхуком, поэтому —
+     * Проверка оплаты после возврата со страницы оплаты (Robokassa/CKassa). Сервер обновляет подписку асинхронным вебхуком, поэтому —
      * поллинг: `sdkConfirmed=true` → 10 попыток × 3 с, иначе 5 × 3 с. Сам
      * поллинг и «Платёж принят!» — в [PaymentReturnChecker] (глобально, на
      * любом экране); проверка по возврату в приложение идёт тем же заданием,
@@ -409,23 +482,12 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
 
     private var paymentCheckJob: Job? = null
 
-    @Deprecated("Используй checkPaymentOnServer(sdkConfirmed)")
-    fun handlePaymentSuccess(success: RobokassaPayLauncher.Success?) {
-        checkPaymentOnServer(sdkConfirmed = success != null)
-    }
-
     fun dismissPaymentFailedDialog() {
         _showPaymentFailedDialog.value = false
     }
 
     fun dismissPaymentProcessingDialog() {
         _showPaymentProcessingDialog.value = false
-    }
-
-    // Новое: Метод для эмиссии события StartPayment.
-// Для чего: Чтобы из MainViewModel (при возврате) или из onProductClick можно было эмитировать событие для запуска launcher в UI с нужным onlyCheck. Это упрощает обработку возврата без дублирования кода.
-    fun emitStartPayment(params: PaymentParams, onlyCheck: Boolean) {
-        _event.tryEmit(BillingEvent.StartPayment(params, onlyCheck))
     }
 
     companion object {
@@ -437,7 +499,8 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         // системы работают параллельно.
         const val USE_CKASSA = false
 
-        // Источник оплаты для журнала платежей на сервере.
-        const val CKASSA_PLATFORM = "android"
+        // Источник оплаты: журнал платежей на сервере и страница возврата
+        // (для приложения — «Вернуться в приложение», а не переход в PWA).
+        const val PAYMENT_PLATFORM = "android"
     }
 }
