@@ -1096,6 +1096,9 @@ selectedSeriesName (= seriesName, пустая строка → null)`. Сери
 - ошибка — ничего не происходит.
 Из нижнего меню форма открывается с `popUpTo(start) { saveState }` +
 `launchSingleTop`, чтобы после неё вкладки восстанавливались корректно.
+iOS: решение считает `NewRouteIosViewModel.onNewRouteClick` (те же правила), диалоги —
+`AppRouter.newRouteGate` (алерт в `AppCoordinator`), «Оформить подписку» — через гейт
+покупок `AppRouter.showPurchases(isAuthorized:)`.
 
 Источник: `domain/.../navigation/Router.kt`, `app/.../ui/navigation/RouterImpl.kt`, `app/.../ui/LocoDriverApp.kt`,
 `app/.../MainActivity.kt`, `app/.../viewmodel/MainViewModel.kt`, `features/route/.../navigation/{Navigation,HomeDestination,FormLocoDestination,PurchasesEntry,UpdatePresentationBlockdestination}.kt`,
@@ -1446,6 +1449,12 @@ Snackbar-сообщения экрана показываются по очер�
   разлогин, §18.5). По завершении с не-сетевыми ошибками — кнопка «Отправить
   отчет об ошибке» (письмо на `locodriver.app@yandex.ru` с файлом-отчётом) и
   «Понятно». Закрытие диалога сбрасывает состояние синхронизации.
+
+iOS: расчёты и форматирование — `iosApp/src/commonMain/.../viewmodel/HomeScreenIosViewModel.kt`
+(перенос `HomeViewModel` + `PullToSyncViewModel` + расчётов отдыха `RouteActionsHelper`, модели —
+`HomeScreenIosModels.kt`), экран — `iosApp/iosApp/Screens/Home/*`. Отличия платформы: порядок плиток
+«Текущий маршрут» хранится в `UserDefaults` (`home.currentRouteBlockOrder`); проверки обновления
+RuStore и виджета на iOS нет; тикер живых блоков — в ViewModel (граница минуты, для отдыха — секунда).
 
 Источник: `features/route/.../ui/{HomeScreen,HomeStateBlocks,SyncProgressDialog}.kt`,
 `.../navigation/HomeDestination.kt`, `.../viewmodel/home_view_model/{HomeViewModel,HomeUiState}.kt`,

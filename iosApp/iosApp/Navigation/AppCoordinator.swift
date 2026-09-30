@@ -42,6 +42,35 @@ struct AppCoordinator: View {
             Button("Войти") { router.showProfile() }
             Button("Отмена", role: .cancel) {}
         }
+        // Гейт «+» (§3.4). Отдельный фоновый носитель — чтобы не делить view с алертом выше.
+        .background(newRouteGateAlertHost)
+    }
+
+    private var newRouteGateAlertHost: some View {
+        Color.clear
+            .alert(
+                router.newRouteGate?.title ?? "",
+                isPresented: Binding(
+                    get: { router.newRouteGate != nil },
+                    set: { if !$0 { router.newRouteGate = nil } }
+                ),
+                presenting: router.newRouteGate
+            ) { gate in
+                switch gate {
+                case .limitReached:
+                    Button("Оформить подписку") {
+                        router.showPurchasesFromNewRouteGate(isAuthorized: gate.isAuthorized)
+                    }
+                    Button("Отмена", role: .cancel) {}
+                case .trial:
+                    Button("Продолжить бесплатно") { router.openNewRouteForm() }
+                    Button("Оформить подписку") {
+                        router.showPurchasesFromNewRouteGate(isAuthorized: gate.isAuthorized)
+                    }
+                }
+            } message: { gate in
+                Text(gate.message)
+            }
     }
 
     private func tabStack(_ tab: AppTab) -> some View {
