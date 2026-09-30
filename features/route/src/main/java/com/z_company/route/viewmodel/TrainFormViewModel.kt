@@ -177,6 +177,17 @@ class TrainFormViewModel(
         sharedPreferenceStorage.toggleStationsSortOrder(newReversed)
     }
 
+    // ─── Станции плеча по местоположению (SCREEN_SPECS §6.6) ───────────────
+    // Объявлены ДО init: init их уже использует (порядок инициализации свойств).
+    private val appContext: android.content.Context by inject()
+    /** Координата прошлого добавления станции — чтобы не подставлять одно и то же стоя на месте. */
+    private var previousAddFix: GeoFix? = null
+    /** Последняя известная координата — для сортировки подсказок. */
+    private var lastFix: GeoFix? = null
+    private var stationUsage: Map<String, Int> = emptyMap()
+    private var phaseUsage: Map<String, Int> = emptyMap()
+    private var phaseLastUsed: Map<String, Long> = emptyMap()
+
     init {
         loadUsageStats()
         refreshFix()
@@ -468,15 +479,6 @@ class TrainFormViewModel(
         }
     }
 
-    // ─── Станции плеча по местоположению (SCREEN_SPECS §6.6) ───────────────
-    private val appContext: android.content.Context by inject()
-    /** Координата прошлого добавления станции — чтобы не подставлять одно и то же стоя на месте. */
-    private var previousAddFix: GeoFix? = null
-    /** Последняя известная координата — для сортировки подсказок. */
-    private var lastFix: GeoFix? = null
-    private var stationUsage: Map<String, Int> = emptyMap()
-    private var phaseUsage: Map<String, Int> = emptyMap()
-    private var phaseLastUsed: Map<String, Long> = emptyMap()
 
     private fun loadUsageStats() {
         viewModelScope.launch(Dispatchers.Default) {

@@ -2030,6 +2030,12 @@ fun FormTrainScreen(
                                         }
                                     viewModel.startEditingSegment(originalAfterIndex)
                                 },
+                                onReorder = { from, to ->
+                                    val size = stationList.size
+                                    val fromOrig = if (formUiState.isStationsReversed) size - 1 - from else from
+                                    val toOrig = if (formUiState.isStationsReversed) size - 1 - to else to
+                                    viewModel.moveStation(fromOrig, toOrig)
+                                },
                                 onMoveUp = { displayIndex ->
                                     val originalIndex =
                                         if (formUiState.isStationsReversed) stationList.size - 1 - displayIndex
