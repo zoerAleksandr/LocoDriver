@@ -18,6 +18,7 @@ import com.z_company.domain.util.getTimeZone
 import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
+import com.z_company.domain.util.onePersonOperationTime
 import com.z_company.domain.util.mergeTimeIntervals
 import com.z_company.domain.util.subtractAll
 import com.z_company.domain.util.plus
@@ -1434,42 +1435,8 @@ object UtilsForEntities {
     fun List<Route>.getOnePersonOperationTime(
         monthOfYear: MonthOfYear,
         context: TimeCalculationContext
-    ): Long {
-        var resultTime = 0L
-        this.forEach { route ->
-            if (route.basicData.isOnePersonOperation) {
-                val hasFreight = route.trains.any { train ->
-                    passengerTrainNumberList.none { it.contains(train.number.toIntOrZero()) }
-                }
-                if (hasFreight) resultTime += route.categoryWorkTime(monthOfYear, context) { train ->
-                    passengerTrainNumberList.none { it.contains(train.number.toIntOrZero()) }
-                }
-            }
-        }
-        return resultTime
-    }
-
-    private fun Route.categoryWorkTime(
-        monthOfYear: MonthOfYear,
-        context: TimeCalculationContext,
-        predicate: (Train) -> Boolean,
-    ): Long {
-        val selected = trains.filter(predicate)
-        if (selected.isEmpty()) return 0L
-        val routeStart = basicData.timeStartWork ?: return 0L
-        val routeEnd = basicData.timeEndWork ?: return 0L
-        val intervals = selected.mapNotNull { train ->
-            val start = train.stations.firstOrNull()?.timeDeparture
-            val end = train.stations.lastOrNull()?.timeArrival
-            if (start != null && end != null && end > start) start until end else null
-        }
-        val raw = if (intervals.isEmpty()) {
-            if (isTransition(context)) monthOfYear.getTimeInCurrentMonth(routeStart, routeEnd, context)
-            else getWorkTime() ?: 0L
-        } else coveredTrainTime(intervals)
-        return if (intervals.isEmpty()) {
-            (raw - (getPassengerTime() ?: 0L)).coerceAtLeast(0L)
-        } else raw
+    ): Long = sumOf { route ->
+        route.onePersonOperationTime(monthOfYear, context, passengerTrain = false)
     }
 
     fun List<Route>.getOnePersonOperationTime(
@@ -1486,16 +1453,8 @@ object UtilsForEntities {
     fun List<Route>.getOnePersonOperationTimePassengerTrain(
         monthOfYear: MonthOfYear,
         context: TimeCalculationContext
-    ): Long {
-        var resultTime = 0L
-        this.forEach { route ->
-            if (route.basicData.isOnePersonOperation) {
-                resultTime += route.categoryWorkTime(monthOfYear, context) { train ->
-                    passengerTrainNumberList.any { it.contains(train.number.toIntOrZero()) }
-                }
-            }
-        }
-        return resultTime
+    ): Long = sumOf { route ->
+        route.onePersonOperationTime(monthOfYear, context, passengerTrain = true)
     }
 
     fun List<Route>.getOnePersonOperationTimePassengerTrain(

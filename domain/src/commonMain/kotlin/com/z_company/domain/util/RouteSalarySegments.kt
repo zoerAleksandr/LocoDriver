@@ -75,12 +75,15 @@ fun Route.buildSalarySegments(
             ).intersect(workInterval)
         }
         .toList()
-    val freightOnePersonIntervals = if (basicData.isOnePersonOperation) {
-        trainCategoryIntervals(workInterval, isPassengerTrain = false)
-    } else emptyList()
-    val passengerOnePersonIntervals = if (basicData.isOnePersonOperation) {
-        trainCategoryIntervals(workInterval, isPassengerTrain = true)
-    } else emptyList()
+    val onePersonIntervals = onePersonOperationIntervals(
+        workInterval = workInterval,
+        breakInterval = breakInterval,
+        passengerIntervals = passengerIntervals,
+        passengerWaitingIntervals = passengerWaitingIntervals,
+    )
+    val onePersonIsPassenger = hasPassengerTrain()
+    val freightOnePersonIntervals = if (onePersonIsPassenger) emptyList() else onePersonIntervals
+    val passengerOnePersonIntervals = if (onePersonIsPassenger) onePersonIntervals else emptyList()
     val doubledFirstIntervals = trainIntervals(workInterval) { it.doubledTrain?.isFirst == true }
     val doubledSecondIntervals = trainIntervals(workInterval) { it.doubledTrain?.isFirst == false }
     val reserveIntervals = trainIntervals(workInterval) { train ->
@@ -268,32 +271,59 @@ private fun Route.trainIntervals(
     .toList()
     .mergeTimeIntervals()
 
-private fun Route.trainCategoryIntervals(
+/**
+ * Время работы в одно лицо (153L) в пределах месяца.
+ *
+ * Доплата начисляется «по маршруту машиниста» за фактически отработанное время
+ * без помощника — это вся смена от явки до сдачи, а не только интервал поезда.
+ * Из смены исключаются перерыв, следование пассажиром и ожидание следования
+ * пассажиром (018M): в это время машинист не работает на локомотиве.
+ *
+ * @param passengerTrain `true` — время по пассажирской ставке, `false` — по грузовой.
+ * Категория общая на всю смену: см. [hasPassengerTrain].
+ */
+fun Route.onePersonOperationTime(
+    monthOfYear: MonthOfYear,
+    context: TimeCalculationContext,
+    passengerTrain: Boolean,
+): Long {
+    if (!basicData.isOnePersonOperation || hasPassengerTrain() != passengerTrain) return 0L
+    val (start, end) = clipToMonth(monthOfYear, context) ?: return 0L
+    val workInterval = TimeInterval(start, end)
+    val breakInterval = validInterval(
+        basicData.timeStartBreak,
+        basicData.timeEndBreak,
+    )?.intersect(workInterval)
+    val passengerIntervals = passengers.mapNotNull { passenger ->
+        validInterval(passenger.timeDeparture, passenger.timeArrival)?.intersect(workInterval)
+    }
+    return onePersonOperationIntervals(
+        workInterval = workInterval,
+        breakInterval = breakInterval,
+        passengerIntervals = passengerIntervals,
+        passengerWaitingIntervals = passengerWaitingIntervals(workInterval, breakInterval),
+    ).sumOf { it.durationMillis }
+}
+
+/**
+ * Категория доплаты в одно лицо определяется на всю смену: достаточно одного
+ * пассажирского (пригородного) поезда, чтобы вся смена шла по пассажирской
+ * ставке. Без пассажирских поездов (в т. ч. без указанного поезда) — грузовая.
+ */
+private fun Route.hasPassengerTrain(): Boolean = trains.any { train ->
+    val parsed = train.number?.trim()?.toIntOrNull() ?: return@any false
+    passengerTrainNumberList.any { parsed in it }
+}
+
+private fun Route.onePersonOperationIntervals(
     workInterval: TimeInterval,
-    isPassengerTrain: Boolean,
+    breakInterval: TimeInterval?,
+    passengerIntervals: List<TimeInterval>,
+    passengerWaitingIntervals: List<TimeInterval>,
 ): List<TimeInterval> {
-    fun isPassenger(number: String?): Boolean {
-        val parsed = number?.trim()?.toIntOrNull() ?: return false
-        return passengerTrainNumberList.any { parsed in it }
-    }
-
-    // Продуктовое правило: если поезд не указан, используем грузовую ставку
-    // работы в одно лицо. Пассажирскую ставку без явного поезда не назначаем.
-    if (trains.isEmpty()) {
-        return if (isPassengerTrain) emptyList() else listOf(workInterval)
-    }
-
-    val selected = trains.filter { isPassenger(it.number) == isPassengerTrain }
-    if (selected.isEmpty()) return emptyList()
-    val timed = selected.mapNotNull { train ->
-        val start = train.stations.firstOrNull()?.timeDeparture
-        val end = train.stations.lastOrNull()?.timeArrival
-        validInterval(start, end)?.intersect(workInterval)
-    }.mergeTimeIntervals()
-    if (timed.isNotEmpty()) return timed
-
-    val routeHasOnlyThisCategory = trains.all { isPassenger(it.number) == isPassengerTrain }
-    return if (routeHasOnlyThisCategory) listOf(workInterval) else emptyList()
+    if (!basicData.isOnePersonOperation) return emptyList()
+    val exclusions = listOfNotNull(breakInterval) + passengerIntervals + passengerWaitingIntervals
+    return workInterval.subtractAll(exclusions)
 }
 
 private fun validInterval(first: Long?, second: Long?): TimeInterval? {
