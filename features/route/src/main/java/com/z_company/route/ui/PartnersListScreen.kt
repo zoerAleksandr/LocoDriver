@@ -264,20 +264,26 @@ fun PartnersListScreen(
                                         onEdit = { onEdit(p) },
                                     )
                                 }
+                                // Кнопка — прямо под строкой только что отмеченного напарника,
+                                // чтобы была видна и в длинном списке.
+                                if (permanentCandidate?.partnerId == p.partnerId) {
+                                    // Тот же фон выделения, что у строки, — кнопка «принадлежит» ей.
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f))
+                                            .padding(start = 12.dp, end = 12.dp, bottom = 10.dp)
+                                    ) {
+                                        MakePermanentButton(
+                                            partner = p,
+                                            onClick = { onMakePermanent(p) },
+                                        )
+                                    }
+                                }
                                 if (idx < filteredPartners.lastIndex) {
                                     HorizontalDivider(modifier = Modifier.padding(start = 62.dp))
                                 }
                             }
-                        }
-                    }
-                    // Широкая кнопка под карточкой: только что отмеченного непостоянного
-                    // напарника можно сделать постоянным.
-                    permanentCandidate?.let { candidate ->
-                        item {
-                            MakePermanentButton(
-                                partner = candidate,
-                                onClick = { onMakePermanent(candidate) },
-                            )
                         }
                     }
                 }

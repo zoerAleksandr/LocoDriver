@@ -166,17 +166,17 @@ fun PermanentPartnerSection(
 }
 
 /**
- * Широкая кнопка под списком пикера: «Сделать постоянным напарником» +
- * короткое ФИО кандидата второй строкой (ФИО не склоняем — род не определить).
+ * Широкая кнопка под строкой отмеченного в пикере напарника: «Сделать постоянным
+ * напарником» + короткое ФИО второй строкой (ФИО не склоняем — род не определить).
  */
 @Composable
 fun MakePermanentButton(
     partner: Partner,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
-            .padding(top = 8.dp)
+        modifier = modifier
             .fillMaxWidth()
             .clip(Shapes.medium)
             .background(MaterialTheme.colorScheme.primaryContainer, Shapes.medium)
