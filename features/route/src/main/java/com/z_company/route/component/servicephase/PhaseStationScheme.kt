@@ -63,6 +63,8 @@ internal fun PhaseStopRow(
     onClick: (() -> Unit)? = null,
     onRemove: (() -> Unit)? = null,
     dragHandle: (@Composable () -> Unit)? = null,
+    /** Режим выбора: ✎ — переименовать предложенную станцию. */
+    onEdit: (() -> Unit)? = null,
 ) {
     val terminal = type == StopType.TERMINAL
     val halt = type == StopType.HALT
@@ -183,7 +185,12 @@ internal fun PhaseStopRow(
                         }
                     }
                 }
-                SchemeMode.PICK -> Unit
+                SchemeMode.PICK -> if (onEdit != null) {
+                    Box(
+                        modifier = Modifier.size(width = 36.dp, height = 40.dp).clickable(onClick = onEdit),
+                        contentAlignment = Alignment.Center,
+                    ) { PstIcon(PstIcons.Edit, 18.dp, Pst.textMuted, description = "Переименовать") }
+                }
             }
         }
     }

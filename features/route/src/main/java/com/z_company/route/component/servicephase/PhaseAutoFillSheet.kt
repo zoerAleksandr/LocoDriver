@@ -1,5 +1,8 @@
 package com.z_company.route.component.servicephase
 
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -291,6 +294,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
     onSetDistance: (Int) -> Unit,
     onCancel: () -> Unit,
 ) {
+    // Изменяемый: названия предложенных станций можно поправить (✎) до добавления.
     val found = remember(state) {
         state.stations.map {
             ServicePhaseStation(
@@ -303,7 +307,19 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
                 osmId = it.osmId,
                 source = ServicePhaseStationSource.OSM,
             )
-        }
+        }.toMutableStateList()
+    }
+    var renaming by remember(state) { mutableStateOf<ServicePhaseStation?>(null) }
+    renaming?.let { st ->
+        RenameStationSheet(
+            name = st.name,
+            onDone = { newName ->
+                val idx = found.indexOfFirst { it.id == st.id }
+                if (idx >= 0 && newName.isNotBlank()) found[idx] = found[idx].copy(name = newName.trim())
+                renaming = null
+            },
+            onDismiss = { renaming = null },
+        )
     }
     val already = remember(found, existing) {
         found.filter { ServicePhaseStationsMerge.existingMatch(it, existing) != null }.map { it.id }.toSet()
@@ -345,7 +361,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
                     title = if (distanceKm <= 0) "Расстояние не указано" else "Расстояние не совпадает с картой",
                     text = if (distanceKm <= 0) "По карте длина пути — ${pstKm(length)}."
                     else "Вы указали $distanceKm км, по карте — ${pstKm(length)}.",
-                    actionText = "Подставить $rounded км",
+                    actionText = "Установить $rounded км",
                     onAction = {
                         onSetDistance(rounded)
                         distanceApplied = true
@@ -417,6 +433,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
             checked = checked,
             already = already,
             onToggle = { id -> checked = if (id in checked) checked - id else checked + id },
+            onRename = { st -> renaming = st },
         )
     }
     PstSheetFooter {
@@ -492,6 +509,7 @@ private fun LazyListScope.pickScheme(
     checked: Set<String>,
     already: Set<String>,
     onToggle: (String) -> Unit,
+    onRename: (ServicePhaseStation) -> Unit,
 ) {
     item(key = "pick:dep") {
         SchemeSegment(top = true) {
@@ -513,6 +531,7 @@ private fun LazyListScope.pickScheme(
                     already = isAlready,
                     checked = st.id in checked,
                     onClick = if (isAlready) null else ({ onToggle(st.id) }),
+                    onEdit = if (isAlready) null else ({ onRename(st) }),
                 )
             }
         }
@@ -602,5 +621,43 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
     PstSheetFooter {
         PstButton(text = spec.primary.first, onClick = spec.primary.second, height = 48.dp, modifier = Modifier.fillMaxWidth())
         PstButton(text = spec.secondary.first, onClick = spec.secondary.second, kind = PstButtonKind.OUTLINED, height = 48.dp, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/** Переименование предложенной станции в предпросмотре автоподбора. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RenameStationSheet(name: String, onDone: (String) -> Unit, onDismiss: () -> Unit) {
+    var value by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(name, androidx.compose.ui.text.TextRange(name.length))) }
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    androidx.compose.runtime.LaunchedEffect(Unit) { focus.requestFocus() }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Pst.bg,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        dragHandle = { PstGrabber() },
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().imePadding()) {
+            PstSheetHeader(title = "Название станции", onClose = onDismiss)
+            PstTextField(
+                value = value,
+                onValueChange = { value = it },
+                label = "Название",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .focusRequester(focus),
+            )
+            PstSheetFooter {
+                PstButton(
+                    text = "Готово",
+                    kind = PstButtonKind.CTA,
+                    enabled = value.text.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { onDone(value.text) },
+                )
+            }
+        }
     }
 }

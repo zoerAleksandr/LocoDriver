@@ -1,5 +1,10 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,11 +26,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel
 import com.z_company.route.viewmodel.PhaseEnd
@@ -64,13 +67,11 @@ import com.z_company.route.component.servicephase.Pst
 import com.z_company.route.component.servicephase.PstButton
 import com.z_company.route.component.servicephase.PstButtonKind
 import com.z_company.route.component.servicephase.PstCard
-import com.z_company.route.component.servicephase.PstGrabber
 import com.z_company.route.component.servicephase.PstGroupHead
 import com.z_company.route.component.servicephase.PstIcon
 import com.z_company.route.component.servicephase.PstIcons
 import com.z_company.route.component.servicephase.PstNote
 import com.z_company.route.component.servicephase.PstSheetFooter
-import com.z_company.route.component.servicephase.PstSheetHeader
 import com.z_company.route.component.servicephase.PstTextField
 import com.z_company.route.component.servicephase.SchemeMode
 import com.z_company.route.component.servicephase.StopType
@@ -101,7 +102,6 @@ fun ShoulderEditBottomSheet(
     /** Новые названия для справочника станций (из автоподбора) — вызывается при сохранении. */
     onAddStationNames: (List<String>) -> Unit = {},
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusManager = LocalFocusManager.current
     val isNew = phase == null
 
@@ -284,15 +284,20 @@ fun ShoulderEditBottomSheet(
         )
     }
 
-    ModalBottomSheet(
+    // Отдельный полноэкранный экран (не шторка): в шторке длинный список станций при прокрутке
+    // конфликтовал с жестом шторки — она «прыгала» вверх-вниз. «Назад» — отмена без сохранения.
+    Dialog(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = Pst.bg,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = { PstGrabber() },
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
-        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.94f).imePadding()) {
-            PstSheetHeader(title = if (isNew) "Новое плечо" else "Редактировать плечо", onClose = onDismiss)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Pst.bg)
+                .systemBarsPadding()
+                .imePadding()
+        ) {
+            EditorTopBar(title = if (isNew) "Новое плечо" else "Редактировать плечо", onBack = onDismiss)
             Box(modifier = Modifier.weight(1f)) {
                 LazyColumn(
                     state = listState,
@@ -581,8 +586,7 @@ private fun EmptyStations(canAutoFill: Boolean, onAutoFill: () -> Unit, onAddMan
     PstCard {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Станции между крайними — по порядку от отправления к прибытию. " +
-                    "Найдём их по карте или добавьте вручную.",
+                text = "Найдём их по карте или добавьте вручную.",
                 style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp),
                 color = Pst.textMuted,
             )
@@ -778,4 +782,23 @@ private fun pluralNames(n: Int) = when {
     n % 10 == 1 -> "название"
     n % 10 in 2..4 -> "названия"
     else -> "названий"
+}
+
+@Composable
+private fun EditorTopBar(title: String, onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier.size(48.dp).clickable(onClick = onBack),
+            contentAlignment = Alignment.Center,
+        ) { PstIcon(PstIcons.ChevronLeft, 24.dp, Pst.text, description = "Назад") }
+        Text(
+            text = title,
+            style = Pst.sans.copy(fontSize = 20.sp, fontWeight = FontWeight.Medium),
+            color = Pst.text,
+            modifier = Modifier.padding(start = 4.dp),
+        )
+    }
 }

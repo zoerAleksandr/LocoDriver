@@ -147,9 +147,12 @@ internal fun PhaseMapPicker(
         remember { MapLibre.getInstance(context); true }
         var map by remember { mutableStateOf<MapLibreMap?>(null) }
         var snapped by remember { mutableStateOf<String?>(null) }
-        var noRailNearby by remember { mutableStateOf(false) }
         var locationDenied by remember { mutableStateOf(false) }
         val density = LocalDensity.current
+        // Карта жива (до onDestroy). После закрытия в очереди ещё бывают события камеры —
+        // запрос к уничтоженному отрисовщику (queryRenderedFeatures) роняет приложение
+        // нативно (SIGSEGV в MapRenderer::actor). Все обработчики проверяют этот флаг.
+        val alive = remember { java.util.concurrent.atomic.AtomicBoolean(true) }
 
         val mapView = remember {
             MapView(context).also { mv ->
@@ -183,11 +186,13 @@ internal fun PhaseMapPicker(
                     mv.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
                         m.setPadding(0, 0, 0, (v.height * 0.16).toInt())
                     }
-                    if (start == null && neighbours.isEmpty() && hasLocationPermission(context)) moveToMyLocation(context, m)
-                    m.addOnCameraIdleListener {
-                        noRailNearby = m.cameraPosition.zoom >= 12.0 && !hasRailNear(m, mv)
-                    }
+                    if (start == null && neighbours.isEmpty() && hasLocationPermission(context)) moveToMyLocation(context, m, alive)
+                    // Запросов к отрисовке (queryRenderedFeatures) из событий камеры не делаем:
+                    // событие успевает прийти, когда окно карты уже закрывается и отрисовщик
+                    // уничтожен, — это нативное падение (SIGSEGV в MapRenderer::actor).
+                    // Запрос — только на тап пользователя по карте.
                     m.addOnMapClickListener { latLng ->
+                        if (!alive.get() || m.style?.isFullyLoaded != true) return@addOnMapClickListener false
                         val station = stationAt(m, m.projection.toScreenLocation(latLng), with(density) { 24.dp.toPx() })
                         if (station != null) {
                             m.animateCamera(CameraUpdateFactory.newLatLng(station.first), 300)
@@ -202,6 +207,8 @@ internal fun PhaseMapPicker(
             mapView.onStart()
             mapView.onResume()
             onDispose {
+                alive.set(false)
+                map = null
                 mapView.onPause()
                 mapView.onStop()
                 mapView.onDestroy()
@@ -209,7 +216,7 @@ internal fun PhaseMapPicker(
         }
 
         val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-            if (granted.values.any { it }) moveToMyLocation(context, map) else locationDenied = true
+            if (granted.values.any { it }) moveToMyLocation(context, map, alive) else locationDenied = true
         }
 
         BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Pst.bg)) {
@@ -270,7 +277,7 @@ internal fun PhaseMapPicker(
                 }
                 MapButton(
                     onClick = {
-                        if (hasLocationPermission(context)) moveToMyLocation(context, map)
+                        if (hasLocationPermission(context)) moveToMyLocation(context, map, alive)
                         else permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                     },
                     description = "Моё местоположение",
@@ -307,11 +314,10 @@ internal fun PhaseMapPicker(
                             text = when {
                                 locationDenied -> "Нет доступа к местоположению — двигайте карту вручную"
                                 snapped != null -> "Точка на станции «$snapped» с карты"
-                                noRailNearby -> "Рядом нет железной дороги — проверьте точку"
                                 else -> "Двигайте карту — точка под меткой станет координатами станции"
                             },
                             style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp),
-                            color = if (noRailNearby && snapped == null && !locationDenied) Pst.warning else Pst.textMuted,
+                            color = Pst.textMuted,
                         )
                     }
                 }
@@ -360,13 +366,6 @@ private fun stationAt(map: MapLibreMap, screen: PointF, radiusPx: Float): Pair<L
     }
 }
 
-/** Есть ли ж/д линия (transportation, class=rail) рядом с меткой. */
-private fun hasRailNear(map: MapLibreMap, view: MapView): Boolean {
-    val x = view.width / 2f
-    val y = view.height * 0.42f
-    val r = view.resources.displayMetrics.density * 80
-    return map.queryRenderedFeatures(RectF(x - r, y - r, x + r, y + r), RAIL_LINE_LAYER).isNotEmpty()
-}
 
 private fun hasLocationPermission(context: Context): Boolean =
     listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION).any {
@@ -374,15 +373,16 @@ private fun hasLocationPermission(context: Context): Boolean =
     }
 
 @SuppressLint("MissingPermission")
-private fun moveToMyLocation(context: Context, map: MapLibreMap?) {
+private fun moveToMyLocation(context: Context, map: MapLibreMap?, alive: java.util.concurrent.atomic.AtomicBoolean) {
     val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return
     val provider = when {
         lm.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
         lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
         else -> return
     }
+    // Координата может прийти, когда карту уже закрыли: тогда map уже null — ничего не делаем.
     val move = { lat: Double, lon: Double ->
-        map?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lon), 15.0))
+        if (alive.get()) map?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lon), 15.0))
     }
     lm.getLastKnownLocation(provider)?.let { move(it.latitude, it.longitude) }
     LocationManagerCompat.getCurrentLocation(
