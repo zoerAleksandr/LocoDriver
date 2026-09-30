@@ -353,6 +353,17 @@ class OnePersonOperationSurchargeTest {
         assertEquals(350.0, result, 0.01)
     }
 
+    @Test
+    fun onePersonSuburbanTrain_usesPassengerRate() = runTest {
+        // Пригородный 6123: 10 ч × 100 × 50% = 500, грузовая строка пустая.
+        val route = oneOpRoute(workDurationMs = 10 * oneHourMs, trainNumber = "6123")
+        val helper = createHelper(listOf(route))
+
+        assertEquals(10 * oneHourMs, helper.getTimeOnePersonOperationPassengerTrainFlow(listOf(route)).first())
+        assertEquals(500.0, helper.getMoneyOnePersonOperationPassengerTrainFlow().first(), 0.01)
+        assertEquals(0L, helper.getTimeOnePersonOperationFlow(listOf(route)).first())
+    }
+
     // --- Грузовой с номером поезда вне пассажирского диапазона (должно считаться как "не пассажирский") ---
 
     @Test

@@ -4,10 +4,9 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.OverRestRoutes.overRestPayment
 import com.z_company.domain.entities.route.OverRestRoutes.previousRouteFor
 import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
-import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
+import com.z_company.domain.util.usesOnePersonPassengerRate
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
-import com.z_company.domain.util.toIntOrZero
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
@@ -76,10 +75,8 @@ suspend fun computeRouteTotalPayment(
         val other = async { helper.getMoneyOtherSurchargeFlow().first() }
         val businessTrip = async { helper.getMoneyBusinessTripFlow().first() }
 
-        // «В одно лицо» считается по разному тарифу для пассажирских поездов.
-        val isPassengerTrain = route.trains.any { train ->
-            passengerTrainNumberList.any { it.contains(train.number.toIntOrZero()) }
-        }
+        // «В одно лицо» считается по разному тарифу для пассажирских и пригородных поездов.
+        val isPassengerTrain = route.usesOnePersonPassengerRate()
         val onePerson = async {
             if (isPassengerTrain) {
                 helper.getMoneyOnePersonOperationPassengerTrainFlow().first()

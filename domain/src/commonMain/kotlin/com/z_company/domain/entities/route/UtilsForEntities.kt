@@ -52,6 +52,18 @@ object UtilsForEntities {
         801..898
     )
 
+    /**
+     * Пригородные поезда с пассажирами (распоряжение ОАО «РЖД» № 859р):
+     * пригородные/региональные, скоростные и скорые пригородные. Составы
+     * без пассажиров и служебные (7601–7998) сюда не входят.
+     */
+    val suburbanTrainNumberList = listOf(
+        6001..6998,
+        7001..7098,
+        7101..7498,
+        7501..7598
+    )
+
     fun isHolidayTimeInRoute(
         monthOfYear: MonthOfYear,
         userSetting: UserSettings,

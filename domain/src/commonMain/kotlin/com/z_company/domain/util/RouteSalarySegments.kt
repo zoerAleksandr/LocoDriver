@@ -7,6 +7,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.clipToMonth
 import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
+import com.z_company.domain.entities.route.UtilsForEntities.suburbanTrainNumberList
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.atStartOfDayIn
@@ -81,7 +82,7 @@ fun Route.buildSalarySegments(
         passengerIntervals = passengerIntervals,
         passengerWaitingIntervals = passengerWaitingIntervals,
     )
-    val onePersonIsPassenger = hasPassengerTrain()
+    val onePersonIsPassenger = usesOnePersonPassengerRate()
     val freightOnePersonIntervals = if (onePersonIsPassenger) emptyList() else onePersonIntervals
     val passengerOnePersonIntervals = if (onePersonIsPassenger) onePersonIntervals else emptyList()
     val doubledFirstIntervals = trainIntervals(workInterval) { it.doubledTrain?.isFirst == true }
@@ -280,14 +281,14 @@ private fun Route.trainIntervals(
  * пассажиром (018M): в это время машинист не работает на локомотиве.
  *
  * @param passengerTrain `true` — время по пассажирской ставке, `false` — по грузовой.
- * Категория общая на всю смену: см. [hasPassengerTrain].
+ * Категория общая на всю смену: см. [usesOnePersonPassengerRate].
  */
 fun Route.onePersonOperationTime(
     monthOfYear: MonthOfYear,
     context: TimeCalculationContext,
     passengerTrain: Boolean,
 ): Long {
-    if (!basicData.isOnePersonOperation || hasPassengerTrain() != passengerTrain) return 0L
+    if (!basicData.isOnePersonOperation || usesOnePersonPassengerRate() != passengerTrain) return 0L
     val (start, end) = clipToMonth(monthOfYear, context) ?: return 0L
     val workInterval = TimeInterval(start, end)
     val breakInterval = validInterval(
@@ -307,12 +308,13 @@ fun Route.onePersonOperationTime(
 
 /**
  * Категория доплаты в одно лицо определяется на всю смену: достаточно одного
- * пассажирского (пригородного) поезда, чтобы вся смена шла по пассажирской
- * ставке. Без пассажирских поездов (в т. ч. без указанного поезда) — грузовая.
+ * пассажирского или пригородного поезда, чтобы вся смена шла по пассажирской
+ * ставке (КСОТ: «при вождении пассажирских и пригородных поездов» — 50%).
+ * Без таких поездов (в т. ч. без указанного поезда) — грузовая.
  */
-private fun Route.hasPassengerTrain(): Boolean = trains.any { train ->
+fun Route.usesOnePersonPassengerRate(): Boolean = trains.any { train ->
     val parsed = train.number?.trim()?.toIntOrNull() ?: return@any false
-    passengerTrainNumberList.any { parsed in it }
+    passengerTrainNumberList.any { parsed in it } || suburbanTrainNumberList.any { parsed in it }
 }
 
 private fun Route.onePersonOperationIntervals(

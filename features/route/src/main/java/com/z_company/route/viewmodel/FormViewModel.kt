@@ -25,7 +25,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
-import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
+import com.z_company.domain.util.usesOnePersonPassengerRate
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.OtherWorkUseCase
@@ -39,7 +39,6 @@ import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.SharedRouteHolder
 import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.sum
-import com.z_company.domain.util.toIntOrZero
 import com.z_company.repository.SecureDataStore
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.route.Const.NULLABLE_ID
@@ -548,15 +547,8 @@ class FormViewModel(
             }
 
             // Синхронная логика (не требует async)
-            var isPassengerTrain = false
-            passengerTrainNumberList.forEach { interval ->
-                route.trains.forEach { train ->
-                    if (interval.contains(train.number.toIntOrZero())) {
-                        isPassengerTrain = true
-                        return@forEach
-                    }
-                }
-            }
+            // Пассажирская ставка одного лица — при пассажирском или пригородном поезде.
+            val isPassengerTrain = route.usesOnePersonPassengerRate()
 
             // Deferred для moneyAtOnePerson (зависит от isPassengerTrain, но .first() асинхронный)
             val deferredMoneyAtOnePerson = async {

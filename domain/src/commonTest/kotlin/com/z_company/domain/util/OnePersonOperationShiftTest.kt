@@ -16,6 +16,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * Доплата за работу в одно лицо (153L) начисляется «по маршруту машиниста» —
@@ -105,6 +106,42 @@ class OnePersonOperationShiftTest {
 
         assertEquals(8 * hour, segments.duration(AccrualCondition.ONE_PERSON_PASSENGER))
         assertEquals(0L, segments.duration(AccrualCondition.ONE_PERSON_FREIGHT))
+    }
+
+    @Test
+    fun suburbanTrainsUsePassengerRate() {
+        // Пригородные с пассажирами (859р): 6001–6998, 7001–7098, 7101–7498, 7501–7598.
+        listOf("6001", "6500", "6998", "7001", "7098", "7101", "7498", "7501", "7598").forEach { number ->
+            val segments = route(trains = listOf(train(number, fromHour = 1, toHour = 3))).segments()
+            assertEquals(8 * hour, segments.duration(AccrualCondition.ONE_PERSON_PASSENGER), number)
+            assertEquals(0L, segments.duration(AccrualCondition.ONE_PERSON_FREIGHT), number)
+        }
+    }
+
+    @Test
+    fun numbersAroundSuburbanRangesStayFreight() {
+        // 5998 — вагоны без пассажиров, 7099/7499/7599 — разрывы диапазонов,
+        // 7601+ — служебные и МВПС без пассажиров, 6999 — вне диапазона.
+        listOf("5998", "6999", "7099", "7499", "7599", "7601", "7998").forEach { number ->
+            val segments = route(trains = listOf(train(number, fromHour = 1, toHour = 3))).segments()
+            assertEquals(8 * hour, segments.duration(AccrualCondition.ONE_PERSON_FREIGHT), number)
+            assertEquals(0L, segments.duration(AccrualCondition.ONE_PERSON_PASSENGER), number)
+        }
+    }
+
+    @Test
+    fun suburbanTrainInMixedShiftMovesWholeShiftToPassengerRate() {
+        val route = route(
+            trains = listOf(
+                train("2503", fromHour = 1, toHour = 3),
+                train("6123", fromHour = 4, toHour = 6),
+            ),
+        )
+
+        assertTrue(route.usesOnePersonPassengerRate())
+        assertEquals(8 * hour, route.segments().duration(AccrualCondition.ONE_PERSON_PASSENGER))
+        assertEquals(8 * hour, listOf(route).getOnePersonOperationTimePassengerTrain(january, context))
+        assertEquals(0L, listOf(route).getOnePersonOperationTime(january, context))
     }
 
     @Test
