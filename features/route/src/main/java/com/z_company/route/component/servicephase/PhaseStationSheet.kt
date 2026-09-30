@@ -69,7 +69,8 @@ internal fun PhaseStationSheet(
     onSave: (ServicePhaseStation) -> Unit,
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
-    onPickOnMap: ((ServicePhaseStation) -> Unit)? = null,
+    /** Соседние станции плеча с координатами — ориентиры на карте; null — карты нет. */
+    mapNeighbours: List<Pair<Double, Double>>? = null,
     /** Поиск координат по названию (сервер); null в ответе — ошибка сети/сервиса. */
     findCoordinates: (suspend (String) -> List<OsmStationCandidate>?)? = null,
     /** Соседи по плечу — для подписи найденной станции «между A и B». */
@@ -85,6 +86,8 @@ internal fun PhaseStationSheet(
     var suggestionsOpen by remember { mutableStateOf(isNew) }
     var confirmDelete by remember { mutableStateOf(false) }
     var coords by remember { mutableStateOf<CoordState>(CoordState.Idle) }
+    var picked by remember { mutableStateOf<PickedPoint?>(null) }
+    var mapOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var searchJob by remember { mutableStateOf<Job?>(null) }
     val nameFocus = remember { FocusRequester() }
@@ -97,6 +100,24 @@ internal fun PhaseStationSheet(
     val suggestions = remember(name.text, stationList) { suggest(stationList, name.text) }
 
     LaunchedEffect(Unit) { if (isNew) nameFocus.requestFocus() }
+
+    if (mapOpen && station != null && mapNeighbours != null) {
+        val found = (coords as? CoordState.Found)?.candidate
+        PhaseMapPicker(
+            stationName = name.text.trim().ifBlank { station.name },
+            kindLabel = if (kind == ServicePhaseStationKind.HALT) "О.П." else "станция",
+            start = picked?.let { it.latitude to it.longitude }
+                ?: found?.let { it.latitude to it.longitude }
+                ?: station.latitude?.let { lat -> station.longitude?.let { lat to it } },
+            neighbours = mapNeighbours,
+            onPick = {
+                picked = it
+                coords = CoordState.Idle
+                mapOpen = false
+            },
+            onDismiss = { mapOpen = false },
+        )
+    }
 
     if (confirmDelete && station != null && onDelete != null) {
         AppAlertDialog(
@@ -190,10 +211,12 @@ internal fun PhaseStationSheet(
                 }
                 if (station != null) {
                     CoordinatesCard(
-                        station = station,
+                        station = picked?.let {
+                            station.copy(latitude = it.latitude, longitude = it.longitude, source = ServicePhaseStationSource.MAP)
+                        } ?: station,
                         state = coords,
                         neighbours = neighbours,
-                        onPickOnMap = onPickOnMap,
+                        onPickOnMap = if (mapNeighbours != null) ({ mapOpen = true }) else null,
                         onFind = findCoordinates?.let { find ->
                             {
                                 val query = name.text.trim().ifBlank { station.name }
@@ -230,15 +253,24 @@ internal fun PhaseStationSheet(
                         val trimmed = name.text.trim()
                         val kmValue = km?.let { kotlin.math.round(it * 10) / 10 }
                         val found = (coords as? CoordState.Found)?.candidate
-                        val result = station?.copy(
-                            name = trimmed,
-                            kind = kind,
-                            kmFromStart = kmValue,
-                            latitude = found?.latitude ?: station.latitude,
-                            longitude = found?.longitude ?: station.longitude,
-                            esr = station.esr ?: found?.esr?.takeIf(String::isNotBlank),
-                            osmId = found?.osmId ?: station.osmId,
-                        ) ?: ServicePhaseStation(name = trimmed, kind = kind, kmFromStart = kmValue)
+                        val point = picked
+                        val result = when {
+                            station == null -> ServicePhaseStation(name = trimmed, kind = kind, kmFromStart = kmValue)
+                            point != null -> station.copy(
+                                name = trimmed, kind = kind, kmFromStart = kmValue,
+                                latitude = point.latitude, longitude = point.longitude,
+                                source = ServicePhaseStationSource.MAP,
+                            )
+                            else -> station.copy(
+                                name = trimmed,
+                                kind = kind,
+                                kmFromStart = kmValue,
+                                latitude = found?.latitude ?: station.latitude,
+                                longitude = found?.longitude ?: station.longitude,
+                                esr = station.esr ?: found?.esr?.takeIf(String::isNotBlank),
+                                osmId = found?.osmId ?: station.osmId,
+                            )
+                        }
                         onSave(result)
                         onDismiss()
                     },
@@ -270,7 +302,7 @@ private fun CoordinatesCard(
     station: ServicePhaseStation,
     state: CoordState,
     neighbours: Pair<String?, String?>,
-    onPickOnMap: ((ServicePhaseStation) -> Unit)?,
+    onPickOnMap: (() -> Unit)?,
     onFind: (() -> Unit)?,
     onCancelSearch: () -> Unit,
     onReject: () -> Unit,
@@ -356,7 +388,7 @@ private fun CoordinatesCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 48.dp)
-                        .clickable { onPickOnMap(station) }
+                        .clickable { onPickOnMap() }
                         .padding(horizontal = 14.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,

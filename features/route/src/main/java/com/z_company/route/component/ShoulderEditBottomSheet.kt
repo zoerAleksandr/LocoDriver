@@ -198,6 +198,14 @@ fun ShoulderEditBottomSheet(
                 }
                 autoVm.lookup(query, country, near)
             },
+            mapNeighbours = buildList {
+                val idx = stations.indexOfFirst { it.id == editingStation?.id }
+                listOfNotNull(stations.getOrNull(idx - 1), stations.getOrNull(idx + 1))
+                    .filter { it.hasCoordinates }
+                    .forEach { add(it.latitude!! to it.longitude!!) }
+                if (idx == 0) depPoint?.first?.let { add(it.latitude to it.longitude) }
+                if (idx == stations.lastIndex) arrPoint?.first?.let { add(it.latitude to it.longitude) }
+            },
             neighbours = run {
                 val idx = stations.indexOfFirst { it.id == editingStation?.id }
                 val prev = stations.getOrNull(idx - 1)?.name ?: departure.text.trim().takeIf { idx == 0 }

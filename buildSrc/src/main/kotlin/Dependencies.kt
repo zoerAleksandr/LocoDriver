@@ -92,6 +92,7 @@ object Versions {
     const val lifecycle_viewmodel_version = "2.6.1"
     const val material_compose3 = "1.4.0"
     const val reorderable_version = "3.1.0"
+    const val maplibre_version = "13.6.1"
     const val room_version = "2.7.1"
     const val test_ext_version = "1.1.5"
     const val test_runner_version = "1.6.0-alpha01"
@@ -184,6 +185,10 @@ object Libs {
     // Перетаскивание строк в LazyColumn (станции плеча)
     const val reorderable =
         "sh.calvin.reorderable:reorderable:${Versions.reorderable_version}"
+    // Карта выбора точки станции плеча. ≥ 13.x: нативные библиотеки выровнены под 16 КБ
+    // (11.5.2 из ветки навигатора — нет, Android показывает «not 16 KB compatible»)
+    const val maplibre =
+        "org.maplibre.gl:android-sdk:${Versions.maplibre_version}"
     const val core_ktx =
         "androidx.core:core-ktx:$core_ktx_version"
     const val kotlinx_coroutines_core =
