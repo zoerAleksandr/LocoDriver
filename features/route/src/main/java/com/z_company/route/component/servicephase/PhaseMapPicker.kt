@@ -337,7 +337,7 @@ internal fun PhaseMapPicker(
 }
 
 @Composable
-private fun MapButton(onClick: () -> Unit, description: String, content: @Composable () -> Unit) {
+internal fun MapButton(onClick: () -> Unit, description: String, content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .size(48.dp)
@@ -367,7 +367,7 @@ private fun stationAt(map: MapLibreMap, screen: PointF, radiusPx: Float): Pair<L
 }
 
 
-private fun hasLocationPermission(context: Context): Boolean =
+internal fun hasLocationPermission(context: Context): Boolean =
     listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION).any {
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }

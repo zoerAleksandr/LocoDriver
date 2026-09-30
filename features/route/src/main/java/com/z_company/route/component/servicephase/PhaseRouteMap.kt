@@ -1,5 +1,17 @@
 package com.z_company.route.component.servicephase
 
+import org.maplibre.android.maps.MapLibreMap
+import kotlinx.coroutines.launch
+import com.z_company.route.util.DeviceLocation
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.border
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.Manifest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -58,6 +70,7 @@ internal data class RouteMapStop(
 
 private const val STOPS_SOURCE = "phase-route-stops"
 private const val LINE_SOURCE = "phase-route-line"
+private const val ME_SOURCE = "phase-route-me"
 
 /**
  * Просмотр плеча на карте (SCREEN_SPECS §6.6): станции с координатами по порядку —
@@ -79,9 +92,25 @@ internal fun PhaseRouteMap(
         val context = LocalContext.current
         remember { MapLibre.getInstance(context); true }
         val density = context.resources.displayMetrics.density
+        var map by remember { mutableStateOf<MapLibreMap?>(null) }
+        var locationDenied by remember { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
+        fun showMyLocation() {
+            scope.launch {
+                val fix = DeviceLocation.currentFix(context) ?: return@launch
+                val m = map ?: return@launch
+                m.style?.getSourceAs<GeoJsonSource>(ME_SOURCE)
+                    ?.setGeoJson(Point.fromLngLat(fix.longitude, fix.latitude))
+                m.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(fix.latitude, fix.longitude), 13.0))
+            }
+        }
+        val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+            if (granted.values.any { it }) showMyLocation() else locationDenied = true
+        }
         val mapView = remember {
             MapView(context).also { mv ->
                 mv.getMapAsync { m ->
+                    map = m
                     m.uiSettings.isRotateGesturesEnabled = false
                     m.uiSettings.isTiltGesturesEnabled = false
                     m.uiSettings.isLogoEnabled = false
@@ -92,6 +121,16 @@ internal fun PhaseRouteMap(
                         .build()
                     m.setStyle(STYLE_URL) { style ->
                         addRailwayLayers(style)
+                        // Моё местоположение — синяя точка (заполняется по кнопке).
+                        style.addSource(GeoJsonSource(ME_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addLayer(
+                            CircleLayer("phase-route-me-layer", ME_SOURCE).withProperties(
+                                PropertyFactory.circleRadius(7f),
+                                PropertyFactory.circleColor("#00A0F5"),
+                                PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                PropertyFactory.circleStrokeWidth(3f),
+                            )
+                        )
                         val points = stops.map { Point.fromLngLat(it.longitude, it.latitude) }
                         if (points.size >= 2) {
                             style.addSource(GeoJsonSource(LINE_SOURCE, Feature.fromGeometry(LineString.fromLngLats(points))))
@@ -167,6 +206,7 @@ internal fun PhaseRouteMap(
             mapView.onStart()
             mapView.onResume()
             onDispose {
+                map = null
                 mapView.onPause()
                 mapView.onStop()
                 mapView.onDestroy()
@@ -203,12 +243,39 @@ internal fun PhaseRouteMap(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    val total = stops.size + missing
                     Text(
-                        text = "На карте ${stops.size} " + pstPlural(stops.size, "станция", "станции", "станций") +
-                            if (missing > 0) " · $missing без координат" else "",
+                        text = when {
+                            locationDenied -> "Нет доступа к местоположению"
+                            missing == 0 -> "$total " + pstPlural(total, "станция", "станции", "станций")
+                            else -> "Показано ${stops.size} из $total · у $missing нет координат"
+                        },
                         style = Pst.sans.copy(fontSize = 12.sp),
-                        color = if (missing > 0) Pst.warning else Pst.textMuted,
+                        color = if (missing > 0 || locationDenied) Pst.warning else Pst.textMuted,
                     )
+                }
+            }
+            // «+», «−», «Моё местоположение» — как на карте выбора точки.
+            Column(
+                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                MapButton(onClick = { map?.animateCamera(CameraUpdateFactory.zoomIn()) }, description = "Приблизить") {
+                    Text("+", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
+                }
+                MapButton(onClick = { map?.animateCamera(CameraUpdateFactory.zoomOut()) }, description = "Отдалить") {
+                    Text("−", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
+                }
+                MapButton(
+                    onClick = {
+                        if (hasLocationPermission(context)) showMyLocation()
+                        else permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                    },
+                    description = "Моё местоположение",
+                ) {
+                    Box(Modifier.size(14.dp).border(2.dp, Pst.accent, CircleShape), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(4.dp).background(Pst.accent, CircleShape))
+                    }
                 }
             }
             if (stops.isEmpty()) {
