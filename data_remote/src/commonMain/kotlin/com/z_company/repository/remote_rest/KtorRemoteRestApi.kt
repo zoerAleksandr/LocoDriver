@@ -381,6 +381,16 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             setBody(body)
         }.body()
 
+    override suspend fun measureRouteLength(
+        token: String,
+        body: com.z_company.repository.remote_rest.response.RouteLengthRequest,
+    ): com.z_company.repository.remote_rest.response.RouteLengthResponse =
+        client.post("v1/service_phase/route/length") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(body)
+        }.body()
+
     override suspend fun nearestStation(
         token: String,
         body: com.z_company.repository.remote_rest.response.NearestStationRequest,

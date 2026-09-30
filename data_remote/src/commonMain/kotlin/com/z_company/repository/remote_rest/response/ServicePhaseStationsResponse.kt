@@ -72,3 +72,10 @@ data class NearestStationRequest(val latitude: Double, val longitude: Double, va
 
 @Serializable
 data class NearestStationResponse(val station: OsmStationCandidate? = null)
+
+/** `POST /v1/service_phase/route/length` — длина плеча по ж/д путям через станции по порядку. */
+@Serializable
+data class RouteLengthRequest(val points: List<LatLon>)
+
+@Serializable
+data class RouteLengthResponse(val lengthKm: Double, val kmAt: List<Double> = emptyList())

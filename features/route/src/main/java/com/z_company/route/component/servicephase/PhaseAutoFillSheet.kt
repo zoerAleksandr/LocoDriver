@@ -61,6 +61,8 @@ internal class AutoFillResult(
     val newNames: List<String>,
     val departurePoint: ServicePhasePoint,
     val arrivalPoint: ServicePhasePoint,
+    /** Длина пути по карте (км) — если расстояние плеча совпадает с ней, оно «измерено по карте». */
+    val lengthKm: Double,
 )
 
 /**
@@ -468,6 +470,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
                             newNames = if (addNames) newNames else emptyList(),
                             departurePoint = state.departure.toPoint(),
                             arrivalPoint = state.arrival.toPoint(),
+                            lengthKm = state.lengthKm,
                         )
                     )
                 },

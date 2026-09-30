@@ -147,6 +147,39 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         _state.value = AutoFillState.Failed(failure)
     }
 
+    sealed interface MeasureResult {
+        data class Ok(val lengthKm: Double, val kmAt: List<Double>) : MeasureResult
+        data object NoPath : MeasureResult
+        data class Failed(val failure: AutoFillFailure) : MeasureResult
+    }
+
+    /** «Измерить по карте»: длина по ж/д путям через точки по порядку (отправление … прибытие). */
+    suspend fun measure(points: List<Pair<Double, Double>>): MeasureResult = try {
+        val token = tokens.getAuthBearerTokenFlow().first()
+        val res = withTimeout(TIMEOUT_MS) {
+            api.measureRouteLength(
+                "Bearer $token",
+                com.z_company.repository.remote_rest.response.RouteLengthRequest(points.map { (lat, lon) -> LatLon(lat, lon) }),
+            )
+        }
+        MeasureResult.Ok(res.lengthKm, res.kmAt)
+    } catch (e: TimeoutCancellationException) {
+        MeasureResult.Failed(AutoFillFailure.SERVICE)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: IOException) {
+        val timeout = e::class.simpleName.orEmpty().contains("Timeout")
+        MeasureResult.Failed(if (timeout) AutoFillFailure.SERVICE else AutoFillFailure.NO_INTERNET)
+    } catch (e: Exception) {
+        val msg = e.message.orEmpty()
+        when {
+            // 404 «Not Found» — эндпоинта ещё нет на сервере; наш 404 — «путь не найден».
+            msg.contains("404") && !msg.contains("Not Found") -> MeasureResult.NoPath
+            msg.contains("429") -> MeasureResult.Failed(AutoFillFailure.RATE_LIMITED)
+            else -> MeasureResult.Failed(AutoFillFailure.SERVICE)
+        }
+    }
+
     /** Координаты одной станции (шторка станции, «Найти координаты»). null — ошибка сети/сервиса. */
     suspend fun lookup(name: String, country: String, near: List<Pair<Double, Double>>): List<OsmStationCandidate>? =
         try {

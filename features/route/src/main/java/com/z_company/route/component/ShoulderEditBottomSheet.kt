@@ -1,5 +1,9 @@
 package com.z_company.route.component
 
+import com.z_company.route.viewmodel.AutoFillFailure
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import com.z_company.route.component.servicephase.RouteMapStop
 import com.z_company.route.component.servicephase.PhaseRouteMap
 import com.z_company.domain.entities.setting.ServicePhaseStationSource
@@ -123,6 +127,16 @@ fun ShoulderEditBottomSheet(
     // Шторка станции: editing — существующая; insertAt — позиция новой (null = по км / в конец)
     var stationSheetOpen by remember { mutableStateOf(false) }
     var showRouteMap by remember { mutableStateOf(false) }
+
+    // «Измерено по карте»: расстояние и координаты станций, по которым оно измерено. Храним
+    // локально (не в синхронизируемом плече — формат обмена с сервером не меняется).
+    val context = LocalContext.current
+    val measuredPrefs = remember { context.getSharedPreferences("service_phase_measured", android.content.Context.MODE_PRIVATE) }
+    var measured by remember {
+        mutableStateOf(phase?.id?.let { id -> measuredPrefs.getString(id, null)?.let(MeasuredDistance::parse) })
+    }
+    var measuring by remember { mutableStateOf(false) }
+    val measureScope = rememberCoroutineScope()
     /** Открыта шторка крайней станции: true — отправление, false — прибытие. */
     var editingTerminal by remember { mutableStateOf<Boolean?>(null) }
     var editingStation by remember { mutableStateOf<ServicePhaseStation?>(null) }
@@ -162,6 +176,61 @@ fun ShoulderEditBottomSheet(
     fun closeAutoFill() {
         autoVm.cancel()
         autoFillOpen = false
+    }
+
+    /** Координаты станций плеча по порядку — «подпись», по которой проверяется «измерено по карте». */
+    fun coordinateSignature(): String {
+        val dep = departure.text.trim()
+        val arr = arrival.text.trim()
+        val points = buildList {
+            add(depPoint?.takeIf { sameName(it.second, dep) }?.first?.let { it.latitude to it.longitude })
+            stations.filter { it.hasCoordinates }.forEach { add(it.latitude!! to it.longitude!!) }
+            add(arrPoint?.takeIf { sameName(it.second, arr) }?.first?.let { it.latitude to it.longitude })
+        }
+        return points.joinToString(";") { p -> p?.let { "%.5f,%.5f".format(java.util.Locale.US, it.first, it.second) } ?: "-" }
+    }
+
+    fun measureByMap() {
+        val dep = departure.text.trim()
+        val arr = arrival.text.trim()
+        val depP = depPoint?.takeIf { sameName(it.second, dep) }?.first
+        val arrP = arrPoint?.takeIf { sameName(it.second, arr) }?.first
+        if (depP == null || arrP == null) {
+            snackbar = EditorSnackbar("Нужны координаты станций отправления и прибытия — откройте их в схеме", null)
+            return
+        }
+        val withCoords = stations.filter { it.hasCoordinates }
+        val points = listOf(depP.latitude to depP.longitude) +
+            withCoords.map { it.latitude!! to it.longitude!! } +
+            listOf(arrP.latitude to arrP.longitude)
+        measuring = true
+        measureScope.launch {
+            val res = autoVm.measure(points)
+            measuring = false
+            when (res) {
+                is ServicePhaseAutoFillViewModel.MeasureResult.Ok -> {
+                    val km = kotlin.math.round(res.lengthKm).toInt()
+                    distance = TextFieldValue(km.toString(), TextRange(km.toString().length))
+                    // Км промежуточных станций — по тому же пути.
+                    withCoords.forEachIndexed { i, st ->
+                        val kmAt = res.kmAt.getOrNull(i + 1) ?: return@forEachIndexed
+                        val idx = stations.indexOfFirst { it.id == st.id }
+                        if (idx >= 0) stations[idx] = stations[idx].copy(kmFromStart = kmAt)
+                    }
+                    measured = MeasuredDistance(km, coordinateSignature())
+                }
+                ServicePhaseAutoFillViewModel.MeasureResult.NoPath ->
+                    snackbar = EditorSnackbar("Путь по железной дороге между станциями не найден — проверьте координаты", null)
+                is ServicePhaseAutoFillViewModel.MeasureResult.Failed -> snackbar = EditorSnackbar(
+                    when (res.failure) {
+                        AutoFillFailure.NO_INTERNET -> "Нет подключения к интернету"
+                        AutoFillFailure.RATE_LIMITED -> "Слишком много запросов — попробуйте позже"
+                        else -> "Сервис не ответил — попробуйте позже"
+                    },
+                    null,
+                )
+            }
+        }
     }
 
     val distanceKm = distance.text.toIntOrZero()
@@ -314,6 +383,10 @@ fun ShoulderEditBottomSheet(
                 depPoint = result.departurePoint to departure.text.trim()
                 arrPoint = result.arrivalPoint to arrival.text.trim()
                 freshIds = result.addedIds
+                // Расстояние совпало с длиной пути по карте («Установить N км» или уже было таким).
+                if (distance.text.toIntOrNull() == kotlin.math.round(result.lengthKm).toInt()) {
+                    measured = MeasuredDistance(distance.text.toInt(), coordinateSignature())
+                }
                 closeAutoFill()
                 val n = result.addedIds.size
                 val m = result.newNames.size
@@ -396,6 +469,12 @@ fun ShoulderEditBottomSheet(
                             onDone = { focusManager.clearFocus() },
                             departureFocus = departureFocus,
                             arrivalFocus = arrivalFocus,
+                            measure = {
+                                val isMeasured = measured?.let {
+                                    it.distance == distanceKm && it.signature == coordinateSignature()
+                                } == true
+                                MeasureByMap(isMeasured = isMeasured, measuring = measuring, onMeasure = ::measureByMap)
+                            },
                         )
                     }
                     if (isNew) {
@@ -557,6 +636,10 @@ fun ShoulderEditBottomSheet(
                             arrivalPoint = arrPoint?.takeIf { sameName(it.second, arr) }?.first,
                         )
                         if (pendingNames.isNotEmpty()) onAddStationNames(pendingNames)
+                        val isMeasured = measured?.let { it.distance == distanceKm && it.signature == coordinateSignature() } == true
+                        measuredPrefs.edit().apply {
+                            if (isMeasured) putString(result.id, measured!!.encode()) else remove(result.id)
+                        }.apply()
                         onSave(result, createReverse && isNew)
                         onDismiss()
                     },
@@ -585,6 +668,7 @@ private fun PhaseFields(
     onDone: () -> Unit,
     departureFocus: FocusRequester,
     arrivalFocus: FocusRequester,
+    measure: @Composable () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         StationNameField("От станции", departure, onDeparture, stationList, onDeleteStationName, onNext, departureFocus)
@@ -611,6 +695,7 @@ private fun PhaseFields(
                 keyboardActions = KeyboardActions(onDone = { onDone() }),
             )
         }
+        measure()
     }
 }
 
@@ -799,7 +884,8 @@ private fun CardSegment(top: Boolean = false, bottom: Boolean = false, content: 
 
 // ─── Снекбар с «Отменить» ──────────────────────────────────────────────
 
-private class EditorSnackbar(val text: String, val undo: () -> Unit)
+/** [undo] null — просто сообщение, без «Отменить». */
+private class EditorSnackbar(val text: String, val undo: (() -> Unit)?)
 
 @Composable
 private fun EditorSnackbarView(bar: EditorSnackbar, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
@@ -825,17 +911,18 @@ private fun EditorSnackbarView(bar: EditorSnackbar, onDismiss: () -> Unit, modif
             color = Pst.ctaInk,
             modifier = Modifier.weight(1f),
         )
-        Text(
+        val undo = bar.undo
+        if (undo != null) Text(
             text = "Отменить",
             style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
             color = actionColor,
             modifier = Modifier
                 .clickable {
-                    bar.undo()
+                    undo()
                     onDismiss()
                 }
                 .padding(horizontal = 12.dp, vertical = 9.dp),
-        )
+        ) else Box(Modifier.heightIn(min = 36.dp))
     }
 }
 
@@ -898,5 +985,56 @@ private fun EditorTopBar(title: String, onBack: () -> Unit, onMap: () -> Unit) {
                 color = Pst.accent,
             )
         }
+    }
+}
+
+/** Расстояние, измеренное по карте, и координаты станций, по которым его измерили. */
+private data class MeasuredDistance(val distance: Int, val signature: String) {
+    fun encode() = "$distance|$signature"
+
+    companion object {
+        fun parse(v: String): MeasuredDistance? {
+            val i = v.indexOf('|')
+            if (i <= 0) return null
+            val d = v.substring(0, i).toIntOrNull() ?: return null
+            return MeasuredDistance(d, v.substring(i + 1))
+        }
+    }
+}
+
+/**
+ * Под расстоянием: «Измерить по карте» (расстояние введено вручную / не введено / координаты
+ * станций изменились после измерения) или чип «Измерено по карте».
+ */
+@Composable
+private fun MeasureByMap(isMeasured: Boolean, measuring: Boolean, onMeasure: () -> Unit) {
+    if (isMeasured) {
+        Row(
+            modifier = Modifier
+                .padding(start = 4.dp)
+                .background(Pst.success.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            PstIcon(PstIcons.Check, 14.dp, Pst.success)
+            Text(
+                text = "Измерено по карте",
+                style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                color = Pst.text,
+            )
+        }
+    } else {
+        PstButton(
+            text = if (measuring) "Измеряем…" else "Измерить по карте",
+            onClick = onMeasure,
+            enabled = !measuring,
+            kind = PstButtonKind.TONAL,
+            icon = PstIcons.MapPin,
+            iconSize = 16.dp,
+            height = 36.dp,
+            fontSize = 14,
+            contentPadding = PaddingValues(horizontal = 14.dp),
+        )
     }
 }

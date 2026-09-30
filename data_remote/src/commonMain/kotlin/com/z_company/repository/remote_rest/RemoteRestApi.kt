@@ -205,6 +205,12 @@ interface RemoteRestApi {
         body: com.z_company.repository.remote_rest.response.ServicePhaseSuggestRequest,
     ): com.z_company.repository.remote_rest.response.ServicePhaseSuggestResponse
 
+    /** «Измерить по карте»: длина плеча по ж/д путям через станции по порядку. */
+    suspend fun measureRouteLength(
+        token: String,
+        body: com.z_company.repository.remote_rest.response.RouteLengthRequest,
+    ): com.z_company.repository.remote_rest.response.RouteLengthResponse
+
     /** Ближайшая станция к точке телефона (радиус по умолчанию 2 км). */
     suspend fun nearestStation(
         token: String,
