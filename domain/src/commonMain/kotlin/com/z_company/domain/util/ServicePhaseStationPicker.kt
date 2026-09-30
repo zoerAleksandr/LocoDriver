@@ -20,6 +20,9 @@ object ServicePhaseStationPicker {
     /** Радиус, в котором станция плеча считается «здесь». */
     const val NEAR_RADIUS_M = 2_000.0
 
+    /** Ближе этого к станции — «уже на станции»: подставляем её при любом движении. */
+    const val AT_STATION_M = 500.0
+
     /** Сдвиг меньше этого с прошлого добавления — «стоим на месте» (дописывают задним числом). */
     const val STATIONARY_M = 300.0
 
@@ -59,17 +62,18 @@ object ServicePhaseStationPicker {
     fun isStationary(previous: GeoFix?, fix: GeoFix): Boolean =
         previous != null && distanceM(previous.latitude, previous.longitude, fix.latitude, fix.longitude) < STATIONARY_M
 
-    /** Ближайшая к [fix] станция плеча в радиусе (любая, без учёта хода). */
-    fun nearestInPhase(phase: ServicePhase, fix: GeoFix): String? =
+    /** Ближайшая к [fix] станция плеча в радиусе [radiusM] (любая, без учёта хода). */
+    fun nearestInPhase(phase: ServicePhase, fix: GeoFix, radiusM: Double = NEAR_RADIUS_M): String? =
         stops(phase)
             .filter { it.lat != null && it.lon != null }
             .map { it to distanceM(fix.latitude, fix.longitude, it.lat!!, it.lon!!) }
-            .filter { it.second <= NEAR_RADIUS_M }
+            .filter { it.second <= radiusM }
             .minByOrNull { it.second }
             ?.first?.name
 
     /**
      * Название для новой станции по плечу:
+     * - телефон уже на станции плеча (≤ [AT_STATION_M]) — она, при любом движении;
      * - в движении — ближайшая станция **впереди** по ходу ([nearestAhead]);
      * - стоя на месте (сдвиг < [STATIONARY_M] с прошлого добавления) — ближайшая станция плеча
      *   вообще ([nearestInPhase]): машинист дописывает станцию, у которой стоит.
@@ -81,8 +85,9 @@ object ServicePhaseStationPicker {
         fix: GeoFix,
         previousFix: GeoFix?,
     ): String? {
-        val name = if (isStationary(previousFix, fix)) nearestInPhase(phase, fix)
-        else nearestAhead(phase, trainStationNames, fix)
+        val name = nearestInPhase(phase, fix, AT_STATION_M)
+            ?: if (isStationary(previousFix, fix)) nearestInPhase(phase, fix)
+            else nearestAhead(phase, trainStationNames, fix)
         return name?.takeUnless { isSameAsPrevious(it, trainStationNames) }
     }
 

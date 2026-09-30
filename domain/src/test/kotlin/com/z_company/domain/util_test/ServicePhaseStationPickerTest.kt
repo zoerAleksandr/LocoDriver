@@ -56,8 +56,10 @@ class ServicePhaseStationPickerTest {
         val here = at(30.1005) // у Суйды, она уже в поезде, но стоим тут — дописываем её
         assertEquals("Суйда", ServicePhaseStationPicker.nameForNewStation(phase, listOf("Гатчина", "Сиверская"), here, previousFix = at(30.1))
         )
-        // в движении у Суйды (уже пройдена) — впереди ничего рядом нет
-        assertNull(ServicePhaseStationPicker.nameForNewStation(phase, listOf("Гатчина", "Суйда"), here, previousFix = at(30.0)))
+        // в движении, но уже на станции (≤ 500 м) — её, даже если по списку она позади
+        assertEquals("Суйда", ServicePhaseStationPicker.nameForNewStation(phase, listOf("Гатчина", "Сиверская"), here, previousFix = at(30.0)))
+        // в движении в 1,5 км от пройденной Суйды — впереди в радиусе ничего нет
+        assertNull(ServicePhaseStationPicker.nameForNewStation(phase, listOf("Гатчина", "Суйда"), at(30.126), previousFix = at(30.0)))
     }
 
     @Test
