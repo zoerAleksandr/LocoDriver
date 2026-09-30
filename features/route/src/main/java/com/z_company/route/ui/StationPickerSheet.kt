@@ -1,5 +1,16 @@
 package com.z_company.route.ui
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
+import com.z_company.route.util.DeviceLocation
+import com.z_company.domain.util.StationSuggestionOrder
+import com.z_company.domain.util.ServicePhaseStationPicker
+import com.z_company.domain.util.GeoFix
+import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.use_cases.RouteUseCase
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.produceState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -68,8 +79,36 @@ fun StationPickerSheet(
 
     var query by remember { mutableStateOf("") }
 
-    val filtered = if (query.isBlank()) stations
-    else stations.filter { it.name.contains(query, ignoreCase = true) }
+    // Порядок (SCREEN_SPECS §6.6): ближайшая по местоположению (координаты станций из плеч) →
+    // по частоте в рейсах (приёмка/сдача локомотива) → остальные в прежнем порядке.
+    val context = LocalContext.current
+    val routeUseCase: RouteUseCase = koinInject()
+    val settingsUseCase: SettingsUseCase = koinInject()
+    val order by produceState<PickOrder?>(initialValue = null, stations) {
+        value = withContext(Dispatchers.Default) {
+            runCatching {
+                val names = stations.associate { it.stationId to it.name }
+                val usedIds = routeUseCase.getListRoutes().asSequence()
+                    .flatMap { it.locomotives.asSequence() }
+                    .flatMap { sequenceOf(it.acceptanceStationId, it.deliveryStationId) }
+                val usage = StationSuggestionOrder.usage(usedIds.map { id -> id?.let(names::get) })
+                val points = ServicePhaseStationPicker.knownPoints(settingsUseCase.getUserSettingFlow().first().servicePhases)
+                PickOrder(usage, points)
+            }.getOrNull()
+        }
+        val fix = DeviceLocation.currentFix(context) ?: return@produceState
+        value = value?.copy(fix = fix)
+    }
+    fun ordered(list: List<StationNorm>): List<StationNorm> {
+        val o = order ?: return list
+        val byName = list.groupBy { it.name }
+        return StationSuggestionOrder.sort(byName.keys.toList(), o.usage, o.points, o.fix).flatMap { byName.getValue(it) }
+    }
+
+    val filtered = ordered(
+        if (query.isBlank()) stations
+        else stations.filter { it.name.contains(query, ignoreCase = true) }
+    )
 
     // «С нормами» — задана хотя бы одна норма интервала (остальные — прочерком).
     fun hasAnyNorm(s: StationNorm) = s.appearanceToStartMin != null || s.endToBarrierMin != null ||
@@ -321,3 +360,9 @@ private fun StationPickerItem(
         }
     }
 }
+
+private data class PickOrder(
+    val usage: Map<String, Int>,
+    val points: Map<String, Pair<Double, Double>>,
+    val fix: GeoFix? = null,
+)

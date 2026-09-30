@@ -33,5 +33,7 @@ data class TrainFormUiState(
     val suggestedDepartureStation: String = "",
     val suggestedArrivalStation: String = "",
     val confirmDeleteStationIndex: Int? = null,
+    /** Название новой станции из плеча по местоположению (шторка «Новая станция»). */
+    val suggestedNewStationName: String? = null,
     val expandedSeriesSectionId: String? = null
 )

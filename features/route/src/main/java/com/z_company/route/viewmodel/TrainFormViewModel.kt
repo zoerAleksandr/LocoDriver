@@ -25,6 +25,12 @@ import com.z_company.route.Const.NULLABLE_ID
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.z_company.domain.util.GeoFix
+import com.z_company.domain.util.ServicePhaseOrder
+import com.z_company.domain.util.ServicePhaseStationPicker
+import com.z_company.domain.util.ServicePhaseStationsMerge
+import com.z_company.domain.util.StationSuggestionOrder
+import com.z_company.route.util.DeviceLocation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -172,6 +178,8 @@ class TrainFormViewModel(
     }
 
     init {
+        loadUsageStats()
+        refreshFix()
         viewModelScope.launch {
             try {
                 loadStationsSortOrder()
@@ -459,6 +467,84 @@ class TrainFormViewModel(
             }
         }
     }
+
+    // ─── Станции плеча по местоположению (SCREEN_SPECS §6.6) ───────────────
+    private val appContext: android.content.Context by inject()
+    /** Координата прошлого добавления станции — чтобы не подставлять одно и то же стоя на месте. */
+    private var previousAddFix: GeoFix? = null
+    /** Последняя известная координата — для сортировки подсказок. */
+    private var lastFix: GeoFix? = null
+    private var stationUsage: Map<String, Int> = emptyMap()
+    private var phaseUsage: Map<String, Int> = emptyMap()
+    private var phaseLastUsed: Map<String, Long> = emptyMap()
+
+    private fun loadUsageStats() {
+        viewModelScope.launch(Dispatchers.Default) {
+            runCatching {
+                val routes = routeUseCase.getListRoutes()
+                val trains = routes.flatMap { r -> r.trains.map { r to it } }
+                stationUsage = StationSuggestionOrder.usage(trains.asSequence().flatMap { (_, t) -> t.stations.asSequence().map { it.stationName } })
+                phaseUsage = trains.mapNotNull { (_, t) -> t.servicePhase?.id }.groupingBy { it }.eachCount()
+                phaseLastUsed = trains.mapNotNull { (r, t) -> t.servicePhase?.id?.let { id -> id to (r.basicData.timeStartWork ?: 0L) } }
+                    .groupBy({ it.first }, { it.second }).mapValues { (_, v) -> v.max() }
+            }.onFailure { it.sendToSentry("TrainFormViewModel", "loadUsageStats") }
+        }
+    }
+
+    private fun refreshFix(onFix: (GeoFix) -> Unit = {}) {
+        viewModelScope.launch {
+            val fix = DeviceLocation.currentFix(appContext) ?: return@launch
+            lastFix = fix
+            onFix(fix)
+        }
+    }
+
+    /** Полное плечо (со станциями) для выбранного в поезде — в рейсе хранится копия без станций. */
+    private fun fullSelectedPhase(): ServicePhase? {
+        val id = _uiState.value.selectedServicePhase?.id ?: return null
+        return servicePhaseList.firstOrNull { it.id == id }
+    }
+
+    /** У выбранного плеча есть координаты станций — подстановка по местоположению имеет смысл. */
+    fun selectedPhaseHasCoordinates(): Boolean = fullSelectedPhase()?.let(ServicePhaseStationPicker::hasCoordinates) == true
+
+    /**
+     * Подставить название новой станции [stationId] по местоположению — асинхронно, когда
+     * придёт координата; только если пользователь сам ничего не ввёл.
+     */
+    private fun autoNameNewStation(stationId: String) {
+        val phase = fullSelectedPhase() ?: return
+        if (!ServicePhaseStationPicker.hasCoordinates(phase)) return
+        refreshFix { fix ->
+            val idx = stationsListState.indexOfFirst { it.id == stationId }
+            if (idx < 0 || !stationsListState[idx].station.data.isNullOrBlank()) return@refreshFix
+            val names = stationsListState.filter { it.id != stationId }.map { it.station.data }
+            val name = ServicePhaseStationPicker.nameForNewStation(phase, names, fix, previousAddFix)
+            previousAddFix = fix
+            if (name != null) {
+                stationsListState[idx] = stationsListState[idx].copy(station = StationField(data = name, type = StationDataType.NAME))
+                changesHave()
+            }
+        }
+    }
+
+    /** Порядок плеч в шторке выбора: последнее с текущей станции → другие с неё → по частоте. */
+    fun sortedServicePhases(phases: List<ServicePhase>): List<ServicePhase> {
+        val here = stationsListState.firstOrNull()?.station?.data?.takeIf { it.isNotBlank() }
+            ?: lastFix?.let { fix ->
+                ServicePhaseStationPicker.knownPoints(phases).minByOrNull { (_, p) ->
+                    ServicePhaseStationPicker.distanceM(fix.latitude, fix.longitude, p.first, p.second)
+                }?.takeIf { (_, p) ->
+                    ServicePhaseStationPicker.distanceM(fix.latitude, fix.longitude, p.first, p.second) <= ServicePhaseStationPicker.NEAR_RADIUS_M
+                }?.let { (norm, _) ->
+                    phases.firstOrNull { ServicePhaseStationsMerge.normalizeName(it.departureStation) == norm }?.departureStation
+                }
+            }
+        return ServicePhaseOrder.sort(phases, here, phaseUsage, phaseLastUsed)
+    }
+
+    private fun sortSuggestions(names: List<String>): List<String> =
+        StationSuggestionOrder.sort(names, stationUsage, ServicePhaseStationPicker.knownPoints(servicePhaseList), lastFix)
 
     // Правки плеч и справочника станций — read-modify-write одних настроек: по очереди.
     private val settingsMutex = Mutex()
@@ -1035,11 +1121,9 @@ class TrainFormViewModel(
             } else {
                 // Нужно добавить новую станцию (или nextIdx указывает на конечную станцию плеча)
                 addingStation() // с плечом вставит перед последней, без — в конец
-                if (hasServicePhase) {
-                    setArrivalTime(stationsListState.lastIndex - 1, now)
-                } else {
-                    setArrivalTime(stationsListState.lastIndex, now)
-                }
+                val newIdx = if (hasServicePhase) stationsListState.lastIndex - 1 else stationsListState.lastIndex
+                setArrivalTime(newIdx, now)
+                autoNameNewStation(stationsListState[newIdx].id)
             }
         }
     }
@@ -1059,7 +1143,15 @@ class TrainFormViewModel(
     }
 
     fun startAddingNewStation() {
-        _uiState.update { it.copy(editingStationIndex = -1) }
+        _uiState.update { it.copy(editingStationIndex = -1, suggestedNewStationName = null) }
+        val phase = fullSelectedPhase()
+        refreshFix { fix ->
+            if (phase == null || !ServicePhaseStationPicker.hasCoordinates(phase)) return@refreshFix
+            if (_uiState.value.editingStationIndex != -1) return@refreshFix
+            val name = ServicePhaseStationPicker.nameForNewStation(phase, stationsListState.map { it.station.data }, fix, previousAddFix)
+            previousAddFix = fix
+            _uiState.update { it.copy(suggestedNewStationName = name) }
+        }
     }
 
     fun stopEditingStation() {
@@ -1317,14 +1409,17 @@ class TrainFormViewModel(
     fun onChangedDropDownContent(index: Int, value: String) {
         if (value.isEmpty()) {
             changeExpandedMenu(index, false)
-            mutableStationList.addAllOrSkip(stationNameList)
+            mutableStationList.clear()
+            mutableStationList.addAll(sortSuggestions(stationNameList.distinct()))
         } else {
             mutableStationList.clear()
             val newStationList =
-                stationNameList
-                    .filter { it.startsWith(prefix = value, ignoreCase = true) }
-                    .filterNot { it == value }
-                    .toMutableStateList()
+                sortSuggestions(
+                    stationNameList
+                        .filter { it.startsWith(prefix = value, ignoreCase = true) }
+                        .filterNot { it == value }
+                        .distinct()
+                ).toMutableStateList()
             newStationList.forEach { st ->
                 mutableStationList.add(st)
                 changeExpandedMenu(index, true)

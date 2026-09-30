@@ -1,5 +1,9 @@
 package com.z_company.route.ui
 
+import com.z_company.route.util.DeviceLocation
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -280,6 +284,32 @@ fun FormTrainScreen(
         var showEditPhaseSheet by remember { mutableStateOf(false) }
         var editingPhase by remember { mutableStateOf<ServicePhase?>(null) }
 
+        // Геолокация для подстановки станций плеча: спрашиваем один раз, при первом GO /
+        // «добавить станцию» с плечом, у которого есть координаты станций.
+        val locationContext = LocalContext.current
+        var afterLocationPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
+        val locationPermission = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) {
+            afterLocationPermission?.invoke()
+            afterLocationPermission = null
+        }
+        fun askLocation(action: () -> Unit) {
+            val prefs = locationContext.getSharedPreferences("service_phase_location", android.content.Context.MODE_PRIVATE)
+            if (viewModel.selectedPhaseHasCoordinates() &&
+                !DeviceLocation.hasPermission(locationContext) &&
+                !prefs.getBoolean("asked", false)
+            ) {
+                prefs.edit().putBoolean("asked", true).apply()
+                afterLocationPermission = action
+                locationPermission.launch(
+                    arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                )
+            } else {
+                action()
+            }
+        }
+
         // BottomSheet для редактирования/добавления станции
         val editingIndex = formUiState.editingStationIndex
         if (editingIndex != null) {
@@ -336,7 +366,8 @@ fun FormTrainScreen(
                     { viewModel.requestDeleteStation(editingIndex) }
                 } else null,
                 onDismiss = { viewModel.stopEditingStation() },
-                dateAndTimeConverter = dateAndTimeConverter
+                dateAndTimeConverter = dateAndTimeConverter,
+                suggestedName = if (editingIndex == -1) formUiState.suggestedNewStationName else null,
             )
         }
 
@@ -1810,7 +1841,7 @@ fun FormTrainScreen(
                                     contentAlignment = Alignment.CenterEnd
                                 ) {
                                     OutlinedButton(
-                                        onClick = { viewModel.onGoClicked() },
+                                        onClick = { askLocation { viewModel.onGoClicked() } },
                                         border = BorderStroke(
                                             width = 1.dp,
                                             color = if (nextIsDeparture) MaterialTheme.colorScheme.surfaceContainerLow
@@ -2087,7 +2118,7 @@ fun FormTrainScreen(
                     settingsSheetMode = TrainExtraSheetMode.ASSISTS
                     showSettingsSheet = true
                 },
-                onAddStationClick = viewModel::startAddingNewStation,
+                onAddStationClick = { askLocation { viewModel.startAddingNewStation() } },
             )
         }
     }
