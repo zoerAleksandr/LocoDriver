@@ -1,5 +1,8 @@
 package com.z_company.route.ui
 
+import androidx.compose.ui.zIndex
+import com.z_company.route.component.reorderStep
+import com.z_company.route.component.detectReorderDrag
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -321,6 +324,9 @@ fun HomeScreen(
     }
     var isCurrentRouteReorderMode by remember { mutableStateOf(false) }
     var draggedCurrentRouteBlock by remember { mutableStateOf<String?>(null) }
+    // Смещение перетаскиваемой плитки и ширины плиток — для перестановки без прыжков.
+    var currentRouteDragOffset by remember { mutableStateOf(0f) }
+    val currentRouteTileWidths = remember { mutableMapOf<String, Int>() }
     var currentRouteBoundsInWindow by remember {
         mutableStateOf<androidx.compose.ui.geometry.Rect?>(null)
     }
@@ -1175,92 +1181,71 @@ fun HomeScreen(
                                     item(key = type) {
                                         val haptics = LocalHapticFeedback.current
                                         val density = LocalDensity.current
-                                        val reorderThresholdPx = with(density) { 81.dp.toPx() }
                                         val autoScrollEdgePx = with(density) { 36.dp.toPx() }
                                         val autoScrollStepPx = with(density) { 18.dp.toPx() }
-                                        var draggedDistance by remember(type) { mutableStateOf(0f) }
+                                        val tileGapPx = with(density) { 12.dp.toPx() }
                                         val bringIntoViewRequester = remember { BringIntoViewRequester() }
                                         val edgePadding = when (idx) {
                                             0 -> Modifier.padding(start = 8.dp)
                                             currentRouteBlockOrder.lastIndex -> Modifier.padding(end = 12.dp)
                                             else -> Modifier
                                         }
+                                        val isDraggedTile = draggedCurrentRouteBlock == type
+                                        // Плитка едет за пальцем; соседи меняются местами, когда она заходит на
+                                        // половину соседа, смещение компенсируется на его ширину — без «прыжков».
+                                        // Ключ pointerInput — только type: смена режима посреди жеста не рвёт его.
                                         val reorderModifier = edgePadding
-                                            .animateItem()
+                                            .then(if (isDraggedTile) Modifier.zIndex(1f) else Modifier.animateItem())
                                             .bringIntoViewRequester(bringIntoViewRequester)
+                                            .onSizeChanged { currentRouteTileWidths[type] = it.width }
                                             .graphicsLayer {
-                                                rotationZ = if (isCurrentRouteReorderMode) {
+                                                rotationZ = if (isCurrentRouteReorderMode && !isDraggedTile) {
                                                     reorderWiggleAngle.value * if (idx % 2 == 0) 1f else -1f
                                                 } else 0f
-                                                if (draggedCurrentRouteBlock == type) {
+                                                if (isDraggedTile) {
                                                     scaleX = 1.04f
                                                     scaleY = 1.04f
-                                                    translationX = draggedDistance
+                                                    translationX = currentRouteDragOffset
                                                 }
                                             }
-                                            .pointerInput(type, isCurrentRouteReorderMode) {
-                                                val onDragStart: (Offset) -> Unit = {
-                                                    isCurrentRouteReorderMode = true
-                                                    draggedCurrentRouteBlock = type
-                                                    draggedDistance = 0f
-                                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    scope.launch { bringIntoViewRequester.bringIntoView() }
-                                                }
-                                                val onDragCancel: () -> Unit = {
-                                                    draggedCurrentRouteBlock = null
-                                                    draggedDistance = 0f
-                                                }
-                                                val onDragEnd: () -> Unit = {
-                                                    draggedCurrentRouteBlock = null
-                                                    draggedDistance = 0f
-                                                }
-                                                val onDrag: (androidx.compose.ui.input.pointer.PointerInputChange, Offset) -> Unit =
-                                                    { change, dragAmount ->
-                                                        change.consume()
-                                                        draggedDistance += dragAmount.x
+                                            .pointerInput(type) {
+                                                detectReorderDrag(
+                                                    immediate = { isCurrentRouteReorderMode },
+                                                    onStart = {
+                                                        isCurrentRouteReorderMode = true
+                                                        draggedCurrentRouteBlock = type
+                                                        currentRouteDragOffset = 0f
+                                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    },
+                                                    onDrag = { change, delta ->
+                                                        val before = currentRouteBlockOrder.indexOf(type)
+                                                        val order = currentRouteBlockOrder.toMutableList()
+                                                        currentRouteDragOffset = reorderStep(
+                                                            order, type, currentRouteDragOffset + delta.x,
+                                                            currentRouteTileWidths, gap = tileGapPx,
+                                                        )
+                                                        if (order.indexOf(type) != before) {
+                                                            currentRouteBlockOrder.clear()
+                                                            currentRouteBlockOrder.addAll(order)
+                                                            hasCustomCurrentRouteBlockOrder = true
+                                                            sharedPreferences.setCurrentRouteBlockOrder(order)
+                                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                        }
                                                         when {
                                                             change.position.x < autoScrollEdgePx -> scope.launch {
                                                                 currentRouteListState.scrollBy(-autoScrollStepPx)
-                                                                bringIntoViewRequester.bringIntoView()
                                                             }
                                                             change.position.x > size.width - autoScrollEdgePx -> scope.launch {
                                                                 currentRouteListState.scrollBy(autoScrollStepPx)
-                                                                bringIntoViewRequester.bringIntoView()
                                                             }
                                                         }
-                                                        if (abs(draggedDistance) >= reorderThresholdPx) {
-                                                            val from = currentRouteBlockOrder.indexOf(type)
-                                                            val to = (from + if (draggedDistance > 0) 1 else -1)
-                                                                .coerceIn(0, currentRouteBlockOrder.lastIndex)
-                                                            if (from != to) {
-                                                                currentRouteBlockOrder.removeAt(from)
-                                                                currentRouteBlockOrder.add(to, type)
-                                                                hasCustomCurrentRouteBlockOrder = true
-                                                                sharedPreferences.setCurrentRouteBlockOrder(
-                                                                    currentRouteBlockOrder.toList()
-                                                                )
-                                                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                                scope.launch { bringIntoViewRequester.bringIntoView() }
-                                                            }
-                                                            draggedDistance = 0f
-                                                        }
-                                                    }
-
-                                                if (isCurrentRouteReorderMode) {
-                                                    detectDragGestures(
-                                                        onDragStart = onDragStart,
-                                                        onDragCancel = onDragCancel,
-                                                        onDragEnd = onDragEnd,
-                                                        onDrag = onDrag,
-                                                    )
-                                                } else {
-                                                    detectDragGesturesAfterLongPress(
-                                                        onDragStart = onDragStart,
-                                                        onDragCancel = onDragCancel,
-                                                        onDragEnd = onDragEnd,
-                                                        onDrag = onDrag,
-                                                    )
-                                                }
+                                                    },
+                                                    onEnd = {
+                                                        draggedCurrentRouteBlock = null
+                                                        currentRouteDragOffset = 0f
+                                                        scope.launch { bringIntoViewRequester.bringIntoView() }
+                                                    },
+                                                )
                                             }
 
                                         if (type == CURRENT_ROUTE_WORK_BLOCK) {

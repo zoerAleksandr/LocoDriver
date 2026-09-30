@@ -1,5 +1,12 @@
 package com.z_company.route.ui
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.pointer.pointerInput
+import com.z_company.route.component.reorderStep
+import com.z_company.route.component.detectReorderDrag
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -433,6 +440,32 @@ fun FormLocoScreen(
                     )
                 }
 
+                // Перетаскивание секций: долгое нажатие в любом месте карточки секции.
+                var draggingSectionId by remember { mutableStateOf<String?>(null) }
+                var sectionDragOffset by remember { mutableStateOf(0f) }
+                val sectionHeights = remember { mutableMapOf<String, Int>() }
+                val sectionHaptics = LocalHapticFeedback.current
+                fun Modifier.sectionDrag(id: String, ids: () -> List<String>, move: (Int, Int) -> Unit): Modifier = this
+                    .zIndex(if (draggingSectionId == id) 1f else 0f)
+                    .onSizeChanged { sectionHeights[id] = it.height }
+                    .graphicsLayer { if (draggingSectionId == id) translationY = sectionDragOffset }
+                    .pointerInput(id) {
+                        detectReorderDrag(
+                            onStart = {
+                                sectionHaptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                draggingSectionId = id
+                                sectionDragOffset = 0f
+                            },
+                            onDrag = { _, delta ->
+                                sectionDragOffset = reorderStep(ids().toMutableList(), id, sectionDragOffset + delta.y, sectionHeights, onMove = move)
+                            },
+                            onEnd = {
+                                draggingSectionId = null
+                                sectionDragOffset = 0f
+                            },
+                        )
+                    }
+
                 LazyColumn(
                     state = scrollState,
                     modifier = Modifier.testTag("form_loco_lazy_column"),
@@ -757,6 +790,11 @@ fun FormLocoScreen(
                                     items = dieselSectionListState,
                                     key = { _, item -> item.sectionId }
                                 ) { index, item ->
+                                    Box(
+                                        Modifier
+                                            .then(if (draggingSectionId == item.sectionId) Modifier else Modifier.animateItem())
+                                            .sectionDrag(item.sectionId, { dieselSectionListState.map { it.sectionId } }, viewModel::moveDieselSection)
+                                    ) {
                                     DieselSectionItem(
                                         item = item,
                                         index = index,
@@ -778,6 +816,7 @@ fun FormLocoScreen(
                                         onSaveRefuelCoefficient = viewModel::saveLastRefuelCoefficient,
                                         closeSwipeSignal = closeSwipeSignal
                                     )
+                                    }
                                 }
                             }
                         }
@@ -788,6 +827,11 @@ fun FormLocoScreen(
                                     items = electricSectionListState,
                                     key = { _, item -> item.sectionId }
                                 ) { index, item ->
+                                    Box(
+                                        Modifier
+                                            .then(if (draggingSectionId == item.sectionId) Modifier else Modifier.animateItem())
+                                            .sectionDrag(item.sectionId, { electricSectionListState.map { it.sectionId } }, viewModel::moveElectricSection)
+                                    ) {
                                     ElectricSectionItem(
                                         index = index,
                                         sectionLabel = sectionLabel(index),
@@ -807,6 +851,7 @@ fun FormLocoScreen(
                                         showOtherCurrent = formUiState.isShowOtherCurrent,
                                         closeSwipeSignal = closeSwipeSignal
                                     )
+                                    }
                                 }
                             }
                         }

@@ -931,6 +931,23 @@ class LocoFormViewModel(
         changesHave()
     }
 
+    /** Перестановка секций перетаскиванием: порядок секций = порядок в списке (и нумерация). */
+    fun moveDieselSection(from: Int, to: Int) {
+        val list = _dieselSectionListState.value
+        if (from in list.indices && to in list.indices && from != to) {
+            list.add(to, list.removeAt(from))
+            changesHave()
+        }
+    }
+
+    fun moveElectricSection(from: Int, to: Int) {
+        val list = _electricSectionListState.value
+        if (from in list.indices && to in list.indices && from != to) {
+            list.add(to, list.removeAt(from))
+            changesHave()
+        }
+    }
+
     fun deleteSectionDiesel(section: DieselSectionFormState) {
         _dieselSectionListState.update { list ->
             list.remove(section)
