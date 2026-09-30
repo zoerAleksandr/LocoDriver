@@ -54,6 +54,10 @@ import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.ui.partner.PartnerAvatar
 import com.z_company.route.ui.partner.PartnerSearchField
+import com.z_company.route.ui.partner.MakePermanentButton
+import com.z_company.route.ui.partner.PermanentPartnerChip
+import com.z_company.route.ui.partner.PermanentPartnerReplaceDialog
+import com.z_company.route.viewmodel.PermanentReplaceRequest
 import com.z_company.route.ui.partner.filterPartners
 
 enum class PartnerListMode { MANAGE, SELECT }
@@ -70,7 +74,21 @@ fun PartnersListScreen(
     onEdit: (Partner) -> Unit,
     onDelete: (Partner) -> Unit,
     onAddNew: () -> Unit,
+    permanentCandidate: Partner? = null,
+    onMakePermanent: (Partner) -> Unit = {},
+    replaceRequest: PermanentReplaceRequest? = null,
+    onConfirmReplace: () -> Unit = {},
+    onDismissReplace: () -> Unit = {},
 ) {
+    replaceRequest?.let { request ->
+        PermanentPartnerReplaceDialog(
+            current = request.current,
+            newName = request.candidate.fullName,
+            onConfirm = onConfirmReplace,
+            onDismiss = onDismissReplace,
+        )
+    }
+
     var partnerForRemove by remember { mutableStateOf<Partner?>(null) }
     var swipeCloseSignal by remember { mutableStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
@@ -252,6 +270,16 @@ fun PartnersListScreen(
                             }
                         }
                     }
+                    // Широкая кнопка под карточкой: только что отмеченного непостоянного
+                    // напарника можно сделать постоянным.
+                    permanentCandidate?.let { candidate ->
+                        item {
+                            MakePermanentButton(
+                                partner = candidate,
+                                onClick = { onMakePermanent(candidate) },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -321,6 +349,9 @@ private fun PartnerRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 1.dp),
                 )
+            }
+            if (partner.isPermanent) {
+                PermanentPartnerChip(modifier = Modifier.padding(top = 4.dp))
             }
         }
         // Карандаш → редактирование карточки этого напарника.

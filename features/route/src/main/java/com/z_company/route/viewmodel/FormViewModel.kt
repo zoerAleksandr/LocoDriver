@@ -31,6 +31,7 @@ import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.OtherWorkUseCase
 import com.z_company.domain.use_cases.RoutePartnerUseCase
 import com.z_company.domain.use_cases.PassengerUseCase
+import com.z_company.domain.use_cases.PartnerUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -86,6 +87,7 @@ class FormViewModel(
     private val passengerUseCase: PassengerUseCase by inject()
     private val otherWorkUseCase: OtherWorkUseCase by inject()
     private val routePartnerUseCase: RoutePartnerUseCase by inject()
+    private val partnerUseCase: PartnerUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val routeHelper: RouteActionsHelper by inject()
@@ -291,7 +293,10 @@ class FormViewModel(
             }
 
             if (isNewRoute) {
-                val newRoute = Route(basicData = BasicData(id = UUID.randomUUID().toString()))
+                // Постоянный напарник (если задан) сразу в новом маршруте.
+                val newRoute = partnerUseCase.withPermanentPartner(
+                    Route(basicData = BasicData(id = UUID.randomUUID().toString()))
+                )
                 _currentRoute.value = newRoute
                 // НЕ сохраняем сразу — пустой маршрут не должен попадать в БД,
                 // если пользователь передумал и закрыл форму без изменений.
@@ -307,8 +312,10 @@ class FormViewModel(
                             // записи сохраняются с прежним basicId (foreign key) и
                             // остаются привязанными к оригиналу — в копию не попадают
                             // (симптом: «прочая работа» не переносится в копию).
-                            val loadedRoute = if (isCopy) result.data?.reidentifyForImport()
-                            else result.data
+                            // Копия — тоже новый маршрут: добавляем постоянного напарника.
+                            val loadedRoute = if (isCopy) {
+                                result.data?.reidentifyForImport()?.let(partnerUseCase::withPermanentPartner)
+                            } else result.data
                             _uiState.update { it.copy(routeDetailState = result) }
                             countLoadRoute += 1
                             // Копию НЕ сохраняем сразу — ждём первого изменения от пользователя

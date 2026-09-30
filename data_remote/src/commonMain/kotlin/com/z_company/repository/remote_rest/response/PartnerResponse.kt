@@ -7,6 +7,9 @@ import kotlinx.serialization.Serializable
  * DTO записи справочника напарников (`/v1/partners/`).
  * По образцу [NormaTimeStationResponse]: updatedAt приходит с сервера как Double
  * (например 1779032766922.0), конвертируем в Long.
+ *
+ * [isPermanent] — «постоянный напарник»; опционально (старый сервер его не
+ * присылает и игнорирует при POST — PartnerResponse на сервере extra=ignore).
  */
 @Serializable
 data class PartnerResponse(
@@ -14,6 +17,7 @@ data class PartnerResponse(
     val fullName: String,
     val tabNumber: String? = null,
     val notes: String? = null,
+    val isPermanent: Boolean = false,
     val updatedAt: Double
 ) {
     fun toDomain(): Partner = Partner(
@@ -21,6 +25,7 @@ data class PartnerResponse(
         fullName = fullName,
         tabNumber = tabNumber,
         notes = notes,
+        isPermanent = isPermanent,
         updatedAt = updatedAt.toLong()
     )
 
@@ -31,6 +36,7 @@ data class PartnerResponse(
                 fullName = partner.fullName,
                 tabNumber = partner.tabNumber,
                 notes = partner.notes,
+                isPermanent = partner.isPermanent,
                 updatedAt = partner.updatedAt.toDouble()
             )
     }

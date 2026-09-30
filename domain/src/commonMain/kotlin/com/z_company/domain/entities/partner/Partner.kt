@@ -16,6 +16,12 @@ import kotlinx.serialization.Serializable
  * КОПИЯ выбранного напарника — см. [com.z_company.domain.entities.route.RoutePartner].
  *
  * [tabNumber] — табельный номер (строка: возможны ведущие нули/буквы).
+ *
+ * [isPermanent] — «постоянный напарник»: его копия автоматически добавляется в
+ * каждый новый маршрут. В справочнике не больше одного постоянного — инвариант
+ * держит [com.z_company.domain.repositories.PartnerRepository] (установка флага
+ * снимает его с остальных). Поле опциональное в контракте `/v1/partners/`
+ * (старый сервер/клиенты его не знают → false).
  */
 @Serializable
 data class Partner(
@@ -23,5 +29,6 @@ data class Partner(
     val fullName: String = "",
     val tabNumber: String? = null,
     val notes: String? = null,
+    val isPermanent: Boolean = false,
     val updatedAt: Long = Clock.System.now().toEpochMilliseconds()
 )
