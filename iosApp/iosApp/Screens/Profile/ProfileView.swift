@@ -65,9 +65,9 @@ struct ProfileView: View {
                 Section {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.red)
+                            .foregroundColor(DSColor.danger)
                         Text(errorMessage)
-                            .foregroundColor(.red)
+                            .foregroundColor(DSColor.danger)
                             .font(.footnote)
                     }
                 }
@@ -101,7 +101,7 @@ struct ProfileView: View {
                         Spacer()
                     }
                 }
-                .foregroundColor(.blue)
+                .foregroundColor(DSColor.accent)
             }
         }
     }
@@ -113,7 +113,7 @@ struct ProfileView: View {
             Section("Аккаунт") {
                 HStack {
                     Image(systemName: "person.crop.circle.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(DSColor.accent)
                         .font(.title2)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Email")
@@ -129,7 +129,7 @@ struct ProfileView: View {
                 if let syncMessage = vm.syncMessage {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                            .foregroundColor(DSColor.success)
                         Text(syncMessage)
                             .font(.footnote)
                             .foregroundColor(.secondary)
@@ -139,10 +139,10 @@ struct ProfileView: View {
                 if let errorMessage = vm.errorMessage {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.red)
+                            .foregroundColor(DSColor.danger)
                         Text(errorMessage)
                             .font(.footnote)
-                            .foregroundColor(.red)
+                            .foregroundColor(DSColor.danger)
                     }
                 }
 
@@ -201,7 +201,7 @@ private struct ReferralView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "gift.fill")
                         .font(.system(size: 34, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(DSColor.accent)
                         .frame(width: 64, height: 64)
                         .background(Color.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 20))
                     Text("Про для вас и друга")
@@ -229,7 +229,7 @@ private struct ReferralView: View {
                         Label("Поделиться", systemImage: "square.and.arrow.up")
                     }
                 } else if let error = vm.referralError {
-                    Text(error).foregroundColor(.red)
+                    Text(error).foregroundColor(DSColor.danger)
                     Button("Повторить") { vm.loadReferrals() }
                 } else {
                     ProgressView()
@@ -240,7 +240,7 @@ private struct ReferralView: View {
                     Text("\(vm.referralCount)").fontWeight(.semibold)
                 }
                 LabeledContent("Бонус начислен") {
-                    Text("\(vm.referralRewardedCount)").fontWeight(.semibold).foregroundStyle(.green)
+                    Text("\(vm.referralRewardedCount)").fontWeight(.semibold).foregroundStyle(DSColor.success)
                 }
             }
             Section {
