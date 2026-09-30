@@ -12,6 +12,7 @@ import com.z_company.domain.entities.WorkShiftType
 import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.use_cases.PartnerUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -43,6 +44,7 @@ const val CUSTOM_PATTERN_ID = "custom"
 class ScheduleWizardViewModel : ViewModel(), KoinComponent {
     private val settingsUseCase: SettingsUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
+    private val partnerUseCase: PartnerUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val routeHelper: RouteActionsHelper by inject()
     private val snackbarManager: ISnackbarManager by inject()
@@ -427,8 +429,10 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
                 }
 
                 var created = 0
+                // Постоянный напарник добавляется в каждый создаваемый маршрут.
+                val permanentPartner = partnerUseCase.getPermanent()
                 for (route in planned) {
-                    val res = routeUseCase.saveRoute(route)
+                    val res = routeUseCase.saveRoute(PartnerUseCase.withPermanentPartner(route, permanentPartner))
                         .first { it is ResultState.Success || it is ResultState.Error }
                     if (res is ResultState.Success) created++
                 }

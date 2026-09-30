@@ -3,20 +3,32 @@ CREATE TABLE IF NOT EXISTS Partner (
     fullName TEXT NOT NULL,
     tabNumber TEXT,
     notes TEXT,
-    updatedAt INTEGER NOT NULL
+    updatedAt INTEGER NOT NULL,
+    isPermanent INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS index_Partner_fullName ON Partner(fullName);
 
 insertOrReplace:
-INSERT OR REPLACE INTO Partner (partnerId, fullName, tabNumber, notes, updatedAt)
-VALUES (?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO Partner (partnerId, fullName, tabNumber, notes, updatedAt, isPermanent)
+VALUES (?, ?, ?, ?, ?, ?);
 
 getAll:
-SELECT * FROM Partner ORDER BY fullName;
+SELECT * FROM Partner ORDER BY isPermanent DESC, fullName;
 
 getById:
 SELECT * FROM Partner WHERE partnerId = :partnerId;
+
+getPermanent:
+SELECT * FROM Partner WHERE isPermanent = 1 LIMIT 1;
+
+-- Снять отметку «постоянный» со всех, кроме :keepId (метка updatedAt — для LWW-синхронизации).
+clearPermanentExcept:
+UPDATE Partner SET isPermanent = 0, updatedAt = :updatedAt
+WHERE isPermanent = 1 AND partnerId != :keepId;
+
+setPermanent:
+UPDATE Partner SET isPermanent = 1, updatedAt = :updatedAt WHERE partnerId = :partnerId;
 
 delete:
 DELETE FROM Partner WHERE partnerId = :partnerId;
