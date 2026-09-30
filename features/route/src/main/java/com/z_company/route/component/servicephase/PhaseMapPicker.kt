@@ -67,7 +67,7 @@ import org.maplibre.geojson.Point
 import java.util.concurrent.Executors
 
 /** Векторная подложка без ключа (OpenMapTiles): ж/д линии и станции видны. */
-private const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
+internal const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
 private const val NEIGHBOURS_SOURCE = "phase-neighbours"
 private const val NEIGHBOURS_LAYER = "phase-neighbours-layer"
 private const val OMT_SOURCE = "openmaptiles"
@@ -79,7 +79,7 @@ private const val RAIL_STATION_LABEL = "phase-rail-station-label"
  * Ж/д линии и станции поверх подложки из того же векторного источника (OpenMapTiles):
  * в стиле Liberty пути бледные, а значков станций на среднем масштабе нет.
  */
-private fun addRailwayLayers(style: org.maplibre.android.maps.Style) {
+internal fun addRailwayLayers(style: org.maplibre.android.maps.Style) {
     if (style.getSource(OMT_SOURCE) == null) return
     val isRail = Expression.eq(Expression.get("class"), "rail")
     style.addLayer(

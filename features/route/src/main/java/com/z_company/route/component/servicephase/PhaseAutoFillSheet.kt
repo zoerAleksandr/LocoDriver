@@ -589,6 +589,11 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
             "На карте нет связанного пути от «$departure» до «$arrival». Возможно, станции на разных линиях или в данных карты разрыв.",
             "Добавить вручную" to onAddManually, "Закрыть" to onClose,
         )
+        AutoFillFailure.RATE_LIMITED -> Spec(
+            PstIcons.Clock, "Слишком много запросов",
+            "Автоподбор запускали много раз подряд. Попробуйте позже — или добавьте станции вручную.",
+            "Добавить вручную" to onAddManually, "Закрыть" to onClose,
+        )
         AutoFillFailure.SERVICE -> Spec(
             PstIcons.Clock, "Сервис не ответил",
             "Поиск занял больше 30 секунд или сервис временно недоступен. Попробуйте ещё раз через минуту.",

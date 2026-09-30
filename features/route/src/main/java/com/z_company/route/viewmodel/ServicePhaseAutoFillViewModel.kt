@@ -24,7 +24,7 @@ import java.io.IOException
 /** Какая крайняя станция плеча. */
 enum class PhaseEnd { DEPARTURE, ARRIVAL }
 
-enum class AutoFillFailure { NO_INTERNET, STATION_NOT_FOUND, NO_PATH, SERVICE }
+enum class AutoFillFailure { NO_INTERNET, STATION_NOT_FOUND, NO_PATH, SERVICE, RATE_LIMITED }
 
 sealed interface AutoFillState {
     data object Idle : AutoFillState
@@ -119,7 +119,9 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                fail(ticker, AutoFillFailure.SERVICE)
+                // 429 — сервер ограничивает частоту автоподбора; Ktor кладёт код в текст исключения.
+                val limited = e.message.orEmpty().contains("429")
+                fail(ticker, if (limited) AutoFillFailure.RATE_LIMITED else AutoFillFailure.SERVICE)
                 return@launch
             }
             ticker.cancel()

@@ -165,7 +165,7 @@ internal fun PhaseStopRow(
                 color = if (!terminal && km == null) Pst.textFaint else Pst.textMuted,
             )
             when (mode) {
-                SchemeMode.VIEW -> if (terminal || onClick == null) {
+                SchemeMode.VIEW -> if (onClick == null) {
                     Spacer(Modifier.width(14.dp))
                 } else {
                     PstIcon(PstIcons.ChevronRight, 14.dp, Pst.textFaint)

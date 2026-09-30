@@ -75,7 +75,13 @@ internal fun PhaseStationSheet(
     findCoordinates: (suspend (String) -> List<OsmStationCandidate>?)? = null,
     /** Соседи по плечу — для подписи найденной станции «между A и B». */
     neighbours: Pair<String?, String?> = null to null,
+    /**
+     * Крайняя станция плеча: заголовок «Станция отправления/прибытия», без типа, км и удаления
+     * (км крайних — 0 и расстояние плеча; название меняет поле «От/До станции»).
+     */
+    terminalTitle: String? = null,
 ) {
+    val terminal = terminalTitle != null
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isNew = station == null
     var name by remember { mutableStateOf(TextFieldValue(station?.name ?: "", TextRange(station?.name?.length ?: 0))) }
@@ -143,7 +149,7 @@ internal fun PhaseStationSheet(
         dragHandle = { PstGrabber() },
     ) {
         Column(modifier = Modifier.fillMaxWidth().imePadding()) {
-            PstSheetHeader(title = if (isNew) "Новая станция" else "Станция", onClose = onDismiss)
+            PstSheetHeader(title = terminalTitle ?: if (isNew) "Новая станция" else "Станция", onClose = onDismiss)
             Column(
                 modifier = Modifier
                     .weight(1f, fill = false)
@@ -182,12 +188,12 @@ internal fun PhaseStationSheet(
                         )
                     }
                 }
-                PstSegmented(
+                if (!terminal) PstSegmented(
                     options = listOf("Станция", "О.П."),
                     selected = if (kind == ServicePhaseStationKind.HALT) 1 else 0,
                     onSelect = { kind = if (it == 1) ServicePhaseStationKind.HALT else ServicePhaseStationKind.STATION },
                 )
-                Column {
+                if (!terminal) Column {
                     PstTextField(
                         value = kmText,
                         onValueChange = { v -> kmText = v.copy(text = v.text.filter { it.isDigit() || it == ',' || it == '.' }) },
@@ -275,7 +281,7 @@ internal fun PhaseStationSheet(
                         onDismiss()
                     },
                 )
-                if (station != null && onDelete != null) {
+                if (station != null && onDelete != null && !terminal) {
                     PstButton(
                         text = "Удалить станцию",
                         kind = PstButtonKind.DANGER,

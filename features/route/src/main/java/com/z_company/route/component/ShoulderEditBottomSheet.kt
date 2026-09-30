@@ -1,5 +1,9 @@
 package com.z_company.route.component
 
+import com.z_company.route.component.servicephase.RouteMapStop
+import com.z_company.route.component.servicephase.PhaseRouteMap
+import com.z_company.domain.entities.setting.ServicePhaseStationSource
+import com.z_company.domain.entities.setting.ServicePhasePoint
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -118,6 +122,9 @@ fun ShoulderEditBottomSheet(
 
     // Шторка станции: editing — существующая; insertAt — позиция новой (null = по км / в конец)
     var stationSheetOpen by remember { mutableStateOf(false) }
+    var showRouteMap by remember { mutableStateOf(false) }
+    /** Открыта шторка крайней станции: true — отправление, false — прибытие. */
+    var editingTerminal by remember { mutableStateOf<Boolean?>(null) }
     var editingStation by remember { mutableStateOf<ServicePhaseStation?>(null) }
     var insertAt by remember { mutableStateOf<Int?>(null) }
 
@@ -171,6 +178,71 @@ fun ShoulderEditBottomSheet(
         editingStation = station
         insertAt = at
         stationSheetOpen = true
+    }
+
+    if (showRouteMap) {
+        val dep = departure.text.trim()
+        val arr = arrival.text.trim()
+        val depP = depPoint?.takeIf { sameName(it.second, dep) }?.first
+        val arrP = arrPoint?.takeIf { sameName(it.second, arr) }?.first
+        val stops = buildList {
+            depP?.let { add(RouteMapStop(dep, it.latitude, it.longitude)) }
+            stations.filter { it.hasCoordinates }.forEach { add(RouteMapStop(it.name, it.latitude!!, it.longitude!!, it.kind)) }
+            arrP?.let { add(RouteMapStop(arr, it.latitude, it.longitude)) }
+        }
+        val total = stations.size + 2
+        PhaseRouteMap(
+            title = listOf(dep, arr).filter { it.isNotBlank() }.joinToString(" — ").ifBlank { "Плечо" },
+            stops = stops,
+            missing = total - stops.size,
+            onDismiss = { showRouteMap = false },
+        )
+    }
+
+    // Крайняя станция (отправление/прибытие) — та же шторка в упрощённом виде.
+    editingTerminal?.let { isStart ->
+        val name = (if (isStart) departure else arrival).text.trim()
+        val point = (if (isStart) depPoint else arrPoint)?.takeIf { sameName(it.second, name) }?.first
+        val proxy = ServicePhaseStation(
+            id = if (isStart) "terminal:departure" else "terminal:arrival",
+            name = name,
+            latitude = point?.latitude,
+            longitude = point?.longitude,
+            esr = point?.esr,
+            osmId = point?.osmId,
+            source = when {
+                point == null -> ServicePhaseStationSource.MANUAL
+                point.osmId != null -> ServicePhaseStationSource.OSM
+                else -> ServicePhaseStationSource.MAP
+            },
+        )
+        val neighbour = (if (isStart) stations.firstOrNull { it.hasCoordinates } else stations.lastOrNull { it.hasCoordinates })
+        val near = listOfNotNull(neighbour?.let { it.latitude!! to it.longitude!! })
+        PhaseStationSheet(
+            station = proxy,
+            stationList = stationList,
+            phaseDistance = distanceKm,
+            terminalTitle = if (isStart) "Станция отправления" else "Станция прибытия",
+            onSave = { saved ->
+                val newName = saved.name.trim()
+                val value = TextFieldValue(newName, TextRange(newName.length))
+                val newPoint = if (saved.hasCoordinates) {
+                    ServicePhasePoint(saved.latitude!!, saved.longitude!!, saved.osmId, saved.esr) to newName
+                } else null
+                if (isStart) {
+                    departure = value
+                    depPoint = newPoint ?: depPoint?.takeIf { sameName(it.second, newName) }
+                } else {
+                    arrival = value
+                    arrPoint = newPoint ?: arrPoint?.takeIf { sameName(it.second, newName) }
+                }
+            },
+            onDelete = null,
+            onDismiss = { editingTerminal = null },
+            mapNeighbours = near,
+            findCoordinates = { query -> autoVm.lookup(query, country, near) },
+            neighbours = if (isStart) null to stations.firstOrNull()?.name else stations.lastOrNull()?.name to null,
+        )
     }
 
     if (stationSheetOpen) {
@@ -297,7 +369,11 @@ fun ShoulderEditBottomSheet(
                 .systemBarsPadding()
                 .imePadding()
         ) {
-            EditorTopBar(title = if (isNew) "Новое плечо" else "Редактировать плечо", onBack = onDismiss)
+            EditorTopBar(
+                title = if (isNew) "Новое плечо" else "Редактировать плечо",
+                onBack = onDismiss,
+                onMap = { showRouteMap = true },
+            )
             Box(modifier = Modifier.weight(1f)) {
                 LazyColumn(
                     state = listState,
@@ -373,64 +449,67 @@ fun ShoulderEditBottomSheet(
                             },
                         )
                     }
+                    // Схема с крайними станциями видна всегда: у них можно открыть шторку
+                    // (название, координаты) и без промежуточных.
+                    stationScheme(
+                        departure = departure.text.trim(),
+                        arrival = arrival.text.trim(),
+                        distanceKm = distanceKm,
+                        stations = stations,
+                        editMode = editMode,
+                        reorderState = reorderState,
+                        freshIds = freshIds,
+                        activeInsert = if (stationSheetOpen && editingStation == null) insertAt else null,
+                        onOpen = { openStation(it, null) },
+                        onOpenTerminal = { isStart -> editingTerminal = isStart },
+                        onInsert = { at -> openStation(null, at) },
+                        onRemove = { st ->
+                            val idx = stations.indexOfFirst { it.id == st.id }
+                            if (idx >= 0) {
+                                stations.removeAt(idx)
+                                snackbar = EditorSnackbar("Станция убрана") {
+                                    stations.add(idx.coerceAtMost(stations.size), st)
+                                }
+                            }
+                        },
+                    )
                     if (stations.isEmpty()) {
                         item(key = "empty") {
-                            EmptyStations(
-                                canAutoFill = canAutoFill,
-                                onAutoFill = ::startAutoFill,
-                                onAddManually = { openStation(null, null) },
-                            )
-                        }
-                    } else {
-                        stationScheme(
-                            departure = departure.text.trim(),
-                            arrival = arrival.text.trim(),
-                            distanceKm = distanceKm,
-                            stations = stations,
-                            editMode = editMode,
-                            reorderState = reorderState,
-                            freshIds = freshIds,
-                            activeInsert = if (stationSheetOpen && editingStation == null) insertAt else null,
-                            onOpen = { openStation(it, null) },
-                            onInsert = { at -> openStation(null, at) },
-                            onRemove = { st ->
-                                val idx = stations.indexOfFirst { it.id == st.id }
-                                if (idx >= 0) {
-                                    stations.removeAt(idx)
-                                    snackbar = EditorSnackbar("Станция убрана") {
-                                        stations.add(idx.coerceAtMost(stations.size), st)
-                                    }
-                                }
-                            },
-                        )
-                        item(key = "stationsActions") {
-                            if (editMode) {
-                                PstNote(
-                                    text = "Перетащите за ≡, чтобы изменить порядок. «+» — вставить станцию " +
-                                        "между соседними, ✕ — убрать.",
-                                    modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp),
+                            Box(Modifier.padding(top = 10.dp)) {
+                                EmptyStations(
+                                    canAutoFill = canAutoFill,
+                                    onAutoFill = ::startAutoFill,
+                                    onAddManually = { openStation(null, null) },
                                 )
-                            } else {
-                                Row(modifier = Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    PstButton(
-                                        text = "Найти автоматически",
-                                        onClick = ::startAutoFill,
-                                        enabled = canAutoFill,
-                                        kind = PstButtonKind.TONAL,
-                                        icon = PstIcons.Search,
-                                        iconSize = 17.dp,
-                                        contentPadding = PaddingValues(horizontal = 12.dp),
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    PstButton(
-                                        text = "Станция",
-                                        onClick = { openStation(null, null) },
-                                        kind = PstButtonKind.TONAL,
-                                        icon = PstIcons.Plus,
-                                        iconSize = 17.dp,
-                                        contentPadding = PaddingValues(horizontal = 16.dp),
-                                    )
-                                }
+                            }
+                        }
+                    } else item(key = "stationsActions") {
+                        if (editMode) {
+                            PstNote(
+                                text = "Перетащите за ≡, чтобы изменить порядок. «+» — вставить станцию " +
+                                    "между соседними, ✕ — убрать.",
+                                modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp),
+                            )
+                        } else {
+                            Row(modifier = Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                PstButton(
+                                    text = "Найти автоматически",
+                                    onClick = ::startAutoFill,
+                                    enabled = canAutoFill,
+                                    kind = PstButtonKind.TONAL,
+                                    icon = PstIcons.Search,
+                                    iconSize = 17.dp,
+                                    contentPadding = PaddingValues(horizontal = 12.dp),
+                                    modifier = Modifier.weight(1f),
+                                )
+                                PstButton(
+                                    text = "Станция",
+                                    onClick = { openStation(null, null) },
+                                    kind = PstButtonKind.TONAL,
+                                    icon = PstIcons.Plus,
+                                    iconSize = 17.dp,
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                )
                             }
                         }
                     }
@@ -630,6 +709,7 @@ private fun LazyListScope.stationScheme(
     freshIds: Set<String>,
     activeInsert: Int?,
     onOpen: (ServicePhaseStation) -> Unit,
+    onOpenTerminal: (isStart: Boolean) -> Unit,
     onInsert: (Int) -> Unit,
     onRemove: (ServicePhaseStation) -> Unit,
 ) {
@@ -643,6 +723,7 @@ private fun LazyListScope.stationScheme(
                 isFirst = true,
                 isLast = false,
                 mode = mode,
+                onClick = if (editMode) null else ({ onOpenTerminal(true) }),
             )
         }
     }
@@ -693,6 +774,7 @@ private fun LazyListScope.stationScheme(
                     isLast = true,
                     mode = mode,
                     terminalKm = distanceKm.takeIf { it > 0 },
+                    onClick = if (editMode) null else ({ onOpenTerminal(false) }),
                 )
             }
         }
@@ -785,7 +867,7 @@ private fun pluralNames(n: Int) = when {
 }
 
 @Composable
-private fun EditorTopBar(title: String, onBack: () -> Unit) {
+private fun EditorTopBar(title: String, onBack: () -> Unit, onMap: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -798,7 +880,23 @@ private fun EditorTopBar(title: String, onBack: () -> Unit) {
             text = title,
             style = Pst.sans.copy(fontSize = 20.sp, fontWeight = FontWeight.Medium),
             color = Pst.text,
-            modifier = Modifier.padding(start = 4.dp),
+            modifier = Modifier.padding(start = 4.dp).weight(1f),
         )
+        // Всё плечо на карте: крайние и промежуточные станции с координатами.
+        Row(
+            modifier = Modifier
+                .heightIn(min = 40.dp)
+                .clickable(onClickLabel = "Плечо на карте", onClick = onMap)
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            PstIcon(PstIcons.MapPin, 18.dp, Pst.accent)
+            Text(
+                text = "Карта",
+                style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                color = Pst.accent,
+            )
+        }
     }
 }
