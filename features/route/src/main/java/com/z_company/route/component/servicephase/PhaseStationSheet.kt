@@ -481,25 +481,32 @@ private fun highlight(item: String, query: String) = buildAnnotatedString {
     append(item.substring(start + q.length))
 }
 
-/** Начало слова, с которого совпадает запрос (слова делятся пробелом и дефисом); -1 — нет. */
-private fun matchStart(item: String, query: String): Int {
+/**
+ * Начало слова, с которого совпадает запрос (слова делятся пробелом и дефисом); -1 — нет.
+ * Без учёта регистра и е/ё (замена один к одному — позиции для подсветки сохраняются).
+ */
+internal fun matchStart(item: String, query: String): Int {
     if (query.isEmpty()) return -1
+    val text = foldYo(item)
+    val q = foldYo(query)
     var i = 0
-    while (i <= item.length - query.length) {
-        val wordStart = i == 0 || item[i - 1] == ' ' || item[i - 1] == '-'
-        if (wordStart && item.regionMatches(i, query, 0, query.length, ignoreCase = true)) return i
+    while (i <= text.length - q.length) {
+        val wordStart = i == 0 || text[i - 1] == ' ' || text[i - 1] == '-'
+        if (wordStart && text.regionMatches(i, q, 0, q.length, ignoreCase = true)) return i
         i++
     }
     return -1
 }
 
-private fun suggest(stationList: List<String>, query: String): List<String> {
+internal fun suggest(stationList: List<String>, query: String): List<String> {
     val q = query.trim()
     if (q.isEmpty()) return emptyList()
     return stationList
-        .filter { !it.equals(q, ignoreCase = true) && matchStart(it, q) >= 0 }
+        .filter { !foldYo(it).equals(foldYo(q), ignoreCase = true) && matchStart(it, q) >= 0 }
         .take(5)
 }
+
+private fun foldYo(s: String) = s.replace('ё', 'е').replace('Ё', 'Е')
 
 private fun formatKmInput(km: Double): String =
     (kotlin.math.round(km * 10) / 10).toString().removeSuffix(".0").replace('.', ',')
