@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,7 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -65,6 +66,14 @@ fun PartnerEditScreen(
         }
     }
 
+    // Выход с экрана (стрелка или системный «назад») — сразу сохраняем, не дожидаясь
+    // debounce автосейва: иначе правка последних 500 мс терялась бы.
+    val saveAndExit = {
+        viewModel.save()
+        onDone()
+    }
+    BackHandler(onBack = saveAndExit)
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -79,11 +88,11 @@ fun PartnerEditScreen(
                     )
                 },
                 navigationIcon = {
-                    TextButton(onClick = { viewModel.save(); onDone() }) {
-                        Text(
-                            text = "Готово",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.tertiary,
+                    IconButton(onClick = saveAndExit) {
+                        Icon(
+                            painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
+                            contentDescription = "Назад",
+                            tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                 },

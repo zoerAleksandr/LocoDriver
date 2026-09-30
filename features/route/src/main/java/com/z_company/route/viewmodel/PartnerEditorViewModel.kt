@@ -88,7 +88,8 @@ class PartnerEditorViewModel(
     /** Autosave — silent. Не создаёт запись с пустым ФИО. */
     fun save() {
         val s = _state.value
-        if (s.fullName.isBlank()) return
+        // После удаления запись не пересоздаём.
+        if (s.deleted || s.fullName.isBlank()) return
         sharedPrefs.setSettingsSyncPending(true)
         viewModelScope.launch {
             useCase.upsert(
