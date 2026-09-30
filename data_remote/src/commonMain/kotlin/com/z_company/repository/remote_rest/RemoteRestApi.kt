@@ -205,6 +205,12 @@ interface RemoteRestApi {
         body: com.z_company.repository.remote_rest.response.ServicePhaseSuggestRequest,
     ): com.z_company.repository.remote_rest.response.ServicePhaseSuggestResponse
 
+    /** Ближайшая станция к точке телефона (радиус по умолчанию 2 км). */
+    suspend fun nearestStation(
+        token: String,
+        body: com.z_company.repository.remote_rest.response.NearestStationRequest,
+    ): com.z_company.repository.remote_rest.response.NearestStationResponse
+
     /** Координаты одной станции по названию (ближние к соседям — первыми). */
     suspend fun lookupServicePhaseStation(
         token: String,

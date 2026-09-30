@@ -381,6 +381,16 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             setBody(body)
         }.body()
 
+    override suspend fun nearestStation(
+        token: String,
+        body: com.z_company.repository.remote_rest.response.NearestStationRequest,
+    ): com.z_company.repository.remote_rest.response.NearestStationResponse =
+        client.post("v1/service_phase/stations/nearest") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(body)
+        }.body()
+
     override suspend fun lookupServicePhaseStation(
         token: String,
         body: com.z_company.repository.remote_rest.response.ServicePhaseLookupRequest,

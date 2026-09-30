@@ -52,10 +52,20 @@ class ServicePhaseStationPickerTest {
     }
 
     @Test
-    fun `adding several stations standing still leaves the name empty`() {
-        val here = at(30.199)
-        assertNull(ServicePhaseStationPicker.nameForNewStation(phase, listOf("Гатчина", "Суйда"), here, previousFix = at(30.1995)))
-        assertEquals("Сиверская", ServicePhaseStationPicker.nameForNewStation(phase, listOf("Гатчина", "Суйда"), here, previousFix = at(30.1)))
+    fun `standing still - nearest station of the phase, even if already passed`() {
+        val here = at(30.1005) // у Суйды, она уже в поезде, но стоим тут — дописываем её
+        assertEquals("Суйда", ServicePhaseStationPicker.nameForNewStation(phase, listOf("Гатчина", "Сиверская"), here, previousFix = at(30.1))
+        )
+        // в движении у Суйды (уже пройдена) — впереди ничего рядом нет
+        assertNull(ServicePhaseStationPicker.nameForNewStation(phase, listOf("Гатчина", "Суйда"), here, previousFix = at(30.0)))
+    }
+
+    @Test
+    fun `without phase - nearest known station from all phases`() {
+        val points = ServicePhaseStationPicker.knownPoints(listOf(phase))
+        val names = ServicePhaseStationPicker.knownNames(listOf(phase))
+        assertEquals("Толмачёво", ServicePhaseStationPicker.nearestKnown(points, names, at(30.399)))
+        assertNull(ServicePhaseStationPicker.nearestKnown(points, names, at(30.3)))
     }
 
     @Test

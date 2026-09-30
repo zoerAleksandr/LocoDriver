@@ -180,6 +180,8 @@ class TrainFormViewModel(
     // ─── Станции плеча по местоположению (SCREEN_SPECS §6.6) ───────────────
     // Объявлены ДО init: init их уже использует (порядок инициализации свойств).
     private val appContext: android.content.Context by inject()
+    private val remoteApi: com.z_company.repository.remote_rest.RemoteRestApi by inject()
+    private val tokenStorage: com.z_company.repository.SecureTokenStorage by inject()
     /** Координата прошлого добавления станции — чтобы не подставлять одно и то же стоя на месте. */
     private var previousAddFix: GeoFix? = null
     /** Последняя известная координата — для сортировки подсказок. */
@@ -511,21 +513,52 @@ class TrainFormViewModel(
     fun selectedPhaseHasCoordinates(): Boolean = fullSelectedPhase()?.let(ServicePhaseStationPicker::hasCoordinates) == true
 
     /**
+     * Название для новой станции по местоположению (SCREEN_SPECS §6.6):
+     * - есть плечо с координатами станций — [ServicePhaseStationPicker.nameForNewStation]
+     *   (в движении — ближайшая впереди, стоя на месте — ближайшая станция плеча);
+     * - иначе — просто ближайшая станция: из координат всех плеч, а если рядом таких нет —
+     *   с сервера (ближайшая станция OSM в 2 км; координата не сохраняется).
+     * Повтор предыдущей станции поезда не подставляется.
+     */
+    private suspend fun suggestStationName(names: List<String?>, fix: GeoFix): String? {
+        val phase = fullSelectedPhase()
+        if (phase != null && ServicePhaseStationPicker.hasCoordinates(phase)) {
+            return ServicePhaseStationPicker.nameForNewStation(phase, names, fix, previousAddFix)
+        }
+        val local = ServicePhaseStationPicker.nearestKnown(
+            ServicePhaseStationPicker.knownPoints(servicePhaseList),
+            ServicePhaseStationPicker.knownNames(servicePhaseList),
+            fix,
+        )
+        val name = local ?: nearestFromServer(fix)
+        return name?.takeUnless { ServicePhaseStationPicker.isSameAsPrevious(it, names) }
+    }
+
+    private suspend fun nearestFromServer(fix: GeoFix): String? = runCatching {
+        val token = tokenStorage.getAuthBearerTokenFlow().first() ?: return null
+        kotlinx.coroutines.withTimeout(5_000) {
+            remoteApi.nearestStation(
+                "Bearer $token",
+                com.z_company.repository.remote_rest.response.NearestStationRequest(fix.latitude, fix.longitude),
+            ).station?.name
+        }
+    }.getOrNull()
+
+    /**
      * Подставить название новой станции [stationId] по местоположению — асинхронно, когда
      * придёт координата; только если пользователь сам ничего не ввёл.
      */
     private fun autoNameNewStation(stationId: String) {
-        val phase = fullSelectedPhase() ?: return
-        if (!ServicePhaseStationPicker.hasCoordinates(phase)) return
         refreshFix { fix ->
-            val idx = stationsListState.indexOfFirst { it.id == stationId }
-            if (idx < 0 || !stationsListState[idx].station.data.isNullOrBlank()) return@refreshFix
-            val names = stationsListState.filter { it.id != stationId }.map { it.station.data }
-            val name = ServicePhaseStationPicker.nameForNewStation(phase, names, fix, previousAddFix)
-            previousAddFix = fix
-            if (name != null) {
-                stationsListState[idx] = stationsListState[idx].copy(station = StationField(data = name, type = StationDataType.NAME))
-                changesHave()
+            viewModelScope.launch {
+                val names = stationsListState.filter { it.id != stationId }.map { it.station.data }
+                val name = suggestStationName(names, fix)
+                previousAddFix = fix
+                val idx = stationsListState.indexOfFirst { it.id == stationId }
+                if (name != null && idx >= 0 && stationsListState[idx].station.data.isNullOrBlank()) {
+                    stationsListState[idx] = stationsListState[idx].copy(station = StationField(data = name, type = StationDataType.NAME))
+                    changesHave()
+                }
             }
         }
     }
@@ -1097,6 +1130,7 @@ class TrainFormViewModel(
         if (stationsListState.isEmpty()) {
             addingStation()
             setDepartureTime(0, now)
+            autoNameNewStation(stationsListState[0].id)
             return
         }
 
@@ -1146,13 +1180,12 @@ class TrainFormViewModel(
 
     fun startAddingNewStation() {
         _uiState.update { it.copy(editingStationIndex = -1, suggestedNewStationName = null) }
-        val phase = fullSelectedPhase()
         refreshFix { fix ->
-            if (phase == null || !ServicePhaseStationPicker.hasCoordinates(phase)) return@refreshFix
-            if (_uiState.value.editingStationIndex != -1) return@refreshFix
-            val name = ServicePhaseStationPicker.nameForNewStation(phase, stationsListState.map { it.station.data }, fix, previousAddFix)
-            previousAddFix = fix
-            _uiState.update { it.copy(suggestedNewStationName = name) }
+            viewModelScope.launch {
+                val name = suggestStationName(stationsListState.map { it.station.data }, fix)
+                previousAddFix = fix
+                if (_uiState.value.editingStationIndex == -1) _uiState.update { it.copy(suggestedNewStationName = name) }
+            }
         }
     }
 

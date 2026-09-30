@@ -284,8 +284,8 @@ fun FormTrainScreen(
         var showEditPhaseSheet by remember { mutableStateOf(false) }
         var editingPhase by remember { mutableStateOf<ServicePhase?>(null) }
 
-        // Геолокация для подстановки станций плеча: спрашиваем один раз, при первом GO /
-        // «добавить станцию» с плечом, у которого есть координаты станций.
+        // Геолокация для подстановки ближайшей станции: спрашиваем один раз, при первом GO /
+        // «добавить станцию».
         val locationContext = LocalContext.current
         var afterLocationPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
         val locationPermission = rememberLauncherForActivityResult(
@@ -296,8 +296,7 @@ fun FormTrainScreen(
         }
         fun askLocation(action: () -> Unit) {
             val prefs = locationContext.getSharedPreferences("service_phase_location", android.content.Context.MODE_PRIVATE)
-            if (viewModel.selectedPhaseHasCoordinates() &&
-                !DeviceLocation.hasPermission(locationContext) &&
+            if (!DeviceLocation.hasPermission(locationContext) &&
                 !prefs.getBoolean("asked", false)
             ) {
                 prefs.edit().putBoolean("asked", true).apply()

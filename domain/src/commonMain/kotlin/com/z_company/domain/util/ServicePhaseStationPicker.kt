@@ -59,10 +59,21 @@ object ServicePhaseStationPicker {
     fun isStationary(previous: GeoFix?, fix: GeoFix): Boolean =
         previous != null && distanceM(previous.latitude, previous.longitude, fix.latitude, fix.longitude) < STATIONARY_M
 
+    /** Ближайшая к [fix] станция плеча в радиусе (любая, без учёта хода). */
+    fun nearestInPhase(phase: ServicePhase, fix: GeoFix): String? =
+        stops(phase)
+            .filter { it.lat != null && it.lon != null }
+            .map { it to distanceM(fix.latitude, fix.longitude, it.lat!!, it.lon!!) }
+            .filter { it.second <= NEAR_RADIUS_M }
+            .minByOrNull { it.second }
+            ?.first?.name
+
     /**
-     * Название для новой станции: ближайшая впереди, но не при добавлении нескольких станций
-     * стоя на месте и не повтор предыдущей станции (решение: тогда поле остаётся пустым —
-     * следующая остановка не обязательно следующая станция плеча).
+     * Название для новой станции по плечу:
+     * - в движении — ближайшая станция **впереди** по ходу ([nearestAhead]);
+     * - стоя на месте (сдвиг < [STATIONARY_M] с прошлого добавления) — ближайшая станция плеча
+     *   вообще ([nearestInPhase]): машинист дописывает станцию, у которой стоит.
+     * Повтор предыдущей станции поезда не подставляется — это была бы та же строка ещё раз.
      */
     fun nameForNewStation(
         phase: ServicePhase,
@@ -70,10 +81,28 @@ object ServicePhaseStationPicker {
         fix: GeoFix,
         previousFix: GeoFix?,
     ): String? {
-        if (isStationary(previousFix, fix)) return null
-        val name = nearestAhead(phase, trainStationNames, fix) ?: return null
-        val prev = trainStationNames.lastOrNull { !it.isNullOrBlank() }
-        return name.takeUnless { prev != null && ServicePhaseStationsMerge.normalizeName(prev) == ServicePhaseStationsMerge.normalizeName(name) }
+        val name = if (isStationary(previousFix, fix)) nearestInPhase(phase, fix)
+        else nearestAhead(phase, trainStationNames, fix)
+        return name?.takeUnless { isSameAsPrevious(it, trainStationNames) }
+    }
+
+    /** Без плеча: ближайшая станция из известных координат (всех плеч) в радиусе. */
+    fun nearestKnown(points: Map<String, Pair<Double, Double>>, names: Map<String, String>, fix: GeoFix): String? =
+        points.map { (norm, p) -> norm to distanceM(fix.latitude, fix.longitude, p.first, p.second) }
+            .filter { it.second <= NEAR_RADIUS_M }
+            .minByOrNull { it.second }
+            ?.first?.let { names[it] }
+
+    /** Нормализованное название → как оно записано в плече (для [nearestKnown]). */
+    fun knownNames(phases: List<ServicePhase>): Map<String, String> {
+        val out = mutableMapOf<String, String>()
+        phases.forEach { phase -> stops(phase).forEach { out.getOrPut(ServicePhaseStationsMerge.normalizeName(it.name)) { it.name } } }
+        return out
+    }
+
+    fun isSameAsPrevious(name: String, trainStationNames: List<String?>): Boolean {
+        val prev = trainStationNames.lastOrNull { !it.isNullOrBlank() } ?: return false
+        return ServicePhaseStationsMerge.normalizeName(prev) == ServicePhaseStationsMerge.normalizeName(name)
     }
 
     /** Координаты станций по названию из всех плеч (для сортировки подсказок по близости). */

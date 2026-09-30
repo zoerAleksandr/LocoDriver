@@ -65,3 +65,10 @@ data class LatLon(val latitude: Double, val longitude: Double)
 
 @Serializable
 data class ServicePhaseLookupResponse(val candidates: List<OsmStationCandidate> = emptyList())
+
+/** `POST /v1/service_phase/stations/nearest` — ближайшая станция к точке (форма поезда без плеча). */
+@Serializable
+data class NearestStationRequest(val latitude: Double, val longitude: Double, val radiusM: Double = 2000.0)
+
+@Serializable
+data class NearestStationResponse(val station: OsmStationCandidate? = null)
