@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import com.z_company.domain.util.GeoFix
 import com.z_company.domain.util.ServicePhaseOrder
 import com.z_company.domain.util.ServicePhaseStationPicker
+import com.z_company.domain.util.StationDirectory
 import com.z_company.domain.util.ServicePhaseStationsMerge
 import com.z_company.domain.util.StationSuggestionOrder
 import com.z_company.route.util.DeviceLocation
@@ -57,6 +58,7 @@ class TrainFormViewModel(
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val trainUseCase: TrainUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private var route: Route = Route()
     private val _uiState = MutableStateFlow(TrainFormUiState())
@@ -231,7 +233,9 @@ class TrainFormViewModel(
                             locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList.toMutableStateList())
                             mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
                             servicePhaseList.clear()
-                            servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
+                            // Координаты станций плеч — из справочника станций (единый источник).
+                            stationDirectory.backfillOnce(settings.servicePhases)
+                            servicePhaseList.addAllOrSkip(stationDirectory.resolve(settings.servicePhases).toMutableStateList())
                         }
                     }
                 }
@@ -525,9 +529,10 @@ class TrainFormViewModel(
         if (phase != null && ServicePhaseStationPicker.hasCoordinates(phase)) {
             return ServicePhaseStationPicker.nameForNewStation(phase, names, fix, previousAddFix)
         }
+        val directory = stationDirectory.stations()
         val local = ServicePhaseStationPicker.nearestKnown(
-            ServicePhaseStationPicker.knownPoints(servicePhaseList),
-            ServicePhaseStationPicker.knownNames(servicePhaseList),
+            StationDirectory.points(directory) + ServicePhaseStationPicker.knownPoints(servicePhaseList),
+            StationDirectory.names(directory) + ServicePhaseStationPicker.knownNames(servicePhaseList),
             fix,
         )
         val name = local ?: nearestFromServer(fix)
@@ -579,7 +584,12 @@ class TrainFormViewModel(
     }
 
     private fun sortSuggestions(names: List<String>): List<String> =
-        StationSuggestionOrder.sort(names, stationUsage, ServicePhaseStationPicker.knownPoints(servicePhaseList), lastFix)
+        StationSuggestionOrder.sort(
+            names,
+            stationUsage,
+            StationDirectory.points(stationDirectory.stations()) + ServicePhaseStationPicker.knownPoints(servicePhaseList),
+            lastFix,
+        )
 
     // Правки плеч и справочника станций — read-modify-write одних настроек: по очереди.
     private val settingsMutex = Mutex()

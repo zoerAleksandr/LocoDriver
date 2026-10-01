@@ -1,5 +1,13 @@
 package com.z_company.route.component
 
+import org.koin.compose.koinInject
+
+import com.z_company.domain.util.ServicePhaseStationsMerge
+
+import com.z_company.domain.util.StationDirectory
+
+import com.z_company.domain.use_cases.StationDirectoryUseCase
+
 import com.z_company.route.viewmodel.AutoFillFailure
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -112,6 +120,17 @@ fun ShoulderEditBottomSheet(
 ) {
     val focusManager = LocalFocusManager.current
     val isNew = phase == null
+    // Координаты станций — из справочника (единый источник); в плече — запасная копия.
+    val stationDirectory: StationDirectoryUseCase = koinInject()
+    @Suppress("NAME_SHADOWING")
+    val phase = remember { phase?.let(stationDirectory::resolve) }
+    val directoryPoints = remember { StationDirectory.byName(stationDirectory.stations()) }
+    /** Точка крайней станции: заданная в редакторе для этого названия, иначе — из справочника. */
+    fun pointFor(own: Pair<ServicePhasePoint?, String>?, name: String): ServicePhasePoint? =
+        own?.takeIf { sameName(it.second, name) }?.first
+            ?: directoryPoints[ServicePhaseStationsMerge.normalizeName(name)]?.let {
+                ServicePhasePoint(it.latitude!!, it.longitude!!, osmId = it.osmId, esr = it.esr)
+            }
 
     var departure by remember { mutableStateOf(textValue(phase?.departureStation)) }
     var arrival by remember { mutableStateOf(textValue(phase?.arrivalStation)) }
@@ -168,8 +187,8 @@ fun ShoulderEditBottomSheet(
             departure = dep,
             arrival = arr,
             country = country,
-            departureOsmId = depPoint?.takeIf { sameName(it.second, dep) }?.first?.osmId,
-            arrivalOsmId = arrPoint?.takeIf { sameName(it.second, arr) }?.first?.osmId,
+            departureOsmId = pointFor(depPoint, dep)?.osmId,
+            arrivalOsmId = pointFor(arrPoint, arr)?.osmId,
         )
         autoFillOpen = true
     }
@@ -183,9 +202,9 @@ fun ShoulderEditBottomSheet(
         val dep = departure.text.trim()
         val arr = arrival.text.trim()
         val points = buildList {
-            add(depPoint?.takeIf { sameName(it.second, dep) }?.first?.let { it.latitude to it.longitude })
+            add(pointFor(depPoint, dep)?.let { it.latitude to it.longitude })
             stations.filter { it.hasCoordinates }.forEach { add(it.latitude!! to it.longitude!!) }
-            add(arrPoint?.takeIf { sameName(it.second, arr) }?.first?.let { it.latitude to it.longitude })
+            add(pointFor(arrPoint, arr)?.let { it.latitude to it.longitude })
         }
         return points.joinToString(";") { p -> p?.let { "%.5f,%.5f".format(java.util.Locale.US, it.first, it.second) } ?: "-" }
     }
@@ -193,8 +212,8 @@ fun ShoulderEditBottomSheet(
     fun measureByMap() {
         val dep = departure.text.trim()
         val arr = arrival.text.trim()
-        val depP = depPoint?.takeIf { sameName(it.second, dep) }?.first
-        val arrP = arrPoint?.takeIf { sameName(it.second, arr) }?.first
+        val depP = pointFor(depPoint, dep)
+        val arrP = pointFor(arrPoint, arr)
         if (depP == null || arrP == null) {
             snackbar = EditorSnackbar("Нужны координаты станций отправления и прибытия — откройте их в схеме", null)
             return
@@ -252,8 +271,8 @@ fun ShoulderEditBottomSheet(
     if (showRouteMap) {
         val dep = departure.text.trim()
         val arr = arrival.text.trim()
-        val depP = depPoint?.takeIf { sameName(it.second, dep) }?.first
-        val arrP = arrPoint?.takeIf { sameName(it.second, arr) }?.first
+        val depP = pointFor(depPoint, dep)
+        val arrP = pointFor(arrPoint, arr)
         val stops = buildList {
             depP?.let { add(RouteMapStop(dep, it.latitude, it.longitude)) }
             stations.filter { it.hasCoordinates }.forEach { add(RouteMapStop(it.name, it.latitude!!, it.longitude!!, it.kind)) }
@@ -272,7 +291,7 @@ fun ShoulderEditBottomSheet(
     // Крайняя станция (отправление/прибытие) — та же шторка в упрощённом виде.
     editingTerminal?.let { isStart ->
         val name = (if (isStart) departure else arrival).text.trim()
-        val point = (if (isStart) depPoint else arrPoint)?.takeIf { sameName(it.second, name) }?.first
+        val point = pointFor(if (isStart) depPoint else arrPoint, name)
         val proxy = ServicePhaseStation(
             id = if (isStart) "terminal:departure" else "terminal:arrival",
             name = name,
@@ -633,15 +652,15 @@ fun ShoulderEditBottomSheet(
                             linearMileageRate = mileageRate,
                             intermediateStations = stations.toList(),
                             // Координаты относились к прежней станции — при переименовании сбрасываем.
-                            departurePoint = depPoint?.takeIf { sameName(it.second, dep) }?.first,
-                            arrivalPoint = arrPoint?.takeIf { sameName(it.second, arr) }?.first,
+                            departurePoint = pointFor(depPoint, dep),
+                            arrivalPoint = pointFor(arrPoint, arr),
                         )
                         if (pendingNames.isNotEmpty()) onAddStationNames(pendingNames)
                         val isMeasured = measured?.let { it.distance == distanceKm && it.signature == coordinateSignature() } == true
                         measuredPrefs.edit().apply {
                             if (isMeasured) putString(result.id, measured!!.encode()) else remove(result.id)
                         }.apply()
-                        onSave(result, createReverse && isNew)
+                        onSave(stationDirectory.prepareSave(result), createReverse && isNew)
                         onDismiss()
                     },
                 )

@@ -51,6 +51,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class SettingsViewModel : ViewModel(), KoinComponent {
+    private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val normaUseCase: NormaUseCase by inject()
@@ -308,6 +309,8 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                                     servicePhases = merged.servicePhases.toMutableStateList()
                                 )
                             }
+                            // Координаты из плеч, сохранённых до справочника станций, — в справочник.
+                            stationDirectory.backfillOnce(merged.servicePhases)
                         }
                     }
             } catch (e: Exception) {

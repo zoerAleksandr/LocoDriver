@@ -56,7 +56,10 @@ fun SettingsShouldersContent(
     country: String = "RU",
     onAddStationNames: (List<String>) -> Unit = {},
 ) {
-    val phases = servicePhases?.toList() ?: emptyList()
+    // Для счётчика «нет координат» — координаты станций из справочника.
+    val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase = org.koin.compose.koinInject()
+    val rawPhases = servicePhases?.toList() ?: emptyList()
+    val phases = remember(rawPhases) { stationDirectory.resolve(rawPhases) }
 
     // Локальное состояние шторки добавления/редактирования — переиспользуем общий
     // ShoulderEditBottomSheet (тот же, что в FormTrainScreen), а не дублирующую шторку.

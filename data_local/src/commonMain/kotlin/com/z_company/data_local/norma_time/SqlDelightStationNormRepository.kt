@@ -6,6 +6,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.ResultState.Companion.flowRequest
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.domain.entities.norma_time.StationNorm
+import com.z_company.domain.entities.setting.ServicePhaseStationKind
 import com.z_company.domain.repositories.StationNormRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -35,7 +36,14 @@ class SqlDelightStationNormRepository : StationNormRepository, KoinComponent {
                 endToBarrierMin = s.endToBarrierMin?.toLong(),
                 barrierToStartMin = s.barrierToStartMin?.toLong(),
                 endToWorkEndMin = s.endToWorkEndMin?.toLong(),
-                updatedAt = s.updatedAt
+                updatedAt = s.updatedAt,
+                latitude = s.latitude,
+                longitude = s.longitude,
+                esr = s.esr,
+                osmId = s.osmId,
+                kind = s.kind?.name,
+                axisKm = s.axisKm?.toLong(),
+                axisPicket = s.axisPicket?.toLong(),
             )
         }
     }
@@ -48,6 +56,13 @@ class SqlDelightStationNormRepository : StationNormRepository, KoinComponent {
             endToBarrierMin = endToBarrierMin?.toInt(),
             barrierToStartMin = barrierToStartMin?.toInt(),
             endToWorkEndMin = endToWorkEndMin?.toInt(),
+            latitude = latitude,
+            longitude = longitude,
+            esr = esr,
+            osmId = osmId,
+            kind = kind?.let { k -> ServicePhaseStationKind.entries.firstOrNull { it.name == k } },
+            axisKm = axisKm?.toInt(),
+            axisPicket = axisPicket?.toInt(),
             updatedAt = updatedAt
         )
 }

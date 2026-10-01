@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.io.IOException
@@ -52,6 +54,7 @@ sealed interface AutoFillState {
 class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     private val api: RemoteRestApi by inject()
     private val tokens: SecureTokenStorage by inject()
+    private val appContext: android.content.Context by inject()
 
     private val _state = MutableStateFlow<AutoFillState>(AutoFillState.Idle)
     val state = _state.asStateFlow()
@@ -180,23 +183,49 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    /** Линия плеча по рельсам для карты (через точки по порядку). null — нет пути/сети/сервиса. */
-    suspend fun railLine(points: List<Pair<Double, Double>>): List<Pair<Double, Double>>? = try {
-        val token = tokens.getAuthBearerTokenFlow().first()
-        withTimeout(TIMEOUT_MS) {
-            api.measureRouteLength(
-                "Bearer $token",
-                com.z_company.repository.remote_rest.response.RouteLengthRequest(
-                    points = points.map { (lat, lon) -> LatLon(lat, lon) },
-                    withGeometry = true,
-                ),
-            ).geometry.mapNotNull { p -> if (p.size >= 2) p[0] to p[1] else null }.takeIf { it.size >= 2 }
+    /**
+     * Линия плеча по рельсам для карты (через точки по порядку). Однажды полученная линия
+     * кэшируется на устройстве по набору точек — карта рисует её и без сети.
+     * null — нет пути/сети/сервиса.
+     */
+    suspend fun railLine(points: List<Pair<Double, Double>>): List<Pair<Double, Double>>? {
+        val key = points.joinToString(";") { (lat, lon) -> "%.5f,%.5f".format(java.util.Locale.US, lat, lon) }
+        val file = java.io.File(appContext.noBackupFilesDir, "rail_lines/${key.hashCode().toUInt().toString(16)}.txt")
+        withContext(Dispatchers.IO) { readRailLine(file, key) }?.let { return it }
+        val line = try {
+            val token = tokens.getAuthBearerTokenFlow().first()
+            withTimeout(TIMEOUT_MS) {
+                api.measureRouteLength(
+                    "Bearer $token",
+                    com.z_company.repository.remote_rest.response.RouteLengthRequest(
+                        points = points.map { (lat, lon) -> LatLon(lat, lon) },
+                        withGeometry = true,
+                    ),
+                ).geometry.mapNotNull { p -> if (p.size >= 2) p[0] to p[1] else null }.takeIf { it.size >= 2 }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            if (e is TimeoutCancellationException) null else throw e
+        } catch (e: Exception) {
+            null
+        } ?: return null
+        withContext(Dispatchers.IO) {
+            runCatching {
+                file.parentFile?.mkdirs()
+                file.writeText(key + "\n" + line.joinToString(";") { (lat, lon) -> "$lat,$lon" })
+            }
         }
-    } catch (e: kotlinx.coroutines.CancellationException) {
-        if (e is TimeoutCancellationException) null else throw e
-    } catch (e: Exception) {
-        null
+        return line
     }
+
+    private fun readRailLine(file: java.io.File, key: String): List<Pair<Double, Double>>? = runCatching {
+        if (!file.exists()) return null
+        val (head, body) = file.readText().split("\n", limit = 2).takeIf { it.size == 2 } ?: return null
+        if (head != key) return null
+        body.split(";").mapNotNull { p ->
+            val (lat, lon) = p.split(",").takeIf { it.size == 2 } ?: return@mapNotNull null
+            lat.toDoubleOrNull()?.let { a -> lon.toDoubleOrNull()?.let { a to it } }
+        }.takeIf { it.size >= 2 }
+    }.getOrNull()
 
     /** Координаты одной станции (шторка станции, «Найти координаты»). null — ошибка сети/сервиса. */
     suspend fun lookup(name: String, country: String, near: List<Pair<Double, Double>>): List<OsmStationCandidate>? =
