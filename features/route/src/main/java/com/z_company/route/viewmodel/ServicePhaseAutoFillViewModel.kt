@@ -180,6 +180,24 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         }
     }
 
+    /** Линия плеча по рельсам для карты (через точки по порядку). null — нет пути/сети/сервиса. */
+    suspend fun railLine(points: List<Pair<Double, Double>>): List<Pair<Double, Double>>? = try {
+        val token = tokens.getAuthBearerTokenFlow().first()
+        withTimeout(TIMEOUT_MS) {
+            api.measureRouteLength(
+                "Bearer $token",
+                com.z_company.repository.remote_rest.response.RouteLengthRequest(
+                    points = points.map { (lat, lon) -> LatLon(lat, lon) },
+                    withGeometry = true,
+                ),
+            ).geometry.mapNotNull { p -> if (p.size >= 2) p[0] to p[1] else null }.takeIf { it.size >= 2 }
+        }
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        if (e is TimeoutCancellationException) null else throw e
+    } catch (e: Exception) {
+        null
+    }
+
     /** Координаты одной станции (шторка станции, «Найти координаты»). null — ошибка сети/сервиса. */
     suspend fun lookup(name: String, country: String, near: List<Pair<Double, Double>>): List<OsmStationCandidate>? =
         try {

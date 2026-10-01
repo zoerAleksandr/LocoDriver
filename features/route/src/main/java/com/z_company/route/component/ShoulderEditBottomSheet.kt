@@ -264,6 +264,7 @@ fun ShoulderEditBottomSheet(
             title = listOf(dep, arr).filter { it.isNotBlank() }.joinToString(" — ").ifBlank { "Плечо" },
             stops = stops,
             missing = total - stops.size,
+            loadRailLine = { autoVm.railLine(it) },
             onDismiss = { showRouteMap = false },
         )
     }

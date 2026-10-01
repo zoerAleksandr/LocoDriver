@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +53,7 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
@@ -71,10 +73,13 @@ internal data class RouteMapStop(
 private const val STOPS_SOURCE = "phase-route-stops"
 private const val LINE_SOURCE = "phase-route-line"
 private const val ME_SOURCE = "phase-route-me"
+private const val RAIL_SOURCE = "phase-route-rail"
+private const val RAIL_LAYER = "phase-route-rail-layer"
 
 /**
  * Просмотр плеча на карте (SCREEN_SPECS §6.6): станции с координатами по порядку —
- * крайние (крупные тёмные точки), станции, о.п. (мелкие) — с подписями и линией между ними.
+ * крайние (крупные тёмные точки), станции, о.п. (мелкие) — с подписями и линией пути.
+ * Линия — по рельсам ([loadRailLine], сервер); пока грузится или без сети — пунктир напрямик.
  * Камера охватывает всё плечо. Только просмотр; «назад» — закрыть.
  * Запросов к отрисовке (queryRenderedFeatures) нет — см. PhaseMapPicker про нативное падение.
  */
@@ -83,6 +88,7 @@ internal fun PhaseRouteMap(
     title: String,
     stops: List<RouteMapStop>,
     missing: Int,
+    loadRailLine: suspend (List<Pair<Double, Double>>) -> List<Pair<Double, Double>>?,
     onDismiss: () -> Unit,
 ) {
     Dialog(
@@ -106,6 +112,36 @@ internal fun PhaseRouteMap(
         }
         val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
             if (granted.values.any { it }) showMyLocation() else locationDenied = true
+        }
+        // Путь по рельсам: грузим один раз и подменяем пунктир сплошной линией, когда карта готова.
+        var railLine by remember { mutableStateOf<List<Pair<Double, Double>>?>(null) }
+        LaunchedEffect(Unit) {
+            if (stops.size >= 2) railLine = loadRailLine(stops.map { it.latitude to it.longitude })
+        }
+        var styleReady by remember { mutableStateOf(false) }
+        LaunchedEffect(railLine, styleReady) {
+            val line = railLine ?: return@LaunchedEffect
+            if (!styleReady) return@LaunchedEffect
+            val style = map?.style ?: return@LaunchedEffect
+            if (style.getLayer(RAIL_LAYER) != null) return@LaunchedEffect
+            // Пунктир напрямик прячем, линию по рельсам кладём отдельным слоем под точки станций.
+            style.getLayer("phase-route-line-layer")?.setProperties(PropertyFactory.visibility(Property.NONE))
+            style.addSource(
+                GeoJsonSource(
+                    RAIL_SOURCE,
+                    Feature.fromGeometry(LineString.fromLngLats(line.map { (lat, lon) -> Point.fromLngLat(lon, lat) })),
+                )
+            )
+            style.addLayerBelow(
+                LineLayer(RAIL_LAYER, RAIL_SOURCE).withProperties(
+                    PropertyFactory.lineColor("#00A0F5"),
+                    PropertyFactory.lineWidth(4f),
+                    PropertyFactory.lineOpacity(0.85f),
+                    PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                    PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                ),
+                "phase-route-stops-layer",
+            )
         }
         val mapView = remember {
             MapView(context).also { mv ->
@@ -198,6 +234,7 @@ internal fun PhaseRouteMap(
                         } else if (stops.size == 1) {
                             m.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(stops[0].latitude, stops[0].longitude), 13.0))
                         }
+                        styleReady = true
                     }
                 }
             }
