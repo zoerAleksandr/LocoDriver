@@ -147,10 +147,12 @@ class RouteSalarySegmentsTest {
             .sumOf { it.interval.durationMillis })
         assertEquals(5 * hour, segments.filter { AccrualCondition.NIGHT in it.conditions }
             .sumOf { it.interval.durationMillis })
-        // Одно лицо — вся смена без перерыва, следования пассажиром и ожидания
-        // перед ним (первый час смены примыкает к отправлению пассажиром → 018M).
-        assertEquals(5 * hour, segments.filter { AccrualCondition.ONE_PERSON in it.conditions }
+        // Одно лицо — вся смена без перерыва и следования пассажиром. Первый час
+        // смены примыкает к отправлению пассажиром, но работы на локомотиве до
+        // него не было — это не ожидание 018M, а обычная работа.
+        assertEquals(6 * hour, segments.filter { AccrualCondition.ONE_PERSON in it.conditions }
             .sumOf { it.interval.durationMillis })
+        assertTrue(segments.none { AccrualCondition.PASSENGER_WAITING in it.conditions })
         assertTrue(segments.none {
             AccrualCondition.PASSENGER in it.conditions && AccrualCondition.ONE_PERSON in it.conditions
         })

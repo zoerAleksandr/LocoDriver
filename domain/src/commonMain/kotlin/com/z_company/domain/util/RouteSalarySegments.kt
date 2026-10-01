@@ -218,9 +218,13 @@ fun Route.buildTieredTrainSurchargeSegments(
  * следование с поездом (первое отправление — последнее прибытие) и следование
  * пассажиром. Перерыв исключается (он не оплачивается). Из полученного остатка
  * берутся только куски, чей конец совпадает с отправлением пассажиром — то есть
- * время «строго перед» посадкой пассажиром. Крайние остатки (подготовительно-
- * заключительное время) и остатки без последующего следования пассажиром
- * ожиданием не считаются и остаются обычной работой по тарифу.
+ * время «строго перед» посадкой пассажиром. Кроме того, кусок должен начинаться
+ * не раньше окончания работы на локомотиве или следования с поездом в этой смене
+ * («сдал → ждёт → поехал»): остаток от явки до первой посадки пассажиром — это
+ * подготовительно-заключительное время, а если время локомотива и поезда не
+ * заполнено, расчёт не знает, когда шла работа, и ожидание не начисляет.
+ * Такие остатки, как и остатки без последующего следования пассажиром, остаются
+ * обычной работой по тарифу.
  */
 private fun Route.passengerWaitingIntervals(
     workInterval: TimeInterval,
@@ -250,12 +254,15 @@ private fun Route.passengerWaitingIntervals(
         )?.intersect(workInterval)
     }
 
-    val coveredIntervals = (locomotiveIntervals + trainFollowingIntervals + passengerWithinWork)
-        .mergeTimeIntervals()
+    val workOnLocoIntervals = locomotiveIntervals + trainFollowingIntervals
+    if (workOnLocoIntervals.isEmpty()) return emptyList()
+    val firstWorkEnd = workOnLocoIntervals.minOf { it.endMillis }
+
+    val coveredIntervals = (workOnLocoIntervals + passengerWithinWork).mergeTimeIntervals()
     val exclusions = coveredIntervals + listOfNotNull(breakInterval)
 
     return workInterval.subtractAll(exclusions)
-        .filter { it.endMillis in passengerDepartures }
+        .filter { it.endMillis in passengerDepartures && it.startMillis >= firstWorkEnd }
 }
 
 private fun Route.trainIntervals(
