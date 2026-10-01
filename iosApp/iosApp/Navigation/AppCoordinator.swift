@@ -1,43 +1,75 @@
 import SwiftUI
 
-enum AppTab {
-    case home, salary, add, settings, profile
-}
-
+/// Корень навигации (SCREEN_SPECS §3.1): 4 корневые вкладки, у каждой свой
+/// `NavigationStack` со стеком из `AppRouter.paths`, плавающий `DSTabBar` с
+/// отдельной кнопкой «+» (новый маршрут, §3.4).
+///
+/// Почему не системный `TabView`: нижнее меню показывается ТОЛЬКО на корневых
+/// экранах. Системный таб-бар на iOS 16 нельзя надёжно скрыть на экранах,
+/// открытых через `NavigationLink(destination:)` из существующих View.
+/// Поэтому вкладки — это стопка `NavigationStack` (неактивные скрыты, но
+/// сохраняют состояние — аналог `saveState/restoreState`), а `DSTabBar`
+/// прикреплён к корневому экрану каждой вкладки через `safeAreaInset` и
+/// автоматически пропадает на вложенных экранах.
 struct AppCoordinator: View {
     @ObservedObject private var router = AppRouter.shared
+    /// Вкладка создаётся при первом открытии (не грузим VM всех вкладок на старте).
+    @State private var loadedTabs: Set<AppTab> = []
 
     var body: some View {
-        TabView(selection: $router.selectedTab) {
-            NavigationStack {
-                HomeView()
+        ZStack {
+            ForEach(AppTab.allCases, id: \.self) { tab in
+                if loadedTabs.contains(tab) || router.selectedTab == tab {
+                    let isSelected = router.selectedTab == tab
+                    tabStack(tab)
+                        .opacity(isSelected ? 1 : 0)
+                        .allowsHitTesting(isSelected)
+                        .accessibilityHidden(!isSelected)
+                }
             }
-            .tabItem { Label("Поездки", systemImage: "list.bullet") }
-            .tag(AppTab.home)
+        }
+        .onAppear { loadedTabs.insert(router.selectedTab) }
+        .onChange(of: router.selectedTab) { tab in loadedTabs.insert(tab) }
+        .sheet(item: $router.sheet) { sheet in
+            AppSheetView(sheet: sheet, onClose: { router.dismissSheet() })
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.hidden)
+        }
+        .fullScreenCover(item: $router.fullScreen) { sheet in
+            AppSheetView(sheet: sheet, onClose: { router.dismissFullScreen() })
+        }
+        .alert("Нужен вход в аккаунт", isPresented: $router.isSignInRequiredAlertShown) {
+            Button("Войти") { router.showProfile() }
+            Button("Отмена", role: .cancel) {}
+        }
+    }
 
-            NavigationStack {
-                SalaryCalculationView()
-            }
-            .tabItem { Label("Зарплата", systemImage: "rublesign.circle") }
-            .tag(AppTab.salary)
+    private func tabStack(_ tab: AppTab) -> some View {
+        NavigationStack(path: router.pathBinding(for: tab)) {
+            rootView(for: tab)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    DSTabBar(
+                        selection: Binding(
+                            get: { router.selectedTab },
+                            set: { router.selectTab($0) }
+                        ),
+                        onAdd: { router.startNewRoute() }
+                    )
+                    .padding(.bottom, 4)
+                }
+                .navigationDestination(for: AppRoute.self) { route in
+                    AppDestinationView(route: route)
+                }
+        }
+    }
 
-            NavigationStack {
-                FormView(routeId: nil)
-            }
-            .tabItem { Label("Добавить", systemImage: "plus.circle.fill") }
-            .tag(AppTab.add)
-
-            NavigationStack {
-                SettingsView()
-            }
-            .tabItem { Label("Настройки", systemImage: "gearshape") }
-            .tag(AppTab.settings)
-
-            NavigationStack {
-                ProfileView()
-            }
-            .tabItem { Label("Профиль", systemImage: "person.circle") }
-            .tag(AppTab.profile)
+    @ViewBuilder
+    private func rootView(for tab: AppTab) -> some View {
+        switch tab {
+        case .home: HomeView()
+        case .salary: SalaryCalculationView()
+        case .settings: SettingsView()
+        case .profile: ProfileView()
         }
     }
 }

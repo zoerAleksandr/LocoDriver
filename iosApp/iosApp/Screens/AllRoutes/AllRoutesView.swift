@@ -14,7 +14,7 @@ struct AllRoutesView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if vm.routes.isEmpty {
                 Text("Нет маршрутов")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(DSColor.textMuted)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 routeList
@@ -46,8 +46,8 @@ struct AllRoutesView: View {
                         let ms = route.basicData.timeStartWork?.int64Value ?? 0
                         if ms > 0 {
                             Text(TimeFormatter.formatDateTime(ms: ms))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                                .font(DSFont.mono(12))
+                                .foregroundColor(DSColor.textMuted)
                         }
                     }
                     .padding(.vertical, 2)

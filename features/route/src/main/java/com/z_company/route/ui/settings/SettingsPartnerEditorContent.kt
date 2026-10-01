@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.route.R
+import com.z_company.route.ui.partner.PermanentPartnerSection
 import com.z_company.route.viewmodel.PartnerEditorViewModel
 import kotlinx.coroutines.delay
 
@@ -113,6 +114,15 @@ fun SettingsPartnerEditorContent(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
             modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+        )
+
+        PermanentPartnerSection(
+            isPermanent = state.isPermanent,
+            replacePermanent = state.replacePermanent,
+            fullName = state.fullName,
+            onCheckedChange = viewModel::setPermanent,
+            onConfirmReplace = viewModel::confirmReplacePermanent,
+            onDismissReplace = viewModel::dismissReplacePermanent,
         )
 
         if (state.partnerId != null) {

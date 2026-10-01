@@ -54,6 +54,10 @@ import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.ui.partner.PartnerAvatar
 import com.z_company.route.ui.partner.PartnerSearchField
+import com.z_company.route.ui.partner.MakePermanentButton
+import com.z_company.route.ui.partner.PermanentPartnerChip
+import com.z_company.route.ui.partner.PermanentPartnerReplaceDialog
+import com.z_company.route.viewmodel.PermanentReplaceRequest
 import com.z_company.route.ui.partner.filterPartners
 
 enum class PartnerListMode { MANAGE, SELECT }
@@ -70,7 +74,21 @@ fun PartnersListScreen(
     onEdit: (Partner) -> Unit,
     onDelete: (Partner) -> Unit,
     onAddNew: () -> Unit,
+    permanentCandidate: Partner? = null,
+    onMakePermanent: (Partner) -> Unit = {},
+    replaceRequest: PermanentReplaceRequest? = null,
+    onConfirmReplace: () -> Unit = {},
+    onDismissReplace: () -> Unit = {},
 ) {
+    replaceRequest?.let { request ->
+        PermanentPartnerReplaceDialog(
+            current = request.current,
+            newName = request.candidate.fullName,
+            onConfirm = onConfirmReplace,
+            onDismiss = onDismissReplace,
+        )
+    }
+
     var partnerForRemove by remember { mutableStateOf<Partner?>(null) }
     var swipeCloseSignal by remember { mutableStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
@@ -246,6 +264,22 @@ fun PartnersListScreen(
                                         onEdit = { onEdit(p) },
                                     )
                                 }
+                                // Кнопка — прямо под строкой только что отмеченного напарника,
+                                // чтобы была видна и в длинном списке.
+                                if (permanentCandidate?.partnerId == p.partnerId) {
+                                    // Тот же фон выделения, что у строки, — кнопка «принадлежит» ей.
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f))
+                                            .padding(start = 12.dp, end = 12.dp, bottom = 10.dp)
+                                    ) {
+                                        MakePermanentButton(
+                                            partner = p,
+                                            onClick = { onMakePermanent(p) },
+                                        )
+                                    }
+                                }
                                 if (idx < filteredPartners.lastIndex) {
                                     HorizontalDivider(modifier = Modifier.padding(start = 62.dp))
                                 }
@@ -321,6 +355,9 @@ private fun PartnerRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 1.dp),
                 )
+            }
+            if (partner.isPermanent) {
+                PermanentPartnerChip(modifier = Modifier.padding(top = 4.dp))
             }
         }
         // Карандаш → редактирование карточки этого напарника.

@@ -61,7 +61,7 @@ struct SalaryCalculationView: View {
             Button(action: { vm.previousMonth() }) {
                 Image(systemName: "chevron.left")
                     .font(.title3.weight(.semibold))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(DSColor.accent)
                     .frame(width: 44, height: 44)
             }
 
@@ -84,7 +84,7 @@ struct SalaryCalculationView: View {
             Button(action: { vm.nextMonth() }) {
                 Image(systemName: "chevron.right")
                     .font(.title3.weight(.semibold))
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(DSColor.accent)
                     .frame(width: 44, height: 44)
             }
         }
@@ -143,7 +143,7 @@ struct SalaryCalculationView: View {
             if summary.overtimeMs > 0 {
                 Text(formatDurationHM(hours: summary.overtimeHours, minutes: summary.overtimeMinutes))
                     .fontWeight(.medium)
-                    .foregroundColor(.orange)
+                    .foregroundColor(DSColor.warning)
             } else {
                 Text("Нет")
                     .fontWeight(.medium)
@@ -172,7 +172,7 @@ struct SalaryCalculationView: View {
             Spacer()
             Text(formatMoney(summary.toBeCredited))
                 .fontWeight(.semibold)
-                .foregroundColor(.accentColor)
+                .foregroundColor(DSColor.accent)
         }
     }
 

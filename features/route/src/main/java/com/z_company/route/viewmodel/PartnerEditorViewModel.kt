@@ -19,6 +19,9 @@ data class PartnerEditorState(
     val fullName: String = "",
     val tabNumber: String = "",
     val notes: String = "",
+    val isPermanent: Boolean = false,
+    /** Постоянный напарник, которого заменит этот (ждёт подтверждения в диалоге). */
+    val replacePermanent: Partner? = null,
     val deleted: Boolean = false,
 )
 
@@ -47,6 +50,7 @@ class PartnerEditorViewModel(
                             fullName = p.fullName,
                             tabNumber = p.tabNumber.orEmpty(),
                             notes = p.notes.orEmpty(),
+                            isPermanent = p.isPermanent,
                         )
                     }
                 }
@@ -58,10 +62,34 @@ class PartnerEditorViewModel(
     fun setTabNumber(value: String) = _state.update { it.copy(tabNumber = value) }
     fun setNotes(value: String) = _state.update { it.copy(notes = value) }
 
+    /**
+     * Переключатель «Постоянный напарник». Включение при другом постоянном —
+     * через подтверждение замены ([confirmReplacePermanent]).
+     */
+    fun setPermanent(value: Boolean) {
+        if (value) {
+            val current = useCase.getPermanent()?.takeIf { it.partnerId != persistentId }
+            if (current != null) {
+                _state.update { it.copy(replacePermanent = current) }
+                return
+            }
+        }
+        _state.update { it.copy(isPermanent = value) }
+        save()
+    }
+
+    fun confirmReplacePermanent() {
+        _state.update { it.copy(isPermanent = true, replacePermanent = null) }
+        save()
+    }
+
+    fun dismissReplacePermanent() = _state.update { it.copy(replacePermanent = null) }
+
     /** Autosave — silent. Не создаёт запись с пустым ФИО. */
     fun save() {
         val s = _state.value
-        if (s.fullName.isBlank()) return
+        // После удаления запись не пересоздаём.
+        if (s.deleted || s.fullName.isBlank()) return
         sharedPrefs.setSettingsSyncPending(true)
         viewModelScope.launch {
             useCase.upsert(
@@ -70,6 +98,7 @@ class PartnerEditorViewModel(
                     fullName = s.fullName.trim(),
                     tabNumber = s.tabNumber.trim().ifBlank { null },
                     notes = s.notes.trim().ifBlank { null },
+                    isPermanent = s.isPermanent,
                 )
             ).first()
         }

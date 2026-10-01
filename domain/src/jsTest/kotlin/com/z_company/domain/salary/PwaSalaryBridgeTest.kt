@@ -10,6 +10,8 @@ import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.Station
+import com.z_company.domain.entities.route.Train
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -199,6 +201,63 @@ class PwaSalaryBridgeTest {
         )
         assertEquals(rows.values.sum(), result.getValue("totalPayment").jsonPrimitive.double, 0.001)
         assertEquals(4 * 3_600_000.0, result.getValue("workTimeMillis").jsonPrimitive.double)
+    }
+
+    @Test
+    fun `trip one-person row covers whole shift with suburban passenger rate`() = runTest {
+        val tz = TimeZone.of("GMT+3")
+        fun at(hour: Int, minute: Int = 0) =
+            LocalDateTime(2025, 1, 10, hour, minute).toInstant(tz).toEpochMilliseconds()
+        val userSettings = UserSettings(
+            selectMonthOfYear = MonthOfYear(
+                year = 2025,
+                month = 0,
+                tariffRate = 100.0,
+                days = (1..31).map { Day(it, TagForDay.WORKING_DAY) },
+            ),
+            timeZone = 0L,
+        )
+        val salarySetting = SalarySetting(
+            nightTimePercent = 0.0,
+            harmfulnessPercent = 0.0,
+            zonalSurcharge = 0.0,
+            onePersonOperationPercent = 40.0,
+            onePersonOperationPassengerTrainPercent = 50.0,
+            surchargeHeavyTrainsList = emptyList(),
+            surchargeLongTrainsList = emptyList(),
+        )
+        // Смена 08:00–15:00, поезд в пути только 10:00–13:11.
+        fun routeWith(number: String) = Route(
+            basicData = BasicData(timeStartWork = at(8), timeEndWork = at(15), isOnePersonOperation = true),
+            trains = mutableListOf(
+                Train(
+                    number = number,
+                    stations = mutableListOf(
+                        Station(timeDeparture = at(10)),
+                        Station(timeArrival = at(13, 11)),
+                    ),
+                ),
+            ),
+        )
+        suspend fun onePersonRow(route: Route) = json.parseToJsonElement(
+            PwaSalaryBridge.calculateTrip(buildJsonObject {
+                put("userSettings", json.encodeToJsonElement(UserSettings.serializer(), userSettings))
+                put("salarySetting", json.encodeToJsonElement(SalarySetting.serializer(), salarySetting))
+                put("route", json.encodeToJsonElement(Route.serializer(), route))
+            }.toString()).await()
+        ).jsonObject.getValue("rows").jsonArray
+            .map { it.jsonObject }
+            .single { it.getValue("id").jsonPrimitive.content == "ONE_PERSON" }
+
+        val suburban = onePersonRow(routeWith("6123"))
+        assertEquals(7 * 3_600_000.0, suburban.getValue("hoursMillis").jsonPrimitive.double)
+        assertEquals(50.0, suburban.getValue("percent").jsonPrimitive.double)
+        assertEquals(350.0, suburban.getValue("amount").jsonPrimitive.double, 0.001)
+
+        val freight = onePersonRow(routeWith("2503"))
+        assertEquals(7 * 3_600_000.0, freight.getValue("hoursMillis").jsonPrimitive.double)
+        assertEquals(40.0, freight.getValue("percent").jsonPrimitive.double)
+        assertEquals(280.0, freight.getValue("amount").jsonPrimitive.double, 0.001)
     }
 
     @Test

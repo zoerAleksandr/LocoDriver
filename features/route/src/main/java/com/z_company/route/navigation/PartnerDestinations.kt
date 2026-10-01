@@ -43,6 +43,13 @@ fun PartnerPickerDestination(router: Router, backStackEntry: NavBackStackEntry) 
     )
     val partners by viewModel.partnersFlow.collectAsState()
     val selectedIds by viewModel.selectedIds.collectAsState()
+    val replaceRequest by viewModel.replaceRequest.collectAsState()
+    val lastSelectedId by viewModel.lastSelectedId.collectAsState()
+    // Кандидат для кнопки «Сделать постоянным» — только что отмеченный непостоянный.
+    val permanentCandidate = lastSelectedId
+        ?.takeIf { it in selectedIds }
+        ?.let { id -> partners.find { it.partnerId == id } }
+        ?.takeIf { !it.isPermanent }
 
     PartnersListScreen(
         mode = PartnerListMode.SELECT,
@@ -54,6 +61,11 @@ fun PartnerPickerDestination(router: Router, backStackEntry: NavBackStackEntry) 
         onEdit = { partner -> router.showEditPartnerEditor(partner.partnerId) },
         onDelete = { partner -> viewModel.deletePartner(partner) },
         onAddNew = { router.showNewPartnerEditor() },
+        permanentCandidate = permanentCandidate,
+        onMakePermanent = viewModel::makePermanent,
+        replaceRequest = replaceRequest,
+        onConfirmReplace = viewModel::confirmReplacePermanent,
+        onDismissReplace = viewModel::dismissReplacePermanent,
     )
 }
 

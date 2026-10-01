@@ -226,6 +226,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "LocomotiveSeries" to "acceptanceHandToHandMin",
             "LocomotiveSeries" to "deliveryHandToHandMin",
             "LocomotiveSeries" to "sectionNumberingType",
+            // Миграция 23: «постоянный напарник»
+            "Partner" to "isPermanent",
             primaryTable = "UserSettings")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
@@ -325,7 +327,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
                     fullName TEXT NOT NULL,
                     tabNumber TEXT,
                     notes TEXT,
-                    updatedAt INTEGER NOT NULL
+                    updatedAt INTEGER NOT NULL,
+                    isPermanent INTEGER NOT NULL DEFAULT 0
                 )
             """.trimIndent())
             db.execSQL(
@@ -511,6 +514,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.isShowPartner" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.passengerWagonLengthMeters" to ColumnSpec("REAL", false, "24.5"),
             "UserSettings.minTimeRestSecond" to ColumnSpec("INTEGER", false, "14400000"),
+
+            "Partner.isPermanent" to ColumnSpec("INTEGER", false, "0"),
 
             "LocomotiveSeries.acceptanceHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
             "LocomotiveSeries.deliveryHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),

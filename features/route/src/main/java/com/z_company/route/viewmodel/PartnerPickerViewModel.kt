@@ -16,11 +16,20 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
+/** Запрос подтверждения замены постоянного напарника [current] на [candidate]. */
+data class PermanentReplaceRequest(
+    val current: Partner,
+    val candidate: Partner,
+)
+
 /**
  * Экран выбора напарников в маршрут (мультивыбор из справочника).
  * Галочка = в маршруте есть копия [RoutePartner] с этим [Partner.partnerId] в
  * [RoutePartner.sourcePartnerId]. По «Готово» — сверка: для отмеченных без копии
  * создаём копию, для снятых копий удаляем.
+ *
+ * Отмеченного напарника можно сделать «постоянным» (сразу пишется в справочник,
+ * не зависит от «Готово»); если постоянный уже есть — сначала подтверждение замены.
  */
 class PartnerPickerViewModel(
     private val basicId: String,
@@ -35,6 +44,13 @@ class PartnerPickerViewModel(
     private val _selectedIds = MutableStateFlow<Set<String>>(emptySet())
     val selectedIds = _selectedIds.asStateFlow()
 
+    /** Последний отмеченный пользователем напарник — кандидат в «постоянные». */
+    private val _lastSelectedId = MutableStateFlow<String?>(null)
+    val lastSelectedId = _lastSelectedId.asStateFlow()
+
+    private val _replaceRequest = MutableStateFlow<PermanentReplaceRequest?>(null)
+    val replaceRequest = _replaceRequest.asStateFlow()
+
     init {
         // Изначально отмечены напарники, уже добавленные в маршрут (по sourcePartnerId).
         val existing = routePartnerUseCase.getPartnerListByBasicId(basicId)
@@ -46,9 +62,41 @@ class PartnerPickerViewModel(
     }
 
     fun toggle(partnerId: String) {
+        val wasSelected = partnerId in _selectedIds.value
         _selectedIds.update { set ->
-            if (set.contains(partnerId)) set - partnerId else set + partnerId
+            if (wasSelected) set - partnerId else set + partnerId
         }
+        if (wasSelected) {
+            if (_lastSelectedId.value == partnerId) _lastSelectedId.value = null
+        } else {
+            _lastSelectedId.value = partnerId
+        }
+    }
+
+    /** Кнопка «Сделать постоянным напарником» (с подтверждением замены прежнего). */
+    fun makePermanent(partner: Partner) {
+        if (partner.isPermanent) return
+        val current = _partners.value.firstOrNull { it.isPermanent && it.partnerId != partner.partnerId }
+        if (current != null) {
+            _replaceRequest.value = PermanentReplaceRequest(current = current, candidate = partner)
+        } else {
+            setPermanent(partner.partnerId)
+        }
+    }
+
+    fun confirmReplacePermanent() {
+        val request = _replaceRequest.value ?: return
+        _replaceRequest.value = null
+        setPermanent(request.candidate.partnerId)
+    }
+
+    fun dismissReplacePermanent() {
+        _replaceRequest.value = null
+    }
+
+    private fun setPermanent(partnerId: String?) {
+        sharedPrefs.setSettingsSyncPending(true)
+        viewModelScope.launch { partnerUseCase.setPermanent(partnerId).collect {} }
     }
 
     /** Удаление записи справочника (свайп в списке). */

@@ -5,6 +5,7 @@ import com.z_company.domain.entities.DateSetTariffRate
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.route.BasicData
+import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Station
@@ -20,10 +21,10 @@ import kotlin.test.assertEquals
  * Тесты расчёта времени и доплаты за работу в одно лицо с учётом вычета
  * времени следования пассажиром.
  *
- * Логика: если маршрут помечен как работа в одно лицо и в нём указано
- * время следования пассажиром (Route.passengers с timeArrival/timeDeparture),
- * это время вычитается из времени работы в одно лицо, а доплата начисляется
- * на чистое время управления локомотивом.
+ * Логика (153L «по маршруту машиниста»): доплата начисляется за всю смену от
+ * явки до сдачи, независимо от времени следования поезда. Исключаются перерыв,
+ * следование пассажиром и ожидание следования пассажиром (018M). Если в смене
+ * есть хотя бы один пассажирский поезд — вся смена идёт по пассажирской ставке.
  *
  * Константы:
  *   ONE_HOUR_MS = 3_600_000 мс = 1 час
@@ -173,7 +174,7 @@ class OnePersonOperationSurchargeTest {
     }
 
     @Test
-    fun mixedRoute_separatesFreightAndPassengerTrainIntervals() = runTest {
+    fun mixedRoute_onePassengerTrainMovesWholeShiftToPassengerRate() = runTest {
         val route = Route(
             basicData = BasicData(
                 isOnePersonOperation = true,
@@ -192,8 +193,72 @@ class OnePersonOperationSurchargeTest {
             ),
         )
         val helper = createHelper(listOf(route))
-        assertEquals(4 * oneHourMs, helper.getTimeOnePersonOperationFlow(listOf(route)).first())
-        assertEquals(6 * oneHourMs, helper.getTimeOnePersonOperationPassengerTrainFlow(listOf(route)).first())
+        // Достаточно одного пассажирского поезда — вся смена по пассажирской ставке.
+        assertEquals(0L, helper.getTimeOnePersonOperationFlow(listOf(route)).first())
+        assertEquals(10 * oneHourMs, helper.getTimeOnePersonOperationPassengerTrainFlow(listOf(route)).first())
+        assertEquals(0.0, helper.getMoneyOnePersonOperationFlow().first(), 0.01)
+        assertEquals(500.0, helper.getMoneyOnePersonOperationPassengerTrainFlow().first(), 0.01)
+    }
+
+    @Test
+    fun freightTrainWithStationTimes_paysWholeShiftFromStartToEndOfWork() = runTest {
+        // Кейс из обращения: явка 0:00, сдача 7:00, поезд следует 2:00–5:11.
+        // Доплата за одно лицо — вся смена (7 ч), а не 3:11 следования поезда.
+        val route = Route(
+            basicData = BasicData(
+                isOnePersonOperation = true,
+                timeStartWork = 0L,
+                timeEndWork = 7 * oneHourMs,
+            ),
+            trains = mutableListOf(
+                Train(
+                    number = "2503",
+                    stations = mutableListOf(
+                        Station(timeDeparture = 2 * oneHourMs),
+                        Station(timeArrival = 5 * oneHourMs + 11 * 60_000L),
+                    ),
+                ),
+            ),
+        )
+        val helper = createHelper(listOf(route))
+
+        assertEquals(7 * oneHourMs, helper.getTimeOnePersonOperationFlow(listOf(route)).first())
+        assertEquals(280.0, helper.getMoneyOnePersonOperationFlow().first(), 0.01)
+    }
+
+    @Test
+    fun passengerWaitingBeforePassengerFollowing_isExcluded() = runTest {
+        // 0–4 поезд, 4–5 сдача локомотива, 5–6 ожидание (018M), 6–8 пассажиром.
+        val route = Route(
+            basicData = BasicData(
+                isOnePersonOperation = true,
+                timeStartWork = 0L,
+                timeEndWork = 8 * oneHourMs,
+            ),
+            trains = mutableListOf(
+                Train(
+                    number = "2503",
+                    stations = mutableListOf(
+                        Station(timeDeparture = 0L),
+                        Station(timeArrival = 4 * oneHourMs),
+                    ),
+                ),
+            ),
+            locomotives = mutableListOf(
+                Locomotive(
+                    basicId = "",
+                    timeStartOfDelivery = 4 * oneHourMs,
+                    timeEndOfDelivery = 5 * oneHourMs,
+                ),
+            ),
+            passengers = mutableListOf(
+                Passenger(timeDeparture = 6 * oneHourMs, timeArrival = 8 * oneHourMs),
+            ),
+        )
+        val helper = createHelper(listOf(route))
+
+        assertEquals(5 * oneHourMs, helper.getTimeOnePersonOperationFlow(listOf(route)).first())
+        assertEquals(200.0, helper.getMoneyOnePersonOperationFlow().first(), 0.01)
     }
 
     // --- Несколько маршрутов ---
@@ -288,6 +353,17 @@ class OnePersonOperationSurchargeTest {
         assertEquals(350.0, result, 0.01)
     }
 
+    @Test
+    fun onePersonSuburbanTrain_usesPassengerRate() = runTest {
+        // Пригородный 6123: 10 ч × 100 × 50% = 500, грузовая строка пустая.
+        val route = oneOpRoute(workDurationMs = 10 * oneHourMs, trainNumber = "6123")
+        val helper = createHelper(listOf(route))
+
+        assertEquals(10 * oneHourMs, helper.getTimeOnePersonOperationPassengerTrainFlow(listOf(route)).first())
+        assertEquals(500.0, helper.getMoneyOnePersonOperationPassengerTrainFlow().first(), 0.01)
+        assertEquals(0L, helper.getTimeOnePersonOperationFlow(listOf(route)).first())
+    }
+
     // --- Грузовой с номером поезда вне пассажирского диапазона (должно считаться как "не пассажирский") ---
 
     @Test
@@ -364,10 +440,11 @@ class OnePersonOperationSurchargeTest {
         )
         val helper = createHelper(listOf(route), monthOfYear = month)
 
-        // До полуночи остаются 2 часа (пассажиром и перерыв исключены),
-        // после полуночи — 4 часа по новой ставке.
-        assertEquals(6 * oneHourMs, helper.getTimeOnePersonOperationFlow().first())
-        assertEquals(400.0, helper.getMoneyOnePersonOperationFlow().first(), 0.01)
+        // До полуночи остаётся 1 час: пассажиром, перерыв и ожидание перед
+        // посадкой пассажиром (20:00–21:00, 018M) исключены; после полуночи —
+        // 4 часа по новой ставке. (100 + 4 × 200) × 40% = 360.
+        assertEquals(5 * oneHourMs, helper.getTimeOnePersonOperationFlow().first())
+        assertEquals(360.0, helper.getMoneyOnePersonOperationFlow().first(), 0.01)
     }
 
     @Test

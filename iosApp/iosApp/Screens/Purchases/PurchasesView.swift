@@ -15,7 +15,7 @@ struct PurchasesView: View {
                 Section {
                     Label("Есть код друга?", systemImage: "gift.fill")
                         .font(.headline)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(DSColor.accent)
                     Text("Введите его до первой оплаты. После оплаты каждый получит половину срока тарифа дополнительно.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -33,17 +33,17 @@ struct PurchasesView: View {
                         .disabled(referralCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     if let error = profile.referralError {
                         Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote).foregroundStyle(.red)
+                            .font(.footnote).foregroundStyle(DSColor.danger)
                     }
                 } header: { Text("Реферальный код") }
             } else if let applied = profile.appliedReferralCode {
                 Section("Реферальный код") {
                     if profile.appliedReferralStatus == "reversed" {
-                        Label("Бонус по коду \(applied) отменён после возврата платежа", systemImage: "xmark.circle.fill").foregroundStyle(.red)
+                        Label("Бонус по коду \(applied) отменён после возврата платежа", systemImage: "xmark.circle.fill").foregroundStyle(DSColor.danger)
                     } else if profile.appliedReferralStatus == "rewarded" {
-                        Label("Бонус по коду \(applied) начислен", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                        Label("Бонус по коду \(applied) начислен", systemImage: "checkmark.circle.fill").foregroundStyle(DSColor.success)
                     } else {
-                        Label("Код \(applied) применён", systemImage: "clock.fill").foregroundStyle(.blue)
+                        Label("Код \(applied) применён", systemImage: "clock.fill").foregroundStyle(DSColor.accent)
                         Text("Бонус начислится после первой оплаты.").font(.footnote).foregroundStyle(.secondary)
                     }
                 }
