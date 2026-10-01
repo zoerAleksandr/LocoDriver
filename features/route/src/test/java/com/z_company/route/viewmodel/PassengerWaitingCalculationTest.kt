@@ -9,6 +9,8 @@ import com.z_company.domain.entities.route.BasicData
 import com.z_company.domain.entities.route.Locomotive
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.entities.route.Station
+import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
 import kotlinx.coroutines.flow.first
@@ -168,5 +170,92 @@ class PassengerWaitingCalculationTest {
         // Следование пассажиром 1 ч, работа по тарифу 3 ч (21:00–24:00).
         assertEquals(1 * hour, calc.getPassengerTimeFlow().first())
         assertEquals(3 * hour, calc.getWorkTimeAtTariffFlow().first())
+    }
+    @Test
+    fun withoutLocomotiveAndTrainTimesThereIsNoWaiting() = runTest {
+        // Как в обращении пользователя: заполнены только явка/сдача и пассажир,
+        // у поезда станции без времени, локомотива нет. Работа 03:00–19:00,
+        // пассажиром 15:00–19:00. Когда шла работа на локомотиве, неизвестно,
+        // поэтому 12 ч до посадки — не ожидание, а работа по тарифу.
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = instant(10, 3),
+                timeEndWork = instant(10, 19),
+            ),
+            trains = mutableListOf(
+                Train(stations = mutableListOf(Station(), Station())),
+            ),
+            passengers = mutableListOf(
+                Passenger(
+                    timeDeparture = instant(10, 15),
+                    timeArrival = instant(10, 19),
+                ),
+            ),
+        )
+        val calc = helper(route)
+
+        assertEquals(0L, calc.getPassengerWaitingTimeFlow().first())
+        assertEquals(4 * hour, calc.getPassengerTimeFlow().first())
+        assertEquals(12 * hour, calc.getWorkTimeAtTariffFlow().first())
+    }
+
+    @Test
+    fun gapFromWorkStartToFirstPassengerIsNotWaiting() = runTest {
+        // Явка 19:00, пассажиром к месту приёмки 20:00–21:00, локомотив 21:00–24:00.
+        // Час 19:00–20:00 заканчивается отправлением пассажиром, но работы на
+        // локомотиве до него не было — это ПЗ-время, а не ожидание.
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = instant(10, 19),
+                timeEndWork = instant(11, 0),
+            ),
+            locomotives = mutableListOf(
+                Locomotive(
+                    basicId = "",
+                    timeStartOfAcceptance = instant(10, 21),
+                    timeEndOfDelivery = instant(11, 0),
+                ),
+            ),
+            passengers = mutableListOf(
+                Passenger(
+                    timeDeparture = instant(10, 20),
+                    timeArrival = instant(10, 21),
+                ),
+            ),
+        )
+        val calc = helper(route)
+
+        assertEquals(0L, calc.getPassengerWaitingTimeFlow().first())
+        assertEquals(4 * hour, calc.getWorkTimeAtTariffFlow().first())
+    }
+
+    @Test
+    fun waitingAfterBreakFollowingDeliveryIsCounted() = runTest {
+        // Локомотив 20:00–22:00 → перерыв 22:00–23:00 → ждал 23:00–24:00 →
+        // пассажиром 00:00–02:00. Ожидание после перерыва остаётся ожиданием.
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = instant(10, 20),
+                timeEndWork = instant(11, 2),
+                timeStartBreak = instant(10, 22),
+                timeEndBreak = instant(10, 23),
+            ),
+            locomotives = mutableListOf(
+                Locomotive(
+                    basicId = "",
+                    timeStartOfAcceptance = instant(10, 20),
+                    timeEndOfDelivery = instant(10, 22),
+                ),
+            ),
+            passengers = mutableListOf(
+                Passenger(
+                    timeDeparture = instant(11, 0),
+                    timeArrival = instant(11, 2),
+                ),
+            ),
+        )
+        val calc = helper(route)
+
+        assertEquals(1 * hour, calc.getPassengerWaitingTimeFlow().first())
     }
 }

@@ -440,11 +440,12 @@ class OnePersonOperationSurchargeTest {
         )
         val helper = createHelper(listOf(route), monthOfYear = month)
 
-        // До полуночи остаётся 1 час: пассажиром, перерыв и ожидание перед
-        // посадкой пассажиром (20:00–21:00, 018M) исключены; после полуночи —
-        // 4 часа по новой ставке. (100 + 4 × 200) × 40% = 360.
-        assertEquals(5 * oneHourMs, helper.getTimeOnePersonOperationFlow().first())
-        assertEquals(360.0, helper.getMoneyOnePersonOperationFlow().first(), 0.01)
+        // До полуночи остаётся 2 часа: пассажиром и перерыв исключены, а час
+        // 20:00–21:00 от явки до посадки пассажиром — не ожидание 018M (работы на
+        // локомотиве до него не было); после полуночи — 4 часа по новой ставке.
+        // (2 × 100 + 4 × 200) × 40% = 400.
+        assertEquals(6 * oneHourMs, helper.getTimeOnePersonOperationFlow().first())
+        assertEquals(400.0, helper.getMoneyOnePersonOperationFlow().first(), 0.01)
     }
 
     @Test
