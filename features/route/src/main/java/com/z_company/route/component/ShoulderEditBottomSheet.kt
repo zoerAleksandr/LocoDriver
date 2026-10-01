@@ -967,6 +967,9 @@ private fun EditorTopBar(title: String, onBack: () -> Unit, onMap: () -> Unit) {
             text = title,
             style = Pst.sans.copy(fontSize = 20.sp, fontWeight = FontWeight.Medium),
             color = Pst.text,
+            // Одна строка: при крупном системном шрифте иначе рвалось посреди слова.
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 4.dp).weight(1f),
         )
         // Всё плечо на карте: крайние и промежуточные станции с координатами.
