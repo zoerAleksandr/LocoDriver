@@ -1,5 +1,11 @@
 package com.z_company.route.component
 
+import com.z_company.domain.util.toMoneyString
+
+import com.z_company.domain.util.roundMoneyToCents
+
+import com.z_company.domain.util.currencySymbol
+
 import org.koin.compose.koinInject
 
 import com.z_company.domain.util.ServicePhaseStationsMerge
@@ -489,6 +495,7 @@ fun ShoulderEditBottomSheet(
                             onDone = { focusManager.clearFocus() },
                             departureFocus = departureFocus,
                             arrivalFocus = arrivalFocus,
+                            currency = currencySymbol(country),
                             measure = {
                                 val isMeasured = measured?.let {
                                     it.distance == distanceKm && it.signature == coordinateSignature()
@@ -688,6 +695,7 @@ private fun PhaseFields(
     onDone: () -> Unit,
     departureFocus: FocusRequester,
     arrivalFocus: FocusRequester,
+    currency: String,
     measure: @Composable () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -704,16 +712,29 @@ private fun PhaseFields(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                 keyboardActions = KeyboardActions(onNext = { onNext() }),
             )
-            PstTextField(
-                value = rate,
-                onValueChange = onRate,
-                label = "Доплата за пробег, ₽/км",
-                placeholder = "—",
-                mono = true,
-                modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { onDone() }),
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                PstTextField(
+                    value = rate,
+                    onValueChange = onRate,
+                    label = "Доплата за пробег, $currency/км",
+                    placeholder = "—",
+                    mono = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { onDone() }),
+                )
+                // Сколько получит машинист за всё плечо: расстояние × ставка (как в расчёте зарплаты).
+                val km = distance.text.toIntOrNull()?.takeIf { it > 0 }
+                val perKm = rate.text.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0.0 && it.isFinite() }
+                if (km != null && perKm != null) {
+                    Text(
+                        text = "За плечо: ${(km * perKm).roundMoneyToCents().toMoneyString(currency)}",
+                        style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                        color = Pst.textMuted,
+                        modifier = Modifier.padding(start = 4.dp, top = 6.dp),
+                    )
+                }
+            }
         }
         measure()
     }
@@ -1053,8 +1074,8 @@ private fun MeasureByMap(isMeasured: Boolean, measuring: Boolean, onMeasure: () 
             onClick = onMeasure,
             enabled = !measuring,
             kind = PstButtonKind.TONAL,
-            icon = PstIcons.MapPin,
-            iconSize = 16.dp,
+            icon = PstIcons.Measure,
+            iconSize = 18.dp,
             height = 36.dp,
             fontSize = 14,
             contentPadding = PaddingValues(horizontal = 14.dp),

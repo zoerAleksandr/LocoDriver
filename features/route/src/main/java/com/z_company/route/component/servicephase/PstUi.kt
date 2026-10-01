@@ -143,6 +143,14 @@ internal object PstIcons {
     val ChevronLeft = strokeIcon("chevronLeft", "M15 5l-7 7 7 7")
     val Close = strokeIcon("close", "M6 6l12 12M6 18L18 6")
     val Drag = strokeIcon("drag", "M5 9h14M5 15h14")
+    /** «Измерить по карте»: две точки на карте, соединённые путём. */
+    val Measure = strokeIcon(
+        "measure",
+        "M6 21s-4-3.5-4-6.5a4 4 0 0 1 8 0c0 3-4 6.5-4 6.5z",
+        "M18 12s-4-3.5-4-6.5a4 4 0 0 1 8 0c0 3-4 6.5-4 6.5z",
+        "M6 21h9a3 3 0 0 0 3-3v-6",
+        filledDots = listOf(Triple(6f, 14.5f, 1.3f), Triple(18f, 5.5f, 1.3f)),
+    )
     val Edit = strokeIcon("edit", "M4 20h4L18.5 9.5a2.12 2.12 0 0 0-3-3L5 17v3z", "M13.5 6.5l3 3")
 }
 
