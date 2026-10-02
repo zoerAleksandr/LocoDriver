@@ -508,8 +508,9 @@ fun ShoulderEditBottomSheet(
     fun currentPhase(): ServicePhase? {
         val dep = departure.text.trim()
         val arr = arrival.text.trim()
-        val km = distance.text.toIntOrZero()
-        if (dep.isBlank() || arr.isBlank() || km <= 0) return null
+        // Для сохранения достаточно двух станций; расстояние можно указать (или измерить) позже.
+        val km = distance.text.toIntOrZero().coerceAtLeast(0)
+        if (dep.isBlank() || arr.isBlank()) return null
         val mileageRate = rate.text.replace(',', '.').toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
         val base = phase ?: ServicePhase(id = phaseId, departureStation = dep, arrivalStation = arr, distance = km)
         return base.copy(
@@ -1099,18 +1100,29 @@ private fun EditorTopBar(title: String, onBack: () -> Unit, onMap: () -> Unit) {
         modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // «Готово» — закрыть (изменения уже сохраняются автоматически), как в карточке станции.
         Box(
-            modifier = Modifier.size(48.dp).clickable(onClick = onBack),
+            modifier = Modifier
+                .heightIn(min = 40.dp)
+                .clickable(onClickLabel = "Готово", onClick = onBack)
+                .padding(horizontal = 12.dp),
             contentAlignment = Alignment.Center,
-        ) { PstIcon(PstIcons.ChevronLeft, 24.dp, Pst.text, description = "Назад") }
+        ) {
+            Text(
+                text = "Готово",
+                style = Pst.sans.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
+                color = Pst.accent,
+            )
+        }
         Text(
             text = title,
-            style = Pst.sans.copy(fontSize = 20.sp, fontWeight = FontWeight.Medium),
+            style = Pst.sans.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
             color = Pst.text,
+            textAlign = TextAlign.Center,
             // Одна строка: при крупном системном шрифте иначе рвалось посреди слова.
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 4.dp).weight(1f),
+            modifier = Modifier.weight(1f),
         )
         // Всё плечо на карте: крайние и промежуточные станции с координатами.
         Row(

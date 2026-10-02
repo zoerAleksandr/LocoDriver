@@ -123,7 +123,7 @@ class TrainFormViewModel(
         // В рейс кладём копию без станций плеча — они берутся из справочника по id.
         val servicePhase = selected?.forTrain()
         if (servicePhase != null) {
-            setDistance(servicePhase.distance.toString())
+            setDistance(servicePhase.distance.takeIf { it > 0 }?.toString() ?: "")
             if (servicePhase != uiState.value.selectedServicePhase || uiState.value.selectedServicePhase == null) {
                 if (stationsListState.isEmpty()) {
                     addingStation(stationName = servicePhase.departureStation)
@@ -646,7 +646,7 @@ class TrainFormViewModel(
             sharedPreferenceStorage.setSettingsSyncPending(true)
             if (_uiState.value.selectedServicePhase?.id == newPhase.id) {
                 _uiState.update { it.copy(selectedServicePhase = newPhase.forTrain()) }
-                setDistance(newPhase.distance.toString())
+                setDistance(newPhase.distance.takeIf { it > 0 }?.toString() ?: "")
             }
         }
     }
