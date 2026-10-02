@@ -222,18 +222,48 @@ fun ShoulderEditBottomSheet(
     fun measureByMap() {
         val dep = departure.text.trim()
         val arr = arrival.text.trim()
-        val depP = pointFor(depPoint, dep)
-        val arrP = pointFor(arrPoint, arr)
-        if (depP == null || arrP == null) {
-            snackbar = EditorSnackbar("Нужны координаты станций отправления и прибытия — откройте их в схеме", null)
+        if (dep.isBlank() || arr.isBlank()) {
+            snackbar = EditorSnackbar("Укажите станции отправления и прибытия")
             return
         }
-        val withCoords = stations.filter { it.hasCoordinates }
-        val points = listOf(depP.latitude to depP.longitude) +
-            withCoords.map { it.latitude!! to it.longitude!! } +
-            listOf(arrP.latitude to arrP.longitude)
         measuring = true
         measureScope.launch {
+            // Крайние станции без координат — сначала ищем на карте по названию (как «Найти координаты»).
+            val autoFound = mutableListOf<Pair<String, Boolean>>() // название, true — отправление
+            for (isStart in listOf(true, false)) {
+                val name = if (isStart) dep else arr
+                if (pointFor(if (isStart) depPoint else arrPoint, name) != null) continue
+                val near = buildList {
+                    pointFor(if (isStart) arrPoint else depPoint, if (isStart) arr else dep)
+                        ?.let { add(it.latitude to it.longitude) }
+                    stations.filter { it.hasCoordinates }.forEach { add(it.latitude!! to it.longitude!!) }
+                }
+                val found = autoVm.lookup(name, country, near)
+                if (found == null) {
+                    measuring = false
+                    snackbar = EditorSnackbar("Не удалось найти «$name» на карте — нет связи с сервером")
+                    return@launch
+                }
+                val c = found.firstOrNull()
+                if (c == null) {
+                    measuring = false
+                    snackbar = EditorSnackbar("«$name» не нашлась на карте — укажите её координаты в схеме")
+                    return@launch
+                }
+                val point = ServicePhasePoint(c.latitude, c.longitude, osmId = c.osmId, esr = c.esr?.takeIf(String::isNotBlank))
+                if (isStart) depPoint = point to dep else arrPoint = point to arr
+                autoFound += name to isStart
+            }
+            val depP = pointFor(depPoint, dep)
+            val arrP = pointFor(arrPoint, arr)
+            if (depP == null || arrP == null) {
+                measuring = false
+                return@launch
+            }
+            val withCoords = stations.filter { it.hasCoordinates }
+            val points = listOf(depP.latitude to depP.longitude) +
+                withCoords.map { it.latitude!! to it.longitude!! } +
+                listOf(arrP.latitude to arrP.longitude)
             val res = autoVm.measure(points)
             measuring = false
             when (res) {
@@ -247,16 +277,28 @@ fun ShoulderEditBottomSheet(
                         if (idx >= 0) stations[idx] = stations[idx].copy(kmFromStart = kmAt)
                     }
                     measured = MeasuredDistance(km, coordinateSignature())
+                    if (autoFound.isNotEmpty()) {
+                        val names = autoFound.joinToString(" и ") { "«${it.first}»" }
+                        snackbar = EditorSnackbar(
+                            text = if (autoFound.size == 1) {
+                                "Координаты станции $names определены автоматически — проверьте, что точка верная"
+                            } else {
+                                "Координаты станций $names определены автоматически — проверьте, что точки верные"
+                            },
+                            undo = { editingTerminal = autoFound.first().second },
+                            actionLabel = "Проверить",
+                            durationMs = 12_000,
+                        )
+                    }
                 }
                 ServicePhaseAutoFillViewModel.MeasureResult.NoPath ->
-                    snackbar = EditorSnackbar("Путь по железной дороге между станциями не найден — проверьте координаты", null)
+                    snackbar = EditorSnackbar("Путь по железной дороге между станциями не найден — проверьте координаты")
                 is ServicePhaseAutoFillViewModel.MeasureResult.Failed -> snackbar = EditorSnackbar(
                     when (res.failure) {
                         AutoFillFailure.NO_INTERNET -> "Нет подключения к интернету"
                         AutoFillFailure.RATE_LIMITED -> "Слишком много запросов — попробуйте позже"
                         else -> "Сервис не ответил — попробуйте позже"
                     },
-                    null,
                 )
             }
         }
@@ -942,12 +984,18 @@ private fun CardSegment(top: Boolean = false, bottom: Boolean = false, content: 
 // ─── Снекбар с «Отменить» ──────────────────────────────────────────────
 
 /** [undo] null — просто сообщение, без «Отменить». */
-private class EditorSnackbar(val text: String, val undo: (() -> Unit)?)
+/** [undo] — действие кнопки [actionLabel] (по умолчанию «Отменить»); null — без кнопки. */
+private class EditorSnackbar(
+    val text: String,
+    val actionLabel: String = "Отменить",
+    val durationMs: Long = 6_000,
+    val undo: (() -> Unit)? = null,
+)
 
 @Composable
 private fun EditorSnackbarView(bar: EditorSnackbar, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     LaunchedEffect(bar) {
-        delay(6_000)
+        delay(bar.durationMs)
         onDismiss()
     }
     // На инверсном фоне акцент берём контрастный: в светлой теме — светлый, в тёмной — тёмный.
@@ -970,7 +1018,7 @@ private fun EditorSnackbarView(bar: EditorSnackbar, onDismiss: () -> Unit, modif
         )
         val undo = bar.undo
         if (undo != null) Text(
-            text = "Отменить",
+            text = bar.actionLabel,
             style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
             color = actionColor,
             modifier = Modifier
