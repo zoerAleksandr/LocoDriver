@@ -187,7 +187,8 @@ internal fun PstButton(
     val disabledBg = kind != PstButtonKind.TEXT && kind != PstButtonKind.DANGER && kind != PstButtonKind.OUTLINED
     val background = if (!enabled && disabledBg) Pst.bgSubtle else bg
     val content = if (!enabled) Pst.textFaint else fg
-    val shape = RoundedCornerShape(height / 2)
+    // Как кнопки и карточки в остальном приложении (Shapes.medium = 16 dp); маленькие — 12 dp.
+    val shape = RoundedCornerShape(if (height >= 44.dp) 16.dp else 12.dp)
     Row(
         modifier = modifier
             .height(height)
