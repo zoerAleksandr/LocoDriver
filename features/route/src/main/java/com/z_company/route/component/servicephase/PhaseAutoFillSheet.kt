@@ -218,48 +218,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.ChooseContent(
             )
         }
         item {
-            PstCard {
-                Column {
-                    state.candidates.forEachIndexed { i, c ->
-                        if (i > 0) HorizontalDivider(color = Pst.border, modifier = Modifier.padding(start = 50.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(if (selected == c) Pst.accentSoft else Pst.surface)
-                                .clickable { selected = c }
-                                .padding(horizontal = 16.dp, vertical = 13.dp),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        ) {
-                            PstRadio(selected = selected == c)
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = c.name,
-                                    style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
-                                    color = Pst.text,
-                                )
-                                c.esr?.let {
-                                    Text(
-                                        text = "ЕСР $it",
-                                        style = Pst.mono.copy(fontSize = 11.sp),
-                                        color = Pst.textMuted,
-                                        modifier = Modifier.padding(top = 4.dp),
-                                    )
-                                }
-                                listOfNotNull(c.operator, c.region).takeIf { it.isNotEmpty() }?.let {
-                                    Text(text = it.joinToString(", "), style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
-                                }
-                                if (c.neighbours.isNotEmpty()) {
-                                    Text(
-                                        text = "Соседние: " + c.neighbours.joinToString(" · "),
-                                        style = Pst.sans.copy(fontSize = 12.sp),
-                                        color = Pst.text,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            CandidateList(state.candidates, selected, onSelect = { selected = it })
             if (state.end == PhaseEnd.DEPARTURE) {
                 PstNote(
                     text = "Следом уточним станцию прибытия, если она тоже неоднозначна.",
@@ -665,6 +624,112 @@ private fun RenameStationSheet(name: String, onDone: (String) -> Unit, onDismiss
                     modifier = Modifier.fillMaxWidth(),
                     onClick = { onDone(value.text) },
                 )
+            }
+        }
+    }
+}
+
+
+/** Карточка-список станций OSM с радиокнопками (выбор неоднозначной станции). */
+@Composable
+internal fun CandidateList(
+    candidates: List<OsmStationCandidate>,
+    selected: OsmStationCandidate?,
+    onSelect: (OsmStationCandidate) -> Unit,
+) {
+    PstCard {
+        Column {
+            candidates.forEachIndexed { i, c ->
+                if (i > 0) HorizontalDivider(color = Pst.border, modifier = Modifier.padding(start = 50.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(if (selected == c) Pst.accentSoft else Pst.surface)
+                        .clickable { onSelect(c) }
+                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    PstRadio(selected = selected == c)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = c.name,
+                            style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                            color = Pst.text,
+                        )
+                        c.esr?.let {
+                            Text(
+                                text = "ЕСР $it",
+                                style = Pst.mono.copy(fontSize = 11.sp),
+                                color = Pst.textMuted,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                        listOfNotNull(c.operator, c.region).takeIf { it.isNotEmpty() }?.let {
+                            Text(text = it.joinToString(", "), style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
+                        }
+                        if (c.neighbours.isNotEmpty()) {
+                            Text(
+                                text = "Соседние: " + c.neighbours.joinToString(" · "),
+                                style = Pst.sans.copy(fontSize = 12.sp),
+                                color = Pst.text,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Шторка «Какая «{name}»?» — выбор станции из нескольких найденных с таким названием
+ * (карточка станции справочника, «Определить автоматически»).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun StationChoiceSheet(
+    query: String,
+    candidates: List<OsmStationCandidate>,
+    current: OsmStationCandidate?,
+    onChoose: (OsmStationCandidate) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var selected by remember(candidates) { mutableStateOf(current) }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Pst.bg,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        dragHandle = { PstGrabber() },
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
+            PstSheetHeader(title = "Какая «$query»?", onClose = onDismiss)
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
+            ) {
+                item {
+                    Text(
+                        text = "На карте несколько станций с таким названием. Узнайте свою по соседним станциям.",
+                        style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 19.sp),
+                        color = Pst.textMuted,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 14.dp),
+                    )
+                }
+                item { CandidateList(candidates, selected, onSelect = { selected = it }) }
+            }
+            PstSheetFooter {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PstButton(text = "Отмена", onClick = onDismiss, kind = PstButtonKind.OUTLINED, height = 48.dp)
+                    PstButton(
+                        text = "Выбрать",
+                        onClick = { selected?.let(onChoose) },
+                        enabled = selected != null,
+                        height = 48.dp,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
     }

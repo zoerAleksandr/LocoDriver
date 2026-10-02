@@ -48,6 +48,7 @@ import com.z_company.route.viewmodel.StationNormEditorViewModel
 import com.z_company.route.viewmodel.StationEditorState
 import com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel
 import com.z_company.route.component.servicephase.PhaseMapPicker
+import com.z_company.route.component.servicephase.StationChoiceSheet
 import com.z_company.domain.entities.setting.ServicePhaseStationKind
 import com.z_company.repository.remote_rest.response.OsmStationCandidate
 import androidx.compose.runtime.rememberCoroutineScope
@@ -435,8 +436,8 @@ internal fun StepperRow(
 private sealed interface CoordSearch {
     data object Idle : CoordSearch
     data object Searching : CoordSearch
-    /** Нашлась станция; [previous] — состояние до поиска (для «Не та станция»). */
-    data class Found(val candidate: OsmStationCandidate, val previous: StationEditorState) : CoordSearch
+    /** Применена станция [candidate] из найденных [candidates] (несколько — можно выбрать другую). */
+    data class Found(val candidate: OsmStationCandidate, val candidates: List<OsmStationCandidate>) : CoordSearch
     data object NotFound : CoordSearch
     data object Failed : CoordSearch
 }
@@ -448,7 +449,37 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
     var search by remember { mutableStateOf<CoordSearch>(CoordSearch.Idle) }
     var searchJob by remember { mutableStateOf<Job?>(null) }
     var mapOpen by remember { mutableStateOf(false) }
+    /** Несколько станций с таким названием — шторка выбора. */
+    var choosing by remember { mutableStateOf<List<OsmStationCandidate>?>(null) }
     val has = state.hasCoordinates
+
+    fun apply(c: OsmStationCandidate, all: List<OsmStationCandidate>) {
+        viewModel.setCoordinates(
+            latitude = c.latitude,
+            longitude = c.longitude,
+            esr = c.esr?.takeIf(String::isNotBlank),
+            osmId = c.osmId,
+            kind = if (c.kind == "halt") ServicePhaseStationKind.HALT else ServicePhaseStationKind.STATION,
+        )
+        search = CoordSearch.Found(c, all)
+    }
+
+    choosing?.let { candidates ->
+        StationChoiceSheet(
+            query = state.name.trim(),
+            candidates = candidates,
+            current = (search as? CoordSearch.Found)?.candidate,
+            onChoose = {
+                apply(it, candidates)
+                choosing = null
+            },
+            onDismiss = {
+                // Отказ от выбора при первом поиске — координаты не меняем.
+                if (search == CoordSearch.Searching) search = CoordSearch.Idle
+                choosing = null
+            },
+        )
+    }
 
     if (mapOpen) {
         PhaseMapPicker(
@@ -468,25 +499,15 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
     fun find() {
         val name = state.name.trim()
         if (name.isBlank()) return
-        val before = state
         search = CoordSearch.Searching
         searchJob?.cancel()
         searchJob = scope.launch {
             val found = lookupVm.lookup(name, state.country, state.neighbours)
-            search = when {
-                found == null -> CoordSearch.Failed
-                found.isEmpty() -> CoordSearch.NotFound
-                else -> {
-                    val c = found.first()
-                    viewModel.setCoordinates(
-                        latitude = c.latitude,
-                        longitude = c.longitude,
-                        esr = c.esr?.takeIf(String::isNotBlank),
-                        osmId = c.osmId,
-                        kind = if (c.kind == "halt") ServicePhaseStationKind.HALT else ServicePhaseStationKind.STATION,
-                    )
-                    CoordSearch.Found(c, before)
-                }
+            when {
+                found == null -> search = CoordSearch.Failed
+                found.isEmpty() -> search = CoordSearch.NotFound
+                found.size == 1 -> apply(found.first(), found)
+                else -> choosing = found
             }
         }
     }
@@ -520,7 +541,6 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
                         listOfNotNull(
                             "%.5f, %.5f".format(java.util.Locale.US, state.latitude, state.longitude),
                             state.esr?.let { "ЕСР $it" },
-                            "указаны на карте".takeIf { state.pickedOnMap },
                         ).joinToString(" · ")
                     } else {
                         "Без них станция не определится по GPS и не попадёт на карту плеча"
@@ -540,23 +560,24 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
                     search = CoordSearch.Idle
                 },
             )
-            is CoordSearch.Found -> SearchNote(
-                text = listOfNotNull(
-                    "Нашлась: ${s.candidate.name}" + if (s.candidate.kind == "halt") ", О.П." else "",
-                    s.candidate.region ?: s.candidate.operator,
-                ).joinToString(" · "),
-                action = "Не та станция",
-                onAction = {
-                    viewModel.restoreCoordinates(s.previous)
-                    search = CoordSearch.Idle
-                },
-            )
+            is CoordSearch.Found -> {
+                val c = s.candidate
+                val title = listOfNotNull(
+                    "Нашлась: ${c.name}" + if (c.kind == "halt") ", О.П." else "",
+                    c.region ?: c.operator,
+                ).joinToString(" · ")
+                if (s.candidates.size > 1) {
+                    SearchNote(text = title, action = "Выбрать другую", onAction = { choosing = s.candidates })
+                } else {
+                    SearchNote(text = "$title. Если это не та станция — укажите точку на карте вручную.")
+                }
+            }
             CoordSearch.NotFound -> SearchNote(text = "Не нашлось на карте — проверьте название или укажите точку вручную.")
             CoordSearch.Failed -> SearchNote(text = "Не удалось связаться с сервером. Попробуйте позже.")
             CoordSearch.Idle -> Unit
         }
         HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
-        ActionRow(
+        ButtonRow(
             text = if (has) "Определить заново" else "Определить автоматически",
             enabled = state.name.isNotBlank() && search != CoordSearch.Searching,
             onClick = ::find,
@@ -568,13 +589,6 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
             onClick = { mapOpen = true },
         )
     }
-    Text(
-        text = "Используются во всех плечах с этой станцией: карта плеча, «Измерить по карте», " +
-            "название станции по GPS в поезде.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-        modifier = Modifier.padding(start = 4.dp, top = 6.dp)
-    )
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -584,7 +598,7 @@ private fun StationAxisSection(state: StationEditorState, onSet: (Int?, Int?) ->
     editing?.let { km ->
         AppInputBottomSheet(
             onDismissRequest = { editing = null },
-            title = if (km) "Км оси станции" else "Пикет оси станции",
+            title = if (km) "Километр оси станции" else "Пикет оси станции",
             initialValue = (if (km) state.axisKm else state.axisPicket)?.toString() ?: "",
             onConfirm = { v ->
                 val n = v.toIntOrNull()
@@ -605,17 +619,17 @@ private fun StationAxisSection(state: StationEditorState, onSet: (Int?, Int?) ->
             .shadow(2.dp, Shapes.medium)
             .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
     ) {
-        ValueRow(label = "Км оси", value = state.axisKm?.let { "$it км" }, onClick = { editing = true })
+        ValueRow(label = "КМ", value = state.axisKm?.let { "$it км" }, onClick = { editing = true })
         HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
         ValueRow(
-            label = "Пикет",
+            label = "ПК",
             value = state.axisPicket?.let { "$it пк" },
             enabled = state.axisKm != null,
             onClick = { editing = false },
         )
     }
     Text(
-        text = "Ось станции по ж/д километражу. Пк 1 — первые 100 м после километрового столба.",
+        text = "Ось станции по ж/д километражу.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
         modifier = Modifier.padding(start = 4.dp, top = 6.dp)
@@ -705,6 +719,25 @@ private fun ValueRow(label: String, value: String?, onClick: () -> Unit, enabled
             fontWeight = FontWeight.SemiBold,
             fontSize = 15.sp,
             color = MaterialTheme.colorScheme.primary.copy(alpha = if (value != null && enabled) 1f else 0.4f),
+        )
+    }
+}
+
+/** Строка-кнопка действия в карточке (без шеврона — действие на месте, не переход). */
+@Composable
+private fun ButtonRow(text: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.tertiary.copy(alpha = if (enabled) 1f else 0.4f),
         )
     }
 }

@@ -36,8 +36,6 @@ data class StationEditorState(
     val esr: String? = null,
     val osmId: Long? = null,
     val kind: ServicePhaseStationKind? = null,
-    /** Координаты указаны на карте вручную (подпись в карточке; не хранится). */
-    val pickedOnMap: Boolean = false,
     val axisKm: Int? = null,
     val axisPicket: Int? = null,
     /** Страна пользователя — для поиска координат. */
@@ -135,22 +133,6 @@ class StationNormEditorViewModel(
                 esr = if (pickedOnMap) it.esr else esr ?: it.esr,
                 osmId = if (pickedOnMap) null else osmId,
                 kind = kind ?: it.kind,
-                pickedOnMap = pickedOnMap,
-            )
-        }
-        save()
-    }
-
-    /** Откат «Не та станция»: координаты, как были до поиска. */
-    fun restoreCoordinates(previous: StationEditorState) {
-        _state.update {
-            it.copy(
-                latitude = previous.latitude,
-                longitude = previous.longitude,
-                esr = previous.esr,
-                osmId = previous.osmId,
-                kind = previous.kind,
-                pickedOnMap = previous.pickedOnMap,
             )
         }
         save()

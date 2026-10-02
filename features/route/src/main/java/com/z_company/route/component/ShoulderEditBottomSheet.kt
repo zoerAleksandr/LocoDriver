@@ -1,5 +1,9 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.layout.Spacer
+
+import androidx.compose.ui.text.style.TextAlign
+
 import com.z_company.domain.util.toMoneyString
 
 import com.z_company.domain.util.roundMoneyToCents
@@ -723,20 +727,24 @@ private fun PhaseFields(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { onDone() }),
                 )
-                // Сколько получит машинист за всё плечо: расстояние × ставка (как в расчёте зарплаты).
-                val km = distance.text.toIntOrNull()?.takeIf { it > 0 }
-                val perKm = rate.text.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0.0 && it.isFinite() }
-                if (km != null && perKm != null) {
-                    Text(
-                        text = "За плечо: ${(km * perKm).roundMoneyToCents().toMoneyString(currency)}",
-                        style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
-                        color = Pst.textMuted,
-                        modifier = Modifier.padding(start = 4.dp, top = 6.dp),
-                    )
-                }
             }
         }
-        measure()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            measure()
+            Spacer(Modifier.weight(1f))
+            // Сколько получит машинист за всё плечо: расстояние × ставка (как в расчёте зарплаты).
+            val km = distance.text.toIntOrNull()?.takeIf { it > 0 }
+            val perKm = rate.text.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0.0 && it.isFinite() }
+            if (km != null && perKm != null) {
+                Text(
+                    text = "За плечо: ${(km * perKm).roundMoneyToCents().toMoneyString(currency)}",
+                    style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                    color = Pst.textMuted,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.padding(start = 8.dp, end = 4.dp),
+                )
+            }
+        }
     }
 }
 
