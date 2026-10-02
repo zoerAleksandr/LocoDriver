@@ -213,46 +213,57 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     var lastLookupFailure: AutoFillFailure? = null
         private set
 
+    /** Линия плеча по рельсам: [Ok] — точки линии; [NoPath] — путь не найден; [Failed] — сеть/сервер. */
+    sealed interface RailLineResult {
+        data class Ok(val line: List<Pair<Double, Double>>) : RailLineResult
+        data object NoPath : RailLineResult
+        data class Failed(val failure: AutoFillFailure) : RailLineResult
+    }
+
     /**
      * Линия плеча по рельсам для карты (через точки по порядку). Однажды полученная линия
-     * кэшируется на устройстве по набору точек — карта рисует её и без сети.
-     * null — нет пути/сети/сервиса.
+     * кэшируется на устройстве по набору точек — карта рисует её и без сети. Сбой сети/сервера —
+     * один повтор через 2 с.
      */
-    suspend fun railLine(points: List<Pair<Double, Double>>): List<Pair<Double, Double>>? {
+    suspend fun railLine(points: List<Pair<Double, Double>>): RailLineResult {
         val key = points.joinToString(";") { (lat, lon) -> "%.5f,%.5f".format(java.util.Locale.US, lat, lon) }
         val file = java.io.File(appContext.noBackupFilesDir, "rail_lines/${key.hashCode().toUInt().toString(16)}.txt")
-        withContext(Dispatchers.IO) { readRailLine(file, key) }?.let { return it }
-        // Одна неудача (сеть/сервер) — повтор через 2 с: иначе на карте остаётся пунктир напрямик.
-        var line: List<Pair<Double, Double>>? = null
+        withContext(Dispatchers.IO) { readRailLine(file, key) }?.let { return RailLineResult.Ok(it) }
+        var result: RailLineResult = RailLineResult.Failed(AutoFillFailure.SERVICE)
         for (attempt in 0..1) {
             if (attempt > 0) delay(2_000)
-            line = try {
+            result = try {
                 val token = tokens.getAuthBearerTokenFlow().first()
-                withTimeout(TIMEOUT_MS) {
+                val line = withTimeout(TIMEOUT_MS) {
                     api.measureRouteLength(
                         "Bearer $token",
                         com.z_company.repository.remote_rest.response.RouteLengthRequest(
                             points = points.map { (lat, lon) -> LatLon(lat, lon) },
                             withGeometry = true,
                         ),
-                    ).geometry.mapNotNull { p -> if (p.size >= 2) p[0] to p[1] else null }.takeIf { it.size >= 2 }
+                    ).geometry.mapNotNull { p -> if (p.size >= 2) p[0] to p[1] else null }
                 }
+                if (line.size >= 2) RailLineResult.Ok(line) else RailLineResult.NoPath
             } catch (e: kotlinx.coroutines.CancellationException) {
-                if (e is TimeoutCancellationException) null else throw e
+                if (e !is TimeoutCancellationException) throw e
+                RailLineResult.Failed(failureOf(e))
             } catch (e: Exception) {
+                val msg = e.message.orEmpty()
                 android.util.Log.w("ServicePhaseMap", "rail line: ${e::class.simpleName}")
-                null
+                if (msg.contains("404") && !msg.contains("Not Found")) RailLineResult.NoPath
+                else RailLineResult.Failed(failureOf(e))
             }
-            if (line != null) break
+            // Повторяем только сбой сети/сервера: «путь не найден» не изменится.
+            if (result !is RailLineResult.Failed || (result as RailLineResult.Failed).failure == AutoFillFailure.RATE_LIMITED) break
         }
-        if (line == null) return null
+        val ok = result as? RailLineResult.Ok ?: return result
         withContext(Dispatchers.IO) {
             runCatching {
                 file.parentFile?.mkdirs()
-                file.writeText(key + "\n" + line.joinToString(";") { (lat, lon) -> "$lat,$lon" })
+                file.writeText(key + "\n" + ok.line.joinToString(";") { (lat, lon) -> "$lat,$lon" })
             }
         }
-        return line
+        return ok
     }
 
     private fun readRailLine(file: java.io.File, key: String): List<Pair<Double, Double>>? = runCatching {

@@ -613,12 +613,20 @@ class TrainFormViewModel(
         }
     }
 
-    /** Добавить новое плечо в настройки (сохраняется в UserSettings.servicePhases). */
+    /**
+     * Добавить новое плечо в настройки (сохраняется в UserSettings.servicePhases). Редактор плеча
+     * сохраняет автоматически и повторно — плечо с тем же id заменяется, а не дублируется.
+     */
     fun addServicePhase(phase: ServicePhase) {
         viewModelScope.launch {
             settingsMutex.withLock {
             val settings = settingsUseCase.getUserSettingFlow().first()
-            val updated = settings.copy(servicePhases = settings.servicePhases + phase)
+            val phases = if (settings.servicePhases.any { it.id == phase.id }) {
+                settings.servicePhases.map { if (it.id == phase.id) phase else it }
+            } else {
+                settings.servicePhases + phase
+            }
+            val updated = settings.copy(servicePhases = phases)
             settingsUseCase.saveSetting(updated).first()
             sharedPreferenceStorage.setSettingsSyncPending(true)
             }

@@ -1,5 +1,11 @@
 package com.z_company.route.component
 
+import kotlinx.coroutines.flow.collectLatest
+
+import kotlinx.coroutines.flow.drop
+
+import androidx.compose.runtime.snapshotFlow
+
 import com.z_company.route.viewmodel.message
 
 import androidx.compose.foundation.layout.Spacer
@@ -112,8 +118,9 @@ private const val KEY_ARRIVAL = "stop:arrival"
 
 /**
  * Шторка создания и редактирования плеча (поверх «Плечи» — в Настройках и в форме поезда).
- * Макет — design/service_phase_stations (экраны 02–08). Изменения попадают в плечо
- * только по «Добавить»/«Сохранить»; ✕, свайп и «назад» — отмена.
+ * Макет — design/service_phase_stations (экраны 02–08). Автосохранение, как на других экранах:
+ * изменения сохраняются через ~0,6 с после правки и при закрытии («назад»); кнопки «Сохранить» нет.
+ * Новое плечо появляется, когда заполнены станции и расстояние; обратное — при закрытии.
  * Бизнес-логика (сохранение в UserSettings) — снаружи через колбэки.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -302,7 +309,6 @@ fun ShoulderEditBottomSheet(
     }
 
     val distanceKm = distance.text.toIntOrZero()
-    val isValid = departure.text.isNotBlank() && arrival.text.isNotBlank() && distanceKm > 0
 
     val listState = rememberLazyListState()
     val reorderState = rememberReorderableLazyListState(listState) { from, to ->
@@ -490,6 +496,67 @@ fun ShoulderEditBottomSheet(
         )
     }
 
+    // ─── Автосохранение ───────────────────────────────────────────────
+    // id нового плеча — один на всё редактирование: повторные сохранения обновляют то же плечо.
+    val phaseId = remember { phase?.id ?: com.z_company.domain.util.generateId() }
+    var deleted by remember { mutableStateOf(false) }
+    var closed by remember { mutableStateOf(false) }
+    /** Последнее сохранённое состояние — без правок повторно не сохраняем. */
+    var lastSaved by remember { mutableStateOf(phase) }
+
+    /** Текущее состояние редактора как плечо; null — не заполнены станции или расстояние. */
+    fun currentPhase(): ServicePhase? {
+        val dep = departure.text.trim()
+        val arr = arrival.text.trim()
+        val km = distance.text.toIntOrZero()
+        if (dep.isBlank() || arr.isBlank() || km <= 0) return null
+        val mileageRate = rate.text.replace(',', '.').toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+        val base = phase ?: ServicePhase(id = phaseId, departureStation = dep, arrivalStation = arr, distance = km)
+        return base.copy(
+            departureStation = dep,
+            arrivalStation = arr,
+            distance = km,
+            linearMileageRate = mileageRate,
+            intermediateStations = stations.toList(),
+            // Координаты относились к прежней станции — при переименовании сбрасываем.
+            departurePoint = pointFor(depPoint, dep),
+            arrivalPoint = pointFor(arrPoint, arr),
+        )
+    }
+
+    /** Сохранить; [final] — при закрытии: названия в справочник и обратное плечо (для нового). */
+    fun persist(final: Boolean) {
+        if (deleted) return
+        val result = currentPhase() ?: return
+        val isMeasured = measured?.let { it.distance == result.distance && it.signature == coordinateSignature() } == true
+        measuredPrefs.edit().apply {
+            if (isMeasured) putString(result.id, measured!!.encode()) else remove(result.id)
+        }.apply()
+        if (final && pendingNames.isNotEmpty()) onAddStationNames(pendingNames)
+        val reverse = final && isNew && createReverse
+        if (result == lastSaved && !reverse) return
+        onSave(stationDirectory.prepareSave(result), reverse)
+        lastSaved = result
+    }
+
+    fun close() {
+        if (closed) return
+        closed = true
+        persist(final = true)
+        onDismiss()
+    }
+
+    LaunchedEffect(Unit) {
+        snapshotFlow {
+            listOf(departure.text, arrival.text, distance.text, rate.text, stations.toList(), depPoint, arrPoint)
+        }
+            .drop(1)
+            .collectLatest {
+                delay(600)
+                if (!closed) persist(final = false)
+            }
+    }
+
     if (confirmDeletePhase && onDelete != null) {
         AppAlertDialog(
             onDismissRequest = { confirmDeletePhase = false },
@@ -498,6 +565,8 @@ fun ShoulderEditBottomSheet(
             confirmText = "Удалить",
             onConfirm = {
                 confirmDeletePhase = false
+                deleted = true
+                closed = true
                 onDelete()
                 onDismiss()
             },
@@ -507,9 +576,9 @@ fun ShoulderEditBottomSheet(
     }
 
     // Отдельный полноэкранный экран (не шторка): в шторке длинный список станций при прокрутке
-    // конфликтовал с жестом шторки — она «прыгала» вверх-вниз. «Назад» — отмена без сохранения.
+    // конфликтовал с жестом шторки — она «прыгала» вверх-вниз. «Назад» — закрыть с сохранением.
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = ::close,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         Column(
@@ -521,7 +590,7 @@ fun ShoulderEditBottomSheet(
         ) {
             EditorTopBar(
                 title = if (isNew) "Новое плечо" else "Редактировать плечо",
-                onBack = onDismiss,
+                onBack = ::close,
                 onMap = { showRouteMap = true },
             )
             Box(modifier = Modifier.weight(1f)) {
@@ -691,37 +760,6 @@ fun ShoulderEditBottomSheet(
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 }
-            }
-            PstSheetFooter {
-                PstButton(
-                    text = if (isNew) "Добавить" else "Сохранить",
-                    kind = PstButtonKind.CTA,
-                    enabled = isValid,
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = {
-                        val dep = departure.text.trim()
-                        val arr = arrival.text.trim()
-                        val mileageRate = rate.text.replace(',', '.').toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
-                        val base = phase ?: ServicePhase(departureStation = dep, arrivalStation = arr, distance = distanceKm)
-                        val result = base.copy(
-                            departureStation = dep,
-                            arrivalStation = arr,
-                            distance = distanceKm,
-                            linearMileageRate = mileageRate,
-                            intermediateStations = stations.toList(),
-                            // Координаты относились к прежней станции — при переименовании сбрасываем.
-                            departurePoint = pointFor(depPoint, dep),
-                            arrivalPoint = pointFor(arrPoint, arr),
-                        )
-                        if (pendingNames.isNotEmpty()) onAddStationNames(pendingNames)
-                        val isMeasured = measured?.let { it.distance == distanceKm && it.signature == coordinateSignature() } == true
-                        measuredPrefs.edit().apply {
-                            if (isMeasured) putString(result.id, measured!!.encode()) else remove(result.id)
-                        }.apply()
-                        onSave(stationDirectory.prepareSave(result), createReverse && isNew)
-                        onDismiss()
-                    },
-                )
             }
         }
     }

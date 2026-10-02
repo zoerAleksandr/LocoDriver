@@ -595,43 +595,28 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
     }
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun StationAxisSection(state: StationEditorState, onSet: (Int?, Int?) -> Unit) {
-    var editing by remember { mutableStateOf<Boolean?>(null) } // true — км, false — пикет
-    editing?.let { km ->
-        AppInputBottomSheet(
-            onDismissRequest = { editing = null },
-            title = if (km) "Километр оси станции" else "Пикет оси станции",
-            initialValue = (if (km) state.axisKm else state.axisPicket)?.toString() ?: "",
-            onConfirm = { v ->
-                val n = v.toIntOrNull()
-                if (km) onSet(n, state.axisPicket) else onSet(state.axisKm, n)
-                editing = null
-            },
-            label = if (km) "Километр" else "Пикет, 1–10",
-            suffix = if (km) "км" else "пк",
-            keyboardType = KeyboardType.Number,
-            transform = { it.filter { c -> c.isDigit() }.take(if (km) 5 else 2) },
-            isValid = { v -> v.isEmpty() || (if (km) v.toIntOrNull() != null else v.toIntOrNull() in 1..10) },
-        )
-    }
     SectionTitle("КИЛОМЕТРАЖ")
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        AxisCell(
-            label = "КМ",
-            value = state.axisKm?.let { "$it км" },
-            onClick = { editing = true },
+        AxisField(
+            value = state.axisKm,
+            unit = "км",
+            maxDigits = 5,
+            isValid = { true },
+            onChange = { onSet(it, if (it == null) null else state.axisPicket) },
             modifier = Modifier.weight(1f),
         )
-        AxisCell(
-            label = "ПК",
-            value = state.axisPicket?.let { "$it пк" },
+        AxisField(
+            value = state.axisPicket,
+            unit = "пк",
+            maxDigits = 2,
+            isValid = { it in 1..10 },
             enabled = state.axisKm != null,
-            onClick = { editing = false },
+            onChange = { onSet(state.axisKm, it) },
             modifier = Modifier.weight(1f),
         )
     }
@@ -641,6 +626,66 @@ private fun StationAxisSection(state: StationEditorState, onSet: (Int?, Int?) ->
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
         modifier = Modifier.padding(start = 4.dp, top = 6.dp)
     )
+}
+
+/**
+ * Поле км/пк оси станции: число вводится прямо в поле, справа постфикс «км»/«пк»;
+ * пусто — тусклое «км»/«пк». Значение вне [isValid] не принимается.
+ */
+@Composable
+private fun AxisField(
+    value: Int?,
+    unit: String,
+    maxDigits: Int,
+    isValid: (Int) -> Boolean,
+    onChange: (Int?) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    var text by remember { mutableStateOf(value?.toString() ?: "") }
+    LaunchedEffect(value) {
+        if (text.toIntOrNull() != value) text = value?.toString() ?: ""
+    }
+    val style = MaterialTheme.typography.bodyLarge.copy(
+        fontFamily = MonoFont,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+    )
+    Row(
+        modifier = modifier
+            .shadow(2.dp, Shapes.medium)
+            .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicTextField(
+            value = text,
+            onValueChange = { raw ->
+                val digits = raw.filter(Char::isDigit).take(maxDigits)
+                val n = digits.toIntOrNull()
+                if (digits.isEmpty() || (n != null && isValid(n))) {
+                    text = digits
+                    onChange(n)
+                }
+            },
+            enabled = enabled,
+            singleLine = true,
+            textStyle = style,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            modifier = Modifier.weight(1f),
+            // Постфикс сразу после числа (тусклее), пусто — тусклый «км»/«пк».
+            visualTransformation = UnitSuffix(" $unit", MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
+            decorationBox = { inner ->
+                Box {
+                    if (text.isEmpty()) {
+                        Text(text = unit, style = style, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                    }
+                    inner()
+                }
+            },
+        )
+    }
 }
 
 private val StatusOk = androidx.compose.ui.graphics.Color(0xFF2E9E5B)
@@ -724,35 +769,24 @@ private fun ButtonRow(text: String, enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Поле км/пк оси станции: подпись сверху, значение моно; тап — ввод. */
-@Composable
-private fun AxisCell(
-    label: String,
-    value: String?,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-) {
-    Column(
-        modifier = modifier
-            .shadow(2.dp, Shapes.medium)
-            .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-            .clip(Shapes.medium)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = if (enabled) 0.6f else 0.3f),
-        )
-        Text(
-            text = value ?: "—",
-            fontFamily = MonoFont,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 18.sp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = if (value != null && enabled) 1f else 0.4f),
-            modifier = Modifier.padding(top = 4.dp),
-        )
+
+/** Дописывает к введённому числу постфикс ([suffix], цвет [color]); пустое поле — без постфикса. */
+private class UnitSuffix(
+    private val suffix: String,
+    private val color: androidx.compose.ui.graphics.Color,
+) : androidx.compose.ui.text.input.VisualTransformation {
+    override fun filter(text: androidx.compose.ui.text.AnnotatedString): androidx.compose.ui.text.input.TransformedText {
+        if (text.isEmpty()) return androidx.compose.ui.text.input.TransformedText(text, androidx.compose.ui.text.input.OffsetMapping.Identity)
+        val out = androidx.compose.ui.text.buildAnnotatedString {
+            append(text)
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = color))
+            append(suffix)
+            pop()
+        }
+        val n = text.length
+        return androidx.compose.ui.text.input.TransformedText(out, object : androidx.compose.ui.text.input.OffsetMapping {
+            override fun originalToTransformed(offset: Int) = offset
+            override fun transformedToOriginal(offset: Int) = offset.coerceAtMost(n)
+        })
     }
 }
