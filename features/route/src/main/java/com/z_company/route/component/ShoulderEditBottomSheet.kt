@@ -408,10 +408,18 @@ fun ShoulderEditBottomSheet(
                 val beforeDep = depPoint
                 val beforeArr = arrPoint
                 stations.clear()
-                stations.addAll(result.stations)
+                // Автоподбор только дописывает координаты: у станций, уже известных справочнику
+                // (в т.ч. указанных вручную), остаются их координаты, а не точки OSM.
+                stations.addAll(result.stations.map { st ->
+                    directoryPoints[ServicePhaseStationsMerge.normalizeName(st.name)]?.let { known ->
+                        st.copy(latitude = known.latitude, longitude = known.longitude, esr = known.esr ?: st.esr)
+                    } ?: st
+                })
                 pendingNames = (pendingNames + result.newNames).distinct()
-                depPoint = result.departurePoint to departure.text.trim()
-                arrPoint = result.arrivalPoint to arrival.text.trim()
+                val dep = departure.text.trim()
+                val arr = arrival.text.trim()
+                depPoint = (pointFor(depPoint, dep) ?: result.departurePoint) to dep
+                arrPoint = (pointFor(arrPoint, arr) ?: result.arrivalPoint) to arr
                 freshIds = result.addedIds
                 // Расстояние совпало с длиной пути по карте («Установить N км» или уже было таким).
                 if (distance.text.toIntOrNull() == kotlin.math.round(result.lengthKm).toInt()) {
