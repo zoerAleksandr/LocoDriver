@@ -1,5 +1,7 @@
 package com.z_company.route.component
 
+import com.z_company.route.viewmodel.message
+
 import androidx.compose.foundation.layout.Spacer
 
 import androidx.compose.ui.text.style.TextAlign
@@ -241,7 +243,8 @@ fun ShoulderEditBottomSheet(
                 val found = autoVm.lookup(name, country, near)
                 if (found == null) {
                     measuring = false
-                    snackbar = EditorSnackbar("Не удалось найти «$name» на карте — нет связи с сервером")
+                    val why = autoVm.lastLookupFailure?.message() ?: AutoFillFailure.SERVICE.message()
+                    snackbar = EditorSnackbar("Не удалось найти «$name» на карте. $why")
                     return@launch
                 }
                 val c = found.firstOrNull()
@@ -293,13 +296,7 @@ fun ShoulderEditBottomSheet(
                 }
                 ServicePhaseAutoFillViewModel.MeasureResult.NoPath ->
                     snackbar = EditorSnackbar("Путь по железной дороге между станциями не найден — проверьте координаты")
-                is ServicePhaseAutoFillViewModel.MeasureResult.Failed -> snackbar = EditorSnackbar(
-                    when (res.failure) {
-                        AutoFillFailure.NO_INTERNET -> "Нет подключения к интернету"
-                        AutoFillFailure.RATE_LIMITED -> "Слишком много запросов — попробуйте позже"
-                        else -> "Сервис не ответил — попробуйте позже"
-                    },
-                )
+                is ServicePhaseAutoFillViewModel.MeasureResult.Failed -> snackbar = EditorSnackbar(res.failure.message())
             }
         }
     }

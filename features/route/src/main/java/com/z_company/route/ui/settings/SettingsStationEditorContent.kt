@@ -47,6 +47,8 @@ import com.z_company.route.R
 import com.z_company.route.viewmodel.StationNormEditorViewModel
 import com.z_company.route.viewmodel.StationEditorState
 import com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel
+import com.z_company.route.viewmodel.AutoFillFailure
+import com.z_company.route.viewmodel.message
 import com.z_company.route.component.servicephase.PhaseMapPicker
 import com.z_company.route.component.servicephase.StationChoiceSheet
 import com.z_company.domain.entities.setting.ServicePhaseStationKind
@@ -439,7 +441,7 @@ private sealed interface CoordSearch {
     /** Применена станция [candidate] из найденных [candidates] (несколько — можно выбрать другую). */
     data class Found(val candidate: OsmStationCandidate, val candidates: List<OsmStationCandidate>) : CoordSearch
     data object NotFound : CoordSearch
-    data object Failed : CoordSearch
+    data class Failed(val text: String) : CoordSearch
 }
 
 @Composable
@@ -504,7 +506,9 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
         searchJob = scope.launch {
             val found = lookupVm.lookup(name, state.country, state.neighbours)
             when {
-                found == null -> search = CoordSearch.Failed
+                found == null -> search = CoordSearch.Failed(
+                    lookupVm.lastLookupFailure?.message() ?: AutoFillFailure.SERVICE.message()
+                )
                 found.isEmpty() -> search = CoordSearch.NotFound
                 found.size == 1 -> apply(found.first(), found)
                 else -> choosing = found
@@ -573,7 +577,7 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
                 }
             }
             CoordSearch.NotFound -> SearchNote(text = "Не нашлось на карте — проверьте название или укажите точку вручную.")
-            CoordSearch.Failed -> SearchNote(text = "Не удалось связаться с сервером. Попробуйте позже.")
+            is CoordSearch.Failed -> SearchNote(text = s.text)
             CoordSearch.Idle -> Unit
         }
         HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
@@ -613,19 +617,22 @@ private fun StationAxisSection(state: StationEditorState, onSet: (Int?, Int?) ->
         )
     }
     SectionTitle("КИЛОМЕТРАЖ")
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(2.dp, Shapes.medium)
-            .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ValueRow(label = "КМ", value = state.axisKm?.let { "$it км" }, onClick = { editing = true })
-        HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
-        ValueRow(
+        AxisCell(
+            label = "КМ",
+            value = state.axisKm?.let { "$it км" },
+            onClick = { editing = true },
+            modifier = Modifier.weight(1f),
+        )
+        AxisCell(
             label = "ПК",
             value = state.axisPicket?.let { "$it пк" },
             enabled = state.axisKm != null,
             onClick = { editing = false },
+            modifier = Modifier.weight(1f),
         )
     }
     Text(
@@ -698,31 +705,6 @@ private fun ActionRow(text: String, enabled: Boolean, onClick: () -> Unit, icon:
     }
 }
 
-@Composable
-private fun ValueRow(label: String, value: String?, onClick: () -> Unit, enabled: Boolean = true) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = if (enabled) 1f else 0.4f),
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = value ?: "—",
-            fontFamily = MonoFont,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 15.sp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = if (value != null && enabled) 1f else 0.4f),
-        )
-    }
-}
-
 /** Строка-кнопка действия в карточке (без шеврона — действие на месте, не переход). */
 @Composable
 private fun ButtonRow(text: String, enabled: Boolean, onClick: () -> Unit) {
@@ -738,6 +720,39 @@ private fun ButtonRow(text: String, enabled: Boolean, onClick: () -> Unit) {
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.tertiary.copy(alpha = if (enabled) 1f else 0.4f),
+        )
+    }
+}
+
+/** Поле км/пк оси станции: подпись сверху, значение моно; тап — ввод. */
+@Composable
+private fun AxisCell(
+    label: String,
+    value: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Column(
+        modifier = modifier
+            .shadow(2.dp, Shapes.medium)
+            .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+            .clip(Shapes.medium)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = if (enabled) 0.6f else 0.3f),
+        )
+        Text(
+            text = value ?: "—",
+            fontFamily = MonoFont,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 18.sp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = if (value != null && enabled) 1f else 0.4f),
+            modifier = Modifier.padding(top = 4.dp),
         )
     }
 }

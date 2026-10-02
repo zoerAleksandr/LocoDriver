@@ -26,7 +26,20 @@ import java.io.IOException
 /** Какая крайняя станция плеча. */
 enum class PhaseEnd { DEPARTURE, ARRIVAL }
 
-enum class AutoFillFailure { NO_INTERNET, STATION_NOT_FOUND, NO_PATH, SERVICE, RATE_LIMITED }
+/**
+ * NO_INTERNET — у телефона нет интернета; NO_CONNECTION — интернет есть, но до сервера не достучаться;
+ * VPN — то же при включённом VPN; SERVICE — сервер ответил ошибкой или не уложился в 30 с.
+ */
+enum class AutoFillFailure { NO_INTERNET, NO_CONNECTION, VPN, STATION_NOT_FOUND, NO_PATH, SERVICE, RATE_LIMITED }
+
+/** Короткий текст сетевой/серверной ошибки для снекбаров и подписей. */
+fun AutoFillFailure.message(): String = when (this) {
+    AutoFillFailure.NO_INTERNET -> "Нет подключения к интернету"
+    AutoFillFailure.NO_CONNECTION -> "Нет связи с сервером — проверьте подключение к интернету"
+    AutoFillFailure.VPN -> com.z_company.core.util.VPN_ERROR_HINT
+    AutoFillFailure.RATE_LIMITED -> "Слишком много запросов — попробуйте позже"
+    else -> "Сервис не ответил — попробуйте позже"
+}
 
 sealed interface AutoFillState {
     data object Idle : AutoFillState
@@ -111,20 +124,12 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
             val result = try {
                 val token = tokens.getAuthBearerTokenFlow().first()
                 withTimeout(TIMEOUT_MS) { api.suggestServicePhaseStations("Bearer $token", r) }
-            } catch (e: TimeoutCancellationException) {
-                fail(ticker, AutoFillFailure.SERVICE)
-                return@launch
-            } catch (e: IOException) {
-                // Таймаут Ktor — тоже IOException, но это «сервис не ответил», а не нет связи.
-                val timeout = e::class.simpleName.orEmpty().contains("Timeout")
-                fail(ticker, if (timeout) AutoFillFailure.SERVICE else AutoFillFailure.NO_INTERNET)
-                return@launch
             } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
+                if (e !is TimeoutCancellationException) throw e
+                fail(ticker, failureOf(e))
+                return@launch
             } catch (e: Exception) {
-                // 429 — сервер ограничивает частоту автоподбора; Ktor кладёт код в текст исключения.
-                val limited = e.message.orEmpty().contains("429")
-                fail(ticker, if (limited) AutoFillFailure.RATE_LIMITED else AutoFillFailure.SERVICE)
+                fail(ticker, failureOf(e))
                 return@launch
             }
             ticker.cancel()
@@ -166,22 +171,47 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
             )
         }
         MeasureResult.Ok(res.lengthKm, res.kmAt)
-    } catch (e: TimeoutCancellationException) {
-        MeasureResult.Failed(AutoFillFailure.SERVICE)
     } catch (e: kotlinx.coroutines.CancellationException) {
-        throw e
-    } catch (e: IOException) {
-        val timeout = e::class.simpleName.orEmpty().contains("Timeout")
-        MeasureResult.Failed(if (timeout) AutoFillFailure.SERVICE else AutoFillFailure.NO_INTERNET)
+        if (e !is TimeoutCancellationException) throw e
+        MeasureResult.Failed(failureOf(e))
     } catch (e: Exception) {
         val msg = e.message.orEmpty()
-        when {
-            // 404 «Not Found» — эндпоинта ещё нет на сервере; наш 404 — «путь не найден».
-            msg.contains("404") && !msg.contains("Not Found") -> MeasureResult.NoPath
-            msg.contains("429") -> MeasureResult.Failed(AutoFillFailure.RATE_LIMITED)
-            else -> MeasureResult.Failed(AutoFillFailure.SERVICE)
+        // 404 «Not Found» — эндпоинта ещё нет на сервере; наш 404 — «путь не найден».
+        if (msg.contains("404") && !msg.contains("Not Found")) MeasureResult.NoPath
+        else MeasureResult.Failed(failureOf(e))
+    }
+
+    /**
+     * Причина сбоя запроса: 429 — лимит; сетевая ошибка — нет интернета / нет связи с сервером /
+     * VPN (по состоянию сети телефона); иначе — ошибка сервиса. Таймаут 30 с при живом
+     * интернете — «сервис не ответил».
+     */
+    private fun failureOf(e: Throwable): AutoFillFailure {
+        val chain = generateSequence(e) { it.cause }.take(6).toList()
+        val text = chain.joinToString(" ") { "${it::class.simpleName} ${it.message.orEmpty()}" }
+        if (text.contains("429")) return AutoFillFailure.RATE_LIMITED
+        val network = e is TimeoutCancellationException || chain.any { it is IOException } ||
+            com.z_company.core.util.isConnectivityErrorMessage(text) ||
+            NETWORK_MARKERS.any { text.contains(it) }
+        if (!network) return AutoFillFailure.SERVICE
+        return when {
+            !hasInternet() -> AutoFillFailure.NO_INTERNET
+            e is TimeoutCancellationException -> AutoFillFailure.SERVICE
+            com.z_company.core.util.isVpnActive(appContext) -> AutoFillFailure.VPN
+            else -> AutoFillFailure.NO_CONNECTION
         }
     }
+
+    private fun hasInternet(): Boolean = runCatching {
+        val cm = appContext.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }.getOrDefault(true)
+
+    /** Причина последней неудачи [lookup] (null — последний поиск удался). */
+    var lastLookupFailure: AutoFillFailure? = null
+        private set
 
     /**
      * Линия плеча по рельсам для карты (через точки по порядку). Однажды полученная линия
@@ -192,22 +222,30 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         val key = points.joinToString(";") { (lat, lon) -> "%.5f,%.5f".format(java.util.Locale.US, lat, lon) }
         val file = java.io.File(appContext.noBackupFilesDir, "rail_lines/${key.hashCode().toUInt().toString(16)}.txt")
         withContext(Dispatchers.IO) { readRailLine(file, key) }?.let { return it }
-        val line = try {
-            val token = tokens.getAuthBearerTokenFlow().first()
-            withTimeout(TIMEOUT_MS) {
-                api.measureRouteLength(
-                    "Bearer $token",
-                    com.z_company.repository.remote_rest.response.RouteLengthRequest(
-                        points = points.map { (lat, lon) -> LatLon(lat, lon) },
-                        withGeometry = true,
-                    ),
-                ).geometry.mapNotNull { p -> if (p.size >= 2) p[0] to p[1] else null }.takeIf { it.size >= 2 }
+        // Одна неудача (сеть/сервер) — повтор через 2 с: иначе на карте остаётся пунктир напрямик.
+        var line: List<Pair<Double, Double>>? = null
+        for (attempt in 0..1) {
+            if (attempt > 0) delay(2_000)
+            line = try {
+                val token = tokens.getAuthBearerTokenFlow().first()
+                withTimeout(TIMEOUT_MS) {
+                    api.measureRouteLength(
+                        "Bearer $token",
+                        com.z_company.repository.remote_rest.response.RouteLengthRequest(
+                            points = points.map { (lat, lon) -> LatLon(lat, lon) },
+                            withGeometry = true,
+                        ),
+                    ).geometry.mapNotNull { p -> if (p.size >= 2) p[0] to p[1] else null }.takeIf { it.size >= 2 }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                if (e is TimeoutCancellationException) null else throw e
+            } catch (e: Exception) {
+                android.util.Log.w("ServicePhaseMap", "rail line: ${e::class.simpleName}")
+                null
             }
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            if (e is TimeoutCancellationException) null else throw e
-        } catch (e: Exception) {
-            null
-        } ?: return null
+            if (line != null) break
+        }
+        if (line == null) return null
         withContext(Dispatchers.IO) {
             runCatching {
                 file.parentFile?.mkdirs()
@@ -230,6 +268,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     /** Координаты одной станции (шторка станции, «Найти координаты»). null — ошибка сети/сервиса. */
     suspend fun lookup(name: String, country: String, near: List<Pair<Double, Double>>): List<OsmStationCandidate>? =
         try {
+            lastLookupFailure = null
             val token = tokens.getAuthBearerTokenFlow().first()
             withTimeout(TIMEOUT_MS) {
                 api.lookupServicePhaseStation(
@@ -242,12 +281,18 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
                 ).candidates
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
-            if (e is TimeoutCancellationException) null else throw e
+            if (e !is TimeoutCancellationException) throw e
+            lastLookupFailure = failureOf(e)
+            null
         } catch (e: Exception) {
+            lastLookupFailure = failureOf(e)
             null
         }
 
     private companion object {
         const val TIMEOUT_MS = 30_000L
+        /** Сетевые исключения Ktor/JVM, которые не наследуют IOException. */
+        val NETWORK_MARKERS = listOf("UnresolvedAddress", "UnknownHost", "ConnectException", "NoRouteToHost",
+            "SocketTimeout", "ConnectTimeout", "HttpRequestTimeout", "SSLException", "ClosedReceiveChannel")
     }
 }

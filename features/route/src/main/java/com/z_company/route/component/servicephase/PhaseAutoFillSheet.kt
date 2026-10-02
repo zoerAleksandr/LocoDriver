@@ -540,6 +540,12 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
             "Автоподбор ищет станции на сервере. Проверьте связь и повторите — или добавьте станции вручную.",
             "Повторить" to onRetry, "Добавить вручную" to onAddManually,
         )
+        AutoFillFailure.NO_CONNECTION, AutoFillFailure.VPN -> Spec(
+            PstIcons.CloudOff, "Нет связи с сервером",
+            if (state.failure == AutoFillFailure.VPN) com.z_company.core.util.VPN_ERROR_HINT
+            else "Интернет на телефоне есть, но до сервера не достучаться. Проверьте подключение и повторите — или добавьте станции вручную.",
+            "Повторить" to onRetry, "Добавить вручную" to onAddManually,
+        )
         AutoFillFailure.STATION_NOT_FOUND -> Spec(
             PstIcons.MapPin, "Не нашли станцию «${state.name ?: ""}»",
             "На карте нет станции с таким названием. Проверьте написание — полностью, без сокращений. " +
