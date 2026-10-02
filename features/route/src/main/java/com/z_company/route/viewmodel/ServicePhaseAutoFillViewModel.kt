@@ -47,7 +47,13 @@ sealed interface AutoFillState {
     /** step: 0 — ищем крайние станции, 1 — прокладываем путь, 2 — собираем станции. */
     data class Loading(val step: Int) : AutoFillState
 
-    data class Choose(val end: PhaseEnd, val query: String, val candidates: List<OsmStationCandidate>) : AutoFillState
+    /** [approximate] — точного совпадения нет, варианты похожи по сокращению. */
+    data class Choose(
+        val end: PhaseEnd,
+        val query: String,
+        val candidates: List<OsmStationCandidate>,
+        val approximate: Boolean = false,
+    ) : AutoFillState
 
     data class Ready(
         val departure: OsmStationCandidate,
@@ -142,7 +148,10 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
                         AutoFillState.Ready(dep, arr, result.lengthKm ?: 0.0, result.stations)
                     } else AutoFillState.Failed(AutoFillFailure.SERVICE)
                 }
-                "ambiguous" -> AutoFillState.Choose(end, result.name ?: "", result.candidates)
+                "ambiguous" -> AutoFillState.Choose(
+                    end, result.name ?: "", result.candidates,
+                    approximate = result.approximate || result.candidates.any { it.approximate },
+                )
                 "not_found" -> AutoFillState.Failed(AutoFillFailure.STATION_NOT_FOUND, end, result.name)
                 "no_path" -> AutoFillState.Failed(AutoFillFailure.NO_PATH)
                 else -> AutoFillState.Failed(AutoFillFailure.SERVICE)

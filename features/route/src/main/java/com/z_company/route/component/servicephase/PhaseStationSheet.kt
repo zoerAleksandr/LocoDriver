@@ -94,6 +94,8 @@ internal fun PhaseStationSheet(
     var coords by remember { mutableStateOf<CoordState>(CoordState.Idle) }
     var picked by remember { mutableStateOf<PickedPoint?>(null) }
     var mapOpen by remember { mutableStateOf(false) }
+    /** Неточные варианты (сокращение) — шторка выбора. */
+    var choosing by remember { mutableStateOf<List<OsmStationCandidate>?>(null) }
     val scope = rememberCoroutineScope()
     var searchJob by remember { mutableStateOf<Job?>(null) }
     val nameFocus = remember { FocusRequester() }
@@ -122,6 +124,23 @@ internal fun PhaseStationSheet(
                 mapOpen = false
             },
             onDismiss = { mapOpen = false },
+        )
+    }
+
+    choosing?.let { candidates ->
+        StationChoiceSheet(
+            query = name.text.trim(),
+            candidates = candidates,
+            current = null,
+            onChoose = {
+                coords = CoordState.Found(it)
+                choosing = null
+            },
+            onDismiss = { choosing = null },
+            onPickOnMap = if (mapNeighbours != null && station != null) ({
+                choosing = null
+                mapOpen = true
+            }) else null,
         )
     }
 
@@ -229,7 +248,15 @@ internal fun PhaseStationSheet(
                                 coords = CoordState.Searching(query)
                                 searchJob = scope.launch {
                                     val found = find(query)
-                                    coords = found?.firstOrNull()?.let { CoordState.Found(it) } ?: CoordState.NotFound
+                                    coords = when {
+                                        found.isNullOrEmpty() -> CoordState.NotFound
+                                        // Сокращение — только выбор пользователя, без автоподстановки.
+                                        found.any { it.approximate } -> {
+                                            choosing = found
+                                            CoordState.Idle
+                                        }
+                                        else -> CoordState.Found(found.first())
+                                    }
                                 }
                             }
                         },
@@ -355,7 +382,7 @@ private fun CoordinatesCard(
                     CoordRow(
                         color = Pst.warning,
                         title = "Не нашлось на карте",
-                        subtitle = "Проверьте название или укажите точку на карте вручную.",
+                        subtitle = "Проверьте название. Если это не станция (пути необщего пользования, терминал, пост) — укажите точку на карте вручную.",
                     )
                     if (onFind != null) {
                         PstButton(

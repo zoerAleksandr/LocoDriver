@@ -480,6 +480,11 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
                 if (search == CoordSearch.Searching) search = CoordSearch.Idle
                 choosing = null
             },
+            onPickOnMap = {
+                if (search == CoordSearch.Searching) search = CoordSearch.Idle
+                choosing = null
+                mapOpen = true
+            },
         )
     }
 
@@ -510,7 +515,8 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
                     lookupVm.lastLookupFailure?.message() ?: AutoFillFailure.SERVICE.message()
                 )
                 found.isEmpty() -> search = CoordSearch.NotFound
-                found.size == 1 -> apply(found.first(), found)
+                // Сокращение (неточные варианты) — всегда выбор, даже из одного.
+                found.size == 1 && !found.first().approximate -> apply(found.first(), found)
                 else -> choosing = found
             }
         }
@@ -576,7 +582,7 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
                     SearchNote(text = "$title. Если это не та станция — укажите точку на карте вручную.")
                 }
             }
-            CoordSearch.NotFound -> SearchNote(text = "Не нашлось на карте — проверьте название или укажите точку вручную.")
+            CoordSearch.NotFound -> SearchNote(text = "Не нашлось на карте — проверьте название. Если это не станция (пути необщего пользования, терминал, пост) — укажите точку на карте вручную.")
             is CoordSearch.Failed -> SearchNote(text = s.text)
             CoordSearch.Idle -> Unit
         }

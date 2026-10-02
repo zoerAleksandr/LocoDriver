@@ -211,7 +211,11 @@ private fun androidx.compose.foundation.layout.ColumnScope.ChooseContent(
                 modifier = Modifier.padding(top = 8.dp),
             )
             Text(
-                text = "На карте несколько станций с похожим названием.",
+                text = if (state.approximate) {
+                    "Станции с таким названием нет — возможно, это сокращение. Похожие станции:"
+                } else {
+                    "На карте несколько станций с похожим названием."
+                },
                 style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 19.sp),
                 color = Pst.textMuted,
                 modifier = Modifier.padding(top = 6.dp, bottom = 14.dp),
@@ -548,8 +552,9 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
         )
         AutoFillFailure.STATION_NOT_FOUND -> Spec(
             PstIcons.MapPin, "Не нашли станцию «${state.name ?: ""}»",
-            "На карте нет станции с таким названием. Проверьте написание — полностью, без сокращений. " +
-                "Если станции нет на карте, добавьте промежуточные вручную.",
+            "На карте нет станции с таким или похожим названием. Проверьте написание. " +
+                "Если это не станция (пути необщего пользования, терминал) — укажите её точку на карте вручную, " +
+                "а промежуточные станции добавьте вручную.",
             "Изменить название" to { onEditName(state.end ?: PhaseEnd.DEPARTURE) }, "Добавить вручную" to onAddManually,
         )
         AutoFillFailure.NO_PATH -> Spec(
@@ -699,7 +704,10 @@ internal fun StationChoiceSheet(
     current: OsmStationCandidate?,
     onChoose: (OsmStationCandidate) -> Unit,
     onDismiss: () -> Unit,
+    /** «Указать на карте вручную» под списком (для неточных вариантов). */
+    onPickOnMap: (() -> Unit)? = null,
 ) {
+    val approximate = candidates.any { it.approximate }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selected by remember(candidates) { mutableStateOf(current) }
     ModalBottomSheet(
@@ -710,20 +718,34 @@ internal fun StationChoiceSheet(
         dragHandle = { PstGrabber() },
     ) {
         Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
-            PstSheetHeader(title = "Какая «$query»?", onClose = onDismiss)
+            PstSheetHeader(title = if (approximate) "Похоже на «$query»" else "Какая «$query»?", onClose = onDismiss)
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
             ) {
                 item {
                     Text(
-                        text = "На карте несколько станций с таким названием.",
+                        text = if (approximate) {
+                            "Станции с таким названием нет — возможно, это сокращение. Выберите свою станцию или укажите точку на карте."
+                        } else {
+                            "На карте несколько станций с таким названием."
+                        },
                         style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 19.sp),
                         color = Pst.textMuted,
                         modifier = Modifier.padding(start = 4.dp, bottom = 14.dp),
                     )
                 }
                 item { CandidateList(candidates, selected, onSelect = { selected = it }) }
+                if (onPickOnMap != null) item {
+                    PstButton(
+                        text = "Указать на карте вручную",
+                        onClick = onPickOnMap,
+                        kind = PstButtonKind.TEXT,
+                        icon = PstIcons.MapPin,
+                        iconSize = 16.dp,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
             }
             PstSheetFooter {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

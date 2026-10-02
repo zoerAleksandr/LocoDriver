@@ -1,5 +1,9 @@
 package com.z_company.route.component
 
+import com.z_company.repository.remote_rest.response.OsmStationCandidate
+
+import com.z_company.route.component.servicephase.StationChoiceSheet
+
 import kotlinx.coroutines.flow.collectLatest
 
 import kotlinx.coroutines.flow.drop
@@ -228,6 +232,9 @@ fun ShoulderEditBottomSheet(
         return points.joinToString(";") { p -> p?.let { "%.5f,%.5f".format(java.util.Locale.US, it.first, it.second) } ?: "-" }
     }
 
+    /** Выбор крайней станции из неточных вариантов (сокращение) во время «Измерить по карте». */
+    var choosingTerminal by remember { mutableStateOf<TerminalChoice?>(null) }
+
     fun measureByMap() {
         val dep = departure.text.trim()
         val arr = arrival.text.trim()
@@ -254,12 +261,22 @@ fun ShoulderEditBottomSheet(
                     snackbar = EditorSnackbar("Не удалось найти «$name» на карте. $why")
                     return@launch
                 }
-                val c = found.firstOrNull()
-                if (c == null) {
+                if (found.isEmpty()) {
                     measuring = false
-                    snackbar = EditorSnackbar("«$name» не нашлась на карте — укажите её координаты в схеме")
+                    snackbar = EditorSnackbar(
+                        "«$name» не нашлась на карте — укажите её координаты в схеме. Если это не станция " +
+                            "(пути необщего пользования, терминал) — точку на карте вручную.",
+                        durationMs = 10_000,
+                    )
                     return@launch
                 }
+                if (found.any { it.approximate }) {
+                    // Сокращение — пусть выберет сам; после выбора замер продолжится.
+                    measuring = false
+                    choosingTerminal = TerminalChoice(isStart, name, found)
+                    return@launch
+                }
+                val c = found.first()
                 val point = ServicePhasePoint(c.latitude, c.longitude, osmId = c.osmId, esr = c.esr?.takeIf(String::isNotBlank))
                 if (isStart) depPoint = point to dep else arrPoint = point to arr
                 autoFound += name to isStart
@@ -556,6 +573,25 @@ fun ShoulderEditBottomSheet(
                 delay(600)
                 if (!closed) persist(final = false)
             }
+    }
+
+    choosingTerminal?.let { choice ->
+        StationChoiceSheet(
+            query = choice.name,
+            candidates = choice.candidates,
+            current = null,
+            onChoose = { c ->
+                val point = ServicePhasePoint(c.latitude, c.longitude, osmId = c.osmId, esr = c.esr?.takeIf(String::isNotBlank))
+                if (choice.isStart) depPoint = point to departure.text.trim() else arrPoint = point to arrival.text.trim()
+                choosingTerminal = null
+                measureByMap()
+            },
+            onDismiss = { choosingTerminal = null },
+            onPickOnMap = {
+                choosingTerminal = null
+                editingTerminal = choice.isStart
+            },
+        )
     }
 
     if (confirmDeletePhase && onDelete != null) {
@@ -1020,6 +1056,8 @@ private fun CardSegment(top: Boolean = false, bottom: Boolean = false, content: 
 // ─── Снекбар с «Отменить» ──────────────────────────────────────────────
 
 /** [undo] null — просто сообщение, без «Отменить». */
+private class TerminalChoice(val isStart: Boolean, val name: String, val candidates: List<OsmStationCandidate>)
+
 /** [undo] — действие кнопки [actionLabel] (по умолчанию «Отменить»); null — без кнопки. */
 private class EditorSnackbar(
     val text: String,

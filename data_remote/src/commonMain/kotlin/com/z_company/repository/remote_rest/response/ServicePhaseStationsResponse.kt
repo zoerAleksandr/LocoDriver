@@ -26,6 +26,8 @@ data class ServicePhaseSuggestResponse(
     val arrival: OsmStationCandidate? = null,
     val lengthKm: Double? = null,
     val stations: List<OsmPathStation> = emptyList(),
+    /** ambiguous + true — точного совпадения нет, кандидаты похожи по сокращению (только выбор). */
+    val approximate: Boolean = false,
 )
 
 @Serializable
@@ -39,6 +41,8 @@ data class OsmStationCandidate(
     val latitude: Double,
     val longitude: Double,
     val neighbours: List<String> = emptyList(),
+    /** Неточное совпадение (сокращённое название) — подставлять только после выбора пользователя. */
+    val approximate: Boolean = false,
 )
 
 @Serializable
