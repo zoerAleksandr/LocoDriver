@@ -211,7 +211,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.ChooseContent(
                 modifier = Modifier.padding(top = 8.dp),
             )
             Text(
-                text = "На карте несколько станций с похожим названием. Узнайте свою по соседним станциям.",
+                text = "На карте несколько станций с похожим названием.",
                 style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 19.sp),
                 color = Pst.textMuted,
                 modifier = Modifier.padding(top = 6.dp, bottom = 14.dp),
@@ -711,7 +711,7 @@ internal fun StationChoiceSheet(
             ) {
                 item {
                     Text(
-                        text = "На карте несколько станций с таким названием. Узнайте свою по соседним станциям.",
+                        text = "На карте несколько станций с таким названием.",
                         style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 19.sp),
                         color = Pst.textMuted,
                         modifier = Modifier.padding(start = 4.dp, bottom = 14.dp),
