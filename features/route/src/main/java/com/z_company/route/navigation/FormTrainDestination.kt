@@ -37,7 +37,7 @@ fun FormTrainDestination(
         onLengthChanged = viewModel::setConditionalLength,
         stationListState = formUiState.stationsListState,
         menuList = viewModel.stationList,
-        servicePhaseList = formUiState.servicePhaseList,
+        servicePhaseList = viewModel.sortedServicePhases(formUiState.servicePhaseList),
         onSelectServicePhase = viewModel::setSelectedServicePhase,
         selectedServicePhase = formUiState.selectedServicePhase,
         onSettingClick = router::showSettingsTrain,

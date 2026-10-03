@@ -199,6 +199,30 @@ interface RemoteRestApi {
     /** Личный код и право применить чужой код до первой оплаты. */
     suspend fun getReferralStatus(token: String): com.z_company.repository.remote_rest.response.ReferralStatusResponse
 
+    /** Автоподбор промежуточных станций плеча по OSM (сервер). */
+    suspend fun suggestServicePhaseStations(
+        token: String,
+        body: com.z_company.repository.remote_rest.response.ServicePhaseSuggestRequest,
+    ): com.z_company.repository.remote_rest.response.ServicePhaseSuggestResponse
+
+    /** «Измерить по карте»: длина плеча по ж/д путям через станции по порядку. */
+    suspend fun measureRouteLength(
+        token: String,
+        body: com.z_company.repository.remote_rest.response.RouteLengthRequest,
+    ): com.z_company.repository.remote_rest.response.RouteLengthResponse
+
+    /** Ближайшая станция к точке телефона (радиус по умолчанию 2 км). */
+    suspend fun nearestStation(
+        token: String,
+        body: com.z_company.repository.remote_rest.response.NearestStationRequest,
+    ): com.z_company.repository.remote_rest.response.NearestStationResponse
+
+    /** Координаты одной станции по названию (ближние к соседям — первыми). */
+    suspend fun lookupServicePhaseStation(
+        token: String,
+        body: com.z_company.repository.remote_rest.response.ServicePhaseLookupRequest,
+    ): com.z_company.repository.remote_rest.response.ServicePhaseLookupResponse
+
     /** Привязать код к аккаунту перед первой оплатой. */
     suspend fun applyReferralCode(
         token: String,

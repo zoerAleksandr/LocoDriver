@@ -22,6 +22,7 @@ val useCaseModule = module {
     single { PartnerUseCase(repository = get()) }
     single { PhotoUseCase(repository = get()) }
     single { SettingsUseCase(settingsRepository = get()) }
+    single { com.z_company.domain.use_cases.StationDirectoryUseCase(repository = get()) }
     single { SearchRouteUseCase(repository = get()) }
     single { SalarySettingUseCase(repository = get(), calendarUseCase = get()) }
     single { ReleaseDayUseCase(repository = get()) }

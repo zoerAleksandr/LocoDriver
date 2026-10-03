@@ -130,14 +130,16 @@ fun SettingsSeriesEditorContent(
             title = title,
             initialValue = dialogText,
             onConfirm = { v ->
-                v.toIntOrNull()?.let { viewModel.setField(field, it) }
+                viewModel.setField(field, v.toIntOrNull() ?: 0)
                 dialogField = null
             },
             label = "Значение",
             suffix = "мин",
             keyboardType = KeyboardType.Number,
             transform = { it.filter { c -> c.isDigit() }.take(3) },
-            isValid = { it.toIntOrNull() != null },
+            // Пусто — «не задано» (как 0).
+            isValid = { it.isEmpty() || it.toIntOrNull() != null },
+            cursorAtEnd = true,
         )
     }
 
@@ -277,7 +279,7 @@ fun SettingsSeriesEditorContent(
                 onIncrement = { viewModel.increment(SeriesNormField.ACCEPTANCE_PARKING) },
                 onDecrement = { viewModel.decrement(SeriesNormField.ACCEPTANCE_PARKING) },
                 onValueClick = {
-                    dialogText = (state.acceptanceDurationMin ?: 0).toString()
+                    dialogText = state.acceptanceDurationMin?.takeIf { it > 0 }?.toString() ?: ""
                     dialogField = SeriesNormField.ACCEPTANCE_PARKING
                 }
             )
@@ -288,7 +290,7 @@ fun SettingsSeriesEditorContent(
                 onIncrement = { viewModel.increment(SeriesNormField.ACCEPTANCE_HAND) },
                 onDecrement = { viewModel.decrement(SeriesNormField.ACCEPTANCE_HAND) },
                 onValueClick = {
-                    dialogText = (state.acceptanceHandToHandMin ?: 0).toString()
+                    dialogText = state.acceptanceHandToHandMin?.takeIf { it > 0 }?.toString() ?: ""
                     dialogField = SeriesNormField.ACCEPTANCE_HAND
                 }
             )
@@ -314,7 +316,7 @@ fun SettingsSeriesEditorContent(
                 onIncrement = { viewModel.increment(SeriesNormField.DELIVERY_PARKING) },
                 onDecrement = { viewModel.decrement(SeriesNormField.DELIVERY_PARKING) },
                 onValueClick = {
-                    dialogText = (state.deliveryDurationMin ?: 0).toString()
+                    dialogText = state.deliveryDurationMin?.takeIf { it > 0 }?.toString() ?: ""
                     dialogField = SeriesNormField.DELIVERY_PARKING
                 }
             )
@@ -325,7 +327,7 @@ fun SettingsSeriesEditorContent(
                 onIncrement = { viewModel.increment(SeriesNormField.DELIVERY_HAND) },
                 onDecrement = { viewModel.decrement(SeriesNormField.DELIVERY_HAND) },
                 onValueClick = {
-                    dialogText = (state.deliveryHandToHandMin ?: 0).toString()
+                    dialogText = state.deliveryHandToHandMin?.takeIf { it > 0 }?.toString() ?: ""
                     dialogField = SeriesNormField.DELIVERY_HAND
                 }
             )

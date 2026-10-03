@@ -228,6 +228,14 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "LocomotiveSeries" to "sectionNumberingType",
             // Миграция 23: «постоянный напарник»
             "Partner" to "isPermanent",
+            // Миграция 24: координаты и паспорт станции в справочнике
+            "StationNorm" to "latitude",
+            "StationNorm" to "longitude",
+            "StationNorm" to "esr",
+            "StationNorm" to "osmId",
+            "StationNorm" to "kind",
+            "StationNorm" to "axisKm",
+            "StationNorm" to "axisPicket",
             primaryTable = "UserSettings")
         return createDriver(SettingsDatabase.Schema, "Settings.db")
     }
@@ -516,6 +524,13 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.minTimeRestSecond" to ColumnSpec("INTEGER", false, "14400000"),
 
             "Partner.isPermanent" to ColumnSpec("INTEGER", false, "0"),
+            "StationNorm.latitude" to ColumnSpec("REAL", true, "NULL"),
+            "StationNorm.longitude" to ColumnSpec("REAL", true, "NULL"),
+            "StationNorm.esr" to ColumnSpec("TEXT", true, "NULL"),
+            "StationNorm.osmId" to ColumnSpec("INTEGER", true, "NULL"),
+            "StationNorm.kind" to ColumnSpec("TEXT", true, "NULL"),
+            "StationNorm.axisKm" to ColumnSpec("INTEGER", true, "NULL"),
+            "StationNorm.axisPicket" to ColumnSpec("INTEGER", true, "NULL"),
 
             "LocomotiveSeries.acceptanceHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
             "LocomotiveSeries.deliveryHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),

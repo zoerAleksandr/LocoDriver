@@ -31,6 +31,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.setting.ServicePhase
@@ -49,8 +53,13 @@ fun SettingsShouldersContent(
     deleteServicePhase: (ServicePhase) -> Unit,
     updateServicePhase: (ServicePhase, Int) -> Unit,
     onDeleteStationName: (String) -> Unit = {},
+    country: String = "RU",
+    onAddStationNames: (List<String>) -> Unit = {},
 ) {
-    val phases = servicePhases?.toList() ?: emptyList()
+    // Для счётчика «нет координат» — координаты станций из справочника.
+    val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase = org.koin.compose.koinInject()
+    val rawPhases = servicePhases?.toList() ?: emptyList()
+    val phases = remember(rawPhases) { stationDirectory.resolve(rawPhases) }
 
     // Локальное состояние шторки добавления/редактирования — переиспользуем общий
     // ShoulderEditBottomSheet (тот же, что в FormTrainScreen), а не дублирующую шторку.
@@ -68,12 +77,7 @@ fun SettingsShouldersContent(
                 addServicePhase(phase, index)
                 if (createReverse) {
                     addServicePhase(
-                        ServicePhase(
-                            departureStation = phase.arrivalStation,
-                            arrivalStation = phase.departureStation,
-                            distance = phase.distance,
-                            linearMileageRate = phase.linearMileageRate,
-                        ),
+                        phase.reversed(),
                         -1
                     )
                 }
@@ -81,6 +85,8 @@ fun SettingsShouldersContent(
             onDelete = editingPhase?.let { p -> { deleteServicePhase(p) } },
             onDeleteStationName = onDeleteStationName,
             onDismiss = { showEditSheet = false },
+            country = country,
+            onAddStationNames = onAddStationNames,
         )
     }
 
@@ -197,14 +203,21 @@ private fun ShoulderRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            modifier = Modifier.weight(1f),
-            text = "${item.departureStation} — ${item.arrivalStation}",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "${item.departureStation} — ${item.arrivalStation}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                modifier = Modifier.padding(top = 3.dp),
+                text = shoulderStationsSummary(item),
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = "${item.distance} км",
@@ -223,5 +236,28 @@ private fun ShoulderRow(
             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
             modifier = Modifier.size(20.dp)
         )
+    }
+}
+
+/** «через N станций · M без координат» / «без промежуточных» (вторичная строка плеча). */
+@Composable
+private fun shoulderStationsSummary(item: ServicePhase) = buildAnnotatedString {
+    val count = item.intermediateStations.size
+    if (count == 0) {
+        append("без промежуточных")
+        return@buildAnnotatedString
+    }
+    val word = when {
+        count % 100 in 11..19 -> "станций"
+        count % 10 == 1 -> "станцию"
+        count % 10 in 2..4 -> "станции"
+        else -> "станций"
+    }
+    append("через\u00A0$count\u00A0$word")
+    val noCoords = item.intermediateStations.count { !it.hasCoordinates }
+    if (noCoords > 0) {
+        withStyle(SpanStyle(color = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+            append(" · $noCoords\u00A0без\u00A0координат")
+        }
     }
 }

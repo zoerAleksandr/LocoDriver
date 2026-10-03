@@ -5,12 +5,19 @@ CREATE TABLE IF NOT EXISTS StationNorm (
     endToBarrierMin INTEGER,
     barrierToStartMin INTEGER,
     endToWorkEndMin INTEGER,
-    updatedAt INTEGER NOT NULL
+    updatedAt INTEGER NOT NULL,
+    latitude REAL,
+    longitude REAL,
+    esr TEXT,
+    osmId INTEGER,
+    kind TEXT,
+    axisKm INTEGER,
+    axisPicket INTEGER
 );
 
 insertOrReplace:
-INSERT OR REPLACE INTO StationNorm (stationId, name, appearanceToStartMin, endToBarrierMin, barrierToStartMin, endToWorkEndMin, updatedAt)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO StationNorm (stationId, name, appearanceToStartMin, endToBarrierMin, barrierToStartMin, endToWorkEndMin, updatedAt, latitude, longitude, esr, osmId, kind, axisKm, axisPicket)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getAll:
 SELECT * FROM StationNorm ORDER BY name;

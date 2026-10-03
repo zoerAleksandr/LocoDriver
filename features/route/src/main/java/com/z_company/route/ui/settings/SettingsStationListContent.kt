@@ -56,7 +56,8 @@ fun SettingsStationListContent(
             StationNoNorm(
                 name = s.name,
                 id = s.stationId,
-                subtitle = if (hasAny) stationNormSummary(s) else null
+                subtitle = if (hasAny) stationNormSummary(s) else null,
+                hasCoordinates = s.hasCoordinates,
             )
         } +
             legacyNames
@@ -166,7 +167,12 @@ private fun stationNormSummary(s: StationNorm): String =
         "Сдача ${s.barrierToStartMin ?: 0}/${s.endToWorkEndMin ?: 0}"
 
 /** Станция без полного набора норм. subtitle — какие нормы уже заданы, либо null. */
-private data class StationNoNorm(val name: String, val id: String?, val subtitle: String?)
+private data class StationNoNorm(
+    val name: String,
+    val id: String?,
+    val subtitle: String?,
+    val hasCoordinates: Boolean = false,
+)
 
 @Composable
 private fun StationNoNormCard(
@@ -201,6 +207,7 @@ private fun StationNoNormCard(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                     )
                 }
+                if (item.hasCoordinates) CoordinatesMark()
                 Icon(
                     painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
                     contentDescription = null,
@@ -250,6 +257,7 @@ private fun StationGroupCard(
                         )
                     }
                 }
+                if (s.hasCoordinates) CoordinatesMark()
                 Icon(
                     painter = painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
                     contentDescription = null,
@@ -262,4 +270,15 @@ private fun StationGroupCard(
             }
         }
     }
+}
+
+/** Значок «у станции есть координаты» в строке справочника. */
+@Composable
+private fun CoordinatesMark() {
+    Icon(
+        painter = painterResource(com.z_company.route.R.drawable.location_on_24px),
+        contentDescription = "Есть координаты",
+        tint = MaterialTheme.colorScheme.tertiary,
+        modifier = Modifier.padding(end = 6.dp).size(18.dp)
+    )
 }

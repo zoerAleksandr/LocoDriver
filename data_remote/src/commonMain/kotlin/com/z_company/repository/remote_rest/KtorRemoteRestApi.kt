@@ -371,6 +371,46 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             header("Authorization", token)
         }.body()
 
+    override suspend fun suggestServicePhaseStations(
+        token: String,
+        body: com.z_company.repository.remote_rest.response.ServicePhaseSuggestRequest,
+    ): com.z_company.repository.remote_rest.response.ServicePhaseSuggestResponse =
+        client.post("v1/service_phase/stations/suggest") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(body)
+        }.body()
+
+    override suspend fun measureRouteLength(
+        token: String,
+        body: com.z_company.repository.remote_rest.response.RouteLengthRequest,
+    ): com.z_company.repository.remote_rest.response.RouteLengthResponse =
+        client.post("v1/service_phase/route/length") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(body)
+        }.body()
+
+    override suspend fun nearestStation(
+        token: String,
+        body: com.z_company.repository.remote_rest.response.NearestStationRequest,
+    ): com.z_company.repository.remote_rest.response.NearestStationResponse =
+        client.post("v1/service_phase/stations/nearest") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(body)
+        }.body()
+
+    override suspend fun lookupServicePhaseStation(
+        token: String,
+        body: com.z_company.repository.remote_rest.response.ServicePhaseLookupRequest,
+    ): com.z_company.repository.remote_rest.response.ServicePhaseLookupResponse =
+        client.post("v1/service_phase/stations/lookup") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", token)
+            setBody(body)
+        }.body()
+
     override suspend fun applyReferralCode(
         token: String,
         request: com.z_company.repository.remote_rest.response.ApplyReferralCodeRequest,

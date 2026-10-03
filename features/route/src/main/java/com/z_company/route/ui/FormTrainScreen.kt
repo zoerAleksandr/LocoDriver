@@ -1,5 +1,9 @@
 package com.z_company.route.ui
 
+import com.z_company.route.util.DeviceLocation
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -50,6 +54,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import com.z_company.route.component.separateSheetFromScroll
 import com.z_company.route.component.StationDropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -280,6 +285,31 @@ fun FormTrainScreen(
         var showEditPhaseSheet by remember { mutableStateOf(false) }
         var editingPhase by remember { mutableStateOf<ServicePhase?>(null) }
 
+        // Геолокация для подстановки ближайшей станции: спрашиваем один раз, при первом GO /
+        // «добавить станцию».
+        val locationContext = LocalContext.current
+        var afterLocationPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
+        val locationPermission = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) {
+            afterLocationPermission?.invoke()
+            afterLocationPermission = null
+        }
+        fun askLocation(action: () -> Unit) {
+            val prefs = locationContext.getSharedPreferences("service_phase_location", android.content.Context.MODE_PRIVATE)
+            if (!DeviceLocation.hasPermission(locationContext) &&
+                !prefs.getBoolean("asked", false)
+            ) {
+                prefs.edit().putBoolean("asked", true).apply()
+                afterLocationPermission = action
+                locationPermission.launch(
+                    arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                )
+            } else {
+                action()
+            }
+        }
+
         // BottomSheet для редактирования/добавления станции
         val editingIndex = formUiState.editingStationIndex
         if (editingIndex != null) {
@@ -336,7 +366,8 @@ fun FormTrainScreen(
                     { viewModel.requestDeleteStation(editingIndex) }
                 } else null,
                 onDismiss = { viewModel.stopEditingStation() },
-                dateAndTimeConverter = dateAndTimeConverter
+                dateAndTimeConverter = dateAndTimeConverter,
+                suggestedName = if (editingIndex == -1) formUiState.suggestedNewStationName else null,
             )
         }
 
@@ -802,10 +833,14 @@ fun FormTrainScreen(
                     }
 
                     // ── Список плеч ──
+                    // Прокрутка списка не закрывает шторку тем же движением.
+                    val phaseListState = androidx.compose.foundation.lazy.rememberLazyListState()
                     LazyColumn(
+                        state = phaseListState,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
+                            .separateSheetFromScroll(phaseListState)
                     ) {
                         itemsIndexed(
                             items = servicePhaseList,
@@ -999,12 +1034,7 @@ fun FormTrainScreen(
                         onAddServicePhase(phase)
                         if (reverse) {
                             onAddServicePhase(
-                                ServicePhase(
-                                    departureStation = phase.arrivalStation,
-                                    arrivalStation = phase.departureStation,
-                                    distance = phase.distance,
-                                    linearMileageRate = phase.linearMileageRate,
-                                )
+                                phase.reversed()
                             )
                         }
                     } else {
@@ -1021,7 +1051,9 @@ fun FormTrainScreen(
                     }
                 } else null,
                 onDeleteStationName = { viewModel.removeStationName(it) },
-                onDismiss = { showEditPhaseSheet = false }
+                onDismiss = { showEditPhaseSheet = false },
+                country = viewModel.userCountry,
+                onAddStationNames = viewModel::addStationNames,
             )
         }
 
@@ -1813,7 +1845,7 @@ fun FormTrainScreen(
                                     contentAlignment = Alignment.CenterEnd
                                 ) {
                                     OutlinedButton(
-                                        onClick = { viewModel.onGoClicked() },
+                                        onClick = { askLocation { viewModel.onGoClicked() } },
                                         border = BorderStroke(
                                             width = 1.dp,
                                             color = if (nextIsDeparture) MaterialTheme.colorScheme.surfaceContainerLow
@@ -2002,6 +2034,12 @@ fun FormTrainScreen(
                                         }
                                     viewModel.startEditingSegment(originalAfterIndex)
                                 },
+                                onReorder = { from, to ->
+                                    val size = stationList.size
+                                    val fromOrig = if (formUiState.isStationsReversed) size - 1 - from else from
+                                    val toOrig = if (formUiState.isStationsReversed) size - 1 - to else to
+                                    viewModel.moveStation(fromOrig, toOrig)
+                                },
                                 onMoveUp = { displayIndex ->
                                     val originalIndex =
                                         if (formUiState.isStationsReversed) stationList.size - 1 - displayIndex
@@ -2090,7 +2128,7 @@ fun FormTrainScreen(
                     settingsSheetMode = TrainExtraSheetMode.ASSISTS
                     showSettingsSheet = true
                 },
-                onAddStationClick = viewModel::startAddingNewStation,
+                onAddStationClick = { askLocation { viewModel.startAddingNewStation() } },
             )
         }
     }

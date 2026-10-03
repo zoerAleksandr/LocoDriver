@@ -6,6 +6,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.util.generateId
 import kotlin.time.Clock
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 const val SETTINGS_KEY = "User_Settings_Key"
@@ -74,7 +75,79 @@ data class ServicePhase(
     val distance: Int,
     /** Стоимость линейного пробега по этому плечу, рублей за километр. */
     val linearMileageRate: Double = 0.0,
+    /** Станции между крайними, по порядку от отправления к прибытию. */
+    val intermediateStations: List<ServicePhaseStation> = emptyList(),
+    /** Координаты станции отправления; null — неизвестны. */
+    val departurePoint: ServicePhasePoint? = null,
+    /** Координаты станции прибытия; null — неизвестны. */
+    val arrivalPoint: ServicePhasePoint? = null,
+) {
+    /**
+     * Копия для рейса (`Train.servicePhase`): станции плеча в рейс не кладём —
+     * они живут в справочнике и берутся оттуда по [id].
+     */
+    fun forTrain(): ServicePhase =
+        copy(intermediateStations = emptyList(), departurePoint = null, arrivalPoint = null)
+
+    /**
+     * Обратное плечо: станции в обратном порядке, км пересчитаны от нового начала
+     * (`distance − km`; станции без км остаются без км).
+     */
+    fun reversed(): ServicePhase = ServicePhase(
+        departureStation = arrivalStation,
+        arrivalStation = departureStation,
+        distance = distance,
+        linearMileageRate = linearMileageRate,
+        intermediateStations = intermediateStations.asReversed().map { st ->
+            st.copy(
+                id = generateId(),
+                kmFromStart = st.kmFromStart?.let { km -> (distance - km).coerceAtLeast(0.0) },
+            )
+        },
+        departurePoint = arrivalPoint,
+        arrivalPoint = departurePoint,
+    )
+}
+
+@Serializable
+data class ServicePhasePoint(
+    val latitude: Double,
+    val longitude: Double,
+    val osmId: Long? = null,
+    /** Код ЕСР (6 цифр). */
+    val esr: String? = null,
 )
+
+@Serializable
+enum class ServicePhaseStationKind {
+    @SerialName("station") STATION,
+    /** Остановочный пункт (о.п.). */
+    @SerialName("halt") HALT,
+}
+
+@Serializable
+enum class ServicePhaseStationSource {
+    @SerialName("manual") MANUAL,
+    @SerialName("osm") OSM,
+    @SerialName("map") MAP,
+}
+
+@Serializable
+data class ServicePhaseStation(
+    val id: String = generateId(),
+    val name: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    /** Расстояние от станции отправления плеча по пути, км. */
+    val kmFromStart: Double? = null,
+    val kind: ServicePhaseStationKind = ServicePhaseStationKind.STATION,
+    /** Код ЕСР (6 цифр). */
+    val esr: String? = null,
+    val osmId: Long? = null,
+    val source: ServicePhaseStationSource = ServicePhaseStationSource.MANUAL,
+) {
+    val hasCoordinates: Boolean get() = latitude != null && longitude != null
+}
 
 @Serializable
 data class NightTime(

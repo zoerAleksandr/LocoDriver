@@ -548,6 +548,8 @@ fun SettingsScreen(
                                 deleteServicePhase = deleteServicePhase,
                                 updateServicePhase = updateServicePhase,
                                 onDeleteStationName = viewModel::removeStationName,
+                                country = settings.country,
+                                onAddStationNames = viewModel::addStationNames,
                             )
                         }
 

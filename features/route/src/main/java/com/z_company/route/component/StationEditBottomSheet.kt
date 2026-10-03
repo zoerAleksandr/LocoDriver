@@ -35,6 +35,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -89,6 +90,8 @@ fun StationEditBottomSheet(
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?,
+    /** Название из плеча по местоположению для новой станции; приходит асинхронно. */
+    suggestedName: String? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusManager = LocalFocusManager.current
@@ -104,6 +107,12 @@ fun StationEditBottomSheet(
                 selection = TextRange(stationFormState?.station?.data?.length ?: 0)
             )
         )
+    }
+    // Подсказка из плеча приходит, когда будет координата: подставляем, только если поле ещё пустое.
+    LaunchedEffect(suggestedName) {
+        if (stationFormState == null && !suggestedName.isNullOrBlank() && localName.text.isEmpty()) {
+            localName = TextFieldValue(suggestedName, TextRange(suggestedName.length))
+        }
     }
     var localTrackNumber by remember {
         mutableStateOf(
