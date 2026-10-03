@@ -54,6 +54,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import com.z_company.route.component.separateSheetFromScroll
 import com.z_company.route.component.StationDropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -832,10 +833,14 @@ fun FormTrainScreen(
                     }
 
                     // ── Список плеч ──
+                    // Прокрутка списка не закрывает шторку тем же движением.
+                    val phaseListState = androidx.compose.foundation.lazy.rememberLazyListState()
                     LazyColumn(
+                        state = phaseListState,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
+                            .separateSheetFromScroll(phaseListState)
                     ) {
                         itemsIndexed(
                             items = servicePhaseList,
