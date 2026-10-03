@@ -624,6 +624,7 @@ private fun StationAxisSection(state: StationEditorState, onSet: (Int?, Int?) ->
             unit = "пк",
             maxDigits = 2,
             isValid = { it in 1..10 },
+            clampTo = 10,
             enabled = state.axisKm != null,
             onChange = { onSet(state.axisKm, it) },
             modifier = Modifier.weight(1f),
@@ -650,6 +651,8 @@ private fun AxisField(
     onChange: (Int?) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    // Число больше этого значения становится им (пикет: «11» → «10»), а не отвергается.
+    clampTo: Int? = null,
 ) {
     var text by remember { mutableStateOf(value?.toString() ?: "") }
     LaunchedEffect(value) {
@@ -670,8 +673,12 @@ private fun AxisField(
         BasicTextField(
             value = text,
             onValueChange = { raw ->
-                val digits = raw.filter(Char::isDigit).take(maxDigits)
-                val n = digits.toIntOrNull()
+                var digits = raw.filter(Char::isDigit).take(maxDigits)
+                var n = digits.toIntOrNull()
+                if (clampTo != null && n != null && n > clampTo) {
+                    n = clampTo
+                    digits = clampTo.toString()
+                }
                 if (digits.isEmpty() || (n != null && isValid(n))) {
                     text = digits
                     onChange(n)

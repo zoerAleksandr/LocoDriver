@@ -161,7 +161,7 @@ internal fun PhaseRouteMap(
                         .target(stops.firstOrNull()?.let { LatLng(it.latitude, it.longitude) } ?: LatLng(55.75, 37.62))
                         .zoom(if (stops.isEmpty()) 5.0 else 11.0)
                         .build()
-                    m.setStyle(STYLE_URL) { style ->
+                    loadMapStyle(mv, m) { style ->
                         addRailwayLayers(style)
                         // Моё местоположение — синяя точка (заполняется по кнопке).
                         style.addSource(GeoJsonSource(ME_SOURCE, FeatureCollection.fromFeatures(emptyList())))
