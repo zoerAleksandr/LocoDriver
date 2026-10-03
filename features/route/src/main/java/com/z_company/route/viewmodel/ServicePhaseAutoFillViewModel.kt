@@ -201,6 +201,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
      */
     private fun failureOf(e: Throwable): AutoFillFailure {
         val chain = generateSequence(e) { it.cause }.take(6).toList()
+        android.util.Log.w("ServicePhaseNet", "request failed: " + chain.joinToString(" <- ") { it::class.simpleName.orEmpty() })
         val text = chain.joinToString(" ") { "${it::class.simpleName} ${it.message.orEmpty()}" }
         if (text.contains("429")) return AutoFillFailure.RATE_LIMITED
         val network = e is TimeoutCancellationException || chain.any { it is IOException } ||
