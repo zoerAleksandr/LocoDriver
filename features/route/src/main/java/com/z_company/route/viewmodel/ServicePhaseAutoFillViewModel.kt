@@ -236,14 +236,16 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     }
 
     /**
-     * Линия плеча по рельсам для карты (через точки по порядку). Однажды полученная линия
-     * кэшируется на устройстве по набору точек — карта рисует её и без сети. Сбой сети/сервера —
-     * один повтор через 2 с.
+     * Линия плеча по рельсам для карты (через точки по порядку): всегда запрашивается с сервера
+     * (один повтор через 2 с при сбое); последняя полученная хранится на устройстве по набору
+     * точек и рисуется, только если сервер недоступен.
      */
     suspend fun railLine(points: List<Pair<Double, Double>>): RailLineResult {
         val key = points.joinToString(";") { (lat, lon) -> "%.5f,%.5f".format(java.util.Locale.US, lat, lon) }
         val file = java.io.File(appContext.noBackupFilesDir, "rail_lines/${key.hashCode().toUInt().toString(16)}.txt")
-        withContext(Dispatchers.IO) { readRailLine(file, key) }?.let { return RailLineResult.Ok(it) }
+        // Всегда сначала сервер: граф путей обновляется, и сохранённая линия могла устареть
+        // (так было после добавления станционных путей — карта рисовала старый объезд).
+        // Кэш — только запас, когда сервер недоступен.
         var result: RailLineResult = RailLineResult.Failed(AutoFillFailure.SERVICE)
         for (attempt in 0..1) {
             if (attempt > 0) delay(2_000)
@@ -271,7 +273,10 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
             // Повторяем только сбой сети/сервера: «путь не найден» не изменится.
             if (result !is RailLineResult.Failed || (result as RailLineResult.Failed).failure == AutoFillFailure.RATE_LIMITED) break
         }
-        val ok = result as? RailLineResult.Ok ?: return result
+        val ok = result as? RailLineResult.Ok
+            ?: return (if (result is RailLineResult.Failed) withContext(Dispatchers.IO) { readRailLine(file, key) } else null)
+                ?.let { RailLineResult.Ok(it) }
+                ?: result
         withContext(Dispatchers.IO) {
             runCatching {
                 file.parentFile?.mkdirs()
