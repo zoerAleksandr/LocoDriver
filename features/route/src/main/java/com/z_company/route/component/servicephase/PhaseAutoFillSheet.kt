@@ -3,6 +3,8 @@ package com.z_company.route.component.servicephase
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.toMutableStateList
+import com.z_company.route.component.AppAlertDialog
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -85,6 +87,10 @@ internal fun PhaseAutoFillSheet(
     onEditName: (PhaseEnd) -> Unit,
     onAddManually: () -> Unit,
     onDismiss: () -> Unit,
+    /** Поиск станций по названию рядом с точками («Не та станция»); null в ответе — ошибка сети/сервиса. */
+    lookup: (suspend (String, List<Pair<Double, Double>>) -> List<OsmStationCandidate>?)? = null,
+    /** Км пути от точки отправления до точки (пересчёт после подмены станции); null — не удалось. */
+    measureKm: (suspend (List<Pair<Double, Double>>) -> Double?)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -110,6 +116,8 @@ internal fun PhaseAutoFillSheet(
                     onApply = onApply,
                     onSetDistance = onSetDistance,
                     onCancel = onDismiss,
+                    lookup = lookup,
+                    measureKm = measureKm,
                 )
                 is AutoFillState.Failed -> FailureContent(
                     state = state,
@@ -258,6 +266,8 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
     onApply: (AutoFillResult) -> Unit,
     onSetDistance: (Int) -> Unit,
     onCancel: () -> Unit,
+    lookup: (suspend (String, List<Pair<Double, Double>>) -> List<OsmStationCandidate>?)? = null,
+    measureKm: (suspend (List<Pair<Double, Double>>) -> Double?)? = null,
 ) {
     // Изменяемый: названия предложенных станций можно поправить (✎) до добавления.
     val found = remember(state) {
@@ -275,6 +285,30 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
         }.toMutableStateList()
     }
     var renaming by remember(state) { mutableStateOf<ServicePhaseStation?>(null) }
+    // «Не та станция»: кандидаты поиска по названию → шторка выбора → подмена (название своё).
+    var wrongFor by remember(state) { mutableStateOf<ServicePhaseStation?>(null) }
+    var wrongCandidates by remember(state) { mutableStateOf<List<OsmStationCandidate>?>(null) }
+    var wrongMap by remember(state) { mutableStateOf(false) }
+    var wrongSearching by remember(state) { mutableStateOf(false) }
+    var wrongError by remember(state) { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val ends = remember(state) { listOf(state.departure.latitude to state.departure.longitude, state.arrival.latitude to state.arrival.longitude) }
+    fun replaceStation(target: ServicePhaseStation, lat: Double, lon: Double, osmId: Long?, esr: String?, kind: ServicePhaseStationKind?, source: ServicePhaseStationSource) {
+        val idx = found.indexOfFirst { it.id == target.id }
+        if (idx < 0) return
+        found[idx] = found[idx].copy(
+            latitude = lat, longitude = lon, osmId = osmId, esr = esr ?: found[idx].esr,
+            kind = kind ?: found[idx].kind, source = source,
+        )
+        // Км от начала пересчитываем по пути до новой точки (не удалось — остаётся прежний).
+        measureKm?.let { measure ->
+            scope.launch {
+                val km = measure(listOf(ends[0], lat to lon))
+                val i = found.indexOfFirst { it.id == target.id }
+                if (km != null && i >= 0 && km > 0.0) found[i] = found[i].copy(kmFromStart = kotlin.math.round(km * 10) / 10.0)
+            }
+        }
+    }
     renaming?.let { st ->
         RenameStationSheet(
             name = st.name,
@@ -284,6 +318,68 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
                 renaming = null
             },
             onDismiss = { renaming = null },
+            onWrongStation = lookup?.let { find ->
+                {
+                    wrongFor = st
+                    renaming = null
+                    wrongSearching = true
+                    scope.launch {
+                        val res = find(st.name, ends + found.filter { it.hasCoordinates }.map { it.latitude!! to it.longitude!! })
+                        wrongSearching = false
+                        if (res == null) wrongError = true else wrongCandidates = res
+                    }
+                }
+            },
+        )
+    }
+    if (wrongSearching) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = {}) {
+            androidx.compose.material3.CircularProgressIndicator(color = Pst.accent)
+        }
+    }
+    if (wrongError) {
+        AppAlertDialog(
+            onDismissRequest = { wrongError = false; wrongFor = null },
+            title = "Не удалось найти станции",
+            text = "Проверьте подключение к интернету и повторите.",
+            confirmText = "Понятно",
+            onConfirm = { wrongError = false; wrongFor = null },
+        )
+    }
+    val wrongTarget = wrongFor
+    val wrongList = wrongCandidates
+    if (wrongTarget != null && wrongList != null && !wrongMap) {
+        StationChoiceSheet(
+            query = wrongTarget.name,
+            candidates = wrongList.filter { it.osmId != wrongTarget.osmId }.ifEmpty { wrongList },
+            current = null,
+            title = "Выберите станцию",
+            onChoose = { c ->
+                replaceStation(
+                    wrongTarget, c.latitude, c.longitude, c.osmId, c.esr?.takeIf(String::isNotBlank),
+                    if (c.kind == "halt") ServicePhaseStationKind.HALT else ServicePhaseStationKind.STATION,
+                    ServicePhaseStationSource.OSM,
+                )
+                wrongFor = null
+                wrongCandidates = null
+            },
+            onDismiss = { wrongFor = null; wrongCandidates = null },
+            onPickOnMap = { wrongMap = true },
+        )
+    }
+    if (wrongTarget != null && wrongMap) {
+        PhaseMapPicker(
+            stationName = wrongTarget.name,
+            kindLabel = if (wrongTarget.kind == ServicePhaseStationKind.HALT) "О.П." else "станция",
+            start = wrongTarget.latitude?.let { lat -> wrongTarget.longitude?.let { lat to it } },
+            neighbours = ends,
+            onPick = { p ->
+                replaceStation(wrongTarget, p.latitude, p.longitude, null, null, null, ServicePhaseStationSource.MAP)
+                wrongMap = false
+                wrongFor = null
+                wrongCandidates = null
+            },
+            onDismiss = { wrongMap = false },
         )
     }
     val already = remember(found, existing) {
@@ -605,7 +701,13 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
 /** Переименование предложенной станции в предпросмотре автоподбора. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RenameStationSheet(name: String, onDone: (String) -> Unit, onDismiss: () -> Unit) {
+private fun RenameStationSheet(
+    name: String,
+    onDone: (String) -> Unit,
+    onDismiss: () -> Unit,
+    /** «Не та станция» — подобрать другую станцию с таким названием; null — действия нет. */
+    onWrongStation: (() -> Unit)? = null,
+) {
     var value by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(name, androidx.compose.ui.text.TextRange(name.length))) }
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     androidx.compose.runtime.LaunchedEffect(Unit) { focus.requestFocus() }
@@ -627,6 +729,16 @@ private fun RenameStationSheet(name: String, onDone: (String) -> Unit, onDismiss
                     .padding(horizontal = 16.dp, vertical = 6.dp)
                     .focusRequester(focus),
             )
+            if (onWrongStation != null) {
+                PstButton(
+                    text = "Не та станция",
+                    onClick = onWrongStation,
+                    kind = PstButtonKind.TEXT,
+                    icon = PstIcons.MapPin,
+                    iconSize = 16.dp,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
+            }
             PstSheetFooter {
                 PstButton(
                     text = "Готово",
@@ -706,6 +818,8 @@ internal fun StationChoiceSheet(
     onDismiss: () -> Unit,
     /** «Указать на карте вручную» под списком (для неточных вариантов). */
     onPickOnMap: (() -> Unit)? = null,
+    /** Свой заголовок (например, «Выберите станцию» для «Не та станция»); null — по умолчанию. */
+    title: String? = null,
 ) {
     val approximate = candidates.any { it.approximate }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -718,14 +832,16 @@ internal fun StationChoiceSheet(
         dragHandle = { PstGrabber() },
     ) {
         Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
-            PstSheetHeader(title = if (approximate) "Похоже на «$query»" else "Какая «$query»?", onClose = onDismiss)
+            PstSheetHeader(title = title ?: if (approximate) "Похоже на «$query»" else "Какая «$query»?", onClose = onDismiss)
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
             ) {
                 item {
                     Text(
-                        text = if (approximate) {
+                        text = if (title != null) {
+                            "Выберите нужную станцию или укажите точку на карте вручную."
+                        } else if (approximate) {
                             "Станции с таким названием нет — возможно, это сокращение. Выберите свою станцию или укажите точку на карте."
                         } else {
                             "На карте несколько станций с таким названием."

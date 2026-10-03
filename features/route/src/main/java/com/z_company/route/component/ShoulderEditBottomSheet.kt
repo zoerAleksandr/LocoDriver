@@ -465,6 +465,10 @@ fun ShoulderEditBottomSheet(
             existing = stations.toList(),
             stationList = stationList,
             onChoose = autoVm::choose,
+            lookup = { query, near -> autoVm.lookup(query, country, near) },
+            measureKm = { pts ->
+                (autoVm.measure(pts) as? ServicePhaseAutoFillViewModel.MeasureResult.Ok)?.lengthKm
+            },
             onRetry = autoVm::retry,
             onSetDistance = { km -> distance = TextFieldValue(km.toString(), TextRange(km.toString().length)) },
             onApply = { result ->
