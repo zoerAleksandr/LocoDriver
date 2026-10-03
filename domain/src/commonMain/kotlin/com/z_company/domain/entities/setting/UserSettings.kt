@@ -81,13 +81,18 @@ data class ServicePhase(
     val departurePoint: ServicePhasePoint? = null,
     /** Координаты станции прибытия; null — неизвестны. */
     val arrivalPoint: ServicePhasePoint? = null,
+    /**
+     * «Измерено по карте»: строка «расстояние|подпись координат станций» (SCREEN_SPECS §6.6).
+     * Чип «Измерено» показывается, если совпадает с текущими расстоянием и подписью; null — не измерено.
+     */
+    val measuredSignature: String? = null,
 ) {
     /**
      * Копия для рейса (`Train.servicePhase`): станции плеча в рейс не кладём —
      * они живут в справочнике и берутся оттуда по [id].
      */
     fun forTrain(): ServicePhase =
-        copy(intermediateStations = emptyList(), departurePoint = null, arrivalPoint = null)
+        copy(intermediateStations = emptyList(), departurePoint = null, arrivalPoint = null, measuredSignature = null)
 
     /**
      * Обратное плечо: станции в обратном порядке, км пересчитаны от нового начала

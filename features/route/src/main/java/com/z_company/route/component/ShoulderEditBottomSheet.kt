@@ -174,12 +174,17 @@ fun ShoulderEditBottomSheet(
     var stationSheetOpen by remember { mutableStateOf(false) }
     var showRouteMap by remember { mutableStateOf(false) }
 
-    // «Измерено по карте»: расстояние и координаты станций, по которым оно измерено. Храним
-    // локально (не в синхронизируемом плече — формат обмена с сервером не меняется).
+    // «Измерено по карте»: расстояние и координаты станций, по которым оно измерено — поле плеча
+    // `measuredSignature` (синхронизируется). Прежнее локальное хранилище читаем один раз (миграция)
+    // и очищаем при первом сохранении плеча.
     val context = LocalContext.current
     val measuredPrefs = remember { context.getSharedPreferences("service_phase_measured", android.content.Context.MODE_PRIVATE) }
     var measured by remember {
-        mutableStateOf(phase?.id?.let { id -> measuredPrefs.getString(id, null)?.let(MeasuredDistance::parse) })
+        mutableStateOf(
+            phase?.let { p ->
+                (p.measuredSignature ?: measuredPrefs.getString(p.id, null))?.let(MeasuredDistance::parse)
+            }
+        )
     }
     var measuring by remember { mutableStateOf(false) }
     val measureScope = rememberCoroutineScope()
@@ -613,11 +618,11 @@ fun ShoulderEditBottomSheet(
     /** Сохранить; [final] — при закрытии: названия в справочник и обратное плечо (для нового). */
     fun persist(final: Boolean) {
         if (deleted) return
-        val result = currentPhase() ?: return
-        val isMeasured = measured?.let { it.distance == result.distance && it.signature == coordinateSignature() } == true
-        measuredPrefs.edit().apply {
-            if (isMeasured) putString(result.id, measured!!.encode()) else remove(result.id)
-        }.apply()
+        val base = currentPhase() ?: return
+        val isMeasured = measured?.let { it.distance == base.distance && it.signature == coordinateSignature() } == true
+        val result = base.copy(measuredSignature = if (isMeasured) measured!!.encode() else null)
+        // Миграция: значение теперь в самом плече — локальную запись убираем.
+        if (measuredPrefs.contains(result.id)) measuredPrefs.edit().remove(result.id).apply()
         if (final && pendingNames.isNotEmpty()) onAddStationNames(pendingNames)
         val reverse = final && isNew && createReverse
         if (result == lastSaved && !reverse) return
