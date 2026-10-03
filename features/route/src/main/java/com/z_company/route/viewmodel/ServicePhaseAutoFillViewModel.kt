@@ -27,7 +27,8 @@ import java.io.IOException
 enum class PhaseEnd { DEPARTURE, ARRIVAL }
 
 /**
- * NO_INTERNET — у телефона нет интернета; NO_CONNECTION — интернет есть, но до сервера не достучаться;
+ * NO_INTERNET — у телефона нет сети; NO_CONNECTION — сеть есть, но запрос не дошёл (обрыв, сервер
+ * недоступен — что именно, по телефону не понять, поэтому текст без утверждений);
  * VPN — то же при включённом VPN; SERVICE — сервер ответил ошибкой или не уложился в 30 с.
  */
 enum class AutoFillFailure { NO_INTERNET, NO_CONNECTION, VPN, STATION_NOT_FOUND, NO_PATH, SERVICE, RATE_LIMITED }
@@ -35,7 +36,7 @@ enum class AutoFillFailure { NO_INTERNET, NO_CONNECTION, VPN, STATION_NOT_FOUND,
 /** Короткий текст сетевой/серверной ошибки для снекбаров и подписей. */
 fun AutoFillFailure.message(): String = when (this) {
     AutoFillFailure.NO_INTERNET -> "Нет подключения к интернету"
-    AutoFillFailure.NO_CONNECTION -> "Нет связи с сервером — проверьте подключение к интернету"
+    AutoFillFailure.NO_CONNECTION -> "Не удалось связаться с сервером — проверьте подключение к интернету"
     AutoFillFailure.VPN -> com.z_company.core.util.VPN_ERROR_HINT
     AutoFillFailure.RATE_LIMITED -> "Слишком много запросов — попробуйте позже"
     else -> "Сервис не ответил — попробуйте позже"

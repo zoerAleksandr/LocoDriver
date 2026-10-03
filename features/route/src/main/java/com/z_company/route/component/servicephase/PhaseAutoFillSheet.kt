@@ -545,9 +545,9 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
             "Повторить" to onRetry, "Добавить вручную" to onAddManually,
         )
         AutoFillFailure.NO_CONNECTION, AutoFillFailure.VPN -> Spec(
-            PstIcons.CloudOff, "Нет связи с сервером",
+            PstIcons.CloudOff, "Не удалось связаться с сервером",
             if (state.failure == AutoFillFailure.VPN) com.z_company.core.util.VPN_ERROR_HINT
-            else "Интернет на телефоне есть, но до сервера не достучаться. Проверьте подключение и повторите — или добавьте станции вручную.",
+            else "Не удалось связаться с сервером. Проверьте подключение к интернету и повторите — или добавьте станции вручную.",
             "Повторить" to onRetry, "Добавить вручную" to onAddManually,
         )
         AutoFillFailure.STATION_NOT_FOUND -> Spec(
