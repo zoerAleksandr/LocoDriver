@@ -219,12 +219,6 @@ fun SettingsStationEditorContent(
 
         // ПРИЁМКА
         Text(
-            text = "Нормы ниже используются автоматически при заполнении времени приёмки и сдачи локомотива на этой станции.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-            modifier = Modifier.padding(start = 4.dp, top = 16.dp)
-        )
-        Text(
             text = "ПРИЁМКА",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
@@ -298,6 +292,13 @@ fun SettingsStationEditorContent(
                 }
             )
         }
+
+        Text(
+            text = "Нормы выше используются автоматически при заполнении времени приёмки и сдачи локомотива на этой станции.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+            modifier = Modifier.padding(start = 4.dp, top = 6.dp)
+        )
 
         // Delete — always visible
         Spacer(Modifier.height(16.dp))
