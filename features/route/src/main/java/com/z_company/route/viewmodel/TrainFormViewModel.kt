@@ -352,20 +352,40 @@ class TrainFormViewModel(
         loadTrainJob = viewModelScope.launch {
             val resultState = trainUseCase.getTrainById(id)
                 .first { it !is ResultState.Loading }
+            // Нули из БД/синхронизации («0», «0.0») — это «не задано»: поля показываем пустыми.
+            val loaded = if (resultState is ResultState.Success) {
+                ResultState.Success(resultState.data?.withoutZeroParams())
+            } else resultState
             _uiState.update {
-                if (resultState is ResultState.Success) {
-                    currentTrain = resultState.data
-                    resultState.data?.let { train ->
+                if (loaded is ResultState.Success) {
+                    currentTrain = loaded.data
+                    loaded.data?.let { train ->
                         setStations(train.stations)
                     }
                 }
                 it.copy(
                     selectedServicePhase = currentTrain?.servicePhase,
-                    trainDetailState = resultState
+                    trainDetailState = loaded
                 )
             }
         }
     }
+
+    private fun String?.zeroToNull(): String? = this?.takeUnless { ZERO.matches(it.trim()) }
+
+    private fun Train.withoutZeroParams(): Train = copy(
+        distance = distance.zeroToNull(),
+        weight = weight.zeroToNull(),
+        axle = axle.zeroToNull(),
+        conditionalLength = conditionalLength.zeroToNull(),
+        dataVersions = dataVersions.map {
+            it.copy(
+                weight = it.weight.zeroToNull(),
+                axle = it.axle.zeroToNull(),
+                conditionalLength = it.conditionalLength.zeroToNull(),
+            )
+        },
+    )
 
     fun saveTrain() {
         if (uiState.value.errorMessage == null) {
@@ -1480,3 +1500,5 @@ class TrainFormViewModel(
         }
     }
 }
+
+private val ZERO = Regex("^0+([.,]0+)?$")

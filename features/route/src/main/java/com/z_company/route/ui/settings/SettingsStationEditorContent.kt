@@ -140,14 +140,16 @@ fun SettingsStationEditorContent(
             },
             initialValue = dialogText,
             onConfirm = { v ->
-                v.toIntOrNull()?.let { viewModel.setField(field, it) }
+                viewModel.setField(field, v.toIntOrNull() ?: 0)
                 dialogField = null
             },
             label = "Значение",
             suffix = "мин",
             keyboardType = KeyboardType.Number,
             transform = { it.filter { c -> c.isDigit() }.take(3) },
-            isValid = { it.toIntOrNull() != null },
+            // Пусто — «не задано» (как 0).
+            isValid = { it.isEmpty() || it.toIntOrNull() != null },
+            cursorAtEnd = true,
         )
     }
 
@@ -241,7 +243,7 @@ fun SettingsStationEditorContent(
                 onIncrement = { viewModel.increment(StationNormField.APPEARANCE_TO_START) },
                 onDecrement = { viewModel.decrement(StationNormField.APPEARANCE_TO_START) },
                 onValueClick = {
-                    dialogText = (state.appearanceToStartMin ?: 0).toString()
+                    dialogText = state.appearanceToStartMin?.takeIf { it > 0 }?.toString() ?: ""
                     dialogField = StationNormField.APPEARANCE_TO_START
                 }
             )
@@ -253,7 +255,7 @@ fun SettingsStationEditorContent(
                 onIncrement = { viewModel.increment(StationNormField.END_TO_BARRIER) },
                 onDecrement = { viewModel.decrement(StationNormField.END_TO_BARRIER) },
                 onValueClick = {
-                    dialogText = (state.endToBarrierMin ?: 0).toString()
+                    dialogText = state.endToBarrierMin?.takeIf { it > 0 }?.toString() ?: ""
                     dialogField = StationNormField.END_TO_BARRIER
                 }
             )
@@ -279,7 +281,7 @@ fun SettingsStationEditorContent(
                 onIncrement = { viewModel.increment(StationNormField.BARRIER_TO_START) },
                 onDecrement = { viewModel.decrement(StationNormField.BARRIER_TO_START) },
                 onValueClick = {
-                    dialogText = (state.barrierToStartMin ?: 0).toString()
+                    dialogText = state.barrierToStartMin?.takeIf { it > 0 }?.toString() ?: ""
                     dialogField = StationNormField.BARRIER_TO_START
                 }
             )
@@ -291,7 +293,7 @@ fun SettingsStationEditorContent(
                 onIncrement = { viewModel.increment(StationNormField.END_TO_WORK_END) },
                 onDecrement = { viewModel.decrement(StationNormField.END_TO_WORK_END) },
                 onValueClick = {
-                    dialogText = (state.endToWorkEndMin ?: 0).toString()
+                    dialogText = state.endToWorkEndMin?.takeIf { it > 0 }?.toString() ?: ""
                     dialogField = StationNormField.END_TO_WORK_END
                 }
             )
