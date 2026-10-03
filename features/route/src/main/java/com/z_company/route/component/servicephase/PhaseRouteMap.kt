@@ -224,7 +224,8 @@ internal fun PhaseRouteMap(
                                 stops.forEach { include(LatLng(it.latitude, it.longitude)) }
                             }.build()
                             val pad = (48 * density).toInt()
-                            m.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, pad * 2, pad, pad * 3))
+                            // Справа — кнопки «+ − ◎», поэтому отступ шире.
+                            m.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, pad * 2, pad * 2, pad * 3))
                         } else if (stops.size == 1) {
                             m.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(stops[0].latitude, stops[0].longitude), 13.0))
                         }
