@@ -42,6 +42,21 @@ fun AutoFillFailure.message(): String = when (this) {
     else -> "Сервис не ответил — попробуйте позже"
 }
 
+/** Вариант пути между крайними станциями плеча (route/length, alternatives). [via] — станции по пути. */
+data class RouteVariant(val id: String, val lengthKm: Double, val line: List<Pair<Double, Double>>, val via: List<RouteVia>) {
+    /** «Через …» в чипе: первая станция по пути (сервер отдаёт только станции, не о.п.); нет — без подписи. */
+    val firstVia: String? get() = via.firstOrNull()?.name
+}
+
+data class RouteVia(
+    val name: String,
+    val km: Double,
+    val osmId: Long?,
+    val esr: String?,
+    val latitude: Double?,
+    val longitude: Double?,
+)
+
 sealed interface AutoFillState {
     data object Idle : AutoFillState
 
@@ -170,21 +185,29 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     }
 
     sealed interface MeasureResult {
-        data class Ok(val lengthKm: Double, val kmAt: List<Double>) : MeasureResult
+        /** [variants] — варианты пути (первый — кратчайший); пусто — вариант один. */
+        data class Ok(val lengthKm: Double, val kmAt: List<Double>, val variants: List<RouteVariant> = emptyList()) : MeasureResult
         data object NoPath : MeasureResult
         data class Failed(val failure: AutoFillFailure) : MeasureResult
     }
 
-    /** «Измерить по карте»: длина по ж/д путям через точки по порядку (отправление … прибытие). */
-    suspend fun measure(points: List<Pair<Double, Double>>): MeasureResult = try {
+    /**
+     * «Измерить по карте»: длина по ж/д путям через точки по порядку (отправление … прибытие).
+     * [withVariants] — запросить до 3 вариантов пути (только когда промежуточных станций нет).
+     */
+    suspend fun measure(points: List<Pair<Double, Double>>, withVariants: Boolean = false): MeasureResult = try {
         val token = tokens.getAuthBearerTokenFlow().first()
         val res = withTimeout(TIMEOUT_MS) {
             api.measureRouteLength(
                 "Bearer $token",
-                com.z_company.repository.remote_rest.response.RouteLengthRequest(points.map { (lat, lon) -> LatLon(lat, lon) }),
+                com.z_company.repository.remote_rest.response.RouteLengthRequest(
+                    points = points.map { (lat, lon) -> LatLon(lat, lon) },
+                    withGeometry = withVariants,
+                    alternatives = if (withVariants) MAX_VARIANTS else 1,
+                ),
             )
         }
-        MeasureResult.Ok(res.lengthKm, res.kmAt)
+        MeasureResult.Ok(res.lengthKm, res.kmAt, if (withVariants) res.routes.mapNotNull(::toVariant) else emptyList())
     } catch (e: kotlinx.coroutines.CancellationException) {
         if (e !is TimeoutCancellationException) throw e
         MeasureResult.Failed(failureOf(e))
@@ -320,7 +343,19 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
             null
         }
 
+    private fun toVariant(r: com.z_company.repository.remote_rest.response.RouteVariantDto): RouteVariant? {
+        val line = r.geometry.mapNotNull { p -> if (p.size >= 2) p[0] to p[1] else null }
+        if (line.size < 2) return null
+        return RouteVariant(
+            id = r.id,
+            lengthKm = r.lengthKm,
+            line = line,
+            via = r.viaStations.map { RouteVia(it.name, it.km, it.osmId, it.esr, it.latitude, it.longitude) },
+        )
+    }
+
     private companion object {
+        const val MAX_VARIANTS = 3
         const val TIMEOUT_MS = 30_000L
         /** Сетевые исключения Ktor/JVM, которые не наследуют IOException. */
         val NETWORK_MARKERS = listOf("UnresolvedAddress", "UnknownHost", "ConnectException", "NoRouteToHost",
