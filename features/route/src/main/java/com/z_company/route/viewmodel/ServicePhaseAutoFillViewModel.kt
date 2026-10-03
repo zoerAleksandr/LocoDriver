@@ -87,6 +87,8 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         country: String,
         departureOsmId: Long?,
         arrivalOsmId: Long?,
+        departurePoint: Pair<Double, Double>? = null,
+        arrivalPoint: Pair<Double, Double>? = null,
     ) {
         request = ServicePhaseSuggestRequest(
             departureStation = departure.trim(),
@@ -94,6 +96,8 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
             country = country.ifBlank { "RU" },
             departureOsmId = departureOsmId,
             arrivalOsmId = arrivalOsmId,
+            departurePoint = departurePoint?.let { (lat, lon) -> LatLon(lat, lon) },
+            arrivalPoint = arrivalPoint?.let { (lat, lon) -> LatLon(lat, lon) },
         )
         run()
     }

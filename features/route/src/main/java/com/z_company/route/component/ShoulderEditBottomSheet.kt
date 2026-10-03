@@ -212,6 +212,9 @@ fun ShoulderEditBottomSheet(
             country = country,
             departureOsmId = pointFor(depPoint, dep)?.osmId,
             arrivalOsmId = pointFor(arrPoint, arr)?.osmId,
+            // Точка, указанная пользователем, — от неё и путь, и км промежуточных (как «Измерить по карте»).
+            departurePoint = pointFor(depPoint, dep)?.let { it.latitude to it.longitude },
+            arrivalPoint = pointFor(arrPoint, arr)?.let { it.latitude to it.longitude },
         )
         autoFillOpen = true
     }

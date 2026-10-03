@@ -13,6 +13,9 @@ data class ServicePhaseSuggestRequest(
     val country: String = "RU",
     val departureOsmId: Long? = null,
     val arrivalOsmId: Long? = null,
+    /** Известные координаты крайних станций (справочник/плечо) — путь и км считаются от них. */
+    val departurePoint: LatLon? = null,
+    val arrivalPoint: LatLon? = null,
 )
 
 @Serializable
