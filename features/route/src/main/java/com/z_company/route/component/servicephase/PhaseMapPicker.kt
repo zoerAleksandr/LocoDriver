@@ -67,7 +67,7 @@ import org.maplibre.geojson.Point
 import java.util.concurrent.Executors
 
 /** Векторная подложка без ключа (OpenMapTiles): ж/д линии и станции видны. */
-internal const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
+internal const val STYLE_URL = "https://app.locodriver.ru/tiles/styles/liberty"
 private const val NEIGHBOURS_SOURCE = "phase-neighbours"
 private const val NEIGHBOURS_LAYER = "phase-neighbours-layer"
 private const val OMT_SOURCE = "openmaptiles"
