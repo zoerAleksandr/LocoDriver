@@ -96,6 +96,9 @@ internal fun PhaseStationSheet(
     var mapOpen by remember { mutableStateOf(false) }
     /** Неточные варианты (сокращение) — шторка выбора. */
     var choosing by remember { mutableStateOf<List<OsmStationCandidate>?>(null) }
+    /** Кандидаты последнего поиска — для «Не та станция» в карточке «Нашлось». */
+    var lookupCandidates by remember { mutableStateOf<List<OsmStationCandidate>>(emptyList()) }
+    var rejecting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var searchJob by remember { mutableStateOf<Job?>(null) }
     val nameFocus = remember { FocusRequester() }
@@ -131,14 +134,20 @@ internal fun PhaseStationSheet(
         StationChoiceSheet(
             query = name.text.trim(),
             candidates = candidates,
-            current = null,
+            current = if (rejecting) (coords as? CoordState.Found)?.candidate else null,
+            title = if (rejecting) "Выберите станцию" else null,
             onChoose = {
                 coords = CoordState.Found(it)
                 choosing = null
+                rejecting = false
             },
-            onDismiss = { choosing = null },
+            onDismiss = {
+                choosing = null
+                rejecting = false
+            },
             onPickOnMap = if (mapNeighbours != null && station != null) ({
                 choosing = null
+                rejecting = false
                 mapOpen = true
             }) else null,
         )
@@ -248,6 +257,7 @@ internal fun PhaseStationSheet(
                                 coords = CoordState.Searching(query)
                                 searchJob = scope.launch {
                                     val found = find(query)
+                                    lookupCandidates = found.orEmpty()
                                     coords = when {
                                         found.isNullOrEmpty() -> CoordState.NotFound
                                         // Сокращение — только выбор пользователя, без автоподстановки.
@@ -264,7 +274,15 @@ internal fun PhaseStationSheet(
                             searchJob?.cancel()
                             coords = CoordState.Idle
                         },
-                        onReject = { coords = CoordState.Idle },
+                        // «Не та станция»: шторка выбора среди найденных одноимённых/похожих.
+                        onReject = {
+                            if (lookupCandidates.isEmpty()) {
+                                coords = CoordState.Idle
+                            } else {
+                                rejecting = true
+                                choosing = lookupCandidates
+                            }
+                        },
                     )
                     if (station.source == ServicePhaseStationSource.OSM) {
                         Text(

@@ -71,6 +71,10 @@ import androidx.compose.runtime.Composable
 import com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel
 import com.z_company.route.viewmodel.PhaseEnd
 import com.z_company.route.component.servicephase.PhaseAutoFillSheet
+import com.z_company.route.component.servicephase.PhaseRouteVariantsMap
+import com.z_company.route.viewmodel.RouteVariant
+import com.z_company.route.viewmodel.RouteVia
+import com.z_company.route.viewmodel.addableStations
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
@@ -170,12 +174,17 @@ fun ShoulderEditBottomSheet(
     var stationSheetOpen by remember { mutableStateOf(false) }
     var showRouteMap by remember { mutableStateOf(false) }
 
-    // «Измерено по карте»: расстояние и координаты станций, по которым оно измерено. Храним
-    // локально (не в синхронизируемом плече — формат обмена с сервером не меняется).
+    // «Измерено по карте»: расстояние и координаты станций, по которым оно измерено — поле плеча
+    // `measuredSignature` (синхронизируется). Прежнее локальное хранилище читаем один раз (миграция)
+    // и очищаем при первом сохранении плеча.
     val context = LocalContext.current
     val measuredPrefs = remember { context.getSharedPreferences("service_phase_measured", android.content.Context.MODE_PRIVATE) }
     var measured by remember {
-        mutableStateOf(phase?.id?.let { id -> measuredPrefs.getString(id, null)?.let(MeasuredDistance::parse) })
+        mutableStateOf(
+            phase?.let { p ->
+                (p.measuredSignature ?: measuredPrefs.getString(p.id, null))?.let(MeasuredDistance::parse)
+            }
+        )
     }
     var measuring by remember { mutableStateOf(false) }
     val measureScope = rememberCoroutineScope()
@@ -237,6 +246,69 @@ fun ShoulderEditBottomSheet(
 
     /** Выбор крайней станции из неточных вариантов (сокращение) во время «Измерить по карте». */
     var choosingTerminal by remember { mutableStateOf<TerminalChoice?>(null) }
+    /** Варианты маршрута (route/length, alternatives) — экран выбора на карте; null — не показан. */
+    var variantChoice by remember { mutableStateOf<VariantChoice?>(null) }
+
+    fun notifyAutoFound(autoFound: List<Pair<String, Boolean>>) {
+        if (autoFound.isEmpty()) return
+        val names = autoFound.joinToString(" и ") { "«${it.first}»" }
+        snackbar = EditorSnackbar(
+            text = if (autoFound.size == 1) {
+                "Координаты станции $names определены автоматически — проверьте, что точка верная"
+            } else {
+                "Координаты станций $names определены автоматически — проверьте, что точки верные"
+            },
+            undo = { editingTerminal = autoFound.first().second },
+            actionLabel = "Проверить",
+            durationMs = 12_000,
+        )
+    }
+
+    /** «Добавить станции маршрута»: станции выбранного варианта → промежуточные станции плеча (без дублей). */
+    fun addVariantStations(vias: List<RouteVia>) {
+        val found = vias.map { v ->
+            ServicePhaseStation(
+                name = v.name,
+                latitude = v.latitude,
+                longitude = v.longitude,
+                kmFromStart = v.km,
+                kind = ServicePhaseStationKind.STATION,
+                esr = v.esr?.takeIf(String::isNotBlank),
+                osmId = v.osmId,
+                source = ServicePhaseStationSource.OSM,
+            )
+        }
+        val (merged, added) = ServicePhaseStationsMerge.merge(stations.toList(), found, found.map { it.id }.toSet())
+        stations.clear()
+        stations.addAll(merged)
+        freshIds = added
+        // Эти точки входят в только что выбранный и измеренный сервером маршрут. После изменения
+        // списка станций подпись нужно собрать заново, иначе чип «Измерено» исчезнет при автосохранении.
+        measured = MeasuredDistance(distance.text.toIntOrZero(), coordinateSignature())
+    }
+
+    /** «Выбрать маршрут»: расстояние плеча = длина варианта; станции варианта — по предложению. */
+    fun applyVariant(choice: VariantChoice, v: RouteVariant) {
+        val km = kotlin.math.round(v.lengthKm).toInt()
+        distance = TextFieldValue(km.toString(), TextRange(km.toString().length))
+        measured = MeasuredDistance(km, coordinateSignature())
+        val addable = v.addableStations()
+        val shortest = v.id == choice.variants.first().id
+        when {
+            // Кратчайший — это и есть путь, по которому дальше ходит замер без станций.
+            shortest -> notifyAutoFound(choice.autoFound)
+            addable.isNotEmpty() -> snackbar = EditorSnackbar(
+                text = "Маршрут $km км выбран. Чтобы замер шёл этим путём, добавьте станции маршрута",
+                actionLabel = "Добавить станции маршрута",
+                durationMs = 12_000,
+                undo = { addVariantStations(addable) },
+            )
+            else -> snackbar = EditorSnackbar(
+                "Маршрут $km км выбран. Чтобы замер шёл этим путём, добавьте промежуточные станции",
+                durationMs = 10_000,
+            )
+        }
+    }
 
     fun measureByMap() {
         val dep = departure.text.trim()
@@ -294,10 +366,16 @@ fun ShoulderEditBottomSheet(
             val points = listOf(depP.latitude to depP.longitude) +
                 withCoords.map { it.latitude!! to it.longitude!! } +
                 listOf(arrP.latitude to arrP.longitude)
-            val res = autoVm.measure(points)
+            // Варианты маршрута — только пока нет промежуточных станций (со станциями путь один, строго через них).
+            val res = autoVm.measure(points, withVariants = stations.isEmpty())
             measuring = false
             when (res) {
                 is ServicePhaseAutoFillViewModel.MeasureResult.Ok -> {
+                    if (res.variants.size > 1) {
+                        // Экран выбора; пока не выбрано — ничего не применяется.
+                        variantChoice = VariantChoice(dep, arr, res.variants, autoFound.toList())
+                        return@launch
+                    }
                     val km = kotlin.math.round(res.lengthKm).toInt()
                     distance = TextFieldValue(km.toString(), TextRange(km.toString().length))
                     // Км промежуточных станций — по тому же пути.
@@ -307,19 +385,7 @@ fun ShoulderEditBottomSheet(
                         if (idx >= 0) stations[idx] = stations[idx].copy(kmFromStart = kmAt)
                     }
                     measured = MeasuredDistance(km, coordinateSignature())
-                    if (autoFound.isNotEmpty()) {
-                        val names = autoFound.joinToString(" и ") { "«${it.first}»" }
-                        snackbar = EditorSnackbar(
-                            text = if (autoFound.size == 1) {
-                                "Координаты станции $names определены автоматически — проверьте, что точка верная"
-                            } else {
-                                "Координаты станций $names определены автоматически — проверьте, что точки верные"
-                            },
-                            undo = { editingTerminal = autoFound.first().second },
-                            actionLabel = "Проверить",
-                            durationMs = 12_000,
-                        )
-                    }
+                    notifyAutoFound(autoFound)
                 }
                 ServicePhaseAutoFillViewModel.MeasureResult.NoPath ->
                     snackbar = EditorSnackbar("Путь по железной дороге между станциями не найден — проверьте координаты")
@@ -465,6 +531,13 @@ fun ShoulderEditBottomSheet(
             existing = stations.toList(),
             stationList = stationList,
             onChoose = autoVm::choose,
+            lookup = { query, near -> autoVm.lookup(query, country, near) },
+            loadVariants = { pts ->
+                (autoVm.measure(pts, withVariants = true) as? ServicePhaseAutoFillViewModel.MeasureResult.Ok)?.variants.orEmpty()
+            },
+            measureKm = { pts ->
+                (autoVm.measure(pts) as? ServicePhaseAutoFillViewModel.MeasureResult.Ok)?.lengthKm
+            },
             onRetry = autoVm::retry,
             onSetDistance = { km -> distance = TextFieldValue(km.toString(), TextRange(km.toString().length)) },
             onApply = { result ->
@@ -548,11 +621,11 @@ fun ShoulderEditBottomSheet(
     /** Сохранить; [final] — при закрытии: названия в справочник и обратное плечо (для нового). */
     fun persist(final: Boolean) {
         if (deleted) return
-        val result = currentPhase() ?: return
-        val isMeasured = measured?.let { it.distance == result.distance && it.signature == coordinateSignature() } == true
-        measuredPrefs.edit().apply {
-            if (isMeasured) putString(result.id, measured!!.encode()) else remove(result.id)
-        }.apply()
+        val base = currentPhase() ?: return
+        val isMeasured = measured?.let { it.distance == base.distance && it.signature == coordinateSignature() } == true
+        val result = base.copy(measuredSignature = if (isMeasured) measured!!.encode() else null)
+        // Миграция: значение теперь в самом плече — локальную запись убираем.
+        if (measuredPrefs.contains(result.id)) measuredPrefs.edit().remove(result.id).apply()
         if (final && pendingNames.isNotEmpty()) onAddStationNames(pendingNames)
         val reverse = final && isNew && createReverse
         if (result == lastSaved && !reverse) return
@@ -576,6 +649,19 @@ fun ShoulderEditBottomSheet(
                 delay(600)
                 if (!closed) persist(final = false)
             }
+    }
+
+    variantChoice?.let { choice ->
+        PhaseRouteVariantsMap(
+            from = choice.from,
+            to = choice.to,
+            variants = choice.variants,
+            onSelect = { v ->
+                variantChoice = null
+                applyVariant(choice, v)
+            },
+            onDismiss = { variantChoice = null },
+        )
     }
 
     choosingTerminal?.let { choice ->
@@ -1057,6 +1143,13 @@ private fun CardSegment(top: Boolean = false, bottom: Boolean = false, content: 
 }
 
 // ─── Снекбар с «Отменить» ──────────────────────────────────────────────
+
+private class VariantChoice(
+    val from: String,
+    val to: String,
+    val variants: List<RouteVariant>,
+    val autoFound: List<Pair<String, Boolean>>,
+)
 
 /** [undo] null — просто сообщение, без «Отменить». */
 private class TerminalChoice(val isStart: Boolean, val name: String, val candidates: List<OsmStationCandidate>)

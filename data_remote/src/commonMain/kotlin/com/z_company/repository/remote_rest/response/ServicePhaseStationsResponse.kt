@@ -86,6 +86,8 @@ data class RouteLengthRequest(
     val points: List<LatLon>,
     /** true — сервер вернёт и [RouteLengthResponse.geometry] (линия по рельсам для карты плеча). */
     val withGeometry: Boolean = false,
+    /** Сколько вариантов пути вернуть в [RouteLengthResponse.routes] (1..3; только без промежуточных точек). */
+    val alternatives: Int = 1,
 )
 
 @Serializable
@@ -94,4 +96,25 @@ data class RouteLengthResponse(
     val kmAt: List<Double> = emptyList(),
     /** Линия пути по рельсам, [[lat, lon], …] — только при withGeometry. */
     val geometry: List<List<Double>> = emptyList(),
+    /** Варианты пути (первый — кратчайший, он же в полях выше); пусто — вариант один. */
+    val routes: List<RouteVariantDto> = emptyList(),
+)
+
+@Serializable
+data class RouteVariantDto(
+    val id: String,
+    val lengthKm: Double,
+    val geometry: List<List<Double>> = emptyList(),
+    val viaStations: List<RouteViaStationDto> = emptyList(),
+)
+
+/** Станция (не о.п.) на пути варианта; точка лежит на пути. */
+@Serializable
+data class RouteViaStationDto(
+    val name: String,
+    val km: Double,
+    val osmId: Long? = null,
+    val esr: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 )

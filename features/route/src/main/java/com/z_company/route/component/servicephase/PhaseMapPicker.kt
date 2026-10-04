@@ -166,7 +166,7 @@ internal fun PhaseMapPicker(
                         .target(initialTarget(start, neighbours))
                         .zoom(if (start != null) 15.0 else if (neighbours.isNotEmpty()) 12.0 else 5.0)
                         .build()
-                    m.setStyle(STYLE_URL) { style ->
+                    loadMapStyle(mv, m) { style ->
                         addRailwayLayers(style)
                         val features = neighbours.map { (lat, lon) -> Feature.fromGeometry(Point.fromLngLat(lon, lat)) }
                         style.addSource(GeoJsonSource(NEIGHBOURS_SOURCE, FeatureCollection.fromFeatures(features)))
