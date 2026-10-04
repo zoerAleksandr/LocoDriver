@@ -18,11 +18,19 @@ class RouteVariantLabelsTest {
     }
 
     @Test
-    fun withoutDifferencesFirstStationIsUsedAndEmptyIsNull() {
+    fun withoutDifferencesLabelIsNeutralAndEmptyIsNull() {
         val a = variant("r1", via("Кикерино", 20.0, 1))
         val b = variant("r2", via("Кикерино", 20.0, 1))
         val c = variant("r3")
-        assertEquals(listOf("Кикерино", "Кикерино", null), variantViaLabels(listOf(a, b, c)))
+        assertEquals(listOf(null, null, null), variantViaLabels(listOf(a, b, c)))
+    }
+
+    @Test
+    fun commonVeymarnIsNotUsedAsDifferenceAcrossThreeRoutes() {
+        val coast = variant("r1", via("Веймарн", 20.0, 1), via("Калище", 70.0, 2))
+        val gatchina = variant("r2", via("ВЕЙМАРН ", 20.0, 11), via("Гатчина", 110.0, 3))
+        val taytsy = variant("r3", via("Веймарн", 20.0, 12), via("Тайцы", 120.0, 4))
+        assertEquals(listOf("Калище", "Гатчина", "Тайцы"), variantViaLabels(listOf(coast, gatchina, taytsy)))
     }
 
     @Test

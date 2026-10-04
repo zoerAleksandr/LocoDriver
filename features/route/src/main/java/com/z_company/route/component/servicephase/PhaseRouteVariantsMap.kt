@@ -1,21 +1,24 @@
 package com.z_company.route.component.servicephase
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -25,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +45,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.z_company.route.viewmodel.RouteVariant
 import com.z_company.route.viewmodel.addableStations
 import com.z_company.route.viewmodel.variantViaLabels
+import com.z_company.route.util.DeviceLocation
+import kotlinx.coroutines.launch
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -64,6 +70,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 private val VARIANT_COLORS = listOf("#2F6BFF", "#FF8A00", "#8E4FE0")
 private const val ENDS_SOURCE = "variants-ends"
 private const val ENDS_LAYER = "variants-ends-layer"
+private const val ME_SOURCE = "variants-me"
 private const val VARIANT_LINE_WIDTH = 6f
 private fun sourceId(i: Int) = "variants-src-$i"
 private fun layerId(i: Int) = "variants-layer-$i"
@@ -76,6 +83,7 @@ private fun variantComposeColor(i: Int) = Color(android.graphics.Color.parseColo
  * (тап по чипу или по линии на карте выбирает вариант, по умолчанию — кратчайший). «Выбрать маршрут» → [onSelect].
  * Запросов к отрисовке нет: линия под пальцем ищется по экранным координатам (см. PhaseMapPicker про падение).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PhaseRouteVariantsMap(
     from: String,
@@ -83,6 +91,7 @@ internal fun PhaseRouteVariantsMap(
     variants: List<RouteVariant>,
     onSelect: (RouteVariant) -> Unit,
     onDismiss: () -> Unit,
+    onBuildCustomRoute: (() -> Unit)? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -94,7 +103,24 @@ internal fun PhaseRouteVariantsMap(
         var map by remember { mutableStateOf<MapLibreMap?>(null) }
         var selected by remember { mutableStateOf(0) }
         var styleReady by remember { mutableStateOf(false) }
+        var locationDenied by remember { mutableStateOf(false) }
         val alive = remember { AtomicBoolean(true) }
+        val scope = rememberCoroutineScope()
+        fun showMyLocation() {
+            scope.launch {
+                val fix = DeviceLocation.currentFix(context) ?: run {
+                    locationDenied = true
+                    return@launch
+                }
+                val m = map ?: return@launch
+                m.style?.getSourceAs<GeoJsonSource>(ME_SOURCE)
+                    ?.setGeoJson(Point.fromLngLat(fix.longitude, fix.latitude))
+                m.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(fix.latitude, fix.longitude), 13.0))
+            }
+        }
+        val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+            if (granted.values.any { it }) showMyLocation() else locationDenied = true
+        }
         val labels = remember(variants) { variantViaLabels(variants) }
 
         val mapView = remember {
@@ -108,6 +134,15 @@ internal fun PhaseRouteVariantsMap(
                     m.cameraPosition = CameraPosition.Builder().target(LatLng(55.75, 37.62)).zoom(5.0).build()
                     loadMapStyle(mv, m) { style ->
                         addRailwayLayers(style)
+                        style.addSource(GeoJsonSource(ME_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addLayer(
+                            CircleLayer("variants-me-layer", ME_SOURCE).withProperties(
+                                PropertyFactory.circleRadius(7f),
+                                PropertyFactory.circleColor("#00A0F5"),
+                                PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                PropertyFactory.circleStrokeWidth(3f),
+                            )
+                        )
                         val ends = listOfNotNull(variants.firstOrNull()?.line?.first(), variants.firstOrNull()?.line?.last())
                         style.addSource(
                             GeoJsonSource(
@@ -210,10 +245,10 @@ internal fun PhaseRouteVariantsMap(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp)
+                        .heightIn(min = 56.dp)
                         .shadow(4.dp, RoundedCornerShape(16.dp))
                         .background(Pst.surface, RoundedCornerShape(16.dp))
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
@@ -231,6 +266,29 @@ internal fun PhaseRouteVariantsMap(
                 }
             }
             Column(
+                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                MapButton(onClick = { map?.animateCamera(CameraUpdateFactory.zoomIn()) }, description = "Приблизить") {
+                    Text("+", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
+                }
+                MapButton(onClick = { map?.animateCamera(CameraUpdateFactory.zoomOut()) }, description = "Отдалить") {
+                    Text("−", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
+                }
+                MapButton(
+                    onClick = {
+                        locationDenied = false
+                        if (hasLocationPermission(context)) showMyLocation()
+                        else permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                    },
+                    description = "Моё местоположение",
+                ) {
+                    Box(Modifier.size(14.dp).border(2.dp, Pst.accent, CircleShape), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(4.dp).background(Pst.accent, CircleShape))
+                    }
+                }
+            }
+            Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -241,9 +299,11 @@ internal fun PhaseRouteVariantsMap(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    maxItemsInEachRow = 2,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     variants.forEachIndexed { i, v ->
                         val isSel = i == selected
@@ -252,7 +312,9 @@ internal fun PhaseRouteVariantsMap(
                                 .border(if (isSel) 2.dp else 1.dp, if (isSel) variantComposeColor(i) else Pst.borderStrong, RoundedCornerShape(12.dp))
                                 .background(if (isSel) variantComposeColor(i).copy(alpha = 0.10f) else Pst.surface, RoundedCornerShape(12.dp))
                                 .clickable { selected = i }
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
@@ -262,7 +324,8 @@ internal fun PhaseRouteVariantsMap(
                                     (labels[i]?.let { " · через $it" } ?: ""),
                                 style = Pst.sans.copy(fontSize = 14.sp, fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Medium),
                                 color = Pst.text,
-                                maxLines = 1,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -273,6 +336,21 @@ internal fun PhaseRouteVariantsMap(
                         text = "Чтобы замер шёл этим путём, добавьте промежуточные станции.",
                         style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 17.sp),
                         color = Pst.textMuted,
+                    )
+                }
+                if (locationDenied) {
+                    Text(
+                        text = "Нет доступа к местоположению",
+                        style = Pst.sans.copy(fontSize = 12.sp),
+                        color = Pst.warning,
+                    )
+                }
+                if (onBuildCustomRoute != null) {
+                    PstButton(
+                        text = "Построить другой маршрут",
+                        onClick = onBuildCustomRoute,
+                        kind = PstButtonKind.TONAL,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
                 PstButton(
