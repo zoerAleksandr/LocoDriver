@@ -64,6 +64,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 private val VARIANT_COLORS = listOf("#2F6BFF", "#FF8A00", "#8E4FE0")
 private const val ENDS_SOURCE = "variants-ends"
 private const val ENDS_LAYER = "variants-ends-layer"
+private const val VARIANT_LINE_WIDTH = 6f
 private fun sourceId(i: Int) = "variants-src-$i"
 private fun layerId(i: Int) = "variants-layer-$i"
 private fun variantColor(i: Int) = VARIANT_COLORS[i % VARIANT_COLORS.size]
@@ -71,7 +72,7 @@ private fun variantComposeColor(i: Int) = Color(android.graphics.Color.parseColo
 
 /**
  * Экран выбора варианта маршрута (SCREEN_SPECS §6.6, «Варианты маршрута плеча»): все варианты разными цветами,
- * выбранный — толще и поверх, остальные тоньше и полупрозрачные; внизу чипы «{N} км · через {станция}»
+ * линии одинаковой толщины; выбранный — непрозрачный и поверх, остальные полупрозрачные; внизу чипы «{N} км · через {станция}»
  * (тап по чипу или по линии на карте выбирает вариант, по умолчанию — кратчайший). «Выбрать маршрут» → [onSelect].
  * Запросов к отрисовке нет: линия под пальцем ищется по экранным координатам (см. PhaseMapPicker про падение).
  */
@@ -171,7 +172,7 @@ internal fun PhaseRouteVariantsMap(
                 style.addLayerBelow(
                     LineLayer(layerId(i), sourceId(i)).withProperties(
                         PropertyFactory.lineColor(variantColor(i)),
-                        PropertyFactory.lineWidth(if (isSel) 7f else 4f),
+                        PropertyFactory.lineWidth(VARIANT_LINE_WIDTH),
                         PropertyFactory.lineOpacity(if (isSel) 1f else 0.55f),
                         PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                         PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
