@@ -311,6 +311,24 @@ internal fun PhaseRouteMap(
                 }
             }
             val rail = railState
+            if (rail is ServicePhaseAutoFillViewModel.RailLineResult.Ok && rail.fromCache) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(16.dp)
+                        .shadow(4.dp, RoundedCornerShape(16.dp))
+                        .background(Pst.warning, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    Text(
+                        text = "Маршрут показан из сохранённых данных",
+                        style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                        color = Pst.text,
+                    )
+                }
+            }
             if (stops.size >= 2 && rail !is ServicePhaseAutoFillViewModel.RailLineResult.Ok) {
                 Row(
                     modifier = Modifier

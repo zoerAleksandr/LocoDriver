@@ -248,6 +248,8 @@ fun ShoulderEditBottomSheet(
     var choosingTerminal by remember { mutableStateOf<TerminalChoice?>(null) }
     /** Варианты маршрута (route/length, alternatives) — экран выбора на карте; null — не показан. */
     var variantChoice by remember { mutableStateOf<VariantChoice?>(null) }
+    /** После добавления точки из «Построить другой маршрут» повторить замер строго через неё. */
+    var measureAfterCustomStation by remember { mutableStateOf(false) }
 
     fun notifyAutoFound(autoFound: List<Pair<String, Boolean>>) {
         if (autoFound.isEmpty()) return
@@ -487,6 +489,10 @@ fun ShoulderEditBottomSheet(
                     insertAt != null -> stations.add(insertAt!!.coerceIn(0, stations.size), saved)
                     else -> stations.add(positionByKm(stations, saved.kmFromStart), saved)
                 }
+                if (measureAfterCustomStation && saved.hasCoordinates) {
+                    measureAfterCustomStation = false
+                    measureByMap()
+                }
             },
             onDelete = editingStation?.let { st -> { stations.removeAll { it.id == st.id } } },
             findCoordinates = { query ->
@@ -585,6 +591,11 @@ fun ShoulderEditBottomSheet(
                 closeAutoFill()
                 openStation(null, null)
             },
+            onBuildCustomRoute = {
+                closeAutoFill()
+                measureAfterCustomStation = true
+                openStation(null, null)
+            },
             onDismiss = ::closeAutoFill,
         )
     }
@@ -661,6 +672,11 @@ fun ShoulderEditBottomSheet(
                 applyVariant(choice, v)
             },
             onDismiss = { variantChoice = null },
+            onBuildCustomRoute = {
+                variantChoice = null
+                measureAfterCustomStation = true
+                openStation(null, null)
+            },
         )
     }
 

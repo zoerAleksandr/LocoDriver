@@ -253,7 +253,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
 
     /** Линия плеча по рельсам: [Ok] — точки линии; [NoPath] — путь не найден; [Failed] — сеть/сервер. */
     sealed interface RailLineResult {
-        data class Ok(val line: List<Pair<Double, Double>>) : RailLineResult
+        data class Ok(val line: List<Pair<Double, Double>>, val fromCache: Boolean = false) : RailLineResult
         data object NoPath : RailLineResult
         data class Failed(val failure: AutoFillFailure) : RailLineResult
     }
@@ -298,7 +298,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         }
         val ok = result as? RailLineResult.Ok
             ?: return (if (result is RailLineResult.Failed) withContext(Dispatchers.IO) { readRailLine(file, key) } else null)
-                ?.let { RailLineResult.Ok(it) }
+                ?.let { RailLineResult.Ok(it, fromCache = true) }
                 ?: result
         withContext(Dispatchers.IO) {
             runCatching {
