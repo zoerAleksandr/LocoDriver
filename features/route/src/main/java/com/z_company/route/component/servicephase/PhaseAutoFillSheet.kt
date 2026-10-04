@@ -289,6 +289,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
     // Длина пути: по умолчанию кратчайший, после выбора другого варианта — его длина.
     var pathLength by remember(state) { mutableStateOf(state.lengthKm) }
     var variants by remember(state) { mutableStateOf<List<RouteVariant>>(emptyList()) }
+    var selectedVariantId by remember(state) { mutableStateOf<String?>(null) }
     var variantsOpen by remember(state) { mutableStateOf(false) }
     val ends = remember(state) { listOf(state.departure.latitude to state.departure.longitude, state.arrival.latitude to state.arrival.longitude) }
     fun replaceStation(target: ServicePhaseStation, lat: Double, lon: Double, osmId: Long?, esr: String?, kind: ServicePhaseStationKind?, source: ServicePhaseStationSource) {
@@ -405,6 +406,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
             onDismiss = { variantsOpen = false },
             onSelect = { v ->
                 variantsOpen = false
+                selectedVariantId = v.id
                 pathLength = v.lengthKm
                 // Станции выбранного варианта вместо станций кратчайшего пути (по обычным правилам предпросмотра).
                 found.clear()
@@ -452,7 +454,11 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
                     color = Pst.accent,
                     title = "Есть другие маршруты",
                     text = "Между станциями можно проехать по-разному (${variants.size} ${pstPlural(variants.size, "вариант", "варианта", "вариантов")}). " +
-                        "Сейчас показан кратчайший.",
+                        if (selectedVariantId == null || selectedVariantId == variants.first().id) {
+                            "Сейчас показан кратчайший."
+                        } else {
+                            "Сейчас показан выбранный вариант."
+                        },
                     actionText = "Выбрать маршрут",
                     onAction = { variantsOpen = true },
                     modifier = Modifier.padding(bottom = 8.dp),

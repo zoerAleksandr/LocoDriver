@@ -282,6 +282,9 @@ fun ShoulderEditBottomSheet(
         stations.clear()
         stations.addAll(merged)
         freshIds = added
+        // Эти точки входят в только что выбранный и измеренный сервером маршрут. После изменения
+        // списка станций подпись нужно собрать заново, иначе чип «Измерено» исчезнет при автосохранении.
+        measured = MeasuredDistance(distance.text.toIntOrZero(), coordinateSignature())
     }
 
     /** «Выбрать маршрут»: расстояние плеча = длина варианта; станции варианта — по предложению. */
