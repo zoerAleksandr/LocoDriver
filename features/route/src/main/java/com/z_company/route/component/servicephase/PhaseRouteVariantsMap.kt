@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -79,7 +80,8 @@ private fun variantComposeColor(i: Int) = Color(android.graphics.Color.parseColo
 
 /**
  * Экран выбора варианта маршрута (SCREEN_SPECS §6.6, «Варианты маршрута плеча»): все варианты разными цветами,
- * линии одинаковой толщины; выбранный — непрозрачный и поверх, остальные полупрозрачные; внизу чипы «{N} км · через {станция}»
+ * линии одинаковой толщины; выбранный — непрозрачный и поверх, остальные полупрозрачные; внизу равные карточки
+ * с различающей станцией и километражем
  * (тап по чипу или по линии на карте выбирает вариант, по умолчанию — кратчайший). «Выбрать маршрут» → [onSelect].
  * Запросов к отрисовке нет: линия под пальцем ищется по экранным координатам (см. PhaseMapPicker про падение).
  */
@@ -301,31 +303,35 @@ internal fun PhaseRouteVariantsMap(
             ) {
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    maxItemsInEachRow = 2,
+                    maxItemsInEachRow = 3,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     variants.forEachIndexed { i, v ->
                         val isSel = i == selected
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .border(if (isSel) 2.dp else 1.dp, if (isSel) variantComposeColor(i) else Pst.borderStrong, RoundedCornerShape(12.dp))
                                 .background(if (isSel) variantComposeColor(i).copy(alpha = 0.10f) else Pst.surface, RoundedCornerShape(12.dp))
                                 .clickable { selected = i }
                                 .weight(1f)
-                                .heightIn(min = 48.dp)
+                                .height(104.dp)
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.Center,
                         ) {
-                            Box(Modifier.size(10.dp).background(variantComposeColor(i), CircleShape))
                             Text(
-                                text = String.format(Locale.US, "%.0f км", v.lengthKm).replace(".", ",") +
-                                    (labels[i]?.let { " · через $it" } ?: ""),
-                                style = Pst.sans.copy(fontSize = 14.sp, fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Medium),
+                                text = labels[i]?.let { "через $it" }
+                                    ?: if (i == 0) "Основной маршрут" else "Вариант маршрута",
+                                style = Pst.sans.copy(fontSize = 13.sp, fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Medium),
                                 color = Pst.text,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = String.format(Locale.US, "%.0f км", v.lengthKm).replace(".", ","),
+                                style = Pst.sans.copy(fontSize = 11.sp),
+                                color = Pst.textMuted,
+                                maxLines = 1,
                             )
                         }
                     }
