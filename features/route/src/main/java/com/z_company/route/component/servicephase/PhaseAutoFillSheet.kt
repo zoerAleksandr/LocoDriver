@@ -89,7 +89,7 @@ internal fun PhaseAutoFillSheet(
     onSetDistance: (Int) -> Unit,
     onEditName: (PhaseEnd) -> Unit,
     onAddManually: () -> Unit,
-    onBuildCustomRoute: (() -> Unit)? = null,
+    onBuildCustomRoute: ((OsmStationCandidate) -> Unit)? = null,
     onDismiss: () -> Unit,
     /** Поиск станций по названию рядом с точками («Не та станция»); null в ответе — ошибка сети/сервиса. */
     lookup: (suspend (String, List<Pair<Double, Double>>) -> List<OsmStationCandidate>?)? = null,
@@ -277,7 +277,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
     lookup: (suspend (String, List<Pair<Double, Double>>) -> List<OsmStationCandidate>?)? = null,
     measureKm: (suspend (List<Pair<Double, Double>>) -> Double?)? = null,
     loadVariants: (suspend (List<Pair<Double, Double>>) -> List<RouteVariant>)? = null,
-    onBuildCustomRoute: (() -> Unit)? = null,
+    onBuildCustomRoute: ((OsmStationCandidate) -> Unit)? = null,
 ) {
     // Изменяемый: названия предложенных станций можно поправить (✎) до добавления.
     val found = remember(state) { state.stations.map { it.toPhaseStation() }.toMutableStateList() }
@@ -407,6 +407,9 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
             to = arrival,
             variants = variants,
             onDismiss = { variantsOpen = false },
+            findCustomRouteStations = lookup?.let { find ->
+                { query -> find(query, ends + found.filter { it.hasCoordinates }.map { it.latitude!! to it.longitude!! }) }
+            },
             onBuildCustomRoute = onBuildCustomRoute,
             onSelect = { v ->
                 variantsOpen = false

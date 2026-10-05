@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +38,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +50,8 @@ import com.z_company.route.viewmodel.RouteVariant
 import com.z_company.route.viewmodel.addableStations
 import com.z_company.route.viewmodel.variantViaLabels
 import com.z_company.route.util.DeviceLocation
+import com.z_company.repository.remote_rest.response.OsmStationCandidate
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
@@ -68,7 +73,7 @@ import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Цвета вариантов: кратчайший — синий, далее оранжевый, фиолетовый (SCREEN_SPECS §6.6). */
-private val VARIANT_COLORS = listOf("#2F6BFF", "#FF8A00", "#8E4FE0")
+private val VARIANT_COLORS = listOf("#0057D9", "#C64F00", "#6F2DBD")
 private const val ENDS_SOURCE = "variants-ends"
 private const val ENDS_LAYER = "variants-ends-layer"
 private const val ME_SOURCE = "variants-me"
@@ -93,7 +98,8 @@ internal fun PhaseRouteVariantsMap(
     variants: List<RouteVariant>,
     onSelect: (RouteVariant) -> Unit,
     onDismiss: () -> Unit,
-    onBuildCustomRoute: (() -> Unit)? = null,
+    findCustomRouteStations: (suspend (String) -> List<OsmStationCandidate>?)? = null,
+    onBuildCustomRoute: ((OsmStationCandidate) -> Unit)? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -106,6 +112,12 @@ internal fun PhaseRouteVariantsMap(
         var selected by remember { mutableStateOf(0) }
         var styleReady by remember { mutableStateOf(false) }
         var locationDenied by remember { mutableStateOf(false) }
+        var customMode by remember { mutableStateOf(false) }
+        var customQuery by remember { mutableStateOf(TextFieldValue("")) }
+        var customCandidates by remember { mutableStateOf<List<OsmStationCandidate>>(emptyList()) }
+        var customSelected by remember { mutableStateOf<OsmStationCandidate?>(null) }
+        var customSearching by remember { mutableStateOf(false) }
+        var customSearchFailed by remember { mutableStateOf(false) }
         val alive = remember { AtomicBoolean(true) }
         val scope = rememberCoroutineScope()
         fun showMyLocation() {
@@ -124,6 +136,21 @@ internal fun PhaseRouteVariantsMap(
             if (granted.values.any { it }) showMyLocation() else locationDenied = true
         }
         val labels = remember(variants) { variantViaLabels(variants) }
+        LaunchedEffect(customMode, customQuery.text) {
+            val find = findCustomRouteStations ?: return@LaunchedEffect
+            val query = customQuery.text.trim()
+            customSelected = null
+            customCandidates = emptyList()
+            customSearchFailed = false
+            if (!customMode || query.length < 2) return@LaunchedEffect
+            delay(350)
+            customSearching = true
+            val result = find(query)
+            customSearching = false
+            if (result == null) customSearchFailed = true else customCandidates = result
+                .distinctBy { it.osmId ?: "${it.name}:${it.latitude}:${it.longitude}" }
+                .take(4)
+        }
 
         val mapView = remember {
             MapView(context).also { mv ->
@@ -210,7 +237,7 @@ internal fun PhaseRouteVariantsMap(
                     LineLayer(layerId(i), sourceId(i)).withProperties(
                         PropertyFactory.lineColor(variantColor(i)),
                         PropertyFactory.lineWidth(VARIANT_LINE_WIDTH),
-                        PropertyFactory.lineOpacity(if (isSel) 1f else 0.55f),
+                        PropertyFactory.lineOpacity(if (isSel) 1f else 0.85f),
                         PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                         PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
                     ),
@@ -255,15 +282,10 @@ internal fun PhaseRouteVariantsMap(
                 ) {
                     Text(
                         text = "$from → $to",
-                        style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                        style = Pst.sans.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
                         color = Pst.text,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = "Варианты маршрута: ${variants.size}",
-                        style = Pst.sans.copy(fontSize = 12.sp),
-                        color = Pst.textMuted,
                     )
                 }
             }
@@ -301,7 +323,7 @@ internal fun PhaseRouteVariantsMap(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                FlowRow(
+                if (!customMode) FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     maxItemsInEachRow = 3,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -312,24 +334,25 @@ internal fun PhaseRouteVariantsMap(
                         Column(
                             modifier = Modifier
                                 .border(if (isSel) 2.dp else 1.dp, if (isSel) variantComposeColor(i) else Pst.borderStrong, RoundedCornerShape(12.dp))
-                                .background(if (isSel) variantComposeColor(i).copy(alpha = 0.10f) else Pst.surface, RoundedCornerShape(12.dp))
+                                .background(Pst.surface, RoundedCornerShape(12.dp))
                                 .clickable { selected = i }
                                 .weight(1f)
                                 .height(104.dp)
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.Center,
                         ) {
+                            Box(Modifier.size(width = 28.dp, height = 4.dp).background(variantComposeColor(i), RoundedCornerShape(2.dp)))
                             Text(
                                 text = labels[i]?.let { "через $it" }
                                     ?: if (i == 0) "Основной маршрут" else "Вариант маршрута",
-                                style = Pst.sans.copy(fontSize = 13.sp, fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Medium),
+                                style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                                 color = Pst.text,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
                                 text = String.format(Locale.US, "%.0f км", v.lengthKm).replace(".", ","),
-                                style = Pst.sans.copy(fontSize = 11.sp),
+                                style = Pst.sans.copy(fontSize = 12.sp),
                                 color = Pst.textMuted,
                                 maxLines = 1,
                             )
@@ -337,7 +360,7 @@ internal fun PhaseRouteVariantsMap(
                     }
                 }
                 val current = variants.getOrNull(selected)
-                if (current != null && current.addableStations().isEmpty()) {
+                if (!customMode && current != null && current.addableStations().isEmpty()) {
                     Text(
                         text = "Чтобы замер шёл этим путём, добавьте промежуточные станции.",
                         style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 17.sp),
@@ -351,15 +374,50 @@ internal fun PhaseRouteVariantsMap(
                         color = Pst.warning,
                     )
                 }
-                if (onBuildCustomRoute != null) {
+                if (!customMode && onBuildCustomRoute != null && findCustomRouteStations != null) {
                     PstButton(
                         text = "Построить другой маршрут",
-                        onClick = onBuildCustomRoute,
+                        onClick = { customMode = true },
                         kind = PstButtonKind.TONAL,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                PstButton(
+                if (customMode) {
+                    Text("Через какую станцию построить?", style = Pst.sans.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                    PstTextField(
+                        value = customQuery,
+                        onValueChange = { customQuery = it.copy(selection = TextRange(it.text.length)) },
+                        label = "Станция по пути",
+                        placeholder = "Начните вводить название",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    when {
+                        customSearching -> Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.Center) {
+                            CircularProgressIndicator(color = Pst.accent, modifier = Modifier.size(24.dp))
+                        }
+                        customSearchFailed -> Text("Не удалось найти станции. Проверьте подключение.", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.danger)
+                        customQuery.text.trim().length >= 2 && customCandidates.isEmpty() -> Text("Станции не найдены", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
+                        else -> customCandidates.forEach { candidate ->
+                            val chosen = candidate == customSelected
+                            Column(
+                                Modifier.fillMaxWidth()
+                                    .background(if (chosen) Pst.accentSoft else Pst.bg, RoundedCornerShape(12.dp))
+                                    .border(if (chosen) 2.dp else 1.dp, if (chosen) Pst.accent else Pst.border, RoundedCornerShape(12.dp))
+                                    .clickable { customSelected = candidate }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                            ) {
+                                Text(candidate.name, style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                                listOfNotNull(candidate.esr?.let { "ЕСР $it" }, candidate.operator, candidate.region).takeIf { it.isNotEmpty() }?.let {
+                                    Text(it.joinToString(" · "), style = Pst.sans.copy(fontSize = 11.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PstButton(text = "Назад", onClick = { customMode = false }, kind = PstButtonKind.OUTLINED, modifier = Modifier.weight(1f))
+                        PstButton(text = "Построить", onClick = { customSelected?.let { onBuildCustomRoute?.invoke(it) } }, enabled = customSelected != null, modifier = Modifier.weight(1f))
+                    }
+                } else PstButton(
                     text = "Выбрать маршрут",
                     onClick = { current?.let(onSelect) },
                     kind = PstButtonKind.CTA,
