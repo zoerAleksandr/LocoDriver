@@ -248,6 +248,8 @@ fun ShoulderEditBottomSheet(
     var choosingTerminal by remember { mutableStateOf<TerminalChoice?>(null) }
     /** Варианты маршрута (route/length, alternatives) — экран выбора на карте; null — не показан. */
     var variantChoice by remember { mutableStateOf<VariantChoice?>(null) }
+    /** Состояние до временного добавления via-точки; возвращается при закрытии предпросмотра. */
+    var pendingCustomRoute by remember { mutableStateOf<PendingCustomRoute?>(null) }
 
     fun notifyAutoFound(autoFound: List<Pair<String, Boolean>>) {
         if (autoFound.isEmpty()) return
@@ -310,6 +312,11 @@ fun ShoulderEditBottomSheet(
     fun applyVariant(choice: VariantChoice, v: RouteVariant) {
         val km = kotlin.math.round(v.lengthKm).toInt()
         distance = TextFieldValue(km.toString(), TextRange(km.toString().length))
+        stations.filter { it.hasCoordinates }.forEachIndexed { i, station ->
+            val kmAt = choice.kmAt.getOrNull(i + 1) ?: return@forEachIndexed
+            val index = stations.indexOfFirst { it.id == station.id }
+            if (index >= 0) stations[index] = stations[index].copy(kmFromStart = kmAt)
+        }
         measured = MeasuredDistance(km, coordinateSignature())
         val addable = v.addableStations()
         val shortest = v.id == choice.variants.first().id
@@ -329,7 +336,7 @@ fun ShoulderEditBottomSheet(
         }
     }
 
-    fun measureByMap() {
+    fun measureByMap(previewSingleRoute: Boolean = false) {
         val dep = departure.text.trim()
         val arr = arrival.text.trim()
         if (dep.isBlank() || arr.isBlank()) {
@@ -386,13 +393,26 @@ fun ShoulderEditBottomSheet(
                 withCoords.map { it.latitude!! to it.longitude!! } +
                 listOf(arrP.latitude to arrP.longitude)
             // Варианты маршрута — только пока нет промежуточных станций (со станциями путь один, строго через них).
-            val res = autoVm.measure(points, withVariants = stations.isEmpty())
+            val res = autoVm.measure(
+                points,
+                withVariants = stations.isEmpty(),
+                withGeometry = stations.isEmpty() || previewSingleRoute,
+            )
             measuring = false
             when (res) {
                 is ServicePhaseAutoFillViewModel.MeasureResult.Ok -> {
-                    if (res.variants.size > 1) {
+                    if (res.variants.isNotEmpty() && (res.variants.size > 1 || previewSingleRoute)) {
                         // Экран выбора; пока не выбрано — ничего не применяется.
-                        variantChoice = VariantChoice(dep, arr, res.variants, autoFound.toList())
+                        variantChoice = VariantChoice(dep, arr, res.variants, autoFound.toList(), res.kmAt)
+                        return@launch
+                    }
+                    if (previewSingleRoute) {
+                        pendingCustomRoute?.let { pending ->
+                            stations.clear()
+                            stations.addAll(pending.stationsBefore)
+                        }
+                        pendingCustomRoute = null
+                        snackbar = EditorSnackbar("Не удалось показать построенный маршрут на карте")
                         return@launch
                     }
                     val km = kotlin.math.round(res.lengthKm).toInt()
@@ -406,9 +426,22 @@ fun ShoulderEditBottomSheet(
                     measured = MeasuredDistance(km, coordinateSignature())
                     notifyAutoFound(autoFound)
                 }
-                ServicePhaseAutoFillViewModel.MeasureResult.NoPath ->
+                ServicePhaseAutoFillViewModel.MeasureResult.NoPath -> {
+                    if (previewSingleRoute) pendingCustomRoute?.let { pending ->
+                        stations.clear()
+                        stations.addAll(pending.stationsBefore)
+                        pendingCustomRoute = null
+                    }
                     snackbar = EditorSnackbar("Путь по железной дороге между станциями не найден — проверьте координаты")
-                is ServicePhaseAutoFillViewModel.MeasureResult.Failed -> snackbar = EditorSnackbar(res.failure.message())
+                }
+                is ServicePhaseAutoFillViewModel.MeasureResult.Failed -> {
+                    if (previewSingleRoute) pendingCustomRoute?.let { pending ->
+                        stations.clear()
+                        stations.addAll(pending.stationsBefore)
+                        pendingCustomRoute = null
+                    }
+                    snackbar = EditorSnackbar(res.failure.message())
+                }
             }
         }
     }
@@ -605,9 +638,10 @@ fun ShoulderEditBottomSheet(
                 openStation(null, null)
             },
             onBuildCustomRoute = { candidate ->
+                pendingCustomRoute = PendingCustomRoute(stations.toList())
                 addCustomRouteVia(candidate)
                 closeAutoFill()
-                measureByMap()
+                measureByMap(previewSingleRoute = true)
             },
             onDismiss = ::closeAutoFill,
         )
@@ -671,7 +705,7 @@ fun ShoulderEditBottomSheet(
             .drop(1)
             .collectLatest {
                 delay(600)
-                if (!closed) persist(final = false)
+                if (!closed && pendingCustomRoute == null) persist(final = false)
             }
     }
 
@@ -683,8 +717,16 @@ fun ShoulderEditBottomSheet(
             onSelect = { v ->
                 variantChoice = null
                 applyVariant(choice, v)
+                pendingCustomRoute = null
             },
-            onDismiss = { variantChoice = null },
+            onDismiss = {
+                variantChoice = null
+                pendingCustomRoute?.let { pending ->
+                    stations.clear()
+                    stations.addAll(pending.stationsBefore)
+                    pendingCustomRoute = null
+                }
+            },
             findCustomRouteStations = { query ->
                 val near = buildList {
                     pointFor(depPoint, departure.text.trim())?.let { add(it.latitude to it.longitude) }
@@ -693,9 +735,10 @@ fun ShoulderEditBottomSheet(
                 autoVm.lookup(query, country, near)
             },
             onBuildCustomRoute = { candidate ->
+                pendingCustomRoute = PendingCustomRoute(stations.toList())
                 addCustomRouteVia(candidate)
                 variantChoice = null
-                measureByMap()
+                measureByMap(previewSingleRoute = true)
             },
         )
     }
@@ -1185,7 +1228,10 @@ private class VariantChoice(
     val to: String,
     val variants: List<RouteVariant>,
     val autoFound: List<Pair<String, Boolean>>,
+    val kmAt: List<Double> = emptyList(),
 )
+
+private class PendingCustomRoute(val stationsBefore: List<ServicePhaseStation>)
 
 /** [undo] null — просто сообщение, без «Отменить». */
 private class TerminalChoice(val isStart: Boolean, val name: String, val candidates: List<OsmStationCandidate>)

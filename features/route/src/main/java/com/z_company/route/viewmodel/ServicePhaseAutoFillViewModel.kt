@@ -194,20 +194,27 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     /**
      * «Измерить по карте»: длина по ж/д путям через точки по порядку (отправление … прибытие).
      * [withVariants] — запросить до 3 вариантов пути (только когда промежуточных станций нет).
+     * [withGeometry] — вернуть линию пути для предпросмотра, даже если вариант один.
      */
-    suspend fun measure(points: List<Pair<Double, Double>>, withVariants: Boolean = false): MeasureResult = try {
+    suspend fun measure(
+        points: List<Pair<Double, Double>>,
+        withVariants: Boolean = false,
+        withGeometry: Boolean = withVariants,
+    ): MeasureResult = try {
         val token = tokens.getAuthBearerTokenFlow().first()
         val res = withTimeout(TIMEOUT_MS) {
             api.measureRouteLength(
                 "Bearer $token",
                 com.z_company.repository.remote_rest.response.RouteLengthRequest(
                     points = points.map { (lat, lon) -> LatLon(lat, lon) },
-                    withGeometry = withVariants,
+                    withGeometry = withGeometry,
                     alternatives = if (withVariants) MAX_VARIANTS else 1,
                 ),
             )
         }
-        MeasureResult.Ok(res.lengthKm, res.kmAt, if (withVariants) res.routes.mapNotNull(::toVariant) else emptyList())
+        // Геометрия единственного маршрута тоже нужна клиенту: после выбора пользовательской
+        // via-точки показываем путь на карте до того, как пользователь его подтвердит.
+        MeasureResult.Ok(res.lengthKm, res.kmAt, res.routes.mapNotNull(::toVariant))
     } catch (e: kotlinx.coroutines.CancellationException) {
         if (e !is TimeoutCancellationException) throw e
         MeasureResult.Failed(failureOf(e))
