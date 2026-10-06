@@ -36,6 +36,8 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.alpha
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -102,14 +104,17 @@ internal fun PhaseAutoFillSheet(
     loadVariants: (suspend (List<Pair<Double, Double>>) -> List<RouteVariant>)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Выбор точки на карте («Не та станция» → «Указать на карте вручную»): шторка скрыта, карта видна целиком.
+    var pickingPoint by remember { mutableStateOf(false) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Pst.bg,
+        containerColor = if (pickingPoint) androidx.compose.ui.graphics.Color.Transparent else Pst.bg,
+        scrimColor = if (pickingPoint) androidx.compose.ui.graphics.Color.Transparent else BottomSheetDefaults.ScrimColor,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = { PstGrabber() },
+        dragHandle = { if (!pickingPoint) PstGrabber() },
     ) {
-        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f)) {
+        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f).alpha(if (pickingPoint) 0f else 1f)) {
             PstSheetHeader(title = "Автоподбор станций", subtitle = "$departure → $arrival", onClose = onDismiss)
             when (state) {
                 AutoFillState.Idle, is AutoFillState.Loading, is AutoFillState.ChooseRoute ->
@@ -130,6 +135,7 @@ internal fun PhaseAutoFillSheet(
                     measureKm = measureKm,
                     loadVariants = loadVariants,
                     onBuildCustomRoute = onBuildCustomRoute,
+                    onPickingPoint = { pickingPoint = it },
                 )
                 is AutoFillState.Failed -> FailureContent(
                     state = state,
@@ -284,6 +290,8 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
     measureKm: (suspend (List<Pair<Double, Double>>) -> Double?)? = null,
     loadVariants: (suspend (List<Pair<Double, Double>>) -> List<RouteVariant>)? = null,
     onBuildCustomRoute: ((List<OsmStationCandidate>) -> Unit)? = null,
+    /** Открыт/закрыт выбор точки на карте — шторка автоподбора на это время скрывается. */
+    onPickingPoint: (Boolean) -> Unit = {},
 ) {
     // Изменяемый: названия предложенных станций можно поправить (✎) до добавления.
     val found = remember(state) { state.stations.map { it.toPhaseStation() }.toMutableStateList() }
@@ -375,6 +383,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
             onPickOnMap = { wrongMap = true },
         )
     }
+    LaunchedEffect(wrongTarget != null && wrongMap) { onPickingPoint(wrongTarget != null && wrongMap) }
     if (wrongTarget != null && wrongMap) {
         PhaseMapPicker(
             stationName = wrongTarget.name,

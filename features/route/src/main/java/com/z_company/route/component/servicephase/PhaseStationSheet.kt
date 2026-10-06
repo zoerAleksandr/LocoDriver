@@ -23,6 +23,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.alpha
+import androidx.compose.material3.BottomSheetDefaults
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import com.z_company.repository.remote_rest.response.OsmStationCandidate
@@ -171,14 +173,18 @@ internal fun PhaseStationSheet(
         )
     }
 
+    // Пока открыт выбор точки на карте, шторка скрыта (состояние сохраняется): карта видна целиком; после «Выбрать»
+    // шторка возвращается с новыми координатами, «назад» — без изменений.
+    val pickerShown = mapOpen && mapNeighbours != null
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Pst.bg,
+        containerColor = if (pickerShown) androidx.compose.ui.graphics.Color.Transparent else Pst.bg,
+        scrimColor = if (pickerShown) androidx.compose.ui.graphics.Color.Transparent else BottomSheetDefaults.ScrimColor,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = { PstGrabber() },
+        dragHandle = { if (!pickerShown) PstGrabber() },
     ) {
-        Column(modifier = Modifier.fillMaxWidth().imePadding()) {
+        Column(modifier = Modifier.fillMaxWidth().imePadding().alpha(if (pickerShown) 0f else 1f)) {
             PstSheetHeader(title = terminalTitle ?: if (isNew) "Новая станция" else "Станция", onClose = onDismiss)
             Column(
                 modifier = Modifier
