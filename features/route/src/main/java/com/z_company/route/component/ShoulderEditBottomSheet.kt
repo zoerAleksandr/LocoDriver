@@ -619,6 +619,7 @@ fun ShoulderEditBottomSheet(
             stationList = stationList,
             onChoose = autoVm::choose,
             lookup = { query, near -> autoVm.lookup(query, country, near) },
+            searchStations = { query, near -> autoVm.lookup(query, country, near, limit = STATION_SEARCH_LIMIT) },
             loadVariants = { pts ->
                 (autoVm.measure(pts, withVariants = true) as? ServicePhaseAutoFillViewModel.MeasureResult.Ok)?.variants.orEmpty()
             },
@@ -773,7 +774,8 @@ fun ShoulderEditBottomSheet(
                     pointFor(depPoint, departure.text.trim())?.let { add(it.latitude to it.longitude) }
                     pointFor(arrPoint, arrival.text.trim())?.let { add(it.latitude to it.longitude) }
                 }
-                autoVm.lookup(query, country, near)
+                // Поиск по части названия: все подходящие (до 30), порядок — как у сервера.
+                autoVm.lookup(query, country, near, limit = STATION_SEARCH_LIMIT)
             },
             initialCustom = customRetry?.chosen,
             initialCustomError = customRetry?.message,
@@ -1476,3 +1478,6 @@ private fun MeasureByMap(isMeasured: Boolean, measuring: Boolean, onMeasure: () 
         )
     }
 }
+
+/** Сколько станций просить у сервера при поиске по части названия («Построить другой маршрут»). */
+private const val STATION_SEARCH_LIMIT = 30

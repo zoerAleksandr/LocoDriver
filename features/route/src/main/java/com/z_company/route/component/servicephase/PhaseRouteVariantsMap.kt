@@ -153,9 +153,9 @@ internal fun PhaseRouteVariantsMap(
             customSearching = true
             val result = find(query)
             customSearching = false
+            // Все совпадения как есть — порядок задаёт сервер (старый сервер вернёт до 5).
             if (result == null) customSearchFailed = true else customCandidates = result
                 .distinctBy { it.osmId ?: "${it.name}:${it.latitude}:${it.longitude}" }
-                .take(4)
         }
 
         val mapView = remember {
@@ -392,10 +392,7 @@ internal fun PhaseRouteVariantsMap(
                     )
                 }
                 if (customMode) {
-                    Column(
-                        modifier = Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Через какие станции построить?", style = Pst.sans.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
                         if (customChosen.isEmpty()) {
                             Text(
@@ -409,7 +406,11 @@ internal fun PhaseRouteVariantsMap(
                         }
                         if (customChosen.isNotEmpty()) {
                             Column(
-                                Modifier.fillMaxWidth().border(1.dp, Pst.border, RoundedCornerShape(12.dp)),
+                                Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, Pst.border, RoundedCornerShape(12.dp))
+                                    .heightIn(max = 168.dp)
+                                    .verticalScroll(rememberScrollState()),
                             ) {
                                 customChosen.forEachIndexed { index, c ->
                                     if (index > 0) HorizontalDivider(color = Pst.border)
@@ -444,35 +445,49 @@ internal fun PhaseRouteVariantsMap(
                             placeholder = "Начните вводить название",
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        when {
-                            customSearching -> Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.Center) {
-                                CircularProgressIndicator(color = Pst.accent, modifier = Modifier.size(24.dp))
-                            }
-                            customSearchFailed -> Text("Не удалось найти станции. Проверьте подключение.", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.danger)
-                            customQuery.text.trim().length >= 2 && customCandidates.isEmpty() -> Text("Станции не найдены", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
-                            else -> customCandidates.forEach { candidate ->
-                                val added = customChosen.any {
-                                    it.osmId == candidate.osmId ||
-                                        (kotlin.math.abs(it.latitude - candidate.latitude) < 1e-5 && kotlin.math.abs(it.longitude - candidate.longitude) < 1e-5)
+                        Column(
+                            modifier = Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            when {
+                                customSearching -> Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.Center) {
+                                    CircularProgressIndicator(color = Pst.accent, modifier = Modifier.size(24.dp))
                                 }
-                                Column(
-                                    Modifier.fillMaxWidth()
-                                        .background(if (added) Pst.accentSoft else Pst.bg, RoundedCornerShape(12.dp))
-                                        .border(1.dp, if (added) Pst.accent else Pst.border, RoundedCornerShape(12.dp))
-                                        .clickable(enabled = !added) {
-                                            customChosen.add(candidate)
-                                            customError = null
-                                            customQuery = TextFieldValue("")
+                                customSearchFailed -> Text("Не удалось найти станции. Проверьте подключение.", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.danger)
+                                customQuery.text.trim().length >= 2 && customCandidates.isEmpty() -> Text("Станции не найдены", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
+                                else -> customCandidates.forEach { candidate ->
+                                    val added = customChosen.any {
+                                        it.osmId == candidate.osmId ||
+                                            (kotlin.math.abs(it.latitude - candidate.latitude) < 1e-5 && kotlin.math.abs(it.longitude - candidate.longitude) < 1e-5)
+                                    }
+                                    Column(
+                                        Modifier.fillMaxWidth()
+                                            .background(if (added) Pst.accentSoft else Pst.bg, RoundedCornerShape(12.dp))
+                                            .border(1.dp, if (added) Pst.accent else Pst.border, RoundedCornerShape(12.dp))
+                                            .clickable(enabled = !added) {
+                                                customChosen.add(candidate)
+                                                customError = null
+                                                customQuery = TextFieldValue("")
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                                    ) {
+                                        Text(
+                                            candidate.name + if (added) " · добавлена" else "",
+                                            style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                                            color = Pst.text,
+                                        )
+                                        listOfNotNull(candidate.esr?.let { "ЕСР $it" }, candidate.operator, candidate.region).takeIf { it.isNotEmpty() }?.let {
+                                            Text(it.joinToString(" · "), style = Pst.sans.copy(fontSize = 11.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
-                                        .padding(horizontal = 12.dp, vertical = 10.dp)
-                                ) {
-                                    Text(
-                                        candidate.name + if (added) " · добавлена" else "",
-                                        style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
-                                        color = Pst.text,
-                                    )
-                                    listOfNotNull(candidate.esr?.let { "ЕСР $it" }, candidate.operator, candidate.region).takeIf { it.isNotEmpty() }?.let {
-                                        Text(it.joinToString(" · "), style = Pst.sans.copy(fontSize = 11.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        if (candidate.neighbours.isNotEmpty()) {
+                                            Text(
+                                                "Соседние: " + candidate.neighbours.joinToString(" · "),
+                                                style = Pst.sans.copy(fontSize = 11.sp),
+                                                color = Pst.textMuted,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
                                     }
                                 }
                             }

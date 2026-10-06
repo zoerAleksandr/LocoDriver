@@ -93,6 +93,8 @@ internal fun PhaseAutoFillSheet(
     onDismiss: () -> Unit,
     /** Поиск станций по названию рядом с точками («Не та станция»); null в ответе — ошибка сети/сервиса. */
     lookup: (suspend (String, List<Pair<Double, Double>>) -> List<OsmStationCandidate>?)? = null,
+    /** Поиск станции по части названия для «Построить другой маршрут» (до 30, порядок сервера); null — как [lookup]. */
+    searchStations: (suspend (String, List<Pair<Double, Double>>) -> List<OsmStationCandidate>?)? = null,
     /** Км пути от точки отправления до точки (пересчёт после подмены станции); null — не удалось. */
     measureKm: (suspend (List<Pair<Double, Double>>) -> Double?)? = null,
     /** Варианты пути между крайними точками (route/length, alternatives); пусто — вариант один. */
@@ -123,6 +125,7 @@ internal fun PhaseAutoFillSheet(
                     onSetDistance = onSetDistance,
                     onCancel = onDismiss,
                     lookup = lookup,
+                    searchStations = searchStations,
                     measureKm = measureKm,
                     loadVariants = loadVariants,
                     onBuildCustomRoute = onBuildCustomRoute,
@@ -275,6 +278,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
     onSetDistance: (Int) -> Unit,
     onCancel: () -> Unit,
     lookup: (suspend (String, List<Pair<Double, Double>>) -> List<OsmStationCandidate>?)? = null,
+    searchStations: (suspend (String, List<Pair<Double, Double>>) -> List<OsmStationCandidate>?)? = null,
     measureKm: (suspend (List<Pair<Double, Double>>) -> Double?)? = null,
     loadVariants: (suspend (List<Pair<Double, Double>>) -> List<RouteVariant>)? = null,
     onBuildCustomRoute: ((List<OsmStationCandidate>) -> Unit)? = null,
@@ -407,7 +411,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
             to = arrival,
             variants = variants,
             onDismiss = { variantsOpen = false },
-            findCustomRouteStations = lookup?.let { find ->
+            findCustomRouteStations = (searchStations ?: lookup)?.let { find ->
                 { query -> find(query, ends + found.filter { it.hasCoordinates }.map { it.latitude!! to it.longitude!! }) }
             },
             onBuildCustomRoute = onBuildCustomRoute,

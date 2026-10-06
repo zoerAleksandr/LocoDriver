@@ -65,6 +65,8 @@ data class ServicePhaseLookupRequest(
     val name: String,
     val country: String = "RU",
     val near: List<LatLon> = emptyList(),
+    /** Поиск по части названия: до [limit] (1..30) ранжированных станций; null — прежнее поведение сервера (до 5). */
+    val limit: Int? = null,
 )
 
 @Serializable

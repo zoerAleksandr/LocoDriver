@@ -407,7 +407,12 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     }.getOrNull()
 
     /** Координаты одной станции (шторка станции, «Найти координаты»). null — ошибка сети/сервиса. */
-    suspend fun lookup(name: String, country: String, near: List<Pair<Double, Double>>): List<OsmStationCandidate>? =
+    suspend fun lookup(
+        name: String,
+        country: String,
+        near: List<Pair<Double, Double>>,
+        limit: Int? = null,
+    ): List<OsmStationCandidate>? =
         try {
             lastLookupFailure = null
             val token = tokens.getAuthBearerTokenFlow().first()
@@ -418,6 +423,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
                         name = name.trim(),
                         country = country.ifBlank { "RU" },
                         near = near.map { (lat, lon) -> LatLon(lat, lon) },
+                        limit = limit,
                     ),
                 ).candidates
             }
