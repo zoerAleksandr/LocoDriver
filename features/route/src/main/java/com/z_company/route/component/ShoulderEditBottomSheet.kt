@@ -78,6 +78,7 @@ import com.z_company.route.component.servicephase.ReportStop
 import com.z_company.route.component.servicephase.reportNoPath
 import com.z_company.route.component.servicephase.PhaseRouteVariantsMap
 import com.z_company.route.viewmodel.AutoFillState
+import com.z_company.route.util.FalseMileage
 import com.z_company.route.viewmodel.RouteVariant
 import com.z_company.route.viewmodel.RouteVia
 import com.z_company.route.viewmodel.addableStations
@@ -202,6 +203,8 @@ fun ShoulderEditBottomSheet(
     var insertAt by remember { mutableStateOf<Int?>(null) }
 
     var snackbar by remember { mutableStateOf<EditorSnackbar?>(null) }
+    /** Подозрительный километраж: текст предупреждения и действие «Применить» (по умолчанию — отмена). */
+    var falseMileage by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
 
     // Автоподбор: координаты крайних станций запоминаются вместе с названием, к которому относятся.
     val autoVm: ServicePhaseAutoFillViewModel = viewModel()
@@ -346,8 +349,29 @@ fun ShoulderEditBottomSheet(
         stations.addAll(vias)
     }
 
+    /** Сумма прямых между последовательными точками плеча (отправление, станции с координатами, прибытие). */
+    fun straightSumKm(): Double {
+        val depP = pointFor(depPoint, departure.text.trim())
+        val arrP = pointFor(arrPoint, arrival.text.trim())
+        if (depP == null || arrP == null) return 0.0
+        return FalseMileage.straightSumKm(
+            listOf(depP.latitude to depP.longitude) +
+                stations.filter { it.hasCoordinates }.map { it.latitude!! to it.longitude!! } +
+                listOf(arrP.latitude to arrP.longitude)
+        )
+    }
+
+    /** Записать результат молча, если он правдоподобен; иначе — диалог с подтверждением. */
+    fun applyChecked(lengthKm: Double, apply: () -> Unit) {
+        val straight = straightSumKm()
+        val entered = distance.text.toIntOrZero()
+        if (FalseMileage.isSuspicious(lengthKm, entered, straight)) {
+            falseMileage = FalseMileage.message(lengthKm, entered, straight) to apply
+        } else apply()
+    }
+
     /** «Выбрать маршрут»: расстояние плеча = длина варианта; станции варианта — по предложению. */
-    fun applyVariant(choice: VariantChoice, v: RouteVariant) {
+    fun applyVariant(choice: VariantChoice, v: RouteVariant) = applyChecked(v.lengthKm) {
         val km = kotlin.math.round(v.lengthKm).toInt()
         distance = TextFieldValue(km.toString(), TextRange(km.toString().length))
         stations.filter { it.hasCoordinates }.forEachIndexed { i, station ->
@@ -466,16 +490,18 @@ fun ShoulderEditBottomSheet(
                         else snackbar = EditorSnackbar("Не удалось показать построенный маршрут на карте")
                         return@launch
                     }
-                    val km = kotlin.math.round(res.lengthKm).toInt()
-                    distance = TextFieldValue(km.toString(), TextRange(km.toString().length))
-                    // Км промежуточных станций — по тому же пути.
-                    withCoords.forEachIndexed { i, st ->
-                        val kmAt = res.kmAt.getOrNull(i + 1) ?: return@forEachIndexed
-                        val idx = stations.indexOfFirst { it.id == st.id }
-                        if (idx >= 0) stations[idx] = stations[idx].copy(kmFromStart = kmAt)
+                    applyChecked(res.lengthKm) {
+                        val km = kotlin.math.round(res.lengthKm).toInt()
+                        distance = TextFieldValue(km.toString(), TextRange(km.toString().length))
+                        // Км промежуточных станций — по тому же пути.
+                        withCoords.forEachIndexed { i, st ->
+                            val kmAt = res.kmAt.getOrNull(i + 1) ?: return@forEachIndexed
+                            val idx = stations.indexOfFirst { it.id == st.id }
+                            if (idx >= 0) stations[idx] = stations[idx].copy(kmFromStart = kmAt)
+                        }
+                        measured = MeasuredDistance(km, coordinateSignature())
+                        notifyAutoFound(autoFound)
                     }
-                    measured = MeasuredDistance(km, coordinateSignature())
-                    notifyAutoFound(autoFound)
                 }
                 ServicePhaseAutoFillViewModel.MeasureResult.NoPath -> {
                     if (previewSingleRoute && pendingCustomRoute != null) {
@@ -850,6 +876,20 @@ fun ShoulderEditBottomSheet(
                 choosingTerminal = null
                 editingTerminal = choice.isStart
             },
+        )
+    }
+
+    falseMileage?.let { (message, apply) ->
+        AppAlertDialog(
+            onDismissRequest = { falseMileage = null },
+            title = "Проверьте станции",
+            text = message,
+            confirmText = "Применить",
+            onConfirm = {
+                falseMileage = null
+                apply()
+            },
+            dismissText = "Отмена",
         )
     }
 

@@ -54,6 +54,7 @@ import com.z_company.domain.entities.setting.ServicePhaseStation
 import com.z_company.domain.entities.setting.ServicePhaseStationKind
 import com.z_company.domain.entities.setting.ServicePhaseStationSource
 import com.z_company.domain.util.ServicePhaseStationsMerge
+import com.z_company.route.util.FalseMileage
 import com.z_company.repository.remote_rest.response.OsmStationCandidate
 import com.z_company.route.viewmodel.AutoFillFailure
 import com.z_company.route.viewmodel.AutoFillState
@@ -454,7 +455,29 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
     val newNames = ServicePhaseStationsMerge.newNames(selectedNew, stationList)
     val length = pathLength
     val rounded = length.roundToInt()
+    val straightKm = FalseMileage.straightSumKm(
+        listOf(ends.first()) +
+            found.filter { it.hasCoordinates }.map { it.latitude!! to it.longitude!! } +
+            listOf(ends.last())
+    )
+    val suspicious = FalseMileage.isSuspicious(length, distanceKm, straightKm)
+    var confirmSetDistance by remember(state) { mutableStateOf(false) }
     val mismatch = distanceKm > 0 && (abs(length - distanceKm) > distanceKm * 0.05 || abs(length - distanceKm) > 3)
+
+    if (confirmSetDistance) {
+        AppAlertDialog(
+            onDismissRequest = { confirmSetDistance = false },
+            title = "Проверьте станции",
+            text = FalseMileage.message(length, distanceKm, straightKm),
+            confirmText = "Применить",
+            onConfirm = {
+                confirmSetDistance = false
+                onSetDistance(rounded)
+                distanceApplied = true
+            },
+            dismissText = "Отмена",
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.weight(1f),
@@ -487,17 +510,22 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
                 )
             }
         }
-        if (!distanceApplied && (distanceKm <= 0 || mismatch)) {
+        if (!distanceApplied && (distanceKm <= 0 || mismatch || suspicious)) {
             item(key = "distance") {
                 PstNotice(
-                    color = if (distanceKm <= 0) Pst.accent else Pst.warning,
-                    title = if (distanceKm <= 0) "Расстояние не указано" else "Расстояние не совпадает с картой",
-                    text = if (distanceKm <= 0) "По карте длина пути — ${pstKm(length)}."
+                    color = if (suspicious) Pst.danger else if (distanceKm <= 0) Pst.accent else Pst.warning,
+                    title = if (suspicious) "Проверьте станции" else if (distanceKm <= 0) "Расстояние не указано" else "Расстояние не совпадает с картой",
+                    text = if (suspicious) FalseMileage.message(length, distanceKm, straightKm)
+                    else if (distanceKm <= 0) "По карте длина пути — ${pstKm(length)}."
                     else "Вы указали $distanceKm км, по карте — ${pstKm(length)}.",
                     actionText = "Установить $rounded км",
                     onAction = {
-                        onSetDistance(rounded)
-                        distanceApplied = true
+                        if (suspicious) {
+                            confirmSetDistance = true
+                        } else {
+                            onSetDistance(rounded)
+                            distanceApplied = true
+                        }
                     },
                 )
             }
