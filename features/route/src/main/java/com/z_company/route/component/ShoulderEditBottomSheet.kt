@@ -336,7 +336,10 @@ fun ShoulderEditBottomSheet(
         }
     }
 
-    fun measureByMap(previewSingleRoute: Boolean = false) {
+    fun measureByMap(
+        previewSingleRoute: Boolean = false,
+        fallbackToCachedMap: Boolean = false,
+    ) {
         val dep = departure.text.trim()
         val arr = arrival.text.trim()
         if (dep.isBlank() || arr.isBlank()) {
@@ -402,8 +405,26 @@ fun ShoulderEditBottomSheet(
             when (res) {
                 is ServicePhaseAutoFillViewModel.MeasureResult.Ok -> {
                     if (res.variants.isNotEmpty() && (res.variants.size > 1 || previewSingleRoute)) {
+                        val previewVariants = if (previewSingleRoute && withCoords.isNotEmpty()) {
+                            res.variants.map { variant ->
+                                if (variant.via.isNotEmpty()) variant else variant.copy(
+                                    via = withCoords.mapIndexed { index, station ->
+                                        RouteVia(
+                                            name = station.name,
+                                            km = res.kmAt.getOrNull(index + 1) ?: station.kmFromStart ?: 0.0,
+                                            osmId = station.osmId,
+                                            esr = station.esr,
+                                            latitude = station.latitude,
+                                            longitude = station.longitude,
+                                        )
+                                    }
+                                )
+                            }
+                        } else {
+                            res.variants
+                        }
                         // Экран выбора; пока не выбрано — ничего не применяется.
-                        variantChoice = VariantChoice(dep, arr, res.variants, autoFound.toList(), res.kmAt)
+                        variantChoice = VariantChoice(dep, arr, previewVariants, autoFound.toList(), res.kmAt)
                         return@launch
                     }
                     if (previewSingleRoute) {
@@ -440,7 +461,8 @@ fun ShoulderEditBottomSheet(
                         stations.addAll(pending.stationsBefore)
                         pendingCustomRoute = null
                     }
-                    snackbar = EditorSnackbar(res.failure.message())
+                    if (fallbackToCachedMap) showRouteMap = true
+                    else snackbar = EditorSnackbar(res.failure.message())
                 }
             }
         }
@@ -796,7 +818,12 @@ fun ShoulderEditBottomSheet(
             EditorTopBar(
                 title = if (isNew) "Новое плечо" else "Редактировать плечо",
                 onBack = ::close,
-                onMap = { showRouteMap = true },
+                onMap = {
+                    measureByMap(
+                        previewSingleRoute = true,
+                        fallbackToCachedMap = true,
+                    )
+                },
             )
             Box(modifier = Modifier.weight(1f)) {
                 LazyColumn(

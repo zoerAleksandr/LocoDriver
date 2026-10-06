@@ -13,8 +13,6 @@ import com.z_company.repository.remote_rest.response.ServicePhaseLookupRequest
 import com.z_company.repository.remote_rest.response.ServicePhaseSuggestRequest
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -90,6 +88,10 @@ internal fun preferReverseAlternatives(
     reverse: RouteLengthResponse,
 ): RouteLengthResponse {
     if (reverse.routes.size <= forward.routes.size) return forward
+    return reverseRouteResponse(reverse)
+}
+
+internal fun reverseRouteResponse(reverse: RouteLengthResponse): RouteLengthResponse {
     val routes = reverse.routes.map { route ->
         route.copy(
             geometry = route.geometry.asReversed(),
@@ -234,20 +236,18 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
                 withGeometry = withGeometry,
                 alternatives = if (withVariants) MAX_VARIANTS else 1,
             )
-            // Альтернативы в текущем серверном графе иногда направленно-асимметричны:
-            // Лужская → СПбСМ даёт три пути, а СПбСМ → Лужская — один. Оба направления
-            // запрашиваем параллельно, чтобы проверка не удваивала пользовательский таймаут.
-            if (withVariants && points.size == 2) coroutineScope {
-                val forward = async {
-                    api.measureRouteLength("Bearer $token", request)
-                }
-                val reverse = async {
-                    api.measureRouteLength(
-                        "Bearer $token",
-                        request.copy(points = request.points.asReversed()),
-                    )
-                }
-                preferReverseAlternatives(forward.await(), reverse.await())
+            // Альтернативы в серверном графе могут зависеть от направления. Для пары крайних
+            // станций всегда используем один канонический порядок, чтобы A → B и B → A давали
+            // один набор путей без второго тяжёлого запроса.
+            if (withVariants && request.points.size == 2) {
+                val first = request.points[0]
+                val second = request.points[1]
+                val requestedIsCanonical = first.latitude < second.latitude ||
+                    (first.latitude == second.latitude && first.longitude <= second.longitude)
+                val canonicalRequest = if (requestedIsCanonical) request
+                else request.copy(points = request.points.asReversed())
+                val canonical = api.measureRouteLength("Bearer $token", canonicalRequest)
+                if (requestedIsCanonical) canonical else reverseRouteResponse(canonical)
             } else {
                 api.measureRouteLength(
                     "Bearer $token",
@@ -257,7 +257,23 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         }
         // Геометрия единственного маршрута тоже нужна клиенту: после выбора пользовательской
         // via-точки показываем путь на карте до того, как пользователь его подтвердит.
-        MeasureResult.Ok(res.lengthKm, res.kmAt, res.routes.mapNotNull(::toVariant))
+        val variants = res.routes.mapNotNull(::toVariant).ifEmpty {
+            if (withGeometry && res.geometry.size >= 2) {
+                listOf(
+                    RouteVariant(
+                        id = "single",
+                        lengthKm = res.lengthKm,
+                        line = res.geometry.mapNotNull { point ->
+                            if (point.size >= 2) point[0] to point[1] else null
+                        },
+                        via = emptyList(),
+                    )
+                ).filter { it.line.size >= 2 }
+            } else {
+                emptyList()
+            }
+        }
+        MeasureResult.Ok(res.lengthKm, res.kmAt, variants)
     } catch (e: kotlinx.coroutines.CancellationException) {
         if (e !is TimeoutCancellationException) throw e
         MeasureResult.Failed(failureOf(e))
