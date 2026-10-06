@@ -1,5 +1,6 @@
 package com.z_company.route.component.servicephase
 
+import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -189,6 +190,7 @@ internal fun PhaseStationSheet(
             Column(
                 modifier = Modifier
                     .weight(1f, fill = false)
+                    .separateSheetFromScroll()
                     .verticalScroll(rememberScrollState())
                     .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),

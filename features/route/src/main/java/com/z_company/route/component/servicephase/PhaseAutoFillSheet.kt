@@ -1,5 +1,6 @@
 package com.z_company.route.component.servicephase
 
+import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.LaunchedEffect
@@ -223,7 +224,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.ChooseContent(
 ) {
     var selected by remember(state) { mutableStateOf<OsmStationCandidate?>(null) }
     LazyColumn(
-        modifier = Modifier.weight(1f),
+        modifier = Modifier.weight(1f).separateSheetFromScroll(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
     ) {
         item {
@@ -480,7 +481,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
     }
 
     LazyColumn(
-        modifier = Modifier.weight(1f),
+        modifier = Modifier.weight(1f).separateSheetFromScroll(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
     ) {
         item(key = "summary") {
@@ -956,7 +957,7 @@ internal fun StationChoiceSheet(
         Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
             PstSheetHeader(title = title ?: if (approximate) "Похоже на «$query»" else "Какая «$query»?", onClose = onDismiss)
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).separateSheetFromScroll(),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
             ) {
                 item {

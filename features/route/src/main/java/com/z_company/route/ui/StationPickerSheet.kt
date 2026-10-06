@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.separateSheetFromScroll
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
@@ -210,6 +211,7 @@ fun StationPickerSheet(
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
+                    .separateSheetFromScroll()
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 24.dp)
             ) {
