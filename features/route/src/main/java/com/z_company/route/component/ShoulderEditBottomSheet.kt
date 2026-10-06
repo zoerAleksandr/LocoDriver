@@ -223,6 +223,8 @@ fun ShoulderEditBottomSheet(
         }
     }
     val canAutoFill = departure.text.isNotBlank() && arrival.text.isNotBlank()
+    // Блок станций скрыт без обеих крайних — режим «Изменить» тоже сбрасываем.
+    LaunchedEffect(canAutoFill) { if (!canAutoFill) editMode = false }
     fun startAutoFill() {
         val dep = departure.text.trim()
         val arr = arrival.text.trim()
@@ -1009,10 +1011,13 @@ fun ShoulderEditBottomSheet(
                             }
                         }
                     }
+                    // Блок «Промежуточные станции» — только когда заполнены обе крайние станции
+                    // (у нового пустого плеча экран не засоряем; введённые станции при очистке не теряются).
+                    if (canAutoFill) {
                     item(key = "stationsHead") {
                         PstGroupHead(
                             text = "Промежуточные станции · ${stations.size}",
-                            modifier = Modifier.padding(top = 22.dp, bottom = 8.dp).heightIn(min = 32.dp),
+                            modifier = Modifier.animateItem().padding(top = 22.dp, bottom = 8.dp).heightIn(min = 32.dp),
                             action = if (stations.isEmpty() && !editMode) null else {
                                 {
                                     PstButton(
@@ -1052,7 +1057,7 @@ fun ShoulderEditBottomSheet(
                     )
                     if (stations.isEmpty()) {
                         item(key = "empty") {
-                            Box(Modifier.padding(top = 10.dp)) {
+                            Box(Modifier.animateItem().padding(top = 10.dp)) {
                                 EmptyStations(
                                     canAutoFill = canAutoFill,
                                     onAutoFill = ::startAutoFill,
@@ -1061,6 +1066,7 @@ fun ShoulderEditBottomSheet(
                             }
                         }
                     } else item(key = "stationsActions") {
+                        Box(Modifier.animateItem()) {
                         if (editMode) {
                             PstNote(
                                 text = "Перетащите за ≡, чтобы изменить порядок. «+» — вставить станцию " +
@@ -1089,6 +1095,8 @@ fun ShoulderEditBottomSheet(
                                 )
                             }
                         }
+                        }
+                    }
                     }
                     if (!isNew && !editMode && onDelete != null) {
                         item(key = "deletePhase") {
@@ -1285,16 +1293,18 @@ private fun LazyListScope.stationScheme(
 ) {
     val mode = if (editMode) SchemeMode.EDIT else SchemeMode.VIEW
     item(key = KEY_DEPARTURE) {
-        CardSegment(top = true) {
-            PhaseStopRow(
-                name = departure.ifBlank { "Станция отправления" },
-                type = StopType.TERMINAL,
-                isStart = true,
-                isFirst = true,
-                isLast = false,
-                mode = mode,
-                onClick = if (editMode) null else ({ onOpenTerminal(true) }),
-            )
+        Box(Modifier.animateItem()) {
+            CardSegment(top = true) {
+                PhaseStopRow(
+                    name = departure.ifBlank { "Станция отправления" },
+                    type = StopType.TERMINAL,
+                    isStart = true,
+                    isFirst = true,
+                    isLast = false,
+                    mode = mode,
+                    onClick = if (editMode) null else ({ onOpenTerminal(true) }),
+                )
+            }
         }
     }
     stations.forEachIndexed { index, st ->
@@ -1333,19 +1343,21 @@ private fun LazyListScope.stationScheme(
         }
     }
     item(key = KEY_ARRIVAL) {
-        CardSegment(bottom = true) {
-            Column {
-                if (editMode) PhaseInsertRow(active = activeInsert == stations.size, onClick = { onInsert(stations.size) })
-                PhaseStopRow(
-                    name = arrival.ifBlank { "Станция прибытия" },
-                    type = StopType.TERMINAL,
-                    isStart = false,
-                    isFirst = false,
-                    isLast = true,
-                    mode = mode,
-                    terminalKm = distanceKm.takeIf { it > 0 },
-                    onClick = if (editMode) null else ({ onOpenTerminal(false) }),
-                )
+        Box(Modifier.animateItem()) {
+            CardSegment(bottom = true) {
+                Column {
+                    if (editMode) PhaseInsertRow(active = activeInsert == stations.size, onClick = { onInsert(stations.size) })
+                    PhaseStopRow(
+                        name = arrival.ifBlank { "Станция прибытия" },
+                        type = StopType.TERMINAL,
+                        isStart = false,
+                        isFirst = false,
+                        isLast = true,
+                        mode = mode,
+                        terminalKm = distanceKm.takeIf { it > 0 },
+                        onClick = if (editMode) null else ({ onOpenTerminal(false) }),
+                    )
+                }
             }
         }
     }
