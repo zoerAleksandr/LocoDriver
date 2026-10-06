@@ -23,6 +23,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -96,7 +101,7 @@ internal fun PhaseRouteVariantsMap(
     onSelect: (RouteVariant) -> Unit,
     onDismiss: () -> Unit,
     findCustomRouteStations: (suspend (String) -> List<OsmStationCandidate>?)? = null,
-    onBuildCustomRoute: ((OsmStationCandidate) -> Unit)? = null,
+    onBuildCustomRoute: ((List<OsmStationCandidate>) -> Unit)? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -112,7 +117,8 @@ internal fun PhaseRouteVariantsMap(
         var customMode by remember { mutableStateOf(false) }
         var customQuery by remember { mutableStateOf(TextFieldValue("")) }
         var customCandidates by remember { mutableStateOf<List<OsmStationCandidate>>(emptyList()) }
-        var customSelected by remember { mutableStateOf<OsmStationCandidate?>(null) }
+        // Выбранные промежуточные станции — по порядку от отправления к прибытию; путь строится строго через них.
+        val customChosen = remember { mutableStateListOf<OsmStationCandidate>() }
         var customSearching by remember { mutableStateOf(false) }
         var customSearchFailed by remember { mutableStateOf(false) }
         val alive = remember { AtomicBoolean(true) }
@@ -136,7 +142,6 @@ internal fun PhaseRouteVariantsMap(
         LaunchedEffect(customMode, customQuery.text) {
             val find = findCustomRouteStations ?: return@LaunchedEffect
             val query = customQuery.text.trim()
-            customSelected = null
             customCandidates = emptyList()
             customSearchFailed = false
             if (!customMode || query.length < 2) return@LaunchedEffect
@@ -382,39 +387,91 @@ internal fun PhaseRouteVariantsMap(
                     )
                 }
                 if (customMode) {
-                    Text("Через какую станцию построить?", style = Pst.sans.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
-                    PstTextField(
-                        value = customQuery,
-                        onValueChange = { customQuery = it.copy(selection = TextRange(it.text.length)) },
-                        label = "Станция по пути",
-                        placeholder = "Начните вводить название",
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    when {
-                        customSearching -> Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.Center) {
-                            CircularProgressIndicator(color = Pst.accent, modifier = Modifier.size(24.dp))
-                        }
-                        customSearchFailed -> Text("Не удалось найти станции. Проверьте подключение.", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.danger)
-                        customQuery.text.trim().length >= 2 && customCandidates.isEmpty() -> Text("Станции не найдены", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
-                        else -> customCandidates.forEach { candidate ->
-                            val chosen = candidate == customSelected
+                    Column(
+                        modifier = Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text("Через какие станции построить?", style = Pst.sans.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                        if (customChosen.isNotEmpty()) {
                             Column(
-                                Modifier.fillMaxWidth()
-                                    .background(if (chosen) Pst.accentSoft else Pst.bg, RoundedCornerShape(12.dp))
-                                    .border(if (chosen) 2.dp else 1.dp, if (chosen) Pst.accent else Pst.border, RoundedCornerShape(12.dp))
-                                    .clickable { customSelected = candidate }
-                                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                                Modifier.fillMaxWidth().border(1.dp, Pst.border, RoundedCornerShape(12.dp)),
                             ) {
-                                Text(candidate.name, style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
-                                listOfNotNull(candidate.esr?.let { "ЕСР $it" }, candidate.operator, candidate.region).takeIf { it.isNotEmpty() }?.let {
-                                    Text(it.joinToString(" · "), style = Pst.sans.copy(fontSize = 11.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                customChosen.forEachIndexed { index, c ->
+                                    if (index > 0) HorizontalDivider(color = Pst.border)
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text("${index + 1}", style = Pst.mono.copy(fontSize = 13.sp), color = Pst.textMuted, modifier = Modifier.width(22.dp))
+                                        Text(
+                                            c.name,
+                                            style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                                            color = Pst.text,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        ChosenAction("Выше", "↑", enabled = index > 0) {
+                                            customChosen.add(index - 1, customChosen.removeAt(index))
+                                        }
+                                        ChosenAction("Ниже", "↓", enabled = index < customChosen.lastIndex) {
+                                            customChosen.add(index + 1, customChosen.removeAt(index))
+                                        }
+                                        ChosenAction("Убрать", "✕", enabled = true) { customChosen.removeAt(index) }
+                                    }
+                                }
+                            }
+                            Text(
+                                "Путь пойдёт строго через станции по порядку сверху вниз.",
+                                style = Pst.sans.copy(fontSize = 12.sp),
+                                color = Pst.textMuted,
+                            )
+                        }
+                        PstTextField(
+                            value = customQuery,
+                            onValueChange = { customQuery = it.copy(selection = TextRange(it.text.length)) },
+                            label = if (customChosen.isEmpty()) "Станция по пути" else "Добавить ещё станцию",
+                            placeholder = "Начните вводить название",
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        when {
+                            customSearching -> Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.Center) {
+                                CircularProgressIndicator(color = Pst.accent, modifier = Modifier.size(24.dp))
+                            }
+                            customSearchFailed -> Text("Не удалось найти станции. Проверьте подключение.", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.danger)
+                            customQuery.text.trim().length >= 2 && customCandidates.isEmpty() -> Text("Станции не найдены", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
+                            else -> customCandidates.forEach { candidate ->
+                                val added = customChosen.any { it.osmId == candidate.osmId }
+                                Column(
+                                    Modifier.fillMaxWidth()
+                                        .background(if (added) Pst.accentSoft else Pst.bg, RoundedCornerShape(12.dp))
+                                        .border(1.dp, if (added) Pst.accent else Pst.border, RoundedCornerShape(12.dp))
+                                        .clickable(enabled = !added) {
+                                            customChosen.add(candidate)
+                                            customQuery = TextFieldValue("")
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                                ) {
+                                    Text(
+                                        candidate.name + if (added) " · добавлена" else "",
+                                        style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                                        color = Pst.text,
+                                    )
+                                    listOfNotNull(candidate.esr?.let { "ЕСР $it" }, candidate.operator, candidate.region).takeIf { it.isNotEmpty() }?.let {
+                                        Text(it.joinToString(" · "), style = Pst.sans.copy(fontSize = 11.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
                                 }
                             }
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PstButton(text = "Назад", onClick = { customMode = false }, kind = PstButtonKind.OUTLINED, modifier = Modifier.weight(1f))
-                        PstButton(text = "Построить", onClick = { customSelected?.let { onBuildCustomRoute?.invoke(it) } }, enabled = customSelected != null, modifier = Modifier.weight(1f))
+                        PstButton(
+                            text = "Построить",
+                            onClick = { onBuildCustomRoute?.invoke(customChosen.toList()) },
+                            enabled = customChosen.isNotEmpty(),
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 } else PstButton(
                     text = "Выбрать маршрут",
@@ -425,5 +482,18 @@ internal fun PhaseRouteVariantsMap(
                 )
             }
         }
+    }
+}
+
+/** Маленькая текстовая кнопка в строке выбранной станции (↑ ↓ ✕). */
+@Composable
+private fun ChosenAction(description: String, symbol: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clickable(enabled = enabled, onClickLabel = description, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(symbol, style = Pst.sans.copy(fontSize = 16.sp), color = if (enabled) Pst.text else Pst.textFaint)
     }
 }

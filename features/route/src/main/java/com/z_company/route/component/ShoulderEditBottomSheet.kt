@@ -292,22 +292,21 @@ fun ShoulderEditBottomSheet(
     }
 
     /** «Построить другой маршрут»: выбранная существующая станция сразу становится via-точкой. */
-    fun addCustomRouteVia(candidate: OsmStationCandidate) {
-        val via = ServicePhaseStation(
-            name = candidate.name,
-            latitude = candidate.latitude,
-            longitude = candidate.longitude,
-            kind = if (candidate.kind == "halt") ServicePhaseStationKind.HALT else ServicePhaseStationKind.STATION,
-            esr = candidate.esr?.takeIf(String::isNotBlank),
-            osmId = candidate.osmId,
-            source = ServicePhaseStationSource.OSM,
-        )
-        val duplicate = stations.indexOfFirst {
-            (via.osmId != null && it.osmId == via.osmId) ||
-                (it.name.trim().equals(via.name.trim(), ignoreCase = true) && it.hasCoordinates)
+    /** Свой маршрут: список промежуточных станций заменяется выбранными — по порядку, без дублей. */
+    fun setCustomRouteVias(candidates: List<OsmStationCandidate>) {
+        val vias = candidates.distinctBy { it.osmId }.map { candidate ->
+            ServicePhaseStation(
+                name = candidate.name,
+                latitude = candidate.latitude,
+                longitude = candidate.longitude,
+                kind = if (candidate.kind == "halt") ServicePhaseStationKind.HALT else ServicePhaseStationKind.STATION,
+                esr = candidate.esr?.takeIf(String::isNotBlank),
+                osmId = candidate.osmId,
+                source = ServicePhaseStationSource.OSM,
+            )
         }
-        if (duplicate >= 0) stations[duplicate] = via.copy(id = stations[duplicate].id)
-        else stations.add(positionByKm(stations, null), via)
+        stations.clear()
+        stations.addAll(vias)
     }
 
     /** «Выбрать маршрут»: расстояние плеча = длина варианта; станции варианта — по предложению. */
@@ -665,9 +664,9 @@ fun ShoulderEditBottomSheet(
                 closeAutoFill()
                 openStation(null, null)
             },
-            onBuildCustomRoute = { candidate ->
+            onBuildCustomRoute = { candidates ->
                 pendingCustomRoute = PendingCustomRoute(stations.toList())
-                addCustomRouteVia(candidate)
+                setCustomRouteVias(candidates)
                 closeAutoFill()
                 measureByMap(previewSingleRoute = true)
             },
@@ -762,9 +761,9 @@ fun ShoulderEditBottomSheet(
                 }
                 autoVm.lookup(query, country, near)
             },
-            onBuildCustomRoute = { candidate ->
+            onBuildCustomRoute = { candidates ->
                 pendingCustomRoute = PendingCustomRoute(stations.toList())
-                addCustomRouteVia(candidate)
+                setCustomRouteVias(candidates)
                 variantChoice = null
                 measureByMap(previewSingleRoute = true)
             },
