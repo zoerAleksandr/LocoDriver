@@ -777,6 +777,7 @@ fun ShoulderEditBottomSheet(
                 // Поиск по части названия: все подходящие (до 30), порядок — как у сервера.
                 autoVm.lookup(query, country, near, limit = STATION_SEARCH_LIMIT)
             },
+            customPreview = pendingCustomRoute != null,
             initialCustom = customRetry?.chosen,
             initialCustomError = customRetry?.message,
             onBuildCustomRoute = { candidates ->
