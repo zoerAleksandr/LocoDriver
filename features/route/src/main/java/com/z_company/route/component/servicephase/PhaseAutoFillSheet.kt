@@ -730,7 +730,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
         )
         AutoFillFailure.NO_PATH -> Spec(
             PstIcons.Shoulder, "Путь между станциями не найден",
-            "На карте нет связанного пути без разворотов от «$departure» до «$arrival». Возможно, станции на разных линиях или в данных карты разрыв.",
+            "На карте нет связанного пути от «$departure» до «$arrival». Возможно, станции на разных линиях или в данных карты разрыв.",
             "Добавить вручную" to onAddManually, "Закрыть" to onClose,
         )
         AutoFillFailure.RATE_LIMITED -> Spec(

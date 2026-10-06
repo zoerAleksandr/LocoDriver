@@ -482,7 +482,7 @@ fun ShoulderEditBottomSheet(
                         failCustomRoute("Путь через эти станции не найден — измените порядок или список")
                     } else {
                         snackbar = EditorSnackbar(
-                            "Путь без разворотов не найден — проверьте порядок станций",
+                            "Не удалось проложить маршрут между станциями — проверьте порядок и положение станций",
                             actionLabel = "Сообщить",
                             undo = { sendNoPathReport() },
                         )
