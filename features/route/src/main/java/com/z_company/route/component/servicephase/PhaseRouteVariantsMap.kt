@@ -117,6 +117,8 @@ internal fun PhaseRouteVariantsMap(
     initialCustomError: String? = null,
     /** Предпросмотр построенного своего маршрута: одна карточка, подсказка и «Назад» / «Выбрать маршрут». */
     customPreview: Boolean = false,
+    /** Список станций построенного (предпросмотр) маршрута: «Изменить станции» открывает панель с ним же. */
+    previewChosen: List<OsmStationCandidate>? = null,
     /** Сообщить разработчику, что путь через выбранные станции не проложить (кнопка под ошибкой пути); null — нет кнопки. */
     onReportNoPath: ((List<OsmStationCandidate>) -> Unit)? = null,
 ) {
@@ -169,6 +171,7 @@ internal fun PhaseRouteVariantsMap(
             customSearching = false
             // Все совпадения как есть — порядок задаёт сервер (старый сервер вернёт до 5).
             if (result == null) customSearchFailed = true else customCandidates = result
+                .filter { it.kind != "halt" } // остановочные пункты в этом поиске не предлагаются
                 .distinctBy { it.osmId ?: "${it.name}:${it.latitude}:${it.longitude}" }
         }
 
@@ -502,6 +505,28 @@ internal fun PhaseRouteVariantsMap(
                             ) {}
                         }
                         PanelHint("Станции и километраж применятся к плечу после «Выбрать маршрут».")
+                        if (previewChosen != null && findCustomRouteStations != null) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(top = 12.dp)
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(field)
+                                    .clickable {
+                                        // Тот же список — править дальше (добавить/убрать/переставить) и перестроить.
+                                        customChosen.clear()
+                                        customChosen.addAll(previewChosen)
+                                        customError = null
+                                        customQuery = TextFieldValue("")
+                                        customMode = true
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text("Изменить станции", style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = Pst.accent)
+                            }
+                        }
                         PanelActions(
                             leftText = "Назад", onLeft = onDismiss,
                             rightText = "Выбрать маршрут", rightEnabled = true,

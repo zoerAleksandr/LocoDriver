@@ -791,11 +791,15 @@ fun ShoulderEditBottomSheet(
                 autoVm.lookup(query, country, near, limit = STATION_SEARCH_LIMIT)
             },
             customPreview = pendingCustomRoute != null,
+            previewChosen = pendingCustomRoute?.chosen,
             onReportNoPath = { chosen -> sendNoPathReport(chosen.map { ReportStop(it.name, it.latitude, it.longitude) }) },
             initialCustom = customRetry?.chosen,
             initialCustomError = customRetry?.message,
             onBuildCustomRoute = { candidates ->
-                pendingCustomRoute = PendingCustomRoute(stations.toList(), choice, candidates)
+                // Перестройка из предпросмотра: «до» остаётся исходным (станции и варианты до своего маршрута),
+                // иначе «Назад» вернул бы временные станции.
+                val base = pendingCustomRoute
+                pendingCustomRoute = PendingCustomRoute(base?.stationsBefore ?: stations.toList(), base?.choiceBefore ?: choice, candidates)
                 customRetry = null
                 setCustomRouteVias(candidates)
                 variantChoice = null
