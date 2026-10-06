@@ -807,6 +807,18 @@ object UtilsForEntities {
     }
 
     /**
+     * Маршруты для «Отработано на <дата>»: уже начавшиеся и с заданным концом
+     * работы. Текущий маршрут (явка в прошлом, конец — плановый, в будущем)
+     * входит целиком — как в итог месяца при любой настройке будущих маршрутов.
+     */
+    fun List<Route>.filterWorkedByNow(currentTimeInMillis: Long): List<Route> {
+        return filter {
+            val start = it.basicData.timeStartWork ?: return@filter false
+            it.basicData.timeEndWork != null && start <= currentTimeInMillis
+        }
+    }
+
+    /**
      * Удобный helper: фильтрует маршруты по флагу из UserSettings и считает
      * рабочее время для месяца. Объединяет filterByConsiderFutureRoute + getWorkTime.
      *
