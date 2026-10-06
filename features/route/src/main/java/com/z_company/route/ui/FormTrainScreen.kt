@@ -859,13 +859,9 @@ fun FormTrainScreen(
                                         .fillMaxWidth()
                                         .background(rowBg)
                                         .clickable {
-                                            // Первый тап — выделить; повторный по выделенному — применить.
-                                            if (selectedInSheet?.id == item.id) {
-                                                onSelectServicePhase(item)
-                                                showSelectServicePhase = false
-                                            } else {
-                                                selectedInSheet = item
-                                            }
+                                            // Первый тап — выделить; повторный по выделенному — снять выделение.
+                                            // Применяется только кнопкой «Выбрать».
+                                            selectedInSheet = if (selectedInSheet?.id == item.id) null else item
                                         }
                                         .padding(horizontal = 20.dp, vertical = 14.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -879,14 +875,6 @@ fun FormTrainScreen(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    if (isSelected) {
-                                        Icon(
-                                            modifier = Modifier.size(18.dp),
-                                            painter = painterResource(com.z_company.route.R.drawable.check_circle_24px),
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.tertiary
-                                        )
-                                    }
                                     Text(
                                         text = "${item.distance} км",
                                         style = MaterialTheme.typography.bodyMedium.copy(
@@ -894,6 +882,17 @@ fun FormTrainScreen(
                                         ),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    // Слот под галочку у правого края — у всех строк, чтобы «N км» не сдвигались.
+                                    Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                                        if (isSelected) {
+                                            Icon(
+                                                modifier = Modifier.size(20.dp),
+                                                painter = painterResource(com.z_company.route.R.drawable.check_circle_24px),
+                                                contentDescription = "Выбрано",
+                                                tint = MaterialTheme.colorScheme.tertiary
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
