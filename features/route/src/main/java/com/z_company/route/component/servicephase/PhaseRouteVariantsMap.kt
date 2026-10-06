@@ -9,8 +9,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -90,7 +88,6 @@ private fun variantComposeColor(i: Int) = Color(android.graphics.Color.parseColo
  * (тап по чипу или по линии на карте выбирает вариант, по умолчанию — кратчайший). «Выбрать маршрут» → [onSelect].
  * Запросов к отрисовке нет: линия под пальцем ищется по экранным координатам (см. PhaseMapPicker про падение).
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PhaseRouteVariantsMap(
     from: String,
@@ -323,11 +320,9 @@ internal fun PhaseRouteVariantsMap(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                if (!customMode) FlowRow(
+                if (!customMode) Row(
                     modifier = Modifier.fillMaxWidth(),
-                    maxItemsInEachRow = 3,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     variants.forEachIndexed { i, v ->
                         val isSel = i == selected
@@ -339,20 +334,24 @@ internal fun PhaseRouteVariantsMap(
                                 .weight(1f)
                                 .height(104.dp)
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.Center,
+                            verticalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Box(Modifier.size(width = 28.dp, height = 4.dp).background(variantComposeColor(i), RoundedCornerShape(2.dp)))
-                            Text(
-                                text = labels[i]?.let { "через $it" }
-                                    ?: if (i == 0) "Основной маршрут" else "Вариант маршрута",
-                                style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
-                                color = Pst.text,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Box(Modifier.size(width = 28.dp, height = 4.dp).background(variantComposeColor(i), RoundedCornerShape(2.dp)))
+                                // Разрыв после дефиса: «Гатчина-Варшавская» переносится, а не обрезается многоточием.
+                                Text(
+                                    text = labels[i]?.let { "через ${it.replace("-", "-\u200B")}" }
+                                        ?: if (i == 0) "Основной маршрут" else "Вариант маршрута",
+                                    style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold),
+                                    color = Pst.text,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            // Километраж — отдельной строкой у нижнего края карточки (у всех карточек на одной линии).
                             Text(
                                 text = String.format(Locale.US, "%.0f км", v.lengthKm).replace(".", ","),
-                                style = Pst.sans.copy(fontSize = 12.sp),
+                                style = Pst.mono.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
                                 color = Pst.textMuted,
                                 maxLines = 1,
                             )

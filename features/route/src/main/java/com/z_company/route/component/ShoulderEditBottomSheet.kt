@@ -248,6 +248,8 @@ fun ShoulderEditBottomSheet(
     var choosingTerminal by remember { mutableStateOf<TerminalChoice?>(null) }
     /** Варианты маршрута (route/length, alternatives) — экран выбора на карте; null — не показан. */
     var variantChoice by remember { mutableStateOf<VariantChoice?>(null) }
+    /** Уже загруженные варианты для текущих точек: «Карта» не должна повторять сетевой запрос. */
+    var cachedVariantChoice by remember { mutableStateOf<CachedVariantChoice?>(null) }
     /** Состояние до временного добавления via-точки; возвращается при закрытии предпросмотра. */
     var pendingCustomRoute by remember { mutableStateOf<PendingCustomRoute?>(null) }
 
@@ -424,7 +426,11 @@ fun ShoulderEditBottomSheet(
                             res.variants
                         }
                         // Экран выбора; пока не выбрано — ничего не применяется.
-                        variantChoice = VariantChoice(dep, arr, previewVariants, autoFound.toList(), res.kmAt)
+                        val choice = VariantChoice(dep, arr, previewVariants, autoFound.toList(), res.kmAt)
+                        variantChoice = choice
+                        if (stations.isEmpty() && previewVariants.size > 1) {
+                            cachedVariantChoice = CachedVariantChoice(coordinateSignature(), choice)
+                        }
                         return@launch
                     }
                     if (previewSingleRoute) {
@@ -819,10 +825,20 @@ fun ShoulderEditBottomSheet(
                 title = if (isNew) "Новое плечо" else "Редактировать плечо",
                 onBack = ::close,
                 onMap = {
-                    measureByMap(
-                        previewSingleRoute = true,
-                        fallbackToCachedMap = true,
-                    )
+                    val cached = cachedVariantChoice
+                    if (
+                        stations.isEmpty() &&
+                        cached?.signature == coordinateSignature() &&
+                        cached.choice.from == departure.text.trim() &&
+                        cached.choice.to == arrival.text.trim()
+                    ) {
+                        variantChoice = cached.choice
+                    } else {
+                        measureByMap(
+                            previewSingleRoute = true,
+                            fallbackToCachedMap = true,
+                        )
+                    }
                 },
             )
             Box(modifier = Modifier.weight(1f)) {
@@ -1257,6 +1273,8 @@ private class VariantChoice(
     val autoFound: List<Pair<String, Boolean>>,
     val kmAt: List<Double> = emptyList(),
 )
+
+private class CachedVariantChoice(val signature: String, val choice: VariantChoice)
 
 private class PendingCustomRoute(val stationsBefore: List<ServicePhaseStation>)
 
