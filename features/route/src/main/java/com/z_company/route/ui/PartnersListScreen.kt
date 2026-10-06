@@ -54,11 +54,12 @@ import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.ui.partner.PartnerAvatar
 import com.z_company.route.ui.partner.PartnerSearchField
-import com.z_company.route.ui.partner.MakePermanentButton
+import com.z_company.route.ui.settings.SettingsSwitchRow
 import com.z_company.route.ui.partner.PermanentPartnerChip
 import com.z_company.route.ui.partner.PermanentPartnerReplaceDialog
 import com.z_company.route.viewmodel.PermanentReplaceRequest
 import com.z_company.route.ui.partner.filterPartners
+import com.z_company.route.ui.partner.partnerShortName
 
 enum class PartnerListMode { MANAGE, SELECT }
 
@@ -221,6 +222,27 @@ fun PartnersListScreen(
                     onQueryChange = { searchQuery = it },
                 )
             }
+            // Переключатель «Постоянный напарник» для отмеченного в списке напарника.
+            if (mode == PartnerListMode.SELECT && partners.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .padding(start = 12.dp, end = 12.dp, top = 4.dp)
+                        .fillMaxWidth()
+                        .clip(Shapes.medium)
+                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+                ) {
+                    SettingsSwitchRow(
+                        label = "Постоянный напарник",
+                        sub = permanentCandidate?.let { partnerShortName(it.fullName) }
+                            ?: "Отметьте напарника в списке",
+                        checked = permanentCandidate?.isPermanent == true,
+                        enabled = permanentCandidate != null,
+                        onCheckedChange = { value ->
+                            permanentCandidate?.let { if (value) onMakePermanent(it) else onUnsetPermanent(it) }
+                        },
+                    )
+                }
+            }
             if (partners.isEmpty()) {
                 PartnersEmptyState()
             } else if (filteredPartners.isEmpty()) {
@@ -264,24 +286,6 @@ fun PartnersListScreen(
                                         checked = p.partnerId in selectedIds,
                                         onEdit = { onEdit(p) },
                                     )
-                                }
-                                // Кнопка — прямо под строкой только что отмеченного напарника,
-                                // чтобы была видна и в длинном списке.
-                                if (permanentCandidate?.partnerId == p.partnerId) {
-                                    // Тот же фон выделения, что у строки, — кнопка «принадлежит» ей.
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f))
-                                            .padding(start = 12.dp, end = 12.dp, bottom = 10.dp)
-                                    ) {
-                                        MakePermanentButton(
-                                            partner = p,
-                                            onClick = {
-                                                if (p.isPermanent) onUnsetPermanent(p) else onMakePermanent(p)
-                                            },
-                                        )
-                                    }
                                 }
                                 if (idx < filteredPartners.lastIndex) {
                                     HorizontalDivider(modifier = Modifier.padding(start = 62.dp))
