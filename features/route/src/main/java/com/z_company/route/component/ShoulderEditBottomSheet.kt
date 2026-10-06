@@ -77,6 +77,7 @@ import com.z_company.route.component.servicephase.PhaseAutoFillSheet
 import com.z_company.route.component.servicephase.ReportStop
 import com.z_company.route.component.servicephase.reportNoPath
 import com.z_company.route.component.servicephase.PhaseRouteVariantsMap
+import com.z_company.route.viewmodel.AutoFillState
 import com.z_company.route.viewmodel.RouteVariant
 import com.z_company.route.viewmodel.RouteVia
 import com.z_company.route.viewmodel.addableStations
@@ -231,6 +232,10 @@ fun ShoulderEditBottomSheet(
             // Точка, указанная пользователем, — от неё и путь, и км промежуточных (как «Измерить по карте»).
             departurePoint = pointFor(depPoint, dep)?.let { it.latitude to it.longitude },
             arrivalPoint = pointFor(arrPoint, arr)?.let { it.latitude to it.longitude },
+            // Уже есть станции с координатами — подбор строго через них (по выбранному маршруту, а не кратчайшему);
+            // нет — сперва выбор маршрута, если путей несколько.
+            viaPoints = stations.filter { it.hasCoordinates }.map { it.latitude!! to it.longitude!! },
+            pickRoute = stations.none { it.hasCoordinates },
         )
         autoFillOpen = true
     }
@@ -621,6 +626,30 @@ fun ShoulderEditBottomSheet(
         )
     }
 
+    // Автоподбор без станций в плече: между крайними несколько путей — сперва выбор маршрута (экран вариантов).
+    (autoState as? AutoFillState.ChooseRoute)?.let { choose ->
+        if (autoFillOpen) PhaseRouteVariantsMap(
+            from = departure.text.trim(),
+            to = arrival.text.trim(),
+            variants = choose.variants,
+            onSelect = { v ->
+                // Кратчайший вариант — без промежуточных точек; другой — его станции (не больше 12, равномерно).
+                val vias = if (v.id == choose.variants.first().id) emptyList()
+                else sampleVia(v.addableStations().map { it.latitude!! to it.longitude!! }, 12)
+                autoVm.chooseRoute(vias)
+            },
+            onDismiss = ::closeAutoFill,
+            findCustomRouteStations = { query ->
+                val near = buildList {
+                    pointFor(depPoint, departure.text.trim())?.let { add(it.latitude to it.longitude) }
+                    pointFor(arrPoint, arrival.text.trim())?.let { add(it.latitude to it.longitude) }
+                }
+                autoVm.lookup(query, country, near, limit = STATION_SEARCH_LIMIT)
+            },
+            onBuildCustomRoute = { chosen -> autoVm.chooseRoute(chosen.map { it.latitude to it.longitude }) },
+        )
+    }
+
     if (autoFillOpen) {
         PhaseAutoFillSheet(
             state = autoState,
@@ -632,9 +661,6 @@ fun ShoulderEditBottomSheet(
             onChoose = autoVm::choose,
             lookup = { query, near -> autoVm.lookup(query, country, near) },
             searchStations = { query, near -> autoVm.lookup(query, country, near, limit = STATION_SEARCH_LIMIT) },
-            loadVariants = { pts ->
-                (autoVm.measure(pts, withVariants = true) as? ServicePhaseAutoFillViewModel.MeasureResult.Ok)?.variants.orEmpty()
-            },
             measureKm = { pts ->
                 (autoVm.measure(pts) as? ServicePhaseAutoFillViewModel.MeasureResult.Ok)?.lengthKm
             },
@@ -1503,3 +1529,9 @@ private fun MeasureByMap(isMeasured: Boolean, measuring: Boolean, onMeasure: () 
 
 /** Сколько станций просить у сервера при поиске по части названия («Построить другой маршрут»). */
 private const val STATION_SEARCH_LIMIT = 30
+
+/** Не больше [max] точек из [points], равномерно по порядку (первая и последняя входят). */
+private fun sampleVia(points: List<Pair<Double, Double>>, max: Int): List<Pair<Double, Double>> {
+    if (points.size <= max) return points
+    return List(max) { i -> points[(i * (points.size - 1)) / (max - 1)] }
+}

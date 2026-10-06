@@ -112,7 +112,7 @@ internal fun PhaseAutoFillSheet(
         Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f)) {
             PstSheetHeader(title = "Автоподбор станций", subtitle = "$departure → $arrival", onClose = onDismiss)
             when (state) {
-                AutoFillState.Idle, is AutoFillState.Loading ->
+                AutoFillState.Idle, is AutoFillState.Loading, is AutoFillState.ChooseRoute ->
                     LoadingContent(step = (state as? AutoFillState.Loading)?.step ?: 0, onCancel = onDismiss)
                 is AutoFillState.Choose -> ChooseContent(state, onChoose = onChoose, onCancel = onDismiss)
                 is AutoFillState.Ready -> PreviewContent(

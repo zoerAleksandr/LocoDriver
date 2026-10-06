@@ -65,6 +65,9 @@ sealed interface AutoFillState {
     /** step: 0 — ищем крайние станции, 1 — прокладываем путь, 2 — собираем станции. */
     data class Loading(val step: Int) : AutoFillState
 
+    /** Между крайними станциями несколько путей — сначала выбор маршрута (экран вариантов), потом подбор станций по нему. */
+    data class ChooseRoute(val variants: List<RouteVariant>) : AutoFillState
+
     /** [approximate] — точного совпадения нет, варианты похожи по сокращению. */
     data class Choose(
         val end: PhaseEnd,
@@ -133,6 +136,10 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         arrivalOsmId: Long?,
         departurePoint: Pair<Double, Double>? = null,
         arrivalPoint: Pair<Double, Double>? = null,
+        /** Станции плеча с координатами по порядку: путь автоподбора — строго через них. */
+        viaPoints: List<Pair<Double, Double>> = emptyList(),
+        /** Нет промежуточных станций — сначала предложить выбрать маршрут, если путей несколько. */
+        pickRoute: Boolean = false,
     ) {
         request = ServicePhaseSuggestRequest(
             departureStation = departure.trim(),
@@ -142,7 +149,27 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
             arrivalOsmId = arrivalOsmId,
             departurePoint = departurePoint?.let { (lat, lon) -> LatLon(lat, lon) },
             arrivalPoint = arrivalPoint?.let { (lat, lon) -> LatLon(lat, lon) },
+            viaPoints = viaPoints.map { (lat, lon) -> LatLon(lat, lon) },
         )
+        if (pickRoute && viaPoints.isEmpty() && departurePoint != null && arrivalPoint != null) {
+            // Варианты пути между крайними станциями: больше одного — выбор маршрута, иначе сразу подбор.
+            job?.cancel()
+            job = viewModelScope.launch {
+                _state.value = AutoFillState.Loading(0)
+                val res = measure(listOf(departurePoint, arrivalPoint), withVariants = true) as? MeasureResult.Ok
+                val variants = res?.variants.orEmpty()
+                if (variants.size > 1) _state.value = AutoFillState.ChooseRoute(variants)
+                else run()
+            }
+            return
+        }
+        run()
+    }
+
+    /** После выбора маршрута: станции подбираются вдоль него ([vias] — его точки по порядку; пусто — кратчайший). */
+    fun chooseRoute(vias: List<Pair<Double, Double>>) {
+        val r = request ?: return
+        request = r.copy(viaPoints = vias.map { (lat, lon) -> LatLon(lat, lon) })
         run()
     }
 
