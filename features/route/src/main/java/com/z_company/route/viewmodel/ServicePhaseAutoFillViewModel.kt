@@ -255,6 +255,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
                 )
             }
         }
+        if (withGeometry) saveRailLine(points, res.geometry)
         // Геометрия единственного маршрута тоже нужна клиенту: после выбора пользовательской
         // via-точки показываем путь на карте до того, как пользователь его подтвердит.
         val variants = res.routes.mapNotNull(::toVariant).ifEmpty {
@@ -329,9 +330,29 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
      * (один повтор через 2 с при сбое); последняя полученная хранится на устройстве по набору
      * точек и рисуется, только если сервер недоступен.
      */
+    private fun railCacheKey(points: List<Pair<Double, Double>>) =
+        points.joinToString(";") { (lat, lon) -> "%.5f,%.5f".format(java.util.Locale.US, lat, lon) }
+
+    private fun railCacheFile(key: String) =
+        java.io.File(appContext.noBackupFilesDir, "rail_lines/${key.hashCode().toUInt().toString(16)}.txt")
+
+    /** Линия, полученная онлайн при замере/просмотре плеча, — запас для «Карты» без сети (тот же кэш, что у [railLine]). */
+    private suspend fun saveRailLine(points: List<Pair<Double, Double>>, geometry: List<List<Double>>) {
+        val line = geometry.mapNotNull { p -> if (p.size >= 2) p[0] to p[1] else null }
+        if (line.size < 2) return
+        val key = railCacheKey(points)
+        val file = railCacheFile(key)
+        withContext(Dispatchers.IO) {
+            runCatching {
+                file.parentFile?.mkdirs()
+                file.writeText(key + "\n" + line.joinToString(";") { (lat, lon) -> "$lat,$lon" })
+            }
+        }
+    }
+
     suspend fun railLine(points: List<Pair<Double, Double>>): RailLineResult {
-        val key = points.joinToString(";") { (lat, lon) -> "%.5f,%.5f".format(java.util.Locale.US, lat, lon) }
-        val file = java.io.File(appContext.noBackupFilesDir, "rail_lines/${key.hashCode().toUInt().toString(16)}.txt")
+        val key = railCacheKey(points)
+        val file = railCacheFile(key)
         // Всегда сначала сервер: граф путей обновляется, и сохранённая линия могла устареть
         // (так было после добавления станционных путей — карта рисовала старый объезд).
         // Кэш — только запас, когда сервер недоступен.

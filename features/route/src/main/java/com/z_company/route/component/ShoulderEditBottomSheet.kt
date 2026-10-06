@@ -252,6 +252,22 @@ fun ShoulderEditBottomSheet(
     var cachedVariantChoice by remember { mutableStateOf<CachedVariantChoice?>(null) }
     /** Состояние до временного добавления via-точки; возвращается при закрытии предпросмотра. */
     var pendingCustomRoute by remember { mutableStateOf<PendingCustomRoute?>(null) }
+    /** Ошибка построения своего маршрута: панель выбора станций открывается снова с тем же списком. */
+    var customRetry by remember { mutableStateOf<CustomRetry?>(null) }
+
+    /** Своя трасса не построилась: прежние станции возвращаются, вернуться в панель с ошибкой (или снекбар). */
+    fun failCustomRoute(message: String) {
+        val pending = pendingCustomRoute ?: return
+        stations.clear()
+        stations.addAll(pending.stationsBefore)
+        pendingCustomRoute = null
+        if (pending.choiceBefore != null) {
+            customRetry = CustomRetry(pending.chosen, message)
+            variantChoice = pending.choiceBefore
+        } else {
+            snackbar = EditorSnackbar(message)
+        }
+    }
 
     fun notifyAutoFound(autoFound: List<Pair<String, Boolean>>) {
         if (autoFound.isEmpty()) return
@@ -433,12 +449,8 @@ fun ShoulderEditBottomSheet(
                         return@launch
                     }
                     if (previewSingleRoute) {
-                        pendingCustomRoute?.let { pending ->
-                            stations.clear()
-                            stations.addAll(pending.stationsBefore)
-                        }
-                        pendingCustomRoute = null
-                        snackbar = EditorSnackbar("Не удалось показать построенный маршрут на карте")
+                        if (pendingCustomRoute != null) failCustomRoute("Не удалось показать построенный маршрут на карте")
+                        else snackbar = EditorSnackbar("Не удалось показать построенный маршрут на карте")
                         return@launch
                     }
                     val km = kotlin.math.round(res.lengthKm).toInt()
@@ -453,20 +465,16 @@ fun ShoulderEditBottomSheet(
                     notifyAutoFound(autoFound)
                 }
                 ServicePhaseAutoFillViewModel.MeasureResult.NoPath -> {
-                    if (previewSingleRoute) pendingCustomRoute?.let { pending ->
-                        stations.clear()
-                        stations.addAll(pending.stationsBefore)
-                        pendingCustomRoute = null
+                    if (previewSingleRoute && pendingCustomRoute != null) {
+                        failCustomRoute("Путь через эти станции не найден — измените список")
+                    } else {
+                        snackbar = EditorSnackbar("Путь по железной дороге между станциями не найден — проверьте координаты")
                     }
-                    snackbar = EditorSnackbar("Путь по железной дороге между станциями не найден — проверьте координаты")
                 }
                 is ServicePhaseAutoFillViewModel.MeasureResult.Failed -> {
-                    if (previewSingleRoute) pendingCustomRoute?.let { pending ->
-                        stations.clear()
-                        stations.addAll(pending.stationsBefore)
-                        pendingCustomRoute = null
-                    }
-                    if (fallbackToCachedMap) showRouteMap = true
+                    if (previewSingleRoute && pendingCustomRoute != null) {
+                        failCustomRoute(res.failure.message())
+                    } else if (fallbackToCachedMap) showRouteMap = true
                     else snackbar = EditorSnackbar(res.failure.message())
                 }
             }
@@ -665,7 +673,7 @@ fun ShoulderEditBottomSheet(
                 openStation(null, null)
             },
             onBuildCustomRoute = { candidates ->
-                pendingCustomRoute = PendingCustomRoute(stations.toList())
+                pendingCustomRoute = PendingCustomRoute(stations.toList(), null, candidates)
                 setCustomRouteVias(candidates)
                 closeAutoFill()
                 measureByMap(previewSingleRoute = true)
@@ -745,13 +753,19 @@ fun ShoulderEditBottomSheet(
                 variantChoice = null
                 applyVariant(choice, v)
                 pendingCustomRoute = null
+                customRetry = null
             },
             onDismiss = {
-                variantChoice = null
-                pendingCustomRoute?.let { pending ->
+                customRetry = null
+                val pending = pendingCustomRoute
+                if (pending != null) {
+                    // «Назад» из предпросмотра своего маршрута: временные станции не сохраняются, снова все варианты.
                     stations.clear()
                     stations.addAll(pending.stationsBefore)
                     pendingCustomRoute = null
+                    variantChoice = pending.choiceBefore
+                } else {
+                    variantChoice = null
                 }
             },
             findCustomRouteStations = { query ->
@@ -761,8 +775,11 @@ fun ShoulderEditBottomSheet(
                 }
                 autoVm.lookup(query, country, near)
             },
+            initialCustom = customRetry?.chosen,
+            initialCustomError = customRetry?.message,
             onBuildCustomRoute = { candidates ->
-                pendingCustomRoute = PendingCustomRoute(stations.toList())
+                pendingCustomRoute = PendingCustomRoute(stations.toList(), choice, candidates)
+                customRetry = null
                 setCustomRouteVias(candidates)
                 variantChoice = null
                 measureByMap(previewSingleRoute = true)
@@ -1275,7 +1292,13 @@ private class VariantChoice(
 
 private class CachedVariantChoice(val signature: String, val choice: VariantChoice)
 
-private class PendingCustomRoute(val stationsBefore: List<ServicePhaseStation>)
+private class PendingCustomRoute(
+    val stationsBefore: List<ServicePhaseStation>,
+    val choiceBefore: VariantChoice?,
+    val chosen: List<OsmStationCandidate>,
+)
+
+private class CustomRetry(val chosen: List<OsmStationCandidate>, val message: String)
 
 /** [undo] null — просто сообщение, без «Отменить». */
 private class TerminalChoice(val isStart: Boolean, val name: String, val candidates: List<OsmStationCandidate>)

@@ -102,6 +102,9 @@ internal fun PhaseRouteVariantsMap(
     onDismiss: () -> Unit,
     findCustomRouteStations: (suspend (String) -> List<OsmStationCandidate>?)? = null,
     onBuildCustomRoute: ((List<OsmStationCandidate>) -> Unit)? = null,
+    /** Список станций и ошибка после неудачного построения: панель открывается снова с ними. */
+    initialCustom: List<OsmStationCandidate>? = null,
+    initialCustomError: String? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -114,11 +117,12 @@ internal fun PhaseRouteVariantsMap(
         var selected by remember { mutableStateOf(0) }
         var styleReady by remember { mutableStateOf(false) }
         var locationDenied by remember { mutableStateOf(false) }
-        var customMode by remember { mutableStateOf(false) }
+        var customMode by remember { mutableStateOf(initialCustom != null) }
+        var customError by remember { mutableStateOf(initialCustomError) }
         var customQuery by remember { mutableStateOf(TextFieldValue("")) }
         var customCandidates by remember { mutableStateOf<List<OsmStationCandidate>>(emptyList()) }
         // Выбранные промежуточные станции — по порядку от отправления к прибытию; путь строится строго через них.
-        val customChosen = remember { mutableStateListOf<OsmStationCandidate>() }
+        val customChosen = remember { mutableStateListOf<OsmStationCandidate>().apply { initialCustom?.let(::addAll) } }
         var customSearching by remember { mutableStateOf(false) }
         var customSearchFailed by remember { mutableStateOf(false) }
         val alive = remember { AtomicBoolean(true) }
@@ -345,7 +349,8 @@ internal fun PhaseRouteVariantsMap(
                                 Box(Modifier.size(width = 28.dp, height = 4.dp).background(variantComposeColor(i), RoundedCornerShape(2.dp)))
                                 // Разрыв после дефиса: «Гатчина-Варшавская» переносится, а не обрезается многоточием.
                                 Text(
-                                    text = labels[i]?.let { "через ${it.replace("-", "-\u200B")}" }
+                                    text = (if (variants.size == 1 && v.via.isNotEmpty()) v.via.joinToString(", ") { it.name } else labels[i])
+                                        ?.let { "через ${it.replace("-", "-\u200B")}" }
                                         ?: if (i == 0) "Основной маршрут" else "Вариант маршрута",
                                     style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold),
                                     color = Pst.text,
@@ -392,6 +397,16 @@ internal fun PhaseRouteVariantsMap(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text("Через какие станции построить?", style = Pst.sans.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                        if (customChosen.isEmpty()) {
+                            Text(
+                                "Добавьте станции в порядке прохождения пути — маршрут пройдёт строго через них.",
+                                style = Pst.sans.copy(fontSize = 12.sp),
+                                color = Pst.textMuted,
+                            )
+                        }
+                        customError?.let {
+                            Text(it, style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium), color = Pst.danger)
+                        }
                         if (customChosen.isNotEmpty()) {
                             Column(
                                 Modifier.fillMaxWidth().border(1.dp, Pst.border, RoundedCornerShape(12.dp)),
@@ -421,16 +436,11 @@ internal fun PhaseRouteVariantsMap(
                                     }
                                 }
                             }
-                            Text(
-                                "Путь пойдёт строго через станции по порядку сверху вниз.",
-                                style = Pst.sans.copy(fontSize = 12.sp),
-                                color = Pst.textMuted,
-                            )
                         }
                         PstTextField(
                             value = customQuery,
                             onValueChange = { customQuery = it.copy(selection = TextRange(it.text.length)) },
-                            label = if (customChosen.isEmpty()) "Станция по пути" else "Добавить ещё станцию",
+                            label = if (customChosen.isEmpty()) "Название станции" else "Добавить ещё станцию",
                             placeholder = "Начните вводить название",
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -441,13 +451,17 @@ internal fun PhaseRouteVariantsMap(
                             customSearchFailed -> Text("Не удалось найти станции. Проверьте подключение.", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.danger)
                             customQuery.text.trim().length >= 2 && customCandidates.isEmpty() -> Text("Станции не найдены", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
                             else -> customCandidates.forEach { candidate ->
-                                val added = customChosen.any { it.osmId == candidate.osmId }
+                                val added = customChosen.any {
+                                    it.osmId == candidate.osmId ||
+                                        (kotlin.math.abs(it.latitude - candidate.latitude) < 1e-5 && kotlin.math.abs(it.longitude - candidate.longitude) < 1e-5)
+                                }
                                 Column(
                                     Modifier.fillMaxWidth()
                                         .background(if (added) Pst.accentSoft else Pst.bg, RoundedCornerShape(12.dp))
                                         .border(1.dp, if (added) Pst.accent else Pst.border, RoundedCornerShape(12.dp))
                                         .clickable(enabled = !added) {
                                             customChosen.add(candidate)
+                                            customError = null
                                             customQuery = TextFieldValue("")
                                         }
                                         .padding(horizontal = 12.dp, vertical = 10.dp)
