@@ -32,6 +32,7 @@ import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.OverRestRoutes.adjacentRoutesOfMonth
 import com.z_company.domain.entities.route.UtilsForEntities.filterByConsiderFutureRoute
+import com.z_company.domain.entities.route.UtilsForEntities.filterWorkedByNow
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.findNextFutureRoute
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
@@ -385,13 +386,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
         val currentTimeInMillis = Calendar.getInstance().timeInMillis
 
-        // Пересчитываем время, отработанное за сегодня, с учётом только завершённых маршрутов
+        // Пересчитываем время, отработанное на сегодня: завершённые маршруты и текущий
         if (isConsiderFutureRoute) {
-            val completedRoutes = routeList.filter { route ->
-                val end = route.basicData.timeEndWork ?: return@filter false
-                end <= currentTimeInMillis
-            }
-            todayWorkTime = completedRoutes.getWorkTime(monthOfYear, TimeCalculationContext.from(userSettings))
+            todayWorkTime = routeList.filterWorkedByNow(currentTimeInMillis).getWorkTime(monthOfYear, TimeCalculationContext.from(userSettings))
         }
 
         // Запускаем обратный отсчёт до следующего маршрута.
@@ -954,11 +951,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         isConsiderFutureRoute = userSettings.isConsiderFutureRoute
         if (userSettings.isConsiderFutureRoute) {
             currentMonthOfYear?.let { monthOfYear ->
-                val completedRoutes = fullRouteList.filter { route ->
-                    val end = route.basicData.timeEndWork ?: return@filter false
-                    end <= currentTimeInMillis
-                }
-                todayWorkTime = completedRoutes.getWorkTime(
+                todayWorkTime = fullRouteList.filterWorkedByNow(currentTimeInMillis).getWorkTime(
                     monthOfYear,
                     TimeCalculationContext.from(userSettings)
                 )
