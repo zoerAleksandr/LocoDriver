@@ -15,6 +15,9 @@ import com.z_company.route.viewmodel.message
 import androidx.compose.foundation.layout.Spacer
 
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 
 import com.z_company.domain.util.toMoneyString
 
@@ -168,6 +171,8 @@ fun ShoulderEditBottomSheet(
     var createReverse by remember { mutableStateOf(true) }
     val stations = remember { mutableStateListOf<ServicePhaseStation>().apply { addAll(phase?.intermediateStations.orEmpty()) } }
     var editMode by remember { mutableStateOf(false) }
+    // Остались только крайние станции — править нечего: режим «Изменить» выходит сам.
+    LaunchedEffect(stations.size) { if (stations.isEmpty()) editMode = false }
     var confirmDeletePhase by remember { mutableStateOf(false) }
 
     // Шторка станции: editing — существующая; insertAt — позиция новой (null = по км / в конец)
@@ -273,14 +278,10 @@ fun ShoulderEditBottomSheet(
         if (autoFound.isEmpty()) return
         val names = autoFound.joinToString(" и ") { "«${it.first}»" }
         snackbar = EditorSnackbar(
-            text = if (autoFound.size == 1) {
-                "Координаты станции $names определены автоматически — проверьте, что точка верная"
-            } else {
-                "Координаты станций $names определены автоматически — проверьте, что точки верные"
-            },
+            text = if (autoFound.size == 1) "Координаты $names определены — проверьте точку"
+            else "Координаты $names определены — проверьте точки",
             undo = { editingTerminal = autoFound.first().second },
             actionLabel = "Проверить",
-            durationMs = 12_000,
         )
     }
 
@@ -341,15 +342,11 @@ fun ShoulderEditBottomSheet(
             // Кратчайший — это и есть путь, по которому дальше ходит замер без станций.
             shortest -> notifyAutoFound(choice.autoFound)
             addable.isNotEmpty() -> snackbar = EditorSnackbar(
-                text = "Маршрут $km км выбран. Чтобы замер шёл этим путём, добавьте станции маршрута",
-                actionLabel = "Добавить станции маршрута",
-                durationMs = 12_000,
+                text = "Выбран маршрут $km км. Добавить его станции?",
+                actionLabel = "Добавить",
                 undo = { addVariantStations(addable) },
             )
-            else -> snackbar = EditorSnackbar(
-                "Маршрут $km км выбран. Чтобы замер шёл этим путём, добавьте промежуточные станции",
-                durationMs = 10_000,
-            )
+            else -> snackbar = EditorSnackbar("Выбран маршрут $km км. Чтобы замер шёл им, добавьте станции")
         }
     }
 
@@ -379,16 +376,12 @@ fun ShoulderEditBottomSheet(
                 if (found == null) {
                     measuring = false
                     val why = autoVm.lastLookupFailure?.message() ?: AutoFillFailure.SERVICE.message()
-                    snackbar = EditorSnackbar("Не удалось найти «$name» на карте. $why")
+                    snackbar = EditorSnackbar("«$name» не найдена. $why")
                     return@launch
                 }
                 if (found.isEmpty()) {
                     measuring = false
-                    snackbar = EditorSnackbar(
-                        "«$name» не нашлась на карте — укажите её координаты в схеме. Если это не станция " +
-                            "(пути необщего пользования, терминал) — точку на карте вручную.",
-                        durationMs = 10_000,
-                    )
+                    snackbar = EditorSnackbar("«$name» не нашлась на карте — укажите точку вручную")
                     return@launch
                 }
                 if (found.any { it.approximate }) {
@@ -466,9 +459,9 @@ fun ShoulderEditBottomSheet(
                 }
                 ServicePhaseAutoFillViewModel.MeasureResult.NoPath -> {
                     if (previewSingleRoute && pendingCustomRoute != null) {
-                        failCustomRoute("Путь через эти станции не найден — измените список")
+                        failCustomRoute("Путь через эти станции не найден — измените порядок или список")
                     } else {
-                        snackbar = EditorSnackbar("Путь по железной дороге между станциями не найден — проверьте координаты")
+                        snackbar = EditorSnackbar("Путь без разворотов не найден — проверьте порядок и координаты станций")
                     }
                 }
                 is ServicePhaseAutoFillViewModel.MeasureResult.Failed -> {
@@ -655,7 +648,7 @@ fun ShoulderEditBottomSheet(
                 val n = result.addedIds.size
                 val m = result.newNames.size
                 val text = "Добавлено $n ${pluralStations(n)}" +
-                    if (m > 0) " · $m ${pluralNames(m)} — в справочник" else ""
+                    if (m > 0) ", $m ${pluralNames(m)} — в справочник" else ""
                 snackbar = EditorSnackbar(text) {
                     stations.clear()
                     stations.addAll(before)
@@ -929,7 +922,7 @@ fun ShoulderEditBottomSheet(
                         PstGroupHead(
                             text = "Промежуточные станции · ${stations.size}",
                             modifier = Modifier.padding(top = 22.dp, bottom = 8.dp).heightIn(min = 32.dp),
-                            action = if (stations.isEmpty()) null else {
+                            action = if (stations.isEmpty() && !editMode) null else {
                                 {
                                     PstButton(
                                         text = if (editMode) "Готово" else "Изменить",
@@ -1310,46 +1303,49 @@ private class TerminalChoice(val isStart: Boolean, val name: String, val candida
 private class EditorSnackbar(
     val text: String,
     val actionLabel: String = "Отменить",
-    val durationMs: Long = 6_000,
+    val durationMs: Long = 6_000, // не используется: автоскрытие 6 с (с действием 8 с) — см. EditorSnackbarView
     val undo: (() -> Unit)? = null,
 )
 
 @Composable
 private fun EditorSnackbarView(bar: EditorSnackbar, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    // Автоскрытие: 6 с, с действием — 8 с.
     LaunchedEffect(bar) {
-        delay(bar.durationMs)
+        delay(if (bar.undo != null) 8_000 else 6_000)
         onDismiss()
     }
     // На инверсном фоне акцент берём контрастный: в светлой теме — светлый, в тёмной — тёмный.
     val darkTheme = Pst.bg.luminance() < 0.5f
     val actionColor = if (darkTheme) Color(0xFF0091D9) else Color(0xFF33BFFF)
+    // Компактный: ширина по тексту (не больше 340 dp), до 2 строк, небольшие отступы.
     Row(
         modifier = modifier
-            .padding(12.dp)
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .background(Pst.cta, RoundedCornerShape(8.dp))
-            .padding(start = 16.dp, top = 6.dp, bottom = 6.dp, end = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .widthIn(max = 340.dp)
+            .background(Pst.cta, RoundedCornerShape(10.dp))
+            .padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = bar.text,
-            style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 19.sp),
+            style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 17.sp),
             color = Pst.ctaInk,
-            modifier = Modifier.weight(1f),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false).padding(vertical = 6.dp),
         )
         val undo = bar.undo
         if (undo != null) Text(
             text = bar.actionLabel,
-            style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+            style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
             color = actionColor,
             modifier = Modifier
                 .clickable {
                     undo()
                     onDismiss()
                 }
-                .padding(horizontal = 12.dp, vertical = 9.dp),
-        ) else Box(Modifier.heightIn(min = 36.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+        ) else Spacer(Modifier.width(8.dp))
     }
 }
 
