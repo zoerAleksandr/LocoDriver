@@ -117,6 +117,8 @@ internal fun PhaseRouteVariantsMap(
     initialCustomError: String? = null,
     /** Предпросмотр построенного своего маршрута: одна карточка, подсказка и «Назад» / «Выбрать маршрут». */
     customPreview: Boolean = false,
+    /** Сообщить разработчику, что путь через выбранные станции не проложить (кнопка под ошибкой пути); null — нет кнопки. */
+    onReportNoPath: ((List<OsmStationCandidate>) -> Unit)? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -462,6 +464,24 @@ internal fun PhaseRouteVariantsMap(
                             }
                         }
                         customError?.let { PanelHint(it, error = true) }
+                        if (customError != null && onReportNoPath != null && customChosen.isNotEmpty()) {
+                            Text(
+                                "Если такой маршрут должен существовать, сообщите разработчику — мы поправим карту.",
+                                style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                                color = Pst.textMuted,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                            Text(
+                                "Сообщить разработчику",
+                                style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                                color = Pst.accent,
+                                modifier = Modifier
+                                    .padding(top = 2.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { onReportNoPath(customChosen.toList()) }
+                                    .padding(vertical = 8.dp),
+                            )
+                        }
                         PanelActions(
                             leftText = "Назад", onLeft = { customMode = false },
                             rightText = "Построить", rightEnabled = customChosen.isNotEmpty(),

@@ -74,6 +74,8 @@ import androidx.compose.runtime.Composable
 import com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel
 import com.z_company.route.viewmodel.PhaseEnd
 import com.z_company.route.component.servicephase.PhaseAutoFillSheet
+import com.z_company.route.component.servicephase.ReportStop
+import com.z_company.route.component.servicephase.reportNoPath
 import com.z_company.route.component.servicephase.PhaseRouteVariantsMap
 import com.z_company.route.viewmodel.RouteVariant
 import com.z_company.route.viewmodel.RouteVia
@@ -260,6 +262,19 @@ fun ShoulderEditBottomSheet(
     /** Ошибка построения своего маршрута: панель выбора станций открывается снова с тем же списком. */
     var customRetry by remember { mutableStateOf<CustomRetry?>(null) }
 
+    /** «Сообщить разработчику»: письмо в поддержку с плечом и станциями по порядку ([via] — свой список или станции плеча). */
+    fun sendNoPathReport(via: List<ReportStop>? = null) {
+        val dep = departure.text.trim()
+        val arr = arrival.text.trim()
+        val depP = pointFor(depPoint, dep)
+        val arrP = pointFor(arrPoint, arr)
+        val mid = via ?: stations.map { ReportStop(it.name, it.latitude, it.longitude) }
+        reportNoPath(
+            context,
+            listOf(ReportStop(dep, depP?.latitude, depP?.longitude)) + mid + ReportStop(arr, arrP?.latitude, arrP?.longitude),
+        )
+    }
+
     /** Своя трасса не построилась: прежние станции возвращаются, вернуться в панель с ошибкой (или снекбар). */
     fun failCustomRoute(message: String) {
         val pending = pendingCustomRoute ?: return
@@ -270,7 +285,7 @@ fun ShoulderEditBottomSheet(
             customRetry = CustomRetry(pending.chosen, message)
             variantChoice = pending.choiceBefore
         } else {
-            snackbar = EditorSnackbar(message)
+            snackbar = EditorSnackbar(message, actionLabel = "Сообщить", undo = { sendNoPathReport(pending.chosen.map { ReportStop(it.name, it.latitude, it.longitude) }) }.takeIf { message.contains("не найден") })
         }
     }
 
@@ -461,7 +476,11 @@ fun ShoulderEditBottomSheet(
                     if (previewSingleRoute && pendingCustomRoute != null) {
                         failCustomRoute("Путь через эти станции не найден — измените порядок или список")
                     } else {
-                        snackbar = EditorSnackbar("Путь без разворотов не найден — проверьте порядок и координаты станций")
+                        snackbar = EditorSnackbar(
+                            "Путь без разворотов не найден — проверьте порядок станций",
+                            actionLabel = "Сообщить",
+                            undo = { sendNoPathReport() },
+                        )
                     }
                 }
                 is ServicePhaseAutoFillViewModel.MeasureResult.Failed -> {
@@ -666,6 +685,7 @@ fun ShoulderEditBottomSheet(
                 closeAutoFill()
                 openStation(null, null)
             },
+            onReportNoPath = { sendNoPathReport() },
             onBuildCustomRoute = { candidates ->
                 pendingCustomRoute = PendingCustomRoute(stations.toList(), null, candidates)
                 setCustomRouteVias(candidates)
@@ -771,6 +791,7 @@ fun ShoulderEditBottomSheet(
                 autoVm.lookup(query, country, near, limit = STATION_SEARCH_LIMIT)
             },
             customPreview = pendingCustomRoute != null,
+            onReportNoPath = { chosen -> sendNoPathReport(chosen.map { ReportStop(it.name, it.latitude, it.longitude) }) },
             initialCustom = customRetry?.chosen,
             initialCustomError = customRetry?.message,
             onBuildCustomRoute = { candidates ->

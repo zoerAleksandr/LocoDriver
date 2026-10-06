@@ -89,6 +89,7 @@ internal fun PhaseAutoFillSheet(
     onSetDistance: (Int) -> Unit,
     onEditName: (PhaseEnd) -> Unit,
     onAddManually: () -> Unit,
+    onReportNoPath: (() -> Unit)? = null,
     onBuildCustomRoute: ((List<OsmStationCandidate>) -> Unit)? = null,
     onDismiss: () -> Unit,
     /** Поиск станций по названию рядом с точками («Не та станция»); null в ответе — ошибка сети/сервиса. */
@@ -137,6 +138,7 @@ internal fun PhaseAutoFillSheet(
                     onRetry = onRetry,
                     onEditName = onEditName,
                     onAddManually = onAddManually,
+                    onReportNoPath = onReportNoPath,
                     onClose = onDismiss,
                 )
             }
@@ -704,6 +706,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
     onEditName: (PhaseEnd) -> Unit,
     onAddManually: () -> Unit,
     onClose: () -> Unit,
+    onReportNoPath: (() -> Unit)? = null,
 ) {
     data class Spec(val icon: ImageVector, val title: String, val text: String, val primary: Pair<String, () -> Unit>, val secondary: Pair<String, () -> Unit>)
     val spec = when (state.failure) {
@@ -727,7 +730,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
         )
         AutoFillFailure.NO_PATH -> Spec(
             PstIcons.Shoulder, "Путь между станциями не найден",
-            "На карте нет связанного пути от «$departure» до «$arrival». Возможно, станции на разных линиях или в данных карты разрыв.",
+            "На карте нет связанного пути без разворотов от «$departure» до «$arrival». Возможно, станции на разных линиях или в данных карты разрыв.",
             "Добавить вручную" to onAddManually, "Закрыть" to onClose,
         )
         AutoFillFailure.RATE_LIMITED -> Spec(
@@ -763,6 +766,16 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp).widthIn(max = 300.dp),
         )
+        if (state.failure == AutoFillFailure.NO_PATH && onReportNoPath != null) {
+            Text(
+                text = "Если путь должен быть, сообщите разработчику — мы поправим карту.",
+                style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 18.sp),
+                color = Pst.textMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 12.dp).widthIn(max = 300.dp),
+            )
+            PstButton(text = "Сообщить разработчику", onClick = onReportNoPath, kind = PstButtonKind.TEXT, height = 40.dp, modifier = Modifier.padding(top = 4.dp))
+        }
     }
     PstSheetFooter {
         PstButton(text = spec.primary.first, onClick = spec.primary.second, height = 48.dp, modifier = Modifier.fillMaxWidth())
