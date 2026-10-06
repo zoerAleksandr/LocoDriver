@@ -7,10 +7,14 @@ import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.response.LatLon
 import com.z_company.repository.remote_rest.response.OsmPathStation
 import com.z_company.repository.remote_rest.response.OsmStationCandidate
+import com.z_company.repository.remote_rest.response.RouteLengthRequest
+import com.z_company.repository.remote_rest.response.RouteLengthResponse
 import com.z_company.repository.remote_rest.response.ServicePhaseLookupRequest
 import com.z_company.repository.remote_rest.response.ServicePhaseSuggestRequest
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,6 +83,28 @@ sealed interface AutoFillState {
     ) : AutoFillState
 
     data class Failed(val failure: AutoFillFailure, val end: PhaseEnd? = null, val name: String? = null) : AutoFillState
+}
+
+internal fun preferReverseAlternatives(
+    forward: RouteLengthResponse,
+    reverse: RouteLengthResponse,
+): RouteLengthResponse {
+    if (reverse.routes.size <= forward.routes.size) return forward
+    val routes = reverse.routes.map { route ->
+        route.copy(
+            geometry = route.geometry.asReversed(),
+            viaStations = route.viaStations.asReversed().map { via ->
+                via.copy(km = (route.lengthKm - via.km).coerceIn(0.0, route.lengthKm))
+            },
+        )
+    }
+    return reverse.copy(
+        kmAt = reverse.kmAt.asReversed().map { km ->
+            (reverse.lengthKm - km).coerceIn(0.0, reverse.lengthKm)
+        },
+        geometry = reverse.geometry.asReversed(),
+        routes = routes,
+    )
 }
 
 /**
@@ -203,14 +229,31 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     ): MeasureResult = try {
         val token = tokens.getAuthBearerTokenFlow().first()
         val res = withTimeout(TIMEOUT_MS) {
-            api.measureRouteLength(
-                "Bearer $token",
-                com.z_company.repository.remote_rest.response.RouteLengthRequest(
-                    points = points.map { (lat, lon) -> LatLon(lat, lon) },
-                    withGeometry = withGeometry,
-                    alternatives = if (withVariants) MAX_VARIANTS else 1,
-                ),
+            val request = RouteLengthRequest(
+                points = points.map { (lat, lon) -> LatLon(lat, lon) },
+                withGeometry = withGeometry,
+                alternatives = if (withVariants) MAX_VARIANTS else 1,
             )
+            // Альтернативы в текущем серверном графе иногда направленно-асимметричны:
+            // Лужская → СПбСМ даёт три пути, а СПбСМ → Лужская — один. Оба направления
+            // запрашиваем параллельно, чтобы проверка не удваивала пользовательский таймаут.
+            if (withVariants && points.size == 2) coroutineScope {
+                val forward = async {
+                    api.measureRouteLength("Bearer $token", request)
+                }
+                val reverse = async {
+                    api.measureRouteLength(
+                        "Bearer $token",
+                        request.copy(points = request.points.asReversed()),
+                    )
+                }
+                preferReverseAlternatives(forward.await(), reverse.await())
+            } else {
+                api.measureRouteLength(
+                    "Bearer $token",
+                    request,
+                )
+            }
         }
         // Геометрия единственного маршрута тоже нужна клиенту: после выбора пользовательской
         // via-точки показываем путь на карте до того, как пользователь его подтвердит.
