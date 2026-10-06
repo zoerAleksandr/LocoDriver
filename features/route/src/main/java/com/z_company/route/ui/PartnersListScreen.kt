@@ -76,6 +76,7 @@ fun PartnersListScreen(
     onAddNew: () -> Unit,
     permanentCandidate: Partner? = null,
     onMakePermanent: (Partner) -> Unit = {},
+    onUnsetPermanent: (Partner) -> Unit = {},
     replaceRequest: PermanentReplaceRequest? = null,
     onConfirmReplace: () -> Unit = {},
     onDismissReplace: () -> Unit = {},
@@ -276,7 +277,9 @@ fun PartnersListScreen(
                                     ) {
                                         MakePermanentButton(
                                             partner = p,
-                                            onClick = { onMakePermanent(p) },
+                                            onClick = {
+                                                if (p.isPermanent) onUnsetPermanent(p) else onMakePermanent(p)
+                                            },
                                         )
                                     }
                                 }

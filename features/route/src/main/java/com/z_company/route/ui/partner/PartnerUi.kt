@@ -167,7 +167,7 @@ fun PermanentPartnerSection(
 
 /**
  * Широкая кнопка под строкой отмеченного в пикере напарника: «Сделать постоянным
- * напарником» + короткое ФИО второй строкой (ФИО не склоняем — род не определить).
+ * напарником» (или «Убрать из постоянных», если он уже постоянный) + короткое ФИО второй строкой (ФИО не склоняем — род не определить).
  */
 @Composable
 fun MakePermanentButton(
@@ -186,7 +186,10 @@ fun MakePermanentButton(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            painter = painterResource(com.z_company.core.R.drawable.ic_star_border),
+            painter = painterResource(
+                if (partner.isPermanent) com.z_company.core.R.drawable.ic_star
+                else com.z_company.core.R.drawable.ic_star_border
+            ),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.tertiary,
             modifier = Modifier.size(20.dp),
@@ -194,7 +197,7 @@ fun MakePermanentButton(
         Spacer(Modifier.width(10.dp))
         Column {
             Text(
-                text = "Сделать постоянным напарником",
+                text = if (partner.isPermanent) "Убрать из постоянных" else "Сделать постоянным напарником",
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.tertiary,
             )

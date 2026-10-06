@@ -84,6 +84,12 @@ class PartnerPickerViewModel(
         }
     }
 
+    /** Кнопка «Убрать из постоянных»: напарник остаётся в справочнике, флаг снимается. */
+    fun unsetPermanent(partner: Partner) {
+        if (!partner.isPermanent) return
+        setPermanent(null)
+    }
+
     fun confirmReplacePermanent() {
         val request = _replaceRequest.value ?: return
         _replaceRequest.value = null
