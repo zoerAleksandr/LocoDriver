@@ -200,16 +200,7 @@ fun FormTrainScreen(
     var showSettingsSheet by remember { mutableStateOf(false) }
     var settingsSheetMode by remember { mutableStateOf(TrainExtraSheetMode.ASSISTS) }
     var showTrainDataHistory by remember { mutableStateOf(false) }
-    var bottomBarVisible by remember { mutableStateOf(true) }
-    val bottomBarNestedScroll = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y < -3f) bottomBarVisible = false
-                else if (available.y > 3f) bottomBarVisible = true
-                return Offset.Zero
-            }
-        }
-    }
+    val bottomBarScroll = com.z_company.route.component.rememberBottomBarScrollState()
     // Сигнал закрытия свайп-раскрытой строки станции (при отмене подтверждения)
     var closeSwipeSignal by remember { mutableStateOf(0) }
 
@@ -1071,7 +1062,7 @@ fun FormTrainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .nestedScroll(bottomBarNestedScroll)
+                .nestedScroll(bottomBarScroll.nestedScroll)
         ) {
             currentTrain?.let { train ->
                 LazyColumn(
@@ -2102,17 +2093,11 @@ fun FormTrainScreen(
                 }
             }
 
-            var barHeightPx by remember { mutableStateOf(0) }
-            val barOffsetY by androidx.compose.animation.core.animateIntAsState(
-                targetValue = if (bottomBarVisible) 0 else barHeightPx,
-                animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
-                label = "trainBottomBarOffset",
-            )
+            com.z_company.route.component.ScrollHidingBottomBar(
+                visible = bottomBarScroll.visible,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
             TrainBottomAppBar(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .onSizeChanged { barHeightPx = it.height }
-                    .offset { IntOffset(0, barOffsetY) },
                 hasInspector = currentTrain?.carInspector?.hasEnteredData() == true,
                 hasAssists = currentTrain?.let {
                     it.pusher?.hasEnteredData() == true ||
@@ -2130,6 +2115,7 @@ fun FormTrainScreen(
                 },
                 onAddStationClick = { askLocation { viewModel.startAddingNewStation() } },
             )
+            }
         }
     }
 }
