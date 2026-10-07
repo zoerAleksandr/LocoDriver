@@ -19,6 +19,7 @@ import com.z_company.domain.autorecord.AutoTrainWriter
 import com.z_company.domain.autorecord.MotionSample
 import com.z_company.domain.autorecord.StopDetector
 import com.z_company.domain.autorecord.StopEvent
+import com.z_company.domain.autorecord.TrainOrdering
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.setting.UserSettings
@@ -297,7 +298,7 @@ class AutoRecordManager(
             notifyNoRoute()
             return
         }
-        val train = route.trains.lastOrNull() ?: Train(basicId = route.basicData.id)
+        val train = TrainOrdering.pickAutoTarget(route.trains) ?: Train(basicId = route.basicData.id)
 
         val open = editor
         if (open != null && open.trainId == train.trainId) {
