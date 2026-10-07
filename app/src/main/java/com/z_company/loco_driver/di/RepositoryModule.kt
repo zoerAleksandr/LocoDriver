@@ -139,6 +139,21 @@ val repositoryModule = module {
             routeUseCase = get(),
             trainUseCase = get(),
             stationDirectory = get(),
+            settingsUseCase = get(),
+            onWatchdog = { on ->
+                val wm = androidx.work.WorkManager.getInstance(androidContext())
+                if (on) {
+                    wm.enqueueUniquePeriodicWork(
+                        "auto_record_watchdog",
+                        androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+                        androidx.work.PeriodicWorkRequestBuilder<com.z_company.loco_driver.widget.AutoRecordWatchdogWorker>(
+                            15, java.util.concurrent.TimeUnit.MINUTES,
+                        ).build(),
+                    )
+                } else {
+                    wm.cancelUniqueWork("auto_record_watchdog")
+                }
+            },
             prefs = androidContext().getSharedPreferences(
                 com.z_company.route.autorecord.AutoRecordManager.PREFS_NAME,
                 android.content.Context.MODE_PRIVATE,

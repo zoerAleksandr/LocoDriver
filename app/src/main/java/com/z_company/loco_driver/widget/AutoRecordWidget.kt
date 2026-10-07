@@ -63,7 +63,7 @@ fun AutoButton(modifier: GlanceModifier, wide: Boolean = false) {
             )
             if (on) {
                 Text(
-                    text = "до ${AutoRecordManager.formatTime(until)}",
+                    text = "до ${AutoRecordManager.formatTime(context, until)}",
                     style = TextStyle(color = fg, fontSize = 10.sp, textAlign = TextAlign.Center),
                 )
             }
