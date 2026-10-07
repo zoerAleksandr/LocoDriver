@@ -92,16 +92,35 @@ fun rememberAutoRecordToggle(manager: AutoRecordManager, trainId: String? = null
             },
         )
     }
+    val consent: TrackConsentStore = org.koin.compose.koinInject()
+    val startEnable = {
+        val missing = manager.missingPermissions()
+        if (missing.isEmpty()) {
+            if (manager.enable(currentTrainId)) afterEnable()
+        } else launcher.launch(missing)
+        Unit
+    }
+    // Экран согласия №1 — при первом включении «АВТО» (SCREEN_SPECS §6.9).
+    var showConsent by remember { mutableStateOf(false) }
+    if (showConsent) {
+        TrackConsentDialog(
+            initialChecked = false,
+            onContinue = { checked ->
+                showConsent = false
+                consent.setConsent(checked)
+                startEnable()
+            },
+            onDismiss = { showConsent = false },
+        )
+    }
     return remember(manager) {
         {
             if (manager.state.value.enabled) {
                 manager.disable()
+            } else if (!consent.hasDecided()) {
+                showConsent = true
             } else {
-                val missing = manager.missingPermissions()
-                if (missing.isEmpty()) {
-                    if (manager.enable(currentTrainId)) afterEnable()
-                } else launcher.launch(missing)
-                Unit
+                startEnable()
             }
         }
     }
