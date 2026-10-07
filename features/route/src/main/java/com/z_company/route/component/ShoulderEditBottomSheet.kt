@@ -76,6 +76,9 @@ import com.z_company.route.viewmodel.PhaseEnd
 import com.z_company.route.component.servicephase.PhaseAutoFillSheet
 import com.z_company.route.component.servicephase.ReportStop
 import com.z_company.route.component.servicephase.reportNoPath
+import com.z_company.route.component.servicephase.reportMissingStation
+import com.z_company.route.component.servicephase.stationNotFoundMessage
+import com.z_company.route.component.servicephase.WRITE_TO_SUPPORT
 import com.z_company.route.component.servicephase.PhaseRouteVariantsMap
 import com.z_company.route.viewmodel.AutoFillState
 import com.z_company.route.util.FalseMileage
@@ -285,6 +288,16 @@ fun ShoulderEditBottomSheet(
         )
     }
 
+    /** «Написать в поддержку»: станции нет на карте — письмо «Добавьте станцию: X». */
+    fun sendMissingStationReport(name: String) {
+        reportMissingStation(
+            context,
+            stationName = name,
+            departure = departure.text.trim(),
+            arrival = arrival.text.trim(),
+        )
+    }
+
     /** Своя трасса не построилась: прежние станции возвращаются, вернуться в панель с ошибкой (или снекбар). */
     fun failCustomRoute(message: String) {
         val pending = pendingCustomRoute ?: return
@@ -427,7 +440,11 @@ fun ShoulderEditBottomSheet(
                 }
                 if (found.isEmpty()) {
                     measuring = false
-                    snackbar = EditorSnackbar("«$name» не нашлась на карте — укажите точку вручную")
+                    snackbar = EditorSnackbar(
+                        stationNotFoundMessage(name),
+                        actionLabel = WRITE_TO_SUPPORT,
+                        undo = { sendMissingStationReport(name) },
+                    )
                     return@launch
                 }
                 if (found.any { it.approximate }) {
@@ -603,6 +620,7 @@ fun ShoulderEditBottomSheet(
             onDismiss = { editingTerminal = null },
             mapNeighbours = near,
             findCoordinates = { query -> autoVm.lookup(query, country, near) },
+            onWriteSupport = ::sendMissingStationReport,
             neighbours = if (isStart) null to stations.firstOrNull()?.name else stations.lastOrNull()?.name to null,
         )
     }
@@ -632,6 +650,7 @@ fun ShoulderEditBottomSheet(
                 }
                 autoVm.lookup(query, country, near)
             },
+            onWriteSupport = ::sendMissingStationReport,
             mapNeighbours = buildList {
                 val idx = stations.indexOfFirst { it.id == editingStation?.id }
                 listOfNotNull(stations.getOrNull(idx - 1), stations.getOrNull(idx + 1))
@@ -740,6 +759,7 @@ fun ShoulderEditBottomSheet(
                 openStation(null, null)
             },
             onReportNoPath = { sendNoPathReport() },
+            onReportMissingStation = ::sendMissingStationReport,
             onBuildCustomRoute = { candidates ->
                 pendingCustomRoute = PendingCustomRoute(stations.toList(), null, candidates)
                 setCustomRouteVias(candidates)
@@ -847,6 +867,7 @@ fun ShoulderEditBottomSheet(
             customPreview = pendingCustomRoute != null,
             previewChosen = pendingCustomRoute?.chosen,
             onReportNoPath = { chosen -> sendNoPathReport(chosen.map { ReportStop(it.name, it.latitude, it.longitude) }) },
+            onReportMissingStation = ::sendMissingStationReport,
             initialCustom = customRetry?.chosen,
             initialCustomError = customRetry?.message,
             onBuildCustomRoute = { candidates ->
@@ -1420,24 +1441,17 @@ private fun EditorSnackbarView(bar: EditorSnackbar, onDismiss: () -> Unit, modif
     // На инверсном фоне акцент берём контрастный: в светлой теме — светлый, в тёмной — тёмный.
     val darkTheme = Pst.bg.luminance() < 0.5f
     val actionColor = if (darkTheme) Color(0xFF0091D9) else Color(0xFF33BFFF)
-    // Компактный: ширина по тексту (не больше 340 dp), до 2 строк, небольшие отступы.
-    Row(
-        modifier = modifier
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .widthIn(max = 340.dp)
-            .background(Pst.cta, RoundedCornerShape(10.dp))
-            .padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = bar.text,
-            style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 17.sp),
-            color = Pst.ctaInk,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false).padding(vertical = 6.dp),
-        )
-        val undo = bar.undo
+    // Компактный: ширина по тексту (не больше 340 dp), до 2 строк, небольшие отступы. Длинное сообщение с
+    // действием («Станция … не найдена…») — текст на всю ширину, действие под ним справа (не обрезается).
+    val undo = bar.undo
+    val stacked = undo != null && bar.text.length > 70
+    val boxModifier = modifier
+        .padding(horizontal = 12.dp, vertical = 8.dp)
+        .widthIn(max = 340.dp)
+        .background(Pst.cta, RoundedCornerShape(10.dp))
+        .padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp)
+    val textStyle = Pst.sans.copy(fontSize = 13.sp, lineHeight = 17.sp)
+    val action: @Composable () -> Unit = {
         if (undo != null) Text(
             text = bar.actionLabel,
             style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
@@ -1449,6 +1463,29 @@ private fun EditorSnackbarView(bar: EditorSnackbar, onDismiss: () -> Unit, modif
                 }
                 .padding(horizontal = 10.dp, vertical = 8.dp),
         ) else Spacer(Modifier.width(8.dp))
+    }
+    if (stacked) {
+        Column(modifier = boxModifier, horizontalAlignment = Alignment.End) {
+            Text(
+                text = bar.text,
+                style = textStyle,
+                color = Pst.ctaInk,
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp, end = 8.dp),
+            )
+            action()
+        }
+    } else {
+        Row(modifier = boxModifier, verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = bar.text,
+                style = textStyle,
+                color = Pst.ctaInk,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).padding(vertical = 6.dp),
+            )
+            action()
+        }
     }
 }
 

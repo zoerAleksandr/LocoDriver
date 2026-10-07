@@ -186,6 +186,7 @@ fun DieselSectionItem(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .separateSheetFromScroll()
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {

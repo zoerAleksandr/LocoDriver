@@ -121,6 +121,8 @@ internal fun PhaseRouteVariantsMap(
     previewChosen: List<OsmStationCandidate>? = null,
     /** Сообщить разработчику, что путь через выбранные станции не проложить (кнопка под ошибкой пути); null — нет кнопки. */
     onReportNoPath: ((List<OsmStationCandidate>) -> Unit)? = null,
+    /** «Написать в поддержку», если станции из поиска нет на карте (название запроса); null — нет кнопки. */
+    onReportMissingStation: ((String) -> Unit)? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -410,7 +412,17 @@ internal fun PhaseRouteVariantsMap(
                         when {
                             customSearching -> PanelHint("Ищем на карте…")
                             customSearchFailed -> PanelHint("Не удалось найти станции. Проверьте подключение.", error = true)
-                            query.length >= 2 && customCandidates.isEmpty() -> PanelHint("Станция с таким названием не нашлась на карте")
+                            query.length >= 2 && customCandidates.isEmpty() -> {
+                                PanelHint(stationNotFoundMessage(query))
+                                if (onReportMissingStation != null) {
+                                    PstButton(
+                                        text = WRITE_TO_SUPPORT,
+                                        onClick = { onReportMissingStation(query) },
+                                        kind = PstButtonKind.TEXT,
+                                        height = 40.dp,
+                                    )
+                                }
+                            }
                         }
                         if (customCandidates.isNotEmpty() && query.length >= 2) {
                             Column(

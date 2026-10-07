@@ -83,6 +83,8 @@ internal fun PhaseStationSheet(
      * (км крайних — 0 и расстояние плеча; название меняет поле «От/До станции»).
      */
     terminalTitle: String? = null,
+    /** «Написать в поддержку» при ненайденной станции (название); null — кнопки нет. */
+    onWriteSupport: ((String) -> Unit)? = null,
 ) {
     val terminal = terminalTitle != null
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -261,6 +263,8 @@ internal fun PhaseStationSheet(
                         state = coords,
                         neighbours = neighbours,
                         onPickOnMap = if (mapNeighbours != null) ({ mapOpen = true }) else null,
+                        notFoundName = name.text.trim().ifBlank { coordinateStation.name },
+                        onWriteSupport = onWriteSupport,
                         onFind = findCoordinates?.let { find ->
                             {
                                 val query = name.text.trim().ifBlank { coordinateStation.name }
@@ -379,6 +383,8 @@ private fun CoordinatesCard(
     onFind: (() -> Unit)?,
     onCancelSearch: () -> Unit,
     onReject: () -> Unit,
+    notFoundName: String = station.name,
+    onWriteSupport: ((String) -> Unit)? = null,
 ) {
     val has = station.hasCoordinates
     PstCard {
@@ -421,9 +427,17 @@ private fun CoordinatesCard(
                 CoordState.NotFound -> {
                     CoordRow(
                         color = Pst.warning,
-                        title = "Не нашлось на карте",
-                        subtitle = "Проверьте название. Если это не станция (пути необщего пользования, терминал, пост) — укажите точку на карте вручную.",
+                        title = "Станция «$notFoundName» не найдена на карте",
+                        subtitle = "Напишите в техническую поддержку — мы добавим её. Или укажите точку на карте вручную.",
                     )
+                    if (onWriteSupport != null) {
+                        PstButton(
+                            text = WRITE_TO_SUPPORT,
+                            onClick = { onWriteSupport(notFoundName) },
+                            kind = PstButtonKind.TONAL,
+                            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp),
+                        )
+                    }
                     if (onFind != null) {
                         PstButton(
                             text = "Искать ещё раз",

@@ -94,6 +94,8 @@ internal fun PhaseAutoFillSheet(
     onEditName: (PhaseEnd) -> Unit,
     onAddManually: () -> Unit,
     onReportNoPath: (() -> Unit)? = null,
+    /** «Написать в поддержку» при ненайденной станции (название). */
+    onReportMissingStation: ((String) -> Unit)? = null,
     onBuildCustomRoute: ((List<OsmStationCandidate>) -> Unit)? = null,
     onDismiss: () -> Unit,
     /** Поиск станций по названию рядом с точками («Не та станция»); null в ответе — ошибка сети/сервиса. */
@@ -147,6 +149,7 @@ internal fun PhaseAutoFillSheet(
                     onEditName = onEditName,
                     onAddManually = onAddManually,
                     onReportNoPath = onReportNoPath,
+                    onReportMissingStation = onReportMissingStation,
                     onClose = onDismiss,
                 )
             }
@@ -745,6 +748,8 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
     onAddManually: () -> Unit,
     onClose: () -> Unit,
     onReportNoPath: (() -> Unit)? = null,
+    /** «Написать в поддержку» при ненайденной станции (название). */
+    onReportMissingStation: ((String) -> Unit)? = null,
 ) {
     data class Spec(val icon: ImageVector, val title: String, val text: String, val primary: Pair<String, () -> Unit>, val secondary: Pair<String, () -> Unit>)
     val spec = when (state.failure) {
@@ -760,10 +765,9 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
             "Повторить" to onRetry, "Добавить вручную" to onAddManually,
         )
         AutoFillFailure.STATION_NOT_FOUND -> Spec(
-            PstIcons.MapPin, "Не нашли станцию «${state.name ?: ""}»",
-            "На карте нет станции с таким или похожим названием. Проверьте написание. " +
-                "Если это не станция (пути необщего пользования, терминал) — укажите её точку на карте вручную, " +
-                "а промежуточные станции добавьте вручную.",
+            PstIcons.MapPin, "Станция «${state.name ?: ""}» не найдена на карте",
+            "Напишите в техническую поддержку — мы добавим её. Или проверьте написание; если это не станция " +
+                "(пути необщего пользования, терминал) — укажите её точку на карте вручную.",
             "Изменить название" to { onEditName(state.end ?: PhaseEnd.DEPARTURE) }, "Добавить вручную" to onAddManually,
         )
         AutoFillFailure.NO_PATH -> Spec(
@@ -804,6 +808,15 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp).widthIn(max = 300.dp),
         )
+        if (state.failure == AutoFillFailure.STATION_NOT_FOUND && onReportMissingStation != null) {
+            PstButton(
+                text = WRITE_TO_SUPPORT,
+                onClick = { onReportMissingStation(state.name ?: "") },
+                kind = PstButtonKind.TEXT,
+                height = 40.dp,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+        }
         if (state.failure == AutoFillFailure.NO_PATH && onReportNoPath != null) {
             Text(
                 text = "Если путь должен быть, сообщите разработчику — мы поправим карту.",
