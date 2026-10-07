@@ -506,6 +506,8 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
         )
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     fun find() {
         val name = state.name.trim()
         if (name.isBlank()) return
@@ -585,7 +587,19 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
                     SearchNote(text = "$title. Если это не та станция — укажите точку на карте вручную.")
                 }
             }
-            CoordSearch.NotFound -> SearchNote(text = "Не нашлось на карте — проверьте название. Если это не станция (пути необщего пользования, терминал, пост) — укажите точку на карте вручную.")
+            CoordSearch.NotFound -> {
+                val missing = state.name.trim()
+                SearchNote(
+                    text = com.z_company.route.component.servicephase.stationNotFoundMessage(missing),
+                    action = com.z_company.route.component.servicephase.WRITE_TO_SUPPORT,
+                    onAction = {
+                        com.z_company.route.component.servicephase.reportMissingStation(
+                            context = context,
+                            stationName = missing, departure = null, arrival = null,
+                        )
+                    },
+                )
+            }
             is CoordSearch.Failed -> SearchNote(text = s.text)
             CoordSearch.Idle -> Unit
         }

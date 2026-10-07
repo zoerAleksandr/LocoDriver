@@ -7,6 +7,8 @@ import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.response.LatLon
 import com.z_company.repository.remote_rest.response.OsmPathStation
 import com.z_company.repository.remote_rest.response.OsmStationCandidate
+import com.z_company.repository.remote_rest.response.RouteLengthRequest
+import com.z_company.repository.remote_rest.response.RouteLengthResponse
 import com.z_company.repository.remote_rest.response.ServicePhaseLookupRequest
 import com.z_company.repository.remote_rest.response.ServicePhaseSuggestRequest
 import kotlinx.coroutines.Job
@@ -63,6 +65,9 @@ sealed interface AutoFillState {
     /** step: 0 — ищем крайние станции, 1 — прокладываем путь, 2 — собираем станции. */
     data class Loading(val step: Int) : AutoFillState
 
+    /** Между крайними станциями несколько путей — сначала выбор маршрута (экран вариантов), потом подбор станций по нему. */
+    data class ChooseRoute(val variants: List<RouteVariant>) : AutoFillState
+
     /** [approximate] — точного совпадения нет, варианты похожи по сокращению. */
     data class Choose(
         val end: PhaseEnd,
@@ -79,6 +84,32 @@ sealed interface AutoFillState {
     ) : AutoFillState
 
     data class Failed(val failure: AutoFillFailure, val end: PhaseEnd? = null, val name: String? = null) : AutoFillState
+}
+
+internal fun preferReverseAlternatives(
+    forward: RouteLengthResponse,
+    reverse: RouteLengthResponse,
+): RouteLengthResponse {
+    if (reverse.routes.size <= forward.routes.size) return forward
+    return reverseRouteResponse(reverse)
+}
+
+internal fun reverseRouteResponse(reverse: RouteLengthResponse): RouteLengthResponse {
+    val routes = reverse.routes.map { route ->
+        route.copy(
+            geometry = route.geometry.asReversed(),
+            viaStations = route.viaStations.asReversed().map { via ->
+                via.copy(km = (route.lengthKm - via.km).coerceIn(0.0, route.lengthKm))
+            },
+        )
+    }
+    return reverse.copy(
+        kmAt = reverse.kmAt.asReversed().map { km ->
+            (reverse.lengthKm - km).coerceIn(0.0, reverse.lengthKm)
+        },
+        geometry = reverse.geometry.asReversed(),
+        routes = routes,
+    )
 }
 
 /**
@@ -105,6 +136,10 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         arrivalOsmId: Long?,
         departurePoint: Pair<Double, Double>? = null,
         arrivalPoint: Pair<Double, Double>? = null,
+        /** Станции плеча с координатами по порядку: путь автоподбора — строго через них. */
+        viaPoints: List<Pair<Double, Double>> = emptyList(),
+        /** Нет промежуточных станций — сначала предложить выбрать маршрут, если путей несколько. */
+        pickRoute: Boolean = false,
     ) {
         request = ServicePhaseSuggestRequest(
             departureStation = departure.trim(),
@@ -114,7 +149,27 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
             arrivalOsmId = arrivalOsmId,
             departurePoint = departurePoint?.let { (lat, lon) -> LatLon(lat, lon) },
             arrivalPoint = arrivalPoint?.let { (lat, lon) -> LatLon(lat, lon) },
+            viaPoints = viaPoints.map { (lat, lon) -> LatLon(lat, lon) },
         )
+        if (pickRoute && viaPoints.isEmpty() && departurePoint != null && arrivalPoint != null) {
+            // Варианты пути между крайними станциями: больше одного — выбор маршрута, иначе сразу подбор.
+            job?.cancel()
+            job = viewModelScope.launch {
+                _state.value = AutoFillState.Loading(0)
+                val res = measure(listOf(departurePoint, arrivalPoint), withVariants = true) as? MeasureResult.Ok
+                val variants = res?.variants.orEmpty()
+                if (variants.size > 1) _state.value = AutoFillState.ChooseRoute(variants)
+                else run()
+            }
+            return
+        }
+        run()
+    }
+
+    /** После выбора маршрута: станции подбираются вдоль него ([vias] — его точки по порядку; пусто — кратчайший). */
+    fun chooseRoute(vias: List<Pair<Double, Double>>) {
+        val r = request ?: return
+        request = r.copy(viaPoints = vias.map { (lat, lon) -> LatLon(lat, lon) })
         run()
     }
 
@@ -194,20 +249,59 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     /**
      * «Измерить по карте»: длина по ж/д путям через точки по порядку (отправление … прибытие).
      * [withVariants] — запросить до 3 вариантов пути (только когда промежуточных станций нет).
+     * [withGeometry] — вернуть линию пути для предпросмотра, даже если вариант один.
      */
-    suspend fun measure(points: List<Pair<Double, Double>>, withVariants: Boolean = false): MeasureResult = try {
+    suspend fun measure(
+        points: List<Pair<Double, Double>>,
+        withVariants: Boolean = false,
+        withGeometry: Boolean = withVariants,
+    ): MeasureResult = try {
         val token = tokens.getAuthBearerTokenFlow().first()
         val res = withTimeout(TIMEOUT_MS) {
-            api.measureRouteLength(
-                "Bearer $token",
-                com.z_company.repository.remote_rest.response.RouteLengthRequest(
-                    points = points.map { (lat, lon) -> LatLon(lat, lon) },
-                    withGeometry = withVariants,
-                    alternatives = if (withVariants) MAX_VARIANTS else 1,
-                ),
+            val request = RouteLengthRequest(
+                points = points.map { (lat, lon) -> LatLon(lat, lon) },
+                withGeometry = withGeometry,
+                alternatives = if (withVariants) MAX_VARIANTS else 1,
             )
+            // Альтернативы в серверном графе могут зависеть от направления. Для пары крайних
+            // станций всегда используем один канонический порядок, чтобы A → B и B → A давали
+            // один набор путей без второго тяжёлого запроса.
+            if (withVariants && request.points.size == 2) {
+                val first = request.points[0]
+                val second = request.points[1]
+                val requestedIsCanonical = first.latitude < second.latitude ||
+                    (first.latitude == second.latitude && first.longitude <= second.longitude)
+                val canonicalRequest = if (requestedIsCanonical) request
+                else request.copy(points = request.points.asReversed())
+                val canonical = api.measureRouteLength("Bearer $token", canonicalRequest)
+                if (requestedIsCanonical) canonical else reverseRouteResponse(canonical)
+            } else {
+                api.measureRouteLength(
+                    "Bearer $token",
+                    request,
+                )
+            }
         }
-        MeasureResult.Ok(res.lengthKm, res.kmAt, if (withVariants) res.routes.mapNotNull(::toVariant) else emptyList())
+        if (withGeometry) saveRailLine(points, res.geometry)
+        // Геометрия единственного маршрута тоже нужна клиенту: после выбора пользовательской
+        // via-точки показываем путь на карте до того, как пользователь его подтвердит.
+        val variants = res.routes.mapNotNull(::toVariant).ifEmpty {
+            if (withGeometry && res.geometry.size >= 2) {
+                listOf(
+                    RouteVariant(
+                        id = "single",
+                        lengthKm = res.lengthKm,
+                        line = res.geometry.mapNotNull { point ->
+                            if (point.size >= 2) point[0] to point[1] else null
+                        },
+                        via = emptyList(),
+                    )
+                ).filter { it.line.size >= 2 }
+            } else {
+                emptyList()
+            }
+        }
+        MeasureResult.Ok(res.lengthKm, res.kmAt, variants)
     } catch (e: kotlinx.coroutines.CancellationException) {
         if (e !is TimeoutCancellationException) throw e
         MeasureResult.Failed(failureOf(e))
@@ -263,9 +357,29 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
      * (один повтор через 2 с при сбое); последняя полученная хранится на устройстве по набору
      * точек и рисуется, только если сервер недоступен.
      */
+    private fun railCacheKey(points: List<Pair<Double, Double>>) =
+        points.joinToString(";") { (lat, lon) -> "%.5f,%.5f".format(java.util.Locale.US, lat, lon) }
+
+    private fun railCacheFile(key: String) =
+        java.io.File(appContext.noBackupFilesDir, "rail_lines/${key.hashCode().toUInt().toString(16)}.txt")
+
+    /** Линия, полученная онлайн при замере/просмотре плеча, — запас для «Карты» без сети (тот же кэш, что у [railLine]). */
+    private suspend fun saveRailLine(points: List<Pair<Double, Double>>, geometry: List<List<Double>>) {
+        val line = geometry.mapNotNull { p -> if (p.size >= 2) p[0] to p[1] else null }
+        if (line.size < 2) return
+        val key = railCacheKey(points)
+        val file = railCacheFile(key)
+        withContext(Dispatchers.IO) {
+            runCatching {
+                file.parentFile?.mkdirs()
+                file.writeText(key + "\n" + line.joinToString(";") { (lat, lon) -> "$lat,$lon" })
+            }
+        }
+    }
+
     suspend fun railLine(points: List<Pair<Double, Double>>): RailLineResult {
-        val key = points.joinToString(";") { (lat, lon) -> "%.5f,%.5f".format(java.util.Locale.US, lat, lon) }
-        val file = java.io.File(appContext.noBackupFilesDir, "rail_lines/${key.hashCode().toUInt().toString(16)}.txt")
+        val key = railCacheKey(points)
+        val file = railCacheFile(key)
         // Всегда сначала сервер: граф путей обновляется, и сохранённая линия могла устареть
         // (так было после добавления станционных путей — карта рисовала старый объезд).
         // Кэш — только запас, когда сервер недоступен.
@@ -320,7 +434,12 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     }.getOrNull()
 
     /** Координаты одной станции (шторка станции, «Найти координаты»). null — ошибка сети/сервиса. */
-    suspend fun lookup(name: String, country: String, near: List<Pair<Double, Double>>): List<OsmStationCandidate>? =
+    suspend fun lookup(
+        name: String,
+        country: String,
+        near: List<Pair<Double, Double>>,
+        limit: Int? = null,
+    ): List<OsmStationCandidate>? =
         try {
             lastLookupFailure = null
             val token = tokens.getAuthBearerTokenFlow().first()
@@ -331,6 +450,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
                         name = name.trim(),
                         country = country.ifBlank { "RU" },
                         near = near.map { (lat, lon) -> LatLon(lat, lon) },
+                        limit = limit,
                     ),
                 ).candidates
             }

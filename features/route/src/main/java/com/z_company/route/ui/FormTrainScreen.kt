@@ -200,16 +200,7 @@ fun FormTrainScreen(
     var showSettingsSheet by remember { mutableStateOf(false) }
     var settingsSheetMode by remember { mutableStateOf(TrainExtraSheetMode.ASSISTS) }
     var showTrainDataHistory by remember { mutableStateOf(false) }
-    var bottomBarVisible by remember { mutableStateOf(true) }
-    val bottomBarNestedScroll = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y < -3f) bottomBarVisible = false
-                else if (available.y > 3f) bottomBarVisible = true
-                return Offset.Zero
-            }
-        }
-    }
+    val bottomBarScroll = com.z_company.route.component.rememberBottomBarScrollState()
     // Сигнал закрытия свайп-раскрытой строки станции (при отмене подтверждения)
     var closeSwipeSignal by remember { mutableStateOf(0) }
 
@@ -404,6 +395,7 @@ fun FormTrainScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .separateSheetFromScroll()
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 20.dp)
                         .padding(bottom = 40.dp),
@@ -501,6 +493,7 @@ fun FormTrainScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
+                        .separateSheetFromScroll()
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -868,13 +861,9 @@ fun FormTrainScreen(
                                         .fillMaxWidth()
                                         .background(rowBg)
                                         .clickable {
-                                            // Первый тап — выделить; повторный по выделенному — применить.
-                                            if (selectedInSheet?.id == item.id) {
-                                                onSelectServicePhase(item)
-                                                showSelectServicePhase = false
-                                            } else {
-                                                selectedInSheet = item
-                                            }
+                                            // Первый тап — выделить; повторный по выделенному — снять выделение.
+                                            // Применяется только кнопкой «Выбрать».
+                                            selectedInSheet = if (selectedInSheet?.id == item.id) null else item
                                         }
                                         .padding(horizontal = 20.dp, vertical = 14.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -888,14 +877,6 @@ fun FormTrainScreen(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    if (isSelected) {
-                                        Icon(
-                                            modifier = Modifier.size(18.dp),
-                                            painter = painterResource(com.z_company.route.R.drawable.check_circle_24px),
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.tertiary
-                                        )
-                                    }
                                     Text(
                                         text = "${item.distance} км",
                                         style = MaterialTheme.typography.bodyMedium.copy(
@@ -903,6 +884,17 @@ fun FormTrainScreen(
                                         ),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    // Слот под галочку у правого края — у всех строк, чтобы «N км» не сдвигались.
+                                    Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                                        if (isSelected) {
+                                            Icon(
+                                                modifier = Modifier.size(20.dp),
+                                                painter = painterResource(com.z_company.route.R.drawable.check_circle_24px),
+                                                contentDescription = "Выбрано",
+                                                tint = MaterialTheme.colorScheme.tertiary
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1071,7 +1063,7 @@ fun FormTrainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .nestedScroll(bottomBarNestedScroll)
+                .nestedScroll(bottomBarScroll.nestedScroll)
         ) {
             currentTrain?.let { train ->
                 LazyColumn(
@@ -2102,17 +2094,11 @@ fun FormTrainScreen(
                 }
             }
 
-            var barHeightPx by remember { mutableStateOf(0) }
-            val barOffsetY by androidx.compose.animation.core.animateIntAsState(
-                targetValue = if (bottomBarVisible) 0 else barHeightPx,
-                animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
-                label = "trainBottomBarOffset",
-            )
+            com.z_company.route.component.ScrollHidingBottomBar(
+                visible = bottomBarScroll.visible,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
             TrainBottomAppBar(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .onSizeChanged { barHeightPx = it.height }
-                    .offset { IntOffset(0, barOffsetY) },
                 hasInspector = currentTrain?.carInspector?.hasEnteredData() == true,
                 hasAssists = currentTrain?.let {
                     it.pusher?.hasEnteredData() == true ||
@@ -2130,6 +2116,7 @@ fun FormTrainScreen(
                 },
                 onAddStationClick = { askLocation { viewModel.startAddingNewStation() } },
             )
+            }
         }
     }
 }

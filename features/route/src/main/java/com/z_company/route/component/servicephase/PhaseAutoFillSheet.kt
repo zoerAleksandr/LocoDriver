@@ -1,5 +1,6 @@
 package com.z_company.route.component.servicephase
 
+import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.LaunchedEffect
@@ -36,6 +37,8 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.alpha
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +55,7 @@ import com.z_company.domain.entities.setting.ServicePhaseStation
 import com.z_company.domain.entities.setting.ServicePhaseStationKind
 import com.z_company.domain.entities.setting.ServicePhaseStationSource
 import com.z_company.domain.util.ServicePhaseStationsMerge
+import com.z_company.route.util.FalseMileage
 import com.z_company.repository.remote_rest.response.OsmStationCandidate
 import com.z_company.route.viewmodel.AutoFillFailure
 import com.z_company.route.viewmodel.AutoFillState
@@ -89,27 +93,33 @@ internal fun PhaseAutoFillSheet(
     onSetDistance: (Int) -> Unit,
     onEditName: (PhaseEnd) -> Unit,
     onAddManually: () -> Unit,
-    onBuildCustomRoute: (() -> Unit)? = null,
+    onReportNoPath: (() -> Unit)? = null,
+    onBuildCustomRoute: ((List<OsmStationCandidate>) -> Unit)? = null,
     onDismiss: () -> Unit,
     /** Поиск станций по названию рядом с точками («Не та станция»); null в ответе — ошибка сети/сервиса. */
     lookup: (suspend (String, List<Pair<Double, Double>>) -> List<OsmStationCandidate>?)? = null,
+    /** Поиск станции по части названия для «Построить другой маршрут» (до 30, порядок сервера); null — как [lookup]. */
+    searchStations: (suspend (String, List<Pair<Double, Double>>) -> List<OsmStationCandidate>?)? = null,
     /** Км пути от точки отправления до точки (пересчёт после подмены станции); null — не удалось. */
     measureKm: (suspend (List<Pair<Double, Double>>) -> Double?)? = null,
     /** Варианты пути между крайними точками (route/length, alternatives); пусто — вариант один. */
     loadVariants: (suspend (List<Pair<Double, Double>>) -> List<RouteVariant>)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Выбор точки на карте («Не та станция» → «Указать на карте вручную»): шторка скрыта, карта видна целиком.
+    var pickingPoint by remember { mutableStateOf(false) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Pst.bg,
+        containerColor = if (pickingPoint) androidx.compose.ui.graphics.Color.Transparent else Pst.bg,
+        scrimColor = if (pickingPoint) androidx.compose.ui.graphics.Color.Transparent else BottomSheetDefaults.ScrimColor,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = { PstGrabber() },
+        dragHandle = { if (!pickingPoint) PstGrabber() },
     ) {
-        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f)) {
+        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f).alpha(if (pickingPoint) 0f else 1f)) {
             PstSheetHeader(title = "Автоподбор станций", subtitle = "$departure → $arrival", onClose = onDismiss)
             when (state) {
-                AutoFillState.Idle, is AutoFillState.Loading ->
+                AutoFillState.Idle, is AutoFillState.Loading, is AutoFillState.ChooseRoute ->
                     LoadingContent(step = (state as? AutoFillState.Loading)?.step ?: 0, onCancel = onDismiss)
                 is AutoFillState.Choose -> ChooseContent(state, onChoose = onChoose, onCancel = onDismiss)
                 is AutoFillState.Ready -> PreviewContent(
@@ -123,9 +133,11 @@ internal fun PhaseAutoFillSheet(
                     onSetDistance = onSetDistance,
                     onCancel = onDismiss,
                     lookup = lookup,
+                    searchStations = searchStations,
                     measureKm = measureKm,
                     loadVariants = loadVariants,
                     onBuildCustomRoute = onBuildCustomRoute,
+                    onPickingPoint = { pickingPoint = it },
                 )
                 is AutoFillState.Failed -> FailureContent(
                     state = state,
@@ -134,6 +146,7 @@ internal fun PhaseAutoFillSheet(
                     onRetry = onRetry,
                     onEditName = onEditName,
                     onAddManually = onAddManually,
+                    onReportNoPath = onReportNoPath,
                     onClose = onDismiss,
                 )
             }
@@ -211,7 +224,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.ChooseContent(
 ) {
     var selected by remember(state) { mutableStateOf<OsmStationCandidate?>(null) }
     LazyColumn(
-        modifier = Modifier.weight(1f),
+        modifier = Modifier.weight(1f).separateSheetFromScroll(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
     ) {
         item {
@@ -275,9 +288,12 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
     onSetDistance: (Int) -> Unit,
     onCancel: () -> Unit,
     lookup: (suspend (String, List<Pair<Double, Double>>) -> List<OsmStationCandidate>?)? = null,
+    searchStations: (suspend (String, List<Pair<Double, Double>>) -> List<OsmStationCandidate>?)? = null,
     measureKm: (suspend (List<Pair<Double, Double>>) -> Double?)? = null,
     loadVariants: (suspend (List<Pair<Double, Double>>) -> List<RouteVariant>)? = null,
-    onBuildCustomRoute: (() -> Unit)? = null,
+    onBuildCustomRoute: ((List<OsmStationCandidate>) -> Unit)? = null,
+    /** Открыт/закрыт выбор точки на карте — шторка автоподбора на это время скрывается. */
+    onPickingPoint: (Boolean) -> Unit = {},
 ) {
     // Изменяемый: названия предложенных станций можно поправить (✎) до добавления.
     val found = remember(state) { state.stations.map { it.toPhaseStation() }.toMutableStateList() }
@@ -369,6 +385,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
             onPickOnMap = { wrongMap = true },
         )
     }
+    LaunchedEffect(wrongTarget != null && wrongMap) { onPickingPoint(wrongTarget != null && wrongMap) }
     if (wrongTarget != null && wrongMap) {
         PhaseMapPicker(
             stationName = wrongTarget.name,
@@ -407,6 +424,9 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
             to = arrival,
             variants = variants,
             onDismiss = { variantsOpen = false },
+            findCustomRouteStations = (searchStations ?: lookup)?.let { find ->
+                { query -> find(query, ends + found.filter { it.hasCoordinates }.map { it.latitude!! to it.longitude!! }) }
+            },
             onBuildCustomRoute = onBuildCustomRoute,
             onSelect = { v ->
                 variantsOpen = false
@@ -436,10 +456,32 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
     val newNames = ServicePhaseStationsMerge.newNames(selectedNew, stationList)
     val length = pathLength
     val rounded = length.roundToInt()
+    val straightKm = FalseMileage.straightSumKm(
+        listOf(ends.first()) +
+            found.filter { it.hasCoordinates }.map { it.latitude!! to it.longitude!! } +
+            listOf(ends.last())
+    )
+    val suspicious = FalseMileage.isSuspicious(length, distanceKm, straightKm)
+    var confirmSetDistance by remember(state) { mutableStateOf(false) }
     val mismatch = distanceKm > 0 && (abs(length - distanceKm) > distanceKm * 0.05 || abs(length - distanceKm) > 3)
 
+    if (confirmSetDistance) {
+        AppAlertDialog(
+            onDismissRequest = { confirmSetDistance = false },
+            title = "Проверьте станции",
+            text = FalseMileage.message(length, distanceKm, straightKm),
+            confirmText = "Применить",
+            onConfirm = {
+                confirmSetDistance = false
+                onSetDistance(rounded)
+                distanceApplied = true
+            },
+            dismissText = "Отмена",
+        )
+    }
+
     LazyColumn(
-        modifier = Modifier.weight(1f),
+        modifier = Modifier.weight(1f).separateSheetFromScroll(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
     ) {
         item(key = "summary") {
@@ -469,17 +511,22 @@ private fun androidx.compose.foundation.layout.ColumnScope.PreviewContent(
                 )
             }
         }
-        if (!distanceApplied && (distanceKm <= 0 || mismatch)) {
+        if (!distanceApplied && (distanceKm <= 0 || mismatch || suspicious)) {
             item(key = "distance") {
                 PstNotice(
-                    color = if (distanceKm <= 0) Pst.accent else Pst.warning,
-                    title = if (distanceKm <= 0) "Расстояние не указано" else "Расстояние не совпадает с картой",
-                    text = if (distanceKm <= 0) "По карте длина пути — ${pstKm(length)}."
+                    color = if (suspicious) Pst.danger else if (distanceKm <= 0) Pst.accent else Pst.warning,
+                    title = if (suspicious) "Проверьте станции" else if (distanceKm <= 0) "Расстояние не указано" else "Расстояние не совпадает с картой",
+                    text = if (suspicious) FalseMileage.message(length, distanceKm, straightKm)
+                    else if (distanceKm <= 0) "По карте длина пути — ${pstKm(length)}."
                     else "Вы указали $distanceKm км, по карте — ${pstKm(length)}.",
                     actionText = "Установить $rounded км",
                     onAction = {
-                        onSetDistance(rounded)
-                        distanceApplied = true
+                        if (suspicious) {
+                            confirmSetDistance = true
+                        } else {
+                            onSetDistance(rounded)
+                            distanceApplied = true
+                        }
                     },
                 )
             }
@@ -697,6 +744,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
     onEditName: (PhaseEnd) -> Unit,
     onAddManually: () -> Unit,
     onClose: () -> Unit,
+    onReportNoPath: (() -> Unit)? = null,
 ) {
     data class Spec(val icon: ImageVector, val title: String, val text: String, val primary: Pair<String, () -> Unit>, val secondary: Pair<String, () -> Unit>)
     val spec = when (state.failure) {
@@ -756,6 +804,16 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp).widthIn(max = 300.dp),
         )
+        if (state.failure == AutoFillFailure.NO_PATH && onReportNoPath != null) {
+            Text(
+                text = "Если путь должен быть, сообщите разработчику — мы поправим карту.",
+                style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 18.sp),
+                color = Pst.textMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 12.dp).widthIn(max = 300.dp),
+            )
+            PstButton(text = "Сообщить разработчику", onClick = onReportNoPath, kind = PstButtonKind.TEXT, height = 40.dp, modifier = Modifier.padding(top = 4.dp))
+        }
     }
     PstSheetFooter {
         PstButton(text = spec.primary.first, onClick = spec.primary.second, height = 48.dp, modifier = Modifier.fillMaxWidth())
@@ -899,7 +957,7 @@ internal fun StationChoiceSheet(
         Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
             PstSheetHeader(title = title ?: if (approximate) "Похоже на «$query»" else "Какая «$query»?", onClose = onDismiss)
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).separateSheetFromScroll(),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
             ) {
                 item {

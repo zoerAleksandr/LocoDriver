@@ -141,6 +141,8 @@ internal object PstIcons {
     val Clock = strokeIcon("clock", circle(12f, 12f, 9f), "M12 7v5l3.5 2")
     val ChevronRight = strokeIcon("chevronRight", "M9 5l7 7-7 7")
     val ChevronLeft = strokeIcon("chevronLeft", "M15 5l-7 7 7 7")
+    val ChevronUp = strokeIcon("chevronUp", "M5 15l7-7 7 7")
+    val ChevronDown = strokeIcon("chevronDown", "M5 9l7 7 7-7")
     val Close = strokeIcon("close", "M6 6l12 12M6 18L18 6")
     val Drag = strokeIcon("drag", "M5 9h14M5 15h14")
     /** «Измерить по карте»: две точки на карте, соединённые путём. */
