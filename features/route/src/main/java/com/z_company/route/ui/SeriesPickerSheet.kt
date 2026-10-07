@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -162,6 +163,7 @@ fun SeriesPickerSheet(
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
+                    .separateSheetFromScroll()
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 24.dp)
             ) {

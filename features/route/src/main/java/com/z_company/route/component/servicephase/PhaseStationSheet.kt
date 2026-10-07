@@ -1,5 +1,6 @@
 package com.z_company.route.component.servicephase
 
+import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.alpha
+import androidx.compose.material3.BottomSheetDefaults
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import com.z_company.repository.remote_rest.response.OsmStationCandidate
@@ -80,6 +83,8 @@ internal fun PhaseStationSheet(
      * (км крайних — 0 и расстояние плеча; название меняет поле «От/До станции»).
      */
     terminalTitle: String? = null,
+    /** «Написать в поддержку» при ненайденной станции (название); null — кнопки нет. */
+    onWriteSupport: ((String) -> Unit)? = null,
 ) {
     val terminal = terminalTitle != null
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -99,6 +104,7 @@ internal fun PhaseStationSheet(
     /** Кандидаты последнего поиска — для «Не та станция» в карточке «Нашлось». */
     var lookupCandidates by remember { mutableStateOf<List<OsmStationCandidate>>(emptyList()) }
     var rejecting by remember { mutableStateOf(false) }
+    val newStationDraft = remember { ServicePhaseStation(name = "") }
     val scope = rememberCoroutineScope()
     var searchJob by remember { mutableStateOf<Job?>(null) }
     val nameFocus = remember { FocusRequester() }
@@ -112,14 +118,15 @@ internal fun PhaseStationSheet(
 
     LaunchedEffect(Unit) { if (isNew) nameFocus.requestFocus() }
 
-    if (mapOpen && station != null && mapNeighbours != null) {
+    val coordinateStation = (station ?: newStationDraft).copy(name = name.text.trim())
+    if (mapOpen && mapNeighbours != null) {
         val found = (coords as? CoordState.Found)?.candidate
         PhaseMapPicker(
-            stationName = name.text.trim().ifBlank { station.name },
+            stationName = name.text.trim().ifBlank { coordinateStation.name },
             kindLabel = if (kind == ServicePhaseStationKind.HALT) "О.П." else "станция",
             start = picked?.let { it.latitude to it.longitude }
                 ?: found?.let { it.latitude to it.longitude }
-                ?: station.latitude?.let { lat -> station.longitude?.let { lat to it } },
+                ?: coordinateStation.latitude?.let { lat -> coordinateStation.longitude?.let { lat to it } },
             neighbours = mapNeighbours,
             onPick = {
                 picked = it
@@ -145,7 +152,7 @@ internal fun PhaseStationSheet(
                 choosing = null
                 rejecting = false
             },
-            onPickOnMap = if (mapNeighbours != null && station != null) ({
+            onPickOnMap = if (mapNeighbours != null) ({
                 choosing = null
                 rejecting = false
                 mapOpen = true
@@ -169,18 +176,23 @@ internal fun PhaseStationSheet(
         )
     }
 
+    // Пока открыт выбор точки на карте, шторка скрыта (состояние сохраняется): карта видна целиком; после «Выбрать»
+    // шторка возвращается с новыми координатами, «назад» — без изменений.
+    val pickerShown = mapOpen && mapNeighbours != null
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Pst.bg,
+        containerColor = if (pickerShown) androidx.compose.ui.graphics.Color.Transparent else Pst.bg,
+        scrimColor = if (pickerShown) androidx.compose.ui.graphics.Color.Transparent else BottomSheetDefaults.ScrimColor,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = { PstGrabber() },
+        dragHandle = { if (!pickerShown) PstGrabber() },
     ) {
-        Column(modifier = Modifier.fillMaxWidth().imePadding()) {
+        Column(modifier = Modifier.fillMaxWidth().imePadding().alpha(if (pickerShown) 0f else 1f)) {
             PstSheetHeader(title = terminalTitle ?: if (isNew) "Новая станция" else "Станция", onClose = onDismiss)
             Column(
                 modifier = Modifier
                     .weight(1f, fill = false)
+                    .separateSheetFromScroll()
                     .verticalScroll(rememberScrollState())
                     .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -243,17 +255,19 @@ internal fun PhaseStationSheet(
                         modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 6.dp),
                     )
                 }
-                if (station != null) {
+                if (station != null || findCoordinates != null || mapNeighbours != null) {
                     CoordinatesCard(
                         station = picked?.let {
-                            station.copy(latitude = it.latitude, longitude = it.longitude, source = ServicePhaseStationSource.MAP)
-                        } ?: station,
+                            coordinateStation.copy(latitude = it.latitude, longitude = it.longitude, source = ServicePhaseStationSource.MAP)
+                        } ?: coordinateStation,
                         state = coords,
                         neighbours = neighbours,
                         onPickOnMap = if (mapNeighbours != null) ({ mapOpen = true }) else null,
+                        notFoundName = name.text.trim().ifBlank { coordinateStation.name },
+                        onWriteSupport = onWriteSupport,
                         onFind = findCoordinates?.let { find ->
                             {
-                                val query = name.text.trim().ifBlank { station.name }
+                                val query = name.text.trim().ifBlank { coordinateStation.name }
                                 coords = CoordState.Searching(query)
                                 searchJob = scope.launch {
                                     val found = find(query)
@@ -284,7 +298,7 @@ internal fun PhaseStationSheet(
                             }
                         },
                     )
-                    if (station.source == ServicePhaseStationSource.OSM) {
+                    if (station?.source == ServicePhaseStationSource.OSM) {
                         Text(
                             text = "Добавлена автоподбором" + (station.esr?.let { " · ЕСР $it" } ?: ""),
                             style = Pst.mono.copy(fontSize = 11.sp, letterSpacing = 0.2.sp),
@@ -306,7 +320,19 @@ internal fun PhaseStationSheet(
                         val found = (coords as? CoordState.Found)?.candidate
                         val point = picked
                         val result = when {
-                            station == null -> ServicePhaseStation(name = trimmed, kind = kind, kmFromStart = kmValue)
+                            station == null -> ServicePhaseStation(
+                                id = newStationDraft.id,
+                                name = trimmed,
+                                kind = kind,
+                                kmFromStart = kmValue,
+                                latitude = point?.latitude ?: found?.latitude,
+                                longitude = point?.longitude ?: found?.longitude,
+                                esr = found?.esr?.takeIf(String::isNotBlank),
+                                osmId = found?.osmId,
+                                source = if (point != null) ServicePhaseStationSource.MAP
+                                else if (found != null) ServicePhaseStationSource.OSM
+                                else ServicePhaseStationSource.MANUAL,
+                            )
                             point != null -> station.copy(
                                 name = trimmed, kind = kind, kmFromStart = kmValue,
                                 latitude = point.latitude, longitude = point.longitude,
@@ -357,6 +383,8 @@ private fun CoordinatesCard(
     onFind: (() -> Unit)?,
     onCancelSearch: () -> Unit,
     onReject: () -> Unit,
+    notFoundName: String = station.name,
+    onWriteSupport: ((String) -> Unit)? = null,
 ) {
     val has = station.hasCoordinates
     PstCard {
@@ -399,9 +427,17 @@ private fun CoordinatesCard(
                 CoordState.NotFound -> {
                     CoordRow(
                         color = Pst.warning,
-                        title = "Не нашлось на карте",
-                        subtitle = "Проверьте название. Если это не станция (пути необщего пользования, терминал, пост) — укажите точку на карте вручную.",
+                        title = "Станция «$notFoundName» не найдена на карте",
+                        subtitle = "Напишите в техническую поддержку — мы добавим её. Или укажите точку на карте вручную.",
                     )
+                    if (onWriteSupport != null) {
+                        PstButton(
+                            text = WRITE_TO_SUPPORT,
+                            onClick = { onWriteSupport(notFoundName) },
+                            kind = PstButtonKind.TONAL,
+                            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp),
+                        )
+                    }
                     if (onFind != null) {
                         PstButton(
                             text = "Искать ещё раз",

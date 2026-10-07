@@ -2,6 +2,7 @@
 
 package com.z_company.route.ui
 
+import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -702,6 +703,7 @@ fun TimeBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .separateSheetFromScroll()
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp)
         ) {

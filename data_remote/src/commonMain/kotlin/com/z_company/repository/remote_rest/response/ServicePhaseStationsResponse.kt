@@ -16,6 +16,8 @@ data class ServicePhaseSuggestRequest(
     /** Известные координаты крайних станций (справочник/плечо) — путь и км считаются от них. */
     val departurePoint: LatLon? = null,
     val arrivalPoint: LatLon? = null,
+    /** Промежуточные точки выбранного маршрута по порядку: путь и станции — строго через них (необязательно). */
+    val viaPoints: List<LatLon> = emptyList(),
 )
 
 @Serializable
@@ -65,6 +67,8 @@ data class ServicePhaseLookupRequest(
     val name: String,
     val country: String = "RU",
     val near: List<LatLon> = emptyList(),
+    /** Поиск по части названия: до [limit] (1..30) ранжированных станций; null — прежнее поведение сервера (до 5). */
+    val limit: Int? = null,
 )
 
 @Serializable

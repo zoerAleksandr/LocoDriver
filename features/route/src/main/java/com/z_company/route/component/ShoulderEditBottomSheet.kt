@@ -15,6 +15,9 @@ import com.z_company.route.viewmodel.message
 import androidx.compose.foundation.layout.Spacer
 
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 
 import com.z_company.domain.util.toMoneyString
 
@@ -71,7 +74,12 @@ import androidx.compose.runtime.Composable
 import com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel
 import com.z_company.route.viewmodel.PhaseEnd
 import com.z_company.route.component.servicephase.PhaseAutoFillSheet
+import com.z_company.route.component.servicephase.ReportStop
+import com.z_company.route.component.servicephase.reportNoPath
+import com.z_company.route.component.servicephase.reportMissingStation
 import com.z_company.route.component.servicephase.PhaseRouteVariantsMap
+import com.z_company.route.viewmodel.AutoFillState
+import com.z_company.route.util.FalseMileage
 import com.z_company.route.viewmodel.RouteVariant
 import com.z_company.route.viewmodel.RouteVia
 import com.z_company.route.viewmodel.addableStations
@@ -168,6 +176,8 @@ fun ShoulderEditBottomSheet(
     var createReverse by remember { mutableStateOf(true) }
     val stations = remember { mutableStateListOf<ServicePhaseStation>().apply { addAll(phase?.intermediateStations.orEmpty()) } }
     var editMode by remember { mutableStateOf(false) }
+    // Остались только крайние станции — править нечего: режим «Изменить» выходит сам.
+    LaunchedEffect(stations.size) { if (stations.isEmpty()) editMode = false }
     var confirmDeletePhase by remember { mutableStateOf(false) }
 
     // Шторка станции: editing — существующая; insertAt — позиция новой (null = по км / в конец)
@@ -194,6 +204,8 @@ fun ShoulderEditBottomSheet(
     var insertAt by remember { mutableStateOf<Int?>(null) }
 
     var snackbar by remember { mutableStateOf<EditorSnackbar?>(null) }
+    /** Подозрительный километраж: текст предупреждения и действие «Применить» (по умолчанию — отмена). */
+    var falseMileage by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
 
     // Автоподбор: координаты крайних станций запоминаются вместе с названием, к которому относятся.
     val autoVm: ServicePhaseAutoFillViewModel = viewModel()
@@ -212,6 +224,8 @@ fun ShoulderEditBottomSheet(
         }
     }
     val canAutoFill = departure.text.isNotBlank() && arrival.text.isNotBlank()
+    // Блок станций скрыт без обеих крайних — режим «Изменить» тоже сбрасываем.
+    LaunchedEffect(canAutoFill) { if (!canAutoFill) editMode = false }
     fun startAutoFill() {
         val dep = departure.text.trim()
         val arr = arrival.text.trim()
@@ -224,6 +238,10 @@ fun ShoulderEditBottomSheet(
             // Точка, указанная пользователем, — от неё и путь, и км промежуточных (как «Измерить по карте»).
             departurePoint = pointFor(depPoint, dep)?.let { it.latitude to it.longitude },
             arrivalPoint = pointFor(arrPoint, arr)?.let { it.latitude to it.longitude },
+            // Уже есть станции с координатами — подбор строго через них (по выбранному маршруту, а не кратчайшему);
+            // нет — сперва выбор маршрута, если путей несколько.
+            viaPoints = stations.filter { it.hasCoordinates }.map { it.latitude!! to it.longitude!! },
+            pickRoute = stations.none { it.hasCoordinates },
         )
         autoFillOpen = true
     }
@@ -248,21 +266,58 @@ fun ShoulderEditBottomSheet(
     var choosingTerminal by remember { mutableStateOf<TerminalChoice?>(null) }
     /** Варианты маршрута (route/length, alternatives) — экран выбора на карте; null — не показан. */
     var variantChoice by remember { mutableStateOf<VariantChoice?>(null) }
-    /** После добавления точки из «Построить другой маршрут» повторить замер строго через неё. */
-    var measureAfterCustomStation by remember { mutableStateOf(false) }
+    /** Уже загруженные варианты для текущих точек: «Карта» не должна повторять сетевой запрос. */
+    var cachedVariantChoice by remember { mutableStateOf<CachedVariantChoice?>(null) }
+    /** Состояние до временного добавления via-точки; возвращается при закрытии предпросмотра. */
+    var pendingCustomRoute by remember { mutableStateOf<PendingCustomRoute?>(null) }
+    /** Ошибка построения своего маршрута: панель выбора станций открывается снова с тем же списком. */
+    var customRetry by remember { mutableStateOf<CustomRetry?>(null) }
+
+    /** «Сообщить разработчику»: письмо в поддержку с плечом и станциями по порядку ([via] — свой список или станции плеча). */
+    fun sendNoPathReport(via: List<ReportStop>? = null) {
+        val dep = departure.text.trim()
+        val arr = arrival.text.trim()
+        val depP = pointFor(depPoint, dep)
+        val arrP = pointFor(arrPoint, arr)
+        val mid = via ?: stations.map { ReportStop(it.name, it.latitude, it.longitude) }
+        reportNoPath(
+            context,
+            listOf(ReportStop(dep, depP?.latitude, depP?.longitude)) + mid + ReportStop(arr, arrP?.latitude, arrP?.longitude),
+        )
+    }
+
+    /** «Написать в поддержку»: станции нет на карте — письмо «Добавьте станцию: X». */
+    fun sendMissingStationReport(name: String) {
+        reportMissingStation(
+            context,
+            stationName = name,
+            departure = departure.text.trim(),
+            arrival = arrival.text.trim(),
+        )
+    }
+
+    /** Своя трасса не построилась: прежние станции возвращаются, вернуться в панель с ошибкой (или снекбар). */
+    fun failCustomRoute(message: String) {
+        val pending = pendingCustomRoute ?: return
+        stations.clear()
+        stations.addAll(pending.stationsBefore)
+        pendingCustomRoute = null
+        if (pending.choiceBefore != null) {
+            customRetry = CustomRetry(pending.chosen, message)
+            variantChoice = pending.choiceBefore
+        } else {
+            snackbar = EditorSnackbar(message, actionLabel = "Сообщить", undo = { sendNoPathReport(pending.chosen.map { ReportStop(it.name, it.latitude, it.longitude) }) }.takeIf { message.contains("не найден") })
+        }
+    }
 
     fun notifyAutoFound(autoFound: List<Pair<String, Boolean>>) {
         if (autoFound.isEmpty()) return
         val names = autoFound.joinToString(" и ") { "«${it.first}»" }
         snackbar = EditorSnackbar(
-            text = if (autoFound.size == 1) {
-                "Координаты станции $names определены автоматически — проверьте, что точка верная"
-            } else {
-                "Координаты станций $names определены автоматически — проверьте, что точки верные"
-            },
+            text = if (autoFound.size == 1) "Координаты $names определены — проверьте точку"
+            else "Координаты $names определены — проверьте точки",
             undo = { editingTerminal = autoFound.first().second },
             actionLabel = "Проверить",
-            durationMs = 12_000,
         )
     }
 
@@ -289,10 +344,54 @@ fun ShoulderEditBottomSheet(
         measured = MeasuredDistance(distance.text.toIntOrZero(), coordinateSignature())
     }
 
+    /** «Построить другой маршрут»: выбранная существующая станция сразу становится via-точкой. */
+    /** Свой маршрут: список промежуточных станций заменяется выбранными — по порядку, без дублей. */
+    fun setCustomRouteVias(candidates: List<OsmStationCandidate>) {
+        val vias = candidates.distinctBy { it.osmId }.map { candidate ->
+            ServicePhaseStation(
+                name = candidate.name,
+                latitude = candidate.latitude,
+                longitude = candidate.longitude,
+                kind = if (candidate.kind == "halt") ServicePhaseStationKind.HALT else ServicePhaseStationKind.STATION,
+                esr = candidate.esr?.takeIf(String::isNotBlank),
+                osmId = candidate.osmId,
+                source = ServicePhaseStationSource.OSM,
+            )
+        }
+        stations.clear()
+        stations.addAll(vias)
+    }
+
+    /** Сумма прямых между последовательными точками плеча (отправление, станции с координатами, прибытие). */
+    fun straightSumKm(): Double {
+        val depP = pointFor(depPoint, departure.text.trim())
+        val arrP = pointFor(arrPoint, arrival.text.trim())
+        if (depP == null || arrP == null) return 0.0
+        return FalseMileage.straightSumKm(
+            listOf(depP.latitude to depP.longitude) +
+                stations.filter { it.hasCoordinates }.map { it.latitude!! to it.longitude!! } +
+                listOf(arrP.latitude to arrP.longitude)
+        )
+    }
+
+    /** Записать результат молча, если он правдоподобен; иначе — диалог с подтверждением. */
+    fun applyChecked(lengthKm: Double, apply: () -> Unit) {
+        val straight = straightSumKm()
+        val entered = distance.text.toIntOrZero()
+        if (FalseMileage.isSuspicious(lengthKm, entered, straight)) {
+            falseMileage = FalseMileage.message(lengthKm, entered, straight) to apply
+        } else apply()
+    }
+
     /** «Выбрать маршрут»: расстояние плеча = длина варианта; станции варианта — по предложению. */
-    fun applyVariant(choice: VariantChoice, v: RouteVariant) {
+    fun applyVariant(choice: VariantChoice, v: RouteVariant) = applyChecked(v.lengthKm) {
         val km = kotlin.math.round(v.lengthKm).toInt()
         distance = TextFieldValue(km.toString(), TextRange(km.toString().length))
+        stations.filter { it.hasCoordinates }.forEachIndexed { i, station ->
+            val kmAt = choice.kmAt.getOrNull(i + 1) ?: return@forEachIndexed
+            val index = stations.indexOfFirst { it.id == station.id }
+            if (index >= 0) stations[index] = stations[index].copy(kmFromStart = kmAt)
+        }
         measured = MeasuredDistance(km, coordinateSignature())
         val addable = v.addableStations()
         val shortest = v.id == choice.variants.first().id
@@ -300,19 +399,18 @@ fun ShoulderEditBottomSheet(
             // Кратчайший — это и есть путь, по которому дальше ходит замер без станций.
             shortest -> notifyAutoFound(choice.autoFound)
             addable.isNotEmpty() -> snackbar = EditorSnackbar(
-                text = "Маршрут $km км выбран. Чтобы замер шёл этим путём, добавьте станции маршрута",
-                actionLabel = "Добавить станции маршрута",
-                durationMs = 12_000,
+                text = "Выбран маршрут $km км. Добавить его станции?",
+                actionLabel = "Добавить",
                 undo = { addVariantStations(addable) },
             )
-            else -> snackbar = EditorSnackbar(
-                "Маршрут $km км выбран. Чтобы замер шёл этим путём, добавьте промежуточные станции",
-                durationMs = 10_000,
-            )
+            else -> snackbar = EditorSnackbar("Выбран маршрут $km км. Чтобы замер шёл им, добавьте станции")
         }
     }
 
-    fun measureByMap() {
+    fun measureByMap(
+        previewSingleRoute: Boolean = false,
+        fallbackToCachedMap: Boolean = false,
+    ) {
         val dep = departure.text.trim()
         val arr = arrival.text.trim()
         if (dep.isBlank() || arr.isBlank()) {
@@ -335,16 +433,12 @@ fun ShoulderEditBottomSheet(
                 if (found == null) {
                     measuring = false
                     val why = autoVm.lastLookupFailure?.message() ?: AutoFillFailure.SERVICE.message()
-                    snackbar = EditorSnackbar("Не удалось найти «$name» на карте. $why")
+                    snackbar = EditorSnackbar("«$name» не найдена. $why")
                     return@launch
                 }
                 if (found.isEmpty()) {
                     measuring = false
-                    snackbar = EditorSnackbar(
-                        "«$name» не нашлась на карте — укажите её координаты в схеме. Если это не станция " +
-                            "(пути необщего пользования, терминал) — точку на карте вручную.",
-                        durationMs = 10_000,
-                    )
+                    snackbar = EditorSnackbar("«$name» не нашлась на карте — укажите точку вручную")
                     return@launch
                 }
                 if (found.any { it.approximate }) {
@@ -369,29 +463,76 @@ fun ShoulderEditBottomSheet(
                 withCoords.map { it.latitude!! to it.longitude!! } +
                 listOf(arrP.latitude to arrP.longitude)
             // Варианты маршрута — только пока нет промежуточных станций (со станциями путь один, строго через них).
-            val res = autoVm.measure(points, withVariants = stations.isEmpty())
+            val res = autoVm.measure(
+                points,
+                withVariants = stations.isEmpty(),
+                withGeometry = stations.isEmpty() || previewSingleRoute,
+            )
             measuring = false
             when (res) {
                 is ServicePhaseAutoFillViewModel.MeasureResult.Ok -> {
-                    if (res.variants.size > 1) {
+                    if (res.variants.isNotEmpty() && (res.variants.size > 1 || previewSingleRoute)) {
+                        val previewVariants = if (previewSingleRoute && withCoords.isNotEmpty()) {
+                            res.variants.map { variant ->
+                                if (variant.via.isNotEmpty()) variant else variant.copy(
+                                    via = withCoords.mapIndexed { index, station ->
+                                        RouteVia(
+                                            name = station.name,
+                                            km = res.kmAt.getOrNull(index + 1) ?: station.kmFromStart ?: 0.0,
+                                            osmId = station.osmId,
+                                            esr = station.esr,
+                                            latitude = station.latitude,
+                                            longitude = station.longitude,
+                                        )
+                                    }
+                                )
+                            }
+                        } else {
+                            res.variants
+                        }
                         // Экран выбора; пока не выбрано — ничего не применяется.
-                        variantChoice = VariantChoice(dep, arr, res.variants, autoFound.toList())
+                        val choice = VariantChoice(dep, arr, previewVariants, autoFound.toList(), res.kmAt)
+                        variantChoice = choice
+                        if (stations.isEmpty() && previewVariants.size > 1) {
+                            cachedVariantChoice = CachedVariantChoice(coordinateSignature(), choice)
+                        }
                         return@launch
                     }
-                    val km = kotlin.math.round(res.lengthKm).toInt()
-                    distance = TextFieldValue(km.toString(), TextRange(km.toString().length))
-                    // Км промежуточных станций — по тому же пути.
-                    withCoords.forEachIndexed { i, st ->
-                        val kmAt = res.kmAt.getOrNull(i + 1) ?: return@forEachIndexed
-                        val idx = stations.indexOfFirst { it.id == st.id }
-                        if (idx >= 0) stations[idx] = stations[idx].copy(kmFromStart = kmAt)
+                    if (previewSingleRoute) {
+                        if (pendingCustomRoute != null) failCustomRoute("Не удалось показать построенный маршрут на карте")
+                        else snackbar = EditorSnackbar("Не удалось показать построенный маршрут на карте")
+                        return@launch
                     }
-                    measured = MeasuredDistance(km, coordinateSignature())
-                    notifyAutoFound(autoFound)
+                    applyChecked(res.lengthKm) {
+                        val km = kotlin.math.round(res.lengthKm).toInt()
+                        distance = TextFieldValue(km.toString(), TextRange(km.toString().length))
+                        // Км промежуточных станций — по тому же пути.
+                        withCoords.forEachIndexed { i, st ->
+                            val kmAt = res.kmAt.getOrNull(i + 1) ?: return@forEachIndexed
+                            val idx = stations.indexOfFirst { it.id == st.id }
+                            if (idx >= 0) stations[idx] = stations[idx].copy(kmFromStart = kmAt)
+                        }
+                        measured = MeasuredDistance(km, coordinateSignature())
+                        notifyAutoFound(autoFound)
+                    }
                 }
-                ServicePhaseAutoFillViewModel.MeasureResult.NoPath ->
-                    snackbar = EditorSnackbar("Путь по железной дороге между станциями не найден — проверьте координаты")
-                is ServicePhaseAutoFillViewModel.MeasureResult.Failed -> snackbar = EditorSnackbar(res.failure.message())
+                ServicePhaseAutoFillViewModel.MeasureResult.NoPath -> {
+                    if (previewSingleRoute && pendingCustomRoute != null) {
+                        failCustomRoute("Путь через эти станции не найден — измените порядок или список")
+                    } else {
+                        snackbar = EditorSnackbar(
+                            "Не удалось проложить маршрут между станциями — проверьте порядок и положение станций",
+                            actionLabel = "Сообщить",
+                            undo = { sendNoPathReport() },
+                        )
+                    }
+                }
+                is ServicePhaseAutoFillViewModel.MeasureResult.Failed -> {
+                    if (previewSingleRoute && pendingCustomRoute != null) {
+                        failCustomRoute(res.failure.message())
+                    } else if (fallbackToCachedMap) showRouteMap = true
+                    else snackbar = EditorSnackbar(res.failure.message())
+                }
             }
         }
     }
@@ -473,6 +614,7 @@ fun ShoulderEditBottomSheet(
             onDismiss = { editingTerminal = null },
             mapNeighbours = near,
             findCoordinates = { query -> autoVm.lookup(query, country, near) },
+            onWriteSupport = ::sendMissingStationReport,
             neighbours = if (isStart) null to stations.firstOrNull()?.name else stations.lastOrNull()?.name to null,
         )
     }
@@ -489,10 +631,6 @@ fun ShoulderEditBottomSheet(
                     insertAt != null -> stations.add(insertAt!!.coerceIn(0, stations.size), saved)
                     else -> stations.add(positionByKm(stations, saved.kmFromStart), saved)
                 }
-                if (measureAfterCustomStation && saved.hasCoordinates) {
-                    measureAfterCustomStation = false
-                    measureByMap()
-                }
             },
             onDelete = editingStation?.let { st -> { stations.removeAll { it.id == st.id } } },
             findCoordinates = { query ->
@@ -506,6 +644,7 @@ fun ShoulderEditBottomSheet(
                 }
                 autoVm.lookup(query, country, near)
             },
+            onWriteSupport = ::sendMissingStationReport,
             mapNeighbours = buildList {
                 val idx = stations.indexOfFirst { it.id == editingStation?.id }
                 listOfNotNull(stations.getOrNull(idx - 1), stations.getOrNull(idx + 1))
@@ -528,6 +667,30 @@ fun ShoulderEditBottomSheet(
         )
     }
 
+    // Автоподбор без станций в плече: между крайними несколько путей — сперва выбор маршрута (экран вариантов).
+    (autoState as? AutoFillState.ChooseRoute)?.let { choose ->
+        if (autoFillOpen) PhaseRouteVariantsMap(
+            from = departure.text.trim(),
+            to = arrival.text.trim(),
+            variants = choose.variants,
+            onSelect = { v ->
+                // Кратчайший вариант — без промежуточных точек; другой — его станции (не больше 12, равномерно).
+                val vias = if (v.id == choose.variants.first().id) emptyList()
+                else sampleVia(v.addableStations().map { it.latitude!! to it.longitude!! }, 12)
+                autoVm.chooseRoute(vias)
+            },
+            onDismiss = ::closeAutoFill,
+            findCustomRouteStations = { query ->
+                val near = buildList {
+                    pointFor(depPoint, departure.text.trim())?.let { add(it.latitude to it.longitude) }
+                    pointFor(arrPoint, arrival.text.trim())?.let { add(it.latitude to it.longitude) }
+                }
+                autoVm.lookup(query, country, near, limit = STATION_SEARCH_LIMIT)
+            },
+            onBuildCustomRoute = { chosen -> autoVm.chooseRoute(chosen.map { it.latitude to it.longitude }) },
+        )
+    }
+
     if (autoFillOpen) {
         PhaseAutoFillSheet(
             state = autoState,
@@ -538,9 +701,7 @@ fun ShoulderEditBottomSheet(
             stationList = stationList,
             onChoose = autoVm::choose,
             lookup = { query, near -> autoVm.lookup(query, country, near) },
-            loadVariants = { pts ->
-                (autoVm.measure(pts, withVariants = true) as? ServicePhaseAutoFillViewModel.MeasureResult.Ok)?.variants.orEmpty()
-            },
+            searchStations = { query, near -> autoVm.lookup(query, country, near, limit = STATION_SEARCH_LIMIT) },
             measureKm = { pts ->
                 (autoVm.measure(pts) as? ServicePhaseAutoFillViewModel.MeasureResult.Ok)?.lengthKm
             },
@@ -573,7 +734,7 @@ fun ShoulderEditBottomSheet(
                 val n = result.addedIds.size
                 val m = result.newNames.size
                 val text = "Добавлено $n ${pluralStations(n)}" +
-                    if (m > 0) " · $m ${pluralNames(m)} — в справочник" else ""
+                    if (m > 0) ", $m ${pluralNames(m)} — в справочник" else ""
                 snackbar = EditorSnackbar(text) {
                     stations.clear()
                     stations.addAll(before)
@@ -591,10 +752,12 @@ fun ShoulderEditBottomSheet(
                 closeAutoFill()
                 openStation(null, null)
             },
-            onBuildCustomRoute = {
+            onReportNoPath = { sendNoPathReport() },
+            onBuildCustomRoute = { candidates ->
+                pendingCustomRoute = PendingCustomRoute(stations.toList(), null, candidates)
+                setCustomRouteVias(candidates)
                 closeAutoFill()
-                measureAfterCustomStation = true
-                openStation(null, null)
+                measureByMap(previewSingleRoute = true)
             },
             onDismiss = ::closeAutoFill,
         )
@@ -658,7 +821,7 @@ fun ShoulderEditBottomSheet(
             .drop(1)
             .collectLatest {
                 delay(600)
-                if (!closed) persist(final = false)
+                if (!closed && pendingCustomRoute == null) persist(final = false)
             }
     }
 
@@ -670,12 +833,44 @@ fun ShoulderEditBottomSheet(
             onSelect = { v ->
                 variantChoice = null
                 applyVariant(choice, v)
+                pendingCustomRoute = null
+                customRetry = null
             },
-            onDismiss = { variantChoice = null },
-            onBuildCustomRoute = {
+            onDismiss = {
+                customRetry = null
+                val pending = pendingCustomRoute
+                if (pending != null) {
+                    // «Назад» из предпросмотра своего маршрута: временные станции не сохраняются, снова все варианты.
+                    stations.clear()
+                    stations.addAll(pending.stationsBefore)
+                    pendingCustomRoute = null
+                    variantChoice = pending.choiceBefore
+                } else {
+                    variantChoice = null
+                }
+            },
+            findCustomRouteStations = { query ->
+                val near = buildList {
+                    pointFor(depPoint, departure.text.trim())?.let { add(it.latitude to it.longitude) }
+                    pointFor(arrPoint, arrival.text.trim())?.let { add(it.latitude to it.longitude) }
+                }
+                // Поиск по части названия: все подходящие (до 30), порядок — как у сервера.
+                autoVm.lookup(query, country, near, limit = STATION_SEARCH_LIMIT)
+            },
+            customPreview = pendingCustomRoute != null,
+            previewChosen = pendingCustomRoute?.chosen,
+            onReportNoPath = { chosen -> sendNoPathReport(chosen.map { ReportStop(it.name, it.latitude, it.longitude) }) },
+            initialCustom = customRetry?.chosen,
+            initialCustomError = customRetry?.message,
+            onBuildCustomRoute = { candidates ->
+                // Перестройка из предпросмотра: «до» остаётся исходным (станции и варианты до своего маршрута),
+                // иначе «Назад» вернул бы временные станции.
+                val base = pendingCustomRoute
+                pendingCustomRoute = PendingCustomRoute(base?.stationsBefore ?: stations.toList(), base?.choiceBefore ?: choice, candidates)
+                customRetry = null
+                setCustomRouteVias(candidates)
                 variantChoice = null
-                measureAfterCustomStation = true
-                openStation(null, null)
+                measureByMap(previewSingleRoute = true)
             },
         )
     }
@@ -696,6 +891,20 @@ fun ShoulderEditBottomSheet(
                 choosingTerminal = null
                 editingTerminal = choice.isStart
             },
+        )
+    }
+
+    falseMileage?.let { (message, apply) ->
+        AppAlertDialog(
+            onDismissRequest = { falseMileage = null },
+            title = "Проверьте станции",
+            text = message,
+            confirmText = "Применить",
+            onConfirm = {
+                falseMileage = null
+                apply()
+            },
+            dismissText = "Отмена",
         )
     }
 
@@ -733,7 +942,22 @@ fun ShoulderEditBottomSheet(
             EditorTopBar(
                 title = if (isNew) "Новое плечо" else "Редактировать плечо",
                 onBack = ::close,
-                onMap = { showRouteMap = true },
+                onMap = {
+                    val cached = cachedVariantChoice
+                    if (
+                        stations.isEmpty() &&
+                        cached?.signature == coordinateSignature() &&
+                        cached.choice.from == departure.text.trim() &&
+                        cached.choice.to == arrival.text.trim()
+                    ) {
+                        variantChoice = cached.choice
+                    } else {
+                        measureByMap(
+                            previewSingleRoute = true,
+                            fallbackToCachedMap = true,
+                        )
+                    }
+                },
             )
             Box(modifier = Modifier.weight(1f)) {
                 LazyColumn(
@@ -800,11 +1024,14 @@ fun ShoulderEditBottomSheet(
                             }
                         }
                     }
+                    // Блок «Промежуточные станции» — только когда заполнены обе крайние станции
+                    // (у нового пустого плеча экран не засоряем; введённые станции при очистке не теряются).
+                    if (canAutoFill) {
                     item(key = "stationsHead") {
                         PstGroupHead(
                             text = "Промежуточные станции · ${stations.size}",
-                            modifier = Modifier.padding(top = 22.dp, bottom = 8.dp).heightIn(min = 32.dp),
-                            action = if (stations.isEmpty()) null else {
+                            modifier = Modifier.animateItem().padding(top = 22.dp, bottom = 8.dp).heightIn(min = 32.dp),
+                            action = if (stations.isEmpty() && !editMode) null else {
                                 {
                                     PstButton(
                                         text = if (editMode) "Готово" else "Изменить",
@@ -843,7 +1070,7 @@ fun ShoulderEditBottomSheet(
                     )
                     if (stations.isEmpty()) {
                         item(key = "empty") {
-                            Box(Modifier.padding(top = 10.dp)) {
+                            Box(Modifier.animateItem().padding(top = 10.dp)) {
                                 EmptyStations(
                                     canAutoFill = canAutoFill,
                                     onAutoFill = ::startAutoFill,
@@ -852,6 +1079,7 @@ fun ShoulderEditBottomSheet(
                             }
                         }
                     } else item(key = "stationsActions") {
+                        Box(Modifier.animateItem()) {
                         if (editMode) {
                             PstNote(
                                 text = "Перетащите за ≡, чтобы изменить порядок. «+» — вставить станцию " +
@@ -880,6 +1108,8 @@ fun ShoulderEditBottomSheet(
                                 )
                             }
                         }
+                        }
+                    }
                     }
                     if (!isNew && !editMode && onDelete != null) {
                         item(key = "deletePhase") {
@@ -1076,16 +1306,18 @@ private fun LazyListScope.stationScheme(
 ) {
     val mode = if (editMode) SchemeMode.EDIT else SchemeMode.VIEW
     item(key = KEY_DEPARTURE) {
-        CardSegment(top = true) {
-            PhaseStopRow(
-                name = departure.ifBlank { "Станция отправления" },
-                type = StopType.TERMINAL,
-                isStart = true,
-                isFirst = true,
-                isLast = false,
-                mode = mode,
-                onClick = if (editMode) null else ({ onOpenTerminal(true) }),
-            )
+        Box(Modifier.animateItem()) {
+            CardSegment(top = true) {
+                PhaseStopRow(
+                    name = departure.ifBlank { "Станция отправления" },
+                    type = StopType.TERMINAL,
+                    isStart = true,
+                    isFirst = true,
+                    isLast = false,
+                    mode = mode,
+                    onClick = if (editMode) null else ({ onOpenTerminal(true) }),
+                )
+            }
         }
     }
     stations.forEachIndexed { index, st ->
@@ -1124,19 +1356,21 @@ private fun LazyListScope.stationScheme(
         }
     }
     item(key = KEY_ARRIVAL) {
-        CardSegment(bottom = true) {
-            Column {
-                if (editMode) PhaseInsertRow(active = activeInsert == stations.size, onClick = { onInsert(stations.size) })
-                PhaseStopRow(
-                    name = arrival.ifBlank { "Станция прибытия" },
-                    type = StopType.TERMINAL,
-                    isStart = false,
-                    isFirst = false,
-                    isLast = true,
-                    mode = mode,
-                    terminalKm = distanceKm.takeIf { it > 0 },
-                    onClick = if (editMode) null else ({ onOpenTerminal(false) }),
-                )
+        Box(Modifier.animateItem()) {
+            CardSegment(bottom = true) {
+                Column {
+                    if (editMode) PhaseInsertRow(active = activeInsert == stations.size, onClick = { onInsert(stations.size) })
+                    PhaseStopRow(
+                        name = arrival.ifBlank { "Станция прибытия" },
+                        type = StopType.TERMINAL,
+                        isStart = false,
+                        isFirst = false,
+                        isLast = true,
+                        mode = mode,
+                        terminalKm = distanceKm.takeIf { it > 0 },
+                        onClick = if (editMode) null else ({ onOpenTerminal(false) }),
+                    )
+                }
             }
         }
     }
@@ -1165,7 +1399,18 @@ private class VariantChoice(
     val to: String,
     val variants: List<RouteVariant>,
     val autoFound: List<Pair<String, Boolean>>,
+    val kmAt: List<Double> = emptyList(),
 )
+
+private class CachedVariantChoice(val signature: String, val choice: VariantChoice)
+
+private class PendingCustomRoute(
+    val stationsBefore: List<ServicePhaseStation>,
+    val choiceBefore: VariantChoice?,
+    val chosen: List<OsmStationCandidate>,
+)
+
+private class CustomRetry(val chosen: List<OsmStationCandidate>, val message: String)
 
 /** [undo] null — просто сообщение, без «Отменить». */
 private class TerminalChoice(val isStart: Boolean, val name: String, val candidates: List<OsmStationCandidate>)
@@ -1174,46 +1419,65 @@ private class TerminalChoice(val isStart: Boolean, val name: String, val candida
 private class EditorSnackbar(
     val text: String,
     val actionLabel: String = "Отменить",
-    val durationMs: Long = 6_000,
+    val durationMs: Long = 6_000, // не используется: автоскрытие 6 с (с действием 8 с) — см. EditorSnackbarView
     val undo: (() -> Unit)? = null,
 )
 
 @Composable
 private fun EditorSnackbarView(bar: EditorSnackbar, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    // Автоскрытие: 6 с, с действием — 8 с.
     LaunchedEffect(bar) {
-        delay(bar.durationMs)
+        delay(if (bar.undo != null) 8_000 else 6_000)
         onDismiss()
     }
     // На инверсном фоне акцент берём контрастный: в светлой теме — светлый, в тёмной — тёмный.
     val darkTheme = Pst.bg.luminance() < 0.5f
     val actionColor = if (darkTheme) Color(0xFF0091D9) else Color(0xFF33BFFF)
-    Row(
-        modifier = modifier
-            .padding(12.dp)
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .background(Pst.cta, RoundedCornerShape(8.dp))
-            .padding(start = 16.dp, top = 6.dp, bottom = 6.dp, end = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = bar.text,
-            style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 19.sp),
-            color = Pst.ctaInk,
-            modifier = Modifier.weight(1f),
-        )
-        val undo = bar.undo
+    // Компактный: ширина по тексту (не больше 340 dp), до 2 строк, небольшие отступы. Длинное сообщение с
+    // действием («Станция … не найдена…») — текст на всю ширину, действие под ним справа (не обрезается).
+    val undo = bar.undo
+    val stacked = undo != null && bar.text.length > 70
+    val boxModifier = modifier
+        .padding(horizontal = 12.dp, vertical = 8.dp)
+        .widthIn(max = 340.dp)
+        .background(Pst.cta, RoundedCornerShape(10.dp))
+        .padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp)
+    val textStyle = Pst.sans.copy(fontSize = 13.sp, lineHeight = 17.sp)
+    val action: @Composable () -> Unit = {
         if (undo != null) Text(
             text = bar.actionLabel,
-            style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+            style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
             color = actionColor,
             modifier = Modifier
                 .clickable {
                     undo()
                     onDismiss()
                 }
-                .padding(horizontal = 12.dp, vertical = 9.dp),
-        ) else Box(Modifier.heightIn(min = 36.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+        ) else Spacer(Modifier.width(8.dp))
+    }
+    if (stacked) {
+        Column(modifier = boxModifier, horizontalAlignment = Alignment.End) {
+            Text(
+                text = bar.text,
+                style = textStyle,
+                color = Pst.ctaInk,
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp, end = 8.dp),
+            )
+            action()
+        }
+    } else {
+        Row(modifier = boxModifier, verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = bar.text,
+                style = textStyle,
+                color = Pst.ctaInk,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).padding(vertical = 6.dp),
+            )
+            action()
+        }
     }
 }
 
@@ -1342,4 +1606,13 @@ private fun MeasureByMap(isMeasured: Boolean, measuring: Boolean, onMeasure: () 
             contentPadding = PaddingValues(horizontal = 14.dp),
         )
     }
+}
+
+/** Сколько станций просить у сервера при поиске по части названия («Построить другой маршрут»). */
+private const val STATION_SEARCH_LIMIT = 30
+
+/** Не больше [max] точек из [points], равномерно по порядку (первая и последняя входят). */
+private fun sampleVia(points: List<Pair<Double, Double>>, max: Int): List<Pair<Double, Double>> {
+    if (points.size <= max) return points
+    return List(max) { i -> points[(i * (points.size - 1)) / (max - 1)] }
 }

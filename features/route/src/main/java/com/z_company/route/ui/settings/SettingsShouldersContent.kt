@@ -7,7 +7,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.font.FontWeight
+import com.z_company.route.component.ScrollHidingBottomBar
+import com.z_company.route.component.rememberBottomBarScrollState
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -90,12 +99,15 @@ fun SettingsShouldersContent(
         )
     }
 
+    val barScroll = rememberBottomBarScrollState()
+    Box(modifier = Modifier.fillMaxSize().nestedScroll(barScroll.nestedScroll)) {
     Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 12.dp)
-            .padding(bottom = 24.dp),
+            // Нижний отступ — чтобы последняя строка не пряталась под закреплённой кнопкой.
+            .padding(bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         // Пояснение
@@ -158,34 +170,48 @@ fun SettingsShouldersContent(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+    }
 
-        // Добавить плечо — карточка-строка в стиле Серий/Станций
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(elevation = 2.dp, shape = Shapes.medium)
-                .background(color = MaterialTheme.colorScheme.tertiary, shape = Shapes.medium)
-                .clickable {
-                    editingPhase = null
-                    showEditSheet = true
+    // Закреплённая внизу кнопка — та же панель и анимация, что у нижней панели формы «Поезд».
+    ScrollHidingBottomBar(
+        visible = barScroll.visible,
+        modifier = Modifier.align(Alignment.BottomCenter),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(start = 8.dp, top = 10.dp, end = 8.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    onClick = {
+                        editingPhase = null
+                        showEditSheet = true
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    elevation = ButtonDefaults.buttonElevation(0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.surface,
+                    ),
+                ) {
+                    Icon(
+                        modifier = Modifier.size(18.dp),
+                        painter = painterResource(com.z_company.core.R.drawable.ic_add),
+                        contentDescription = null,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Добавить плечо", fontWeight = FontWeight.SemiBold)
                 }
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                painter = painterResource(com.z_company.core.R.drawable.ic_add),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(18.dp)
-            )
-            Text(
-                text = "  Добавить плечо",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onPrimary
-            )
+            }
         }
+    }
     }
 }
 
