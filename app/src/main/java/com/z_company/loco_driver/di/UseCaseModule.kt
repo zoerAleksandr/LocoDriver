@@ -15,7 +15,7 @@ val useCaseModule = module {
     single<RegionalHolidaysRepository> { RemoteRegionalHolidaysRepository(api = get()) }
     single { CalendarUseCase(repositories = get(), regionalHolidaysRepository = get()) }
     single { LoadCalendarFromStorage(repositories = get()) }
-    single { TrainUseCase(repository = get()) }
+    single { TrainUseCase(repository = get(), trackRepository = get()) }
     single { PassengerUseCase(repository = get()) }
     single { OtherWorkUseCase(repository = get()) }
     single { RoutePartnerUseCase(repository = get()) }

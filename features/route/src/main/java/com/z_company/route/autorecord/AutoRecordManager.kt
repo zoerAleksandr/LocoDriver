@@ -23,6 +23,9 @@ import com.z_company.domain.autorecord.TrainOrdering
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.track.TrackPoint
+import com.z_company.domain.track.TrackRepository
+import com.z_company.domain.track.TrackWriter
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.displayTimeZone
@@ -75,6 +78,10 @@ class AutoRecordManager(
     /** Включить/отключить периодическую проверку живучести службы (WorkManager в app). */
     private val onWatchdog: (Boolean) -> Unit = {},
     private val nowMs: () -> Long = { System.currentTimeMillis() },
+    /** Локальные треки (SCREEN_SPECS §6.9); null — запись трека недоступна. */
+    private val trackRepository: TrackRepository? = null,
+    /** Согласие №1 на сохранение треков; null — как «нет согласия». */
+    private val trackConsent: TrackConsentStore? = null,
 ) {
     private val _state = MutableStateFlow(AutoRecordState())
     val state: StateFlow<AutoRecordState> = _state.asStateFlow()
@@ -87,6 +94,7 @@ class AutoRecordManager(
     @Volatile
     private var settings: UserSettings = UserSettings()
     private var lastBeatWriteMs = 0L
+    private val trackWriter = trackRepository?.let { TrackWriter(it) }
 
     init {
         if (prefs.getLong(KEY_UNTIL, 0L) == 0L && prefs.getBoolean(KEY_INTERRUPTED, false)) {
@@ -150,6 +158,7 @@ class AutoRecordManager(
         }
         cancelAlerts()
         setState(AutoRecordState(true, until))
+        warnNoConsentOnce()
         return begin(until)
     }
 
@@ -157,6 +166,12 @@ class AutoRecordManager(
 
     /** Из Application после старта графа: возобновить, если включено и не истекло. */
     fun restore() {
+        // Фоновая очистка треков старше 180 дней (не избранных) при старте приложения.
+        trackRepository?.let { repo ->
+            scope.launch(Dispatchers.Default) {
+                runCatching { repo.purgeExpired(nowMs()) }.onFailure { it.sendToSentry("AutoRecordManager", "purgeTracks") }
+            }
+        }
         val until = prefs.getLong(KEY_UNTIL, 0L)
         if (until == 0L) return
         if (nowMs() >= until) {
@@ -205,6 +220,7 @@ class AutoRecordManager(
         watchJob?.cancel()
         expiryJob?.cancel()
         prefs.edit().remove(KEY_UNTIL).putBoolean(KEY_INTERRUPTED, true).apply()
+        resetTrack()
         onWatchdog(false)
         setState(AutoRecordState(interrupted = true))
         GpsRecorder.stop(context)
@@ -266,6 +282,7 @@ class AutoRecordManager(
         watchJob?.cancel()
         expiryJob?.cancel()
         prefs.edit().remove(KEY_UNTIL).remove(KEY_TARGET).putBoolean(KEY_INTERRUPTED, false).apply()
+        resetTrack()
         onWatchdog(false)
         cancelAlerts()
         val wasEnabled = _state.value.enabled
@@ -286,6 +303,7 @@ class AutoRecordManager(
             stopInternal(notifyExpired = true)
             return
         }
+        recordTrackPoint(p)
         val event = detector.onSample(
             MotionSample(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM),
         ) ?: return
@@ -293,6 +311,36 @@ class AutoRecordManager(
             writeLock.withLock { handleEvent(event) }
         } catch (e: Exception) {
             e.sendToSentry("AutoRecordManager", "handleEvent")
+        }
+    }
+
+    /** Точка трека: только при согласии №1, в поезд, где нажата «АВТО»; прореживается TrackWriter. */
+    private fun recordTrackPoint(p: GpsPoint) {
+        val writer = trackWriter ?: return
+        val consent = trackConsent?.saveTracks?.value == true
+        val target = prefs.getString(KEY_TARGET, null)
+        try {
+            synchronized(writer) {
+                writer.onPoint(
+                    target,
+                    TrackPoint(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM),
+                    consent,
+                )
+            }
+        } catch (e: Exception) {
+            e.sendToSentry("AutoRecordManager", "trackPoint") // без координат
+        }
+    }
+
+    private fun resetTrack() {
+        trackWriter?.let { synchronized(it) { it.reset() } }
+    }
+
+    /** Однократное предупреждение, если АВТО включено без согласия на сохранение трека. */
+    private fun warnNoConsentOnce() {
+        val consent = trackConsent ?: return
+        if (consent.takeNoConsentWarning()) {
+            notify(NO_CONSENT_ID, TrackConsentStore.NO_CONSENT_WARNING, launchIntent(enable = false), emptyList())
         }
     }
 
@@ -413,6 +461,7 @@ class AutoRecordManager(
         private const val EXPIRED_ID = 7402
         private const val NO_ROUTE_ID = 7403
         private const val INTERRUPTED_ID = 7404
+        private const val NO_CONSENT_ID = 7405
 
         /** Для виджетов: момент автовыключения или 0, если АВТО выключено. */
         fun savedUntil(context: Context, now: Long = System.currentTimeMillis()): Long =

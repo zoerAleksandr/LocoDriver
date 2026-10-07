@@ -1,0 +1,72 @@
+-- Локальные GPS-треки «АВТО» (SCREEN_SPECS §6.9). Отдельный файл БД Track.db: основная Route.db
+-- не затрагивается, миграций существующих баз нет (новая БД создаётся при первом открытии).
+
+CREATE TABLE IF NOT EXISTS Track (
+    trackId TEXT NOT NULL PRIMARY KEY,
+    trainId TEXT NOT NULL,
+    startedAt INTEGER NOT NULL,
+    endedAt INTEGER NOT NULL,
+    isFavorite INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS index_Track_trainId ON Track(trainId);
+CREATE INDEX IF NOT EXISTS index_Track_endedAt ON Track(endedAt);
+
+-- Первичный ключ (trackId, timeMs) — он же индекс по треку и времени.
+CREATE TABLE IF NOT EXISTS TrackPoint (
+    trackId TEXT NOT NULL,
+    timeMs INTEGER NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    speedKmh REAL,
+    accuracyM REAL,
+    altitudeM REAL,
+    PRIMARY KEY (trackId, timeMs)
+) WITHOUT ROWID;
+
+insertTrack:
+INSERT OR IGNORE INTO Track(trackId, trainId, startedAt, endedAt, isFavorite) VALUES (?, ?, ?, ?, 0);
+
+touchTrack:
+UPDATE Track SET endedAt = MAX(endedAt, :endedAt) WHERE trackId = :trackId;
+
+insertPoint:
+INSERT OR IGNORE INTO TrackPoint(trackId, timeMs, latitude, longitude, speedKmh, accuracyM, altitudeM)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+selectPoints:
+SELECT * FROM TrackPoint WHERE trackId = :trackId ORDER BY timeMs ASC;
+
+countPoints:
+SELECT COUNT(*) FROM TrackPoint WHERE trackId = :trackId;
+
+selectTracks:
+SELECT * FROM Track ORDER BY startedAt DESC;
+
+selectTracksByTrain:
+SELECT * FROM Track WHERE trainId = :trainId ORDER BY startedAt DESC;
+
+setFavorite:
+UPDATE Track SET isFavorite = :isFavorite WHERE trackId = :trackId;
+
+deletePointsByTrain:
+DELETE FROM TrackPoint WHERE trackId IN (SELECT trackId FROM Track WHERE trainId = :trainId);
+
+deleteTracksByTrain:
+DELETE FROM Track WHERE trainId = :trainId;
+
+deleteAllPoints:
+DELETE FROM TrackPoint;
+
+deleteAllTracks:
+DELETE FROM Track;
+
+-- Просроченные: не избранные и закончившиеся раньше границы.
+countExpiredTracks:
+SELECT COUNT(*) FROM Track WHERE isFavorite = 0 AND endedAt < :cutoff;
+
+deleteExpiredPoints:
+DELETE FROM TrackPoint WHERE trackId IN (SELECT trackId FROM Track WHERE isFavorite = 0 AND endedAt < :cutoff);
+
+deleteExpiredTracks:
+DELETE FROM Track WHERE isFavorite = 0 AND endedAt < :cutoff;

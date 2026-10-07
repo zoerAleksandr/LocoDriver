@@ -164,6 +164,19 @@ val repositoryModule = module {
                     com.z_company.loco_driver.widget.WidgetDataLoader.loadAndPush(androidContext())
                 }
             },
+            trackRepository = get(),
+            trackConsent = get(),
+        )
+    }
+    // Согласие №1 «Сохранять мои треки и историю поездок» (SCREEN_SPECS §6.9, §17.7).
+    single {
+        com.z_company.route.autorecord.TrackConsentStore(
+            prefs = androidContext().getSharedPreferences(
+                com.z_company.route.autorecord.TrackConsentStore.PREFS_NAME,
+                android.content.Context.MODE_PRIVATE,
+            ),
+            trackRepository = get(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
     }
     // Продление токена при старте приложения (POST /v1/auth/refresh); зовёт StartApp.
