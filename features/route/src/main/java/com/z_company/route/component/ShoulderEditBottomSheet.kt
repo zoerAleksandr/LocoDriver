@@ -77,8 +77,6 @@ import com.z_company.route.component.servicephase.PhaseAutoFillSheet
 import com.z_company.route.component.servicephase.ReportStop
 import com.z_company.route.component.servicephase.reportNoPath
 import com.z_company.route.component.servicephase.reportMissingStation
-import com.z_company.route.component.servicephase.stationNotFoundMessage
-import com.z_company.route.component.servicephase.WRITE_TO_SUPPORT
 import com.z_company.route.component.servicephase.PhaseRouteVariantsMap
 import com.z_company.route.viewmodel.AutoFillState
 import com.z_company.route.util.FalseMileage
@@ -440,11 +438,7 @@ fun ShoulderEditBottomSheet(
                 }
                 if (found.isEmpty()) {
                     measuring = false
-                    snackbar = EditorSnackbar(
-                        stationNotFoundMessage(name),
-                        actionLabel = WRITE_TO_SUPPORT,
-                        undo = { sendMissingStationReport(name) },
-                    )
+                    snackbar = EditorSnackbar("«$name» не нашлась на карте — укажите точку вручную")
                     return@launch
                 }
                 if (found.any { it.approximate }) {
@@ -759,7 +753,6 @@ fun ShoulderEditBottomSheet(
                 openStation(null, null)
             },
             onReportNoPath = { sendNoPathReport() },
-            onReportMissingStation = ::sendMissingStationReport,
             onBuildCustomRoute = { candidates ->
                 pendingCustomRoute = PendingCustomRoute(stations.toList(), null, candidates)
                 setCustomRouteVias(candidates)
@@ -867,7 +860,6 @@ fun ShoulderEditBottomSheet(
             customPreview = pendingCustomRoute != null,
             previewChosen = pendingCustomRoute?.chosen,
             onReportNoPath = { chosen -> sendNoPathReport(chosen.map { ReportStop(it.name, it.latitude, it.longitude) }) },
-            onReportMissingStation = ::sendMissingStationReport,
             initialCustom = customRetry?.chosen,
             initialCustomError = customRetry?.message,
             onBuildCustomRoute = { candidates ->
