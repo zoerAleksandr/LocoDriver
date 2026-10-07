@@ -113,4 +113,30 @@ class TrackConsentStoreTest {
         TrackConsentStore(prefs, Repo(), scope).setConsent(true)
         assertTrue(TrackConsentStore(prefs, Repo(), scope).saveTracks.value)
     }
+
+    @Test
+    fun serverConsentIsUnknownUntilConfirmedAndPersists() = runTest {
+        val prefs = MemPrefs()
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val store = TrackConsentStore(prefs, Repo(), scope)
+        assertEquals(null, store.serverConsent())
+        store.setServerConsent(true)
+        assertEquals(true, TrackConsentStore(prefs, Repo(), scope).serverConsent())
+        store.setServerConsent(null)
+        assertEquals(null, store.serverConsent())
+    }
+
+    @Test
+    fun consentChangeRequestsServerSync() = runTest {
+        var calls = 0
+        val store = TrackConsentStore(
+            MemPrefs(), Repo(), TestScope(StandardTestDispatcher(testScheduler)),
+            onConsentChanged = { calls++ },
+        )
+        store.setConsent(true)
+        store.setConsent(false)
+        assertEquals(2, calls)
+        // Отзыв не трогает подтверждённое сервером состояние: PUT consent=false отправит загрузчик.
+        assertEquals(null, store.serverConsent())
+    }
 }

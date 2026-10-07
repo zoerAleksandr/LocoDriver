@@ -54,6 +54,14 @@ class TrackHistoryLoader(
         }
     }
 
+    /** Звезда серверного трека (для треков, которых нет на устройстве). */
+    suspend fun setFavorite(token: String, trackId: String, favorite: Boolean) {
+        api.patch(token, trackId, TrackPatchRequest(isFavorite = favorite))
+    }
+
+    /** Удалить серверный трек (идемпотентно). */
+    suspend fun delete(token: String, trackId: String) = api.delete(token, trackId)
+
     /** `DELETE /tracks {confirm:true}`: удалить ВСЕ серверные треки пользователя. */
     suspend fun deleteAllRemote(token: String): Int = api.deleteAll(token).deleted
 

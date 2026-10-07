@@ -185,6 +185,11 @@ val repositoryModule = module {
     single<com.z_company.domain.track.TrackBlobTools> {
         com.z_company.repository.remote_rest.tracks.AndroidTrackBlobTools()
     }
+    single<com.z_company.route.autorecord.TrackUploadTrigger> {
+        com.z_company.route.autorecord.TrackUploadTrigger {
+            com.z_company.loco_driver.track.TrackUploadScheduler.enqueue(androidContext())
+        }
+    }
     single { com.z_company.route.autorecord.TrackRouteResolver(routeUseCase = get(), trackRepository = get()) }
     single {
         com.z_company.repository.remote_rest.tracks.TrackUploader(
