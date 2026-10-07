@@ -56,14 +56,85 @@ class StopDetectorTest {
     }
 
     @Test
-    fun `departure after 30 s above move speed, time is moment of starting`() {
+    fun `departure after 30 s above move speed, abrupt start keeps last rest sample`() {
         val d = StopDetector()
         d.feed(0, 70, 0.0)
+        d.feed(71, 99, 0.0)
         assertNull(d.feed(100, 129, 8.0))
         val ev = d.onSample(sample(130, 8.0))
         assertNotNull(ev)
         assertEquals(StopEventType.DEPARTURE, ev.type)
-        assertEquals(t0 + 100_000L, ev.timeMs)
+        assertEquals(t0 + 99_000L, ev.timeMs) // последний отсчёт «≈0» перед ростом
+    }
+
+    @Test
+    fun `smooth acceleration 0 to 30 kmh in 2 min - departure at last rest sample`() {
+        val d = StopDetector()
+        assertNotNull(d.feed(0, 90, 0.0)) // arrival at 0
+        var ev: StopEvent? = null
+        // стоим до 120-й, дальше линейный разгон: 0.25 км/ч за секунду (30 км/ч за 120 с)
+        for (s in 91..300) {
+            val v = if (s <= 120) 0.0 else (s - 120) * 0.25
+            d.onSample(sample(s, v))?.let { if (ev == null) ev = it }
+        }
+        val e = assertNotNull(ev)
+        assertEquals(StopEventType.DEPARTURE, e.type)
+        // скорость ≤ 1 км/ч до 124-й секунды включительно (0.25*4=1.0)
+        assertEquals(t0 + 124_000L, e.timeMs)
+        assertEquals(t0 + 120_000L, e.minuteTimeMs)
+    }
+
+    @Test
+    fun `braking to a stop - arrival is first sample below threshold, not later`() {
+        val d = StopDetector()
+        d.feed(0, 10, 30.0)
+        var ev: StopEvent? = null
+        // торможение 30 → 0 за 60 с (0.5 км/ч/с), потом стоим
+        for (s in 11..300) {
+            val v = (30.0 - (s - 10) * 0.5).coerceAtLeast(0.0)
+            d.onSample(sample(s, v))?.let { if (ev == null) ev = it }
+        }
+        val e = assertNotNull(ev)
+        assertEquals(StopEventType.ARRIVAL, e.type)
+        // v<2 впервые при s-10 > 56, т.е. s=67
+        assertEquals(t0 + 67_000L, e.timeMs)
+        assertEquals(t0 + 60_000L, e.minuteTimeMs)
+    }
+
+    @Test
+    fun `gps speed jitter while standing gives one arrival and no departure`() {
+        val d = StopDetector()
+        val events = mutableListOf<StopEvent>()
+        // дрожание 0..1.9 км/ч и редкие всплески 3 км/ч на 1-2 с
+        for (s in 0..600) {
+            val v = when {
+                s % 97 == 0 && s > 100 -> 3.0
+                else -> (s * 7 % 20) / 10.0 // 0.0..1.9
+            }
+            d.onSample(sample(s, v))?.let { events += it }
+        }
+        assertEquals(1, events.count { it.type == StopEventType.ARRIVAL })
+        assertEquals(0, events.count { it.type == StopEventType.DEPARTURE })
+    }
+
+    @Test
+    fun `spikes above move speed shorter than 30 s do not depart`() {
+        val d = StopDetector()
+        d.feed(0, 70, 0.0)
+        assertNull(d.feed(71, 90, 8.0)) // 20 с
+        assertNull(d.feed(91, 150, 0.0))
+    }
+
+    @Test
+    fun `rollback does not go before the arrival of the current stop`() {
+        val d = StopDetector()
+        d.feed(0, 10, 20.0)
+        val arr = d.feed(11, 80, 0.0)
+        assertNotNull(arr)
+        val ev = d.feed(81, 130, 12.0)
+        assertNotNull(ev)
+        assertEquals(t0 + 80_000L, ev.timeMs)
+        assert(ev.timeMs >= arr.timeMs)
     }
 
     @Test
