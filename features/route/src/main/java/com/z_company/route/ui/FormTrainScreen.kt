@@ -311,8 +311,12 @@ fun FormTrainScreen(
         // Карта поезда (SCREEN_SPECS §6.9)
         var showTrainMap by remember { mutableStateOf(false) }
         if (showTrainMap) {
+            val railVm: com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel =
+                androidx.lifecycle.viewmodel.compose.viewModel()
             com.z_company.route.component.servicephase.TrainMapScreen(
                 missingStation = { viewModel.trainMapMissingStation() },
+                stops = remember { viewModel.trainMapStops() },
+                loadRailLine = { railVm.railLine(it) },
                 currentFix = { viewModel.trainMapCurrentFix() },
                 onDetermine = { viewModel.saveStationCoordinatesFromGps(it) },
                 onDismiss = { showTrainMap = false },

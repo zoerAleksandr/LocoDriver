@@ -39,13 +39,25 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.z_company.domain.entities.setting.ServicePhaseStationKind
 import com.z_company.domain.util.GeoFix
+import com.z_company.domain.util.TrainMapRoute
+import com.z_company.domain.util.TrainMapStop
+import com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel
+import com.z_company.route.viewmodel.message
 import com.z_company.route.util.DeviceLocation
 import kotlinx.coroutines.launch
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.LineString
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.style.layers.CircleLayer
@@ -56,16 +68,22 @@ import org.maplibre.geojson.Point
 import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TRAIN_ME_SOURCE = "train-map-me"
+private const val TRAIN_ROUTE_SOURCE = "train-map-route"
+private const val TRAIN_STOPS_SOURCE = "train-map-stops"
 
 /**
  * Карта поезда (SCREEN_SPECS §6.9): полноэкранная карта на общей подложке карты плеч (цепочка тайлов, ж/д слои).
  * Состояние 1 — пустая карта с текущим местоположением; состояние 3 — если у станции поезда/плеча нет координат,
  * внизу предложение «Определить координаты по GPS» ([onDetermine] пишет их в справочник станций; существующие
- * координаты не перезаписываются). Запросов к отрисовке нет (см. PhaseMapPicker про падение).
+ * координаты не перезаписываются). Состояние 2 — если у плеча есть ≥ 2 станции с координатами ([stops]), маршрут
+ * по рельсам ([loadRailLine], тот же запрос, что у карты плеч) рисуется тонким пунктиром, станции — точками,
+ * ближайшая впереди выделена, камера охватывает маршрут и текущее место. Запросов к отрисовке нет (см. PhaseMapPicker про падение).
  */
 @Composable
 internal fun TrainMapScreen(
     missingStation: () -> String?,
+    stops: List<TrainMapStop>,
+    loadRailLine: suspend (List<Pair<Double, Double>>) -> ServicePhaseAutoFillViewModel.RailLineResult,
     currentFix: suspend () -> GeoFix?,
     onDetermine: suspend (String) -> Boolean,
     onDismiss: () -> Unit,
@@ -83,10 +101,16 @@ internal fun TrainMapScreen(
         var determining by remember { mutableStateOf(false) }
         var determineFailed by remember { mutableStateOf(false) }
         var savedName by remember { mutableStateOf<String?>(null) }
+        var myFix by remember { mutableStateOf<GeoFix?>(null) }
+        val hasRoute = TrainMapRoute.hasRoute(stops)
+        var railState by remember { mutableStateOf<ServicePhaseAutoFillViewModel.RailLineResult?>(null) }
+        var loadAttempt by remember { mutableStateOf(0) }
+        var fittedKey by remember { mutableStateOf<String?>(null) }
+        val density = context.resources.displayMetrics.density
         val alive = remember { AtomicBoolean(true) }
         val scope = rememberCoroutineScope()
 
-        fun showMyLocation() {
+        fun showMyLocation(center: Boolean = true) {
             scope.launch {
                 val fix = currentFix() ?: run {
                     locationDenied = true
@@ -97,14 +121,16 @@ internal fun TrainMapScreen(
                 if (!alive.get()) return@launch
                 m.style?.getSourceAs<GeoJsonSource>(TRAIN_ME_SOURCE)
                     ?.setGeoJson(Point.fromLngLat(fix.longitude, fix.latitude))
-                m.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(fix.latitude, fix.longitude), 14.0))
+                myFix = fix
+                if (center) m.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(fix.latitude, fix.longitude), 14.0))
             }
         }
         val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-            if (granted.values.any { it }) showMyLocation() else locationDenied = true
+            if (granted.values.any { it }) showMyLocation(!hasRoute) else locationDenied = true
         }
-        fun requestOrShowLocation() {
-            if (DeviceLocation.hasPermission(context)) showMyLocation()
+        // center = false: при маршруте камеру ведёт охват маршрута, кнопка «Моё местоположение» центрирует на себе.
+        fun requestOrShowLocation(center: Boolean = true) {
+            if (DeviceLocation.hasPermission(context)) showMyLocation(center)
             else permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
         }
 
@@ -128,13 +154,116 @@ internal fun TrainMapScreen(
                                 PropertyFactory.circleStrokeWidth(3f),
                             )
                         )
+                        // Будущий маршрут (§6.9, состояние 2): пунктир под точками станций; данные — по готовности.
+                        style.addSource(GeoJsonSource(TRAIN_ROUTE_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addSource(GeoJsonSource(TRAIN_STOPS_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addLayerBelow(
+                            LineLayer("train-map-route-layer", TRAIN_ROUTE_SOURCE).withProperties(
+                                PropertyFactory.lineColor("#00A0F5"),
+                                PropertyFactory.lineWidth(2.5f),
+                                PropertyFactory.lineDasharray(arrayOf(2f, 2f)),
+                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                            ),
+                            "train-map-me-layer",
+                        )
+                        val role = Expression.get("role")
+                        style.addLayerBelow(
+                            CircleLayer("train-map-stops-layer", TRAIN_STOPS_SOURCE).withProperties(
+                                PropertyFactory.circleRadius(
+                                    Expression.match(role, Expression.literal(5f),
+                                        Expression.stop("ahead", 9f), Expression.stop("terminal", 7f), Expression.stop("halt", 3.5f))
+                                ),
+                                PropertyFactory.circleColor(
+                                    Expression.match(role, Expression.literal("#FFFFFF"),
+                                        Expression.stop("ahead", "#00A0F5"), Expression.stop("terminal", "#0A0E14"))
+                                ),
+                                PropertyFactory.circleStrokeColor(
+                                    Expression.match(role, Expression.literal("#0A0E14"), Expression.stop("ahead", "#FFFFFF"))
+                                ),
+                                PropertyFactory.circleStrokeWidth(
+                                    Expression.match(role, Expression.literal(2f), Expression.stop("halt", 1.5f), Expression.stop("ahead", 3f))
+                                ),
+                            ),
+                            "train-map-me-layer",
+                        )
+                        style.addLayerBelow(
+                            SymbolLayer("train-map-stops-label", TRAIN_STOPS_SOURCE).withProperties(
+                                PropertyFactory.textField(Expression.get("name")),
+                                PropertyFactory.textFont(arrayOf("Noto Sans Regular")),
+                                PropertyFactory.textSize(
+                                    Expression.match(role, Expression.literal(11f),
+                                        Expression.stop("ahead", 13f), Expression.stop("terminal", 13f))
+                                ),
+                                PropertyFactory.symbolSortKey(Expression.get("sort")),
+                                PropertyFactory.textOffset(arrayOf(0f, 1.2f)),
+                                PropertyFactory.textAnchor("top"),
+                                PropertyFactory.textColor("#0A0E14"),
+                                PropertyFactory.textHaloColor("#FFFFFF"),
+                                PropertyFactory.textHaloWidth(1.5f),
+                                // Подписи не загромождают: пересекающиеся скрываются, в приоритете крайние и «впереди».
+                                PropertyFactory.textOptional(true),
+                            ),
+                            "train-map-me-layer",
+                        )
                         styleReady = true
                     }
                 }
             }
         }
         // Текущее место — как только карта и стиль готовы (разрешение — при необходимости).
-        LaunchedEffect(styleReady) { if (styleReady) requestOrShowLocation() }
+        LaunchedEffect(styleReady) { if (styleReady) requestOrShowLocation(center = !hasRoute) }
+        // Линия по рельсам с сервера (всегда запрос; сохранённая — запас без сети), как на карте плеч.
+        LaunchedEffect(loadAttempt) {
+            if (hasRoute) {
+                railState = null
+                railState = loadRailLine(stops.map { it.latitude to it.longitude })
+            }
+        }
+        // Станции плеча точками, ближайшая впереди выделена (обновляется с местоположением).
+        LaunchedEffect(styleReady, myFix) {
+            if (!styleReady || !hasRoute) return@LaunchedEffect
+            val source = map?.style?.getSourceAs<GeoJsonSource>(TRAIN_STOPS_SOURCE) ?: return@LaunchedEffect
+            val ahead = TrainMapRoute.nextAheadIndex(stops, myFix)
+            source.setGeoJson(
+                FeatureCollection.fromFeatures(
+                    stops.mapIndexed { i, st ->
+                        val role = when {
+                            i == ahead -> "ahead"
+                            st.kind == null -> "terminal"
+                            st.kind == ServicePhaseStationKind.HALT -> "halt"
+                            else -> "station"
+                        }
+                        Feature.fromGeometry(Point.fromLngLat(st.longitude, st.latitude)).apply {
+                            addStringProperty("name", st.name)
+                            addStringProperty("role", role)
+                            addNumberProperty("sort", if (role == "ahead" || role == "terminal") 0 else 1)
+                        }
+                    }
+                )
+            )
+        }
+        // Пунктир, когда линия получена.
+        LaunchedEffect(styleReady, railState) {
+            if (!styleReady) return@LaunchedEffect
+            val line = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line ?: return@LaunchedEffect
+            map?.style?.getSourceAs<GeoJsonSource>(TRAIN_ROUTE_SOURCE)?.setGeoJson(
+                Feature.fromGeometry(LineString.fromLngLats(line.map { (lat, lon) -> Point.fromLngLat(lon, lat) }))
+            )
+        }
+        // Камера охватывает маршрут (линию или станции) и текущее место; повторно — когда пришла линия или первая точка.
+        LaunchedEffect(styleReady, railState, myFix != null) {
+            if (!styleReady || !hasRoute) return@LaunchedEffect
+            val m = map ?: return@LaunchedEffect
+            val line = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
+            val key = "${line?.size}|${myFix != null}"
+            if (fittedKey == key) return@LaunchedEffect
+            fittedKey = key
+            val pts = TrainMapRoute.cameraPoints(stops, line, myFix)
+            val bounds = LatLngBounds.Builder().apply { pts.forEach { include(LatLng(it.first, it.second)) } }.build()
+            val pad = (48 * density).toInt()
+            // Сверху плашка, справа кнопки, снизу панели.
+            m.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, pad * 2, pad * 2, pad * 3))
+        }
         DisposableEffect(Unit) {
             mapView.onStart()
             mapView.onResume()
@@ -191,7 +320,7 @@ internal fun TrainMapScreen(
                 MapButton(onClick = { map?.animateCamera(CameraUpdateFactory.zoomOut()) }, description = "Отдалить") {
                     Text("−", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
                 }
-                MapButton(onClick = { requestOrShowLocation() }, description = "Моё местоположение") {
+                MapButton(onClick = { requestOrShowLocation(center = true) }, description = "Моё местоположение") {
                     Box(Modifier.size(14.dp).border(2.dp, Pst.accent, CircleShape), contentAlignment = Alignment.Center) {
                         Box(Modifier.size(4.dp).background(Pst.accent, CircleShape))
                     }
@@ -199,6 +328,65 @@ internal fun TrainMapScreen(
             }
 
             val name = missing
+            val rail = railState
+            if (hasRoute && (rail !is ServicePhaseAutoFillViewModel.RailLineResult.Ok ||
+                    (rail.fromCache && name == null && savedName == null))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(16.dp)
+                        .shadow(4.dp, RoundedCornerShape(16.dp))
+                        .background(
+                            if (rail is ServicePhaseAutoFillViewModel.RailLineResult.Ok) Pst.warning else Pst.surface,
+                            RoundedCornerShape(16.dp),
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    when (rail) {
+                        null -> {
+                            androidx.compose.material3.CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Pst.accent,
+                            )
+                            Text(text = "Строим путь по рельсам…", style = Pst.sans.copy(fontSize = 14.sp), color = Pst.text)
+                        }
+                        is ServicePhaseAutoFillViewModel.RailLineResult.Ok ->
+                            Text(
+                                text = "Маршрут показан из сохранённых данных",
+                                style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                                color = Pst.text,
+                            )
+                        else -> {
+                            Text(
+                                text = when (rail) {
+                                    ServicePhaseAutoFillViewModel.RailLineResult.NoPath ->
+                                        "Не удалось проложить путь по рельсам между станциями плеча. Проверьте координаты станций — " +
+                                            "точка могла оказаться в стороне от железной дороги."
+                                    is ServicePhaseAutoFillViewModel.RailLineResult.Failed ->
+                                        "Путь по рельсам не построен. " + rail.failure.message() + "."
+                                    else -> ""
+                                }.replace("..", "."),
+                                style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                                color = Pst.text,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (rail is ServicePhaseAutoFillViewModel.RailLineResult.Failed) {
+                                PstButton(
+                                    text = "Повторить",
+                                    onClick = { loadAttempt++ },
+                                    kind = PstButtonKind.TEXT,
+                                    height = 36.dp,
+                                    fontSize = 14,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             if (name != null || savedName != null) {
                 Column(
                     modifier = Modifier

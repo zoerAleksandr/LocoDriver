@@ -551,6 +551,10 @@ class TrainFormViewModel(
         )
     }
 
+    /** Станции выбранного плеча с координатами по порядку для будущего маршрута на карте поезда (§6.9, состояние 2). */
+    fun trainMapStops(): List<com.z_company.domain.util.TrainMapStop> =
+        fullSelectedPhase()?.let { stationDirectory.resolve(it) }?.let(com.z_company.domain.util.TrainMapRoute::stops).orEmpty()
+
     /** Текущее местоположение для карты поезда; null — нет разрешения/сигнала. */
     suspend fun trainMapCurrentFix(): GeoFix? = DeviceLocation.currentFix(appContext)
 
