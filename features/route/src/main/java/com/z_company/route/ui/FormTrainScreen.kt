@@ -1797,39 +1797,26 @@ fun FormTrainScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Слева: сортировка + чип секундомера (одной группой, в одну линию с кнопками)
+                                // Слева: чип секундомера (той же формы и высоты, что «АВТО» и «GO»)
                                 Row(
                                     modifier = Modifier.weight(1f),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    val isReversed = formUiState.isStationsReversed
-                                    val rotation by animateFloatAsState(
-                                        targetValue = if (isReversed) 180f else 0f,
-                                        animationSpec = tween(durationMillis = 300)
-                                    )
-                                    Icon(
-                                        modifier = Modifier
-                                            .graphicsLayer { rotationZ = rotation }
-                                            .noRippleEffect(
-                                                onClick = { viewModel.toggleStationsSortOrder() }
-                                            ),
-                                        painter = painterResource(com.z_company.route.R.drawable.sort_24px),
-                                        contentDescription = null
-                                    )
                                     if (stopwatch != null) {
                                         Box(
                                             modifier = Modifier
-                                                .clip(RoundedCornerShape(10.dp))
+                                                .height(com.z_company.route.autorecord.AutoRecordStyle.height)
+                                                .clip(com.z_company.route.autorecord.AutoRecordStyle.shape)
                                                 .background(stopwatch.bg)
-                                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                                                .padding(horizontal = 14.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = stopwatch.timeText,
                                                 maxLines = 1,
                                                 softWrap = false,
-                                                style = MaterialTheme.typography.titleSmall.copy(
+                                                style = MaterialTheme.typography.titleMedium.copy(
                                                     fontFamily = com.z_company.core.ui.theme.MonoFont,
                                                     fontWeight = FontWeight.Bold
                                                 ),
@@ -1913,40 +1900,60 @@ fun FormTrainScreen(
                                     ),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                // Показать/скрыть карточки перегонов между станциями.
-                                IconButton(
-                                    modifier = Modifier.size(32.dp),
-                                    onClick = {
-                                        viewModel.toggleSegmentsVisibility()
-                                        val shown = !formUiState.showSegments
-                                        scope.launch {
-                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                            snackbarHostState.showSnackbar(
-                                                message = if (shown) {
-                                                    "Перегоны показаны"
-                                                } else {
-                                                    "Перегоны скрыты"
-                                                },
-                                                duration = SnackbarDuration.Short,
-                                            )
-                                        }
-                                    }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Icon(
-                                        modifier = Modifier.size(20.dp),
-                                        painter = painterResource(
-                                            if (formUiState.showSegments)
-                                                com.z_company.route.R.drawable.collapse_rows_24px
-                                            else
-                                                com.z_company.route.R.drawable.expand_rows_24px
-                                        ),
-                                        contentDescription = if (formUiState.showSegments)
-                                            "Скрыть перегоны" else "Показать перегоны",
-                                        tint = if (formUiState.showSegments)
-                                            MaterialTheme.colorScheme.tertiary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                    // Сортировка списка станций (вверх/вниз)
+                                    val isReversed = formUiState.isStationsReversed
+                                    val rotation by animateFloatAsState(
+                                        targetValue = if (isReversed) 180f else 0f,
+                                        animationSpec = tween(durationMillis = 300)
                                     )
+                                    Icon(
+                                        modifier = Modifier
+                                            .graphicsLayer { rotationZ = rotation }
+                                            .noRippleEffect(
+                                                onClick = { viewModel.toggleStationsSortOrder() }
+                                            ),
+                                        painter = painterResource(com.z_company.route.R.drawable.sort_24px),
+                                            contentDescription = null
+                                        )
+                                    // Показать/скрыть карточки перегонов между станциями.
+                                    IconButton(
+                                        modifier = Modifier.size(32.dp),
+                                        onClick = {
+                                            viewModel.toggleSegmentsVisibility()
+                                            val shown = !formUiState.showSegments
+                                            scope.launch {
+                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                snackbarHostState.showSnackbar(
+                                                    message = if (shown) {
+                                                        "Перегоны показаны"
+                                                    } else {
+                                                        "Перегоны скрыты"
+                                                    },
+                                                    duration = SnackbarDuration.Short,
+                                                )
+                                            }
+                                        }
+                                    ) {
+                                        Icon(
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(
+                                                if (formUiState.showSegments)
+                                                    com.z_company.route.R.drawable.collapse_rows_24px
+                                                else
+                                                    com.z_company.route.R.drawable.expand_rows_24px
+                                            ),
+                                            contentDescription = if (formUiState.showSegments)
+                                                "Скрыть перегоны" else "Показать перегоны",
+                                            tint = if (formUiState.showSegments)
+                                                MaterialTheme.colorScheme.tertiary
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         }
