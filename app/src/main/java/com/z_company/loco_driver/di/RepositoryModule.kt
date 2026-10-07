@@ -166,6 +166,7 @@ val repositoryModule = module {
             },
             trackRepository = get(),
             trackConsent = get(),
+            onTrackUpload = { com.z_company.loco_driver.track.TrackUploadScheduler.enqueue(androidContext()) },
         )
     }
     // Согласие №1 «Сохранять мои треки и историю поездок» (SCREEN_SPECS §6.9, §17.7).
@@ -177,8 +178,24 @@ val repositoryModule = module {
             ),
             trackRepository = get(),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            onConsentChanged = { com.z_company.loco_driver.track.TrackUploadScheduler.enqueue(androidContext()) },
         )
     }
+    // История треков на сервере (этап 3б): кодек, связь поезд -> рейс, отправка, чтение.
+    single<com.z_company.domain.track.TrackBlobTools> {
+        com.z_company.repository.remote_rest.tracks.AndroidTrackBlobTools()
+    }
+    single { com.z_company.route.autorecord.TrackRouteResolver(routeUseCase = get(), trackRepository = get()) }
+    single {
+        com.z_company.repository.remote_rest.tracks.TrackUploader(
+            api = RemoteRestClient.tracksApi,
+            repository = get(),
+            tools = get(),
+            resolver = get<com.z_company.route.autorecord.TrackRouteResolver>(),
+            settings = get<com.z_company.route.autorecord.TrackConsentStore>(),
+        )
+    }
+    single { com.z_company.repository.remote_rest.tracks.TrackHistoryLoader(api = RemoteRestClient.tracksApi, tools = get()) }
     // Продление токена при старте приложения (POST /v1/auth/refresh); зовёт StartApp.
     single { SessionRefresher(remoteRestApi = get(), secureTokenStorage = get()) }
 
