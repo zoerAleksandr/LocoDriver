@@ -15,6 +15,7 @@ import com.z_company.data_local.route.db.RouteDatabase
 import com.z_company.data_local.route.searchdb.SearchResponseDatabase
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
+import com.z_company.data_local.track.db.TrackDatabase
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.channels.OverlappingFileLockException
@@ -400,6 +401,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
 
     actual fun createSearchResponseDriver(): SqlDriver =
         createDriver(SearchResponseDatabase.Schema, "SearchResponse.db")
+
+    actual fun createTrackDriver(): SqlDriver = createDriver(TrackDatabase.Schema, "Track.db")
 
     /**
      * Перед созданием драйвера гарантируем, что все нужные столбцы существуют
