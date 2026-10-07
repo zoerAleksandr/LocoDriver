@@ -2,4 +2,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Переиспользуемая GPS-запись (core/gps): foreground service типа location.
+         Фонового доступа к геолокации нет — запись стартует, пока приложение на экране. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+        <service
+            android:name="com.z_company.core.gps.GpsRecordingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+    </application>
 </manifest>
