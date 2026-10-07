@@ -132,6 +132,20 @@ val repositoryModule = module {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
     }
+    // Кнопка «АВТО»: запись стоянок/отправлений по GPS (SCREEN_SPECS §6.2 п.6а).
+    single {
+        com.z_company.route.autorecord.AutoRecordManager(
+            context = androidContext(),
+            routeUseCase = get(),
+            trainUseCase = get(),
+            stationDirectory = get(),
+            prefs = androidContext().getSharedPreferences(
+                com.z_company.route.autorecord.AutoRecordManager.PREFS_NAME,
+                android.content.Context.MODE_PRIVATE,
+            ),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+        )
+    }
     // Продление токена при старте приложения (POST /v1/auth/refresh); зовёт StartApp.
     single { SessionRefresher(remoteRestApi = get(), secureTokenStorage = get()) }
 

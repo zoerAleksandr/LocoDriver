@@ -78,8 +78,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import com.z_company.route.autorecord.AutoRecordChip
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -284,6 +286,11 @@ fun FormTrainScreen(
         // Вторая шторка — создание/редактирование плеча.
         var showEditPhaseSheet by remember { mutableStateOf(false) }
         var editingPhase by remember { mutableStateOf<ServicePhase?>(null) }
+
+        // Кнопка «АВТО» (SCREEN_SPECS §6.2 п.6а)
+        val autoRecordManager: com.z_company.route.autorecord.AutoRecordManager = org.koin.compose.koinInject()
+        val autoRecordState by autoRecordManager.state.collectAsState()
+        val onAutoToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoRecordManager)
 
         // Геолокация для подстановки ближайшей станции: спрашиваем один раз, при первом GO /
         // «добавить станцию».
@@ -1839,11 +1846,17 @@ fun FormTrainScreen(
                                     }
                                 }
 
-                                // Справа: play/pause
-                                Box(
+                                // Справа: «АВТО» + play/pause
+                                Row(
                                     modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterEnd
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    AutoRecordChip(
+                                        state = autoRecordState,
+                                        onToggle = onAutoToggle,
+                                        modifier = Modifier.padding(end = 8.dp),
+                                    )
                                     OutlinedButton(
                                         onClick = { askLocation { viewModel.onGoClicked() } },
                                         border = BorderStroke(

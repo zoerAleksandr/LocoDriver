@@ -51,9 +51,12 @@ object GpsRecorder {
     }
 
     fun stop(context: Context) {
-        context.startService(
-            Intent(context, GpsRecordingService::class.java).setAction(GpsRecordingService.ACTION_STOP),
-        )
+        // Из фона на Android 8+ startService может бросить — тогда службы и так нет или она сама остановится.
+        runCatching {
+            context.startService(
+                Intent(context, GpsRecordingService::class.java).setAction(GpsRecordingService.ACTION_STOP),
+            )
+        }
     }
 
     internal fun emit(point: GpsPoint) {
