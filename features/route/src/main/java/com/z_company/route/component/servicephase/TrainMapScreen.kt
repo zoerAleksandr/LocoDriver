@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -93,9 +94,7 @@ private sealed interface TrainMapSelection {
 }
 
 /** Шкала скорости (км/ч → цвет): красный — стоим, далее оранжевый, жёлтый, зелёный, бирюзовый, синий. */
-private val SPEED_STOPS = listOf(
-    0 to "#D32F2F", 30 to "#F57C00", 60 to "#FBC02D", 90 to "#7CB342", 120 to "#00897B", 160 to "#1E88E5",
-)
+private val SPEED_STOPS = com.z_company.domain.track.SpeedScale.STOPS.map { (v, rgb) -> v to String.format("#%06X", rgb) }
 
 /**
  * Карта поезда (SCREEN_SPECS §6.9): полноэкранная карта на общей подложке карты плеч (цепочка тайлов, ж/д слои).
@@ -113,6 +112,7 @@ internal fun TrainMapScreen(
     currentFix: suspend () -> GeoFix?,
     loadTrack: suspend () -> TrainFormViewModel.TrainMapTrack? = { null },
     onDetermine: suspend (String) -> Boolean,
+    onOpenConsentSettings: () -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     Dialog(
@@ -141,6 +141,7 @@ internal fun TrainMapScreen(
         var follow by remember { mutableStateOf(true) }
         var permGranted by remember { mutableStateOf(DeviceLocation.hasPermission(context)) }
         var selection by remember { mutableStateOf<TrainMapSelection?>(null) }
+        var showChart by rememberSaveable { mutableStateOf(false) }
         val density = context.resources.displayMetrics.density
         val alive = remember { AtomicBoolean(true) }
         val scope = rememberCoroutineScope()
@@ -699,11 +700,31 @@ internal fun TrainMapScreen(
                 MapButton(onClick = { map?.animateCamera(CameraUpdateFactory.zoomOut()) }, description = "Отдалить") {
                     Text("−", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
                 }
+                MapButton(onClick = { showChart = true }, description = "График скорости") {
+                    PstIcon(PstIcons.SpeedChart, 22.dp, Pst.text)
+                }
                 MapButton(onClick = { follow = true; requestOrShowLocation(center = true) }, description = "Моё местоположение") {
                     Box(Modifier.size(14.dp).border(2.dp, Pst.accent, CircleShape), contentAlignment = Alignment.Center) {
                         Box(Modifier.size(4.dp).background(Pst.accent, CircleShape))
                     }
                 }
+            }
+
+            if (showChart) {
+                SpeedChartScreen(
+                    track = track,
+                    selectedTimeMs = (selection as? TrainMapSelection.PathPoint)?.point?.timeMs,
+                    onSelect = { p -> selection = p?.let { TrainMapSelection.PathPoint(it) } },
+                    onOpenConsent = { showChart = false; onOpenConsentSettings() },
+                    onDismiss = {
+                        showChart = false
+                        // Точка, выбранная на графике, подсвечивается на карте — камера переходит к ней (зум сохраняется).
+                        (selection as? TrainMapSelection.PathPoint)?.point?.let { pt ->
+                            follow = false
+                            map?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(pt.latitude, pt.longitude)))
+                        }
+                    },
+                )
             }
 
             val name = missing

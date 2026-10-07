@@ -153,6 +153,8 @@ internal object PstIcons {
         "M6 21h9a3 3 0 0 0 3-3v-6",
         filledDots = listOf(Triple(6f, 14.5f, 1.3f), Triple(18f, 5.5f, 1.3f)),
     )
+    /** «График скорости»: оси и ломаная линия. */
+    val SpeedChart = strokeIcon("speedChart", "M4 4v16h16", "M7 15l4-5 3 3 5-7")
     val Edit = strokeIcon("edit", "M4 20h4L18.5 9.5a2.12 2.12 0 0 0-3-3L5 17v3z", "M13.5 6.5l3 3")
 }
 
