@@ -119,6 +119,14 @@ class LocoDriverSmallWidget : GlanceAppWidget() {
                 modifier = GlanceModifier.fillMaxSize()
             )
 
+            // Индикатор «АВТО» — точка в верхнем левом углу; тап переключает.
+            Box(
+                modifier = GlanceModifier.fillMaxSize(),
+                contentAlignment = Alignment.TopStart
+            ) {
+                AutoDot(GlanceModifier.padding(start = 10.dp, top = 10.dp).size(36.dp))
+            }
+
             // Кнопка перехода — видна только когда виджет растянут по ширине
             // (см. SMALL_WIDGET_SIZE_WIDE), прижата к верхнему правому углу.
             if (isWide) {

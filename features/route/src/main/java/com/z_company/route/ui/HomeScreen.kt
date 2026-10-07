@@ -1160,18 +1160,35 @@ fun HomeScreen(
                                     currentRouteBoundsInWindow = it.boundsInWindow()
                                 }
                         ) {
-                            Text(
+                            Row(
                                 modifier = Modifier
-                                    .padding(horizontal = 8.dp)
-                                    .clickable(enabled = !isCurrentRouteReorderMode) {
-                                        onRouteClick(route.basicData.id)
-                                    },
-                                text = "ТЕКУЩИЙ МАРШРУТ",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable(enabled = !isCurrentRouteReorderMode) {
+                                            onRouteClick(route.basicData.id)
+                                        },
+                                    text = "ТЕКУЩИЙ МАРШРУТ",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                // Кнопка «АВТО» (SCREEN_SPECS §6.2 п.6а): индикатор + переключатель
+                                val autoManager: com.z_company.route.autorecord.AutoRecordManager =
+                                    org.koin.compose.koinInject()
+                                val autoState by autoManager.state.collectAsState()
+                                com.z_company.route.autorecord.AutoRecordChip(
+                                    state = autoState,
+                                    onToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoManager),
+                                    singleLine = true,
+                                )
+                            }
                             LazyRow(
                                 modifier = Modifier.padding(top = 12.dp),
                                 state = currentRouteListState,

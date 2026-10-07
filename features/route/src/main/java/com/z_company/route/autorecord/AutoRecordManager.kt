@@ -57,6 +57,8 @@ class AutoRecordManager(
     private val stationDirectory: StationDirectoryUseCase,
     private val prefs: SharedPreferences,
     private val scope: CoroutineScope,
+    /** Состояние изменилось (для обновления виджетов). */
+    private val onChanged: suspend () -> Unit = {},
     private val nowMs: () -> Long = { System.currentTimeMillis() },
 ) {
     private val _state = MutableStateFlow(AutoRecordState())
@@ -94,7 +96,7 @@ class AutoRecordManager(
         if (_state.value.enabled) return true
         val until = nowMs() + AUTO_OFF_MS
         prefs.edit().putLong(KEY_UNTIL, until).apply()
-        _state.value = AutoRecordState(true, until)
+        setState(AutoRecordState(true, until))
         return begin(until)
     }
 
@@ -109,8 +111,13 @@ class AutoRecordManager(
             GpsRecorder.stop(context)
             return
         }
-        _state.value = AutoRecordState(true, until)
+        setState(AutoRecordState(true, until))
         if (!begin(until)) stopInternal(notifyExpired = false)
+    }
+
+    private fun setState(new: AutoRecordState) {
+        _state.value = new
+        scope.launch { runCatching { onChanged() } }
     }
 
     private fun begin(until: Long): Boolean {
@@ -156,7 +163,7 @@ class AutoRecordManager(
         expiryJob?.cancel()
         prefs.edit().remove(KEY_UNTIL).apply()
         val wasEnabled = _state.value.enabled
-        _state.value = AutoRecordState()
+        setState(AutoRecordState())
         if (stopService) GpsRecorder.stop(context)
         if (wasEnabled && notifyExpired) showExpiredNotification()
     }
@@ -233,6 +240,11 @@ class AutoRecordManager(
         private const val START_TIMEOUT_MS = 15_000L
         private const val EXPIRED_CHANNEL = "auto_record_expired"
         private const val EXPIRED_ID = 7402
+
+        /** Для виджетов: момент автовыключения или 0, если АВТО выключено. */
+        fun savedUntil(context: Context, now: Long = System.currentTimeMillis()): Long =
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getLong(KEY_UNTIL, 0L)
+                .takeIf { it > now } ?: 0L
 
         /** «чч:мм» по часам устройства — так же, как в уведомлении. */
         fun formatTime(ms: Long): String =

@@ -144,6 +144,11 @@ val repositoryModule = module {
                 android.content.Context.MODE_PRIVATE,
             ),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            onChanged = {
+                runCatching {
+                    com.z_company.loco_driver.widget.WidgetDataLoader.loadAndPush(androidContext())
+                }
+            },
         )
     }
     // Продление токена при старте приложения (POST /v1/auth/refresh); зовёт StartApp.
