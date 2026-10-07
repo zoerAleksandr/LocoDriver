@@ -535,6 +535,33 @@ class TrainFormViewModel(
         }
     }
 
+    /** Карта поезда (§6.9, состояние 3): станция без координат, которую можно определить по GPS, либо null. */
+    fun trainMapMissingStation(): String? {
+        val phase = fullSelectedPhase()?.let { stationDirectory.resolve(it) }
+        val phaseNames = phase?.let { p ->
+            buildList {
+                if (p.departurePoint == null) add(p.departureStation)
+                if (p.arrivalPoint == null) add(p.arrivalStation)
+            }
+        }.orEmpty()
+        return StationDirectory.stationWithoutCoordinates(
+            stationsListState.map { it.station.data },
+            phaseNames,
+            stationDirectory.stations(),
+        )
+    }
+
+    /** Текущее местоположение для карты поезда; null — нет разрешения/сигнала. */
+    suspend fun trainMapCurrentFix(): GeoFix? = DeviceLocation.currentFix(appContext)
+
+    /** Определить координаты [stationName] по текущему месту и записать в справочник (только если их там нет). */
+    suspend fun saveStationCoordinatesFromGps(stationName: String): Boolean {
+        val fix = DeviceLocation.currentFix(appContext, timeoutMs = 10_000) ?: return false
+        lastFix = fix
+        stationDirectory.fillCoordinates(stationName, fix.latitude, fix.longitude)
+        return true
+    }
+
     /** Полное плечо (со станциями) для выбранного в поезде — в рейсе хранится копия без станций. */
     private fun fullSelectedPhase(): ServicePhase? {
         val id = _uiState.value.selectedServicePhase?.id ?: return null

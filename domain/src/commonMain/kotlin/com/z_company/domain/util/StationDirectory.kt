@@ -158,6 +158,45 @@ object StationDirectory {
         return out.distinct().take(10)
     }
 
+    /**
+     * Станция карты поезда без координат (SCREEN_SPECS §6.9, состояние 3): последняя названная
+     * станция поезда, которой нет в справочнике с координатами; если таких нет — отправление
+     * или прибытие выбранного плеча [phaseStations] (в этом порядке). null — определять нечего.
+     */
+    fun stationWithoutCoordinates(
+        trainStations: List<String?>,
+        phaseStations: List<String>,
+        stations: List<StationNorm>,
+    ): String? {
+        val known = byName(stations)
+        fun missing(name: String?) = !name.isNullOrBlank() && key(name) !in known
+        return trainStations.lastOrNull { missing(it) }?.trim()
+            ?: phaseStations.firstOrNull { missing(it) }?.trim()
+    }
+
+    /**
+     * Дописать координаты станции [name] в справочник — только если у неё их ещё нет:
+     * новая запись создаётся, существующие координаты не перезаписываются (нормы не трогаем).
+     * null — справочник не изменился.
+     */
+    fun fillCoordinates(
+        stations: List<StationNorm>,
+        name: String,
+        latitude: Double,
+        longitude: Double,
+        now: Long,
+    ): List<StationNorm>? {
+        if (name.isBlank()) return null
+        val idx = stations.indexOfFirst { key(it.name) == key(name) }
+        if (idx < 0) {
+            return stations + StationNorm(name = name.trim(), latitude = latitude, longitude = longitude, updatedAt = now)
+        }
+        if (stations[idx].hasCoordinates) return null
+        return stations.toMutableList().also {
+            it[idx] = it[idx].copy(latitude = latitude, longitude = longitude, updatedAt = now)
+        }
+    }
+
     /** Координаты станций справочника по нормализованному названию (подсказки/GPS). */
     fun points(stations: List<StationNorm>): Map<String, Pair<Double, Double>> =
         byName(stations).mapValues { (_, st) -> st.latitude!! to st.longitude!! }

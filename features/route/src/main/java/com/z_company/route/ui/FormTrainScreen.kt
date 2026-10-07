@@ -308,6 +308,17 @@ fun FormTrainScreen(
             }
         }
 
+        // Карта поезда (SCREEN_SPECS §6.9)
+        var showTrainMap by remember { mutableStateOf(false) }
+        if (showTrainMap) {
+            com.z_company.route.component.servicephase.TrainMapScreen(
+                missingStation = { viewModel.trainMapMissingStation() },
+                currentFix = { viewModel.trainMapCurrentFix() },
+                onDetermine = { viewModel.saveStationCoordinatesFromGps(it) },
+                onDismiss = { showTrainMap = false },
+            )
+        }
+
         // BottomSheet для редактирования/добавления станции
         val editingIndex = formUiState.editingStationIndex
         if (editingIndex != null) {
@@ -2175,6 +2186,7 @@ fun FormTrainScreen(
                     showSettingsSheet = true
                 },
                 onAddStationClick = { askLocation { viewModel.startAddingNewStation() } },
+                onMapClick = { showTrainMap = true },
             )
             }
         }
@@ -2201,6 +2213,7 @@ private fun TrainBottomAppBar(
     onInspectorClick: () -> Unit,
     onAssistsClick: () -> Unit,
     onAddStationClick: () -> Unit,
+    onMapClick: () -> Unit,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
@@ -2235,7 +2248,7 @@ private fun TrainBottomAppBar(
             }
             Button(
                 modifier = Modifier
-                    .weight(2f)
+                    .weight(1.4f)
                     .height(48.dp),
                 onClick = onAddStationClick,
                 shape = RoundedCornerShape(14.dp),
@@ -2253,6 +2266,13 @@ private fun TrainBottomAppBar(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Станция", fontWeight = FontWeight.SemiBold)
             }
+            TrainBottomIconButton(
+                modifier = Modifier.width(48.dp),
+                iconRes = com.z_company.route.R.drawable.ic_train_map_24,
+                contentDescription = "Карта",
+                active = false,
+                onClick = onMapClick,
+            )
         }
     }
 }
