@@ -112,6 +112,11 @@ object RemoteRestClient {
         KtorRemoteRestApi(createClient { BASE_URL })
     }
 
+    /** `/v1/tracks` (история треков, SCREEN_SPECS §6.9/§17.7) на том же клиенте, что и остальной API. */
+    val tracksApi: com.z_company.repository.remote_rest.tracks.TracksApi by lazy {
+        com.z_company.repository.remote_rest.tracks.KtorTracksApi(createClient { BASE_URL })
+    }
+
     val apiForSendEmail: ApiForSendEmail by lazy {
         KtorApiForSendEmail(createClient { BASE_URL_FOR_SEND_EMAIL })
     }
