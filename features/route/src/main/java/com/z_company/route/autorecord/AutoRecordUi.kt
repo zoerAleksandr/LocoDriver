@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -49,7 +50,8 @@ import com.z_company.route.component.AppAlertDialog
  * (один раз, а также после «прервано») показывает подсказку про исключение из оптимизации батареи.
  */
 @Composable
-fun rememberAutoRecordToggle(manager: AutoRecordManager): () -> Unit {
+fun rememberAutoRecordToggle(manager: AutoRecordManager, trainId: String? = null): () -> Unit {
+    val currentTrainId by rememberUpdatedState(trainId)
     val context = LocalContext.current
     var showHelp by remember { mutableStateOf(false) }
     val afterEnable = {
@@ -60,7 +62,7 @@ fun rememberAutoRecordToggle(manager: AutoRecordManager): () -> Unit {
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
         // Отказ от уведомлений запись не блокирует; без геолокации — включать нечего.
-        if (manager.enable()) afterEnable()
+        if (manager.enable(currentTrainId)) afterEnable()
         else Toast.makeText(context, "АВТО: нужен доступ к геолокации", Toast.LENGTH_LONG).show()
     }
     if (showHelp) {
@@ -91,7 +93,7 @@ fun rememberAutoRecordToggle(manager: AutoRecordManager): () -> Unit {
             } else {
                 val missing = manager.missingPermissions()
                 if (missing.isEmpty()) {
-                    if (manager.enable()) afterEnable()
+                    if (manager.enable(currentTrainId)) afterEnable()
                 } else launcher.launch(missing)
                 Unit
             }

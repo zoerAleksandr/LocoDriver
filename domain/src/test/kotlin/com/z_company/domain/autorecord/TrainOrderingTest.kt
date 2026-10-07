@@ -42,4 +42,23 @@ class TrainOrderingTest {
         val sorted = TrainOrdering.sortForDisplay(listOf(t("u1"), t("b", dep = 200), t("u2"), t("a", dep = 100)))
         assertEquals(listOf("a", "b", "u1", "u2"), sorted.map { it.trainId })
     }
+
+    @Test
+    fun `preferred id from button wins over ordering rule`() {
+        val trains = listOf(t("empty"), t("timed", dep = 100))
+        assertEquals("timed", TrainOrdering.pickTarget(trains, "timed")?.trainId)
+    }
+
+    @Test
+    fun `deleted or foreign preferred id falls back to ordering rule`() {
+        val trains = listOf(t("timed", dep = 100), t("empty"))
+        assertEquals("empty", TrainOrdering.pickTarget(trains, "gone")?.trainId)
+    }
+
+    @Test
+    fun `no context uses ordering rule`() {
+        val trains = listOf(t("a", dep = 100), t("b", dep = 200))
+        assertEquals("b", TrainOrdering.pickTarget(trains, null)?.trainId)
+        assertNull(TrainOrdering.pickTarget(emptyList(), null))
+    }
 }

@@ -281,7 +281,7 @@ fun FormTrainScreen(
         // Кнопка «АВТО» (SCREEN_SPECS §6.2 п.6а)
         val autoRecordManager: com.z_company.route.autorecord.AutoRecordManager = org.koin.compose.koinInject()
         val autoRecordState by autoRecordManager.state.collectAsState()
-        val onAutoToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoRecordManager)
+        val onAutoToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoRecordManager, currentTrain?.trainId)
 
         // Геолокация для подстановки ближайшей станции: спрашиваем один раз, при первом GO /
         // «добавить станцию».

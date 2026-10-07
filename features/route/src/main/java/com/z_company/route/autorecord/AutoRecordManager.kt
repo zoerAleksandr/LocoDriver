@@ -130,12 +130,24 @@ class AutoRecordManager(
      * Включить. Вызывать, когда приложение на экране и геолокация разрешена (иначе false).
      * Автовыключение — через [AUTO_OFF_MS].
      */
-    fun enable(): Boolean {
+    fun enable(trainId: String? = null): Boolean {
         if (!GpsPermissions.hasLocation(context)) return false
         if (_state.value.enabled) return true
         val until = nowMs() + AUTO_OFF_MS
+        // Целевой поезд: из кнопки на экране «Поезд»; без контекста — фиксируется асинхронно ниже.
         prefs.edit().putLong(KEY_UNTIL, until).putLong(KEY_BEAT, nowMs())
-            .putBoolean(KEY_INTERRUPTED, false).apply()
+            .putBoolean(KEY_INTERRUPTED, false)
+            .apply { if (trainId != null) putString(KEY_TARGET, trainId) else remove(KEY_TARGET) }
+            .apply()
+        if (trainId == null) {
+            // Одноразовая фиксация по TrainOrdering в момент включения; нет маршрута/поездов — при первом событии.
+            scope.launch {
+                runCatching {
+                    val route = withContext(Dispatchers.Default) { currentRoute() } ?: return@launch
+                    TrainOrdering.pickAutoTarget(route.trains)?.let { saveTarget(it.trainId) }
+                }
+            }
+        }
         cancelAlerts()
         setState(AutoRecordState(true, until))
         return begin(until)
@@ -253,7 +265,7 @@ class AutoRecordManager(
         pointsJob?.cancel()
         watchJob?.cancel()
         expiryJob?.cancel()
-        prefs.edit().remove(KEY_UNTIL).putBoolean(KEY_INTERRUPTED, false).apply()
+        prefs.edit().remove(KEY_UNTIL).remove(KEY_TARGET).putBoolean(KEY_INTERRUPTED, false).apply()
         onWatchdog(false)
         cancelAlerts()
         val wasEnabled = _state.value.enabled
@@ -284,6 +296,10 @@ class AutoRecordManager(
         }
     }
 
+    private fun saveTarget(id: String) {
+        prefs.edit().putString(KEY_TARGET, id).apply()
+    }
+
     private suspend fun handleEvent(event: StopEvent) {
         val name = withContext(Dispatchers.Default) {
             val dir = stationDirectory.stations()
@@ -298,7 +314,10 @@ class AutoRecordManager(
             notifyNoRoute()
             return
         }
-        val train = TrainOrdering.pickAutoTarget(route.trains) ?: Train(basicId = route.basicData.id)
+        val train = TrainOrdering.pickTarget(route.trains, prefs.getString(KEY_TARGET, null))
+            ?: Train(basicId = route.basicData.id)
+        // Фиксируем фактическую цель (создание нового поезда / fallback при удалённом запомненном).
+        if (prefs.getString(KEY_TARGET, null) != train.trainId) saveTarget(train.trainId)
 
         val open = editor
         if (open != null && open.trainId == train.trainId) {
@@ -380,6 +399,7 @@ class AutoRecordManager(
         const val AUTO_OFF_MS = 12 * 60 * 60 * 1000L
         const val PREFS_NAME = "auto_record"
         private const val KEY_UNTIL = "until_ms"
+        private const val KEY_TARGET = "target_train_id"
         private const val KEY_BEAT = "heartbeat_ms"
         private const val KEY_INTERRUPTED = "interrupted"
         private const val KEY_TZ = "display_tz"

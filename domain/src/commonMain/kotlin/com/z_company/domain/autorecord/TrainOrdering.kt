@@ -30,4 +30,12 @@ object TrainOrdering {
         val sorted = sortForDisplay(trains)
         return sorted.lastOrNull { hasNoStationTimes(it) } ?: sorted.lastOrNull()
     }
+
+    /**
+     * Итоговая цель записи «АВТО»: запомненный поезд (нажатие «АВТО» на экране «Поезд» или фиксация
+     * при включении без контекста), если он есть среди поездов текущего маршрута; иначе
+     * (не задан / удалён / из другого маршрута) — правило [pickAutoTarget].
+     */
+    fun pickTarget(trains: List<Train>, preferredId: String?): Train? =
+        preferredId?.let { id -> trains.firstOrNull { it.trainId == id } } ?: pickAutoTarget(trains)
 }
