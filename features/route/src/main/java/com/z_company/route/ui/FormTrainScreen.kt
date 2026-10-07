@@ -1908,6 +1908,9 @@ fun FormTrainScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Row(
+                                    // Видимый правый круг (36dp) — вровень с правым краем блока:
+                                    // область нажатия 48dp выступает на 6dp за край
+                                    modifier = Modifier.offset(x = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
@@ -1986,7 +1989,6 @@ fun FormTrainScreen(
                                             )
                                         }
                                     }
-                                    Spacer(modifier = Modifier.width(4.dp))
                                 }
                             }
                         }
