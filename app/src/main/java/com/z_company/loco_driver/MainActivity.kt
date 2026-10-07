@@ -48,6 +48,11 @@ class MainActivity : ComponentActivity(), KoinComponent {
 
     private val mainViewModel: MainViewModel by viewModels()
     private val themeManager: ThemeManager by inject()
+    private val autoRecordManager: com.z_company.route.autorecord.AutoRecordManager by inject()
+    // Включение «АВТО» из виджета: службу геолокации можно стартовать только с экрана приложения.
+    private val autoPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { autoRecordManager.enable() }
 //    private val payClient: RuStorePayClient by inject()
 
     // API 31+: системный сплэш — единственный, держим его до готовности приложения.
@@ -300,6 +305,13 @@ class MainActivity : ComponentActivity(), KoinComponent {
         // Навигация из виджета → добавить маршрут
         if (i?.getBooleanExtra("widget_add_route", false) == true) {
             mainViewModel.requestOpenForm()
+        }
+
+        // Включение «АВТО» из виджета
+        if (i?.getBooleanExtra("widget_auto_enable", false) == true) {
+            i.removeExtra("widget_auto_enable")
+            val missing = autoRecordManager.missingPermissions()
+            if (missing.isEmpty()) autoRecordManager.enable() else autoPermissionLauncher.launch(missing)
         }
 
         // Навигация из виджета → HomeScreen

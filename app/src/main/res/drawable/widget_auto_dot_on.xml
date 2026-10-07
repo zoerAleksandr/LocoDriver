@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Индикатор «АВТО» малого виджета · включено: зелёная точка. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/widget_auto_on_bg" />
+    <size android:width="14dp" android:height="14dp" />
+</shape>

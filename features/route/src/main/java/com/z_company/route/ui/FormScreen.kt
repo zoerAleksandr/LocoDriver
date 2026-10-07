@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.domain.autorecord.TrainOrdering
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -1387,10 +1388,7 @@ fun FormScreen(
                                     iconRes = R.drawable.ic_card_train_ref,
                                     // Сортировка: поезда с временем отправления первой станции — по возрастанию
                                     // (старые сверху, новые снизу), поезда без времени — в порядке добавления.
-                                    contentList = route.trains
-                                        .filter { it.stations.firstOrNull()?.timeDeparture != null }
-                                        .sortedBy { it.stations.firstOrNull()?.timeDeparture } +
-                                        route.trains.filter { it.stations.firstOrNull()?.timeDeparture == null },
+                                    contentList = TrainOrdering.sortForDisplay(route.trains),
                                     onChangeElementClick = onChangeTrainClick,
                                     onNewElementClick = onNewTrainClick,
                                     basicId = basicId,

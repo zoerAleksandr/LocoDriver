@@ -6,4 +6,13 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <!-- Диалог «Не оптимизировать батарею» для живучести АВТО (SCREEN_SPECS §6.2 п.6а). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <application>
+        <receiver
+            android:name="com.z_company.route.autorecord.AutoRecordActionReceiver"
+            android:exported="false" />
+    </application>
+
 </manifest>

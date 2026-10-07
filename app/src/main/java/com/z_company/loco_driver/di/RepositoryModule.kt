@@ -132,6 +132,40 @@ val repositoryModule = module {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
     }
+    // Кнопка «АВТО»: запись стоянок/отправлений по GPS (SCREEN_SPECS §6.2 п.6а).
+    single {
+        com.z_company.route.autorecord.AutoRecordManager(
+            context = androidContext(),
+            routeUseCase = get(),
+            trainUseCase = get(),
+            stationDirectory = get(),
+            settingsUseCase = get(),
+            onWatchdog = { on ->
+                val wm = androidx.work.WorkManager.getInstance(androidContext())
+                if (on) {
+                    wm.enqueueUniquePeriodicWork(
+                        "auto_record_watchdog",
+                        androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+                        androidx.work.PeriodicWorkRequestBuilder<com.z_company.loco_driver.widget.AutoRecordWatchdogWorker>(
+                            15, java.util.concurrent.TimeUnit.MINUTES,
+                        ).build(),
+                    )
+                } else {
+                    wm.cancelUniqueWork("auto_record_watchdog")
+                }
+            },
+            prefs = androidContext().getSharedPreferences(
+                com.z_company.route.autorecord.AutoRecordManager.PREFS_NAME,
+                android.content.Context.MODE_PRIVATE,
+            ),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            onChanged = {
+                runCatching {
+                    com.z_company.loco_driver.widget.WidgetDataLoader.loadAndPush(androidContext())
+                }
+            },
+        )
+    }
     // Продление токена при старте приложения (POST /v1/auth/refresh); зовёт StartApp.
     single { SessionRefresher(remoteRestApi = get(), secureTokenStorage = get()) }
 

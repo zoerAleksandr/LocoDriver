@@ -1,0 +1,433 @@
+package com.z_company.route.autorecord
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
+import android.content.Context
+import android.content.SharedPreferences
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import com.z_company.core.ResultState
+import com.z_company.core.gps.GpsPermissions
+import com.z_company.core.gps.GpsPoint
+import com.z_company.core.gps.GpsRecorder
+import com.z_company.core.gps.GpsRecorderConfig
+import com.z_company.core.sendToSentry
+import com.z_company.domain.autorecord.AutoStationLocator
+import com.z_company.domain.autorecord.AutoTrainWriter
+import com.z_company.domain.autorecord.MotionSample
+import com.z_company.domain.autorecord.StopDetector
+import com.z_company.domain.autorecord.StopEvent
+import com.z_company.domain.autorecord.TrainOrdering
+import com.z_company.domain.entities.route.Train
+import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
+import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.use_cases.RouteUseCase
+import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.domain.util.displayTimeZone
+import com.z_company.domain.use_cases.StationDirectoryUseCase
+import com.z_company.domain.use_cases.TrainUseCase
+import com.z_company.domain.util.StationDirectory
+import com.z_company.route.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+
+/** Состояние кнопки «АВТО»: включена ли и до какого момента (автовыключение). */
+data class AutoRecordState(
+    val enabled: Boolean = false,
+    val untilMs: Long = 0L,
+    /** Система остановила запись (убили службу/процесс, нельзя перезапустить); нужен ручной запуск. */
+    val interrupted: Boolean = false,
+)
+
+/**
+ * Кнопка «АВТО» (SCREEN_SPECS §6.2 п.6а): записывает стоянки и отправления текущего поезда по
+ * скорости GPS. Первый потребитель переиспользуемого [GpsRecorder]. Состояние (вкл/время) живёт
+ * в SharedPreferences устройства, на сервер не уходит; точки трека не хранятся, координаты не
+ * логируются.
+ */
+class AutoRecordManager(
+    private val context: Context,
+    private val routeUseCase: RouteUseCase,
+    private val trainUseCase: TrainUseCase,
+    private val stationDirectory: StationDirectoryUseCase,
+    private val prefs: SharedPreferences,
+    private val scope: CoroutineScope,
+    private val settingsUseCase: SettingsUseCase,
+    /** Состояние изменилось (для обновления виджетов). */
+    private val onChanged: suspend () -> Unit = {},
+    /** Включить/отключить периодическую проверку живучести службы (WorkManager в app). */
+    private val onWatchdog: (Boolean) -> Unit = {},
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
+) {
+    private val _state = MutableStateFlow(AutoRecordState())
+    val state: StateFlow<AutoRecordState> = _state.asStateFlow()
+
+    private var detector = StopDetector()
+    private var pointsJob: Job? = null
+    private var watchJob: Job? = null
+    private var expiryJob: Job? = null
+    private val writeLock = Mutex()
+    @Volatile
+    private var settings: UserSettings = UserSettings()
+    private var lastBeatWriteMs = 0L
+
+    init {
+        if (prefs.getLong(KEY_UNTIL, 0L) == 0L && prefs.getBoolean(KEY_INTERRUPTED, false)) {
+            _state.value = AutoRecordState(interrupted = true)
+        }
+        // Настройки нужны для часового пояса «до чч:мм» (§0.1) и поиска текущего маршрута.
+        scope.launch {
+            settingsUseCase.getUserSettingFlow().catch { }.collect { s ->
+                settings = s
+                val zone = s.displayTimeZone()
+                if (prefs.getString(KEY_TZ, null) != zone) {
+                    prefs.edit().putString(KEY_TZ, zone).apply()
+                    val st = _state.value
+                    if (st.enabled) {
+                        runCatching { GpsRecorder.start(context, recorderConfig(st.untilMs)) }
+                        runCatching { onChanged() }
+                    }
+                }
+            }
+        }
+    }
+
+    /** Открытый экран «Поезд» регистрируется здесь, чтобы события шли в его форму, а не мимо неё. */
+    private class Editor(val trainId: String, val apply: suspend (StopEvent, String?) -> Boolean)
+
+    @Volatile
+    private var editor: Editor? = null
+
+    fun registerEditor(trainId: String, apply: suspend (StopEvent, String?) -> Boolean) {
+        editor = Editor(trainId, apply)
+    }
+
+    fun unregisterEditor(trainId: String) {
+        if (editor?.trainId == trainId) editor = null
+    }
+
+    /** Нужны ли разрешения перед [enable] (для запроса из UI). */
+    fun missingPermissions(): Array<String> = GpsPermissions.missing(context)
+
+    /**
+     * Включить. Вызывать, когда приложение на экране и геолокация разрешена (иначе false).
+     * Автовыключение — через [AUTO_OFF_MS].
+     */
+    fun enable(trainId: String? = null): Boolean {
+        if (!GpsPermissions.hasLocation(context)) return false
+        if (_state.value.enabled) return true
+        val until = nowMs() + AUTO_OFF_MS
+        // Целевой поезд: из кнопки на экране «Поезд»; без контекста — фиксируется асинхронно ниже.
+        prefs.edit().putLong(KEY_UNTIL, until).putLong(KEY_BEAT, nowMs())
+            .putBoolean(KEY_INTERRUPTED, false)
+            .apply { if (trainId != null) putString(KEY_TARGET, trainId) else remove(KEY_TARGET) }
+            .apply()
+        if (trainId == null) {
+            // Одноразовая фиксация по TrainOrdering в момент включения; нет маршрута/поездов — при первом событии.
+            scope.launch {
+                runCatching {
+                    val route = withContext(Dispatchers.Default) { currentRoute() } ?: return@launch
+                    TrainOrdering.pickAutoTarget(route.trains)?.let { saveTarget(it.trainId) }
+                }
+            }
+        }
+        cancelAlerts()
+        setState(AutoRecordState(true, until))
+        return begin(until)
+    }
+
+    fun disable() = stopInternal(notifyExpired = false)
+
+    /** Из Application после старта графа: возобновить, если включено и не истекло. */
+    fun restore() {
+        val until = prefs.getLong(KEY_UNTIL, 0L)
+        if (until == 0L) return
+        if (nowMs() >= until) {
+            prefs.edit().remove(KEY_UNTIL).apply()
+            GpsRecorder.stop(context)
+            return
+        }
+        setState(AutoRecordState(true, until))
+        // Не стартовали из фона — не выключаемся молча: если службы нет, expiryJob/watchdog
+        // переведут АВТО в «прервано» с уведомлением.
+        begin(until)
+    }
+
+    /**
+     * Проверка живучести (WorkManager, ~15 мин): АВТО включено, а службы/точек нет.
+     * Службы нет → пробуем перезапустить; не вышло — «прервано» + уведомление. Служба есть, но
+     * точек нет > [STALE_MS] — мягкий перезапуск подписки (без «прервано»: GPS пропадает в тоннелях).
+     * Заодно напоминает, если текущего маршрута нет.
+     */
+    suspend fun checkAlive() {
+        val until = prefs.getLong(KEY_UNTIL, 0L)
+        if (until == 0L) return
+        val now = nowMs()
+        if (now >= until) {
+            stopInternal(notifyExpired = true)
+            return
+        }
+        if (!_state.value.enabled) restore()
+        if (!GpsRecorder.isRunning.value) {
+            begin(until)
+            delay(START_TIMEOUT_MS + 5_000L)
+            if (_state.value.enabled && !GpsRecorder.isRunning.value) {
+                markInterrupted()
+                return
+            }
+        } else if (now - prefs.getLong(KEY_BEAT, until - AUTO_OFF_MS) > STALE_MS) {
+            runCatching { GpsRecorder.start(context, recorderConfig(until)) }
+        }
+        val hasRoute = withContext(Dispatchers.Default) { currentRoute() } != null
+        if (!hasRoute) notifyNoRoute()
+    }
+
+    /** Служба остановлена системой и не поднимается: индикатор «прервано» + уведомление. */
+    private fun markInterrupted() {
+        pointsJob?.cancel()
+        watchJob?.cancel()
+        expiryJob?.cancel()
+        prefs.edit().remove(KEY_UNTIL).putBoolean(KEY_INTERRUPTED, true).apply()
+        onWatchdog(false)
+        setState(AutoRecordState(interrupted = true))
+        GpsRecorder.stop(context)
+        val open = launchIntent(enable = true)
+        notify(
+            INTERRUPTED_ID, "АВТО остановлено системой. Включить снова", open,
+            actions = emptyList(),
+        )
+    }
+
+    private fun setState(new: AutoRecordState) {
+        _state.value = new
+        scope.launch { runCatching { onChanged() } }
+    }
+
+    private fun begin(until: Long): Boolean {
+        onWatchdog(true)
+        detector = StopDetector()
+        pointsJob?.cancel()
+        watchJob?.cancel()
+        expiryJob?.cancel()
+
+        pointsJob = scope.launch {
+            GpsRecorder.points.collect { onPoint(it) }
+        }
+        // Служба остановилась снаружи (кнопка «Выключить» в уведомлении) — выключаемся и мы.
+        watchJob = scope.launch {
+            var sawRunning = false
+            GpsRecorder.isRunning.collect { running ->
+                if (running) sawRunning = true
+                else if (sawRunning) {
+                    stopInternal(notifyExpired = false, stopService = false)
+                }
+            }
+        }
+        expiryJob = scope.launch {
+            // Служба не поднялась (например, нельзя стартовать из фона) — не оставляем «включено» без GPS.
+            delay(START_TIMEOUT_MS)
+            if (_state.value.enabled && !GpsRecorder.isRunning.value) {
+                markInterrupted()
+                return@launch
+            }
+            val left = until - nowMs()
+            if (left > 0) delay(left)
+            if (_state.value.enabled) stopInternal(notifyExpired = true)
+        }
+        return try {
+            GpsRecorder.start(context, recorderConfig(until))
+            true
+        } catch (e: Exception) {
+            // ForegroundServiceStartNotAllowedException и т. п. — без координат и ПДн.
+            e.sendToSentry("AutoRecordManager", "start")
+            false
+        }
+    }
+
+    private fun stopInternal(notifyExpired: Boolean, stopService: Boolean = true) {
+        pointsJob?.cancel()
+        watchJob?.cancel()
+        expiryJob?.cancel()
+        prefs.edit().remove(KEY_UNTIL).remove(KEY_TARGET).putBoolean(KEY_INTERRUPTED, false).apply()
+        onWatchdog(false)
+        cancelAlerts()
+        val wasEnabled = _state.value.enabled
+        setState(AutoRecordState())
+        if (stopService) GpsRecorder.stop(context)
+        if (wasEnabled && notifyExpired) showExpiredNotification()
+    }
+
+    private suspend fun onPoint(p: GpsPoint) {
+        val s = _state.value
+        if (!s.enabled) return
+        val now = nowMs()
+        if (now - lastBeatWriteMs > BEAT_WRITE_MS) {
+            lastBeatWriteMs = now
+            prefs.edit().putLong(KEY_BEAT, now).apply()
+        }
+        if (nowMs() >= s.untilMs) {
+            stopInternal(notifyExpired = true)
+            return
+        }
+        val event = detector.onSample(
+            MotionSample(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM),
+        ) ?: return
+        try {
+            writeLock.withLock { handleEvent(event) }
+        } catch (e: Exception) {
+            e.sendToSentry("AutoRecordManager", "handleEvent")
+        }
+    }
+
+    private fun saveTarget(id: String) {
+        prefs.edit().putString(KEY_TARGET, id).apply()
+    }
+
+    private suspend fun handleEvent(event: StopEvent) {
+        val name = withContext(Dispatchers.Default) {
+            val dir = stationDirectory.stations()
+            AutoStationLocator.nearestName(
+                StationDirectory.points(dir), StationDirectory.names(dir),
+                event.latitude, event.longitude,
+            )
+        }
+        val route = withContext(Dispatchers.Default) { currentRoute() }
+        if (route == null) {
+            // Писать некуда (маршрута нет / время работы вышло) — событие отбрасываем, но не молчим.
+            notifyNoRoute()
+            return
+        }
+        val train = TrainOrdering.pickTarget(route.trains, prefs.getString(KEY_TARGET, null))
+            ?: Train(basicId = route.basicData.id)
+        // Фиксируем фактическую цель (создание нового поезда / fallback при удалённом запомненном).
+        if (prefs.getString(KEY_TARGET, null) != train.trainId) saveTarget(train.trainId)
+
+        val open = editor
+        if (open != null && open.trainId == train.trainId) {
+            // Форма «Поезд» открыта на этом поезде: пишем через неё, иначе её автосохранение затрёт запись.
+            if (withContext(Dispatchers.Main) { open.apply(event, name) }) return
+        }
+        val updated = AutoTrainWriter.apply(train, event, name) ?: return
+        withContext(Dispatchers.Default) {
+            trainUseCase.updateTrain(updated).first { it !is ResultState.Loading }
+        }
+    }
+
+    private suspend fun currentRoute() =
+        routeUseCase.getListRoutes().findCurrentRoute(nowMs(), settings)
+
+    private fun recorderConfig(until: Long) = GpsRecorderConfig(
+        notificationTitle = "LocoDriver",
+        notificationText = "АВТО включено до ${formatTime(context, until)}",
+        stopActionLabel = "Выключить",
+        smallIconRes = R.drawable.ic_stat_auto,
+        channelName = "Запись АВТО",
+    )
+
+    private fun showExpiredNotification() =
+        notify(EXPIRED_ID, "АВТО выключено: прошло 12 часов", launchIntent(enable = false), emptyList())
+
+    /** «АВТО включено, но текущего маршрута нет» — не чаще раза в 30 мин, с «Выключить» и «Открыть приложение». */
+    private fun notifyNoRoute() {
+        val now = nowMs()
+        if (now - prefs.getLong(KEY_NO_ROUTE_AT, 0L) < NO_ROUTE_REPEAT_MS) return
+        prefs.edit().putLong(KEY_NO_ROUTE_AT, now).apply()
+        val off = PendingIntent.getBroadcast(
+            context, 2,
+            Intent(context, AutoRecordActionReceiver::class.java).setAction(AutoRecordActionReceiver.ACTION_DISABLE)
+                .setPackage(context.packageName),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        notify(
+            NO_ROUTE_ID, "АВТО включено, но текущего маршрута нет (работа окончена?)",
+            launchIntent(enable = false),
+            listOf("Выключить" to off, "Открыть приложение" to launchIntent(enable = false)),
+        )
+    }
+
+    private fun cancelAlerts() {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        nm.cancel(INTERRUPTED_ID)
+        nm.cancel(NO_ROUTE_ID)
+    }
+
+    private fun launchIntent(enable: Boolean): PendingIntent? =
+        context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {
+            if (enable) it.putExtra("widget_auto_enable", true) // MainActivity включает АВТО при открытии
+            PendingIntent.getActivity(
+                context, if (enable) 3 else 4, it,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        }
+
+    private fun notify(id: Int, text: String, content: PendingIntent?, actions: List<Pair<String, PendingIntent?>>) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        if (Build.VERSION.SDK_INT >= 26) {
+            nm.createNotificationChannel(
+                NotificationChannel(ALERT_CHANNEL, "АВТО: предупреждения", NotificationManager.IMPORTANCE_DEFAULT),
+            )
+        }
+        val b = NotificationCompat.Builder(context, ALERT_CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_auto)
+            .setContentTitle("LocoDriver")
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setAutoCancel(true)
+            .setContentIntent(content)
+        actions.forEach { (label, pi) -> b.addAction(0, label, pi) }
+        runCatching { nm.notify(id, b.build()) } // без разрешения на уведомления — молча
+    }
+
+    companion object {
+        const val AUTO_OFF_MS = 12 * 60 * 60 * 1000L
+        const val PREFS_NAME = "auto_record"
+        private const val KEY_UNTIL = "until_ms"
+        private const val KEY_TARGET = "target_train_id"
+        private const val KEY_BEAT = "heartbeat_ms"
+        private const val KEY_INTERRUPTED = "interrupted"
+        private const val KEY_TZ = "display_tz"
+        private const val KEY_NO_ROUTE_AT = "no_route_notified_ms"
+        const val KEY_BATTERY_ASKED = "battery_asked"
+        private const val STALE_MS = 10 * 60_000L
+        private const val BEAT_WRITE_MS = 20_000L
+        private const val NO_ROUTE_REPEAT_MS = 30 * 60_000L
+        private const val START_TIMEOUT_MS = 15_000L
+        private const val ALERT_CHANNEL = "auto_record_alerts"
+        private const val EXPIRED_ID = 7402
+        private const val NO_ROUTE_ID = 7403
+        private const val INTERRUPTED_ID = 7404
+
+        /** Для виджетов: момент автовыключения или 0, если АВТО выключено. */
+        fun savedUntil(context: Context, now: Long = System.currentTimeMillis()): Long =
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getLong(KEY_UNTIL, 0L)
+                .takeIf { it > now } ?: 0L
+
+        /**
+         * «чч:мм» в часовом поясе отображения пользователя (§0.1: РФ/Беларусь — МСК, Казахстан — свой),
+         * а не по часам устройства. Пояс сохраняется менеджером в prefs при смене настроек.
+         */
+        fun formatTime(context: Context, ms: Long): String {
+            val id = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_TZ, null)
+            val fmt = SimpleDateFormat("HH:mm", Locale.getDefault())
+            if (id != null) fmt.timeZone = TimeZone.getTimeZone(id)
+            return fmt.format(Date(ms))
+        }
+    }
+}

@@ -60,6 +60,8 @@ class TrainFormViewModel(
     private val settingsUseCase: SettingsUseCase by inject()
     private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
+    private val autoRecord: com.z_company.route.autorecord.AutoRecordManager by inject()
+    private var autoEditorTrainId: String? = null
     private var route: Route = Route()
     private val _uiState = MutableStateFlow(TrainFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -205,6 +207,11 @@ class TrainFormViewModel(
                     isNewTrain = false
                     loadTrain(trainId!!)
                 }
+                // «АВТО» пишет события в эту форму, пока она открыта (иначе автосохранение затрёт запись).
+                (trainId.takeIf { it != NULLABLE_ID } ?: currentTrain?.trainId)?.let { id ->
+                    autoEditorTrainId = id
+                    autoRecord.registerEditor(id, ::applyAutoEvent)
+                }
                 val initJob = this.launch {
                     val setting = settingsUseCase.getUserSettingFlow().first()
                     timeZoneText = "GMT+3"
@@ -315,6 +322,7 @@ class TrainFormViewModel(
     }
 
     override fun onCleared() {
+        autoEditorTrainId?.let { autoRecord.unregisterEditor(it) }
         autoSaveJob?.cancel()
         saveTrainJob?.cancel()
         CoroutineScope(NonCancellable + Dispatchers.IO).launch {
@@ -1079,6 +1087,37 @@ class TrainFormViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * Событие кнопки «АВТО» (SCREEN_SPECS §6.2 п.6а), пока форма открыта: те же правила, что в БД,
+     * но применённые к состоянию формы. false — записывать нечего (форма ещё грузится / событие пропущено).
+     */
+    private suspend fun applyAutoEvent(event: com.z_company.domain.autorecord.StopEvent, name: String?): Boolean {
+        val train = currentTrain ?: return false
+        if (_uiState.value.stationsListState == null) return false
+        val snapshot = train.copy(
+            servicePhase = _uiState.value.selectedServicePhase,
+            stations = stationsListState.map { s ->
+                Station(
+                    stationId = s.id,
+                    trainId = train.trainId,
+                    stationName = s.station.data,
+                    timeArrival = s.arrival.data,
+                    timeDeparture = s.departure.data,
+                    trackNumber = s.trackNumber,
+                    isFinalStation = s.isFinalStation,
+                    isPassingStation = s.isPassingStation,
+                    segmentTrackNumber = s.segmentTrackNumber,
+                    segmentNotes = s.segmentNotes
+                )
+            }.toMutableList()
+        )
+        val updated = com.z_company.domain.autorecord.AutoTrainWriter.apply(snapshot, event, name) ?: return false
+        stationsListState.clear()
+        setStations(updated.stations)
+        changesHave()
+        return true
     }
 
     private fun setStations(stations: MutableList<Station>) {

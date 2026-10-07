@@ -200,6 +200,8 @@ class LocoDriverWidget : GlanceAppWidget() {
                 caption = "ТЕКУЩИЙ МАРШРУТ",
             )
             AndroidRemoteViews(rv, openRouteMod)
+            Spacer(modifier = GlanceModifier.height(8.dp))
+            AutoButton(GlanceModifier.fillMaxWidth(), wide = true)
             return
         }
 
@@ -226,7 +228,11 @@ class LocoDriverWidget : GlanceAppWidget() {
             modifier = openRouteMod
         )
 
-        if (!showButtons) return
+        if (!showButtons) {
+            Spacer(modifier = GlanceModifier.height(8.dp))
+            AutoButton(GlanceModifier.fillMaxWidth(), wide = true)
+            return
+        }
 
         val isDepartureNext = prefs[WKeys.IS_DEPARTURE_NEXT] ?: true
         val doneTime = prefs[WKeys.STAMP_DONE_TIME] ?: ""
@@ -259,6 +265,10 @@ class LocoDriverWidget : GlanceAppWidget() {
             Box(modifier = departureMod) {
                 AndroidRemoteViews(departureRv, GlanceModifier.fillMaxWidth().wrapContentHeight())
             }
+
+            Spacer(modifier = GlanceModifier.width(8.dp))
+
+            AutoButton(GlanceModifier.width(64.dp))
         }
     }
 

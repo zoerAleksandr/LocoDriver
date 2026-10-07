@@ -78,8 +78,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import com.z_company.route.autorecord.AutoRecordChip
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -275,6 +277,11 @@ fun FormTrainScreen(
         // Вторая шторка — создание/редактирование плеча.
         var showEditPhaseSheet by remember { mutableStateOf(false) }
         var editingPhase by remember { mutableStateOf<ServicePhase?>(null) }
+
+        // Кнопка «АВТО» (SCREEN_SPECS §6.2 п.6а)
+        val autoRecordManager: com.z_company.route.autorecord.AutoRecordManager = org.koin.compose.koinInject()
+        val autoRecordState by autoRecordManager.state.collectAsState()
+        val onAutoToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoRecordManager, currentTrain?.trainId)
 
         // Геолокация для подстановки ближайшей станции: спрашиваем один раз, при первом GO /
         // «добавить станцию».
@@ -1790,54 +1797,52 @@ fun FormTrainScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Слева: сортировка
-                                Box(
+                                // Слева: чип секундомера (той же формы и высоты, что «АВТО» и «GO»)
+                                Row(
                                     modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterStart
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    val isReversed = formUiState.isStationsReversed
-                                    val rotation by animateFloatAsState(
-                                        targetValue = if (isReversed) 180f else 0f,
-                                        animationSpec = tween(durationMillis = 300)
-                                    )
-                                    Icon(
-                                        modifier = Modifier
-                                            .graphicsLayer { rotationZ = rotation }
-                                            .noRippleEffect(
-                                                onClick = { viewModel.toggleStationsSortOrder() }
-                                            ),
-                                        painter = painterResource(com.z_company.route.R.drawable.sort_24px),
-                                        contentDescription = null
-                                    )
-                                }
-
-                                // Центр: чип секундомера — по вертикали в одну линию с кнопками
-                                if (stopwatch != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(stopwatch.bg)
-                                            .padding(horizontal = 14.dp, vertical = 6.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = stopwatch.timeText,
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontFamily = com.z_company.core.ui.theme.MonoFont,
-                                                fontWeight = FontWeight.Bold
-                                            ),
-                                            color = stopwatch.fg
-                                        )
+                                    if (stopwatch != null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .height(com.z_company.route.autorecord.AutoRecordStyle.height)
+                                                .clip(com.z_company.route.autorecord.AutoRecordStyle.shape)
+                                                .background(stopwatch.bg)
+                                                .padding(horizontal = 14.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = stopwatch.timeText,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                color = stopwatch.fg
+                                            )
+                                        }
                                     }
                                 }
 
+                                // Центр: «АВТО» — ровно по горизонтальной середине строки (левая и правая
+                                // группы имеют равный weight(1f), поэтому середина не зависит от их ширины)
+                                AutoRecordChip(
+                                    state = autoRecordState,
+                                    onToggle = onAutoToggle,
+                                    goHeight = true,
+                                )
+
                                 // Справа: play/pause
-                                Box(
+                                Row(
                                     modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterEnd
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     OutlinedButton(
                                         onClick = { askLocation { viewModel.onGoClicked() } },
+                                        shape = com.z_company.route.autorecord.AutoRecordStyle.shape,
                                         border = BorderStroke(
                                             width = 1.dp,
                                             color = if (nextIsDeparture) MaterialTheme.colorScheme.surfaceContainerLow
@@ -1895,40 +1900,60 @@ fun FormTrainScreen(
                                     ),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                // Показать/скрыть карточки перегонов между станциями.
-                                IconButton(
-                                    modifier = Modifier.size(32.dp),
-                                    onClick = {
-                                        viewModel.toggleSegmentsVisibility()
-                                        val shown = !formUiState.showSegments
-                                        scope.launch {
-                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                            snackbarHostState.showSnackbar(
-                                                message = if (shown) {
-                                                    "Перегоны показаны"
-                                                } else {
-                                                    "Перегоны скрыты"
-                                                },
-                                                duration = SnackbarDuration.Short,
-                                            )
-                                        }
-                                    }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Icon(
-                                        modifier = Modifier.size(20.dp),
-                                        painter = painterResource(
-                                            if (formUiState.showSegments)
-                                                com.z_company.route.R.drawable.collapse_rows_24px
-                                            else
-                                                com.z_company.route.R.drawable.expand_rows_24px
-                                        ),
-                                        contentDescription = if (formUiState.showSegments)
-                                            "Скрыть перегоны" else "Показать перегоны",
-                                        tint = if (formUiState.showSegments)
-                                            MaterialTheme.colorScheme.tertiary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                    // Сортировка списка станций (вверх/вниз)
+                                    val isReversed = formUiState.isStationsReversed
+                                    val rotation by animateFloatAsState(
+                                        targetValue = if (isReversed) 180f else 0f,
+                                        animationSpec = tween(durationMillis = 300)
                                     )
+                                    Icon(
+                                        modifier = Modifier
+                                            .graphicsLayer { rotationZ = rotation }
+                                            .noRippleEffect(
+                                                onClick = { viewModel.toggleStationsSortOrder() }
+                                            ),
+                                        painter = painterResource(com.z_company.route.R.drawable.sort_24px),
+                                            contentDescription = null
+                                        )
+                                    // Показать/скрыть карточки перегонов между станциями.
+                                    IconButton(
+                                        modifier = Modifier.size(32.dp),
+                                        onClick = {
+                                            viewModel.toggleSegmentsVisibility()
+                                            val shown = !formUiState.showSegments
+                                            scope.launch {
+                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                snackbarHostState.showSnackbar(
+                                                    message = if (shown) {
+                                                        "Перегоны показаны"
+                                                    } else {
+                                                        "Перегоны скрыты"
+                                                    },
+                                                    duration = SnackbarDuration.Short,
+                                                )
+                                            }
+                                        }
+                                    ) {
+                                        Icon(
+                                            modifier = Modifier.size(20.dp),
+                                            painter = painterResource(
+                                                if (formUiState.showSegments)
+                                                    com.z_company.route.R.drawable.collapse_rows_24px
+                                                else
+                                                    com.z_company.route.R.drawable.expand_rows_24px
+                                            ),
+                                            contentDescription = if (formUiState.showSegments)
+                                                "Скрыть перегоны" else "Показать перегоны",
+                                            tint = if (formUiState.showSegments)
+                                                MaterialTheme.colorScheme.tertiary
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -183,6 +183,8 @@ class StartApp : Application() {
                 updateModule
             )
         }
+        // Кнопка «АВТО»: после перезапуска процесса возобновить запись, если она была включена.
+        runCatching { koinApplication.koin.get<com.z_company.route.autorecord.AutoRecordManager>().restore() }
         // Истёкший bearer-токен ловится на любом запросе (см. SessionExpiredHandler);
         // без этой подписки о 401 узнавал бы только экран «Профиль».
         koinApplication.koin.get<SessionExpiredHandler>().start(appScope)
