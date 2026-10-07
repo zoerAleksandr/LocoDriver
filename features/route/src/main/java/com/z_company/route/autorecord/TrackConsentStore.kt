@@ -2,6 +2,7 @@ package com.z_company.route.autorecord
 
 import android.content.SharedPreferences
 import com.z_company.domain.track.TrackRepository
+import com.z_company.domain.track.TrackSyncSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +20,9 @@ class TrackConsentStore(
     private val trackRepository: TrackRepository?,
     private val scope: CoroutineScope,
     private val nowMs: () -> Long = { System.currentTimeMillis() },
-) {
+    /** Согласие изменилось: запланировать отправку/отзыв на сервере (WorkManager в app). */
+    private val onConsentChanged: () -> Unit = {},
+) : TrackSyncSettings {
     private val _saveTracks = MutableStateFlow(prefs.getBoolean(KEY_SAVE_TRACKS, false))
 
     /** Дано ли согласие на сохранение треков. */
@@ -40,6 +43,20 @@ class TrackConsentStore(
         if (!enabled) {
             scope.launch(Dispatchers.Default) { runCatching { trackRepository?.deleteAll() } }
         }
+        // Серверу нужно сообщить об изменении (при отзыве он удалит все серверные треки).
+        runCatching { onConsentChanged() }
+    }
+
+    override fun localConsent(): Boolean = _saveTracks.value
+
+    /** Подтверждённое сервером состояние согласия (§17.7): null — ещё не сверялись. */
+    override fun serverConsent(): Boolean? =
+        if (prefs.contains(KEY_SERVER_CONSENT)) prefs.getBoolean(KEY_SERVER_CONSENT, false) else null
+
+    override fun setServerConsent(value: Boolean?) {
+        val editor = prefs.edit()
+        if (value == null) editor.remove(KEY_SERVER_CONSENT) else editor.putBoolean(KEY_SERVER_CONSENT, value)
+        editor.apply()
     }
 
     /** Экран согласия показан и закрыт (с любым выбором). */
@@ -68,5 +85,6 @@ class TrackConsentStore(
         private const val KEY_CONSENT_AT = "consent_at_ms"
         private const val KEY_DECIDED = "decided"
         private const val KEY_WARNED = "no_consent_warned"
+        private const val KEY_SERVER_CONSENT = "server_consent"
     }
 }

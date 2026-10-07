@@ -100,6 +100,7 @@ import org.koin.core.parameter.parametersOf
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
 import com.z_company.route.ui.settings.SettingsPrivacyContent
+import com.z_company.route.ui.settings.SettingsTrackHistoryContent
 import android.net.Uri
 import android.widget.Toast
 import androidx.core.content.FileProvider
@@ -125,6 +126,7 @@ enum class SettingsSubScreen(val title: String, val depth: Int) {
     PARTNER_LIST("Напарники", 1),
     PARTNER_EDITOR("Напарник", 2),
     DATA_PRIVACY("Данные и конфиденциальность", 1),
+    TRACK_HISTORY("Мои треки", 1),
 }
 
 // Под-экраны настроек, где заголовок — по центру, а слева вместо стрелки
@@ -233,6 +235,7 @@ fun SettingsScreen(
                 "LOCOMOTIVE" -> InitState(SettingsSubScreen.LOCOMOTIVE, null, null)
                 "TRAIN" -> InitState(SettingsSubScreen.TRAIN, null, null)
                 "DATA_PRIVACY" -> InitState(SettingsSubScreen.DATA_PRIVACY, null, null)
+                "TRACK_HISTORY" -> InitState(SettingsSubScreen.TRACK_HISTORY, null, null)
                 "SERIES_LIST" -> InitState(SettingsSubScreen.SERIES_LIST, null, null)
                 "STATION_LIST" -> InitState(SettingsSubScreen.STATION_LIST, null, null)
                 else -> InitState(SettingsSubScreen.HUB, null, null)
@@ -585,6 +588,10 @@ fun SettingsScreen(
 
                         SettingsSubScreen.DATA_PRIVACY -> {
                             SettingsPrivacyContent()
+                        }
+
+                        SettingsSubScreen.TRACK_HISTORY -> {
+                            SettingsTrackHistoryContent(viewModel = koinViewModel())
                         }
 
                         SettingsSubScreen.TRAIN -> {
@@ -1018,6 +1025,13 @@ private fun SettingsHubContent(
                 title = "Данные и конфиденциальность",
                 subtitle = "Треки и история поездок",
                 onClick = { onNavigate(SettingsSubScreen.DATA_PRIVACY) },
+            )
+            SettingsRowDivider()
+            SettingsRow(
+                iconRes = com.z_company.route.R.drawable.outline_history_24,
+                title = "Мои треки",
+                subtitle = "История записанных поездок",
+                onClick = { onNavigate(SettingsSubScreen.TRACK_HISTORY) },
             )
         }
 

@@ -28,20 +28,50 @@ class SqlDelightTrackRepository(private val db: TrackDatabase) : TrackRepository
     override fun pointCount(trackId: String): Long = q.countPoints(trackId).executeAsOne()
 
     override fun tracks(): List<TrackInfo> = q.selectTracks().executeAsList().map {
-        TrackInfo(it.trackId, it.trainId, it.startedAt, it.endedAt, it.isFavorite != 0L)
+        info(it.trackId, it.trainId, it.startedAt, it.endedAt, it.isFavorite, it.uploadState, it.uploadedPoints, it.favoriteDirty)
     }
 
+    override fun track(trackId: String): TrackInfo? = q.selectTrack(trackId).executeAsOneOrNull()?.let { info(it.trackId, it.trainId, it.startedAt, it.endedAt, it.isFavorite, it.uploadState, it.uploadedPoints, it.favoriteDirty) }
+
     override fun tracksForTrain(trainId: String): List<TrackInfo> =
-        q.selectTracksByTrain(trainId).executeAsList().map {
-            TrackInfo(it.trackId, it.trainId, it.startedAt, it.endedAt, it.isFavorite != 0L)
-        }
+        q.selectTracksByTrain(trainId).executeAsList().map { info(it.trackId, it.trainId, it.startedAt, it.endedAt, it.isFavorite, it.uploadState, it.uploadedPoints, it.favoriteDirty) }
 
     override fun setFavorite(trackId: String, favorite: Boolean) {
         q.setFavorite(if (favorite) 1L else 0L, trackId)
     }
 
+    override fun clearFavoriteDirty(trackId: String) {
+        q.clearFavoriteDirty(trackId)
+    }
+
+    override fun setUploadState(trackId: String, state: Int, uploadedPoints: Long) {
+        q.setUploadState(state.toLong(), uploadedPoints, trackId)
+    }
+
+    override fun deleteTrack(trackId: String, queueRemoteDelete: Boolean) {
+        db.transaction {
+            q.deletePointsOne(trackId)
+            q.deleteTrackOne(trackId)
+            if (queueRemoteDelete) q.insertPendingDelete(trackId)
+        }
+    }
+
+    override fun pendingRemoteDeletes(): List<String> = q.selectPendingDeletes().executeAsList()
+
+    override fun clearPendingRemoteDelete(trackId: String) {
+        q.deletePendingDelete(trackId)
+    }
+
+    override fun resetUploadState() {
+        db.transaction {
+            q.resetAllUploadState()
+            q.deleteAllPendingDeletes()
+        }
+    }
+
     override fun deleteByTrain(trainId: String) {
         db.transaction {
+            q.selectTrackIdsByTrain(trainId).executeAsList().forEach { q.insertPendingDelete(it) }
             q.deletePointsByTrain(trainId)
             q.deleteTracksByTrain(trainId)
         }
@@ -49,6 +79,8 @@ class SqlDelightTrackRepository(private val db: TrackDatabase) : TrackRepository
 
     override fun deleteAll() {
         db.transaction {
+            // Отзыв согласия: сервер удаляет все треки одной операцией, очередь не нужна.
+            q.deleteAllPendingDeletes()
             q.deleteAllPoints()
             q.deleteAllTracks()
         }
@@ -65,3 +97,17 @@ class SqlDelightTrackRepository(private val db: TrackDatabase) : TrackRepository
         return removed
     }
 }
+
+private fun info(
+    trackId: String, trainId: String, startedAt: Long, endedAt: Long,
+    isFavorite: Long, uploadState: Long, uploadedPoints: Long, favoriteDirty: Long,
+) = TrackInfo(
+    trackId = trackId,
+    trainId = trainId,
+    startedAt = startedAt,
+    endedAt = endedAt,
+    isFavorite = isFavorite != 0L,
+    uploadState = uploadState.toInt(),
+    uploadedPoints = uploadedPoints,
+    favoriteDirty = favoriteDirty != 0L,
+)

@@ -114,6 +114,10 @@ internal fun TrainMapScreen(
     loadTrack: suspend () -> TrainFormViewModel.TrainMapTrack? = { null },
     onDetermine: suspend (String) -> Boolean,
     onDismiss: () -> Unit,
+    /** Заголовок плашки; для просмотра трека из «Истории» — название поездки. */
+    title: String = "Карта поезда",
+    /** Только просмотр записанного трека (§17.8): без геолокации, живой скорости и обновления по таймеру. */
+    viewOnly: Boolean = false,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -342,7 +346,7 @@ internal fun TrainMapScreen(
             }
         }
         // Текущее место — как только карта и стиль готовы (разрешение — при необходимости).
-        LaunchedEffect(styleReady) { if (styleReady) requestOrShowLocation(center = !hasRoute) }
+        LaunchedEffect(styleReady) { if (styleReady && !viewOnly) requestOrShowLocation(center = !hasRoute) }
         // Линия по рельсам с сервера (всегда запрос; сохранённая — запас без сети), как на карте плеч.
         LaunchedEffect(loadAttempt) {
             if (hasRoute) {
@@ -427,7 +431,7 @@ internal fun TrainMapScreen(
         // Живая геолокация: подписка только пока карта открыта (раньше было разовое «последнее известное» — позиция не
         // обновлялась). Обновляет маркер, скорость и, в режиме «следовать» при движении, плавно ведёт камеру.
         LaunchedEffect(styleReady, permGranted) {
-            if (!styleReady || !permGranted) return@LaunchedEffect
+            if (!styleReady || !permGranted || viewOnly) return@LaunchedEffect
             DeviceLocation.updates(context).collect { f ->
                 val m = map ?: return@collect
                 if (!alive.get()) return@collect
@@ -450,11 +454,12 @@ internal fun TrainMapScreen(
             track = runCatching { loadTrack() }.getOrNull()
             while (isActive) {
                 delay(10_000)
-                if (GpsRecorder.isRunning.value) track = runCatching { loadTrack() }.getOrNull() ?: track
+                if (!viewOnly && GpsRecorder.isRunning.value) track = runCatching { loadTrack() }.getOrNull() ?: track
             }
         }
         // Текущая скорость — живые точки записи, пока карта открыта.
         LaunchedEffect(Unit) {
+            if (viewOnly) return@LaunchedEffect
             GpsRecorder.points.collect { p ->
                 liveSpeed = p.speedKmh
                 liveAtMs = p.timeMs
@@ -580,7 +585,7 @@ internal fun TrainMapScreen(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        text = "Карта поезда",
+                        text = title,
                         style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                         color = Pst.text,
                         maxLines = 1,
@@ -600,7 +605,7 @@ internal fun TrainMapScreen(
             // Текущая скорость (живая точка записи, иначе последняя точка трека) и карточка выбранного (§6.9).
             val lastPoint = track?.points?.lastOrNull()
             val liveFresh = liveSpeed != null && nowMs - liveAtMs < 15_000
-            val speedNow: Double? = if (liveFresh) liveSpeed else lastPoint?.speedKmh
+            val speedNow: Double? = if (viewOnly) null else if (liveFresh) liveSpeed else lastPoint?.speedKmh
             val zone = track?.zone ?: "GMT+3"
             Column(
                 modifier = Modifier
@@ -699,9 +704,11 @@ internal fun TrainMapScreen(
                 MapButton(onClick = { map?.animateCamera(CameraUpdateFactory.zoomOut()) }, description = "Отдалить") {
                     Text("−", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
                 }
-                MapButton(onClick = { follow = true; requestOrShowLocation(center = true) }, description = "Моё местоположение") {
-                    Box(Modifier.size(14.dp).border(2.dp, Pst.accent, CircleShape), contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(4.dp).background(Pst.accent, CircleShape))
+                if (!viewOnly) {
+                    MapButton(onClick = { follow = true; requestOrShowLocation(center = true) }, description = "Моё местоположение") {
+                        Box(Modifier.size(14.dp).border(2.dp, Pst.accent, CircleShape), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(4.dp).background(Pst.accent, CircleShape))
+                        }
                     }
                 }
             }

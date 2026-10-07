@@ -19,4 +19,19 @@ data class TrackInfo(
     val startedAt: Long,
     val endedAt: Long,
     val isFavorite: Boolean,
+    /** Отправка на сервер, [TrackUploadState]. */
+    val uploadState: Int = TrackUploadState.PENDING,
+    /** Точек в отправленной версии трека (0 — не отправлялся). */
+    val uploadedPoints: Long = 0L,
+    /** Звезда изменена локально и ещё не доставлена на сервер. */
+    val favoriteDirty: Boolean = false,
 )
+
+/** Состояние отправки трека на сервер (колонка `Track.uploadState`). */
+object TrackUploadState {
+    const val PENDING = 0
+    const val UPLOADED = 1
+
+    /** Сервер отказал окончательно (квота и т.п.): повторами не исправить, см. [TrackUploader]. */
+    const val REJECTED = 2
+}

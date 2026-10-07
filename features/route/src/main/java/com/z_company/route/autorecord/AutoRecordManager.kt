@@ -82,6 +82,11 @@ class AutoRecordManager(
     private val trackRepository: TrackRepository? = null,
     /** Согласие №1 на сохранение треков; null — как «нет согласия». */
     private val trackConsent: TrackConsentStore? = null,
+    /**
+     * Запланировать отправку треков (WorkManager в app). Зовётся при старте приложения и по окончании
+     * сеанса «АВТО»; воркер сам ждёт, пока трек «затихнет», и пропускает прогон без согласия.
+     */
+    private val onTrackUpload: () -> Unit = {},
 ) {
     private val _state = MutableStateFlow(AutoRecordState())
     val state: StateFlow<AutoRecordState> = _state.asStateFlow()
@@ -171,6 +176,8 @@ class AutoRecordManager(
             scope.launch(Dispatchers.Default) {
                 runCatching { repo.purgeExpired(nowMs()) }.onFailure { it.sendToSentry("AutoRecordManager", "purgeTracks") }
             }
+            // Отправка накопленного и очистка осиротевших треков (воркер без сети/входа просто выходит).
+            runCatching { onTrackUpload() }
         }
         val until = prefs.getLong(KEY_UNTIL, 0L)
         if (until == 0L) return
@@ -334,6 +341,8 @@ class AutoRecordManager(
 
     private fun resetTrack() {
         trackWriter?.let { synchronized(it) { it.reset() } }
+        // Сеанс закончен — трек готов к отправке (воркер подождёт паузу без новых точек).
+        if (trackConsent?.saveTracks?.value == true) runCatching { onTrackUpload() }
     }
 
     /** Однократное предупреждение, если АВТО включено без согласия на сохранение трека. */
