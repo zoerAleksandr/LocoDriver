@@ -43,6 +43,10 @@ class StationDirectoryUseCase(private val repository: StationNormRepository) {
         return phase.withDirectory(merged ?: repository.getAll())
     }
 
+    /** Координаты станции [name] из GPS — в справочник, только если у станции их нет (§6.9). */
+    suspend fun fillCoordinates(name: String, latitude: Double, longitude: Double) =
+        update { StationDirectory.fillCoordinates(it, name, latitude, longitude, now()) }
+
     private var backfilled = false
 
     /** [backfill] один раз за запуск приложения. */

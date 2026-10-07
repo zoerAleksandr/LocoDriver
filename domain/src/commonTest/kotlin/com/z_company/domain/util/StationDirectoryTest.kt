@@ -56,4 +56,28 @@ class StationDirectoryTest {
         assertEquals(1.0, merged.first { it.name == "Котлы-2" }.latitude)
         assertEquals(58.74, merged.first { it.name == "Луга" }.latitude)
     }
+
+    @Test
+    fun trainMapTargetIsLastTrainStationWithoutCoordinates() {
+        val dir = listOf(StationNorm(name = "Луга", latitude = 58.7, longitude = 29.8), StationNorm(name = "Мга"))
+        assertEquals("Мга", StationDirectory.stationWithoutCoordinates(listOf("Луга", " мга", null), listOf("Лужская"), dir)?.lowercase()?.replaceFirstChar { it.uppercase() })
+        assertEquals("Лужская", StationDirectory.stationWithoutCoordinates(listOf("Луга", null), listOf("Луга", "Лужская"), dir))
+        assertNull(StationDirectory.stationWithoutCoordinates(listOf("Луга"), listOf("Луга"), dir))
+        assertNull(StationDirectory.stationWithoutCoordinates(emptyList(), emptyList(), dir))
+    }
+
+    @Test
+    fun fillCoordinatesNeverOverwrites() {
+        val dir = listOf(
+            StationNorm(name = "Луга", latitude = 58.7, longitude = 29.8),
+            StationNorm(name = "Мга", appearanceToStartMin = 5),
+        )
+        assertNull(StationDirectory.fillCoordinates(dir, "луга", 1.0, 2.0, 7))
+        val filled = assertNotNull(StationDirectory.fillCoordinates(dir, "Мга", 59.7, 31.0, 7))
+        assertEquals(59.7, filled.first { it.name == "Мга" }.latitude)
+        assertEquals(5, filled.first { it.name == "Мга" }.appearanceToStartMin)
+        assertEquals(58.7, filled.first { it.name == "Луга" }.latitude)
+        val created = assertNotNull(StationDirectory.fillCoordinates(dir, "Тосно", 59.5, 30.9, 7))
+        assertEquals(3, created.size)
+    }
 }
