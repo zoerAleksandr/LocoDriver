@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 
 class TrackWriterTest {
 
-    private class FakeRepo : TrackRepository {
+    private class FakeRepo(base: com.z_company.domain.track.InMemoryTrackRepository = com.z_company.domain.track.InMemoryTrackRepository()) : TrackRepository by base {
         val appended = mutableListOf<Triple<String, String, TrackPoint>>()
         var deletedAll = 0
         override fun append(trackId: String, trainId: String, point: TrackPoint) {

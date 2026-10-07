@@ -18,9 +18,29 @@ interface TrackRepository {
     fun pointCount(trackId: String): Long
     fun tracks(): List<TrackInfo>
     fun tracksForTrain(trainId: String): List<TrackInfo>
-    fun setFavorite(trackId: String, favorite: Boolean)
+    fun track(trackId: String): TrackInfo?
 
-    /** Удалить все треки поезда (при удалении поезда). */
+    /** Поставить/снять звезду; помечает изменение как не доставленное на сервер. */
+    fun setFavorite(trackId: String, favorite: Boolean)
+    fun clearFavoriteDirty(trackId: String)
+
+    /** Записать результат отправки ([TrackUploadState]) и число отправленных точек. */
+    fun setUploadState(trackId: String, state: Int, uploadedPoints: Long)
+
+    /**
+     * Удалить один трек с устройства. [queueRemoteDelete] — поставить в очередь удаление и на сервере
+     * (доставит [TrackUploader]; DELETE идемпотентен).
+     */
+    fun deleteTrack(trackId: String, queueRemoteDelete: Boolean)
+
+    /** Идентификаторы треков, удаление которых ещё не доставлено на сервер. */
+    fun pendingRemoteDeletes(): List<String>
+    fun clearPendingRemoteDelete(trackId: String)
+
+    /** Отзыв согласия отправлен на сервер: все серверные копии удалены, метки отправки сбрасываются. */
+    fun resetUploadState()
+
+    /** Удалить все треки поезда (при удалении поезда); удаление ставится в очередь и для сервера. */
     fun deleteByTrain(trainId: String)
 
     /** Удалить все локальные треки (отзыв согласия). */

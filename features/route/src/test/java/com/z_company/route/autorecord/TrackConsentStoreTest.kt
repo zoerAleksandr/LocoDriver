@@ -49,7 +49,7 @@ class TrackConsentStoreTest {
         override fun unregisterOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener?) {}
     }
 
-    private class Repo : TrackRepository {
+    private class Repo(base: com.z_company.domain.track.InMemoryTrackRepository = com.z_company.domain.track.InMemoryTrackRepository()) : TrackRepository by base {
         var deletedAll = 0
         override fun append(trackId: String, trainId: String, point: TrackPoint) {}
         override fun points(trackId: String) = emptyList<TrackPoint>()

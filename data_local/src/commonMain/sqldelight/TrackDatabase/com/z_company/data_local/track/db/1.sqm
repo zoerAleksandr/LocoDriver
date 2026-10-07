@@ -1,0 +1,8 @@
+-- Миграция 1 -> 2 (этап 3б): состояние отправки трека на сервер и очередь удалений.
+-- Существующие треки остаются как есть: uploadState = 0 (ждут отправки), точки не затрагиваются.
+ALTER TABLE Track ADD COLUMN uploadState INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE Track ADD COLUMN uploadedPoints INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE Track ADD COLUMN favoriteDirty INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS TrackPendingDelete (
+    trackId TEXT NOT NULL PRIMARY KEY
+);
