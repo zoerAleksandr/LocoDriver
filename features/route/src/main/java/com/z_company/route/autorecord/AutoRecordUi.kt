@@ -22,13 +22,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
@@ -38,8 +40,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.route.component.AppAlertDialog
@@ -131,62 +137,76 @@ private fun openAppSettings(context: Context) {
     }
 }
 
-/** Чип-переключатель «АВТО»: выключен — контурный, включён — залит, с пульсирующей точкой и «до чч:мм». */
+/**
+ * Цвета «АВТО» (SCREEN_SPECS §6.2 п.6а): включено — зелёный, выключено — серый, «прервано» — оранжевый.
+ * Подобраны под WCAG: текст/иконка ≥ 4.5:1 к фону кнопки, контур/заливка ≥ 3:1 к фону экрана.
+ */
+@Immutable
+data class AutoRecordColors(val container: Color, val content: Color, val border: Color?)
+
+object AutoRecordStyle {
+    /** Скругление — то же, что у кнопки «GO» (▶/⏸): штатная форма Material-кнопки. */
+    val shape: Shape
+        @Composable get() = ButtonDefaults.shape
+
+    /** Высота — как у кнопки «GO» на экране «Поезд». */
+    val height: Dp = ButtonDefaults.MinHeight
+
+    @Composable
+    fun colors(state: AutoRecordState): AutoRecordColors {
+        val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+        return when {
+            state.enabled -> if (dark) AutoRecordColors(Color(0xFF4ADE80), Color(0xFF0A0E14), null)
+            else AutoRecordColors(Color(0xFF15803D), Color(0xFFFFFFFF), null)
+            state.interrupted -> if (dark) AutoRecordColors(Color(0xFF4A3410), Color(0xFFFFB547), Color(0xFFFFB547))
+            else AutoRecordColors(Color(0xFFFFE8CC), Color(0xFF8A4B00), Color(0xFFC26A00))
+            else -> if (dark) AutoRecordColors(Color(0xFF3A3C40), Color(0xFFC9CDD2), Color(0xFF8A929B))
+            else AutoRecordColors(Color(0xFFE7E9EC), Color(0xFF4A515A), Color(0xFF7A828B))
+        }
+    }
+}
+
+/**
+ * Чип-переключатель «АВТО»: включён — зелёный с пульсирующей точкой, выключен — серый, «прервано» —
+ * оранжевый. Времени окончания на кнопке нет (оно только в уведомлении службы). Форма и высота — как у «GO».
+ */
 @Composable
 fun AutoRecordChip(
     state: AutoRecordState,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
-    /** Подпись «до чч:мм» внутри чипа (на главном — в одну строку «АВТО · до чч:мм»). */
-    singleLine: Boolean = false,
+    /** Высота как у кнопки «GO» (экран «Поезд»); на главном — компактный чип. */
+    goHeight: Boolean = false,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    val on = state.enabled
-    val broken = state.interrupted && !on
-    val bg = if (on) scheme.primary else scheme.surface
-    val fg = when {
-        on -> scheme.onPrimary
-        broken -> scheme.error
-        else -> scheme.onSurfaceVariant
-    }
-    val until = when {
-        on -> "до ${AutoRecordManager.formatTime(LocalContext.current, state.untilMs)}"
-        broken -> "прервано"
-        else -> null
-    }
+    val colors = AutoRecordStyle.colors(state)
+    val broken = state.interrupted && !state.enabled
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(10.dp),
-        color = bg,
-        border = if (on) null else BorderStroke(1.dp, if (broken) scheme.error else scheme.outlineVariant),
+        shape = AutoRecordStyle.shape,
+        color = colors.container,
+        border = colors.border?.let { BorderStroke(1.dp, it) },
     ) {
         Row(
             modifier = Modifier
+                .then(if (goHeight) Modifier.height(AutoRecordStyle.height) else Modifier)
                 .clickable(onClick = onToggle)
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(horizontal = 14.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            PulseDot(active = on, color = fg)
-            if (singleLine || until == null) {
-                Text(
-                    text = if (singleLine && until != null) "АВТО · $until" else "АВТО",
-                    color = fg,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                )
-            } else {
-                Column {
-                    Text("АВТО", color = fg, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Text(until, color = fg, fontSize = 10.sp)
-                }
-            }
+            PulseDot(active = state.enabled, color = colors.content)
+            Text(
+                text = if (broken) "АВТО · прервано" else "АВТО",
+                color = colors.content,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+            )
         }
     }
 }
 
 @Composable
-private fun PulseDot(active: Boolean, color: androidx.compose.ui.graphics.Color) {
+private fun PulseDot(active: Boolean, color: Color) {
     val alpha = if (active) {
         val t = rememberInfiniteTransition(label = "auto_pulse")
         val a by t.animateFloat(

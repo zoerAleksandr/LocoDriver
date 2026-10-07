@@ -3,7 +3,6 @@ package com.z_company.loco_driver.widget
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -18,7 +17,6 @@ import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
-import androidx.glance.layout.Column
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.size
@@ -36,10 +34,8 @@ import org.koin.core.component.get
 /**
  * Кнопка «АВТО» в виджетах (SCREEN_SPECS §6.2 п.6а). Состояние читается из SharedPreferences
  * менеджера при каждой отрисовке; менеджер обновляет виджеты при смене состояния.
- * Пульсации в RemoteViews нет — точка статичная.
+ * Пульсации в RemoteViews нет — точка статичная. Времени окончания на кнопке нет.
  */
-private val AutoAccent = Color(0xFF00A0F5)
-private val AutoMuted = Color(0xFF8A94A0)
 
 /** Кнопка рядом с кнопками записи (развёрнутый виджет). [wide] — отдельная строка на всю ширину. */
 @Composable
@@ -55,19 +51,12 @@ fun AutoButton(modifier: GlanceModifier, wide: Boolean = false) {
             .clickable(actionRunCallback<AutoToggleActionCallback>()),
         contentAlignment = Alignment.Center,
     ) {
-        val fg = ColorProvider(if (on) Color.White else AutoMuted)
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "АВТО",
-                style = TextStyle(color = fg, fontWeight = FontWeight.Bold, fontSize = 13.sp, textAlign = TextAlign.Center),
-            )
-            if (on) {
-                Text(
-                    text = "до ${AutoRecordManager.formatTime(context, until)}",
-                    style = TextStyle(color = fg, fontSize = 10.sp, textAlign = TextAlign.Center),
-                )
-            }
-        }
+        // Цвета из ресурсов (values / values-night): включено — зелёный, выключено — серый.
+        val fg = ColorProvider(if (on) R.color.widget_auto_on_fg else R.color.widget_auto_off_fg)
+        Text(
+            text = "АВТО",
+            style = TextStyle(color = fg, fontWeight = FontWeight.Bold, fontSize = 13.sp, textAlign = TextAlign.Center),
+        )
     }
 }
 

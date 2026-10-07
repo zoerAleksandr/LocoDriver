@@ -1797,10 +1797,11 @@ fun FormTrainScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Слева: сортировка
-                                Box(
+                                // Слева: сортировка + чип секундомера (одной группой, в одну линию с кнопками)
+                                Row(
                                     modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterStart
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     val isReversed = formUiState.isStationsReversed
                                     val rotation by animateFloatAsState(
@@ -1816,41 +1817,45 @@ fun FormTrainScreen(
                                         painter = painterResource(com.z_company.route.R.drawable.sort_24px),
                                         contentDescription = null
                                     )
-                                }
-
-                                // Центр: чип секундомера — по вертикали в одну линию с кнопками
-                                if (stopwatch != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(stopwatch.bg)
-                                            .padding(horizontal = 14.dp, vertical = 6.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = stopwatch.timeText,
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontFamily = com.z_company.core.ui.theme.MonoFont,
-                                                fontWeight = FontWeight.Bold
-                                            ),
-                                            color = stopwatch.fg
-                                        )
+                                    if (stopwatch != null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(stopwatch.bg)
+                                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = stopwatch.timeText,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                style = MaterialTheme.typography.titleSmall.copy(
+                                                    fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                color = stopwatch.fg
+                                            )
+                                        }
                                     }
                                 }
 
-                                // Справа: «АВТО» + play/pause
+                                // Центр: «АВТО» — ровно по горизонтальной середине строки (левая и правая
+                                // группы имеют равный weight(1f), поэтому середина не зависит от их ширины)
+                                AutoRecordChip(
+                                    state = autoRecordState,
+                                    onToggle = onAutoToggle,
+                                    goHeight = true,
+                                )
+
+                                // Справа: play/pause
                                 Row(
                                     modifier = Modifier.weight(1f),
                                     horizontalArrangement = Arrangement.End,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    AutoRecordChip(
-                                        state = autoRecordState,
-                                        onToggle = onAutoToggle,
-                                        modifier = Modifier.padding(end = 8.dp),
-                                    )
                                     OutlinedButton(
                                         onClick = { askLocation { viewModel.onGoClicked() } },
+                                        shape = com.z_company.route.autorecord.AutoRecordStyle.shape,
                                         border = BorderStroke(
                                             width = 1.dp,
                                             color = if (nextIsDeparture) MaterialTheme.colorScheme.surfaceContainerLow

@@ -1186,7 +1186,6 @@ fun HomeScreen(
                                 com.z_company.route.autorecord.AutoRecordChip(
                                     state = autoState,
                                     onToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoManager),
-                                    singleLine = true,
                                 )
                             }
                             LazyRow(
