@@ -12,6 +12,12 @@ import androidx.core.location.LocationManagerCompat
 import androidx.core.os.CancellationSignal
 import androidx.core.util.Consumer
 import com.z_company.domain.util.GeoFix
+import android.location.LocationListener
+import android.os.Bundle
+import android.os.Looper
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.Executors
@@ -55,6 +61,51 @@ object DeviceLocation {
             }
         }
         return (fresh ?: last)?.toFix()
+    }
+
+    /** Живое положение: скорость (км/ч) и курс, если провайдер их сообщает. Координаты не логируются и не сохраняются. */
+    data class LiveFix(
+        val latitude: Double,
+        val longitude: Double,
+        val speedKmh: Double?,
+        val bearing: Float?,
+        val accuracyM: Float?,
+    )
+
+    /**
+     * Подписка на обновления положения (раз в [intervalMs]), пока коллектор жив: при отмене подписка снимается —
+     * экономия батареи, обновления идут только пока открыта карта поезда. Пусто и сразу закрывается, если нет
+     * разрешения или включённых провайдеров (GPS, иначе сеть).
+     */
+    @SuppressLint("MissingPermission")
+    fun updates(context: Context, intervalMs: Long = 1_000L): Flow<LiveFix> = callbackFlow {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        val provider = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).firstOrNull {
+            hasPermission(context) && runCatching { lm?.isProviderEnabled(it) }.getOrNull() == true
+        }
+        if (lm == null || provider == null) {
+            close()
+            return@callbackFlow
+        }
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                trySend(
+                    LiveFix(
+                        location.latitude, location.longitude,
+                        if (location.hasSpeed()) location.speed * 3.6 else null,
+                        if (location.hasBearing()) location.bearing else null,
+                        if (location.hasAccuracy()) location.accuracy else null,
+                    )
+                )
+            }
+            override fun onProviderEnabled(provider: String) {}
+            override fun onProviderDisabled(provider: String) {}
+            @Deprecated("Deprecated in Java")
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+        }
+        runCatching { lm.requestLocationUpdates(provider, intervalMs, 0f, listener, Looper.getMainLooper()) }
+            .onFailure { close() }
+        awaitClose { runCatching { lm.removeUpdates(listener) } }
     }
 
     private fun ageMs(l: Location) = (SystemClock.elapsedRealtimeNanos() - l.elapsedRealtimeNanos) / 1_000_000

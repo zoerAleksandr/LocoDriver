@@ -33,6 +33,7 @@ import com.z_company.domain.util.ServicePhaseStationsMerge
 import com.z_company.domain.util.StationSuggestionOrder
 import com.z_company.route.util.DeviceLocation
 import kotlinx.coroutines.CoroutineScope
+import com.z_company.domain.util.displayTimeZone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -61,6 +62,7 @@ class TrainFormViewModel(
     private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val autoRecord: com.z_company.route.autorecord.AutoRecordManager by inject()
+    private val trackRepository: com.z_company.domain.track.TrackRepository by inject()
     private var autoEditorTrainId: String? = null
     private var route: Route = Route()
     private val _uiState = MutableStateFlow(TrainFormUiState())
@@ -554,6 +556,40 @@ class TrainFormViewModel(
     /** Станции выбранного плеча с координатами по порядку для будущего маршрута на карте поезда (§6.9, состояние 2). */
     fun trainMapStops(): List<com.z_company.domain.util.TrainMapStop> =
         fullSelectedPhase()?.let { stationDirectory.resolve(it) }?.let(com.z_company.domain.util.TrainMapRoute::stops).orEmpty()
+
+    /** Записанный трек поезда для карты (SCREEN_SPECS §6.9, этап 4а). */
+    class TrainMapTrack(
+        /** Все точки (по времени) — для тапа по пройденному пути. */
+        val points: List<com.z_company.domain.track.TrackPoint>,
+        /** Прореженные точки для отрисовки линии. */
+        val drawPoints: List<com.z_company.domain.track.TrackPoint>,
+        val stops: List<com.z_company.domain.track.TrainStopMark>,
+        /** Пояс отображения времени (displayTimeZone). */
+        val zone: String,
+    )
+
+    /** Трек поезда из локального хранилища, асинхронно (не на главном потоке); null — трека нет. */
+    suspend fun trainMapTrack(): TrainMapTrack? {
+        val id = currentTrain?.trainId ?: return null
+        val stationTimes = stationsListState.map {
+            com.z_company.domain.track.StationTimes(it.station.data, it.arrival.data, it.departure.data, it.isPassingStation)
+        }
+        val zone = runCatching { settingsUseCase.getUserSettingFlow().first().displayTimeZone() }.getOrDefault("GMT+3")
+        return kotlinx.coroutines.withContext(Dispatchers.Default) {
+            val points = trackRepository.tracksForTrain(id)
+                .sortedBy { it.startedAt }
+                .flatMap { trackRepository.points(it.trackId) }
+                .sortedBy { it.timeMs }
+            if (points.isEmpty()) return@withContext null
+            val dwells = com.z_company.domain.track.TrackAnalysis.detectDwells(points)
+            TrainMapTrack(
+                points = points,
+                drawPoints = com.z_company.domain.track.TrackAnalysis.decimate(points),
+                stops = com.z_company.domain.track.TrackAnalysis.stopMarks(points, dwells, stationTimes),
+                zone = zone,
+            )
+        }
+    }
 
     /** Текущее местоположение для карты поезда; null — нет разрешения/сигнала. */
     suspend fun trainMapCurrentFix(): GeoFix? = DeviceLocation.currentFix(appContext)

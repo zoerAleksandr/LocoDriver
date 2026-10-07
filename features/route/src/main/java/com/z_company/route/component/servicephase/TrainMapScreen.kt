@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import android.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,7 +40,18 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.z_company.core.gps.GpsRecorder
 import com.z_company.domain.entities.setting.ServicePhaseStationKind
+import com.z_company.domain.track.TrackAnalysis
+import com.z_company.domain.track.TrackPoint
+import com.z_company.domain.track.TrainStopMark
+import com.z_company.domain.util.LabelPlacer
+import com.z_company.domain.util.MapLabelItem
+import com.z_company.route.viewmodel.TrainFormViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import com.z_company.domain.util.GeoFix
 import com.z_company.domain.util.TrainMapRoute
 import com.z_company.domain.util.TrainMapStop
@@ -70,6 +82,20 @@ import java.util.concurrent.atomic.AtomicBoolean
 private const val TRAIN_ME_SOURCE = "train-map-me"
 private const val TRAIN_ROUTE_SOURCE = "train-map-route"
 private const val TRAIN_STOPS_SOURCE = "train-map-stops"
+private const val TRAIN_TRACK_SOURCE = "train-map-track"
+private const val TRAIN_MARKS_SOURCE = "train-map-marks"
+private const val TRAIN_SEL_SOURCE = "train-map-sel"
+
+/** Выбранное тапом на карте: точка пройденного пути или остановка. */
+private sealed interface TrainMapSelection {
+    data class PathPoint(val point: TrackPoint) : TrainMapSelection
+    data class Stop(val mark: TrainStopMark) : TrainMapSelection
+}
+
+/** Шкала скорости (км/ч → цвет): красный — стоим, далее оранжевый, жёлтый, зелёный, бирюзовый, синий. */
+private val SPEED_STOPS = listOf(
+    0 to "#D32F2F", 30 to "#F57C00", 60 to "#FBC02D", 90 to "#7CB342", 120 to "#00897B", 160 to "#1E88E5",
+)
 
 /**
  * Карта поезда (SCREEN_SPECS §6.9): полноэкранная карта на общей подложке карты плеч (цепочка тайлов, ж/д слои).
@@ -85,6 +111,7 @@ internal fun TrainMapScreen(
     stops: List<TrainMapStop>,
     loadRailLine: suspend (List<Pair<Double, Double>>) -> ServicePhaseAutoFillViewModel.RailLineResult,
     currentFix: suspend () -> GeoFix?,
+    loadTrack: suspend () -> TrainFormViewModel.TrainMapTrack? = { null },
     onDetermine: suspend (String) -> Boolean,
     onDismiss: () -> Unit,
 ) {
@@ -106,9 +133,27 @@ internal fun TrainMapScreen(
         var railState by remember { mutableStateOf<ServicePhaseAutoFillViewModel.RailLineResult?>(null) }
         var loadAttempt by remember { mutableStateOf(0) }
         var fittedKey by remember { mutableStateOf<String?>(null) }
+        var track by remember { mutableStateOf<TrainFormViewModel.TrainMapTrack?>(null) }
+        var liveSpeed by remember { mutableStateOf<Double?>(null) }
+        var liveAtMs by remember { mutableStateOf(0L) }
+        var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+        // Следование камеры за положением (§6.9): включено по умолчанию; жест пользователя выключает, «Моё местоположение» возвращает.
+        var follow by remember { mutableStateOf(true) }
+        var permGranted by remember { mutableStateOf(DeviceLocation.hasPermission(context)) }
+        var selection by remember { mutableStateOf<TrainMapSelection?>(null) }
         val density = context.resources.displayMetrics.density
         val alive = remember { AtomicBoolean(true) }
         val scope = rememberCoroutineScope()
+
+        // Маркер положения: стрелка по курсу в движении (скорость ≥ 2 км/ч, курс известен), иначе синяя точка.
+        fun setMe(m: MapLibreMap, lat: Double, lon: Double, bearing: Float?, moving: Boolean) {
+            m.style?.getSourceAs<GeoJsonSource>(TRAIN_ME_SOURCE)?.setGeoJson(
+                Feature.fromGeometry(Point.fromLngLat(lon, lat)).apply {
+                    addNumberProperty("moving", if (moving && bearing != null) 1 else 0)
+                    addNumberProperty("bearing", bearing ?: 0f)
+                }
+            )
+        }
 
         fun showMyLocation(center: Boolean = true) {
             scope.launch {
@@ -119,14 +164,16 @@ internal fun TrainMapScreen(
                 locationDenied = false
                 val m = map ?: return@launch
                 if (!alive.get()) return@launch
-                m.style?.getSourceAs<GeoJsonSource>(TRAIN_ME_SOURCE)
-                    ?.setGeoJson(Point.fromLngLat(fix.longitude, fix.latitude))
+                setMe(m, fix.latitude, fix.longitude, null, false)
                 myFix = fix
                 if (center) m.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(fix.latitude, fix.longitude), 14.0))
             }
         }
         val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-            if (granted.values.any { it }) showMyLocation(!hasRoute) else locationDenied = true
+            if (granted.values.any { it }) {
+                permGranted = true
+                showMyLocation(!hasRoute)
+            } else locationDenied = true
         }
         // center = false: при маршруте камеру ведёт охват маршрута, кнопка «Моё местоположение» центрирует на себе.
         fun requestOrShowLocation(center: Boolean = true) {
@@ -152,7 +199,17 @@ internal fun TrainMapScreen(
                                 PropertyFactory.circleColor("#00A0F5"),
                                 PropertyFactory.circleStrokeColor("#FFFFFF"),
                                 PropertyFactory.circleStrokeWidth(3f),
-                            )
+                            ).also { it.setFilter(Expression.neq(Expression.get("moving"), 1)) }
+                        )
+                        style.addImage("train-me-arrow", meArrowBitmap(density))
+                        style.addLayer(
+                            SymbolLayer("train-map-me-arrow", TRAIN_ME_SOURCE).withProperties(
+                                PropertyFactory.iconImage("train-me-arrow"),
+                                PropertyFactory.iconRotate(Expression.get("bearing")),
+                                PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
+                                PropertyFactory.iconAllowOverlap(true),
+                                PropertyFactory.iconIgnorePlacement(true),
+                            ).also { it.setFilter(Expression.eq(Expression.get("moving"), 1)) }
                         )
                         // Будущий маршрут (§6.9, состояние 2): пунктир под точками станций; данные — по готовности.
                         style.addSource(GeoJsonSource(TRAIN_ROUTE_SOURCE, FeatureCollection.fromFeatures(emptyList())))
@@ -200,8 +257,82 @@ internal fun TrainMapScreen(
                                 PropertyFactory.textColor("#0A0E14"),
                                 PropertyFactory.textHaloColor("#FFFFFF"),
                                 PropertyFactory.textHaloWidth(1.5f),
-                                // Подписи не загромождают: пересекающиеся скрываются, в приоритете крайние и «впереди».
-                                PropertyFactory.textOptional(true),
+                                // Какие подписи помещаются — решает LabelPlacer (свойство show), см. refreshStopSources.
+                                PropertyFactory.textAllowOverlap(true),
+                                PropertyFactory.textIgnorePlacement(true),
+                            ).also { it.setFilter(Expression.eq(Expression.get("show"), 1)) },
+                            "train-map-me-layer",
+                        )
+                        // Пройденный путь (§6.9, состояние 4): белая подложка + жирная линия цвета скорости, под точками станций.
+                        style.addSource(GeoJsonSource(TRAIN_TRACK_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        val lineWidth = Expression.interpolate(
+                            Expression.linear(), Expression.zoom(),
+                            Expression.stop(6, 3f), Expression.stop(12, 5.5f), Expression.stop(16, 8f),
+                        )
+                        val casingWidth = Expression.interpolate(
+                            Expression.linear(), Expression.zoom(),
+                            Expression.stop(6, 5.5f), Expression.stop(12, 8.5f), Expression.stop(16, 11f),
+                        )
+                        val speedColor = Expression.switchCase(
+                            Expression.lt(Expression.get("speed"), Expression.literal(0)),
+                            Expression.color(Color.parseColor("#78909C")),
+                            Expression.interpolate(
+                                Expression.linear(), Expression.get("speed"),
+                                *SPEED_STOPS.map { (v, c) -> Expression.stop(v, Expression.color(Color.parseColor(c))) }.toTypedArray(),
+                            ),
+                        )
+                        style.addLayerBelow(
+                            LineLayer("train-map-track-casing", TRAIN_TRACK_SOURCE).withProperties(
+                                PropertyFactory.lineColor("#FFFFFF"),
+                                PropertyFactory.lineOpacity(0.9f),
+                                PropertyFactory.lineWidth(casingWidth),
+                                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                            ),
+                            "train-map-stops-layer",
+                        )
+                        style.addLayerBelow(
+                            LineLayer("train-map-track-layer", TRAIN_TRACK_SOURCE).withProperties(
+                                PropertyFactory.lineColor(speedColor),
+                                PropertyFactory.lineWidth(lineWidth),
+                                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                            ),
+                            "train-map-stops-layer",
+                        )
+                        // Остановки (станции поезда и стоянки по треку) и выбранная тапом точка — поверх всего, кроме «я».
+                        style.addSource(GeoJsonSource(TRAIN_MARKS_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addSource(GeoJsonSource(TRAIN_SEL_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addLayerBelow(
+                            CircleLayer("train-map-marks-layer", TRAIN_MARKS_SOURCE).withProperties(
+                                PropertyFactory.circleRadius(7f),
+                                PropertyFactory.circleColor("#E65100"),
+                                PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                PropertyFactory.circleStrokeWidth(2.5f),
+                            ),
+                            "train-map-me-layer",
+                        )
+                        style.addLayerBelow(
+                            SymbolLayer("train-map-marks-label", TRAIN_MARKS_SOURCE).withProperties(
+                                PropertyFactory.textField(Expression.get("name")),
+                                PropertyFactory.textFont(arrayOf("Noto Sans Regular")),
+                                PropertyFactory.textSize(11f),
+                                PropertyFactory.textOffset(arrayOf(0f, 1.3f)),
+                                PropertyFactory.textAnchor("top"),
+                                PropertyFactory.textColor("#0A0E14"),
+                                PropertyFactory.textHaloColor("#FFFFFF"),
+                                PropertyFactory.textHaloWidth(1.5f),
+                                PropertyFactory.textAllowOverlap(true),
+                                PropertyFactory.textIgnorePlacement(true),
+                            ).also { it.setFilter(Expression.eq(Expression.get("show"), 1)) },
+                            "train-map-me-layer",
+                        )
+                        style.addLayerBelow(
+                            CircleLayer("train-map-sel-layer", TRAIN_SEL_SOURCE).withProperties(
+                                PropertyFactory.circleRadius(9f),
+                                PropertyFactory.circleColor("#FFFFFF"),
+                                PropertyFactory.circleStrokeColor("#0A0E14"),
+                                PropertyFactory.circleStrokeWidth(3.5f),
                             ),
                             "train-map-me-layer",
                         )
@@ -219,28 +350,173 @@ internal fun TrainMapScreen(
                 railState = loadRailLine(stops.map { it.latitude to it.longitude })
             }
         }
-        // Станции плеча точками, ближайшая впереди выделена (обновляется с местоположением).
-        LaunchedEffect(styleReady, myFix) {
-            if (!styleReady || !hasRoute) return@LaunchedEffect
-            val source = map?.style?.getSourceAs<GeoJsonSource>(TRAIN_STOPS_SOURCE) ?: return@LaunchedEffect
-            val ahead = TrainMapRoute.nextAheadIndex(stops, myFix)
-            source.setGeoJson(
-                FeatureCollection.fromFeatures(
-                    stops.mapIndexed { i, st ->
-                        val role = when {
-                            i == ahead -> "ahead"
-                            st.kind == null -> "terminal"
-                            st.kind == ServicePhaseStationKind.HALT -> "halt"
-                            else -> "station"
-                        }
-                        Feature.fromGeometry(Point.fromLngLat(st.longitude, st.latitude)).apply {
-                            addStringProperty("name", st.name)
-                            addStringProperty("role", role)
-                            addNumberProperty("sort", if (role == "ahead" || role == "terminal") 0 else 1)
-                        }
-                    }
+        // Станции плеча и остановки по треку точками; подписи — только те, что помещаются на текущем зуме
+        // (LabelPlacer: не перекрывают точки и друг друга, в приоритете крайние и «впереди»).
+        fun refreshStopSources() {
+            val m = map ?: return
+            val style = m.style ?: return
+            if (!alive.get()) return
+            // «Впереди» — вдоль рельсовой линии с сервера (не по прямым между станциями); без линии не выделяется.
+            val railLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
+            val ahead = if (hasRoute) TrainMapRoute.nextAhead(stops, railLine, myFix)?.index else null
+            val marks = track?.stops.orEmpty()
+            data class Row(val lat: Double, val lon: Double, val name: String, val role: String, val sizeSp: Float, val dotR: Float, val prio: Int)
+            val routeRows = if (!hasRoute) emptyList() else stops.mapIndexed { i, st ->
+                val role = when {
+                    i == ahead -> "ahead"
+                    st.kind == null -> "terminal"
+                    st.kind == ServicePhaseStationKind.HALT -> "halt"
+                    else -> "station"
+                }
+                Row(
+                    st.latitude, st.longitude, st.name, role,
+                    if (role == "ahead" || role == "terminal") 13f else 11f,
+                    when (role) { "ahead" -> 10.5f; "terminal" -> 8f; "halt" -> 4.25f; else -> 6f },
+                    if (role == "ahead" || role == "terminal") 0 else 1,
                 )
+            }
+            val markRows = marks.map { Row(it.latitude, it.longitude, it.name.orEmpty(), "mark", 11f, 8.5f, 1) }
+            val rows = routeRows + markRows
+            val items = rows.map { r ->
+                val pt = m.projection.toScreenLocation(LatLng(r.lat, r.lon))
+                val fs = r.sizeSp * density
+                MapLabelItem(
+                    pt.x.toDouble(), pt.y.toDouble(),
+                    labelW = if (r.name.isBlank()) 0.0 else r.name.length * fs * 0.55,
+                    labelH = fs * 1.3,
+                    dotRadius = r.dotR.toDouble() * density,
+                    priority = r.prio,
+                )
+            }
+            val shown = LabelPlacer.visible(items)
+            fun feature(i: Int, r: Row) = Feature.fromGeometry(Point.fromLngLat(r.lon, r.lat)).apply {
+                addStringProperty("name", r.name)
+                addStringProperty("role", r.role)
+                addNumberProperty("sort", r.prio)
+                addNumberProperty("show", if (i in shown) 1 else 0)
+            }
+            style.getSourceAs<GeoJsonSource>(TRAIN_STOPS_SOURCE)?.setGeoJson(
+                FeatureCollection.fromFeatures(routeRows.mapIndexed { i, r -> feature(i, r) })
             )
+            style.getSourceAs<GeoJsonSource>(TRAIN_MARKS_SOURCE)?.setGeoJson(
+                FeatureCollection.fromFeatures(markRows.mapIndexed { i, r -> feature(routeRows.size + i, r) })
+            )
+        }
+        LaunchedEffect(styleReady, myFix, track, map, railState) { if (styleReady) refreshStopSources() }
+        DisposableEffect(map) {
+            val m = map
+            val listener = MapLibreMap.OnCameraIdleListener { refreshStopSources() }
+            m?.addOnCameraIdleListener(listener)
+            onDispose { m?.removeOnCameraIdleListener(listener) }
+        }
+        LaunchedEffect(Unit) {
+            while (isActive) {
+                nowMs = System.currentTimeMillis()
+                delay(5_000)
+            }
+        }
+        // Ручной жест (перетаскивание/зум) выключает следование; программные движения камеры — нет.
+        DisposableEffect(map) {
+            val m = map
+            val l = MapLibreMap.OnCameraMoveStartedListener { reason ->
+                if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) follow = false
+            }
+            m?.addOnCameraMoveStartedListener(l)
+            onDispose { m?.removeOnCameraMoveStartedListener(l) }
+        }
+        // Живая геолокация: подписка только пока карта открыта (раньше было разовое «последнее известное» — позиция не
+        // обновлялась). Обновляет маркер, скорость и, в режиме «следовать» при движении, плавно ведёт камеру.
+        LaunchedEffect(styleReady, permGranted) {
+            if (!styleReady || !permGranted) return@LaunchedEffect
+            DeviceLocation.updates(context).collect { f ->
+                val m = map ?: return@collect
+                if (!alive.get()) return@collect
+                val moving = (f.speedKmh ?: 0.0) >= 2.0
+                locationDenied = false
+                myFix = GeoFix(f.latitude, f.longitude, f.accuracyM)
+                liveSpeed = f.speedKmh
+                liveAtMs = System.currentTimeMillis()
+                setMe(m, f.latitude, f.longitude, f.bearing, moving)
+                if (follow && moving) {
+                    m.easeCamera(
+                        CameraUpdateFactory.newLatLngZoom(LatLng(f.latitude, f.longitude), maxOf(m.cameraPosition.zoom, 14.0)),
+                        900,
+                    )
+                }
+            }
+        }
+        // Загрузка записанного трека поезда — асинхронно; пока «АВТО» пишет, обновляется раз в 10 с.
+        LaunchedEffect(Unit) {
+            track = runCatching { loadTrack() }.getOrNull()
+            while (isActive) {
+                delay(10_000)
+                if (GpsRecorder.isRunning.value) track = runCatching { loadTrack() }.getOrNull() ?: track
+            }
+        }
+        // Текущая скорость — живые точки записи, пока карта открыта.
+        LaunchedEffect(Unit) {
+            GpsRecorder.points.collect { p ->
+                liveSpeed = p.speedKmh
+                liveAtMs = p.timeMs
+            }
+        }
+        // Пройденный путь жирной линией: сегменты со скоростью, разрыв по времени линию прерывает.
+        LaunchedEffect(styleReady, track, railState) {
+            if (!styleReady) return@LaunchedEffect
+            // Привязка к рельсовой линии маршрута там, где отклонение ≤ 30 м; иначе сырые точки.
+            val railLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
+            val raw = track?.drawPoints.orEmpty()
+            val pts = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                TrainMapRoute.snapToLine(raw, railLine)
+            }
+            val feats = ArrayList<Feature>(pts.size)
+            for (i in 1 until pts.size) {
+                val a = pts[i - 1]
+                val b = pts[i]
+                if (b.timeMs - a.timeMs > TrackAnalysis.GAP_MS) continue
+                val v = b.speedKmh ?: a.speedKmh
+                feats += Feature.fromGeometry(
+                    LineString.fromLngLats(
+                        listOf(Point.fromLngLat(a.longitude, a.latitude), Point.fromLngLat(b.longitude, b.latitude))
+                    )
+                ).apply { addNumberProperty("speed", v ?: -1.0) }
+            }
+            map?.style?.getSourceAs<GeoJsonSource>(TRAIN_TRACK_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(feats))
+        }
+        // Маркер выбранной точки/остановки.
+        LaunchedEffect(styleReady, selection) {
+            if (!styleReady) return@LaunchedEffect
+            val src = map?.style?.getSourceAs<GeoJsonSource>(TRAIN_SEL_SOURCE) ?: return@LaunchedEffect
+            when (val sel = selection) {
+                is TrainMapSelection.PathPoint -> src.setGeoJson(Point.fromLngLat(sel.point.longitude, sel.point.latitude))
+                is TrainMapSelection.Stop -> src.setGeoJson(Point.fromLngLat(sel.mark.longitude, sel.mark.latitude))
+                null -> src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+            }
+        }
+        // Тап: остановка (до 24 dp) → иначе ближайшая точка пройденного пути (до 30 dp) → иначе снять выбор.
+        DisposableEffect(map) {
+            val m = map
+            val click = MapLibreMap.OnMapClickListener { latLng ->
+                val t = track ?: return@OnMapClickListener false
+                val tap = m!!.projection.toScreenLocation(latLng)
+                val stopHit = t.stops.minByOrNull { st ->
+                    val p = m.projection.toScreenLocation(LatLng(st.latitude, st.longitude))
+                    Math.hypot((p.x - tap.x).toDouble(), (p.y - tap.y).toDouble())
+                }?.takeIf { st ->
+                    val p = m.projection.toScreenLocation(LatLng(st.latitude, st.longitude))
+                    Math.hypot((p.x - tap.x).toDouble(), (p.y - tap.y).toDouble()) <= 24 * density
+                }
+                if (stopHit != null) {
+                    selection = TrainMapSelection.Stop(stopHit)
+                    return@OnMapClickListener true
+                }
+                val tolM = m.projection.getMetersPerPixelAtLatitude(latLng.latitude) * 30.0 * density
+                val hit = TrackAnalysis.nearestPoint(t.points, latLng.latitude, latLng.longitude, tolM)
+                selection = hit?.let { TrainMapSelection.PathPoint(it) }
+                hit != null
+            }
+            m?.addOnMapClickListener(click)
+            onDispose { m?.removeOnMapClickListener(click) }
         }
         // Пунктир, когда линия получена.
         LaunchedEffect(styleReady, railState) {
@@ -250,19 +526,29 @@ internal fun TrainMapScreen(
                 Feature.fromGeometry(LineString.fromLngLats(line.map { (lat, lon) -> Point.fromLngLat(lon, lat) }))
             )
         }
-        // Камера охватывает маршрут (линию или станции) и текущее место; повторно — когда пришла линия или первая точка.
-        LaunchedEffect(styleReady, railState, myFix != null) {
-            if (!styleReady || !hasRoute) return@LaunchedEffect
+        // Камера охватывает маршрут (линию или станции), пройденный путь и текущее место; повторно — когда пришла линия,
+        // трек или первая точка.
+        LaunchedEffect(styleReady, railState, myFix != null, track != null) {
+            val hasTrack = track != null
+            if (!styleReady || (!hasRoute && !hasTrack)) return@LaunchedEffect
+            // В движении при включённом следовании камеру ведёт положение, а не охват маршрута.
+            if (follow && liveSpeed?.let { it >= 2.0 } == true && nowMs - liveAtMs < 15_000) return@LaunchedEffect
             val m = map ?: return@LaunchedEffect
             val line = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
-            val key = "${line?.size}|${myFix != null}"
+            val key = "${line?.size}|${myFix != null}|$hasTrack"
             if (fittedKey == key) return@LaunchedEffect
             fittedKey = key
-            val pts = TrainMapRoute.cameraPoints(stops, line, myFix)
+            val pts = TrainMapRoute.cameraPoints(if (hasRoute) stops else emptyList(), line, myFix) +
+                track?.drawPoints.orEmpty().map { it.latitude to it.longitude }
+            if (pts.isEmpty()) return@LaunchedEffect
             val bounds = LatLngBounds.Builder().apply { pts.forEach { include(LatLng(it.first, it.second)) } }.build()
             val pad = (48 * density).toInt()
             // Сверху плашка, справа кнопки, снизу панели.
-            m.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, pad * 2, pad * 2, pad * 3))
+            if (bounds.latitudeSpan < 1e-5 && bounds.longitudeSpan < 1e-5) {
+                m.animateCamera(CameraUpdateFactory.newLatLngZoom(bounds.center, 14.0))
+            } else {
+                m.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, pad * 2, pad * 2, pad * 3))
+            }
         }
         DisposableEffect(Unit) {
             mapView.onStart()
@@ -310,6 +596,99 @@ internal fun TrainMapScreen(
                 }
             }
 
+
+            // Текущая скорость (живая точка записи, иначе последняя точка трека) и карточка выбранного (§6.9).
+            val lastPoint = track?.points?.lastOrNull()
+            val liveFresh = liveSpeed != null && nowMs - liveAtMs < 15_000
+            val speedNow: Double? = if (liveFresh) liveSpeed else lastPoint?.speedKmh
+            val zone = track?.zone ?: "GMT+3"
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .padding(start = 12.dp, end = 72.dp, top = 64.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (speedNow != null) {
+                    Column(
+                        modifier = Modifier
+                            .shadow(4.dp, RoundedCornerShape(16.dp))
+                            .background(Pst.surface, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = speedNow.toInt().toString(),
+                                style = Pst.mono.copy(fontSize = 34.sp, fontWeight = FontWeight.Bold),
+                                color = Pst.text,
+                                maxLines = 1,
+                            )
+                            Text(
+                                text = "км/ч",
+                                style = Pst.sans.copy(fontSize = 13.sp),
+                                color = Pst.textMuted,
+                                modifier = Modifier.padding(bottom = 6.dp),
+                                maxLines = 1,
+                            )
+                        }
+                        if (!liveFresh && lastPoint != null) {
+                            Text(
+                                text = "последняя точка " + TrackAnalysis.clock(lastPoint.timeMs, zone, seconds = true),
+                                style = Pst.sans.copy(fontSize = 11.sp),
+                                color = Pst.textMuted,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+                selection?.let { sel ->
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = 320.dp)
+                            .shadow(6.dp, RoundedCornerShape(16.dp))
+                            .background(Pst.surface, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        when (sel) {
+                            is TrainMapSelection.PathPoint -> {
+                                Text(
+                                    text = TrackAnalysis.clock(sel.point.timeMs, zone, seconds = true),
+                                    style = Pst.mono.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold),
+                                    color = Pst.text,
+                                )
+                                Text(
+                                    text = (sel.point.speedKmh?.let { "${it.toInt()} км/ч" } ?: "скорость неизвестна"),
+                                    style = Pst.mono.copy(fontSize = 14.sp),
+                                    color = Pst.textMuted,
+                                )
+                            }
+                            is TrainMapSelection.Stop -> {
+                                val mk = sel.mark
+                                Text(
+                                    text = mk.name ?: "Остановка",
+                                    style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                                    color = Pst.text,
+                                    maxLines = 2,
+                                )
+                                val parts = buildList {
+                                    mk.arrivalMs?.let { add("Прибытие " + TrackAnalysis.clock(it, zone)) }
+                                    mk.departureMs?.let { add("Отправление " + TrackAnalysis.clock(it, zone)) }
+                                    val a = mk.arrivalMs
+                                    val d = mk.departureMs
+                                    if (a != null && d != null && d > a) add("стоянка ${TrackAnalysis.dwellMinutes(a, d)} м")
+                                }
+                                Text(
+                                    text = parts.joinToString(" · "),
+                                    style = Pst.mono.copy(fontSize = 13.sp, lineHeight = 18.sp),
+                                    color = Pst.textMuted,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             Column(
                 modifier = Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = maxHeight * 0.4f),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -320,7 +699,7 @@ internal fun TrainMapScreen(
                 MapButton(onClick = { map?.animateCamera(CameraUpdateFactory.zoomOut()) }, description = "Отдалить") {
                     Text("−", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
                 }
-                MapButton(onClick = { requestOrShowLocation(center = true) }, description = "Моё местоположение") {
+                MapButton(onClick = { follow = true; requestOrShowLocation(center = true) }, description = "Моё местоположение") {
                     Box(Modifier.size(14.dp).border(2.dp, Pst.accent, CircleShape), contentAlignment = Alignment.Center) {
                         Box(Modifier.size(4.dp).background(Pst.accent, CircleShape))
                     }
@@ -453,4 +832,29 @@ internal fun TrainMapScreen(
             }
         }
     }
+}
+
+/** Стрелка положения (острие вверх, поворачивается по курсу): синяя с белой обводкой, ~28 dp. */
+private fun meArrowBitmap(density: Float): android.graphics.Bitmap {
+    val size = (30 * density).toInt()
+    val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val c = android.graphics.Canvas(bmp)
+    val w = size.toFloat()
+    val path = android.graphics.Path().apply {
+        moveTo(w * 0.5f, w * 0.06f)
+        lineTo(w * 0.86f, w * 0.92f)
+        lineTo(w * 0.5f, w * 0.72f)
+        lineTo(w * 0.14f, w * 0.92f)
+        close()
+    }
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    paint.style = android.graphics.Paint.Style.FILL
+    paint.color = Color.parseColor("#00A0F5")
+    c.drawPath(path, paint)
+    paint.style = android.graphics.Paint.Style.STROKE
+    paint.strokeWidth = 2.5f * density
+    paint.strokeJoin = android.graphics.Paint.Join.ROUND
+    paint.color = Color.WHITE
+    c.drawPath(path, paint)
+    return bmp
 }

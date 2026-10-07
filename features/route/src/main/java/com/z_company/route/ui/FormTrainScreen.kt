@@ -318,6 +318,7 @@ fun FormTrainScreen(
                 stops = remember { viewModel.trainMapStops() },
                 loadRailLine = { railVm.railLine(it) },
                 currentFix = { viewModel.trainMapCurrentFix() },
+                loadTrack = { viewModel.trainMapTrack() },
                 onDetermine = { viewModel.saveStationCoordinatesFromGps(it) },
                 onDismiss = { showTrainMap = false },
             )
@@ -2256,6 +2257,7 @@ private fun TrainBottomAppBar(
                     .height(48.dp),
                 onClick = onAddStationClick,
                 shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp),
                 elevation = ButtonDefaults.buttonElevation(0.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.tertiary,
@@ -2267,8 +2269,14 @@ private fun TrainBottomAppBar(
                     painter = painterResource(com.z_company.route.R.drawable.add_circle_24px),
                     contentDescription = null,
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Станция", fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    "Станция",
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
             }
             TrainBottomIconButton(
                 modifier = Modifier.width(48.dp),
