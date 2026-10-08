@@ -70,6 +70,7 @@ fun SettingsPrivacyContent() {
             )
         }
         SettingsSectionNote(TrackConsentTexts.BODY)
+        TrackConsentTexts.POINTS.forEach { SettingsSectionNote("• $it") }
         SettingsSectionNote(TrackConsentTexts.NO_CONSENT_NOTE)
     }
 }
