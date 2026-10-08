@@ -19,7 +19,7 @@ class TracksContractTest {
 
     // Блоб из серверного encode_chunk (те же 4 точки, что в TrackWireCodecTest в :domain).
     private val serverZlib = (
-        "789cf3096164606968d87c708ef18c93534ddf757f5066e850074186827ee6f9df778732cc62ec675ed1bd2a876129f352b6cd9cdc4b8459ba458ce4742b00d63b1634"
+        "789cf3096162606968d87c708ef18c93534ddf757f5066e850074186827ee6f9df778732cc62ec675ed1bd2a879f6129f352b6cd9cdc4b8459ba45f88de4742b00fee91653"
         )
 
     private fun hex(s: String) = ByteArray(s.length / 2) { s.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
