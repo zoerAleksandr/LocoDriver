@@ -1224,7 +1224,7 @@ internal fun buildAccrualRows(uiState: SalaryCalculationUIState): List<AccrualRo
         )
     }.toTypedArray(),
     uiState.onePersonOperationPercent?.let {
-        AccrualRow(SalaryPaymentId.ONE_PERSON_FREIGHT, "В одно лицо (грузовые)", uiState.onePersonOperationHours, it, uiState.onePersonOperationMoney)
+        AccrualRow(SalaryPaymentId.ONE_PERSON_FREIGHT, "В одно лицо", uiState.onePersonOperationHours, it, uiState.onePersonOperationMoney)
     },
     uiState.onePersonOperationPassengerTrainPercent?.let {
         AccrualRow(
