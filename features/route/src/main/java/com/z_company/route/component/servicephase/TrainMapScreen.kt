@@ -234,7 +234,7 @@ internal fun TrainMapScreen(
                                 PropertyFactory.circleStrokeWidth(3f),
                             ).also { it.setFilter(Expression.neq(Expression.get("moving"), 1)) }
                         )
-                        style.addImage(ME_ICON_IMAGE, renderPositionIcon(positionIcon, (44 * density).toInt()))
+                        style.addImage(ME_ICON_IMAGE, renderPositionIcon(context, positionIcon, (positionIcon.mapHeightDp * density).toInt()))
                         style.addLayer(
                             SymbolLayer("train-map-me-arrow", TRAIN_ME_SOURCE).withProperties(
                                 PropertyFactory.iconImage(ME_ICON_IMAGE),
@@ -600,7 +600,7 @@ internal fun TrainMapScreen(
         // Смена значка положения (настройки или быстрый выбор) - заново регистрируем картинку слоя.
         LaunchedEffect(styleReady, positionIcon) {
             if (!styleReady) return@LaunchedEffect
-            map?.style?.addImage(ME_ICON_IMAGE, renderPositionIcon(positionIcon, (44 * density).toInt()))
+            map?.style?.addImage(ME_ICON_IMAGE, renderPositionIcon(context, positionIcon, (positionIcon.mapHeightDp * density).toInt()))
         }
         // Маркер выбранной точки/остановки.
         LaunchedEffect(styleReady, selection) {
@@ -919,18 +919,30 @@ internal fun TrainMapScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text("Значок положения", style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
-                    PositionIcon.entries.chunked(4).forEach { rowIcons ->
+                    PositionIcon.entries.chunked(3).forEach { rowIcons ->
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             rowIcons.forEach { ic ->
-                                Box(
+                                Column(
                                     modifier = Modifier
+                                        .width(78.dp)
                                         .border(if (ic == positionIcon) 2.dp else 0.dp, if (ic == positionIcon) Pst.accent else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(14.dp))
-                                        .padding(2.dp)
+                                        .padding(4.dp)
                                         .clickable(onClickLabel = ic.label) {
                                             PositionIconStore.set(context, ic)
                                             showIconPicker = false
                                         },
-                                ) { PositionIconTile(ic, 44.dp) }
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    PositionIconTile(ic, 64.dp)
+                                    Text(
+                                        ic.label,
+                                        style = Pst.sans.copy(fontSize = 10.sp, lineHeight = 12.sp),
+                                        color = Pst.text,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        maxLines = 2,
+                                        modifier = Modifier.padding(top = 3.dp),
+                                    )
+                                }
                             }
                         }
                     }

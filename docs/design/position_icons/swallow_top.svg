@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 60" width="220" height="600">
+  <path d="M11 2 H11 A8 8 0 0 1 19 10 V20.5 A1.5 1.5 0 0 1 17.5 22 H4.5 A1.5 1.5 0 0 1 3 20.5 V10 A8 8 0 0 1 11 2 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M4.5 23.5 H17.5 A1.5 1.5 0 0 1 19 25 V35 A1.5 1.5 0 0 1 17.5 36.5 H4.5 A1.5 1.5 0 0 1 3 35 V25 A1.5 1.5 0 0 1 4.5 23.5 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M4.5 38 H17.5 A1.5 1.5 0 0 1 19 39.5 V50 A8 8 0 0 1 11 58 H11 A8 8 0 0 1 3 50 V39.5 A1.5 1.5 0 0 1 4.5 38 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M11 2 H11 A8 8 0 0 1 19 10 V20.5 A1.5 1.5 0 0 1 17.5 22 H4.5 A1.5 1.5 0 0 1 3 20.5 V10 A8 8 0 0 1 11 2 Z" fill="#F4F6F9" stroke="#16202C" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M4.5 23.5 H17.5 A1.5 1.5 0 0 1 19 25 V35 A1.5 1.5 0 0 1 17.5 36.5 H4.5 A1.5 1.5 0 0 1 3 35 V25 A1.5 1.5 0 0 1 4.5 23.5 Z" fill="#F4F6F9" stroke="#16202C" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M4.5 38 H17.5 A1.5 1.5 0 0 1 19 39.5 V50 A8 8 0 0 1 11 58 H11 A8 8 0 0 1 3 50 V39.5 A1.5 1.5 0 0 1 4.5 38 Z" fill="#F4F6F9" stroke="#16202C" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M4 12 V10 Q4 3 11 2.6 Q18 3 18 10 V12 Z" fill="#D6322B"/>
+  <path d="M4 48 V50 Q4 57 11 57.4 Q18 57 18 50 V48 Z" fill="#D6322B"/>
+  <path d="M5.6 9 L6.8 5.6 L15.2 5.6 L16.4 9 Z" fill="#1F2E40"/>
+  <path d="M5.6 51 L6.8 54.4 L15.2 54.4 L16.4 51 Z" fill="#33465C"/>
+  <path d="M7.2 11 H14.8 A1 1 0 0 1 15.8 12 V20.5 A1 1 0 0 1 14.8 21.5 H7.2 A1 1 0 0 1 6.2 20.5 V12 A1 1 0 0 1 7.2 11 Z" fill="#1E56A8"/>
+  <path d="M7.2 24.5 H14.8 A1 1 0 0 1 15.8 25.5 V34.5 A1 1 0 0 1 14.8 35.5 H7.2 A1 1 0 0 1 6.2 34.5 V25.5 A1 1 0 0 1 7.2 24.5 Z" fill="#1E56A8"/>
+  <path d="M7.2 38.5 H14.8 A1 1 0 0 1 15.8 39.5 V48 A1 1 0 0 1 14.8 49 H7.2 A1 1 0 0 1 6.2 48 V39.5 A1 1 0 0 1 7.2 38.5 Z" fill="#1E56A8"/>
+  <path d="M11 26 L14 30 L11 34 L8 30 Z" fill="none" stroke="#2B2F38" stroke-width="0.8" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M6 28.8 H16" fill="none" stroke="#2B2F38" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M3 21.5 H19 M3 38 H19" fill="none" stroke="#7D8793" stroke-width="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>
