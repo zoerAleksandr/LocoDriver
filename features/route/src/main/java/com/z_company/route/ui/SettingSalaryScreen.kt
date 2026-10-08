@@ -418,7 +418,7 @@ fun SettingSalaryScreen(
                         }
                     }
                     PaySep()
-                    PayFieldSlot("Работа в одно лицо (грузовой)") {
+                    PayFieldSlot("Работа в одно лицо") {
                         AsyncDataValue(resultState = onePersonOperationPercent) { v ->
                             v?.let { PayInput(it, setOnePersonOperationPercent, "%", isErrorInputOnePersonOperation) }
                         }
