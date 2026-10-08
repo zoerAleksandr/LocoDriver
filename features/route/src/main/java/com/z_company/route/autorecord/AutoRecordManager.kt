@@ -200,7 +200,16 @@ class AutoRecordManager(
      */
     fun onAppForeground() {
         val st = _state.value
-        if (st.enabled || !st.interrupted) return
+        if (st.enabled) {
+            // Процесс поднялся в фоне (restore() не смог стартовать службу), а приложение уже на экране: старт разрешён —
+            // повторяем до истечения таймаута, иначе через 15 с АВТО ушло бы в «прервано» при открытом приложении.
+            if (!GpsRecorder.isRunning.value) {
+                runCatching { GpsRecorder.start(context, recorderConfig(st.untilMs)) }
+                    .onFailure { it.sendToSentry("AutoRecordManager", "foregroundStart") }
+            }
+            return
+        }
+        if (!st.interrupted) return
         val until = prefs.getLong(KEY_INTERRUPTED_UNTIL, 0L)
         if (until <= nowMs() || !GpsPermissions.hasLocation(context)) return
         prefs.edit().putLong(KEY_UNTIL, until).putLong(KEY_BEAT, nowMs()).putBoolean(KEY_INTERRUPTED, false)
