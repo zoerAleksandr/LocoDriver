@@ -60,9 +60,21 @@ class TrackWireCodecTest {
         TrackWireCodec.WirePoint(1760000015000, -33868820, 151209296, 1203, -50, null, 120),
     )
     private val serverRawHex =
-        "4c540100048080b3c19c3398c99535ee8bf0230088278827882700708f039ff7bb55009a018f03a88baa6c00a503a506b3090ba413048b14321e2d78"
+        "4c540200048080b3c19c3398c99535ee8bf0230088278827882700708f039ff7bb55009a018f03a88baa6c0f00a503a506b3090ba413048b140f321e2d78"
     private val serverZlibHex =
-        "789cf3096164606968d87c708ef18c93534ddf757f5066e850074186827ee6f9df778732cc62ec675ed1bd2a876129f352b6cd9cdc4b8459ba458ce4742b00d63b1634"
+        "789cf3096162606968d87c708ef18c93534ddf757f5066e850074186827ee6f9df778732cc62ec675ed1bd2a879f6129f352b6cd9cdc4b8459ba45f88de4742b00fee91653"
+
+    // Вектор с неизвестными скоростью/точностью (ver=2): null != 0.
+    private val unknownPoints = listOf(
+        TrackWireCodec.WirePoint(1760000000000, 55751244, 37618423, null, 1234, null, null),
+        TrackWireCodec.WirePoint(1760000005000, 55751300, 37618500, 0, null, null, 0),
+        TrackWireCodec.WirePoint(1760000010000, 55751100, 37618300, 805, -50, null, 45),
+        TrackWireCodec.WirePoint(1760000015000, 55751000, 37618200, null, null, null, 30),
+    )
+    private val unknownRawHex =
+        "4c540200048080b3c19c3398c99535ee8bf0230088278827882700708f03c701009a018f03c7010600a50605a41387140e002d1e"
+    private val unknownZlibHex =
+        "789cf3096162606968d87c708ef18c93534ddf757f5066e850074186827ee6e38c0cb31841141bc35236d625c2ed227c0cba7200fe7510ce"
 
     private fun hex(s: String) = ByteArray(s.length / 2) { s.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
     private fun ByteArray.toHex() = joinToString("") { "%02x".format(it) }
@@ -85,6 +97,37 @@ class TrackWireCodecTest {
     }
 
     @Test
+    fun unknownSpeedAndAccuracyMatchServerVectorAndStayNull() {
+        assertEquals(unknownRawHex, TrackWireCodec.encodeRaw(unknownPoints, withBaro = false).toHex())
+        val decoded = TrackWireCodec.decodeRaw(tools.inflate(hex(unknownZlibHex), TrackWireCodec.MAX_CHUNK_RAW))
+        assertEquals(unknownPoints, decoded)
+        val pts = TrackWireCodec.decodeChunk(hex(unknownZlibHex), tools)
+        assertNull(pts[0].speedKmh)
+        assertNull(pts[0].accuracyM)
+        assertEquals(0.0, pts[1].speedKmh)
+        assertEquals(0f, pts[1].accuracyM)
+        assertNull(pts[3].speedKmh)
+    }
+
+    @Test
+    fun allUnknownAllKnownAndMaskBoundariesRoundTrip() {
+        for (n in listOf(1, 7, 8, 9, 17)) {
+            val unknown = List(n) { TrackPoint(1000L + it, 55.0, 37.0, null, null, null) }
+            val back = TrackWireCodec.decodeChunk(TrackWireCodec.encodeChunk(unknown, tools), tools)
+            assertTrue(back.all { it.speedKmh == null && it.accuracyM == null })
+            val known = List(n) { TrackPoint(1000L + it, 55.0, 37.0, 500.0, 3f, null) }
+            val back2 = TrackWireCodec.decodeChunk(TrackWireCodec.encodeChunk(known, tools), tools)
+            assertTrue(back2.all { it.speedKmh == 500.0 && it.accuracyM == 3f })
+        }
+    }
+
+    @Test
+    fun rejectsOldVersion() {
+        val v1 = hex(serverRawHex).also { it[2] = 1 }
+        assertFailsWith<TrackCodecException> { TrackWireCodec.decodeRaw(v1) }
+    }
+
+    @Test
     fun roundTripKeepsPointsWithinFormatPrecision() {
         val src = (0 until 500).map { i ->
             TrackPoint(
@@ -102,8 +145,8 @@ class TrackWireCodecTest {
             assertEquals(a.timeMs, b.timeMs)
             assertEquals(a.latitude, b.latitude, 1e-6)
             assertEquals(a.longitude, b.longitude, 1e-6)
-            assertEquals(a.speedKmh ?: 0.0, b.speedKmh!!, 0.051)
-            assertEquals(a.accuracyM ?: 0f, b.accuracyM!!, 0.051f)
+            if (a.speedKmh == null) assertNull(b.speedKmh) else assertEquals(a.speedKmh!!, b.speedKmh!!, 0.051)
+            assertEquals(a.accuracyM!!, b.accuracyM!!, 0.051f)
             if (a.altitudeM == null) assertNull(b.altitudeM) else assertEquals(a.altitudeM!!, b.altitudeM!!, 0.051)
         }
     }
