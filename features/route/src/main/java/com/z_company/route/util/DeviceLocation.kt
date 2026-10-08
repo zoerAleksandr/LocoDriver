@@ -93,7 +93,7 @@ object DeviceLocation {
                     LiveFix(
                         location.latitude, location.longitude,
                         if (location.hasSpeed()) location.speed * 3.6 else null,
-                        if (location.hasBearing()) location.bearing else null,
+                        providerBearing(location),
                         if (location.hasAccuracy()) location.accuracy else null,
                     )
                 )
@@ -106,6 +106,17 @@ object DeviceLocation {
         runCatching { lm.requestLocationUpdates(provider, intervalMs, 0f, listener, Looper.getMainLooper()) }
             .onFailure { close() }
         awaitClose { runCatching { lm.removeUpdates(listener) } }
+    }
+
+    /**
+     * Курс провайдера. Эмулятор и часть mock-провайдеров сообщают `hasBearing() = true` (даже с точностью курса) и курсом
+     * ровно 0.0: такой «курс» ненадёжен (стрелка стояла на север) — считаем его неизвестным, и курс вычисляется по двум
+     * последним точкам (HeadingEstimator).
+     */
+    internal fun providerBearing(l: Location): Float? {
+        if (!l.hasBearing()) return null
+        if (l.bearing == 0f) return null
+        return l.bearing
     }
 
     private fun ageMs(l: Location) = (SystemClock.elapsedRealtimeNanos() - l.elapsedRealtimeNanos) / 1_000_000
