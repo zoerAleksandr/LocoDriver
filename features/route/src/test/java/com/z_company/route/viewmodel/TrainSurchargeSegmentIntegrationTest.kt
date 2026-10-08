@@ -72,7 +72,7 @@ class TrainSurchargeSegmentIntegrationTest {
     }
 
     @Test
-    fun heavyAndLongSurchargesUseTrainIntervalBreakPassengerAndTariffBoundary() = runTest {
+    fun heavyAndLongSurchargesUseWholeShiftWithoutBreakPassengerAndSplitByTariff() = runTest {
         val train = Train(
             weight = "6001",
             conditionalLength = "81",
@@ -83,10 +83,12 @@ class TrainSurchargeSegmentIntegrationTest {
         )
         val helper = helper(train)
 
-        assertEquals(listOf(2 * hour), helper.getTimeListSurchargeHeavyTrainsFlow().first())
-        assertEquals(listOf(35.0), helper.getMoneyListSurchargeExtendedHeavyTrainsFlow().first())
-        assertEquals(listOf(2 * hour), helper.getTimeListSurchargeLongTrainsFlow().first())
-        assertEquals(listOf(70.0), helper.getMoneyListSurchargeLongTrainsFlow().first())
+        // Смена 22:00–03:00 минус перерыв 23–24 и пассажиром 0–1 = 3 ч;
+        // 1 ч по 100 (до смены тарифа) + 2 ч по 200 = 500 базы.
+        assertEquals(listOf(3 * hour), helper.getTimeListSurchargeHeavyTrainsFlow().first())
+        assertEquals(listOf(50.0), helper.getMoneyListSurchargeExtendedHeavyTrainsFlow().first())
+        assertEquals(listOf(3 * hour), helper.getTimeListSurchargeLongTrainsFlow().first())
+        assertEquals(listOf(100.0), helper.getMoneyListSurchargeLongTrainsFlow().first())
     }
 
     @Test
@@ -111,11 +113,11 @@ class TrainSurchargeSegmentIntegrationTest {
             helperFor("80").getMoneyListSurchargeLongTrainsFlow().first(),
         )
         assertEquals(
-            listOf(2 * hour),
+            listOf(3 * hour),
             helperFor("81").getTimeListSurchargeLongTrainsFlow().first(),
         )
         assertEquals(
-            listOf(70.0),
+            listOf(100.0),
             helperFor("81").getMoneyListSurchargeLongTrainsFlow().first(),
         )
     }
@@ -160,8 +162,24 @@ class TrainSurchargeSegmentIntegrationTest {
         // Строгий порог: равенство порогу ступень не включает.
         assertEquals(listOf(0.0, 0.0), money("5999"))
         assertEquals(listOf(0.0, 0.0), money("6000"))
-        assertEquals(listOf(35.0, 0.0), money("6001"))
-        assertEquals(listOf(35.0, 0.0), money("10000"))
-        assertEquals(listOf(0.0, 70.0), money("10001"))
+        assertEquals(listOf(50.0, 0.0), money("6001"))
+        assertEquals(listOf(50.0, 0.0), money("10000"))
+        assertEquals(listOf(0.0, 100.0), money("10001"))
+    }
+
+    @Test
+    fun heavySurchargeDoesNotDependOnStationTimes() = runTest {
+        val helper = helper(
+            Train(
+                weight = "6001",
+                stations = mutableListOf(
+                    Station(timeDeparture = instant(day = 10, hour = 22, minute = 30)),
+                    Station(),
+                ),
+            ),
+        )
+
+        assertEquals(listOf(3 * hour), helper.getTimeListSurchargeHeavyTrainsFlow().first())
+        assertEquals(listOf(50.0), helper.getMoneyListSurchargeExtendedHeavyTrainsFlow().first())
     }
 }
