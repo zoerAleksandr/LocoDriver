@@ -67,7 +67,6 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
@@ -659,15 +658,9 @@ internal fun TrainMapScreen(
             fittedKey = key
             val pts = TrainMapRoute.cameraPoints(if (hasRoute) stops else emptyList(), line, myFix) +
                 track?.drawPoints.orEmpty().map { it.latitude to it.longitude }
-            if (pts.isEmpty()) return@LaunchedEffect
-            val bounds = LatLngBounds.Builder().apply { pts.forEach { include(LatLng(it.first, it.second)) } }.build()
             val pad = (48 * density).toInt()
             // Сверху плашка, справа кнопки, снизу панели.
-            if (bounds.latitudeSpan < 1e-5 && bounds.longitudeSpan < 1e-5) {
-                m.animateCamera(CameraUpdateFactory.newLatLngZoom(bounds.center, 14.0))
-            } else {
-                m.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, pad * 2, pad * 2, pad * 3))
-            }
+            fitCameraTo(m, pts, pad, pad * 2, pad * 2, pad * 3, animate = true, userZoom = userZoom)
         }
         DisposableEffect(Unit) {
             mapView.onStart()
