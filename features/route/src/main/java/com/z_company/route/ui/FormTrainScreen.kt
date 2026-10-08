@@ -175,6 +175,7 @@ fun FormTrainScreen(
     onSelectServicePhase: (ServicePhase?) -> Unit,
     selectedServicePhase: ServicePhase?,
     onSettingClick: () -> Unit,
+    onConsentSettings: () -> Unit = {},
     onAddServicePhase: (ServicePhase) -> Unit = {},
     onUpdateServicePhase: (ServicePhase) -> Unit = {},
     onDeleteServicePhase: (ServicePhase) -> Unit = {},
@@ -320,6 +321,7 @@ fun FormTrainScreen(
                 currentFix = { viewModel.trainMapCurrentFix() },
                 loadTrack = { viewModel.trainMapTrack() },
                 onDetermine = { viewModel.saveStationCoordinatesFromGps(it) },
+                onOpenConsentSettings = { showTrainMap = false; onConsentSettings() },
                 onDismiss = { showTrainMap = false },
             )
         }
