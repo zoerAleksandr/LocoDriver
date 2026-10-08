@@ -327,7 +327,16 @@ class SalaryCalculationHelper(
                 thresholdIsInclusive = thresholdIsInclusive,
                 tariffChanges = changes,
                 valueOf = valueOf,
-            ).forEachIndexed { index, segments -> result[index].addAll(segments) }
+            ).forEachIndexed { index, segments ->
+                // Доплата не начисляется на часы следования и ожидания
+                // следования пассажиром (памятка, п. 2.1–2.3).
+                result[index].addAll(
+                    segments.filter {
+                        AccrualCondition.PASSENGER !in it.conditions &&
+                                AccrualCondition.PASSENGER_WAITING !in it.conditions
+                    },
+                )
+            }
         }
         return result
     }

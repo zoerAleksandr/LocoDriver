@@ -207,7 +207,7 @@ class RouteSalarySegmentsTest {
     }
 
     @Test
-    fun tieredTrainSurchargeUsesActualIntervalsBreakAndHighestOverlappingTier() {
+    fun tieredTrainSurchargeUsesWholeShiftBreakAndHighestTierOfRoute() {
         val start = instant(month = 1, day = 10, hour = 8)
         fun train(weight: String, fromHour: Int, toHour: Int) = Train(
             weight = weight,
@@ -239,9 +239,10 @@ class RouteSalarySegmentsTest {
             valueOf = { it.weight?.toIntOrNull() },
         )
 
-        assertEquals(hour, tiers[0].sumOf { it.interval.durationMillis })
-        assertEquals(3 * hour, tiers[1].sumOf { it.interval.durationMillis })
-        assertEquals(4 * hour, tiers.flatten().sumOf { it.interval.durationMillis })
+        // База — вся смена (8 ч) без перерыва (1 ч); одна ступень — самого
+        // тяжёлого поезда маршрута.
+        assertEquals(0L, tiers[0].sumOf { it.interval.durationMillis })
+        assertEquals(7 * hour, tiers[1].sumOf { it.interval.durationMillis })
     }
 
     @Test
@@ -270,8 +271,8 @@ class RouteSalarySegmentsTest {
             valueOf = { it.weight?.toIntOrNull() },
         ).single()
 
-        assertEquals(4 * hour, tier.sumOf { it.interval.durationMillis })
-        assertEquals(600.0, tier.sumOf(SalarySegment::tariffMoney), 0.001)
+        assertEquals(6 * hour, tier.sumOf { it.interval.durationMillis })
+        assertEquals(900.0, tier.sumOf(SalarySegment::tariffMoney), 0.001)
     }
 
     @Test
@@ -302,7 +303,8 @@ class RouteSalarySegmentsTest {
             valueOf = { it.conditionalLength?.toIntOrNull() },
         ).single()
 
-        assertEquals(2 * hour, tier.sumOf { it.interval.durationMillis })
+        // 81 > 80 — вся смена; 80 само по себе доплату не включает.
+        assertEquals(4 * hour, tier.sumOf { it.interval.durationMillis })
     }
 
     @Test
@@ -333,7 +335,61 @@ class RouteSalarySegmentsTest {
             valueOf = { it.weight?.toIntOrNull() },
         ).single()
 
-        assertEquals(2 * hour, tier.sumOf { it.interval.durationMillis })
+        assertEquals(4 * hour, tier.sumOf { it.interval.durationMillis })
+    }
+
+    @Test
+    fun trainEqualToThresholdProducesNoSegments() {
+        val start = instant(month = 1, day = 10, hour = 8)
+        val route = Route(
+            basicData = BasicData(timeStartWork = start, timeEndWork = start + 4 * hour),
+            trains = mutableListOf(Train(weight = "6000")),
+        )
+
+        val tier = route.buildTieredTrainSurchargeSegments(
+            monthOfYear = MonthOfYear(year = 2025, month = 0),
+            context = context,
+            initialTariffRatePerHour = 100.0,
+            thresholds = listOf(6000),
+            condition = AccrualCondition.HEAVY_TRAIN,
+            valueOf = { it.weight?.toIntOrNull() },
+        ).single()
+
+        assertTrue(tier.isEmpty())
+    }
+
+    @Test
+    fun trainWithoutStationTimesStillGetsWholeShiftSurcharge() {
+        val start = instant(month = 1, day = 10, hour = 8)
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = start,
+                timeEndWork = start + 5 * hour,
+                timeStartBreak = start + 2 * hour,
+                timeEndBreak = start + 3 * hour,
+            ),
+            // Станции не заполнены или конечная без времени — доплата не теряется.
+            trains = mutableListOf(
+                Train(
+                    weight = "6001",
+                    stations = mutableListOf(
+                        Station(timeDeparture = start + hour),
+                        Station(),
+                    ),
+                ),
+            ),
+        )
+
+        val tier = route.buildTieredTrainSurchargeSegments(
+            monthOfYear = MonthOfYear(year = 2025, month = 0),
+            context = context,
+            initialTariffRatePerHour = 100.0,
+            thresholds = listOf(6000),
+            condition = AccrualCondition.HEAVY_TRAIN,
+            valueOf = { it.weight?.toIntOrNull() },
+        ).single()
+
+        assertEquals(4 * hour, tier.sumOf { it.interval.durationMillis })
     }
 
     @Test

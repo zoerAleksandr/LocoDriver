@@ -142,9 +142,16 @@ fun Route.buildSalarySegments(
 }
 
 /**
- * Строит непересекающиеся сегменты поездной доплаты по настраиваемым порогам.
- * Если интервалы поездов разных диапазонов пересекаются, в каждый момент
- * применяется только диапазон с наибольшим подходящим порогом.
+ * Строит сегменты поездной доплаты по настраиваемым порогам.
+ *
+ * База доплаты — вся рабочая смена маршрута (за вычетом перерыва), как в
+ * расчётных листках работодателя и в памятке («за фактически отработанное
+ * время в данной поездке»), а не интервал следования конкретного поезда по
+ * времени станций: станции часто не заполнены, и доплата тогда терялась.
+ * Если в маршруте несколько поездов, применяется ступень самого тяжёлого
+ * (наибольший превышенный порог) — одна ступень на всю смену. Пассажирские
+ * сегменты остаются в результате с условиями PASSENGER / PASSENGER_WAITING,
+ * вызывающий код их исключает.
  */
 fun Route.buildTieredTrainSurchargeSegments(
     monthOfYear: MonthOfYear,
@@ -165,49 +172,22 @@ fun Route.buildTieredTrainSurchargeSegments(
     }
     if (thresholds.isEmpty()) return emptyList()
 
-    val workInterval = clipToMonth(monthOfYear, context)
-        ?.let { (start, end) -> TimeInterval(start, end) }
-        ?: return List(thresholds.size) { emptyList() }
-    val baseSegments = buildSalarySegments(
+    val tierIndex = trains.maxOfOrNull { train ->
+        val value = valueOf(train) ?: return@maxOfOrNull -1
+        thresholds.indexOfLast { threshold ->
+            if (thresholdIsInclusive) value >= threshold else value > threshold
+        }
+    } ?: -1
+    val result = List(thresholds.size) { emptyList<SalarySegment>() }.toMutableList()
+    if (tierIndex < 0) return result
+
+    result[tierIndex] = buildSalarySegments(
         monthOfYear = monthOfYear,
         context = context,
         initialTariffRatePerHour = initialTariffRatePerHour,
         tariffChanges = tariffChanges,
-    )
-    val intervalsByTier = thresholds.indices.map { index ->
-        val lower = thresholds[index]
-        val upper = thresholds.getOrNull(index + 1)
-        trainIntervals(workInterval) { train ->
-            val value = valueOf(train) ?: return@trainIntervals false
-            val reachesLowerBound = if (thresholdIsInclusive) value >= lower else value > lower
-            val staysBelowNextTier = upper == null ||
-                    if (thresholdIsInclusive) value < upper else value <= upper
-            reachesLowerBound && staysBelowNextTier
-        }
-    }
-    val selectedByTier = MutableList(thresholds.size) { emptyList<TimeInterval>() }
-    var intervalsClaimedByHigherTiers = emptyList<TimeInterval>()
-    for (index in thresholds.indices.reversed()) {
-        val selected = intervalsByTier[index]
-            .flatMap { it.subtractAll(intervalsClaimedByHigherTiers) }
-            .mergeTimeIntervals()
-        selectedByTier[index] = selected
-        intervalsClaimedByHigherTiers =
-            (intervalsClaimedByHigherTiers + selected).mergeTimeIntervals()
-    }
-
-    return selectedByTier.map { activeIntervals ->
-        baseSegments.flatMap { segment ->
-            activeIntervals.mapNotNull { active ->
-                segment.interval.intersect(active)?.let { intersection ->
-                    segment.copy(
-                        interval = intersection,
-                        conditions = segment.conditions + condition,
-                    )
-                }
-            }
-        }
-    }
+    ).map { it.copy(conditions = it.conditions + condition) }
+    return result
 }
 
 /**
