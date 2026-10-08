@@ -177,4 +177,23 @@ class StopDetectorTest {
         assertNull(d.onSample(sample(50, 30.0, acc = 200f))) // плохой фикс не сбрасывает окно
         assertNotNull(d.onSample(sample(61, 0.0)))
     }
+
+    @Test
+    fun `seeded as stopped does not repeat arrival and still gives departure`() {
+        val d = StopDetector()
+        d.seed(stopped = true, sinceMs = t0 - 600_000L)
+        assertNull(d.feed(0, 120, 0.5)) // стоим дальше — повторного прибытия нет
+        val ev = d.feed(130, 170, 20.0)
+        assertNotNull(ev)
+        assertEquals(StopEventType.DEPARTURE, ev.type)
+    }
+
+    @Test
+    fun `state accessors follow events`() {
+        val d = StopDetector()
+        assertEquals(false, d.isStopped)
+        d.feed(0, 70, 0.0)
+        assertEquals(true, d.isStopped)
+        assertEquals(t0, d.stoppedSince)
+    }
 }

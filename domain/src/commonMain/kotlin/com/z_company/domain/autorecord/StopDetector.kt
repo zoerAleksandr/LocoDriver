@@ -65,6 +65,20 @@ class StopDetector(private val config: StopDetectorConfig = StopDetectorConfig()
     private var windowStart: MotionSample? = null
     private var lastTimeMs: Long? = null
 
+    /** Состояние на момент подтверждённого события: стоим ли (ARRIVAL) или едем (DEPARTURE), и с какого момента. */
+    val isStopped: Boolean get() = stopped
+    val stoppedSince: Long get() = stoppedSinceMs
+
+    /**
+     * Восстановить состояние после перезапуска процесса (SCREEN_SPECS §6.2 п.6а): без этого новый детектор считал
+     * «неизвестно = едем», терял отправление, уже стоявшее на станции, и заново давал прибытие.
+     */
+    fun seed(stopped: Boolean, sinceMs: Long) {
+        this.stopped = stopped
+        this.stoppedSinceMs = sinceMs
+        windowStart = null
+    }
+
     /** Подать очередной отсчёт; возвращает событие, если оно только что подтвердилось. */
     fun onSample(sample: MotionSample): StopEvent? {
         val speed = sample.speedKmh ?: return null
