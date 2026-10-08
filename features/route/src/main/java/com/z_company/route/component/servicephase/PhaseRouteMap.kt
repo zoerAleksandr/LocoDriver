@@ -51,7 +51,6 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
@@ -219,16 +218,9 @@ internal fun PhaseRouteMap(
                                 PropertyFactory.textOptional(true),
                             )
                         )
-                        if (stops.size >= 2) {
-                            val bounds = LatLngBounds.Builder().apply {
-                                stops.forEach { include(LatLng(it.latitude, it.longitude)) }
-                            }.build()
-                            val pad = (48 * density).toInt()
-                            // Справа — кнопки «+ − ◎», поэтому отступ шире.
-                            m.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, pad * 2, pad * 2, pad * 3))
-                        } else if (stops.size == 1) {
-                            m.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(stops[0].latitude, stops[0].longitude), 13.0))
-                        }
+                        val pad = (48 * density).toInt()
+                        // Справа — кнопки «+ − ◎», поэтому отступ шире.
+                        fitCameraTo(m, stops.map { it.latitude to it.longitude }, pad, pad * 2, pad * 2, pad * 3, animate = false)
                         styleReady = true
                     }
                 }

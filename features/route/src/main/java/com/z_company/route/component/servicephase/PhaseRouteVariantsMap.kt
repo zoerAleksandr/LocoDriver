@@ -70,7 +70,6 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.style.layers.CircleLayer
@@ -219,11 +218,8 @@ internal fun PhaseRouteVariantsMap(
                             )
                         }
                         val all = variants.flatMap { it.line }
-                        if (all.size >= 2) {
-                            val bounds = LatLngBounds.Builder().apply { all.forEach { include(LatLng(it.first, it.second)) } }.build()
-                            val pad = (40 * density).toInt()
-                            m.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, pad, pad * 2, pad, pad * 4))
-                        }
+                        val pad = (40 * density).toInt()
+                        fitCameraTo(m, all, pad, pad * 2, pad, pad * 4, animate = false)
                         styleReady = true
                     }
                     // Тап по линии: ближайшая к пальцу линия в пределах ~28 dp (по экранным координатам).
