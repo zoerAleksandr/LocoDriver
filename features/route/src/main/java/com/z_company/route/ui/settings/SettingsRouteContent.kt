@@ -98,7 +98,7 @@ fun SettingsRouteContent(
                     sub = if (icon == PositionIcon.ARROW) "По умолчанию" else null,
                     selected = positionIcon == icon,
                     onClick = { PositionIconStore.set(context, icon) },
-                    leading = { PositionIconTile(icon, 44.dp) },
+                    leading = { PositionIconTile(icon, 56.dp) },
                 )
             }
         }
