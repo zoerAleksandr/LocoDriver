@@ -912,7 +912,7 @@ internal fun TrainMapScreen(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(end = 72.dp)
-                        .offset(y = maxHeight * 0.4f)
+                        .offset(y = maxHeight * 0.3f)
                         .shadow(8.dp, RoundedCornerShape(16.dp))
                         .background(Pst.surface, RoundedCornerShape(16.dp))
                         .padding(10.dp),

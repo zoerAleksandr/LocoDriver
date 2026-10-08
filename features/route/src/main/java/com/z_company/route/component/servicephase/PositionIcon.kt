@@ -29,6 +29,7 @@ enum class PositionIcon(
 ) {
     ARROW("arrow", "Стрелка", R.drawable.ic_posicon_arrow_top, R.drawable.ic_posicon_arrow_iso, 44f),
     VL10("vl10", "ВЛ-10", R.drawable.ic_posicon_vl10_top, R.drawable.ic_posicon_vl10_iso, 56f),
+    VL80("vl80", "ВЛ-80", R.drawable.ic_posicon_vl80_top, R.drawable.ic_posicon_vl80_iso, 56f),
     ES6("es6", "2ЭС6 «Синара»", R.drawable.ic_posicon_es6_top, R.drawable.ic_posicon_es6_iso, 56f),
     TE25KM("te25km", "2ТЭ25КМ «Витязь»", R.drawable.ic_posicon_te25km_top, R.drawable.ic_posicon_te25km_iso, 56f),
     SWALLOW("swallow", "Ласточка", R.drawable.ic_posicon_swallow_top, R.drawable.ic_posicon_swallow_iso, 56f),
