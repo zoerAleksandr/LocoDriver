@@ -562,6 +562,30 @@ class SalaryCalculationHelper(
         }
     }
 
+    /**
+     * Деньги по часам считаются как в расчётном листке работодателя: часы
+     * каждой смены округляются до сотых, умножаются на ставку (и процент) и
+     * округляются до копейки, затем суммируются по сменам. Прежний расчёт по
+     * точным миллисекундам всего месяца расходился с листком на копейки.
+     * Сегменты вне рабочих окон смен (проезд до явки) остаются точными.
+     */
+    private fun List<com.z_company.domain.util.SalarySegment>.shiftRoundedMoney(
+        multiplier: Double = 1.0,
+    ): Double {
+        val windows = routeList.map { it.basicData.timeStartWork to it.basicData.timeEndWork }
+        return groupBy { segment ->
+            windows.indexOfFirst { (start, end) ->
+                start != null && end != null &&
+                        segment.interval.startMillis >= start && segment.interval.endMillis <= end
+            }
+        }.entries.sumOf { (shift, segments) ->
+            val exact = segments.sumOf { it.tariffMoney * multiplier }
+            val hours = segments.sumOf { it.interval.durationMillis } / 3_600_000.0
+            if (shift < 0 || hours <= 0.0) exact
+            else (exact * (kotlin.math.floor(hours * 100.0 + 0.5) / 100.0) / hours).roundMoneyToCents()
+        }
+    }
+
     fun getNightTimeFlow(routes: List<Route> = routeList): Flow<Long> {
         return channelFlow {
             val time = routes.getNightTime(userSettings)
@@ -575,7 +599,7 @@ class SalaryCalculationHelper(
             val coefficient = salarySetting.nightTimePercent.nonNegativeFiniteOrZero() / 100
             val money = salarySegments()
                 .filter { AccrualCondition.NIGHT in it.conditions }
-                .sumOf { it.tariffMoney * coefficient }
+                .shiftRoundedMoney(coefficient)
             emit(money)
         }
     }
@@ -598,7 +622,7 @@ class SalaryCalculationHelper(
                     AccrualCondition.RESERVE in it.conditions &&
                             AccrualCondition.PASSENGER !in it.conditions
                 }
-                .sumOf { it.tariffMoney })
+                .shiftRoundedMoney())
         }
     }
 
@@ -614,7 +638,7 @@ class SalaryCalculationHelper(
         return flow {
             emit(salarySegments()
                 .filter { AccrualCondition.PASSENGER in it.conditions }
-                .sumOf { it.tariffMoney })
+                .shiftRoundedMoney())
         }
     }
 
@@ -632,7 +656,7 @@ class SalaryCalculationHelper(
         return flow {
             emit(salarySegments()
                 .filter { AccrualCondition.PASSENGER_WAITING in it.conditions }
-                .sumOf { it.tariffMoney })
+                .shiftRoundedMoney())
         }
     }
 
@@ -676,7 +700,7 @@ class SalaryCalculationHelper(
         return flow {
             emit(salarySegments()
                 .filter { AccrualCondition.HOLIDAY in it.conditions }
-                .sumOf { it.tariffMoney * 2.0 })
+                .shiftRoundedMoney(2.0))
         }
     }
 
@@ -721,7 +745,7 @@ class SalaryCalculationHelper(
         val segmentsByTier = extendedServicePhaseSegments(routeList, surcharges)
         emit(segmentsByTier.mapIndexed { index, segments ->
             val percent = surcharges[index].percentSurcharge.toDoubleOrZero() / 100
-            segments.sumOf { it.tariffMoney * percent }
+            segments.shiftRoundedMoney(percent)
         })
     }
 
@@ -752,7 +776,7 @@ class SalaryCalculationHelper(
                     AccrualCondition.ONE_PERSON_PASSENGER in it.conditions &&
                             AccrualCondition.PASSENGER !in it.conditions
                 }
-                .sumOf { it.tariffMoney * percent / 100 })
+                .shiftRoundedMoney(percent / 100))
         }
     }
 
@@ -783,7 +807,7 @@ class SalaryCalculationHelper(
                     AccrualCondition.ONE_PERSON_FREIGHT in it.conditions &&
                             AccrualCondition.PASSENGER !in it.conditions
                 }
-                .sumOf { it.tariffMoney * percent / 100 })
+                .shiftRoundedMoney(percent / 100))
         }
     }
 
@@ -853,7 +877,7 @@ class SalaryCalculationHelper(
         emit(segmentsByTier.mapIndexed { index, segments ->
             val percent = surcharges[index].percentSurcharge.toDoubleOrZero() / 100
             segments.filter { AccrualCondition.PASSENGER !in it.conditions }
-                .sumOf { it.tariffMoney * percent }
+                .shiftRoundedMoney(percent)
         })
     }
 
@@ -896,7 +920,7 @@ class SalaryCalculationHelper(
         emit(segmentsByTier.mapIndexed { index, segments ->
             val percent = surcharges[index].percentSurcharge.toDoubleOrZero() / 100
             segments.filter { AccrualCondition.PASSENGER !in it.conditions }
-                .sumOf { it.tariffMoney * percent }
+                .shiftRoundedMoney(percent)
         })
     }
 
@@ -920,7 +944,7 @@ class SalaryCalculationHelper(
                 AccrualCondition.HEAVY_LONG_DISTANCE_TRAIN in it.conditions &&
                         AccrualCondition.PASSENGER !in it.conditions
             }
-            .sumOf { it.tariffMoney * percent })
+            .shiftRoundedMoney(percent))
     }
 
     fun getPercentZonalSurchargeFlow(): Flow<Double> {
@@ -1294,7 +1318,7 @@ class SalaryCalculationHelper(
                     AccrualCondition.DOUBLED_TRAIN_FIRST in it.conditions &&
                             AccrualCondition.PASSENGER !in it.conditions
                 }
-                .sumOf { it.tariffMoney * 0.30 })
+                .shiftRoundedMoney(0.30))
         }
     }
 
@@ -1305,7 +1329,7 @@ class SalaryCalculationHelper(
                     AccrualCondition.DOUBLED_TRAIN_SECOND in it.conditions &&
                             AccrualCondition.PASSENGER !in it.conditions
                 }
-                .sumOf { it.tariffMoney * 0.15 })
+                .shiftRoundedMoney(0.15))
         }
     }
 
@@ -1397,7 +1421,12 @@ class SalaryCalculationHelper(
             val baseForCalculation =
                 getMoneyTotalChargedFlow().first() - averageMoneyCaringForDisableChildren
             val money = baseForCalculation.times(percentNDFL / 100)
-            emit(money.roundMoneyToCents())
+            // НК РФ, ст. 52: налог в РФ округляется до полных рублей (меньше
+            // 50 копеек отбрасывается, 50 и больше — до рубля), как в листке.
+            emit(
+                if (userSettings.country == "RU") kotlin.math.floor(money + 0.5)
+                else money.roundMoneyToCents(),
+            )
         }
     }
 
