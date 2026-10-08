@@ -124,6 +124,8 @@ private fun circle(cx: Float, cy: Float, r: Float) =
 
 internal object PstIcons {
     val MapPin = strokeIcon("pin", "M12 22s8-7 8-13a8 8 0 0 0-16 0c0 6 8 13 8 13z", circle(12f, 9f, 3f))
+    /** «Еду по карте»: навигационная стрелка. */
+    val Navigate = strokeIcon("navigate", "M12 3l7 18-7-4-7 4z")
     val Search = strokeIcon("search", circle(11f, 11f, 7f), "M20 20l-4-4")
     val Plus = strokeIcon("plus", "M12 5v14M5 12h14")
     val Trash = strokeIcon(
