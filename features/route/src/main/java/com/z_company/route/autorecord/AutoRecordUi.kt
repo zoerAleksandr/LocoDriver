@@ -199,27 +199,56 @@ fun AutoRecordChip(
 ) {
     val colors = AutoRecordStyle.colors(state)
     val broken = state.interrupted && !state.enabled
-    Surface(
-        modifier = modifier,
-        shape = AutoRecordStyle.shape,
-        color = colors.container,
-        border = colors.border?.let { BorderStroke(1.dp, it) },
-    ) {
-        Row(
-            modifier = Modifier
-                .then(if (goHeight) Modifier.height(AutoRecordStyle.height) else Modifier)
-                .clickable(onClick = onToggle)
-                .padding(horizontal = 14.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+    // Узкий экран (~343 dp): левая треть строки не вмещает «АВТО · прервано» в одну строку, текст обрезался.
+    // Тогда «прервано» уходит на вторую строку мелким шрифтом (высота чипа та же).
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier) {
+        val twoLines = broken && maxWidth < 170.dp
+        Surface(
+            shape = AutoRecordStyle.shape,
+            color = colors.container,
+            border = colors.border?.let { BorderStroke(1.dp, it) },
         ) {
-            PulseDot(active = state.enabled, color = colors.content)
-            Text(
-                text = if (broken) "АВТО · прервано" else "АВТО",
-                color = colors.content,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-            )
+            Row(
+                modifier = Modifier
+                    .then(if (goHeight) Modifier.height(AutoRecordStyle.height) else Modifier)
+                    .clickable(onClick = onToggle)
+                    .padding(horizontal = if (twoLines) 10.dp else 14.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(if (twoLines) 6.dp else 8.dp),
+            ) {
+                PulseDot(active = state.enabled, color = colors.content)
+                if (twoLines) {
+                    Column {
+                        Text(
+                            text = "АВТО",
+                            color = colors.content,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            lineHeight = 13.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                        Text(
+                            text = "прервано",
+                            color = colors.content,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            lineHeight = 11.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
+                } else {
+                    Text(
+                        text = if (broken) "АВТО · прервано" else "АВТО",
+                        color = colors.content,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
+            }
         }
     }
 }

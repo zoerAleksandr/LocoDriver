@@ -15,6 +15,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.z_company.route.component.AppTimePicker
+import com.z_company.route.component.servicephase.PositionIcon
+import com.z_company.route.component.servicephase.PositionIconStore
+import com.z_company.route.component.servicephase.PositionIconTile
 import com.z_company.core.theme.ThemeManager
 import com.z_company.core.theme.ThemeMode
 import com.z_company.core.util.ConverterLongToTime
@@ -82,6 +85,24 @@ fun SettingsRouteContent(
                 onClick = { themeManager.setTheme(ThemeMode.MODE_DARK) },
             )
         }
+
+        // ── Значок положения на карте поезда ──
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val positionIcon by PositionIconStore.selected(context).collectAsState()
+        SettingsGroupHeader("ЗНАЧОК ПОЛОЖЕНИЯ", top = 20.dp, startPad = 4.dp)
+        SettingsCard {
+            PositionIcon.entries.forEachIndexed { index, icon ->
+                if (index > 0) SettingsCardSep()
+                SettingsRadioRow(
+                    label = icon.label,
+                    sub = if (icon == PositionIcon.ARROW) "По умолчанию" else null,
+                    selected = positionIcon == icon,
+                    onClick = { PositionIconStore.set(context, icon) },
+                    leading = { PositionIconTile(icon, 44.dp) },
+                )
+            }
+        }
+        SettingsSectionNote("Так вы отображаетесь на карте поезда. Значок поворачивается по ходу движения. Выбор хранится на этом устройстве.")
 
         // ── Вид тяги (по умолчанию) ──
         SettingsGroupHeader("ВИД ТЯГИ", top = 20.dp, startPad = 4.dp)

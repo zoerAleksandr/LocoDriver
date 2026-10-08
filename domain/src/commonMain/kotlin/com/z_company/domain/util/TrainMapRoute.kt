@@ -103,22 +103,81 @@ object TrainMapRoute {
         return Ahead(stops.lastIndex, 0.0)
     }
 
+    /** Допуск привязки пройденного пути к рельсам, м (SCREEN_SPECS §6.9); дальше — сырая линия «вне путей». */
+    const val SNAP_TOLERANCE_M = 50.0
+
+    /** Точка пути для отрисовки; [onRail] — привязана к рельсовой линии (иначе сырая, «вне путей»). */
+    data class SnappedPoint(val point: TrackPoint, val onRail: Boolean)
+
     /**
-     * Точки пути для отрисовки, привязанные к рельсовой линии: точка с отклонением от линии ≤ [toleranceM] (≈30 м,
-     * сглаживает шум GPS) заменяется своей проекцией на линию, остальные остаются сырыми. Время и скорость сохраняются
-     * (в тапе по пути берутся из исходных точек, а не из этих).
+     * Точки пути для отрисовки, привязанные к рельсовой линии: точка с отклонением от линии ≤ [toleranceM]
+     * заменяется своей проекцией на линию (сглаживает шум GPS), остальные остаются сырыми и помечаются
+     * `onRail = false`. Время и скорость сохраняются. Без линии все точки сырые и `onRail = true`
+     * (отмечать «вне путей» не от чего).
      */
-    fun snapToLine(
+    fun snapMarked(
         points: List<TrackPoint>,
         line: List<Pair<Double, Double>>?,
-        toleranceM: Double = 30.0,
-    ): List<TrackPoint> {
-        if (line == null || line.size < 2) return points
+        toleranceM: Double = SNAP_TOLERANCE_M,
+    ): List<SnappedPoint> {
+        if (line == null || line.size < 2) return points.map { SnappedPoint(it, true) }
         val cum = cumulativeM(line)
         return points.map { p ->
             val pr = project(line, cum, p.latitude, p.longitude)
-            if (pr != null && pr.offsetM <= toleranceM) p.copy(latitude = pr.latitude, longitude = pr.longitude) else p
+            if (pr != null && pr.offsetM <= toleranceM) SnappedPoint(p.copy(latitude = pr.latitude, longitude = pr.longitude), true)
+            else SnappedPoint(p, false)
         }
+    }
+
+    fun snapToLine(
+        points: List<TrackPoint>,
+        line: List<Pair<Double, Double>>?,
+        toleranceM: Double = SNAP_TOLERANCE_M,
+    ): List<TrackPoint> = snapMarked(points, line, toleranceM).map { it.point }
+
+    /** Отклонение (м) точки от рельсовой линии; null — нет линии. */
+    fun offsetFromLine(line: List<Pair<Double, Double>>?, lat: Double, lon: Double): Double? {
+        if (line == null || line.size < 2) return null
+        return project(line, cumulativeM(line), lat, lon)?.offsetM
+    }
+
+    /** Движение по маршруту: ближайшая станция впереди и остаток до конечной, по рельсовой линии. */
+    data class Progress(
+        val nextIndex: Int,
+        val nextDistanceM: Double,
+        val terminalDistanceM: Double,
+    )
+
+    /**
+     * Расстояния до ближайшей станции впереди и до конечной станции плеча (последняя в [stops]) вдоль рельсовой линии.
+     * null — нет положения/линии/станций.
+     */
+    fun progress(stops: List<TrainMapStop>, line: List<Pair<Double, Double>>?, fix: GeoFix?): Progress? {
+        if (fix == null || line == null || line.size < 2 || stops.isEmpty()) return null
+        val cum = cumulativeM(line)
+        val me = project(line, cum, fix.latitude, fix.longitude) ?: return null
+        var seg = 0
+        var next: Ahead? = null
+        var terminalAlong = 0.0
+        for ((i, st) in stops.withIndex()) {
+            val p = project(line, cum, st.latitude, st.longitude, seg) ?: return null
+            seg = p.segment
+            if (next == null && p.alongM >= me.alongM - 1.0) next = Ahead(i, (p.alongM - me.alongM).coerceAtLeast(0.0))
+            terminalAlong = p.alongM
+        }
+        val n = next ?: Ahead(stops.lastIndex, 0.0)
+        return Progress(n.index, n.distanceM, (terminalAlong - me.alongM).coerceAtLeast(0.0))
+    }
+
+    /**
+     * Скорость для оценки времени прибытия, км/ч: живая, если ≥ [Eta.MIN_LIVE_KMH]; иначе средняя по точкам трека со
+     * скоростью ≥ [Eta.MIN_LIVE_KMH] за последние [Eta.WINDOW_MS]; иначе null (оценки нет).
+     */
+    fun etaSpeedKmh(liveKmh: Double?, track: List<TrackPoint>, nowMs: Long): Double? {
+        if (liveKmh != null && liveKmh >= Eta.MIN_LIVE_KMH) return liveKmh
+        val v = track.asSequence().filter { nowMs - it.timeMs <= Eta.WINDOW_MS }
+            .mapNotNull { it.speedKmh }.filter { it >= Eta.MIN_LIVE_KMH }.toList()
+        return if (v.isEmpty()) null else v.average()
     }
 
     /** Точки для охвата камерой: линия (если есть, иначе станции) и текущее местоположение. Пары (широта, долгота). */
@@ -129,5 +188,17 @@ object TrainMapRoute {
     ): List<Pair<Double, Double>> = buildList {
         if (line != null && line.size >= 2) addAll(line) else stops.forEach { add(it.latitude to it.longitude) }
         fix?.let { add(it.latitude to it.longitude) }
+    }
+
+    /** Оценка времени прибытия. */
+    object Eta {
+        const val MIN_LIVE_KMH = 10.0
+        const val WINDOW_MS = 10 * 60_000L
+
+        /** Момент прибытия (мс, UTC) при скорости [speedKmh] на расстоянии [distanceM]; null — скорость неизвестна. */
+        fun arrivalMs(nowMs: Long, distanceM: Double, speedKmh: Double?): Long? {
+            if (speedKmh == null || speedKmh <= 0.0) return null
+            return nowMs + (distanceM / (speedKmh / 3.6) * 1000.0).toLong()
+        }
     }
 }

@@ -49,6 +49,12 @@ class MainActivity : ComponentActivity(), KoinComponent {
     private val mainViewModel: MainViewModel by viewModels()
     private val themeManager: ThemeManager by inject()
     private val autoRecordManager: com.z_company.route.autorecord.AutoRecordManager by inject()
+
+    override fun onStart() {
+        super.onStart()
+        // АВТО могло «прерваться», потому что процесс поднялся в фоне (службу из фона стартовать нельзя) — возобновляем.
+        runCatching { autoRecordManager.onAppForeground() }
+    }
     // Включение «АВТО» из виджета: службу геолокации можно стартовать только с экрана приложения.
     private val autoPermissionLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()

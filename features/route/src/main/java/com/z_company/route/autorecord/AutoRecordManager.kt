@@ -162,6 +162,7 @@ class AutoRecordManager(
             }
         }
         cancelAlerts()
+        prefs.edit().remove(KEY_STOPPED).remove(KEY_STOPPED_SINCE).remove(KEY_INTERRUPTED_UNTIL).apply()
         setState(AutoRecordState(true, until))
         warnNoConsentOnce()
         return begin(until)
@@ -189,7 +190,33 @@ class AutoRecordManager(
         setState(AutoRecordState(true, until))
         // Не стартовали из фона — не выключаемся молча: если службы нет, expiryJob/watchdog
         // переведут АВТО в «прервано» с уведомлением.
-        begin(until)
+        begin(until, resume = true)
+    }
+
+    /**
+     * Приложение вышло на передний план (MainActivity.onStart). Если АВТО было «прервано» только потому, что процесс
+     * поднялся в фоне (виджет/воркер/после force-stop) и службу нельзя стартовать из фона, а время работы ещё не вышло —
+     * тихо возобновляем запись (теперь старт из переднего плана разрешён), без ручного нажатия «АВТО».
+     */
+    fun onAppForeground() {
+        val st = _state.value
+        if (st.enabled) {
+            // Процесс поднялся в фоне (restore() не смог стартовать службу), а приложение уже на экране: старт разрешён —
+            // повторяем до истечения таймаута, иначе через 15 с АВТО ушло бы в «прервано» при открытом приложении.
+            if (!GpsRecorder.isRunning.value) {
+                runCatching { GpsRecorder.start(context, recorderConfig(st.untilMs)) }
+                    .onFailure { it.sendToSentry("AutoRecordManager", "foregroundStart") }
+            }
+            return
+        }
+        if (!st.interrupted) return
+        val until = prefs.getLong(KEY_INTERRUPTED_UNTIL, 0L)
+        if (until <= nowMs() || !GpsPermissions.hasLocation(context)) return
+        prefs.edit().putLong(KEY_UNTIL, until).putLong(KEY_BEAT, nowMs()).putBoolean(KEY_INTERRUPTED, false)
+            .remove(KEY_INTERRUPTED_UNTIL).apply()
+        cancelAlerts()
+        setState(AutoRecordState(true, until))
+        begin(until, resume = true)
     }
 
     /**
@@ -208,7 +235,7 @@ class AutoRecordManager(
         }
         if (!_state.value.enabled) restore()
         if (!GpsRecorder.isRunning.value) {
-            begin(until)
+            begin(until, resume = true)
             delay(START_TIMEOUT_MS + 5_000L)
             if (_state.value.enabled && !GpsRecorder.isRunning.value) {
                 markInterrupted()
@@ -226,7 +253,9 @@ class AutoRecordManager(
         pointsJob?.cancel()
         watchJob?.cancel()
         expiryJob?.cancel()
-        prefs.edit().remove(KEY_UNTIL).putBoolean(KEY_INTERRUPTED, true).apply()
+        // Время работы запоминаем: при выходе приложения на передний план запись возобновится (onAppForeground).
+        val resumeUntil = _state.value.untilMs.takeIf { it > 0 } ?: prefs.getLong(KEY_UNTIL, 0L)
+        prefs.edit().remove(KEY_UNTIL).putBoolean(KEY_INTERRUPTED, true).putLong(KEY_INTERRUPTED_UNTIL, resumeUntil).apply()
         resetTrack()
         onWatchdog(false)
         setState(AutoRecordState(interrupted = true))
@@ -243,9 +272,13 @@ class AutoRecordManager(
         scope.launch { runCatching { onChanged() } }
     }
 
-    private fun begin(until: Long): Boolean {
+    private fun begin(until: Long, resume: Boolean = false): Boolean {
         onWatchdog(true)
         detector = StopDetector()
+        // После перезапуска процесса продолжаем с сохранённого состояния «стоим/едем», если запись прервалась недавно.
+        if (resume && prefs.contains(KEY_STOPPED) && nowMs() - prefs.getLong(KEY_BEAT, 0L) <= RESUME_MAX_GAP_MS) {
+            detector.seed(prefs.getBoolean(KEY_STOPPED, false), prefs.getLong(KEY_STOPPED_SINCE, 0L))
+        }
         pointsJob?.cancel()
         watchJob?.cancel()
         expiryJob?.cancel()
@@ -288,7 +321,8 @@ class AutoRecordManager(
         pointsJob?.cancel()
         watchJob?.cancel()
         expiryJob?.cancel()
-        prefs.edit().remove(KEY_UNTIL).remove(KEY_TARGET).putBoolean(KEY_INTERRUPTED, false).apply()
+        prefs.edit().remove(KEY_UNTIL).remove(KEY_TARGET).remove(KEY_STOPPED).remove(KEY_STOPPED_SINCE)
+            .remove(KEY_INTERRUPTED_UNTIL).putBoolean(KEY_INTERRUPTED, false).apply()
         resetTrack()
         onWatchdog(false)
         cancelAlerts()
@@ -314,6 +348,7 @@ class AutoRecordManager(
         val event = detector.onSample(
             MotionSample(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM),
         ) ?: return
+        prefs.edit().putBoolean(KEY_STOPPED, detector.isStopped).putLong(KEY_STOPPED_SINCE, detector.stoppedSince).apply()
         try {
             writeLock.withLock { handleEvent(event) }
         } catch (e: Exception) {
@@ -459,6 +494,10 @@ class AutoRecordManager(
         private const val KEY_TARGET = "target_train_id"
         private const val KEY_BEAT = "heartbeat_ms"
         private const val KEY_INTERRUPTED = "interrupted"
+        private const val KEY_STOPPED = "detector_stopped"
+        private const val KEY_STOPPED_SINCE = "detector_stopped_since"
+        private const val KEY_INTERRUPTED_UNTIL = "interrupted_until_ms"
+        private const val RESUME_MAX_GAP_MS = 10 * 60_000L
         private const val KEY_TZ = "display_tz"
         private const val KEY_NO_ROUTE_AT = "no_route_notified_ms"
         const val KEY_BATTERY_ASKED = "battery_asked"

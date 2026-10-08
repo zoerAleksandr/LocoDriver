@@ -212,6 +212,7 @@ internal fun SettingsRadioRow(
     selected: Boolean,
     onClick: () -> Unit,
     sub: String? = null,
+    leading: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -222,6 +223,10 @@ internal fun SettingsRadioRow(
     ) {
         SettingsRadioCircle(selected = selected)
         Spacer(Modifier.width(14.dp))
+        if (leading != null) {
+            leading()
+            Spacer(Modifier.width(14.dp))
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
