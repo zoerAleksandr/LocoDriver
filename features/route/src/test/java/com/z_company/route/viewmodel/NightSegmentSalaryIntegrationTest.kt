@@ -34,6 +34,8 @@ class NightSegmentSalaryIntegrationTest {
         nonWorkingDay: Int? = null,
         effectiveNormaHours: Int? = null,
         zeroNormCalendar: Boolean = false,
+        extraRoutes: List<Route> = emptyList(),
+        salarySetting: SalarySetting = SalarySetting(nightTimePercent = 40.0),
     ): SalaryCalculationHelper {
         val month = MonthOfYear(
             year = 2025,
@@ -59,8 +61,8 @@ class NightSegmentSalaryIntegrationTest {
         )
         return SalaryCalculationHelper(
             userSettings = UserSettings(selectMonthOfYear = month, timeZone = 0L),
-            salarySetting = SalarySetting(nightTimePercent = 40.0),
-            allRoutes = listOf(route),
+            salarySetting = salarySetting,
+            allRoutes = listOf(route) + extraRoutes,
             effectiveNormaHoursForUnderwork = effectiveNormaHours ?: 0,
         )
     }
@@ -146,7 +148,9 @@ class NightSegmentSalaryIntegrationTest {
         val helper = helper(route, holidayDay = 11)
 
         assertEquals(60_000L, helper.getHolidayTimeFlow().first())
-        assertEquals(200.0 * 2.0 / 60.0, helper.getMoneyAtHolidayFlow().first(), 0.001)
+        // Часы смены округляются до сотых (1 мин = 0,0167 ч → 0,02 ч), не до часа:
+        // 0,02 ч × 200 × 2 = 8,00.
+        assertEquals(8.0, helper.getMoneyAtHolidayFlow().first(), 0.001)
     }
 
     @Test
@@ -185,5 +189,41 @@ class NightSegmentSalaryIntegrationTest {
         assertEquals(0L, helper.getHolidayTimeFlow().first())
         assertEquals(0.0, helper.getMoneyAtHolidayFlow().first(), 0.001)
         assertEquals(4 * hour, helper.getTimeOvertimeFlow().first())
+    }
+
+    private fun nightShift(day: Int) = Route(
+        basicData = BasicData(
+            timeStartWork = instant(day = day, hour = 22),
+            timeEndWork = instant(day = day, hour = 22) + 80 * 60_000L,
+        ),
+    )
+
+    @Test
+    fun nightMoneyRoundsHoursToHundredthsPerShiftLikePayslip() = runTest {
+        // Две смены по 80 мин ночью (1,3333 ч): работодатель округляет часы
+        // каждой смены до 1,33 ч, деньги = 1,33 × 200 × 40% = 106,40 за смену.
+        // Точный расчёт по месяцу дал бы 213,33.
+        val helper = helper(nightShift(day = 20), extraRoutes = listOf(nightShift(day = 21)))
+
+        assertEquals(212.80, helper.getMoneyAtNightTimeFlow().first(), 0.0001)
+    }
+
+    @Test
+    fun ndflIsRoundedToWholeRublesInRussia() = runTest {
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = instant(day = 20, hour = 8),
+                timeEndWork = instant(day = 20, hour = 8) + 200 * 60_000L,
+            ),
+        )
+        val helper = helper(
+            route,
+            salarySetting = SalarySetting(ndfl = 13.0),
+        )
+
+        val total = helper.getMoneyTotalChargedFlow().first()
+        val ndfl = helper.getMoneyNDFLRetentionFlow().first()
+        assertEquals(0.0, ndfl % 1.0, 0.0)
+        assertEquals(total * 0.13, ndfl, 0.5)
     }
 }
