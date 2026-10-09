@@ -196,6 +196,7 @@ fun SettingsTrackHistoryContent(viewModel: TrackHistoryViewModel, onRequestSync:
                         onContentClick = { viewModel.open(item) },
                         onContentLongClick = { menuFor = item },
                         onSwipeRight = { viewModel.toggleFavorite(item) },
+                        rightReveal = true,
                         rightIconRes = com.z_company.core.R.drawable.ic_star,
                         rightIconTint = Color(0xFFF5B301),
                         rightBackground = Color(0xFFF5B301).copy(alpha = 0.16f),
@@ -268,64 +269,60 @@ private fun TrackCard(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (selectionMode) SelectionMarker(isSelected = isSelected)
-        MiniMap(item.preview, Modifier.size(72.dp))
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            item.workStartAt?.let { start ->
-                Text(
-                    text = TrackHistoryFormat.workStart(start, zone),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                MiniMap(item.preview, Modifier.size(72.dp))
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = item.title,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    item.workStartAt?.let { start ->
+                        Text(
+                            text = TrackHistoryFormat.workStart(start, zone),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Text(
+                        text = TrackHistoryFormat.summary(item.distanceKm, item.durationMs),
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (item.status == TrackHistoryStatus.REJECTED) {
+                        Text(
+                            text = TrackHistoryFormat.status(item.status),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
-            Text(
-                text = TrackHistoryFormat.summary(item.distanceKm, item.durationMs),
-                style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (item.status == TrackHistoryStatus.REJECTED) {
-                Text(
-                    text = TrackHistoryFormat.status(item.status),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            // Индикаторы внизу карточки, справа — как на карточке маршрута: избранное, синхронизация.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            ) {
+                if (item.isFavorite) {
+                    Icon(
+                        painter = painterResource(com.z_company.core.R.drawable.ic_star),
+                        contentDescription = "В избранном",
+                        tint = Color(0xFFF5B301),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                SyncIndicator(item = item, syncing = syncing)
             }
-        }
-        // Индикаторы как на карточке маршрута: избранное, «облако» (трек только на сервере), синхронизация.
-        Column(
-            modifier = Modifier.align(Alignment.Top),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            if (item.isFavorite) {
-                Icon(
-                    painter = painterResource(com.z_company.core.R.drawable.ic_star),
-                    contentDescription = "В избранном",
-                    tint = Color(0xFFF5B301),
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            if (item.status == TrackHistoryStatus.SERVER_ONLY) {
-                Icon(
-                    painter = painterResource(com.z_company.core.R.drawable.rounded_cloud_download_24),
-                    contentDescription = "Трек на сервере, на устройстве нет",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            SyncIndicator(item = item, syncing = syncing)
         }
     }
 }
