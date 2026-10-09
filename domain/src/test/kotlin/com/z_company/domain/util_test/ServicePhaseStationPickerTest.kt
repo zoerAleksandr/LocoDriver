@@ -31,51 +31,6 @@ class ServicePhaseStationPickerTest {
     private fun at(lon: Double) = GeoFix(60.0, lon)
 
     @Test
-    fun `nearest station ahead of the last one in the train`() {
-        assertEquals("Сиверская", ServicePhaseStationPicker.nearestAhead(phase, listOf("Гатчина", "Суйда"), at(30.199)))
-    }
-
-    @Test
-    fun `station already passed is not suggested even if closer`() {
-        // стоим ещё у Суйды, она уже в поезде — впереди в радиусе ничего нет
-        assertNull(ServicePhaseStationPicker.nearestAhead(phase, listOf("Гатчина", "Суйда"), at(30.101)))
-    }
-
-    @Test
-    fun `nothing near means empty`() {
-        assertNull(ServicePhaseStationPicker.nearestAhead(phase, listOf("Гатчина"), at(30.3)))
-    }
-
-    @Test
-    fun `train names are matched ignoring case and yo`() {
-        assertEquals("Луга", ServicePhaseStationPicker.nearestAhead(phase, listOf("гатчина", "толмачево"), at(30.49)))
-    }
-
-    @Test
-    fun `standing still - nearest station of the phase, even if already passed`() {
-        val here = at(30.1005) // у Суйды, она уже в поезде, но стоим тут — дописываем её
-        assertEquals("Суйда", ServicePhaseStationPicker.nameForNewStation(phase, listOf("Гатчина", "Сиверская"), here, previousFix = at(30.1))
-        )
-        // в движении, но уже на станции (≤ 500 м) — её, даже если по списку она позади
-        assertEquals("Суйда", ServicePhaseStationPicker.nameForNewStation(phase, listOf("Гатчина", "Сиверская"), here, previousFix = at(30.0)))
-        // в движении в 1,5 км от пройденной Суйды — впереди в радиусе ничего нет
-        assertNull(ServicePhaseStationPicker.nameForNewStation(phase, listOf("Гатчина", "Суйда"), at(30.126), previousFix = at(30.0)))
-    }
-
-    @Test
-    fun `without phase - nearest known station from all phases`() {
-        val points = ServicePhaseStationPicker.knownPoints(listOf(phase))
-        val names = ServicePhaseStationPicker.knownNames(listOf(phase))
-        assertEquals("Толмачёво", ServicePhaseStationPicker.nearestKnown(points, names, at(30.399)))
-        assertNull(ServicePhaseStationPicker.nearestKnown(points, names, at(30.3)))
-    }
-
-    @Test
-    fun `same as previous station is not repeated`() {
-        assertNull(ServicePhaseStationPicker.nameForNewStation(phase, listOf("Гатчина", "Сиверская", null), at(30.199), null))
-    }
-
-    @Test
     fun `suggestions - nearest first, then by usage`() {
         val names = listOf("Мга", "Луга", "Сиверская", "Суйда")
         val usage = StationSuggestionOrder.usage(sequenceOf("Мга", "Суйда", "Суйда", "суйда", "Мга", null, ""))

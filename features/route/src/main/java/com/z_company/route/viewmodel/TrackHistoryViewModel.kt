@@ -111,6 +111,7 @@ data class TrackHistoryUiState(
  */
 class TrackHistoryViewModel : ViewModel(), KoinComponent {
     private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
+    private val stopNamer: com.z_company.domain.util.StopStationNamer by inject()
     private val repository: TrackRepository by inject()
     private val resolver: TrackRouteResolver by inject()
     private val loader: TrackHistoryLoader by inject()
@@ -478,8 +479,9 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
                     val pts = com.z_company.domain.util.StationDirectory.points(dir)
                     val nms = com.z_company.domain.util.StationDirectory.names(dir)
                     marks.map { mk ->
-                        mk.copy(name = mk.name ?: com.z_company.domain.util.ServicePhaseStationPicker.pickForStop(
+                        mk.copy(name = mk.name ?: stopNamer.name(
                             null, emptyList(), mk.latitude, mk.longitude, pts, nms,
+                            onDiscovered = { stationDirectory.fillCoordinates(it.name, it.latitude, it.longitude) },
                         ))
                     }
                 }

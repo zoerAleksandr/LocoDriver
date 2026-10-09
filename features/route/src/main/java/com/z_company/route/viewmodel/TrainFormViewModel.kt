@@ -186,10 +186,8 @@ class TrainFormViewModel(
     // ─── Станции плеча по местоположению (SCREEN_SPECS §6.6) ───────────────
     // Объявлены ДО init: init их уже использует (порядок инициализации свойств).
     private val appContext: android.content.Context by inject()
-    private val remoteApi: com.z_company.repository.remote_rest.RemoteRestApi by inject()
-    private val tokenStorage: com.z_company.repository.SecureTokenStorage by inject()
+    private val stopNamer: com.z_company.domain.util.StopStationNamer by inject()
     /** Координата прошлого добавления станции — чтобы не подставлять одно и то же стоя на месте. */
-    private var previousAddFix: GeoFix? = null
     /** Последняя известная координата — для сортировки подсказок. */
     private var lastFix: GeoFix? = null
     private var stationUsage: Map<String, Int> = emptyMap()
@@ -607,11 +605,14 @@ class TrainFormViewModel(
         val dir = runCatching { stationDirectory.stations() }.getOrNull() ?: return marks
         val points = StationDirectory.points(dir)
         val names = StationDirectory.names(dir)
+        val written = ServicePhaseStationPicker.writtenNames(trainStationNames, phase != null)
+        val full = phase?.let { sp -> servicePhaseList.firstOrNull { it.id == sp.id } ?: sp }?.let { stationDirectory.resolve(it) }
         return marks.map { mk ->
             if (mk.name != null) mk
             else mk.copy(
-                name = com.z_company.domain.util.ServicePhaseStationPicker.pickForStop(
-                    phase, trainStationNames, mk.latitude, mk.longitude, points, names,
+                name = stopNamer.name(
+                    full, written, mk.latitude, mk.longitude, points, names,
+                    onDiscovered = { stationDirectory.fillCoordinates(it.name, it.latitude, it.longitude) },
                 ),
             )
         }
@@ -665,37 +666,23 @@ class TrainFormViewModel(
     fun selectedPhaseHasCoordinates(): Boolean = fullSelectedPhase()?.let(ServicePhaseStationPicker::hasCoordinates) == true
 
     /**
-     * Название для новой станции по местоположению (SCREEN_SPECS §6.6):
-     * - есть плечо с координатами станций — [ServicePhaseStationPicker.nameForNewStation]
-     *   (в движении — ближайшая впереди, стоя на месте — ближайшая станция плеча);
-     * - иначе — просто ближайшая станция: из координат всех плеч, а если рядом таких нет —
-     *   с сервера (ближайшая станция OSM в 2 км; координата не сохраняется).
-     * Повтор предыдущей станции поезда не подставляется.
+     * Название для новой станции по местоположению - ТА ЖЕ функция, что у «АВТО», карты и просмотра трека
+     * ([StopStationNamer], SCREEN_SPECS §6.2 п.6/6а): радиус 1 км; с плечом - по порядку плеча (не ранее последней
+     * записанной станции, повтор допускается), иначе справочник; без плеча (или без координат у плеча) - станция по
+     * рельсам с сервера, при сбое - справочник по прямой.
      */
-    private suspend fun suggestStationName(names: List<String?>, fix: GeoFix): String? {
-        val phase = fullSelectedPhase()
-        if (phase != null && ServicePhaseStationPicker.hasCoordinates(phase)) {
-            return ServicePhaseStationPicker.nameForNewStation(phase, names, fix, previousAddFix)
+    private suspend fun suggestStationName(names: List<String?>, fix: GeoFix): String? =
+        kotlinx.coroutines.withContext(Dispatchers.Default) {
+            val phase = fullSelectedPhase()?.let { stationDirectory.resolve(it) }
+            val dir = stationDirectory.stations()
+            stopNamer.name(
+                phase,
+                ServicePhaseStationPicker.writtenNames(names, _uiState.value.selectedServicePhase != null),
+                fix.latitude, fix.longitude,
+                StationDirectory.points(dir), StationDirectory.names(dir),
+                onDiscovered = { stationDirectory.fillCoordinates(it.name, it.latitude, it.longitude) },
+            )
         }
-        val directory = stationDirectory.stations()
-        val local = ServicePhaseStationPicker.nearestKnown(
-            StationDirectory.points(directory) + ServicePhaseStationPicker.knownPoints(servicePhaseList),
-            StationDirectory.names(directory) + ServicePhaseStationPicker.knownNames(servicePhaseList),
-            fix,
-        )
-        val name = local ?: nearestFromServer(fix)
-        return name?.takeUnless { ServicePhaseStationPicker.isSameAsPrevious(it, names) }
-    }
-
-    private suspend fun nearestFromServer(fix: GeoFix): String? = runCatching {
-        val token = tokenStorage.getAuthBearerTokenFlow().first() ?: return null
-        kotlinx.coroutines.withTimeout(5_000) {
-            remoteApi.nearestStation(
-                "Bearer $token",
-                com.z_company.repository.remote_rest.response.NearestStationRequest(fix.latitude, fix.longitude),
-            ).station?.name
-        }
-    }.getOrNull()
 
     /**
      * Подставить название новой станции [stationId] по местоположению — асинхронно, когда
@@ -706,7 +693,6 @@ class TrainFormViewModel(
             viewModelScope.launch {
                 val names = stationsListState.filter { it.id != stationId }.map { it.station.data }
                 val name = suggestStationName(names, fix)
-                previousAddFix = fix
                 val idx = stationsListState.indexOfFirst { it.id == stationId }
                 if (name != null && idx >= 0 && stationsListState[idx].station.data.isNullOrBlank()) {
                     stationsListState[idx] = stationsListState[idx].copy(station = StationField(data = name, type = StationDataType.NAME))
@@ -1380,7 +1366,6 @@ class TrainFormViewModel(
         refreshFix { fix ->
             viewModelScope.launch {
                 val name = suggestStationName(stationsListState.map { it.station.data }, fix)
-                previousAddFix = fix
                 if (_uiState.value.editingStationIndex == -1) _uiState.update { it.copy(suggestedNewStationName = name) }
             }
         }

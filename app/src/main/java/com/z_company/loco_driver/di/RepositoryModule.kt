@@ -132,6 +132,17 @@ val repositoryModule = module {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
     }
+    // Единое определение названия станции по месту (GO, «Добавить станцию», АВТО, карта, трек; SCREEN_SPECS §6.2 п.6а).
+    single {
+        val tokens: SecureTokenStorage = get()
+        com.z_company.domain.util.StopStationNamer(
+            lookup = com.z_company.repository.remote_rest.RemoteRailStationLookup(
+                api = get(),
+                bearerToken = { tokens.getAuthBearerTokenFlow().first() },
+            ),
+            nowMs = { System.currentTimeMillis() },
+        )
+    }
     // Кнопка «АВТО»: запись стоянок/отправлений по GPS (SCREEN_SPECS §6.2 п.6а).
     single {
         com.z_company.route.autorecord.AutoRecordManager(
@@ -140,6 +151,7 @@ val repositoryModule = module {
             trainUseCase = get(),
             stationDirectory = get(),
             settingsUseCase = get(),
+            stopNamer = get(),
             onWatchdog = { on ->
                 val wm = androidx.work.WorkManager.getInstance(androidContext())
                 if (on) {

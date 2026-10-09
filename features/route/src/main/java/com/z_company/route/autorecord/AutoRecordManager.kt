@@ -82,6 +82,8 @@ class AutoRecordManager(
     private val prefs: SharedPreferences,
     private val scope: CoroutineScope,
     private val settingsUseCase: SettingsUseCase,
+    /** Единое определение названия станции по месту (плечо / сервер по рельсам / справочник); null - только справочник и плечо. */
+    private val stopNamer: com.z_company.domain.util.StopStationNamer? = null,
     /** Состояние изменилось (для обновления виджетов). */
     private val onChanged: suspend () -> Unit = {},
     /** Включить/отключить периодическую проверку живучести службы (WorkManager в app). */
@@ -507,12 +509,31 @@ class AutoRecordManager(
         // Фиксируем фактическую цель (создание нового поезда / fallback при удалённом запомненном).
         if (prefs.getString(KEY_TARGET, null) != train.trainId) saveTarget(train.trainId)
 
-        // Название станции - единая функция (плечо и порядок станций поезда, радиус 1 км, иначе справочник).
+        // Название станции - единая функция (плечо и порядок станций поезда, радиус 1 км; без плеча - станция по рельсам
+        // с сервера, запасной вариант - справочник).
         val name = withContext(Dispatchers.Default) {
             val dir = stationDirectory.stations()
-            com.z_company.domain.autorecord.stationNameForStop(
-                train, event.latitude, event.longitude, StationDirectory.points(dir), StationDirectory.names(dir),
+            val points = StationDirectory.points(dir)
+            val names = StationDirectory.names(dir)
+            val phase = train.servicePhase?.let { sp ->
+                val full = runCatching {
+                    settingsUseCase.getUserSettingFlow().first().servicePhases.firstOrNull { it.id == sp.id }
+                }.getOrNull() ?: sp
+                stationDirectory.resolve(full)
+            }
+            val written = com.z_company.domain.util.ServicePhaseStationPicker.writtenNames(
+                train.stations.map { it.stationName }, train.servicePhase != null,
             )
+            if (stopNamer != null) {
+                stopNamer.name(
+                    phase, written, event.latitude, event.longitude, points, names,
+                    onDiscovered = { stationDirectory.fillCoordinates(it.name, it.latitude, it.longitude) },
+                )
+            } else {
+                com.z_company.domain.util.ServicePhaseStationPicker.pickForStop(
+                    phase, written, event.latitude, event.longitude, points, names,
+                )
+            }
         }
 
         val open = editor

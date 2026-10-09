@@ -38,7 +38,9 @@ fun stationNameForStop(
     points: Map<String, Pair<Double, Double>>,
     names: Map<String, String>,
 ): String? = ServicePhaseStationPicker.pickForStop(
-    train?.servicePhase, train?.stations?.map { it.stationName }.orEmpty(), latitude, longitude, points, names,
+    train?.servicePhase,
+    ServicePhaseStationPicker.writtenNames(train?.stations?.map { it.stationName }.orEmpty(), train?.servicePhase != null),
+    latitude, longitude, points, names,
 )
 
 /**
