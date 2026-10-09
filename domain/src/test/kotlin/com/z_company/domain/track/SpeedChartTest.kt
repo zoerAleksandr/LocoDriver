@@ -198,4 +198,78 @@ class SpeedChartTest {
         assertFalse(SpeedScale.isPassengerTrain(com.z_company.domain.entities.route.Train()))
         assertFalse(SpeedScale.isPassengerTrain(null))
     }
+
+    // Движение, стоянка (одни координаты), движение: ось «Путь» на стоянке стоит, «Время» нет.
+    private fun withStop(): List<SpeedSample> = SpeedChart.buildSeries(
+        (0 until 30).map { i ->
+            val steps = if (i < 10) i else if (i < 20) 10 else i - 10
+            TrackPoint(i * 10_000L, 55.0 + steps * 0.001, 37.0, 50.0, 5f)
+        }
+    )
+
+    private fun indexRange(s: List<SpeedSample>, axis: ChartAxis, w: ChartWindow): IntRange {
+        val t0 = s.first().timeMs
+        val ix = s.indices.filter { SpeedChart.xOf(s[it], axis, t0) >= w.start - 1e-6 && SpeedChart.xOf(s[it], axis, t0) <= w.end + 1e-6 }
+        return ix.first()..ix.last()
+    }
+
+    @Test
+    fun axisSwitchKeepsWindowPoints() {
+        val s = withStop()
+        // Окно на оси «Время»: точки 5..25.
+        val timeW = ChartWindow(50_000.0, 250_000.0)
+        val pathW = SpeedChart.convertWindow(s, ChartAxis.TIME, ChartAxis.PATH, timeW)
+        // На «Пути» стоянка схлопнута: в окно попадают те же точки (первая-крайняя совпадают с 5 и 25).
+        val r = indexRange(s, ChartAxis.PATH, pathW)
+        assertEquals(5, r.first)
+        assertEquals(25, r.last)
+        // Обратно: левая/правая граница снова на точках 5 и 25.
+        val back = SpeedChart.convertWindow(s, ChartAxis.PATH, ChartAxis.TIME, pathW)
+        assertEquals(50_000.0, back.start, 10_000.0)
+        assertEquals(250_000.0, back.end, 10_000.0)
+    }
+
+    @Test
+    fun axisSwitchKeepsFullWindowFull() {
+        val s = withStop()
+        val w = SpeedChart.convertWindow(s, ChartAxis.PATH, ChartAxis.TIME, SpeedChart.fullWindow(SpeedChart.total(s, ChartAxis.PATH)))
+        assertEquals(0.0, w.start)
+        assertEquals(SpeedChart.total(s, ChartAxis.TIME), w.end)
+    }
+
+    @Test
+    fun axisSwitchPathToTimeBoundariesAreSamples() {
+        val s = SpeedChart.buildSeries(pts(21))
+        // Равномерное движение: путь пропорционален времени, окно переносится линейно (с точностью до точки).
+        val pathTotal = SpeedChart.total(s, ChartAxis.PATH)
+        val w = SpeedChart.convertWindow(s, ChartAxis.PATH, ChartAxis.TIME, ChartWindow(pathTotal * 0.25, pathTotal * 0.75))
+        assertEquals(50_000.0, w.start, 10_000.0)
+        assertEquals(150_000.0, w.end, 10_000.0)
+    }
+
+    @Test
+    fun edgeButtonsVisibility() {
+        val total = 1000.0
+        // Весь ряд виден - обеих кнопок нет.
+        assertFalse(SpeedChart.canScrollToStart(ChartWindow(0.0, 1000.0), total))
+        assertFalse(SpeedChart.canScrollToEnd(ChartWindow(0.0, 1000.0), total))
+        // Прижато к началу - нет «В начало», есть «В конец».
+        assertFalse(SpeedChart.canScrollToStart(ChartWindow(0.0, 400.0), total))
+        assertTrue(SpeedChart.canScrollToEnd(ChartWindow(0.0, 400.0), total))
+        // Прижато к концу - наоборот.
+        assertTrue(SpeedChart.canScrollToStart(ChartWindow(600.0, 1000.0), total))
+        assertFalse(SpeedChart.canScrollToEnd(ChartWindow(600.0, 1000.0), total))
+        // Середина - обе.
+        assertTrue(SpeedChart.canScrollToStart(ChartWindow(300.0, 600.0), total))
+        assertTrue(SpeedChart.canScrollToEnd(ChartWindow(300.0, 600.0), total))
+        // Пустой ряд - нет.
+        assertFalse(SpeedChart.canScrollToStart(ChartWindow(0.0, 0.0), 0.0))
+    }
+
+    @Test
+    fun edgeWindowKeepsSpan() {
+        val w = ChartWindow(300.0, 600.0)
+        assertEquals(ChartWindow(0.0, 300.0), SpeedChart.edgeWindow(w, 1000.0, toEnd = false))
+        assertEquals(ChartWindow(700.0, 1000.0), SpeedChart.edgeWindow(w, 1000.0, toEnd = true))
+    }
 }
