@@ -591,6 +591,7 @@ fun FormLocoScreen(
 
                                         StationDropdownMenu(
                                             expanded = isExpandedMenu,
+                                            currentText = seriesName.text,
                                             stations = dropDownSeriesMenuList,
                                             onSelect = { selectionSeries ->
                                                 onSeriesSelected(selectionSeries)

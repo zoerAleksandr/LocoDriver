@@ -1294,6 +1294,7 @@ private fun StationNameField(
     onOpenStation: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val filtered = remember(value.text, stationList) { stationList.filter { it.contains(value.text, ignoreCase = true) } }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         PstTextField(
@@ -1305,7 +1306,14 @@ private fun StationNameField(
             label = label,
             placeholder = "Начните вводить название",
             // Значок местоположения - справа и кликабельный: открывает карточку этой станции (название, «Координаты»).
-            trailing = { StationGeoPin(hasCoordinates = hasCoordinates, onClick = onOpenStation) },
+            trailing = {
+                StationGeoPin(hasCoordinates = hasCoordinates, onClick = {
+                    // Булавка открывает карточку станции — список подсказок и клавиатуру не показываем.
+                    expanded = false
+                    focusManager.clearFocus()
+                    onOpenStation()
+                })
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
@@ -1318,6 +1326,7 @@ private fun StationNameField(
         )
         StationDropdownMenu(
             expanded = expanded && filtered.isNotEmpty(),
+            currentText = value.text,
             stations = filtered,
             onSelect = {
                 onValue(TextFieldValue(it, TextRange(it.length)))

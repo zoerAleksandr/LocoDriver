@@ -906,6 +906,7 @@ private fun StationCard(
                     )
                     StationDropdownMenu(
                         expanded = isDropdownExpanded,
+                        currentText = stationName.text,
                         stations = dropDownMenuList,
                         onSelect = { selectionStation ->
                             onStationChanged(selectionStation)

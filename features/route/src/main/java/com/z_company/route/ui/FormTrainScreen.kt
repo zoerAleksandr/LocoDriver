@@ -2592,6 +2592,7 @@ private fun TrainAssistSection(
 
                             StationDropdownMenu(
                                 expanded = isSeriesMenuExpanded,
+                                currentText = seriesFieldValue.text,
                                 stations = seriesMenuList,
                                 onSelect = { selectionSeries ->
                                     onSeriesChange(selectionSeries)
@@ -3011,6 +3012,7 @@ private fun DoubledTrainSection(
 
                             StationDropdownMenu(
                                 expanded = isSeriesMenuExpanded,
+                                currentText = seriesFieldValue2.text,
                                 stations = seriesMenuList,
                                 onSelect = { selectionSeries ->
                                     onSeriesChange(selectionSeries)
