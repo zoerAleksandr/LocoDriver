@@ -5,7 +5,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -1013,6 +1015,13 @@ internal fun TrainMapScreen(
             }
 
             if (showIconPicker && !viewOnly) {
+                // Нажатие мимо панели (карта, любая кнопка, системный «Назад») закрывает её, не передаваясь дальше.
+                BackHandler { showIconPicker = false }
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showIconPicker = false }
+                )
                 Column(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
