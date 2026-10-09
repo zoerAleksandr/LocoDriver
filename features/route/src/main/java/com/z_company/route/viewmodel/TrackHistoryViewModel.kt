@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.domain.track.TrackAnalysis
 import com.z_company.domain.track.TrackInfo
+import com.z_company.domain.track.TrackOrphanCleaner
 import com.z_company.domain.track.TrackPacking
 import com.z_company.domain.track.TrackPoint
 import com.z_company.domain.track.TrackRepository
@@ -108,7 +109,8 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
             val zone = runCatching { settingsUseCase.getUserSettingFlow().first().displayTimeZone() }.getOrDefault("GMT+3")
             _state.update { it.copy(consent = consent.saveTracks.value, zone = zone) }
             // Треки удалённых рейсов/поездов не показываем: сначала убираем осиротевшие.
-            runCatching { resolver.cleanOrphans() }
+            resolver.invalidate()
+            runCatching { resolver.cleanOrphans(TrackOrphanCleaner.EXPLICIT_GRACE_MS) }
             loadLocal()
             loadRemote(reset = true)
         }
@@ -117,7 +119,9 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
     }
 
     private suspend fun loadLocal() {
-        val infos = withContext(Dispatchers.Default) { repository.tracks() }
+        // Сирот (поезда нет ни в одном рейсе) не показываем, даже если чистка их ещё не удалила (свежие).
+        val trainIds = resolver.existingTrainIds().orEmpty()
+        val infos = withContext(Dispatchers.Default) { TrackOrphanCleaner.visible(repository.tracks(), trainIds) }
         val canSend = consent.saveTracks.value
         // Сначала быстрый список без сводок, затем карточки достраиваются по одной.
         val remoteOnly = _state.value.items.filter { it.status == TrackHistoryStatus.SERVER_ONLY }
@@ -183,7 +187,9 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
             val page = loader.page(token, remoteCursor)
             remoteCursor = page.nextCursor
             val localIds = repository.tracks().map { it.trackId }.toSet()
-            val add = page.tracks.filter { it.id !in localIds }.map { c ->
+            // Удалённые локально, но ещё не удалённые на сервере (очередь) не показываем: тап дал бы «не найден».
+            val pendingDelete = repository.pendingRemoteDeletes().toSet()
+            val add = page.tracks.filter { it.id !in localIds && it.id !in pendingDelete }.map { c ->
                 TrackHistoryItem(
                     id = c.id,
                     title = c.title.ifBlank { "Трек" },
@@ -285,8 +291,16 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
                     if (token == null) emptyList() else loader.download(token, item.id)
                 }
                 if (points.isEmpty()) {
-                    postMessage("Не удалось открыть трек")
-                    _state.update { it.copy(opening = false) }
+                    // Трек исчез (удалён вместе с поездом/рейсом): убираем карточку вместо ошибки.
+                    val gone = item.isLocal && withContext(Dispatchers.Default) { repository.track(item.id) == null }
+                    if (gone) {
+                        statsCache.remove(item.id)
+                        _state.update { st -> st.copy(items = st.items.filter { it.id != item.id }, opening = false) }
+                        postMessage("Трек уже удалён")
+                    } else {
+                        postMessage("Не удалось открыть трек")
+                        _state.update { it.copy(opening = false) }
+                    }
                     return@launch
                 }
                 val zone = runCatching { settingsUseCase.getUserSettingFlow().first().displayTimeZone() }.getOrDefault("GMT+3")
@@ -294,6 +308,12 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (e is TracksApiException && e.status == 404) {
+                    // На сервере трека уже нет (удалён с другого устройства/вместе с рейсом).
+                    _state.update { st -> st.copy(items = st.items.filter { it.id != item.id }, opening = false) }
+                    postMessage("Трек уже удалён")
+                    return@launch
+                }
                 _state.update { it.copy(opening = false) }
                 postMessage(if (e is TracksApiException) "Не удалось загрузить трек с сервера" else "Не удалось открыть трек")
             }

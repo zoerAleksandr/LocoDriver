@@ -52,4 +52,26 @@ class TrackOrphanCleanerTest {
         repo.setFavorite("fav", true)
         assertEquals(1, TrackOrphanCleaner.clean(repo, setOf("train-1"), now))
     }
+
+    @Test
+    fun explicitGraceRemovesOlderOrphansButKeepsTheOneBeingRecorded() {
+        val repo = repoWith(
+            Triple("live", "train-gone", now - 60_000),
+            Triple("old", "train-gone", now - 2 * 60 * 60_000),
+        )
+        val removed = TrackOrphanCleaner.clean(repo, setOf("train-1"), now, TrackOrphanCleaner.EXPLICIT_GRACE_MS)
+        assertEquals(1, removed)
+        assertNotNull(repo.track("live"))
+        assertNull(repo.track("old"))
+    }
+
+    @Test
+    fun visibleHidesOrphansEvenWhenFreshAndShowsAllWhenRoutesUnreadable() {
+        val repo = repoWith(
+            Triple("alive", "train-1", now - 60_000),
+            Triple("fresh-orphan", "train-gone", now - 60_000),
+        )
+        assertEquals(listOf("alive"), TrackOrphanCleaner.visible(repo.tracks(), setOf("train-1")).map { it.trackId })
+        assertEquals(2, TrackOrphanCleaner.visible(repo.tracks(), emptySet()).size)
+    }
 }
