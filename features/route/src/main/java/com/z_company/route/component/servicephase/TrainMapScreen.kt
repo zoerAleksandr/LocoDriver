@@ -5,7 +5,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.activity.compose.BackHandler
+import kotlin.math.abs
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -177,6 +181,8 @@ internal fun TrainMapScreen(
         val positionIcon by PositionIconStore.selected(context).collectAsState()
         var showIconPicker by remember { mutableStateOf(false) }
         var ride by rememberSaveable { mutableStateOf(false) }
+        // Поворот карты (градусы, 0 = север сверху): для кнопки-компаса.
+        var mapBearing by remember { mutableStateOf(0.0) }
         // Масштаб, выбранный пользователем кнопками «+»/«−»: сохраняется при следовании (иначе слежение возвращало 14).
         var userZoom by remember { mutableStateOf<Double?>(null) }
         var snappedLast by remember { mutableStateOf<TrackPoint?>(null) }
@@ -248,7 +254,7 @@ internal fun TrainMapScreen(
             MapView(context).also { mv ->
                 mv.getMapAsync { m ->
                     map = m
-                    m.uiSettings.isRotateGesturesEnabled = false
+                    m.uiSettings.isRotateGesturesEnabled = true
                     m.uiSettings.isTiltGesturesEnabled = false
                     m.uiSettings.isLogoEnabled = false
                     m.uiSettings.isAttributionEnabled = true
@@ -481,7 +487,7 @@ internal fun TrainMapScreen(
                     if (role == "ahead" || role == "terminal") 0 else 1,
                 )
             }
-            val markRows = marks.map { Row(it.latitude, it.longitude, it.name.orEmpty(), "mark", 11f, 8.5f, 1) }
+            val markRows = marks.map { Row(it.latitude, it.longitude, stopTitle(it, stops), "mark", 11f, 8.5f, 1) }
             val rows = routeRows + markRows
             val items = rows.map { r ->
                 val pt = m.projection.toScreenLocation(LatLng(r.lat, r.lon))
@@ -528,14 +534,18 @@ internal fun TrainMapScreen(
                 if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) {
                     follow = false
                     userZoom = null
-                    if (ride) {
-                        ride = false
-                        map?.let { mm -> mm.easeCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(mm.cameraPosition).bearing(0.0).build()), 300) }
-                    }
+                    // Ручной жест (в т.ч. поворот двумя пальцами) выключает «еду по карте»; поворот карты не сбрасываем —
+                    // возвращает север кнопка-компас.
+                    if (ride) ride = false
                 }
             }
+            val bearingListener = MapLibreMap.OnCameraMoveListener { mapBearing = m?.cameraPosition?.bearing ?: 0.0 }
             m?.addOnCameraMoveStartedListener(l)
-            onDispose { m?.removeOnCameraMoveStartedListener(l) }
+            m?.addOnCameraMoveListener(bearingListener)
+            onDispose {
+                m?.removeOnCameraMoveStartedListener(l)
+                m?.removeOnCameraMoveListener(bearingListener)
+            }
         }
         // Живая геолокация: подписка только пока карта открыта (раньше было разовое «последнее известное» — позиция не
         // обновлялась). Обновляет маркер, скорость и, в режиме «следовать» при движении, плавно ведёт камеру.
@@ -557,7 +567,7 @@ internal fun TrainMapScreen(
                     // карта поворачивается по ходу движения.
                     val zoom = userZoom ?: maxOf(m.cameraPosition.zoom, 14.0)
                     val cam = CameraPosition.Builder().target(LatLng(f.latitude, f.longitude)).zoom(zoom)
-                        .bearing(if (ride && h != null) h else 0.0).tilt(0.0).build()
+                        .bearing(if (ride && h != null) h else m.cameraPosition.bearing).tilt(0.0).build()
                     m.easeCamera(CameraUpdateFactory.newCameraPosition(cam), 900)
                 }
             }
@@ -933,7 +943,7 @@ internal fun TrainMapScreen(
                             is TrainMapSelection.Stop -> {
                                 val mk = sel.mark
                                 Text(
-                                    text = mk.name ?: "Остановка",
+                                    text = stopTitle(mk, stops),
                                     style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                                     color = Pst.text,
                                     maxLines = 2,
@@ -943,7 +953,7 @@ internal fun TrainMapScreen(
                                     mk.departureMs?.let { add("Отправление " + TrackAnalysis.clock(it, zone)) }
                                     val a = mk.arrivalMs
                                     val d = mk.departureMs
-                                    if (a != null && d != null && d > a) add("стоянка ${TrackAnalysis.dwellMinutes(a, d)} м")
+                                    if (a != null && d != null && d > a) add("стоянка ${TrackAnalysis.dwellMinutes(a, d)} мин")
                                 }
                                 Text(
                                     text = parts.joinToString(" · "),
@@ -965,6 +975,21 @@ internal fun TrainMapScreen(
                 }
                 MapButton(onClick = { zoomBy(-1.0) }, description = "Отдалить") {
                     Text("−", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
+                }
+                val bearingNorm = ((mapBearing % 360.0) + 540.0) % 360.0 - 180.0
+                if (abs(bearingNorm) > 0.5) {
+                    MapButton(
+                        onClick = {
+                            ride = false
+                            map?.let { mm ->
+                                mm.animateCamera(
+                                    CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(mm.cameraPosition).bearing(0.0).tilt(0.0).build()),
+                                    400,
+                                )
+                            }
+                        },
+                        description = "Север сверху",
+                    ) { CompassNeedle(bearingNorm.toFloat()) }
                 }
                 if (!viewOnly || track?.points.orEmpty().isNotEmpty()) {
                     MapButton(onClick = { showChart = true }, description = "График скорости") {
@@ -1013,6 +1038,13 @@ internal fun TrainMapScreen(
             }
 
             if (showIconPicker && !viewOnly) {
+                // Нажатие мимо панели (карта, любая кнопка, системный «Назад») закрывает её, не передаваясь дальше.
+                BackHandler { showIconPicker = false }
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showIconPicker = false }
+                )
                 Column(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -1336,4 +1368,39 @@ private fun EtaLine(label: String, name: String, distanceM: Double, etaMs: Long?
 internal object TrainMapEta {
     fun distance(m: Double): String =
         if (m < 1000.0) "${(Math.round(m / 10.0) * 10)} м" else String.format(java.util.Locale.US, "%.1f", m / 1000.0).replace('.', ',') + " км"
+}
+
+/** Иконка компаса: красная стрелка указывает на север карты (поворачивается против поворота карты). */
+@Composable
+private fun CompassNeedle(bearingDeg: Float) {
+    val north = androidx.compose.ui.graphics.Color(0xFFE53935)
+    val south = Pst.textMuted
+    androidx.compose.foundation.Canvas(Modifier.size(26.dp).rotate(-bearingDeg)) {
+        val c = center
+        val h = size.height / 2f
+        val w = size.width * 0.2f
+        val up = androidx.compose.ui.graphics.Path().apply {
+            moveTo(c.x, c.y - h); lineTo(c.x + w, c.y); lineTo(c.x - w, c.y); close()
+        }
+        val down = androidx.compose.ui.graphics.Path().apply {
+            moveTo(c.x, c.y + h); lineTo(c.x + w, c.y); lineTo(c.x - w, c.y); close()
+        }
+        drawPath(down, south)
+        drawPath(up, north)
+    }
+}
+
+/**
+ * Подпись остановки: название станции поезда; иначе станция плеча в пределах 400 м (если плечо есть);
+ * иначе «Стоянка N мин» (по времени прибытия/отправления из трека), иначе «Остановка».
+ */
+private fun stopTitle(mk: com.z_company.domain.track.TrainStopMark, routeStops: List<com.z_company.domain.util.TrainMapStop>): String {
+    mk.name?.takeIf { it.isNotBlank() }?.let { return it }
+    routeStops
+        .minByOrNull { TrackAnalysis.distanceM(mk.latitude, mk.longitude, it.latitude, it.longitude) }
+        ?.takeIf { TrackAnalysis.distanceM(mk.latitude, mk.longitude, it.latitude, it.longitude) <= 400.0 && it.name.isNotBlank() }
+        ?.let { return it.name }
+    val a = mk.arrivalMs
+    val d = mk.departureMs
+    return if (a != null && d != null && d > a) "Стоянка ${TrackAnalysis.dwellMinutes(a, d)} мин" else "Остановка"
 }

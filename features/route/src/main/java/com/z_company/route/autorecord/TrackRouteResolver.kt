@@ -49,6 +49,14 @@ class TrackRouteResolver(
         return TrackTrainResolution.Missing
     }
 
+    /** Явка рейса (`basicData.timeStartWork`) по поезду трека; null — рейса/явки нет. */
+    suspend fun workStartByTrain(trainId: String): Long? =
+        allRoutes()?.firstOrNull { r -> r.trains.any { it.trainId == trainId } }?.basicData?.timeStartWork
+
+    /** Явка рейса по его id (для серверных треков: у карточки есть только `routeId`). */
+    suspend fun workStartByRoute(routeId: String): Long? =
+        allRoutes()?.firstOrNull { it.basicData.id == routeId }?.basicData?.timeStartWork
+
     /** Идентификаторы поездов всех рейсов (включая корзину); null — рейсы прочитать не удалось. */
     suspend fun existingTrainIds(): Set<String>? =
         allRoutes()?.flatMap { r -> r.trains.map { it.trainId } }?.toSet()
