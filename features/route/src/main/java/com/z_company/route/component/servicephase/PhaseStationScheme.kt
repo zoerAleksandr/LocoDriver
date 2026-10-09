@@ -56,6 +56,8 @@ internal fun PhaseStopRow(
     terminalKm: Int? = null,
     esr: String? = null,
     noCoordinates: Boolean = false,
+    /** Значок местоположения справа (редактор плеча): есть ли координаты; null - значка нет. Нажатие = [onClick]. */
+    geoKnown: Boolean? = null,
     already: Boolean = false,
     checked: Boolean = false,
     lifted: Boolean = false,
@@ -168,6 +170,7 @@ internal fun PhaseStopRow(
                 SchemeMode.VIEW -> if (onClick == null) {
                     Spacer(Modifier.width(14.dp))
                 } else {
+                    if (geoKnown != null) StationGeoPin(hasCoordinates = geoKnown, onClick = onClick, size = 36.dp)
                     PstIcon(PstIcons.ChevronRight, 14.dp, Pst.textFaint)
                 }
                 SchemeMode.EDIT -> if (terminal) {

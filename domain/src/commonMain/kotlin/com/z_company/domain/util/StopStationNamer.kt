@@ -127,6 +127,36 @@ class StopStationNamer(
         )
     }
 
+    /**
+     * Ближайшая станция к точке, на которую нажали на карте редактора плеча (SCREEN_SPECS §6.6): без плеча и без кэша -
+     * каждая точка отдельный запрос. Сервер по рельсам вместе с кандидатами-справочником ([candidatesFor], радиус
+     * [PointStationPicker.RADIUS_M]); сервер не ответил / `off_rails` / `not_found` - ближайшая станция справочника по
+     * прямой, затем станция OSM, нарисованная на карте ([rendered]); иначе станции нет.
+     */
+    suspend fun stationAtPoint(
+        latitude: Double,
+        longitude: Double,
+        points: Map<String, Pair<Double, Double>>,
+        names: Map<String, String>,
+        rendered: RenderedStation? = null,
+    ): PointStationResult {
+        val source = lookup
+        val result = if (source == null) RailLookupResult.Unavailable() else runCatching {
+            source.nearestAlongRail(latitude, longitude, PointStationPicker.RADIUS_M, candidatesFor(latitude, longitude, points, names))
+        }.getOrElse { RailLookupResult.Unavailable() }
+        val offline = result is RailLookupResult.Unavailable
+        val found = (result as? RailLookupResult.Found)?.station?.takeIf { it.name.isNotBlank() }
+        if (found != null) {
+            return PointStationResult(PointStationPicker.fromRail(found, latitude, longitude, points, names), offline = false)
+        }
+        PointStationPicker.nearestDirectory(latitude, longitude, points, names)?.let { return PointStationResult(it, offline) }
+        rendered?.takeIf { it.name.isNotBlank() }?.let {
+            val st = PointStationPicker.fromRendered(it, latitude, longitude, points, names)
+            if (st.distanceM <= PointStationPicker.RADIUS_M) return PointStationResult(st, offline)
+        }
+        return PointStationResult(null, offline)
+    }
+
     private suspend fun railStation(latitude: Double, longitude: Double, candidates: List<RailCandidate>): RailStation? {
         val source = lookup ?: return null
         val result = cache.get(latitude, longitude) ?: run {

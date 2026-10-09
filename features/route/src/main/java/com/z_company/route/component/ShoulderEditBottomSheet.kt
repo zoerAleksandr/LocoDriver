@@ -30,6 +30,7 @@ import org.koin.compose.koinInject
 import com.z_company.domain.util.ServicePhaseStationsMerge
 
 import com.z_company.domain.util.StationDirectory
+import com.z_company.domain.util.PointStation
 
 import com.z_company.domain.use_cases.StationDirectoryUseCase
 
@@ -112,6 +113,7 @@ import com.z_company.domain.entities.setting.ServicePhaseStationKind
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.route.component.servicephase.PhaseInsertRow
 import com.z_company.route.component.servicephase.PhaseStationSheet
+import com.z_company.route.component.servicephase.StationGeoPin
 import com.z_company.route.component.servicephase.PhaseStopRow
 import com.z_company.route.component.servicephase.Pst
 import com.z_company.route.component.servicephase.PstButton
@@ -157,6 +159,7 @@ fun ShoulderEditBottomSheet(
     val isNew = phase == null
     // Координаты станций — из справочника (единый источник); в плече — запасная копия.
     val stationDirectory: StationDirectoryUseCase = koinInject()
+    val stopNamer: com.z_company.domain.util.StopStationNamer = koinInject()
     @Suppress("NAME_SHADOWING")
     val phase = remember { phase?.let(stationDirectory::resolve) }
     val directoryPoints = remember { StationDirectory.byName(stationDirectory.stations()) }
@@ -552,6 +555,63 @@ fun ShoulderEditBottomSheet(
         stationSheetOpen = true
     }
 
+    /** Карта плеча: варианты маршрута / путь по рельсам (прежнее поведение кнопки «Карта»). */
+    fun openRouteOnMap() {
+        val cached = cachedVariantChoice
+        if (
+            stations.isEmpty() &&
+            cached?.signature == coordinateSignature() &&
+            cached.choice.from == departure.text.trim() &&
+            cached.choice.to == arrival.text.trim()
+        ) {
+            variantChoice = cached.choice
+        } else {
+            measureByMap(
+                previewSingleRoute = true,
+                fallbackToCachedMap = true,
+            )
+        }
+    }
+
+    /** Станции справочника и станции плеча в редакторе (ещё не сохранённые) с координатами: нормализованное название -> точка. */
+    fun knownStationPoints(): Pair<Map<String, Pair<Double, Double>>, Map<String, String>> {
+        val dirStations = stationDirectory.stations()
+        val points = StationDirectory.points(dirStations).toMutableMap()
+        val names = StationDirectory.names(dirStations).toMutableMap()
+        fun add(name: String, lat: Double?, lon: Double?) {
+            if (name.isBlank() || lat == null || lon == null) return
+            val k = ServicePhaseStationsMerge.normalizeName(name)
+            if (k !in points) { points[k] = lat to lon; names[k] = name.trim() }
+        }
+        stations.forEach { add(it.name, it.latitude, it.longitude) }
+        pointFor(depPoint, departure.text.trim())?.let { add(departure.text, it.latitude, it.longitude) }
+        pointFor(arrPoint, arrival.text.trim())?.let { add(arrival.text, it.latitude, it.longitude) }
+        return points to names
+    }
+
+    /** «Применить» на карте: название и координаты - в поле станции плеча; в справочник - только если у станции там нет координат. */
+    fun applyMapStation(isStart: Boolean, st: PointStation) {
+        val name = st.name.trim()
+        val point = ServicePhasePoint(st.latitude, st.longitude, st.osmId, st.esr)
+        if (isStart) {
+            departure = textValue(name)
+            depPoint = point to name
+        } else {
+            arrival = textValue(name)
+            arrPoint = point to name
+        }
+        measureScope.launch { stationDirectory.fillCoordinates(name, st.latitude, st.longitude) }
+    }
+
+    /** Станций рядом нет: точка нажатия - место станции с уже введённым названием. */
+    fun applyMapPointToTypedName(isStart: Boolean, lat: Double, lon: Double) {
+        val name = (if (isStart) departure else arrival).text.trim()
+        if (name.isBlank()) return
+        val point = ServicePhasePoint(lat, lon)
+        if (isStart) depPoint = point to name else arrPoint = point to name
+        measureScope.launch { stationDirectory.fillCoordinates(name, lat, lon) }
+    }
+
     if (showRouteMap) {
         val dep = departure.text.trim()
         val arr = arrival.text.trim()
@@ -562,13 +622,32 @@ fun ShoulderEditBottomSheet(
             stations.filter { it.hasCoordinates }.forEach { add(RouteMapStop(it.name, it.latitude!!, it.longitude!!, it.kind)) }
             arrP?.let { add(RouteMapStop(arr, it.latitude, it.longitude)) }
         }
-        val total = stations.size + 2
+        val total = (if (dep.isBlank()) 0 else 1) + (if (arr.isBlank()) 0 else 1) + stations.size
+        val lastStation = remember {
+            stationDirectory.stations().filter { it.hasCoordinates }.maxByOrNull { it.updatedAt }
+                ?.let { it.latitude!! to it.longitude!! }
+        }
         PhaseRouteMap(
             title = listOf(dep, arr).filter { it.isNotBlank() }.joinToString(" — ").ifBlank { "Плечо" },
             stops = stops,
-            missing = total - stops.size,
+            missing = (total - stops.size).coerceAtLeast(0),
             loadRailLine = { autoVm.railLine(it) },
             onDismiss = { showRouteMap = false },
+            departureName = dep,
+            arrivalName = arr,
+            departureKnown = depP != null,
+            arrivalKnown = arrP != null,
+            lastStation = lastStation,
+            findStation = { lat, lon, rendered ->
+                val (points, names) = knownStationPoints()
+                stopNamer.stationAtPoint(lat, lon, points, names, rendered)
+            },
+            onApplyStation = ::applyMapStation,
+            onApplyTypedName = ::applyMapPointToTypedName,
+            onMeasure = {
+                showRouteMap = false
+                openRouteOnMap()
+            },
         )
     }
 
@@ -942,22 +1021,8 @@ fun ShoulderEditBottomSheet(
             EditorTopBar(
                 title = if (isNew) "Новое плечо" else "Редактировать плечо",
                 onBack = ::close,
-                onMap = {
-                    val cached = cachedVariantChoice
-                    if (
-                        stations.isEmpty() &&
-                        cached?.signature == coordinateSignature() &&
-                        cached.choice.from == departure.text.trim() &&
-                        cached.choice.to == arrival.text.trim()
-                    ) {
-                        variantChoice = cached.choice
-                    } else {
-                        measureByMap(
-                            previewSingleRoute = true,
-                            fallbackToCachedMap = true,
-                        )
-                    }
-                },
+                // Карта открывается всегда - и без координат станций (там можно указать станции нажатием на карте).
+                onMap = { showRouteMap = true },
             )
             Box(modifier = Modifier.weight(1f)) {
                 LazyColumn(
@@ -981,6 +1046,10 @@ fun ShoulderEditBottomSheet(
                             onDone = { focusManager.clearFocus() },
                             departureFocus = departureFocus,
                             arrivalFocus = arrivalFocus,
+                            departureKnown = pointFor(depPoint, departure.text.trim()) != null,
+                            arrivalKnown = pointFor(arrPoint, arrival.text.trim()) != null,
+                            onOpenDeparture = { editingTerminal = true },
+                            onOpenArrival = { editingTerminal = false },
                             currency = currencySymbol(country),
                             measure = {
                                 val isMeasured = measured?.let {
@@ -1057,6 +1126,8 @@ fun ShoulderEditBottomSheet(
                         activeInsert = if (stationSheetOpen && editingStation == null) insertAt else null,
                         onOpen = { openStation(it, null) },
                         onOpenTerminal = { isStart -> editingTerminal = isStart },
+                        departureKnown = pointFor(depPoint, departure.text.trim()) != null,
+                        arrivalKnown = pointFor(arrPoint, arrival.text.trim()) != null,
                         onInsert = { at -> openStation(null, at) },
                         onRemove = { st ->
                             val idx = stations.indexOfFirst { it.id == st.id }
@@ -1156,12 +1227,16 @@ private fun PhaseFields(
     onDone: () -> Unit,
     departureFocus: FocusRequester,
     arrivalFocus: FocusRequester,
+    departureKnown: Boolean,
+    arrivalKnown: Boolean,
+    onOpenDeparture: () -> Unit,
+    onOpenArrival: () -> Unit,
     currency: String,
     measure: @Composable () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        StationNameField("От станции", departure, onDeparture, stationList, onDeleteStationName, onNext, departureFocus)
-        StationNameField("До станции", arrival, onArrival, stationList, onDeleteStationName, onNext, arrivalFocus)
+        StationNameField("От станции", departure, onDeparture, stationList, onDeleteStationName, onNext, departureFocus, departureKnown, onOpenDeparture)
+        StationNameField("До станции", arrival, onArrival, stationList, onDeleteStationName, onNext, arrivalFocus, arrivalKnown, onOpenArrival)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PstTextField(
                 value = distance,
@@ -1215,6 +1290,8 @@ private fun StationNameField(
     onDeleteStationName: (String) -> Unit,
     onNext: () -> Unit,
     focusRequester: FocusRequester,
+    hasCoordinates: Boolean,
+    onOpenStation: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val filtered = remember(value.text, stationList) { stationList.filter { it.contains(value.text, ignoreCase = true) } }
@@ -1227,7 +1304,8 @@ private fun StationNameField(
             },
             label = label,
             placeholder = "Начните вводить название",
-            leadingIcon = PstIcons.MapPin,
+            // Значок местоположения - справа и кликабельный: открывает карточку этой станции (название, «Координаты»).
+            trailing = { StationGeoPin(hasCoordinates = hasCoordinates, onClick = onOpenStation) },
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
@@ -1301,6 +1379,8 @@ private fun LazyListScope.stationScheme(
     activeInsert: Int?,
     onOpen: (ServicePhaseStation) -> Unit,
     onOpenTerminal: (isStart: Boolean) -> Unit,
+    departureKnown: Boolean,
+    arrivalKnown: Boolean,
     onInsert: (Int) -> Unit,
     onRemove: (ServicePhaseStation) -> Unit,
 ) {
@@ -1315,6 +1395,7 @@ private fun LazyListScope.stationScheme(
                     isFirst = true,
                     isLast = false,
                     mode = mode,
+                    geoKnown = departureKnown,
                     onClick = if (editMode) null else ({ onOpenTerminal(true) }),
                 )
             }
@@ -1335,6 +1416,7 @@ private fun LazyListScope.stationScheme(
                             km = st.kmFromStart,
                             esr = st.esr,
                             noCoordinates = !st.hasCoordinates,
+                            geoKnown = st.hasCoordinates,
                             lifted = isDragging,
                             fresh = st.id in freshIds,
                             onClick = if (editMode) null else ({ onOpen(st) }),
@@ -1368,6 +1450,7 @@ private fun LazyListScope.stationScheme(
                         isLast = true,
                         mode = mode,
                         terminalKm = distanceKm.takeIf { it > 0 },
+                        geoKnown = arrivalKnown,
                         onClick = if (editMode) null else ({ onOpenTerminal(false) }),
                     )
                 }
