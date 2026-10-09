@@ -58,6 +58,44 @@ object ServicePhaseStationPicker {
             ?.first?.name
     }
 
+    /**
+     * ЕДИНЫЙ выбор названия станции остановки (АВТО, карта, просмотр трека; SCREEN_SPECS §6.9, §6.2 п.6а), радиус [radiusM]
+     * (по умолчанию 1 км, [com.z_company.domain.autorecord.StopDetectionConfig.STATION_RADIUS_M]):
+     * - плечо выбрано и в радиусе есть его станции (полный список с промежуточными) - берётся станция, стоящая по порядку плеча
+     *   ближайшей впереди последней записанной станции поезда (не ранее неё: повтор той же - «уже на станции»); если у поезда
+     *   ничего не записано - ближайшая к началу плеча;
+     * - иначе (плеча нет или рядом нет его станций) - ближайшая станция справочника ([points]/[names]) в радиусе;
+     * - иначе null (название остаётся пустым).
+     */
+    fun pickForStop(
+        phase: ServicePhase?,
+        trainStationNames: List<String?>,
+        latitude: Double,
+        longitude: Double,
+        points: Map<String, Pair<Double, Double>>,
+        names: Map<String, String>,
+        radiusM: Double = com.z_company.domain.autorecord.StopDetectionConfig.STATION_RADIUS_M,
+    ): String? {
+        if (phase != null) {
+            val all = stops(phase)
+            val norm = all.map { ServicePhaseStationsMerge.normalizeName(it.name) }
+            val lastKnown = trainStationNames.asReversed().asSequence()
+                .mapNotNull { it?.takeIf(String::isNotBlank) }
+                .map { ServicePhaseStationsMerge.normalizeName(it) }
+                .map { norm.indexOf(it) }
+                .firstOrNull { it >= 0 } ?: -1
+            val inRadius = all.withIndex().filter { (_, st) ->
+                st.lat != null && st.lon != null && distanceM(latitude, longitude, st.lat, st.lon) <= radiusM
+            }
+            // Не ранее последней записанной; если все кандидаты позади - станция плеча не подходит (справочник ниже).
+            inRadius.firstOrNull { it.index >= maxOf(lastKnown, 0) }?.let { return it.value.name }
+        }
+        return points.map { (key, p) -> key to distanceM(latitude, longitude, p.first, p.second) }
+            .filter { it.second <= radiusM }
+            .minByOrNull { it.second }
+            ?.let { names[it.first] }
+    }
+
     /** С прошлой фиксации телефон почти не сдвинулся. */
     fun isStationary(previous: GeoFix?, fix: GeoFix): Boolean =
         previous != null && distanceM(previous.latitude, previous.longitude, fix.latitude, fix.longitude) < STATIONARY_M

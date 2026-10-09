@@ -104,6 +104,7 @@ private const val TRAIN_MARKS_SOURCE = "train-map-marks"
 private const val TRAIN_SEL_SOURCE = "train-map-sel"
 private const val TRAIN_TAIL_SOURCE = "train-map-tail"
 private const val TRAIN_OFF_SOURCE = "train-map-off"
+private const val TRAIN_NODATA_SOURCE = "train-map-nodata"
 private const val TRAIN_PLAN_SOURCE = "train-map-plan"
 private const val ME_ICON_IMAGE = "train-me-icon"
 private const val PLAN_FLAG_IMAGE = "train-plan-flag"
@@ -400,6 +401,16 @@ internal fun TrainMapScreen(
                             ),
                             "train-map-stops-layer",
                         )
+                        // Участки «нет данных» (потеря сигнала, разрыв записи > 90 с): серый пунктир, не стоянка и не скорость.
+                        style.addSource(GeoJsonSource(TRAIN_NODATA_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addLayerBelow(
+                            LineLayer("train-map-nodata-layer", TRAIN_NODATA_SOURCE).withProperties(
+                                PropertyFactory.lineColor("#78909C"),
+                                PropertyFactory.lineWidth(2.2f),
+                                PropertyFactory.lineDasharray(arrayOf(1.2f, 2f)),
+                            ),
+                            "train-map-stops-layer",
+                        )
                         // Остановки (станции поезда и стоянки по треку) и выбранная тапом точка — поверх всего, кроме «я».
                         style.addSource(GeoJsonSource(TRAIN_MARKS_SOURCE, FeatureCollection.fromFeatures(emptyList())))
                         style.addSource(GeoJsonSource(TRAIN_SEL_SOURCE, FeatureCollection.fromFeatures(emptyList())))
@@ -599,10 +610,23 @@ internal fun TrainMapScreen(
             }
             val feats = ArrayList<Feature>(pts.size)
             val offFeats = ArrayList<Feature>()
+            val noDataFeats = ArrayList<Feature>()
             for (i in 1 until pts.size) {
                 val a = pts[i - 1]
                 val b = pts[i]
-                if (b.point.timeMs - a.point.timeMs > TrackAnalysis.GAP_MS) continue
+                val dt = b.point.timeMs - a.point.timeMs
+                if (dt > TrackAnalysis.GAP_MS) continue
+                if (dt > TrackAnalysis.DATA_GAP_MS) {
+                    noDataFeats += Feature.fromGeometry(
+                        LineString.fromLngLats(
+                            listOf(
+                                Point.fromLngLat(a.point.longitude, a.point.latitude),
+                                Point.fromLngLat(b.point.longitude, b.point.latitude),
+                            ),
+                        ),
+                    )
+                    continue
+                }
                 val v = b.point.speedKmh ?: a.point.speedKmh
                 val seg = LineString.fromLngLats(
                     listOf(
@@ -617,6 +641,7 @@ internal fun TrainMapScreen(
             snappedLast = pts.lastOrNull()?.point
             map?.style?.getSourceAs<GeoJsonSource>(TRAIN_TRACK_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(feats))
             map?.style?.getSourceAs<GeoJsonSource>(TRAIN_OFF_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(offFeats))
+            map?.style?.getSourceAs<GeoJsonSource>(TRAIN_NODATA_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(noDataFeats))
         }
         // «Хвост»: пока «АВТО» пишет, жирная линия дорисовывается от последней точки трека до текущего положения
         // (трек прорежен и подгружается раз в 10 с, из-за чего линия отставала от маркера на 60-100 м).
@@ -885,6 +910,15 @@ internal fun TrainMapScreen(
                             .background(Pst.warning, RoundedCornerShape(12.dp))
                             .padding(horizontal = 10.dp, vertical = 5.dp),
                     )
+                }
+                if (!viewOnly && autoRunning) {
+                    // Связь со спутниками (§6.9): рядом с плашкой скорости, пока идёт запись.
+                    val gnss by GpsRecorder.quality.collectAsState()
+                    Box(
+                        modifier = Modifier
+                            .shadow(4.dp, RoundedCornerShape(16.dp))
+                            .background(Pst.surface, RoundedCornerShape(16.dp)),
+                    ) { com.z_company.route.autorecord.GnssSignalIndicator(quality = gnss) }
                 }
                 if (speedNow != null) {
                     Column(
@@ -1391,14 +1425,14 @@ private fun CompassNeedle(bearingDeg: Float) {
 }
 
 /**
- * Подпись остановки: название станции поезда; иначе станция плеча в пределах 400 м (если плечо есть);
+ * Подпись остановки: название станции поезда; иначе станция плеча в пределах 1 км (если плечо есть);
  * иначе «Стоянка N мин» (по времени прибытия/отправления из трека), иначе «Остановка».
  */
 private fun stopTitle(mk: com.z_company.domain.track.TrainStopMark, routeStops: List<com.z_company.domain.util.TrainMapStop>): String {
     mk.name?.takeIf { it.isNotBlank() }?.let { return it }
     routeStops
         .minByOrNull { TrackAnalysis.distanceM(mk.latitude, mk.longitude, it.latitude, it.longitude) }
-        ?.takeIf { TrackAnalysis.distanceM(mk.latitude, mk.longitude, it.latitude, it.longitude) <= 400.0 && it.name.isNotBlank() }
+        ?.takeIf { TrackAnalysis.distanceM(mk.latitude, mk.longitude, it.latitude, it.longitude) <= com.z_company.domain.autorecord.StopDetectionConfig.STATION_RADIUS_M && it.name.isNotBlank() }
         ?.let { return it.name }
     val a = mk.arrivalMs
     val d = mk.departureMs

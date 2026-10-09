@@ -110,6 +110,7 @@ data class TrackHistoryUiState(
  * есть только на сервере. Координаты не логируются, в сообщениях пользователю их нет.
  */
 class TrackHistoryViewModel : ViewModel(), KoinComponent {
+    private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
     private val repository: TrackRepository by inject()
     private val resolver: TrackRouteResolver by inject()
     private val loader: TrackHistoryLoader by inject()
@@ -471,7 +472,18 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
         TrainFormViewModel.TrainMapTrack(
             points = opened.points,
             drawPoints = TrackAnalysis.decimate(opened.points),
-            stops = TrackAnalysis.stopMarks(opened.points, dwells, emptyList()),
+            stops = TrackAnalysis.stopMarks(opened.points, dwells, emptyList()).let { marks ->
+                val dir = runCatching { stationDirectory.stations() }.getOrNull()
+                if (dir == null) marks else {
+                    val pts = com.z_company.domain.util.StationDirectory.points(dir)
+                    val nms = com.z_company.domain.util.StationDirectory.names(dir)
+                    marks.map { mk ->
+                        mk.copy(name = mk.name ?: com.z_company.domain.util.ServicePhaseStationPicker.pickForStop(
+                            null, emptyList(), mk.latitude, mk.longitude, pts, nms,
+                        ))
+                    }
+                }
+            },
             zone = opened.zone,
         )
     }

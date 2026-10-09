@@ -13,16 +13,35 @@ class TrackThinner(
     private val movingSpeedKmh: Double = 2.0,
 ) {
     private var lastAcceptedMs: Long? = null
+    private var lastAcceptedMoving: Boolean? = null
+    private var rejectedSlow: TrackPoint? = null
+    private var pending: TrackPoint? = null
 
+    /**
+     * Принимать ли точку. Смена «стоим/едем» принимается сразу (точное время остановки и трогания для детектора стоянок:
+     * иначе первая «медленная» точка терялась бы на до 60 с). При трогании [takePending] отдаёт последнюю отброшенную
+     * «медленную» точку - момент покоя перед ростом скорости.
+     */
     fun accept(point: TrackPoint): Boolean {
+        pending = null
         val last = lastAcceptedMs
         val moving = point.speedKmh?.let { it >= movingSpeedKmh } ?: true
         val interval = if (moving) movingIntervalMs else stoppedIntervalMs
+        val changed = lastAcceptedMoving != null && lastAcceptedMoving != moving
         // Часы пошли назад (смена времени) — принимаем и начинаем отсчёт заново.
-        if (last != null && point.timeMs >= last && point.timeMs - last < interval) return false
+        if (!changed && last != null && point.timeMs >= last && point.timeMs - last < interval) {
+            if (!moving) rejectedSlow = point
+            return false
+        }
+        if (changed && moving) pending = rejectedSlow?.takeIf { last == null || it.timeMs > last }
+        rejectedSlow = null
         lastAcceptedMs = point.timeMs
+        lastAcceptedMoving = moving
         return true
     }
+
+    /** Точка, которую надо записать ПЕРЕД только что принятой (последняя «медленная» перед трогание); null - нет. */
+    fun takePending(): TrackPoint? = pending.also { pending = null }
 }
 
 /**
@@ -37,9 +56,15 @@ class TrackWriter(
     private var trackId: String? = null
     private var thinner = TrackThinner()
 
-    /** Записать точку; false — не записана (нет согласия / нет цели / прорежена). */
-    fun onPoint(targetTrainId: String?, point: TrackPoint, consent: Boolean): Boolean {
+    /**
+     * Записать точку; false — не записана (нет согласия / нет цели / прорежена / нет сигнала).
+     * [signalOk] = false (сигнал потерян, fix устарел или точность хуже порога): «точка стоянки» (скорость < 2 км/ч или
+     * неизвестна) не пишется — иначе потеря сигнала выглядела бы как стоянка; точка в движении (скорость известна и высока)
+     * пишется как обычно.
+     */
+    fun onPoint(targetTrainId: String?, point: TrackPoint, consent: Boolean, signalOk: Boolean = true): Boolean {
         if (!consent || targetTrainId == null) return false
+        if (!signalOk && (point.speedKmh?.let { it < TrackAnalysis.STOP_SPEED_KMH } != false)) return false
         var id = trackId
         if (trainId != targetTrainId || id == null) {
             id = newTrackId()
@@ -48,6 +73,7 @@ class TrackWriter(
             thinner = TrackThinner()
         }
         if (!thinner.accept(point)) return false
+        thinner.takePending()?.let { repository.append(id, targetTrainId, it) }
         repository.append(id, targetTrainId, point)
         return true
     }

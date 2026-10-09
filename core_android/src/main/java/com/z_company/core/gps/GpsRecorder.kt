@@ -3,6 +3,7 @@ package com.z_company.core.gps
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
+import com.z_company.domain.gnss.GnssQuality
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,13 @@ object GpsRecorder {
     private val _gpsAvailable = MutableStateFlow(true)
     val gpsAvailable: StateFlow<Boolean> = _gpsAvailable.asStateFlow()
 
+    /**
+     * Качество связи со спутниками (раз в секунду, пока служба работает; вне записи - UNKNOWN). Правила уровней и
+     * сглаживание - `domain.gnss` (SCREEN_SPECS §6.9).
+     */
+    private val _quality = MutableStateFlow(GnssQuality())
+    val quality: StateFlow<GnssQuality> = _quality.asStateFlow()
+
     /** Запуск; повторный вызов при работающей записи только обновляет текст уведомления. */
     fun start(context: Context, config: GpsRecorderConfig) {
         val intent = Intent(context, GpsRecordingService::class.java)
@@ -65,6 +73,10 @@ object GpsRecorder {
 
     internal fun setRunning(value: Boolean) {
         _isRunning.value = value
+    }
+
+    internal fun setQuality(value: GnssQuality) {
+        _quality.value = value
     }
 
     internal fun setGpsAvailable(value: Boolean) {

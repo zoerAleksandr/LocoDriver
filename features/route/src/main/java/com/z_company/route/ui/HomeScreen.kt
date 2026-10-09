@@ -1186,6 +1186,10 @@ fun HomeScreen(
                                 val autoManager: com.z_company.route.autorecord.AutoRecordManager =
                                     org.koin.compose.koinInject()
                                 val autoState by autoManager.state.collectAsState()
+                                com.z_company.route.autorecord.AutoGnssIndicator(
+                                    manager = autoManager,
+                                    state = autoState,
+                                )
                                 com.z_company.route.autorecord.AutoRecordChip(
                                     state = autoState,
                                     onToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoManager),

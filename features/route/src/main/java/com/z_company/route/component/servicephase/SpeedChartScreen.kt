@@ -381,12 +381,27 @@ private fun SpeedPlot(
         // Линия скорости: цвет сегмента по шкале карты; светлая/тёмная «обводка» цвета текста даёт контраст в обеих темах.
         val cols = plotW.toInt().coerceAtLeast(2)
         val vis = SpeedChart.visible(samples, axis, window, cols)
+        // «Нет данных» (потеря сигнала/записи, разрыв > 90 с, SCREEN_SPECS §6.9): штриховая полоса, линия скорости рвётся.
+        val noData = (1 until samples.size).filter { samples[it].timeMs - samples[it - 1].timeMs > TrackAnalysis.DATA_GAP_MS }
+        clipRect(left, top - 1f, left + plotW, top + plotH + 1f) {
+            for (k in noData) {
+                val x1 = px(SpeedChart.xOf(samples[k - 1], axis, t0))
+                val x2 = px(SpeedChart.xOf(samples[k], axis, t0))
+                val w = (x2 - x1).coerceAtLeast(3f * d)
+                drawRect(textColor.copy(alpha = 0.08f), Offset(x1, top), androidx.compose.ui.geometry.Size(w, plotH))
+                drawLine(
+                    textColor.copy(alpha = 0.45f), Offset(x1, top + plotH / 2f), Offset(x1 + w, top + plotH / 2f),
+                    strokeWidth = 1.5f * d, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f * d, 4f * d)),
+                )
+            }
+        }
         clipRect(left, top - 1f, left + plotW, top + plotH + 1f) {
             for (pass in 0..1) {
                 for (i in 1 until vis.size) {
                     val a = vis[i - 1]
                     val b = vis[i]
                     if (b.timeMs - a.timeMs > TrackAnalysis.GAP_MS) continue
+                    if (noData.any { samples[it].timeMs > a.timeMs && samples[it - 1].timeMs < b.timeMs }) continue
                     val sa = a.speedKmh ?: continue
                     val sb = b.speedKmh ?: continue
                     val p1 = Offset(px(SpeedChart.xOf(a, axis, t0)), py(sa))

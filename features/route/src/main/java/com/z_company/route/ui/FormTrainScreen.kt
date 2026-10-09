@@ -1832,6 +1832,10 @@ fun FormTrainScreen(
                                         onToggle = onAutoToggle,
                                         goHeight = true,
                                     )
+                                    com.z_company.route.autorecord.AutoGnssIndicator(
+                                        manager = autoRecordManager,
+                                        state = autoRecordState,
+                                    )
                                 }
 
                                 // Центр: чип секундомера — ровно по горизонтальной середине строки

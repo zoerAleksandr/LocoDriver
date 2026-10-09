@@ -585,8 +585,34 @@ class TrainFormViewModel(
             TrainMapTrack(
                 points = points,
                 drawPoints = com.z_company.domain.track.TrackAnalysis.decimate(points),
-                stops = com.z_company.domain.track.TrackAnalysis.stopMarks(points, dwells, stationTimes),
+                stops = nameUnnamedStops(
+                    com.z_company.domain.track.TrackAnalysis.stopMarks(points, dwells, stationTimes),
+                    currentTrain?.servicePhase, stationTimes.map { it.name },
+                ),
                 zone = zone,
+            )
+        }
+    }
+
+    /**
+     * Остановки по треку без станции поезда получают название той же функцией, что «АВТО» (плечо и порядок станций,
+     * радиус 1 км, иначе справочник); станции поезда остаются как есть (единый источник правды, SCREEN_SPECS §6.9).
+     */
+    private suspend fun nameUnnamedStops(
+        marks: List<com.z_company.domain.track.TrainStopMark>,
+        phase: com.z_company.domain.entities.setting.ServicePhase?,
+        trainStationNames: List<String?>,
+    ): List<com.z_company.domain.track.TrainStopMark> {
+        if (marks.none { it.name == null }) return marks
+        val dir = runCatching { stationDirectory.stations() }.getOrNull() ?: return marks
+        val points = StationDirectory.points(dir)
+        val names = StationDirectory.names(dir)
+        return marks.map { mk ->
+            if (mk.name != null) mk
+            else mk.copy(
+                name = com.z_company.domain.util.ServicePhaseStationPicker.pickForStop(
+                    phase, trainStationNames, mk.latitude, mk.longitude, points, names,
+                ),
             )
         }
     }

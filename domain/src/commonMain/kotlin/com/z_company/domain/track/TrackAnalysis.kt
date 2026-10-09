@@ -1,5 +1,10 @@
 package com.z_company.domain.track
 
+import com.z_company.domain.autorecord.MotionSample
+import com.z_company.domain.autorecord.StopDetectionConfig
+import com.z_company.domain.autorecord.StopDetector
+import com.z_company.domain.autorecord.StopEvent
+import com.z_company.domain.autorecord.StopEventType
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -9,7 +14,7 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-/** Стоянка, найденная по треку: скорость < 2 км/ч не менее 60 с (SCREEN_SPECS §6.9). */
+/** Стоянка, найденная по треку тем же детектором, что «АВТО» (SCREEN_SPECS §6.9); времена кратны минуте. */
 data class TrackDwell(
     val latitude: Double,
     val longitude: Double,
@@ -40,8 +45,11 @@ object TrackAnalysis {
     const val STOP_SPEED_KMH = 2.0
     const val STOP_MIN_MS = 60_000L
 
-    /** Разрыв между записанными точками стоянки, при котором считаем, что поезд стоял всё это время. */
-    const val SPARSE_MS = 50_000L
+    /**
+     * Разрыв между записанными точками больше этого — «нет данных» (потеря сигнала/записи): стоянка пишется точкой
+     * раз в 60 с, поэтому больший разрыв не доказывает остановку. Стоянка через такой разрыв не расширяется и не склеивается.
+     */
+    const val DATA_GAP_MS = StopDetectionConfig.RECORDED_SLOW_GAP_MS
 
     /** Разрыв между точками больше — линия не соединяется. */
     const val GAP_MS = 5 * 60_000L
@@ -69,45 +77,58 @@ object TrackAnalysis {
     }
 
     /**
-     * Стоянки по треку: подряд идущие точки со скоростью < [STOP_SPEED_KMH], у которых между первой и последней
-     * точкой серии не менее [STOP_MIN_MS]. Точка без скорости и разрыв во времени серию прерывают.
-     * Координаты стоянки — среднее по серии.
+     * Стоянки по записанному треку - ТЕМ ЖЕ алгоритмом, что «АВТО» онлайн: точки проигрываются через [StopDetector] с
+     * теми же порогами ([StopDetectionConfig]: < 2 км/ч ≥ 60 с - прибытие, > 5 км/ч ≥ 30 с - отправление, точность > 50 м и
+     * пропажа данных сбрасывают окно, откат времени отправления к моменту трогания, округление вниз до минуты).
+     * Отличие одно: запись прореживает стоянку до точки раз в 60 с, поэтому между «медленными» точками разрыв допускается
+     * до [DATA_GAP_MS] ([StopDetectionConfig.forRecordedTrack]); больший разрыв - «нет данных», не стоянка.
+     * Разрыв > [GAP_MS] (другой сеанс «АВТО») закрывает открытую стоянку на последней точке до разрыва.
+     * Стоянка, не закончившаяся к концу трека, длится до последней точки. Координаты - точка прибытия.
+     * Время прибытия/отправления - кратно минуте, как в списке станций поезда.
      */
     fun detectDwells(points: List<TrackPoint>): List<TrackDwell> {
         val result = mutableListOf<TrackDwell>()
-        var start = -1
-        fun close(endExclusive: Int) {
-            if (start < 0) return
-            val run = points.subList(start, endExclusive)
-            // Запись прореживает стоянку до точки раз в 60 с (TrackThinner): у стоянки в 1–2 минуты остаётся 1–2 «медленные»
-            // точки, а соседние точки (в движении) стоят по краям. Если до/после серии нет точек ≥ SPARSE_MS, поезд всё это
-            // время не двигался (иначе точка в движении записалась бы через 5 с) — граница стоянки отодвигается на соседнюю точку.
-            val prev = points.getOrNull(start - 1)?.takeIf { run.first().timeMs - it.timeMs in SPARSE_MS..GAP_MS }
-            val next = points.getOrNull(endExclusive)?.takeIf { it.timeMs - run.last().timeMs in SPARSE_MS..GAP_MS }
-            val from = prev?.timeMs ?: run.first().timeMs
-            val to = next?.timeMs ?: run.last().timeMs
-            val dense = run.size >= 2 && run.last().timeMs - run.first().timeMs >= STOP_MIN_MS
-            val sparse = to - from >= STOP_MIN_MS || (run.size >= 2 && run.last().timeMs - run.first().timeMs >= SPARSE_MS)
-            if (dense || sparse) {
-                result += TrackDwell(
-                    run.map { it.latitude }.average(), run.map { it.longitude }.average(),
-                    from, to,
-                )
-            }
-            start = -1
+        var detector = StopDetector(StopDetectionConfig.forRecordedTrack())
+        var open: StopEvent? = null
+        var prev: TrackPoint? = null
+        fun minuteOf(ms: Long) = ms - (ms % 60_000L)
+        fun closeOpen(endMs: Long) {
+            val o = open ?: return
+            val dep = maxOf(minuteOf(endMs), o.minuteTimeMs)
+            if (dep > o.minuteTimeMs) result += TrackDwell(o.latitude, o.longitude, o.minuteTimeMs, dep)
+            open = null
         }
-        for (i in points.indices) {
-            val p = points[i]
-            val slow = p.speedKmh?.let { it < STOP_SPEED_KMH } == true
-            if (i > 0 && p.timeMs - points[i - 1].timeMs > GAP_MS) close(i)
-            if (slow) {
-                if (start < 0) start = i
-            } else {
-                close(i)
+        for (p in points) {
+            val q = prev
+            if (q != null && p.timeMs - q.timeMs > GAP_MS) {
+                closeOpen(q.timeMs)
+                detector = StopDetector(StopDetectionConfig.forRecordedTrack())
+            } else if (q != null && p.timeMs - q.timeMs > DATA_GAP_MS) {
+                detector.onSignalLost()
+            }
+            prev = p
+            val ev = detector.onSample(MotionSample(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM)) ?: continue
+            when (ev.type) {
+                StopEventType.ARRIVAL -> open = ev
+                StopEventType.DEPARTURE -> closeOpen(ev.timeMs)
             }
         }
-        close(points.size)
+        prev?.let { closeOpen(it.timeMs) }
         return result
+    }
+
+    /** Участок трека без данных (потеря сигнала/записи): между точками больше [DATA_GAP_MS]. */
+    data class DataGap(val fromMs: Long, val toMs: Long, val fromLat: Double, val fromLon: Double, val toLat: Double, val toLon: Double)
+
+    /** Разрывы записи длиннее [DATA_GAP_MS]: на графике и карте это «нет данных», а не стоянка. */
+    fun dataGaps(points: List<TrackPoint>): List<DataGap> {
+        val out = mutableListOf<DataGap>()
+        for (i in 1 until points.size) {
+            val a = points[i - 1]
+            val b = points[i]
+            if (b.timeMs - a.timeMs > DATA_GAP_MS) out += DataGap(a.timeMs, b.timeMs, a.latitude, a.longitude, b.latitude, b.longitude)
+        }
+        return out
     }
 
     /** Точка трека, ближайшая по времени к [timeMs], не дальше [tolMs]; null — трек этот момент не покрывает. */

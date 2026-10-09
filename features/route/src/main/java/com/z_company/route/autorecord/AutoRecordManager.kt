@@ -20,6 +20,10 @@ import com.z_company.domain.autorecord.MotionSample
 import com.z_company.domain.autorecord.StopDetector
 import com.z_company.domain.autorecord.StopEvent
 import com.z_company.domain.autorecord.TrainOrdering
+import com.z_company.domain.gnss.GnssLevel
+import com.z_company.domain.gnss.GnssQuality
+import com.z_company.domain.gnss.GnssQualityConfig
+import com.z_company.domain.gnss.GnssQualityRules
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.setting.UserSettings
@@ -103,7 +107,13 @@ class AutoRecordManager(
     private val _state = MutableStateFlow(AutoRecordState())
     val state: StateFlow<AutoRecordState> = _state.asStateFlow()
 
+    /** Качество связи со спутниками (SCREEN_SPECS §6.9); UNKNOWN, пока запись не идёт. */
+    val gnssQuality: StateFlow<GnssQuality> get() = GpsRecorder.quality
+
     private var detector = StopDetector()
+    private var qualityJob: Job? = null
+    private var lostSinceMs: Long? = null
+    private var lostNotified = false
     private var pointsJob: Job? = null
     private var watchJob: Job? = null
     private var expiryJob: Job? = null
@@ -330,6 +340,10 @@ class AutoRecordManager(
         pointsJob?.cancel()
         watchJob?.cancel()
         expiryJob?.cancel()
+        qualityJob?.cancel()
+        lostSinceMs = null
+        lostNotified = false
+        qualityJob = scope.launch { GpsRecorder.quality.collect { onQuality(it) } }
 
         pointsJob = scope.launch {
             GpsRecorder.points.collect { onPoint(it) }
@@ -366,6 +380,9 @@ class AutoRecordManager(
     }
 
     private fun stopInternal(notifyExpired: Boolean, stopService: Boolean = true) {
+        qualityJob?.cancel()
+        lostSinceMs = null
+        lostNotified = false
         pointsJob?.cancel()
         watchJob?.cancel()
         expiryJob?.cancel()
@@ -416,6 +433,10 @@ class AutoRecordManager(
                     target,
                     TrackPoint(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM, p.altitudeM, p.baroAltitudeM),
                     consent,
+                    // Потеря сигнала / плохая точность: «точку стоянки» не пишем (§6.9). Возраст fix по часам
+                    // устройства не сравниваем: при неверном времени телефона отбрасывались бы все точки.
+                    signalOk = GpsRecorder.quality.value.level != GnssLevel.LOST &&
+                        GnssQualityRules.isUsableFix(0L, p.accuracyM),
                 )
             }
         } catch (e: Exception) {
@@ -466,13 +487,6 @@ class AutoRecordManager(
     }
 
     private suspend fun handleEvent(event: StopEvent) {
-        val name = withContext(Dispatchers.Default) {
-            val dir = stationDirectory.stations()
-            AutoStationLocator.nearestName(
-                StationDirectory.points(dir), StationDirectory.names(dir),
-                event.latitude, event.longitude,
-            )
-        }
         // Цель - поезд, где нажата «АВТО»: ищем среди поездов ВСЕХ неудалённых маршрутов, не только текущего.
         val saved = prefs.getString(KEY_TARGET, null)
         val targeted = withContext(Dispatchers.Default) {
@@ -492,6 +506,14 @@ class AutoRecordManager(
         }
         // Фиксируем фактическую цель (создание нового поезда / fallback при удалённом запомненном).
         if (prefs.getString(KEY_TARGET, null) != train.trainId) saveTarget(train.trainId)
+
+        // Название станции - единая функция (плечо и порядок станций поезда, радиус 1 км, иначе справочник).
+        val name = withContext(Dispatchers.Default) {
+            val dir = stationDirectory.stations()
+            com.z_company.domain.autorecord.stationNameForStop(
+                train, event.latitude, event.longitude, StationDirectory.points(dir), StationDirectory.names(dir),
+            )
+        }
 
         val open = editor
         if (open != null && open.trainId == train.trainId) {
@@ -536,8 +558,40 @@ class AutoRecordManager(
         )
     }
 
+    /**
+     * Качество сигнала (SCREEN_SPECS §6.9): переход в LOST сбрасывает окна детектора; LOST дольше 30 с -
+     * одноразовое «Потерян сигнал GPS», по возвращении - «Сигнал GPS восстановлен».
+     */
+    private fun onQuality(q: GnssQuality) {
+        if (!_state.value.enabled) return
+        val now = nowMs()
+        when (q.level) {
+            GnssLevel.LOST -> {
+                if (lostSinceMs == null) {
+                    lostSinceMs = now
+                    detector.onSignalLost()
+                }
+                if (!lostNotified && now - (lostSinceMs ?: now) >= GnssQualityConfig.LOST_NOTIFY_AFTER_MS) {
+                    lostNotified = true
+                    notify(GPS_LOST_ID, "Потерян сигнал GPS. Записи стоянок и отправлений приостановлены", launchIntent(enable = false), emptyList())
+                }
+            }
+            GnssLevel.GOOD, GnssLevel.WEAK -> {
+                if (lostSinceMs != null) {
+                    lostSinceMs = null
+                    if (lostNotified) {
+                        lostNotified = false
+                        notify(GPS_LOST_ID, "Сигнал GPS восстановлен", launchIntent(enable = false), emptyList())
+                    }
+                }
+            }
+            GnssLevel.UNKNOWN -> Unit
+        }
+    }
+
     private fun cancelAlerts() {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        nm.cancel(GPS_LOST_ID)
         nm.cancel(INTERRUPTED_ID)
         nm.cancel(NO_ROUTE_ID)
     }
@@ -592,6 +646,7 @@ class AutoRecordManager(
         private const val NO_ROUTE_ID = 7403
         private const val INTERRUPTED_ID = 7404
         private const val NO_CONSENT_ID = 7405
+        private const val GPS_LOST_ID = 7406
 
         /** Для виджетов: момент автовыключения или 0, если АВТО выключено. */
         fun savedUntil(context: Context, now: Long = System.currentTimeMillis()): Long =
