@@ -37,7 +37,8 @@ data class ServicePhaseSuggestResponse(
 
 @Serializable
 data class OsmStationCandidate(
-    val osmId: Long,
+    /** null — крайняя станция «по координатам пользователя», которой нет в данных карты (сервер шлёт osmId=null). */
+    val osmId: Long? = null,
     val name: String,
     val kind: String = "station",
     val esr: String? = null,

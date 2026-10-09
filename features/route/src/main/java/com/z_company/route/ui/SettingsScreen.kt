@@ -5,6 +5,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -448,15 +450,19 @@ fun SettingsScreen(
                 currentSettings?.let { settings ->
                 AnimatedContent(
                     targetState = currentSubScreen,
+                    // Контейнер всегда на весь экран: иначе его высота анимируется между экранами с
+                    // «обёрнутой» (хаб) и полной (список плеч) высотой — контент и нижняя кнопка прыгают по вертикали.
+                    modifier = Modifier.fillMaxSize(),
                     transitionSpec = {
                         // Направление зависит от «глубины» экранов: уходим глубже
                         // (HUB → список → редактор) — въезд справа; возвращаемся
                         // назад (редактор → список → HUB) — въезд слева.
-                        if (targetState.depth < initialState.depth) {
+                        val spec = if (targetState.depth < initialState.depth) {
                             slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
                         } else {
                             slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
                         }
+                        spec using SizeTransform(clip = false) { _, _ -> snap() }
                     },
                     label = "settings_sub_screen"
                 ) { screen ->

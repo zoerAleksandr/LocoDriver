@@ -776,6 +776,11 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
             "Автоподбор запускали много раз подряд. Попробуйте позже — или добавьте станции вручную.",
             "Добавить вручную" to onAddManually, "Закрыть" to onClose,
         )
+        AutoFillFailure.BUSY -> Spec(
+            PstIcons.Clock, "Сервер занят",
+            "Поиск пути сейчас занят или не уложился во время. Повторите через минуту — или добавьте станции вручную.",
+            "Повторить" to onRetry, "Добавить вручную" to onAddManually,
+        )
         AutoFillFailure.SERVICE -> Spec(
             PstIcons.Clock, "Сервис не ответил",
             "Поиск занял больше 30 секунд или сервис временно недоступен. Попробуйте ещё раз через минуту.",

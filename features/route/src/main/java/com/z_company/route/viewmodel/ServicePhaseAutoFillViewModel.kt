@@ -33,7 +33,7 @@ enum class PhaseEnd { DEPARTURE, ARRIVAL }
  * недоступен — что именно, по телефону не понять, поэтому текст без утверждений);
  * VPN — то же при включённом VPN; SERVICE — сервер ответил ошибкой или не уложился в 30 с.
  */
-enum class AutoFillFailure { NO_INTERNET, NO_CONNECTION, VPN, STATION_NOT_FOUND, NO_PATH, SERVICE, RATE_LIMITED }
+enum class AutoFillFailure { NO_INTERNET, NO_CONNECTION, VPN, STATION_NOT_FOUND, NO_PATH, SERVICE, RATE_LIMITED, BUSY }
 
 /** Короткий текст сетевой/серверной ошибки для снекбаров и подписей. */
 fun AutoFillFailure.message(): String = when (this) {
@@ -41,7 +41,15 @@ fun AutoFillFailure.message(): String = when (this) {
     AutoFillFailure.NO_CONNECTION -> "Не удалось связаться с сервером — проверьте подключение к интернету"
     AutoFillFailure.VPN -> com.z_company.core.util.VPN_ERROR_HINT
     AutoFillFailure.RATE_LIMITED -> "Слишком много запросов — попробуйте позже"
+    AutoFillFailure.BUSY -> "Сервер занят или долго считал — повторите через минуту"
     else -> "Сервис не ответил — попробуйте позже"
+}
+
+/** Отказ по HTTP-статусу из текста исключения: 429 — лимит, 503 — «сервис занят / карты недоступны» (повторить). */
+internal fun httpFailureOf(text: String): AutoFillFailure? = when {
+    text.contains("429") -> AutoFillFailure.RATE_LIMITED
+    text.contains("503") || text.contains("Service Unavailable", ignoreCase = true) -> AutoFillFailure.BUSY
+    else -> null
 }
 
 /** Вариант пути между крайними станциями плеча (route/length, alternatives). [via] — станции по пути. */
@@ -321,7 +329,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         val chain = generateSequence(e) { it.cause }.take(6).toList()
         android.util.Log.w("ServicePhaseNet", "request failed: " + chain.joinToString(" <- ") { it::class.simpleName.orEmpty() })
         val text = chain.joinToString(" ") { "${it::class.simpleName} ${it.message.orEmpty()}" }
-        if (text.contains("429")) return AutoFillFailure.RATE_LIMITED
+        httpFailureOf(text)?.let { return it }
         val network = e is TimeoutCancellationException || chain.any { it is IOException } ||
             com.z_company.core.util.isConnectivityErrorMessage(text) ||
             NETWORK_MARKERS.any { text.contains(it) }
