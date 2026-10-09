@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.route.component.AppAlertDialog
+import kotlinx.coroutines.launch
 
 /**
  * Возвращает обработчик переключателя «АВТО»: выключает сразу, а при включении сначала
@@ -56,20 +57,42 @@ import com.z_company.route.component.AppAlertDialog
  * (один раз, а также после «прервано») показывает подсказку про исключение из оптимизации батареи.
  */
 @Composable
-fun rememberAutoRecordToggle(manager: AutoRecordManager, trainId: String? = null): () -> Unit {
+fun rememberAutoRecordToggle(
+    manager: AutoRecordManager,
+    trainId: String? = null,
+    /**
+     * Определяет поезд-цель в момент включения (кнопка записи на карте без поезда: создаёт маршрут/поезд);
+     * null - берётся [trainId]. Вызывается только когда геолокация уже разрешена.
+     */
+    resolveTarget: (suspend () -> String?)? = null,
+): () -> Unit {
     val currentTrainId by rememberUpdatedState(trainId)
+    val currentResolver by rememberUpdatedState(resolveTarget)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val context = LocalContext.current
     var showHelp by remember { mutableStateOf(false) }
     val afterEnable = {
         val wasInterrupted = manager.state.value.interrupted
         if (wasInterrupted || needsBatteryHelp(context)) showHelp = true
     }
+    val enableNow: (onFail: () -> Unit) -> Unit = { onFail ->
+        val resolver = currentResolver
+        if (resolver == null) {
+            if (manager.enable(currentTrainId)) afterEnable() else onFail()
+        } else if (!com.z_company.core.gps.GpsPermissions.hasLocation(context)) {
+            onFail()
+        } else {
+            scope.launch {
+                val id = resolver() ?: currentTrainId
+                if (manager.enable(id)) afterEnable() else onFail()
+            }
+        }
+    }
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
         // Отказ от уведомлений запись не блокирует; без геолокации — включать нечего.
-        if (manager.enable(currentTrainId)) afterEnable()
-        else Toast.makeText(context, "АВТО: нужен доступ к геолокации", Toast.LENGTH_LONG).show()
+        enableNow({ Toast.makeText(context, "АВТО: нужен доступ к геолокации", Toast.LENGTH_LONG).show() })
     }
     if (showHelp) {
         markBatteryHelpShown(context)
@@ -96,7 +119,7 @@ fun rememberAutoRecordToggle(manager: AutoRecordManager, trainId: String? = null
     val startEnable = {
         val missing = manager.missingPermissions()
         if (missing.isEmpty()) {
-            if (manager.enable(currentTrainId)) afterEnable()
+            enableNow {}
         } else launcher.launch(missing)
         Unit
     }

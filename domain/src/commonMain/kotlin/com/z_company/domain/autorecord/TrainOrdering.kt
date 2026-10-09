@@ -54,4 +54,27 @@ object TrainOrdering {
      * тогда открывается только карта с текущим положением, без создания данных.
      */
     fun pickHomeMapTarget(routeTrains: List<Train>?): Train? = routeTrains?.let { pickAutoTarget(it) }
+
+    /** Куда писать трек по кнопке записи на карте (SCREEN_SPECS §6.9). */
+    sealed interface RecordTarget {
+        /** Писать в существующий поезд. */
+        data class Existing(val trainId: String) : RecordTarget
+
+        /** Создать пустой поезд в маршруте [routeId]. */
+        data class NewTrainInRoute(val routeId: String) : RecordTarget
+
+        /** Маршрута нет: создать маршрут (явка «сейчас») с пустым поездом. */
+        object NewRoute : RecordTarget
+    }
+
+    /**
+     * Цель кнопки записи на карте: карта открыта из «Поезда» ([openedTrainId]) - этот поезд; иначе (с Главного) -
+     * поезд текущего маршрута по правилу «АВТО» ([pickHomeMapTarget]); в текущем маршруте поездов нет - новый поезд
+     * в нём; текущего маршрута нет ([currentRouteId] == null) - новый маршрут с пустым поездом.
+     */
+    fun pickRecordTarget(openedTrainId: String?, currentRouteId: String?, currentRouteTrains: List<Train>?): RecordTarget {
+        if (openedTrainId != null) return RecordTarget.Existing(openedTrainId)
+        pickHomeMapTarget(currentRouteTrains)?.let { return RecordTarget.Existing(it.trainId) }
+        return if (currentRouteId != null) RecordTarget.NewTrainInRoute(currentRouteId) else RecordTarget.NewRoute
+    }
 }

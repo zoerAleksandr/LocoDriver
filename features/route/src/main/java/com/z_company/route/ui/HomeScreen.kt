@@ -428,12 +428,21 @@ fun HomeScreen(
     var showBareMap by rememberSaveable { mutableStateOf(false) }
     if (showBareMap) {
         val mapContext = LocalContext.current
+        // Кнопка записи на карте без поезда: цель определяется при включении (текущий/последний поезд, иначе создаётся).
+        val bareAutoManager: com.z_company.route.autorecord.AutoRecordManager = org.koin.compose.koinInject()
+        val bareAutoState by bareAutoManager.state.collectAsState()
+        val bareToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(
+            bareAutoManager,
+            resolveTarget = { bareAutoManager.resolveRecordTarget(null) },
+        )
         TrainMapScreen(
             missingStation = { null },
             stops = emptyList(),
             loadRailLine = { com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel.RailLineResult.NoPath },
             currentFix = { com.z_company.route.util.DeviceLocation.currentFix(mapContext.applicationContext) },
             onDetermine = { false },
+            autoRecording = bareAutoState.enabled,
+            onToggleRecording = bareToggle,
             onDismiss = { showBareMap = false },
             title = "Карта",
         )

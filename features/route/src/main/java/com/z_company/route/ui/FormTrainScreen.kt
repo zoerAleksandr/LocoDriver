@@ -334,6 +334,9 @@ fun FormTrainScreen(
                 onOpenConsentSettings = { showTrainMap = false; onConsentSettings() },
                 // Та же логика, что у кнопки «АВТО» в «Поезде» (разрешения, согласие, цель - этот поезд).
                 onEnableAuto = { if (!autoRecordManager.state.value.enabled) onAutoToggle() },
+                // Кнопка записи на карте: то же переключение «АВТО», цель - этот поезд.
+                autoRecording = autoRecordState.enabled,
+                onToggleRecording = onAutoToggle,
                 onDismiss = { showTrainMap = false; if (openMapOnStart) onMapClosedFromHome() },
             )
         }
