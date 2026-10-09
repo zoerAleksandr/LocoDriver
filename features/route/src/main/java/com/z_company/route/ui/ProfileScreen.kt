@@ -214,11 +214,13 @@ fun ProfileScreen(
     onPullSyncMessageShown: () -> Unit = {},
 ) {
     var showReferrals by rememberSaveable { mutableStateOf(false) }
+    var showTrash by rememberSaveable { mutableStateOf(false) }
+    // Рефералы и Корзина открываются поверх хаба Профиля — глубже основного экрана, меню скрыто (SCREEN_SPECS §3.1).
+    com.z_company.route.navigation.HideBottomMenu(hide = showReferrals || showTrash)
     if (showReferrals) {
         ReferralScreen(onBack = { showReferrals = false })
         return
     }
-    var showTrash by rememberSaveable { mutableStateOf(false) }
     if (showTrash) {
         TrashScreen(viewModel = trashViewModel, onBack = { showTrash = false })
         return
