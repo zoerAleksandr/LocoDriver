@@ -45,6 +45,11 @@ fun interface RailStationLookup {
     ): RailLookupResult
 }
 
+/** Источник рельсовой линии плеча (как на карте поезда; кэш устройства). null - линии нет. Вызывается вне главного потока. */
+fun interface PhaseLineSource {
+    suspend fun line(stationPoints: List<Pair<Double, Double>>): List<Pair<Double, Double>>?
+}
+
 /**
  * Кэш последнего определённого ответа на устройстве (в памяти, не сохраняется): не спрашиваем сервер повторно,
  * пока позиция сдвинулась меньше [MOVE_M] и прошло меньше [TTL_MS].
@@ -75,8 +80,8 @@ class RailLookupCache(private val nowMs: () -> Long) {
 /**
  * ЕДИНОЕ определение названия станции по месту (GO, «Добавить станцию», АВТО, карта поезда, просмотр трека;
  * SCREEN_SPECS §6.2 п.6/6а, §6.9):
- * 1. выбрано плечо с координатами станций - [ServicePhaseStationPicker.pickForStop] (радиус 1 км, порядок плеча,
- *    иначе справочник, иначе null);
+ * 1. выбрано плечо с координатами станций - [ServicePhaseStationPicker.pickForStop] (радиус 1 км; кандидаты - станции плеча
+ *    и станции справочника на линии плеча [phaseLine]; порядок вдоль линии, иначе справочник, иначе null);
  * 2. плеча нет (или у него нет координат) - ближайшая станция ПО РЕЛЬСАМ с сервера (радиус [StopDetectionConfig.STATION_RADIUS_M]);
  *    вместе с точкой уходят кандидаты - станции справочника в [CANDIDATE_RADIUS_M] (<= [MAX_CANDIDATES], ближайшие по прямой);
  *    если сервер выбрал кандидата - берём имя справочника (в справочник ничего не добавляем), если OSM-станцию - как раньше;
@@ -87,6 +92,7 @@ class StopStationNamer(
     private val lookup: RailStationLookup?,
     private val nowMs: () -> Long,
     private val cache: RailLookupCache = RailLookupCache(nowMs),
+    private val phaseLine: PhaseLineSource? = null,
 ) {
     private var unavailableUntil = 0L
 
@@ -113,7 +119,12 @@ class StopStationNamer(
                 return found.name
             }
         }
-        return ServicePhaseStationPicker.pickForStop(planned, trainStationNames, latitude, longitude, points, names)
+        val line = planned?.let { p ->
+            runCatching { phaseLine?.line(TrainMapRoute.stops(p).map { it.latitude to it.longitude }) }.getOrNull()
+        }
+        return ServicePhaseStationPicker.pickForStop(
+            planned, trainStationNames, latitude, longitude, points, names, railLine = line,
+        )
     }
 
     private suspend fun railStation(latitude: Double, longitude: Double, candidates: List<RailCandidate>): RailStation? {
