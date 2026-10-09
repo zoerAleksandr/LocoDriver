@@ -742,6 +742,9 @@ fun HomeScreen(
                     )
                 }
             },
+            contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(
+                routeForRemove?.trains?.map { it.trainId }.orEmpty()
+            ),
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") {
                     routeForRemove?.let {

@@ -519,6 +519,9 @@ fun AllRouteScreen(
                         )
                     }
                 },
+                contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(
+                    routeForRemove?.trains?.map { it.trainId }.orEmpty()
+                ),
                 actions = listOf(
                     BottomSheetAction(text = "Да, удалить") {
                         routeForRemove?.let {
@@ -557,6 +560,11 @@ fun AllRouteScreen(
                         )
                     }
                 },
+                contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(
+                    state.routes
+                        .filter { state.selectedRouteIds.contains(it.route.basicData.id) }
+                        .flatMap { item -> item.route.trains.map { it.trainId } }
+                ),
                 actions = listOf(
                     BottomSheetAction(text = "Да, удалить") {
                         viewModel.deleteSelectedRoutes()
