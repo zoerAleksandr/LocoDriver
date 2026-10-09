@@ -61,7 +61,9 @@ import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -2228,20 +2230,17 @@ private fun TrainBottomAppBar(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+        // Четыре равных по ширине слота (weight 1): центры кнопок равноудалены (шаг = ширина/4),
+        // большая «+» не нарушает шаг, т.к. центрируется в своём слоте.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
                 .navigationBarsPadding()
-                .padding(start = 8.dp, top = 10.dp, end = 8.dp, bottom = 6.dp),
+                .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(
-                modifier = Modifier.weight(2f),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 TrainBottomIconButton(
                     modifier = Modifier.width(48.dp),
                     iconRes = com.z_company.route.R.drawable.ic_couplers_24,
@@ -2249,6 +2248,8 @@ private fun TrainBottomAppBar(
                     active = hasInspector,
                     onClick = onInspectorClick,
                 )
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 TrainBottomIconButton(
                     modifier = Modifier.width(48.dp),
                     iconRes = com.z_company.route.R.drawable.baseline_tune_24,
@@ -2257,40 +2258,33 @@ private fun TrainBottomAppBar(
                     onClick = onAssistsClick,
                 )
             }
-            Button(
-                modifier = Modifier
-                    .weight(1.4f)
-                    .height(48.dp),
-                onClick = onAddStationClick,
-                shape = RoundedCornerShape(14.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp),
-                elevation = ButtonDefaults.buttonElevation(0.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiary,
-                    contentColor = MaterialTheme.colorScheme.surface,
-                ),
-            ) {
-                Icon(
-                    modifier = Modifier.size(18.dp),
-                    painter = painterResource(com.z_company.route.R.drawable.add_circle_24px),
-                    contentDescription = null,
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    "Станция",
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                FilledIconButton(
+                    modifier = Modifier.size(56.dp),
+                    onClick = onAddStationClick,
+                    shape = CircleShape,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.surface,
+                    ),
+                ) {
+                    Icon(
+                        modifier = Modifier.size(32.dp),
+                        painter = painterResource(com.z_company.route.R.drawable.ic_add_plain_24),
+                        contentDescription = "Добавить станцию",
+                    )
+                }
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                TrainBottomIconButton(
+                    modifier = Modifier.width(48.dp),
+                    iconRes = com.z_company.route.R.drawable.ic_train_map_color_24,
+                    contentDescription = "Карта",
+                    active = false,
+                    colored = true,
+                    onClick = onMapClick,
                 )
             }
-            TrainBottomIconButton(
-                modifier = Modifier.width(48.dp),
-                iconRes = com.z_company.route.R.drawable.ic_train_map_24,
-                contentDescription = "Карта",
-                active = false,
-                onClick = onMapClick,
-            )
         }
     }
 }
@@ -2301,6 +2295,7 @@ private fun TrainBottomIconButton(
     iconRes: Int,
     contentDescription: String,
     active: Boolean,
+    colored: Boolean = false,
     onClick: () -> Unit,
 ) {
     Box(modifier = modifier.height(48.dp), contentAlignment = Alignment.Center) {
@@ -2308,7 +2303,7 @@ private fun TrainBottomIconButton(
             Icon(
                 painter = painterResource(iconRes),
                 contentDescription = contentDescription,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = if (colored) Color.Unspecified else MaterialTheme.colorScheme.primary,
             )
         }
         if (active) {
