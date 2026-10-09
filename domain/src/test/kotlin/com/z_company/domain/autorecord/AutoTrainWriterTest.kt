@@ -105,4 +105,55 @@ class AutoTrainWriterTest {
         assertEquals("Гатчина", AutoStationLocator.nearestName(points, names, 59.5703, 30.1200))
         assertNull(AutoStationLocator.nearestName(points, names, 59.60, 30.20))
     }
+
+    @Test
+    fun `arrival at phase end station fills it instead of new intermediate`() {
+        val phase = ServicePhase(departureStation = "Лужская", arrivalStation = "Веймарн", distance = 50)
+        val t = AutoTrainWriter.apply(
+            train(
+                Station(stationName = "Лужская", timeDeparture = base),
+                Station(stationName = "Котлы-2", timeArrival = base + 10 * min, timeDeparture = base + 11 * min),
+                Station(stationName = "Веймарн"),
+                phase = phase,
+            ),
+            ev(StopEventType.ARRIVAL, 30), "веймарн",
+        )
+        assertNotNull(t)
+        assertEquals(3, t.stations.size)
+        assertEquals(base + 30 * min, t.stations[2].timeArrival)
+        assertEquals("Веймарн", t.stations[2].stationName)
+    }
+
+    @Test
+    fun `phase end match ignores yo and hyphen`() {
+        val phase = ServicePhase(departureStation = "А", arrivalStation = "Тёмный-Лес", distance = 5)
+        val t = AutoTrainWriter.apply(
+            train(
+                Station(stationName = "А", timeDeparture = base),
+                Station(stationName = "Тёмный-Лес"),
+                phase = phase,
+            ),
+            ev(StopEventType.ARRIVAL, 5), "Темный лес",
+        )
+        assertNotNull(t)
+        assertEquals(2, t.stations.size)
+        assertEquals(base + 5 * min, t.stations[1].timeArrival)
+    }
+
+    @Test
+    fun `phase and different station name still inserts intermediate`() {
+        val phase = ServicePhase(departureStation = "А", arrivalStation = "Б", distance = 5)
+        val t = AutoTrainWriter.apply(
+            train(
+                Station(stationName = "А", timeDeparture = base),
+                Station(stationName = "Б"),
+                phase = phase,
+            ),
+            ev(StopEventType.ARRIVAL, 5), "В",
+        )
+        assertNotNull(t)
+        assertEquals(3, t.stations.size)
+        assertEquals("В", t.stations[1].stationName)
+        assertNull(t.stations[2].timeArrival)
+    }
 }

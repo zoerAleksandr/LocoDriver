@@ -61,4 +61,18 @@ class TrainOrderingTest {
         assertEquals("b", TrainOrdering.pickTarget(trains, null)?.trainId)
         assertNull(TrainOrdering.pickTarget(emptyList(), null))
     }
+
+    @Test
+    fun `target in non-current route is found among all routes`() {
+        val routes = listOf(listOf(t("cur")), listOf(t("other"), t("target")))
+        assertEquals("target", TrainOrdering.findTargetTrain(routes, "target")?.trainId)
+    }
+
+    @Test
+    fun `no target or deleted target - null so caller falls back to ordering`() {
+        val routes = listOf(listOf(t("cur")))
+        assertNull(TrainOrdering.findTargetTrain(routes, null))
+        assertNull(TrainOrdering.findTargetTrain(routes, "gone"))
+        assertEquals("cur", TrainOrdering.pickTarget(routes[0], null)?.trainId)
+    }
 }
