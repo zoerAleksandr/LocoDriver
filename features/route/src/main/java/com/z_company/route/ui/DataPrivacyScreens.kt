@@ -29,6 +29,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -38,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import com.z_company.route.ui.settings.SettingsPrivacyContent
 import com.z_company.route.ui.settings.SettingsTrackHistoryContent
+import com.z_company.route.viewmodel.TrackHistoryItem
 import com.z_company.route.viewmodel.TrackHistoryViewModel
 
 /** «Данные и конфиденциальность» — отдельный экран, открывается из Профиля → «ДАННЫЕ» (SCREEN_SPECS §17.7, §18). */
@@ -89,6 +93,18 @@ fun TrackHistoryScreen(viewModel: TrackHistoryViewModel, onBack: () -> Unit, onO
     var noConsent by remember { mutableStateOf(false) }
     val networkGate = rememberNetworkGate()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    // Гейт синхронизации одного трека: нет согласия — диалог, нет сети — «Нет интернета» (как в массовом действии).
+    fun requestSync(item: TrackHistoryItem) {
+        if (!ui.consent) noConsent = true else networkGate.run { viewModel.syncOne(item) }
+    }
+    LaunchedEffect(ui.message) {
+        ui.message?.let {
+            viewModel.messageShown()
+            snackbarHostState.showSnackbar(it)
+        }
+    }
+
     BackHandler { if (isSelectionMode) viewModel.exitSelectionMode() else onBack() }
 
     if (confirmDelete) {
@@ -123,6 +139,7 @@ fun TrackHistoryScreen(viewModel: TrackHistoryViewModel, onBack: () -> Unit, onO
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 navigationIcon = {
@@ -186,7 +203,7 @@ fun TrackHistoryScreen(viewModel: TrackHistoryViewModel, onBack: () -> Unit, onO
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) { SettingsTrackHistoryContent(viewModel = viewModel) }
+        Box(Modifier.fillMaxSize().padding(padding)) { SettingsTrackHistoryContent(viewModel = viewModel, onRequestSync = ::requestSync) }
     }
 }
 

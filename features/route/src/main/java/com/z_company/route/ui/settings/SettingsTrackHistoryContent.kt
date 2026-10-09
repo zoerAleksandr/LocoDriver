@@ -1,6 +1,5 @@
 package com.z_company.route.ui.settings
 
-import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,12 +19,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +45,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -49,6 +55,8 @@ import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.route.R
 import com.z_company.route.component.AppAlertDialog
+import com.z_company.route.component.AppBottomSheet
+import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.SelectionMarker
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.component.servicephase.TrainMapScreen
@@ -64,22 +72,37 @@ import kotlin.math.cos
 import kotlin.math.max
 
 /**
- * «Мои треки» (SCREEN_SPECS §17.8): история записанных треков «АВТО» карточками — мини-карта, название
- * (поезд и плечо), дата, длина, длительность, состояние отправки, звезда «Избранное», удаление (свайп или
- * корзина, с подтверждением). Тап открывает карту трека ([TrainMapScreen] в режиме просмотра).
+ * «Мои треки» (SCREEN_SPECS §17.8): история записанных треков «АВТО» карточками в паттерне карточки маршрута
+ * («Все маршруты», §9): мини-карта, название, дата, явка рейса, длина и время в пути, индикаторы (звезда, облако,
+ * синхронизация). Свайп влево — удалить (с подтверждением), вправо — в избранное/из избранного, долгое нажатие —
+ * контекстное меню. Тап открывает карту трека ([TrainMapScreen] в режиме просмотра).
+ *
+ * @param onRequestSync запрос принудительной отправки одного трека (экран проверяет согласие и сеть).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsTrackHistoryContent(viewModel: TrackHistoryViewModel) {
+fun SettingsTrackHistoryContent(viewModel: TrackHistoryViewModel, onRequestSync: (TrackHistoryItem) -> Unit = {}) {
     val ui by viewModel.state.collectAsState()
-    val context = LocalContext.current
     var toDelete by remember { mutableStateOf<TrackHistoryItem?>(null) }
+    var menuFor by remember { mutableStateOf<TrackHistoryItem?>(null) }
     var closeSwipes by remember { mutableStateOf(0) }
+    val menuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    LaunchedEffect(ui.message) {
-        ui.message?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            viewModel.messageShown()
-        }
+    menuFor?.let { item ->
+        AppBottomSheet(
+            onDismissRequest = { menuFor = null },
+            sheetState = menuSheetState,
+            title = item.title,
+            actions = TrackHistoryActions.menu(item).map { action ->
+                BottomSheetAction(text = TrackHistoryActions.label(action, item)) {
+                    when (action) {
+                        TrackHistoryActions.Action.FAVORITE -> viewModel.toggleFavorite(item)
+                        TrackHistoryActions.Action.SYNC -> onRequestSync(item)
+                        TrackHistoryActions.Action.DELETE -> toDelete = item
+                    }
+                }
+            },
+        )
     }
 
     toDelete?.let { item ->
@@ -161,8 +184,7 @@ fun SettingsTrackHistoryContent(viewModel: TrackHistoryViewModel) {
                     TrackCard(
                         item = item,
                         zone = ui.zone,
-                        onFavorite = {},
-                        onDelete = {},
+                        syncing = item.id in ui.syncingIds,
                         selectionMode = true,
                         isSelected = selected,
                         modifier = Modifier.clickable { viewModel.toggleSelection(item.id) },
@@ -172,14 +194,19 @@ fun SettingsTrackHistoryContent(viewModel: TrackHistoryViewModel) {
                         onDeleteClick = { toDelete = item },
                         closeSignal = closeSwipes,
                         onContentClick = { viewModel.open(item) },
+                        onContentLongClick = { menuFor = item },
+                        onSwipeRight = { viewModel.toggleFavorite(item) },
+                        rightIconRes = com.z_company.core.R.drawable.ic_star,
+                        rightIconTint = Color(0xFFF5B301),
+                        rightBackground = Color(0xFFF5B301).copy(alpha = 0.16f),
+                        rightContentDescription = if (item.isFavorite) "Убрать из избранного" else "В избранное",
                         backgroundVerticalPadding = 0.dp,
                         itemKey = item.id,
                     ) {
                         TrackCard(
                             item = item,
                             zone = ui.zone,
-                            onFavorite = { viewModel.toggleFavorite(item) },
-                            onDelete = { toDelete = item },
+                            syncing = item.id in ui.syncingIds,
                         )
                     }
                 }
@@ -219,8 +246,7 @@ private fun Centered(content: @Composable () -> Unit) {
 private fun TrackCard(
     item: TrackHistoryItem,
     zone: String,
-    onFavorite: () -> Unit,
-    onDelete: () -> Unit,
+    syncing: Boolean,
     modifier: Modifier = Modifier,
     selectionMode: Boolean = false,
     isSelected: Boolean = false,
@@ -237,7 +263,7 @@ private fun TrackCard(
                     Modifier
                 },
             )
-            .padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = if (selectionMode) 12.dp else 4.dp),
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -251,51 +277,89 @@ private fun TrackCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            item.workStartAt?.let { start ->
+                Text(
+                    text = TrackHistoryFormat.workStart(start, zone),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
-                text = TrackHistoryFormat.dateTime(item.startedAt, zone) + " · " + TrackHistoryFormat.duration(item.durationMs),
-                style = MaterialTheme.typography.bodySmall,
+                text = TrackHistoryFormat.summary(item.distanceKm, item.durationMs),
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            item.distanceKm?.let { km ->
+            if (item.status == TrackHistoryStatus.REJECTED) {
                 Text(
-                    text = TrackHistoryFormat.distance(km) + (item.avgSpeedKmh?.takeIf { it > 0 }?.let { " · ср. ${it.toInt()} км/ч" } ?: ""),
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = TrackHistoryFormat.status(item.status),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
-                text = TrackHistoryFormat.status(item.status),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (item.status == TrackHistoryStatus.REJECTED) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
         }
-        if (!selectionMode) Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            IconButton(onClick = onFavorite, modifier = Modifier.size(40.dp)) {
+        // Индикаторы как на карточке маршрута: избранное, «облако» (трек только на сервере), синхронизация.
+        Column(
+            modifier = Modifier.align(Alignment.Top),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            if (item.isFavorite) {
                 Icon(
                     painter = painterResource(com.z_company.core.R.drawable.ic_star),
-                    contentDescription = if (item.isFavorite) "Убрать из избранного" else "В избранное",
-                    tint = if (item.isFavorite) Color(0xFFF5B301) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                    modifier = Modifier.size(24.dp),
+                    contentDescription = "В избранном",
+                    tint = Color(0xFFF5B301),
+                    modifier = Modifier.size(20.dp),
                 )
             }
-            IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
+            if (item.status == TrackHistoryStatus.SERVER_ONLY) {
                 Icon(
-                    painter = painterResource(R.drawable.delete_24px),
-                    contentDescription = "Удалить трек",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(22.dp),
+                    painter = painterResource(com.z_company.core.R.drawable.rounded_cloud_download_24),
+                    contentDescription = "Трек на сервере, на устройстве нет",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
                 )
             }
+            SyncIndicator(item = item, syncing = syncing)
         }
+    }
+}
+
+/** Индикатор синхронизации (те же значки, что на карточке маршрута): отправлен, не отправлен, идёт отправка. */
+@Composable
+private fun SyncIndicator(item: TrackHistoryItem, syncing: Boolean) {
+    val description = TrackHistoryFormat.syncDescription(item.status, syncing)
+    when {
+        syncing -> {
+            val angle by rememberInfiniteTransition(label = "trackSync").animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart),
+                label = "trackSyncAngle",
+            )
+            Icon(
+                painter = painterResource(R.drawable.sync_24px),
+                contentDescription = description,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = -angle },
+            )
+        }
+        item.isSynced -> Image(
+            painter = painterResource(R.drawable.sync_on_icon),
+            contentDescription = description,
+            modifier = Modifier.size(20.dp),
+        )
+        else -> Icon(
+            painter = painterResource(R.drawable.sync_disabled_24px),
+            contentDescription = description,
+            tint = if (item.status == TrackHistoryStatus.REJECTED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
@@ -357,11 +421,45 @@ internal object TrackHistoryFormat {
     fun distance(km: Double): String =
         if (km < 10) String.format(Locale("ru"), "%.1f км", km) else String.format(Locale("ru"), "%d км", km.toInt())
 
+    /** «Явка: д МММ гггг, чч:мм» — явка рейса, к которому записан трек. */
+    fun workStart(ms: Long, zone: String): String = "Явка: " + dateTime(ms, zone)
+
+    /** «N км · в пути N ч M мин»; пока сводка не достроена (км нет) — только время в пути. */
+    fun summary(distanceKm: Double?, durationMs: Long): String {
+        val way = "в пути " + duration(durationMs)
+        return if (distanceKm == null) way else distance(distanceKm) + " · " + way
+    }
+
+    /** Описание индикатора синхронизации (доступность); пометки «Только на сервере» больше нет. */
+    fun syncDescription(s: TrackHistoryStatus, syncing: Boolean): String = when {
+        syncing -> "Отправляется на сервер"
+        s == TrackHistoryStatus.SENT || s == TrackHistoryStatus.SERVER_ONLY -> "Синхронизирован"
+        s == TrackHistoryStatus.REJECTED -> status(s)
+        s == TrackHistoryStatus.PENDING -> "Ожидает отправки"
+        else -> "Не синхронизирован"
+    }
+
+    /** Красная строка на карточке — только для окончательного отказа сервера. */
     fun status(s: TrackHistoryStatus): String = when (s) {
-        TrackHistoryStatus.DEVICE_ONLY -> "Только на устройстве"
-        TrackHistoryStatus.PENDING -> "Ожидает отправки"
-        TrackHistoryStatus.SENT -> "Отправлен на сервер"
         TrackHistoryStatus.REJECTED -> "Не отправлен: лимит хранилища на сервере"
-        TrackHistoryStatus.SERVER_ONLY -> "Только на сервере"
+        else -> ""
+    }
+}
+
+/** Пункты контекстного меню карточки (долгое нажатие): чистая логика, проверяется юнит-тестом. */
+internal object TrackHistoryActions {
+    enum class Action { FAVORITE, SYNC, DELETE }
+
+    /** «Синхронизировать» — только для локального трека, ещё не отправленного. */
+    fun menu(item: TrackHistoryItem): List<Action> = buildList {
+        add(Action.FAVORITE)
+        if (item.isLocal && !item.isSynced) add(Action.SYNC)
+        add(Action.DELETE)
+    }
+
+    fun label(a: Action, item: TrackHistoryItem): String = when (a) {
+        Action.FAVORITE -> if (item.isFavorite) "Убрать из избранного" else "В избранное"
+        Action.SYNC -> "Синхронизировать"
+        Action.DELETE -> "Удалить"
     }
 }

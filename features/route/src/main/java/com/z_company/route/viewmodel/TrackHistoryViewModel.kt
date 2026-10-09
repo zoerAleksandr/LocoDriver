@@ -50,16 +50,32 @@ data class TrackHistoryItem(
     val startedAt: Long,
     val endedAt: Long,
     val distanceKm: Double?,
-    val avgSpeedKmh: Double?,
-    val maxSpeedKmh: Double?,
+    /** Явка рейса, к которому записан трек (`timeStartWork`); null — рейса/явки нет, строка не показывается. */
+    val workStartAt: Long? = null,
     /** Ломаная мини-карты (широта, долгота); пусто — значок. */
     val preview: List<Pair<Double, Double>>,
     val isFavorite: Boolean,
     val status: TrackHistoryStatus,
 ) {
     val isLocal: Boolean get() = status != TrackHistoryStatus.SERVER_ONLY
+
+    /** Трек есть на сервере (отправлен или пришёл с сервера): индикатор синхронизации «включён». */
+    val isSynced: Boolean get() = status == TrackHistoryStatus.SENT || status == TrackHistoryStatus.SERVER_ONLY
     val durationMs: Long get() = (endedAt - startedAt).coerceAtLeast(0L)
 }
+
+/**
+ * Слияние локального и серверного списков в единый (одна карточка на `trackId`): локальная копия приоритетнее серверной
+ * (у неё есть сводка и состояние отправки), серверные без локальной копии добавляются. Новые сверху.
+ */
+internal fun mergeTrackItems(local: List<TrackHistoryItem>, remote: List<TrackHistoryItem>): List<TrackHistoryItem> {
+    val seen = HashSet<String>()
+    return (local + remote).filter { seen.add(it.id) }.sortedByDescending { it.startedAt }
+}
+
+/** Какие серверные карточки показывать: без локальных копий и без поставленных в очередь на удаление. */
+internal fun <T> remoteOnlyCards(cards: List<T>, idOf: (T) -> String, localIds: Set<String>, pendingDelete: Set<String>): List<T> =
+    cards.filter { idOf(it) !in localIds && idOf(it) !in pendingDelete }
 
 /** Открытый для просмотра трек: точки и пояс времени. */
 class OpenedTrack(val title: String, val points: List<TrackPoint>, val zone: String)
@@ -85,6 +101,8 @@ data class TrackHistoryUiState(
     val selectedIds: Set<String> = emptySet(),
     /** Идёт массовое действие (удаление/синхронизация): панель неактивна. */
     val bulkBusy: Boolean = false,
+    /** Треки, отправляемые на сервер прямо сейчас: индикатор синхронизации на карточке крутится. */
+    val syncingIds: Set<String> = emptySet(),
 )
 
 /**
@@ -133,7 +151,7 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
         // Сначала быстрый список без сводок, затем карточки достраиваются по одной.
         val remoteOnly = _state.value.items.filter { it.status == TrackHistoryStatus.SERVER_ONLY }
         val first = infos.map { skeleton(it, canSend, statsCache[it.trackId]) }
-        _state.update { it.copy(loading = false, items = merge(first, remoteOnly)) }
+        _state.update { it.copy(loading = false, items = mergeTrackItems(first, remoteOnly)) }
         for (info in infos) {
             val cached = statsCache[info.trackId]
             val pointCount = withContext(Dispatchers.Default) { repository.pointCount(info.trackId) }
@@ -144,15 +162,10 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
         }
     }
 
-    private fun merge(local: List<TrackHistoryItem>, remote: List<TrackHistoryItem>): List<TrackHistoryItem> {
-        val localIds = local.map { it.id }.toSet()
-        return (local + remote.filter { it.id !in localIds }).sortedByDescending { it.startedAt }
-    }
-
     private fun skeleton(info: TrackInfo, canSend: Boolean, cached: Pair<Long, TrackHistoryItem>?): TrackHistoryItem =
         (cached?.second ?: TrackHistoryItem(
             id = info.trackId, title = "Трек", startedAt = info.startedAt, endedAt = info.endedAt,
-            distanceKm = null, avgSpeedKmh = null, maxSpeedKmh = null, preview = emptyList(),
+            distanceKm = null, preview = emptyList(),
             isFavorite = info.isFavorite, status = TrackHistoryStatus.DEVICE_ONLY,
         )).copy(isFavorite = info.isFavorite, status = statusOf(info, canSend), endedAt = info.endedAt)
 
@@ -166,8 +179,7 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
             startedAt = points.firstOrNull()?.timeMs ?: info.startedAt,
             endedAt = points.lastOrNull()?.timeMs ?: info.endedAt,
             distanceKm = stats.distanceKm,
-            avgSpeedKmh = stats.avgSpeedKmh,
-            maxSpeedKmh = stats.maxSpeedKmh,
+            workStartAt = runCatching { resolver.workStartByTrain(info.trainId) }.getOrNull(),
             preview = TrackPacking.preview(points, 60).map { it.latitude to it.longitude },
             isFavorite = info.isFavorite,
             status = statusOf(info, canSend),
@@ -196,15 +208,14 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
             val localIds = repository.tracks().map { it.trackId }.toSet()
             // Удалённые локально, но ещё не удалённые на сервере (очередь) не показываем: тап дал бы «не найден».
             val pendingDelete = repository.pendingRemoteDeletes().toSet()
-            val add = page.tracks.filter { it.id !in localIds && it.id !in pendingDelete }.map { c ->
+            val add = remoteOnlyCards(page.tracks, { it.id }, localIds, pendingDelete).map { c ->
                 TrackHistoryItem(
                     id = c.id,
                     title = c.title.ifBlank { "Трек" },
                     startedAt = c.startedAt,
                     endedAt = c.endedAt,
                     distanceKm = c.distanceKm,
-                    avgSpeedKmh = c.avgSpeedKmh,
-                    maxSpeedKmh = c.maxSpeedKmh,
+                    workStartAt = c.routeId?.let { id -> runCatching { resolver.workStartByRoute(id) }.getOrNull() },
                     preview = loader.previewPoints(c).map { it.latitude to it.longitude },
                     isFavorite = c.isFavorite,
                     status = TrackHistoryStatus.SERVER_ONLY,
@@ -214,7 +225,7 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
                 val keep = if (reset) st.items.filter { it.isLocal } else st.items
                 val known = keep.map { it.id }.toSet()
                 st.copy(
-                    items = (keep + add.filter { it.id !in known }).sortedByDescending { it.startedAt },
+                    items = mergeTrackItems(keep, add.filter { it.id !in known }),
                     remoteLoading = false,
                     canLoadMore = remoteCursor != null,
                 )
@@ -238,9 +249,12 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
             if (item.isLocal) {
                 withContext(Dispatchers.Default) { repository.setFavorite(item.id, newValue) }
                 trigger.trigger()
+                postMessage(TrackHistoryMessages.favorite(newValue, 1))
             } else {
                 val ok = runRemote { token -> loader.setFavorite(token, item.id, newValue) }
-                if (!ok) {
+                if (ok) {
+                    postMessage(TrackHistoryMessages.favorite(newValue, 1))
+                } else {
                     _state.update { st -> st.copy(items = st.items.map { if (it.id == item.id) it.copy(isFavorite = item.isFavorite) else it }) }
                 }
             }
@@ -346,13 +360,7 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
             }
             trigger.trigger()
             if (failed == 0) {
-                postMessage(
-                    when {
-                        done.isEmpty() -> "Ничего не изменилось"
-                        newValue -> if (done.size == 1) "Трек добавлен в избранное" else "Добавлено в избранное: ${done.size}"
-                        else -> if (done.size == 1) "Трек убран из избранного" else "Убрано из избранного: ${done.size}"
-                    },
-                )
+                postMessage(TrackHistoryMessages.favorite(newValue, done.size))
             }
         }
     }
@@ -364,17 +372,27 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
     fun syncSelected() {
         val chosen = selectedItems()
         if (chosen.isEmpty() || _state.value.bulkBusy) return
+        syncItems(chosen)
+    }
+
+    /** «Синхронизировать» из контекстного меню карточки: тот же путь, что у массового действия. */
+    fun syncOne(item: TrackHistoryItem) {
+        if (_state.value.bulkBusy) return
+        syncItems(listOf(item))
+    }
+
+    private fun syncItems(chosen: List<TrackHistoryItem>) {
         val ids = chosen.filter { it.isLocal }.map { it.id }.toSet()
         if (ids.isEmpty()) {
             exitSelectionMode()
             postMessage("Выбранные треки уже на сервере")
             return
         }
-        _state.update { it.copy(bulkBusy = true) }
+        _state.update { it.copy(bulkBusy = true, syncingIds = ids) }
         viewModelScope.launch {
             val token = bearer()
             if (token == null) {
-                _state.update { it.copy(bulkBusy = false) }
+                _state.update { it.copy(bulkBusy = false, syncingIds = emptySet()) }
                 postMessage("Войдите в аккаунт, чтобы синхронизировать треки")
                 return@launch
             }
@@ -386,9 +404,9 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
                 null
             }
             loadLocal()
-            _state.update { it.copy(bulkBusy = false) }
+            _state.update { it.copy(bulkBusy = false, syncingIds = emptySet()) }
             val ok = report?.outcome == TrackUploader.Outcome.DONE
-            if (ok) exitSelectionMode()
+            if (ok && _state.value.isSelectionMode) exitSelectionMode()
             postMessage(
                 when {
                     report == null -> "Не получилось: проверьте подключение к интернету"
@@ -476,5 +494,14 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
             postMessage("Не получилось: проверьте подключение к интернету")
             false
         }
+    }
+}
+
+/** Тексты снекбаров «Моих треков», вынесены для юнит-теста. */
+internal object TrackHistoryMessages {
+    fun favorite(added: Boolean, count: Int): String = when {
+        count <= 0 -> "Ничего не изменилось"
+        added -> if (count == 1) "Трек добавлен в избранное" else "Треки добавлены в избранное"
+        else -> if (count == 1) "Трек убран из избранного" else "Треки убраны из избранного"
     }
 }
