@@ -357,11 +357,11 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
      * (один повтор через 2 с при сбое); последняя полученная хранится на устройстве по набору
      * точек и рисуется, только если сервер недоступен.
      */
-    private fun railCacheKey(points: List<Pair<Double, Double>>) =
-        points.joinToString(";") { (lat, lon) -> "%.5f,%.5f".format(java.util.Locale.US, lat, lon) }
+    private val railCache by lazy { com.z_company.route.component.servicephase.RailLineCache(appContext) }
 
-    private fun railCacheFile(key: String) =
-        java.io.File(appContext.noBackupFilesDir, "rail_lines/${key.hashCode().toUInt().toString(16)}.txt")
+    private fun railCacheKey(points: List<Pair<Double, Double>>) = railCache.key(points)
+
+    private fun railCacheFile(key: String) = railCache.file(key)
 
     /** Линия, полученная онлайн при замере/просмотре плеча, — запас для «Карты» без сети (тот же кэш, что у [railLine]). */
     private suspend fun saveRailLine(points: List<Pair<Double, Double>>, geometry: List<List<Double>>) {
@@ -423,15 +423,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         return ok
     }
 
-    private fun readRailLine(file: java.io.File, key: String): List<Pair<Double, Double>>? = runCatching {
-        if (!file.exists()) return null
-        val (head, body) = file.readText().split("\n", limit = 2).takeIf { it.size == 2 } ?: return null
-        if (head != key) return null
-        body.split(";").mapNotNull { p ->
-            val (lat, lon) = p.split(",").takeIf { it.size == 2 } ?: return@mapNotNull null
-            lat.toDoubleOrNull()?.let { a -> lon.toDoubleOrNull()?.let { a to it } }
-        }.takeIf { it.size >= 2 }
-    }.getOrNull()
+    private fun readRailLine(file: java.io.File, key: String): List<Pair<Double, Double>>? = railCache.read(file, key)
 
     /** Координаты одной станции (шторка станции, «Найти координаты»). null — ошибка сети/сервиса. */
     suspend fun lookup(

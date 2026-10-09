@@ -141,6 +141,7 @@ val repositoryModule = module {
                 bearerToken = { tokens.getAuthBearerTokenFlow().first() },
             ),
             nowMs = { System.currentTimeMillis() },
+            phaseLine = com.z_company.route.component.servicephase.RailLineCache(androidContext()),
         )
     }
     // Кнопка «АВТО»: запись стоянок/отправлений по GPS (SCREEN_SPECS §6.2 п.6а).
