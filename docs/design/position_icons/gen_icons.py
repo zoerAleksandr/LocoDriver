@@ -296,6 +296,7 @@ def sec(iso,a,b,base,z0,z1,fdx=0,fzs=None,bdx=0,bzs=None,y0=0,y1=3,top=None,side
     top=top or lighten(base,0.22); side=side or base; end=end or darken(base,0.25); frame=frame or lighten(base,0.1)
     fzs=fzs if fzs is not None else z1
     bzs=bzs if bzs is not None else z1
+    if not fdx: fzs=z1  # торец без скоса — на полную высоту крыши (иначе щель между крышей кабины и капота)
     iso.poly3([(b,y0,z0),(b,y1,z0),(b,y1,fzs),(b,y0,fzs)],end)
     if fdx:
         iso.poly3([slope_pt(b,fdx,fzs,z1,0,y0),slope_pt(b,fdx,fzs,z1,0,y1),slope_pt(b,fdx,fzs,z1,1,y1),slope_pt(b,fdx,fzs,z1,1,y0)],frame)
@@ -418,7 +419,7 @@ def iso_swallow():
         bogies(iso,[xc-1.0,xc+1.0],0.3,Wd-0.3)
     for i,a in enumerate(xs):
         b=a+L; first=i==0; last=i==n-1
-        sec(iso,a,b,WH,1.0,z1,y1=Wd,fdx=1.6 if last else 0,fzs=2.0,bdx=1.6 if first else 0,bzs=2.0,top="#4B535D",end="#F08A2C",frame="#7C848E" if (first or last) else WH,pane="#1F2E40")
+        sec(iso,a,b,WH,1.0,z1,y1=Wd,fdx=1.6 if last else 0,fzs=2.0,bdx=1.6 if first else 0,bzs=2.0,top="#4B535D",end="#F08A2C" if last else DG,frame="#7C848E" if (first or last) else WH,pane="#1F2E40")
         sx0=a+(1.8 if first else 0.3); sx1=b-(1.8 if last else 0.3)
         iso.qY(sx0,sx1,2.0,3.2,Wd,"#1F2E40")
         k=max(1,int((sx1-sx0)//1.1))
