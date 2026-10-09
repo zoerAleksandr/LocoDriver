@@ -36,6 +36,8 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.iosapp.repository.IosSharedPreferencesRepository
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
+import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
+import com.z_company.iosapp.viewmodel.NewRouteIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
@@ -119,4 +121,17 @@ val iosUseCaseModule = module {
     single { TrainFormIosViewModel(get()) }
     single { PassengerFormIosViewModel(get()) }
     single { ProfileIosViewModel(authManager = get(), syncManager = get(), secureTokenStorage = get(), sharedPrefs = get(), remoteRestApi = get()) }
+    single {
+        HomeScreenIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            calendarUseCase = get(),
+            normaUseCase = get(),
+            sharedPrefs = get(),
+            syncManager = get(),
+            secureTokenStorage = get(),
+        )
+    }
+    single { NewRouteIosViewModel(routeUseCase = get(), settingsUseCase = get(), secureTokenStorage = get()) }
 }
