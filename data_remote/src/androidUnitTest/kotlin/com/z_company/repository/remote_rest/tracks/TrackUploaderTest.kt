@@ -163,6 +163,21 @@ class TrackUploaderTest {
     }
 
     @Test
+    fun runOnlyUploadsSelectedTracksEvenIfStillQuietAndRetriesRejected() {
+        seed("sel", 50, endedAgoMs = 60_000L) // моложе паузы QUIET_MS: обычный прогон его бы подождал
+        seed("rej", 50)
+        repo.setUploadState("rej", TrackUploadState.REJECTED, 0)
+        seed("other", 50)
+        val r = runBlocking { uploader().run("Bearer t", only = setOf("sel", "rej")) }
+        assertEquals(TrackUploader.Outcome.DONE, r.outcome)
+        assertEquals(2, r.uploaded)
+        assertEquals(TrackUploadState.UPLOADED, repo.track("sel")!!.uploadState)
+        assertEquals(TrackUploadState.UPLOADED, repo.track("rej")!!.uploadState)
+        assertEquals(TrackUploadState.PENDING, repo.track("other")!!.uploadState)
+        assertFalse("other" in api.tracks)
+    }
+
+    @Test
     fun secondRunDoesNothingAndCoordinatesStayOutOfCalls() {
         seed("t1", 100)
         run()

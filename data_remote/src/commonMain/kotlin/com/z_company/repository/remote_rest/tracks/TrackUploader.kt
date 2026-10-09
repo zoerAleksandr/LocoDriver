@@ -68,10 +68,14 @@ class TrackUploader(
         var waiting = false
     }
 
-    suspend fun run(token: String): Report {
+    /**
+     * @param only отправить только эти треки (принудительная синхронизация выбранных в «Мои треки»); null — все.
+     *   Для них не ждём паузы [TrackPacking.QUIET_MS] и повторяем ранее отвергнутые (REJECTED).
+     */
+    suspend fun run(token: String, only: Set<String>? = null): Report {
         val c = Counters()
         return try {
-            runInternal(token, c)
+            runInternal(token, c, only)
         } catch (e: CancellationException) {
             throw e
         } catch (e: TracksApiException) {
@@ -91,7 +95,7 @@ class TrackUploader(
         else -> Outcome.RETRY_LATER
     }
 
-    private suspend fun runInternal(token: String, c: Counters): Report {
+    private suspend fun runInternal(token: String, c: Counters, only: Set<String>?): Report {
         // 1. Согласие: сервер должен знать то же, что и устройство.
         val local = settings.localConsent()
         if (settings.serverConsent() != local) {
@@ -116,10 +120,17 @@ class TrackUploader(
         // 3. Отправка законченных треков.
         val now = nowMs()
         var retry = false
-        for (info in withContext(Dispatchers.Default) { repository.tracks() }) {
+        for (listed in withContext(Dispatchers.Default) { repository.tracks() }) {
+            if (only != null && listed.trackId !in only) continue
+            var info = listed
+            if (only != null && info.uploadState == TrackUploadState.REJECTED) {
+                // Явный запрос пользователя: пробуем ещё раз (например, после освобождения места на сервере).
+                repository.setUploadState(info.trackId, TrackUploadState.PENDING, 0)
+                info = info.copy(uploadState = TrackUploadState.PENDING, uploadedPoints = 0)
+            }
             val count = withContext(Dispatchers.Default) { repository.pointCount(info.trackId) }
             if (!needsUpload(info, count)) continue
-            if (now - info.endedAt < TrackPacking.QUIET_MS) {
+            if (only == null && now - info.endedAt < TrackPacking.QUIET_MS) {
                 c.waiting = true
                 continue
             }

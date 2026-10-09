@@ -3,6 +3,8 @@ package com.z_company.route.ui.settings
 import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,6 +49,7 @@ import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.route.R
 import com.z_company.route.component.AppAlertDialog
+import com.z_company.route.component.SelectionMarker
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.component.servicephase.TrainMapScreen
 import com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel
@@ -71,7 +74,6 @@ fun SettingsTrackHistoryContent(viewModel: TrackHistoryViewModel) {
     val context = LocalContext.current
     var toDelete by remember { mutableStateOf<TrackHistoryItem?>(null) }
     var closeSwipes by remember { mutableStateOf(0) }
-    var confirmDeleteAll by remember { mutableStateOf(false) }
 
     LaunchedEffect(ui.message) {
         ui.message?.let {
@@ -101,21 +103,6 @@ fun SettingsTrackHistoryContent(viewModel: TrackHistoryViewModel) {
             dismissText = "Отмена",
         )
     }
-    if (confirmDeleteAll) {
-        AppAlertDialog(
-            onDismissRequest = { confirmDeleteAll = false },
-            title = "Удалить всю историю?",
-            text = "Все треки будут удалены с этого устройства и с сервера. Это действие нельзя отменить.",
-            confirmText = "Удалить всё",
-            isDestructive = true,
-            onConfirm = {
-                confirmDeleteAll = false
-                viewModel.deleteAll()
-            },
-            dismissText = "Отмена",
-        )
-    }
-
     ui.opened?.let { opened ->
         TrainMapScreen(
             missingStation = { null },
@@ -168,19 +155,33 @@ fun SettingsTrackHistoryContent(viewModel: TrackHistoryViewModel) {
                 }
             }
             items(ui.items, key = { it.id }) { item ->
-                SwipeToRevealDelete(
-                    onDeleteClick = { toDelete = item },
-                    closeSignal = closeSwipes,
-                    onContentClick = { viewModel.open(item) },
-                    backgroundVerticalPadding = 0.dp,
-                    itemKey = item.id,
-                ) {
+                if (ui.isSelectionMode) {
+                    // Режим выбора (как на «Все маршруты»): тап переключает отметку, свайп-удаление отключено.
+                    val selected = item.id in ui.selectedIds
                     TrackCard(
                         item = item,
                         zone = ui.zone,
-                        onFavorite = { viewModel.toggleFavorite(item) },
-                        onDelete = { toDelete = item },
+                        onFavorite = {},
+                        onDelete = {},
+                        selectionMode = true,
+                        isSelected = selected,
+                        modifier = Modifier.clickable { viewModel.toggleSelection(item.id) },
                     )
+                } else {
+                    SwipeToRevealDelete(
+                        onDeleteClick = { toDelete = item },
+                        closeSignal = closeSwipes,
+                        onContentClick = { viewModel.open(item) },
+                        backgroundVerticalPadding = 0.dp,
+                        itemKey = item.id,
+                    ) {
+                        TrackCard(
+                            item = item,
+                            zone = ui.zone,
+                            onFavorite = { viewModel.toggleFavorite(item) },
+                            onDelete = { toDelete = item },
+                        )
+                    }
                 }
             }
             if (ui.canLoadMore || ui.remoteLoading) {
@@ -197,15 +198,6 @@ fun SettingsTrackHistoryContent(viewModel: TrackHistoryViewModel) {
             if (ui.remoteError) {
                 item {
                     SettingsSectionNote("Треки с сервера не загрузились. Показаны треки этого устройства.")
-                }
-            }
-            if (ui.items.isNotEmpty()) {
-                item {
-                    Centered {
-                        TextButton(onClick = { confirmDeleteAll = true }) {
-                            Text("Удалить всю историю", color = MaterialTheme.colorScheme.error)
-                        }
-                    }
                 }
             }
         }
@@ -229,16 +221,27 @@ private fun TrackCard(
     zone: String,
     onFavorite: () -> Unit,
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    selectionMode: Boolean = false,
+    isSelected: Boolean = false,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .shadow(elevation = 2.dp, shape = Shapes.medium)
             .background(color = MaterialTheme.colorScheme.secondary, shape = Shapes.medium)
-            .padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+            .then(
+                if (selectionMode && isSelected) {
+                    Modifier.border(2.dp, MaterialTheme.colorScheme.surfaceContainerLow, Shapes.medium)
+                } else {
+                    Modifier
+                },
+            )
+            .padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = if (selectionMode) 12.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (selectionMode) SelectionMarker(isSelected = isSelected)
         MiniMap(item.preview, Modifier.size(72.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
@@ -275,7 +278,7 @@ private fun TrackCard(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (!selectionMode) Column(horizontalAlignment = Alignment.CenterHorizontally) {
             IconButton(onClick = onFavorite, modifier = Modifier.size(40.dp)) {
                 Icon(
                     painter = painterResource(com.z_company.core.R.drawable.ic_star),
