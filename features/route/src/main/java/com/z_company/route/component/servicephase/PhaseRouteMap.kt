@@ -2,6 +2,12 @@ package com.z_company.route.component.servicephase
 
 import com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel
 import com.z_company.route.viewmodel.message
+import com.z_company.domain.util.PointStation
+import com.z_company.domain.util.PointStationResult
+import com.z_company.domain.util.RenderedStation
+import com.z_company.route.component.AppAlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.rememberUpdatedState
 
 import org.maplibre.android.maps.MapLibreMap
 import kotlinx.coroutines.launch
@@ -76,6 +82,11 @@ private const val STOPS_SOURCE = "phase-route-stops"
 private const val ME_SOURCE = "phase-route-me"
 private const val RAIL_SOURCE = "phase-route-rail"
 private const val RAIL_LAYER = "phase-route-rail-layer"
+private const val PICK_SOURCE = "phase-route-pick"
+private const val PICK_LAYER = "phase-route-pick-layer"
+
+/** Нажатая точка, по которой идёт или ждёт подтверждения поиск станции. */
+private class PendingPick(val isStart: Boolean, val latitude: Double, val longitude: Double, val confirm: PickConfirm)
 
 /**
  * Просмотр плеча на карте (SCREEN_SPECS §6.6): станции с координатами по порядку —
@@ -92,6 +103,20 @@ internal fun PhaseRouteMap(
     missing: Int,
     loadRailLine: suspend (List<Pair<Double, Double>>) -> ServicePhaseAutoFillViewModel.RailLineResult,
     onDismiss: () -> Unit,
+    /** Названия крайних станций в полях (пусто - не указана) и есть ли у них координаты. */
+    departureName: String = "",
+    arrivalName: String = "",
+    departureKnown: Boolean = false,
+    arrivalKnown: Boolean = false,
+    /** Последняя станция справочника с координатами - регион камеры, когда станций плеча нет. */
+    lastStation: Pair<Double, Double>? = null,
+    /** Поиск ближайшей станции по нажатой точке; null - выбор станций на карте недоступен. */
+    findStation: (suspend (Double, Double, RenderedStation?) -> PointStationResult)? = null,
+    onApplyStation: (isStart: Boolean, station: PointStation) -> Unit = { _, _ -> },
+    /** Станций рядом нет, в поле есть название: поставить его на нажатую точку. */
+    onApplyTypedName: (isStart: Boolean, latitude: Double, longitude: Double) -> Unit = { _, _, _ -> },
+    /** «Измерить по карте» (когда обе станции с координатами); null - кнопки нет. */
+    onMeasure: (() -> Unit)? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -101,6 +126,8 @@ internal fun PhaseRouteMap(
         remember { MapLibre.getInstance(context); true }
         val density = context.resources.displayMetrics.density
         var map by remember { mutableStateOf<MapLibreMap?>(null) }
+        // Карта жива (до onDestroy): запросы к отрисовке после закрытия роняют приложение нативно (см. PhaseMapPicker).
+        val alive = remember { java.util.concurrent.atomic.AtomicBoolean(true) }
         var locationDenied by remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
         fun showMyLocation() {
@@ -115,22 +142,22 @@ internal fun PhaseRouteMap(
         val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
             if (granted.values.any { it }) showMyLocation() else locationDenied = true
         }
-        // Путь по рельсам: грузим один раз и подменяем пунктир сплошной линией, когда карта готова.
-        // Путь по рельсам: грузим один раз и рисуем, когда карта готова.
+        // Путь по рельсам: грузим при открытии и при изменении станций (после выбора на карте), рисуем, когда карта готова.
         var railState by remember { mutableStateOf<ServicePhaseAutoFillViewModel.RailLineResult?>(null) }
         var loadAttempt by remember { mutableStateOf(0) }
-        LaunchedEffect(loadAttempt) {
+        LaunchedEffect(loadAttempt, stops) {
+            railState = null
             if (stops.size >= 2) {
-                railState = null
                 railState = loadRailLine(stops.map { it.latitude to it.longitude })
             }
         }
         var styleReady by remember { mutableStateOf(false) }
         LaunchedEffect(railState, styleReady) {
-            val line = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line ?: return@LaunchedEffect
             if (!styleReady) return@LaunchedEffect
             val style = map?.style ?: return@LaunchedEffect
-            if (style.getLayer(RAIL_LAYER) != null) return@LaunchedEffect
+            style.getLayer(RAIL_LAYER)?.let { style.removeLayer(it) }
+            style.getSource(RAIL_SOURCE)?.let { style.removeSource(it) }
+            val line = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line ?: return@LaunchedEffect
             style.addSource(
                 GeoJsonSource(
                     RAIL_SOURCE,
@@ -148,6 +175,63 @@ internal fun PhaseRouteMap(
                 "phase-route-stops-layer",
             )
         }
+
+        // Станции на карте обновляются после выбора на ней; камера охватывает новые станции.
+        val shownStops = remember { mutableStateOf<List<RouteMapStop>?>(null) }
+        LaunchedEffect(stops, styleReady) {
+            if (!styleReady) return@LaunchedEffect
+            val m = map ?: return@LaunchedEffect
+            val style = m.style ?: return@LaunchedEffect
+            style.getSourceAs<GeoJsonSource>(STOPS_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(stopFeatures(stops)))
+            if (shownStops.value != null && shownStops.value != stops) {
+                val pad = (48 * density).toInt()
+                fitCameraTo(m, stops.map { it.latitude to it.longitude }, pad, pad * 2, pad * 2, pad * 3, animate = true)
+            }
+            shownStops.value = stops
+        }
+
+        // Станций с координатами нет - камера на местоположение (если разрешено), иначе на регион последней станции / Россию.
+        LaunchedEffect(map) {
+            val m = map ?: return@LaunchedEffect
+            if (stops.isNotEmpty()) return@LaunchedEffect
+            val fix = DeviceLocation.currentFix(context) ?: return@LaunchedEffect
+            if (stops.isEmpty() && alive.get()) {
+                val go = PhaseMapPick.startWithoutStops(fix.latitude to fix.longitude, lastStation)
+                m.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(go.latitude, go.longitude), go.zoom))
+            }
+        }
+
+        // Выбор станции на карте: кнопка -> режим (нажать точку) -> поиск ближайшей -> диалог подтверждения.
+        var pickFor by remember { mutableStateOf<Boolean?>(null) }
+        var searching by remember { mutableStateOf(false) }
+        var pending by remember { mutableStateOf<PendingPick?>(null) }
+        fun setPickPoint(lat: Double?, lon: Double?) {
+            val src = map?.style?.getSourceAs<GeoJsonSource>(PICK_SOURCE) ?: return
+            if (lat == null || lon == null) src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+            else src.setGeoJson(Point.fromLngLat(lon, lat))
+        }
+        fun nameFor(isStart: Boolean) = if (isStart) departureName else arrivalName
+        val onTap by rememberUpdatedState<(LatLng) -> Unit> { latLng ->
+            val isStart = pickFor
+            val find = findStation
+            val m = map
+            if (isStart != null && find != null && m != null && !searching && pending == null) {
+                // Станция OSM под пальцем (слой подложки) - запасной источник, если сервер не ответил.
+                val rendered = stationAt(m, m.projection.toScreenLocation(latLng), 24 * density)
+                    ?.let { (p, name) -> RenderedStation(name, p.latitude, p.longitude) }
+                searching = true
+                setPickPoint(latLng.latitude, latLng.longitude)
+                scope.launch {
+                    val result = try {
+                        find(latLng.latitude, latLng.longitude, rendered)
+                    } finally {
+                        searching = false
+                    }
+                    pending = PendingPick(isStart, latLng.latitude, latLng.longitude, PhaseMapPick.confirm(result, nameFor(isStart)))
+                }
+            }
+        }
+        val pickActive by rememberUpdatedState(pickFor != null)
         val mapView = remember {
             MapView(context).also { mv ->
                 mv.getMapAsync { m ->
@@ -156,10 +240,16 @@ internal fun PhaseRouteMap(
                     m.uiSettings.isTiltGesturesEnabled = false
                     m.uiSettings.isLogoEnabled = false
                     m.uiSettings.isAttributionEnabled = true
+                    val start = PhaseMapPick.startWithoutStops(null, lastStation)
                     m.cameraPosition = CameraPosition.Builder()
-                        .target(stops.firstOrNull()?.let { LatLng(it.latitude, it.longitude) } ?: LatLng(55.75, 37.62))
-                        .zoom(if (stops.isEmpty()) 5.0 else 11.0)
+                        .target(stops.firstOrNull()?.let { LatLng(it.latitude, it.longitude) } ?: LatLng(start.latitude, start.longitude))
+                        .zoom(if (stops.isEmpty()) start.zoom else 11.0)
                         .build()
+                    m.addOnMapClickListener { latLng ->
+                        if (!alive.get() || !pickActive || m.style?.isFullyLoaded != true) return@addOnMapClickListener false
+                        onTap(latLng)
+                        true
+                    }
                     loadMapStyle(mv, m) { style ->
                         addRailwayLayers(style)
                         // Моё местоположение — синяя точка (заполняется по кнопке).
@@ -172,19 +262,17 @@ internal fun PhaseRouteMap(
                                 PropertyFactory.circleStrokeWidth(3f),
                             )
                         )
-                        val features = stops.map { st ->
-                            Feature.fromGeometry(Point.fromLngLat(st.longitude, st.latitude)).apply {
-                                addStringProperty("name", st.name)
-                                addStringProperty(
-                                    "kind",
-                                    when (st.kind) {
-                                        null -> "terminal"
-                                        ServicePhaseStationKind.HALT -> "halt"
-                                        ServicePhaseStationKind.STATION -> "station"
-                                    },
-                                )
-                            }
-                        }
+                        // Нажатая точка выбора станции.
+                        style.addSource(GeoJsonSource(PICK_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addLayer(
+                            CircleLayer(PICK_LAYER, PICK_SOURCE).withProperties(
+                                PropertyFactory.circleRadius(9f),
+                                PropertyFactory.circleColor("#E8590C"),
+                                PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                PropertyFactory.circleStrokeWidth(3f),
+                            )
+                        )
+                        val features = stopFeatures(stops)
                         style.addSource(GeoJsonSource(STOPS_SOURCE, FeatureCollection.fromFeatures(features)))
                         val kind = Expression.get("kind")
                         style.addLayer(
@@ -221,6 +309,7 @@ internal fun PhaseRouteMap(
                         val pad = (48 * density).toInt()
                         // Справа — кнопки «+ − ◎», поэтому отступ шире.
                         fitCameraTo(m, stops.map { it.latitude to it.longitude }, pad, pad * 2, pad * 2, pad * 3, animate = false)
+                        shownStops.value = stops
                         styleReady = true
                     }
                 }
@@ -230,6 +319,7 @@ internal fun PhaseRouteMap(
             mapView.onStart()
             mapView.onResume()
             onDispose {
+                alive.set(false)
                 map = null
                 mapView.onPause()
                 mapView.onStop()
@@ -271,6 +361,7 @@ internal fun PhaseRouteMap(
                     Text(
                         text = when {
                             locationDenied -> "Нет доступа к местоположению"
+                            stops.isEmpty() -> "Станции на карте не указаны"
                             missing == 0 -> "$total " + pstPlural(total, "станция", "станции", "станций")
                             else -> "Показано ${stops.size} из $total · у $missing нет координат"
                         },
@@ -303,91 +394,201 @@ internal fun PhaseRouteMap(
                 }
             }
             val rail = railState
-            if (rail is ServicePhaseAutoFillViewModel.RailLineResult.Ok && rail.fromCache) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(16.dp)
-                        .shadow(4.dp, RoundedCornerShape(16.dp))
-                        .background(Pst.warning, RoundedCornerShape(16.dp))
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                ) {
-                    Text(
-                        text = "Маршрут показан из сохранённых данных",
-                        style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
-                        color = Pst.text,
-                    )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (rail is ServicePhaseAutoFillViewModel.RailLineResult.Ok && rail.fromCache) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(4.dp, RoundedCornerShape(16.dp))
+                            .background(Pst.warning, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                    ) {
+                        Text(
+                            text = "Маршрут показан из сохранённых данных",
+                            style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                            color = Pst.text,
+                        )
+                    }
                 }
-            }
-            if (stops.size >= 2 && rail !is ServicePhaseAutoFillViewModel.RailLineResult.Ok) {
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(16.dp)
-                        .shadow(4.dp, RoundedCornerShape(16.dp))
-                        .background(Pst.surface, RoundedCornerShape(16.dp))
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    if (rail == null) {
-                        androidx.compose.material3.CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = Pst.accent,
-                        )
-                        Text(
-                            text = "Строим путь по рельсам…",
-                            style = Pst.sans.copy(fontSize = 14.sp),
-                            color = Pst.text,
-                        )
-                    } else {
-                        Text(
-                            text = when (rail) {
-                                ServicePhaseAutoFillViewModel.RailLineResult.NoPath ->
-                                    "Не удалось проложить путь по рельсам между станциями плеча. Проверьте координаты станций — " +
-                                        "точка могла оказаться в стороне от железной дороги."
-                                is ServicePhaseAutoFillViewModel.RailLineResult.Failed ->
-                                    "Путь по рельсам не построен. " + rail.failure.message() + "."
-                                else -> ""
-                            }.replace("..", "."),
-                            style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp),
-                            color = Pst.text,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (rail is ServicePhaseAutoFillViewModel.RailLineResult.Failed) {
-                            PstButton(
-                                text = "Повторить",
-                                onClick = { loadAttempt++ },
-                                kind = PstButtonKind.TEXT,
-                                height = 36.dp,
-                                fontSize = 14,
+                if (stops.size >= 2 && rail !is ServicePhaseAutoFillViewModel.RailLineResult.Ok) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(4.dp, RoundedCornerShape(16.dp))
+                            .background(Pst.surface, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        if (rail == null) {
+                            androidx.compose.material3.CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = Pst.accent,
                             )
+                            Text(
+                                text = "Строим путь по рельсам…",
+                                style = Pst.sans.copy(fontSize = 14.sp),
+                                color = Pst.text,
+                            )
+                        } else {
+                            Text(
+                                text = when (rail) {
+                                    ServicePhaseAutoFillViewModel.RailLineResult.NoPath ->
+                                        "Не удалось проложить путь по рельсам между станциями плеча. Проверьте координаты станций — " +
+                                            "точка могла оказаться в стороне от железной дороги."
+                                    is ServicePhaseAutoFillViewModel.RailLineResult.Failed ->
+                                        "Путь по рельсам не построен. " + rail.failure.message() + "."
+                                    else -> ""
+                                }.replace("..", "."),
+                                style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                                color = Pst.text,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (rail is ServicePhaseAutoFillViewModel.RailLineResult.Failed) {
+                                PstButton(
+                                    text = "Повторить",
+                                    onClick = { loadAttempt++ },
+                                    kind = PstButtonKind.TEXT,
+                                    height = 36.dp,
+                                    fontSize = 14,
+                                )
+                            }
                         }
                     }
                 }
-            }
-            if (stops.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(16.dp)
-                        .background(Pst.surface, RoundedCornerShape(16.dp))
-                        .padding(16.dp),
-                ) {
-                    Text(
-                        text = "У станций плеча пока нет координат. Найдите станции автоматически или укажите точки на карте.",
-                        style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp),
-                        color = Pst.textMuted,
-                    )
+                if (findStation != null) {
+                    val picking = pickFor
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(4.dp, RoundedCornerShape(16.dp))
+                            .background(Pst.surface, RoundedCornerShape(16.dp))
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (picking != null) {
+                            // Режим выбора: нажать точку на карте.
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                if (searching) {
+                                    androidx.compose.material3.CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Pst.accent,
+                                    )
+                                }
+                                Text(
+                                    text = if (searching) "Ищем ближайшую станцию…" else PhaseMapPick.prompt(picking, departureName, arrivalName),
+                                    style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
+                                    color = Pst.text,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                            PstButton(
+                                text = "Отмена",
+                                onClick = { pickFor = null; searching = false; setPickPoint(null, null) },
+                                kind = PstButtonKind.TONAL,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        } else {
+                            if (stops.isEmpty()) {
+                                Text(
+                                    text = "У станций плеча пока нет координат. Нажмите кнопку и укажите место станции на карте.",
+                                    style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                                    color = Pst.textMuted,
+                                )
+                            }
+                            PhaseMapPick.buttons(departureName, arrivalName).forEach { b ->
+                                PstButton(
+                                    text = b.label,
+                                    onClick = { pickFor = b.isStart },
+                                    enabled = b.enabled,
+                                    kind = PstButtonKind.TONAL,
+                                    icon = PstIcons.MapPin,
+                                    iconSize = 18.dp,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            if (onMeasure != null && PhaseMapPick.canMeasure(departureName, arrivalName, departureKnown, arrivalKnown)) {
+                                PstButton(
+                                    text = "Измерить по карте",
+                                    onClick = onMeasure,
+                                    kind = PstButtonKind.CTA,
+                                    icon = PstIcons.Measure,
+                                    iconSize = 18.dp,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                    }
+                } else if (stops.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Pst.surface, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
+                    ) {
+                        Text(
+                            text = "У станций плеча пока нет координат. Найдите станции автоматически или укажите точки на карте.",
+                            style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                            color = Pst.textMuted,
+                        )
+                    }
                 }
             }
+            pending?.let { p ->
+                val c = p.confirm
+                fun finish(keepPicking: Boolean) {
+                    pending = null
+                    setPickPoint(null, null)
+                    if (!keepPicking) pickFor = null
+                }
+                AppAlertDialog(
+                    onDismissRequest = { finish(keepPicking = false) },
+                    title = c.title,
+                    confirmText = c.confirmText,
+                    onConfirm = {
+                        when (c) {
+                            is PickConfirm.Found -> onApplyStation(p.isStart, c.station)
+                            is PickConfirm.UseTypedName -> onApplyTypedName(p.isStart, p.latitude, p.longitude)
+                            is PickConfirm.NothingNearby -> Unit
+                        }
+                        // «Выбрать другую» (станций рядом нет) остаётся в режиме выбора; «Применить» - выходит из него.
+                        finish(keepPicking = c is PickConfirm.NothingNearby)
+                    },
+                    dismissText = c.dismissText,
+                    onDismiss = { finish(keepPicking = false) },
+                    content = {
+                        Text(text = c.text, fontSize = 14.sp, lineHeight = 20.sp)
+                        if (c is PickConfirm.Found) {
+                            TextButton(onClick = { finish(keepPicking = true) }) {
+                                Text(text = "Выбрать другую", fontSize = 14.sp, fontWeight = FontWeight.W600, color = Pst.accent)
+                            }
+                        }
+                    },
+                )
+            }
         }
+    }
+}
+
+private fun stopFeatures(stops: List<RouteMapStop>): List<Feature> = stops.map { st ->
+    Feature.fromGeometry(Point.fromLngLat(st.longitude, st.latitude)).apply {
+        addStringProperty("name", st.name)
+        addStringProperty(
+            "kind",
+            when (st.kind) {
+                null -> "terminal"
+                ServicePhaseStationKind.HALT -> "halt"
+                ServicePhaseStationKind.STATION -> "station"
+            },
+        )
     }
 }

@@ -355,7 +355,7 @@ private fun initialTarget(start: Pair<Double, Double>?, neighbours: List<Pair<Do
 }
 
 /** Станция OSM под пальцем (наш слой станций): (точка, название). */
-private fun stationAt(map: MapLibreMap, screen: PointF, radiusPx: Float): Pair<LatLng, String>? {
+internal fun stationAt(map: MapLibreMap, screen: PointF, radiusPx: Float): Pair<LatLng, String>? {
     val box = RectF(screen.x - radiusPx, screen.y - radiusPx, screen.x + radiusPx, screen.y + radiusPx)
     return map.queryRenderedFeatures(box, RAIL_STATION_LAYER).firstNotNullOfOrNull { f ->
         val name = f.getStringProperty("name:ru") ?: f.getStringProperty("name")
