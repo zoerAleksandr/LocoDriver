@@ -60,7 +60,11 @@ import com.z_company.route.component.rememberNetworkGate
 import com.z_company.domain.track.HeadingEstimator
 import androidx.compose.runtime.collectAsState
 import com.z_company.domain.entities.setting.ServicePhaseStationKind
+import com.z_company.domain.track.SpeedBand
+import com.z_company.domain.track.SpeedProfile
+import com.z_company.domain.track.SpeedScale
 import com.z_company.domain.track.TrackAnalysis
+import com.z_company.route.util.GnssQualityMonitor
 import com.z_company.domain.track.TrackPoint
 import com.z_company.domain.track.TrainStopMark
 import com.z_company.domain.util.LabelPlacer
@@ -106,6 +110,9 @@ private const val TRAIN_TAIL_SOURCE = "train-map-tail"
 private const val TRAIN_OFF_SOURCE = "train-map-off"
 private const val TRAIN_NODATA_SOURCE = "train-map-nodata"
 private const val TRAIN_PLAN_SOURCE = "train-map-plan"
+private const val TRAIN_ENDS_SOURCE = "train-map-ends"
+private const val END_START_IMAGE = "train-end-start"
+private const val END_FINISH_IMAGE = "train-end-finish"
 private const val ME_ICON_IMAGE = "train-me-icon"
 private const val PLAN_FLAG_IMAGE = "train-plan-flag"
 
@@ -113,10 +120,29 @@ private const val PLAN_FLAG_IMAGE = "train-plan-flag"
 private sealed interface TrainMapSelection {
     data class PathPoint(val point: TrackPoint) : TrainMapSelection
     data class Stop(val mark: TrainStopMark) : TrainMapSelection
+    /** Начало ([isStart]) или окончание пройденного пути. */
+    data class Endpoint(val point: TrackPoint, val isStart: Boolean) : TrainMapSelection
 }
 
-/** Шкала скорости (км/ч → цвет): красный — стоим, далее оранжевый, жёлтый, зелёный, бирюзовый, синий. */
-private val SPEED_STOPS = com.z_company.domain.track.SpeedScale.STOPS.map { (v, rgb) -> v to String.format("#%06X", rgb) }
+/**
+ * Цвет линии пути по свойству `speed` (км/ч, < 0 - неизвестна): общая шкала [SpeedScale] (в одном месте с графиком),
+ * диапазоны с границами включительно сверху. Карта всегда светлая, поэтому оттенки для светлого фона.
+ */
+private fun speedColorExpression(profile: SpeedProfile): Expression {
+    val (g, y, o) = SpeedScale.limits(profile)
+    fun c(b: SpeedBand) = Expression.color(Color.parseColor(String.format("#%06X", SpeedScale.rgb(b))))
+    val eps = 0.0001
+    return Expression.switchCase(
+        Expression.lt(Expression.get("speed"), Expression.literal(0)),
+        c(SpeedBand.UNKNOWN),
+        Expression.step(
+            Expression.get("speed"), c(SpeedBand.GREEN),
+            Expression.stop(g + eps, c(SpeedBand.YELLOW)),
+            Expression.stop(y + eps, c(SpeedBand.ORANGE)),
+            Expression.stop(o + eps, c(SpeedBand.RED)),
+        ),
+    )
+}
 
 /**
  * Карта поезда (SCREEN_SPECS §6.9): полноэкранная карта на общей подложке карты плеч (цепочка тайлов, ж/д слои).
@@ -143,6 +169,8 @@ internal fun TrainMapScreen(
     /** Ключ хранения плана прибытия (id поезда); null - план не сохраняется между открытиями карты. */
     planKey: String? = null,
     onOpenConsentSettings: () -> Unit = {},
+    /** Включить «АВТО» для этого поезда (кнопка пустого графика); null - кнопки нет (просмотр трека из «Истории»). */
+    onEnableAuto: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     /** Заголовок плашки; для просмотра трека из «Истории» — название поездки. */
     title: String = "Карта поезда",
@@ -201,6 +229,14 @@ internal fun TrainMapScreen(
         var displayZone by remember { mutableStateOf("GMT+3") }
         val online = rememberIsOnline()
         val density = context.resources.displayMetrics.density
+        // Шкала цвета скорости: пассажирский/пригородный поезд - свои пороги (§6.9); неизвестная категория - грузовая.
+        val speedProfile = if (track?.passenger == true) SpeedProfile.PASSENGER else SpeedProfile.FREIGHT
+        // Индикатор GPS на карте считается по тем же живым обновлениям, что маркер, и не зависит от записи «АВТО».
+        val gnssMonitor = remember { GnssQualityMonitor(context) }
+        DisposableEffect(permGranted, viewOnly) {
+            if (!viewOnly && permGranted) gnssMonitor.start()
+            onDispose { gnssMonitor.stop() }
+        }
         val alive = remember { AtomicBoolean(true) }
         val scope = rememberCoroutineScope()
 
@@ -257,6 +293,8 @@ internal fun TrainMapScreen(
                     map = m
                     m.uiSettings.isRotateGesturesEnabled = true
                     m.uiSettings.isTiltGesturesEnabled = false
+                    // Компас один - кнопка в колонке справа; системный компас MapLibre (вверху, под названием) отключён.
+                    m.uiSettings.isCompassEnabled = false
                     m.uiSettings.isLogoEnabled = false
                     m.uiSettings.isAttributionEnabled = true
                     m.cameraPosition = CameraPosition.Builder().target(LatLng(55.75, 37.62)).zoom(5.0).build()
@@ -343,14 +381,7 @@ internal fun TrainMapScreen(
                             Expression.linear(), Expression.zoom(),
                             Expression.stop(6, 5.5f), Expression.stop(12, 8.5f), Expression.stop(16, 11f),
                         )
-                        val speedColor = Expression.switchCase(
-                            Expression.lt(Expression.get("speed"), Expression.literal(0)),
-                            Expression.color(Color.parseColor("#78909C")),
-                            Expression.interpolate(
-                                Expression.linear(), Expression.get("speed"),
-                                *SPEED_STOPS.map { (v, c) -> Expression.stop(v, Expression.color(Color.parseColor(c))) }.toTypedArray(),
-                            ),
-                        )
+                        val speedColor = speedColorExpression(SpeedProfile.FREIGHT)
                         style.addLayerBelow(
                             LineLayer("train-map-track-casing", TRAIN_TRACK_SOURCE).withProperties(
                                 PropertyFactory.lineColor("#FFFFFF"),
@@ -454,6 +485,18 @@ internal fun TrainMapScreen(
                             SymbolLayer("train-map-plan-layer", TRAIN_PLAN_SOURCE).withProperties(
                                 PropertyFactory.iconImage(PLAN_FLAG_IMAGE),
                                 PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM_LEFT),
+                                PropertyFactory.iconAllowOverlap(true),
+                                PropertyFactory.iconIgnorePlacement(true),
+                            ),
+                            "train-map-me-layer",
+                        )
+                        // Начало и окончание пройденного пути (§6.9): значки поверх линии, под маркером «я».
+                        style.addSource(GeoJsonSource(TRAIN_ENDS_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addImage(END_START_IMAGE, renderTrackEndIcon(density, true))
+                        style.addImage(END_FINISH_IMAGE, renderTrackEndIcon(density, false))
+                        style.addLayerBelow(
+                            SymbolLayer("train-map-ends-layer", TRAIN_ENDS_SOURCE).withProperties(
+                                PropertyFactory.iconImage(Expression.get("icon")),
                                 PropertyFactory.iconAllowOverlap(true),
                                 PropertyFactory.iconIgnorePlacement(true),
                             ),
@@ -568,6 +611,7 @@ internal fun TrainMapScreen(
                 val moving = (f.speedKmh ?: 0.0) >= 2.0
                 locationDenied = false
                 myFix = GeoFix(f.latitude, f.longitude, f.accuracyM)
+                gnssMonitor.onFix(f.accuracyM)
                 liveSpeed = f.speedKmh
                 liveAtMs = System.currentTimeMillis()
                 val h = heading.update(f.latitude, f.longitude, f.speedKmh, f.bearing)
@@ -595,6 +639,7 @@ internal fun TrainMapScreen(
         LaunchedEffect(Unit) {
             if (viewOnly) return@LaunchedEffect
             GpsRecorder.points.collect { p ->
+                gnssMonitor.onFix(p.accuracyM)
                 liveSpeed = p.speedKmh
                 liveAtMs = p.timeMs
             }
@@ -689,6 +734,29 @@ internal fun TrainMapScreen(
             if (!styleReady) return@LaunchedEffect
             map?.style?.addImage(ME_ICON_IMAGE, renderPositionIcon(context, positionIcon, (positionIcon.mapHeightDp * density).toInt()))
         }
+        // Смена шкалы (пассажирский поезд) - перекрасить линию пути и «хвост».
+        LaunchedEffect(styleReady, speedProfile) {
+            if (!styleReady) return@LaunchedEffect
+            val expr = speedColorExpression(speedProfile)
+            map?.style?.getLayerAs<LineLayer>("train-map-track-layer")?.setProperties(PropertyFactory.lineColor(expr))
+            map?.style?.getLayerAs<LineLayer>("train-map-tail-layer")?.setProperties(PropertyFactory.lineColor(expr))
+        }
+        // Начало и окончание пути (§6.9). Окончание - только когда запись не идёт (иначе конец - это текущее положение).
+        LaunchedEffect(styleReady, track, autoRunning) {
+            if (!styleReady) return@LaunchedEffect
+            val src = map?.style?.getSourceAs<GeoJsonSource>(TRAIN_ENDS_SOURCE) ?: return@LaunchedEffect
+            val pts = track?.points.orEmpty()
+            val feats = ArrayList<Feature>(2)
+            pts.firstOrNull()?.let {
+                feats += Feature.fromGeometry(Point.fromLngLat(it.longitude, it.latitude)).apply { addStringProperty("icon", END_START_IMAGE) }
+            }
+            if (pts.size >= 2 && (viewOnly || !autoRunning)) {
+                pts.last().let {
+                    feats += Feature.fromGeometry(Point.fromLngLat(it.longitude, it.latitude)).apply { addStringProperty("icon", END_FINISH_IMAGE) }
+                }
+            }
+            src.setGeoJson(FeatureCollection.fromFeatures(feats))
+        }
         // Маркер выбранной точки/остановки.
         LaunchedEffect(styleReady, selection) {
             if (!styleReady) return@LaunchedEffect
@@ -696,6 +764,7 @@ internal fun TrainMapScreen(
             when (val sel = selection) {
                 is TrainMapSelection.PathPoint -> src.setGeoJson(Point.fromLngLat(sel.point.longitude, sel.point.latitude))
                 is TrainMapSelection.Stop -> src.setGeoJson(Point.fromLngLat(sel.mark.longitude, sel.mark.latitude))
+                is TrainMapSelection.Endpoint -> src.setGeoJson(Point.fromLngLat(sel.point.longitude, sel.point.latitude))
                 null -> src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
             }
         }
@@ -725,6 +794,22 @@ internal fun TrainMapScreen(
                     return@OnMapClickListener true
                 }
                 val t = track
+                // Начало/окончание пути (значки 28 dp) - раньше остановок: значок лежит сверху.
+                fun nearPx(lat: Double, lon: Double): Double {
+                    val p = m.projection.toScreenLocation(LatLng(lat, lon))
+                    return Math.hypot((p.x - tap.x).toDouble(), (p.y - tap.y).toDouble())
+                }
+                val endPts = t?.points.orEmpty()
+                val finishShown = endPts.size >= 2 && (viewOnly || !autoRunning)
+                val endHit = listOfNotNull(
+                    endPts.firstOrNull()?.let { TrainMapSelection.Endpoint(it, true) },
+                    if (finishShown) TrainMapSelection.Endpoint(endPts.last(), false) else null,
+                ).minByOrNull { nearPx(it.point.latitude, it.point.longitude) }
+                    ?.takeIf { nearPx(it.point.latitude, it.point.longitude) <= 24 * density }
+                if (endHit != null) {
+                    selection = endHit
+                    return@OnMapClickListener true
+                }
                 val stopHit = t?.stops?.minByOrNull { st ->
                     val p = m.projection.toScreenLocation(LatLng(st.latitude, st.longitude))
                     Math.hypot((p.x - tap.x).toDouble(), (p.y - tap.y).toDouble())
@@ -736,8 +821,10 @@ internal fun TrainMapScreen(
                     selection = TrainMapSelection.Stop(stopHit)
                     return@OnMapClickListener true
                 }
-                val tolM = mpp * 30.0
-                val hit = t?.let { TrackAnalysis.nearestPoint(it.points, latLng.latitude, latLng.longitude, tolM) }
+                // Точки пишутся раз в 5 с: у линии (до 48 dp) берём ближайшую из двух соседних точек, иначе - ближайшую точку (30 dp).
+                val hit = t?.let {
+                    TrackAnalysis.nearestOnTrack(it.points, latLng.latitude, latLng.longitude, mpp * 30.0, mpp * 48.0)
+                }
                 if (hit != null) {
                     selection = TrainMapSelection.PathPoint(hit)
                     return@OnMapClickListener true
@@ -911,14 +998,14 @@ internal fun TrainMapScreen(
                             .padding(horizontal = 10.dp, vertical = 5.dp),
                     )
                 }
-                if (!viewOnly && autoRunning) {
-                    // Связь со спутниками (§6.9): рядом с плашкой скорости, пока идёт запись.
-                    val gnss by GpsRecorder.quality.collectAsState()
+                if (!viewOnly) {
+                    // Связь со спутниками (§6.9): единственное место индикатора; считается по живым обновлениям карты.
+                    val gnss by gnssMonitor.quality.collectAsState()
                     Box(
                         modifier = Modifier
                             .shadow(4.dp, RoundedCornerShape(16.dp))
                             .background(Pst.surface, RoundedCornerShape(16.dp)),
-                    ) { com.z_company.route.autorecord.GnssSignalIndicator(quality = gnss) }
+                    ) { com.z_company.route.autorecord.GnssSignalIndicator(quality = gnss, labelColor = Pst.textMuted) }
                 }
                 if (speedNow != null) {
                     Column(
@@ -965,6 +1052,18 @@ internal fun TrainMapScreen(
                             is TrainMapSelection.PathPoint -> {
                                 Text(
                                     text = TrackAnalysis.clock(sel.point.timeMs, zone, seconds = true),
+                                    style = Pst.mono.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold),
+                                    color = Pst.text,
+                                )
+                                Text(
+                                    text = (sel.point.speedKmh?.let { "${it.toInt()} км/ч" } ?: "скорость неизвестна"),
+                                    style = Pst.mono.copy(fontSize = 14.sp),
+                                    color = Pst.textMuted,
+                                )
+                            }
+                            is TrainMapSelection.Endpoint -> {
+                                Text(
+                                    text = (if (sel.isStart) "Старт " else "Финиш ") + TrackAnalysis.clock(sel.point.timeMs, zone, seconds = true),
                                     style = Pst.mono.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold),
                                     color = Pst.text,
                                 )
@@ -1123,8 +1222,10 @@ internal fun TrainMapScreen(
             if (showChart) {
                 SpeedChartScreen(
                     track = track,
+                    profile = speedProfile,
                     loadRecordingState = loadRecordingState,
                     makeTarget = makeTarget,
+                    onEnableAuto = onEnableAuto,
                     selectedTimeMs = (selection as? TrainMapSelection.PathPoint)?.point?.timeMs,
                     onSelect = { p -> selection = p?.let { TrainMapSelection.PathPoint(it) } },
                     onOpenConsent = { showChart = false; onOpenConsentSettings() },

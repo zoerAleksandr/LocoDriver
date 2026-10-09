@@ -2,6 +2,7 @@ package com.z_company.domain.track
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SpeedChartTest {
@@ -132,12 +133,60 @@ class SpeedChartTest {
     }
 
     @Test
-    fun speedScaleEndpointsAndUnknown() {
-        assertEquals(0xD32F2F, SpeedScale.rgb(0.0))
-        assertEquals(0x1E88E5, SpeedScale.rgb(200.0))
+    fun speedScaleFreightBands() {
+        assertEquals(SpeedBand.GREEN, SpeedScale.band(0.0))
+        assertEquals(SpeedBand.GREEN, SpeedScale.band(20.0))
+        assertEquals(SpeedBand.YELLOW, SpeedScale.band(20.1))
+        assertEquals(SpeedBand.YELLOW, SpeedScale.band(70.0))
+        assertEquals(SpeedBand.ORANGE, SpeedScale.band(70.1))
+        assertEquals(SpeedBand.ORANGE, SpeedScale.band(80.0))
+        assertEquals(SpeedBand.RED, SpeedScale.band(80.1))
+        assertEquals(SpeedBand.UNKNOWN, SpeedScale.band(null))
+        assertEquals(SpeedBand.UNKNOWN, SpeedScale.band(-1.0))
         assertEquals(SpeedScale.UNKNOWN_RGB, SpeedScale.rgb(null))
-        assertEquals(0xF57C00, SpeedScale.rgb(30.0))
-        val mid = SpeedScale.rgb(15.0)
-        assertTrue(mid != 0xD32F2F && mid != 0xF57C00)
+    }
+
+    @Test
+    fun speedScalePassengerBands() {
+        val p = SpeedProfile.PASSENGER
+        assertEquals(SpeedBand.GREEN, SpeedScale.band(20.0, p))
+        assertEquals(SpeedBand.YELLOW, SpeedScale.band(100.0, p))
+        assertEquals(SpeedBand.YELLOW, SpeedScale.band(120.0, p))
+        assertEquals(SpeedBand.ORANGE, SpeedScale.band(121.0, p))
+        assertEquals(SpeedBand.ORANGE, SpeedScale.band(160.0, p))
+        assertEquals(SpeedBand.RED, SpeedScale.band(160.1, p))
+        assertEquals(SpeedBand.UNKNOWN, SpeedScale.band(null, p))
+    }
+
+    @Test
+    fun speedScaleColorsDifferByBandAndTheme() {
+        val bands = listOf(SpeedBand.GREEN, SpeedBand.YELLOW, SpeedBand.ORANGE, SpeedBand.RED)
+        assertEquals(4, bands.map { SpeedScale.rgb(it) }.toSet().size)
+        assertEquals(4, bands.map { SpeedScale.rgb(it, dark = true) }.toSet().size)
+        assertTrue(bands.all { SpeedScale.rgb(it) != SpeedScale.rgb(it, dark = true) })
+    }
+
+    @Test
+    fun speedScaleLegendLabels() {
+        assertEquals(listOf("≤20", "20–70", "70–80", ">80"), SpeedScale.legend(SpeedProfile.FREIGHT).map { it.second })
+        assertEquals(listOf("≤20", "20–120", "120–160", ">160"), SpeedScale.legend(SpeedProfile.PASSENGER).map { it.second })
+    }
+
+    @Test
+    fun passengerCategoryDetection() {
+        assertTrue(SpeedScale.isPassengerCategory("Скорые круглогодичные"))
+        assertTrue(SpeedScale.isPassengerCategory("Пассажирские круглогодичные"))
+        assertTrue(SpeedScale.isPassengerCategory("Пригородные, приграничные пригородные (региональные) поезда"))
+        assertTrue(SpeedScale.isPassengerCategory("Скоростные пригородные поезда"))
+        assertTrue(SpeedScale.isPassengerCategory("Высокоскоростные"))
+        assertFalse(SpeedScale.isPassengerCategory("Тяжеловесные поезда"))
+        assertFalse(SpeedScale.isPassengerCategory("Контейнерные поезда"))
+        assertFalse(SpeedScale.isPassengerCategory("Грузопассажирские"))
+        assertFalse(SpeedScale.isPassengerCategory("Состоящие из моторвагонного подвижного состава без пассажиров, в т.ч. от скоростных и высокоскоростных"))
+        assertFalse(SpeedScale.isPassengerCategory("Толкачи-резервные локомотивы, следующие для подталкивания или после подталкивания пассажирских поездов"))
+        assertFalse(SpeedScale.isPassengerCategory("Номер не найден"))
+        assertFalse(SpeedScale.isPassengerCategory(null))
+        assertEquals(SpeedProfile.PASSENGER, SpeedScale.profileForCategory("Скорые круглогодичные"))
+        assertEquals(SpeedProfile.FREIGHT, SpeedScale.profileForCategory(null))
     }
 }

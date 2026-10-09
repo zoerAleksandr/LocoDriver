@@ -3,8 +3,8 @@ package com.z_company.route.component.servicephase
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +41,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
+import android.app.Activity
+import android.content.pm.ActivityInfo
+import kotlin.math.abs
+import kotlin.math.hypot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -47,6 +55,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -56,9 +65,10 @@ import androidx.compose.ui.window.DialogProperties
 import com.z_company.domain.track.ChartAxis
 import com.z_company.domain.track.ChartWindow
 import com.z_company.domain.track.SpeedChart
+import com.z_company.domain.track.SpeedProfile
 import com.z_company.domain.track.SpeedScale
+import com.z_company.domain.track.TrackEmptyAction
 import com.z_company.domain.track.TrackAnalysis
-import com.z_company.domain.track.TrackEmptyReason
 import com.z_company.domain.track.TrackEmptyReasons
 import com.z_company.domain.track.TrackRecordingState
 import com.z_company.domain.track.TrackPoint
@@ -66,20 +76,6 @@ import com.z_company.domain.util.LabelPlacer
 import com.z_company.domain.util.MapLabelItem
 import com.z_company.route.viewmodel.TrainFormViewModel
 import kotlinx.coroutines.delay
-
-private const val EMPTY_TEXT_UNKNOWN = "Нет записи скорости. Включите АВТО и согласие на сохранение трека"
-
-/** Текст пустого графика по реальной причине (§6.9). */
-private fun emptyText(reason: TrackEmptyReason, otherTrainNumber: String?): String = when (reason) {
-    TrackEmptyReason.UNKNOWN -> EMPTY_TEXT_UNKNOWN
-    TrackEmptyReason.CONSENT_OFF -> "Согласие на сохранение трека выключено"
-    TrackEmptyReason.AUTO_OFF -> "АВТО выключено. Включите АВТО, чтобы записывать путь"
-    TrackEmptyReason.OTHER_TRAIN ->
-        "АВТО записывает другой поезд" + otherTrainNumber?.takeIf { it.isNotBlank() }?.let { " (№$it)" }.orEmpty()
-    TrackEmptyReason.NO_TARGET -> "АВТО включено, но поезд для записи не выбран"
-    TrackEmptyReason.NO_POINTS_YET -> "Запись идёт, точек пока нет. Нужно проехать несколько секунд"
-    TrackEmptyReason.NO_SPEED -> "Нет данных о скорости от GPS"
-}
 
 /** Всё, что нужно обработчикам жестов (актуальное значение на момент жеста). */
 private class ChartGeometry(
@@ -95,13 +91,16 @@ private class ChartGeometry(
  * Экран «График скорости» (SCREEN_SPECS §6.9, этап 4b): скорость (км/ч) по пути или времени из записанного трека,
  * станции/остановки метками, зум (щипок и «+»/«−») и прокрутка по оси X, курсор по касанию. [selectedTimeMs] —
  * общий с картой выбор точки: касание графика вызывает [onSelect] (карта подсветит ту же точку при возврате),
- * выбранная на карте точка показывается курсором. Без трека — пустое состояние с переходом к настройкам согласия.
+ * выбранная на карте точка показывается курсором; курсор можно тянуть пальцем (значения обновляются без отпускания).
+ * Экран показывается только в горизонтальной ориентации (на время показа активность переводится в landscape). Без трека — пустое состояние с переходом к настройкам согласия.
  */
 @Composable
 internal fun SpeedChartScreen(
     track: TrainFormViewModel.TrainMapTrack?,
+    profile: SpeedProfile = SpeedProfile.FREIGHT,
     loadRecordingState: suspend () -> TrackRecordingState? = { null },
     makeTarget: () -> Boolean = { false },
+    onEnableAuto: (() -> Unit)? = null,
     selectedTimeMs: Long?,
     onSelect: (TrackPoint?) -> Unit,
     onOpenConsent: () -> Unit,
@@ -111,6 +110,15 @@ internal fun SpeedChartScreen(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        // Только горизонтально: график длинный. На время показа - landscape, по выходу возвращаем прежнюю ориентацию.
+        // Пересоздания активности нет (configChanges в манифесте), состояние карты и графика сохраняется.
+        val activity = LocalContext.current.findActivity()
+        DisposableEffect(activity) {
+            val previous = activity?.requestedOrientation
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            onDispose { previous?.let { activity.requestedOrientation = it } }
+        }
+        val dark = Pst.surface.luminance() < 0.5f
         val points = track?.points.orEmpty()
         val samples = remember(track) { SpeedChart.buildSeries(points) }
         val zone = track?.zone ?: "GMT+3"
@@ -168,6 +176,7 @@ internal fun SpeedChartScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         backButton()
                         title(Modifier.weight(1f))
+                        if (samples.size >= 2) SpeedLegend(profile, dark)
                         axisToggle()
                         zoomButtons()
                     }
@@ -180,6 +189,10 @@ internal fun SpeedChartScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                         axisToggle()
                         zoomButtons()
+                    }
+                    if (samples.size >= 2) {
+                        Spacer(Modifier.height(6.dp))
+                        SpeedLegend(profile, dark)
                     }
                 }
                 Spacer(Modifier.height(8.dp))
@@ -196,31 +209,35 @@ internal fun SpeedChartScreen(
                         }
                     }
                     val reason = TrackEmptyReasons.determine(recording, points.size, pointsWithSpeed)
+                    val action = TrackEmptyReasons.action(reason, canEnableAuto = onEnableAuto != null)
                     Column(
                         modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
                     ) {
+                        Spacer(Modifier.weight(1f))
                         Text(
-                            text = emptyText(reason, recording?.otherTrainNumber),
-                            style = Pst.sans.copy(fontSize = 15.sp, lineHeight = 22.sp),
-                            color = Pst.textMuted,
+                            text = TrackEmptyReasons.message(reason, recording?.otherTrainNumber),
+                            style = Pst.sans.copy(fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium),
+                            color = Pst.text,
+                            textAlign = TextAlign.Center,
                             modifier = Modifier.padding(bottom = 16.dp),
                         )
-                        when (reason) {
-                            TrackEmptyReason.CONSENT_OFF ->
-                                PstButton(text = "Открыть настройки", onClick = onOpenConsent, kind = PstButtonKind.CTA)
-                            TrackEmptyReason.UNKNOWN ->
-                                PstButton(text = "Настройки согласия", onClick = onOpenConsent, kind = PstButtonKind.CTA)
-                            TrackEmptyReason.OTHER_TRAIN, TrackEmptyReason.NO_TARGET ->
-                                PstButton(
-                                    text = "Записывать этот поезд",
-                                    onClick = { if (makeTarget()) refresh++ },
-                                    kind = PstButtonKind.CTA,
-                                )
-                            else -> Unit
+                        if (action != TrackEmptyAction.NONE) {
+                            PstButton(
+                                text = TrackEmptyReasons.actionLabel(action, reason),
+                                onClick = {
+                                    when (action) {
+                                        TrackEmptyAction.ENABLE_AUTO -> { onEnableAuto?.invoke(); refresh++ }
+                                        TrackEmptyAction.OPEN_CONSENT -> onOpenConsent()
+                                        TrackEmptyAction.MAKE_TARGET -> if (makeTarget()) refresh++
+                                        TrackEmptyAction.NONE -> Unit
+                                    }
+                                },
+                                kind = PstButtonKind.CTA,
+                            )
                         }
-                        Spacer(Modifier.weight(1f, fill = false).height(24.dp))
+                        Spacer(Modifier.weight(1f))
                         Text(
                             text = TrackEmptyReasons.debugLine(recording, points.size),
                             style = Pst.mono.copy(fontSize = 10.sp),
@@ -241,6 +258,8 @@ internal fun SpeedChartScreen(
                     window = window,
                     zone = zone,
                     selectedIdx = selectedIdx,
+                    profile = profile,
+                    dark = dark,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
@@ -253,6 +272,7 @@ internal fun SpeedChartScreen(
                             windowState = SpeedChart.pan(zoomed, g.total, -(panX / g.plotWidth) * zoomed.span)
                         }
                     },
+                    // Тап и перетаскивание курсора: ближайшая к пальцу точка ряда (значения обновляются без отпускания).
                     onTap = { tapX ->
                         val g = geo.value
                         val x = g.window.start + ((tapX - g.plotLeft) / g.plotWidth).coerceIn(0f, 1f) * g.window.span
@@ -275,6 +295,8 @@ private fun SpeedPlot(
     window: ChartWindow,
     zone: String,
     selectedIdx: Int?,
+    profile: SpeedProfile,
+    dark: Boolean,
     modifier: Modifier,
     onLayout: (left: Float, width: Float) -> Unit,
     onTransform: (centroidX: Float, panX: Float, zoom: Float) -> Unit,
@@ -290,6 +312,10 @@ private fun SpeedPlot(
     val accent = Pst.accent
     val onTransformState = rememberUpdatedState(onTransform)
     val onTapState = rememberUpdatedState(onTap)
+    val selectedState = rememberUpdatedState(selectedIdx)
+    val axisNow = rememberUpdatedState(axis)
+    val windowState = rememberUpdatedState(window)
+    val samplesNow = rememberUpdatedState(samples)
     val t0 = samples.first().timeMs
     val zoneOffset = remember(zone, t0) { SpeedChart.zoneOffsetMs(zone, t0) }
     val yMax = remember(samples) { SpeedChart.speedCeiling(samples) }
@@ -309,9 +335,80 @@ private fun SpeedPlot(
             .background(surface, RoundedCornerShape(16.dp))
             .semantics { contentDescription = desc }
             .pointerInput(Unit) {
-                detectTransformGestures { centroid, pan, zoom, _ -> onTransformState.value(centroid.x, pan.x, zoom) }
-            }
-            .pointerInput(Unit) { detectTapGestures { onTapState.value(it.x) } },
+                // Один жест на всё: касание у курсора (≤ 48 dp) - тянуть курсор вдоль графика; касание в другом месте -
+                // тап выбирает точку, сдвиг листает окно; два пальца - масштаб и сдвиг окна.
+                val dens = density.density
+                val leftPx = 40f * dens
+                val rightPx = 14f * dens
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val slop = viewConfiguration.touchSlop
+                    val plotW = size.width - leftPx - rightPx
+                    val sel = selectedState.value
+                    val cursorPx = if (sel != null && plotW > 0f) {
+                        val s0 = samplesNow.value
+                        val w = windowState.value
+                        s0.getOrNull(sel)?.let { smp ->
+                            val xv = SpeedChart.xOf(smp, axisNow.value, s0.first().timeMs)
+                            leftPx + ((xv - w.start) / w.span.coerceAtLeast(1e-6) * plotW).toFloat()
+                        }
+                    } else null
+                    var mode = if (cursorPx != null && abs(down.position.x - cursorPx) <= 48f * dens) 1 else 0 // 1 - курсор, 2 - окно
+                    var moved = false
+                    var lastCount = 1
+                    var prevCentroid = down.position
+                    var prevSpan = 0f
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val pressed = event.changes.filter { it.pressed }
+                        if (pressed.isEmpty()) {
+                            if (!moved && mode != 1) onTapState.value(down.position.x)
+                            break
+                        }
+                        val centroid = androidx.compose.ui.geometry.Offset(
+                            pressed.map { it.position.x }.average().toFloat(),
+                            pressed.map { it.position.y }.average().toFloat(),
+                        )
+                        val span = if (pressed.size >= 2) {
+                            hypot(pressed[0].position.x - pressed[1].position.x, pressed[0].position.y - pressed[1].position.y)
+                        } else 0f
+                        if (pressed.size != lastCount) {
+                            // Число пальцев изменилось: без скачка окна.
+                            lastCount = pressed.size
+                            prevCentroid = centroid
+                            prevSpan = span
+                            continue
+                        }
+                        if (pressed.size >= 2) {
+                            mode = 2
+                            moved = true
+                            val zoom = if (prevSpan > 0f && span > 0f) span / prevSpan else 1f
+                            onTransformState.value(centroid.x, centroid.x - prevCentroid.x, zoom)
+                            prevCentroid = centroid
+                            prevSpan = span
+                            event.changes.forEach { if (it.positionChanged()) it.consume() }
+                            continue
+                        }
+                        val c = pressed[0]
+                        if (mode == 1) {
+                            moved = true
+                            onTapState.value(c.position.x)
+                            event.changes.forEach { if (it.positionChanged()) it.consume() }
+                            continue
+                        }
+                        if (mode == 0 && (abs(c.position.x - down.position.x) > slop || abs(c.position.y - down.position.y) > slop)) {
+                            mode = 2
+                            moved = true
+                            prevCentroid = c.position
+                        }
+                        if (mode == 2) {
+                            onTransformState.value(c.position.x, c.position.x - prevCentroid.x, 1f)
+                            prevCentroid = c.position
+                            event.changes.forEach { if (it.positionChanged()) it.consume() }
+                        }
+                    }
+                }
+            },
     ) {
         val d = density.density
         val left = 40f * d
@@ -409,7 +506,7 @@ private fun SpeedPlot(
                     if (pass == 0) {
                         drawLine(textColor.copy(alpha = 0.35f), p1, p2, strokeWidth = 5f * d, cap = StrokeCap.Round)
                     } else {
-                        drawLine(Color(0xFF000000 or SpeedScale.rgb((sa + sb) / 2).toLong()), p1, p2, strokeWidth = 3f * d, cap = StrokeCap.Round)
+                        drawLine(Color(0xFF000000 or SpeedScale.rgb((sa + sb) / 2, profile, dark).toLong()), p1, p2, strokeWidth = 3f * d, cap = StrokeCap.Round)
                     }
                 }
             }
@@ -446,12 +543,39 @@ private fun SpeedPlot(
                 s.speedKmh?.let { sp ->
                     val c = Offset(xx, py(sp))
                     drawCircle(surface, 6.5f * d, c)
-                    drawCircle(Color(0xFF000000 or SpeedScale.rgb(sp).toLong()), 4.5f * d, c)
+                    drawCircle(Color(0xFF000000 or SpeedScale.rgb(sp, profile, dark).toLong()), 4.5f * d, c)
                     drawCircle(textColor, 6.5f * d, c, style = Stroke(width = 1.5f * d))
                 }
             }
         }
     }
+}
+
+/** Легенда цвета скорости: маленькие цветные метки с порогами (км/ч) по той же шкале, что линия графика и карта. */
+@Composable
+private fun SpeedLegend(profile: SpeedProfile, dark: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        SpeedScale.legend(profile).forEach { (band, label) ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(
+                    Modifier
+                        .size(width = 14.dp, height = 8.dp)
+                        .background(Color(0xFF000000 or SpeedScale.rgb(band, dark).toLong()), RoundedCornerShape(3.dp)),
+                )
+                Text(label, style = Pst.mono.copy(fontSize = 10.sp), color = Pst.textMuted, maxLines = 1)
+            }
+        }
+        Text("км/ч", style = Pst.mono.copy(fontSize = 10.sp), color = Pst.textFaint, maxLines = 1)
+    }
+}
+
+private fun android.content.Context.findActivity(): Activity? {
+    var c: android.content.Context? = this
+    while (c is android.content.ContextWrapper) {
+        if (c is Activity) return c
+        c = c.baseContext
+    }
+    return null
 }
 
 @Composable

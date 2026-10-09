@@ -77,6 +77,60 @@ object TrackAnalysis {
     }
 
     /**
+     * Точка трека для тапа по пройденному пути (SCREEN_SPECS §6.9). Точки пишутся раз в 5 с, поэтому при большом
+     * масштабе тап по линии попадает между ними: если тап ближе [lineToleranceM] к сегменту между двумя соседними
+     * точками (разрыв > [GAP_MS] сегмент не образует) - берётся ближайшая к тапу из двух его точек; иначе - ближайшая
+     * точка в пределах [pointToleranceM]; иначе null. Время и скорость берутся с возвращённой точки.
+     */
+    fun nearestOnTrack(
+        points: List<TrackPoint>,
+        lat: Double,
+        lon: Double,
+        pointToleranceM: Double,
+        lineToleranceM: Double,
+    ): TrackPoint? {
+        if (points.isEmpty()) return null
+        val kx = cos(lat * PI / 180.0) * PI / 180.0 * EARTH_R
+        val ky = PI / 180.0 * EARTH_R
+        fun x(p: TrackPoint) = (p.longitude - lon) * kx
+        fun y(p: TrackPoint) = (p.latitude - lat) * ky
+        var bestPoint: TrackPoint? = null
+        var bestPointD = Double.MAX_VALUE
+        var bestSegD = Double.MAX_VALUE
+        var bestSegPoint: TrackPoint? = null
+        for (i in points.indices) {
+            val p = points[i]
+            val px = x(p)
+            val py = y(p)
+            val dp = sqrt(px * px + py * py)
+            if (dp < bestPointD) {
+                bestPointD = dp
+                bestPoint = p
+            }
+            if (i == 0) continue
+            val q = points[i - 1]
+            if (p.timeMs - q.timeMs > GAP_MS) continue
+            val qx = x(q)
+            val qy = y(q)
+            val dx = px - qx
+            val dy = py - qy
+            val len2 = dx * dx + dy * dy
+            // Проекция начала координат (тапа) на сегмент q-p, зажатая в [0; 1].
+            val t = if (len2 < 1e-9) 0.0 else (-(qx * dx + qy * dy) / len2).coerceIn(0.0, 1.0)
+            val cx = qx + t * dx
+            val cy = qy + t * dy
+            val ds = sqrt(cx * cx + cy * cy)
+            if (ds < bestSegD) {
+                bestSegD = ds
+                val dq = sqrt(qx * qx + qy * qy)
+                bestSegPoint = if (dq <= dp) q else p
+            }
+        }
+        if (bestSegPoint != null && bestSegD <= lineToleranceM) return bestSegPoint
+        return if (bestPointD <= pointToleranceM) bestPoint else null
+    }
+
+    /**
      * Стоянки по записанному треку - ТЕМ ЖЕ алгоритмом, что «АВТО» онлайн: точки проигрываются через [StopDetector] с
      * теми же порогами ([StopDetectionConfig]: < 2 км/ч ≥ 60 с - прибытие, > 5 км/ч ≥ 30 с - отправление, точность > 50 м и
      * пропажа данных сбрасывают окно, откат времени отправления к моменту трогания, округление вниз до минуты).
