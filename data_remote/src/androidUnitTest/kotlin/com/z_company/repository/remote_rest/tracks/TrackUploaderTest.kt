@@ -117,7 +117,9 @@ class TrackUploaderTest {
     private var resolution: TrackTrainResolution = TrackTrainResolution.Found("route-1", "№ 2301 · А — Б")
     private val settings = FakeSettings(local = true, server = true)
 
-    private fun uploader() = TrackUploader(api, repo, tools, { resolution }, settings, nowMs = { now })
+    private var subscribed = true
+
+    private fun uploader() = TrackUploader(api, repo, tools, { resolution }, settings, isSubscribed = { subscribed }, nowMs = { now })
 
     private fun seed(trackId: String, count: Int, endedAgoMs: Long = 60 * 60_000L, trainId: String = "train-1") {
         val end = now - endedAgoMs
@@ -160,6 +162,34 @@ class TrackUploaderTest {
         val src = repo.points("t1")
         assertEquals(src.size, back.size)
         assertEquals(src.map { it.timeMs }, back.map { it.timeMs })
+    }
+
+    @Test
+    fun withoutSubscriptionNothingIsUploadedAndNoRemoteTracksAreCreated() {
+        seed("t1", 100)
+        subscribed = false
+        api.calls.clear()
+        val r = run()
+        assertEquals(TrackUploader.Outcome.NO_SUBSCRIPTION, r.outcome)
+        assertEquals(0, r.uploaded)
+        assertFalse("t1" in api.tracks)
+        assertEquals(TrackUploadState.PENDING, repo.track("t1")!!.uploadState)
+        // Принудительная синхронизация выбранных тоже не обходит гейт.
+        assertEquals(TrackUploader.Outcome.NO_SUBSCRIPTION, runBlocking { uploader().run("Bearer t", only = setOf("t1")) }.outcome)
+        // После оформления подписки накопленный трек уходит автоматически.
+        subscribed = true
+        assertEquals(1, run().uploaded)
+        assertTrue("t1" in api.tracks)
+    }
+
+    @Test
+    fun trackWithoutTrainIsNeverUploaded() {
+        seed("free", 100, trainId = com.z_company.domain.track.NO_TRAIN_ID)
+        val r = runBlocking { uploader().run("Bearer t", only = setOf("free")) }
+        assertEquals(0, r.uploaded)
+        assertFalse("free" in api.tracks)
+        assertEquals(TrackUploadState.PENDING, repo.track("free")!!.uploadState)
+        assertEquals(100L, repo.pointCount("free"))
     }
 
     @Test

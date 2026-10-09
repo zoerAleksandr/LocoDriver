@@ -450,7 +450,7 @@ internal object TrackHistoryActions {
     /** «Синхронизировать» — только для локального трека, ещё не отправленного. */
     fun menu(item: TrackHistoryItem): List<Action> = buildList {
         add(Action.FAVORITE)
-        if (item.isLocal && !item.isSynced) add(Action.SYNC)
+        if (item.isLocal && !item.isSynced && !item.noTrain) add(Action.SYNC)
         add(Action.DELETE)
     }
 

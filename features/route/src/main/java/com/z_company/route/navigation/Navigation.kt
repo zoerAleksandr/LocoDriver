@@ -47,10 +47,12 @@ fun NavGraphBuilder.homeGraph(
         }
 
         composableScreen(TrackHistoryRoute.route) {
+            val showPurchases = rememberShowPurchasesScreen(router)
             com.z_company.route.ui.TrackHistoryScreen(
                 viewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
                 onBack = { router.back() },
                 onOpenDataPrivacy = router::showDataPrivacy,
+                onOpenPurchases = showPurchases,
             )
         }
 

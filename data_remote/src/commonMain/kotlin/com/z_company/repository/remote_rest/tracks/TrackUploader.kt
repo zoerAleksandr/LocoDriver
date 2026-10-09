@@ -2,6 +2,7 @@
 
 package com.z_company.repository.remote_rest.tracks
 
+import com.z_company.domain.track.NO_TRAIN_ID
 import com.z_company.domain.track.TrackBlobTools
 import com.z_company.domain.track.TrackInfo
 import com.z_company.domain.track.TrackPacking
@@ -33,6 +34,11 @@ class TrackUploader(
     private val tools: TrackBlobTools,
     private val resolver: TrackTrainResolver,
     private val settings: TrackSyncSettings,
+    /**
+     * Активна ли подписка «Машинист Pro»: без неё треки не отправляются и метки на сервере не создаются
+     * (клиентский гейт, как у синхронизации маршрутов). Очередь удалений и согласие доставляются и без неё.
+     */
+    private val isSubscribed: suspend () -> Boolean = { true },
     private val nowMs: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
     enum class Outcome {
@@ -44,6 +50,9 @@ class TrackUploader(
 
         /** Согласия нет (или отозвано) — отправка не нужна. */
         NO_CONSENT,
+
+        /** Нет активной подписки: треки остаются на устройстве, после оформления уйдут автоматически. */
+        NO_SUBSCRIPTION,
 
         /** Квота на сервере исчерпана: повторы бессмысленны, пока пользователь не удалит треки. */
         QUOTA_EXCEEDED,
@@ -116,6 +125,7 @@ class TrackUploader(
             c.remoteDeleted++
         }
         if (!local) return report(Outcome.NO_CONSENT, c)
+        if (!isSubscribed()) return report(Outcome.NO_SUBSCRIPTION, c)
 
         // 3. Отправка законченных треков.
         val now = nowMs()
@@ -162,7 +172,7 @@ class TrackUploader(
         return report(if (retry) Outcome.RETRY_LATER else Outcome.DONE, c)
     }
 
-    private fun needsUpload(info: TrackInfo, pointCount: Long): Boolean = when (info.uploadState) {
+    private fun needsUpload(info: TrackInfo, pointCount: Long): Boolean = info.trainId != NO_TRAIN_ID && when (info.uploadState) {
         TrackUploadState.PENDING -> true
         // Трек продолжили после отправки (тот же сеанс): отправляем заново целиком.
         TrackUploadState.UPLOADED -> pointCount > info.uploadedPoints
