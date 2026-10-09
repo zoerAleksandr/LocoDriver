@@ -139,4 +139,30 @@ class TrackConsentStoreTest {
         // Отзыв не трогает подтверждённое сервером состояние: PUT consent=false отправит загрузчик.
         assertEquals(null, store.serverConsent())
     }
+
+    @Test
+    fun altitudeConsentIsIndependentAndOffByDefault() = runTest {
+        val calls = mutableListOf<Boolean>()
+        val prefs = MemPrefs()
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val store = TrackConsentStore(prefs, Repo(), scope, nowMs = { 777L }, onAltitudeConsentChanged = { calls += it })
+        assertFalse(store.altitudeContrib.value)
+        assertFalse(store.enabled())
+        // Можно включить только №2: №1 остаётся выключенным.
+        store.setAltitudeContrib(true)
+        assertTrue(store.altitudeContrib.value)
+        assertTrue(store.enabled())
+        assertFalse(store.saveTracks.value)
+        assertEquals(777L, store.altitudeConsentAtMs())
+        // №1 не влияет на №2 и наоборот.
+        store.setConsent(true)
+        store.setConsent(false)
+        assertTrue(store.altitudeContrib.value)
+        // Состояние переживает пересоздание, отзыв стирает время.
+        assertTrue(TrackConsentStore(prefs, Repo(), scope).altitudeContrib.value)
+        store.setAltitudeContrib(false)
+        assertFalse(store.altitudeContrib.value)
+        assertEquals(0L, store.altitudeConsentAtMs())
+        assertEquals(listOf(true, false), calls)
+    }
 }

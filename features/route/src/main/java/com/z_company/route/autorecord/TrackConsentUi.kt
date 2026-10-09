@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -35,7 +36,8 @@ import androidx.compose.ui.window.DialogProperties
 /** Тексты согласия №1 (SCREEN_SPECS §6.9, §17.7 — дословно). */
 object TrackConsentTexts {
     const val TITLE = "Сохранять мои треки и историю поездок"
-    const val SWITCH_LABEL = "Сохранять мои треки и историю поездок"
+    /** Подпись самого переключателя (заголовок экрана/блока - [TITLE]). */
+    const val SWITCH_LABEL = "Сохранять треки"
     const val BODY = "Когда включен режим «АВТО», приложение записывает ваш путь: время, положение и скорость " +
         "в точках следования. Это нужно, чтобы вы могли открыть пройденный путь на карте, посмотреть скорость " +
         "и историю поездок."
@@ -55,6 +57,15 @@ object TrackConsentTexts {
         "удалить их можно там."
     const val REVOKE_CONFIRM = "Отозвать"
     const val REVOKE_CANCEL = "Отмена"
+
+    // Согласие №2 (SCREEN_SPECS §6.9, §17.7): без слов «трек» и «координаты».
+    const val ALT_SWITCH_LABEL = "Передавать обезличенные высоты для режимной карты"
+    const val ALT_NOTE = "Передаются только километр пути и высота — без времени, без вашего имени и без координат. " +
+        "Помогает строить профиль пути для режимных карт."
+    const val ALT_REVOKE_TITLE = "Остановить передачу высот?"
+    const val ALT_REVOKE_TEXT = "Новые высоты передаваться не будут. Уже отправленное вернуть нельзя: " +
+        "оно обезличено и не связано с вашим аккаунтом."
+    const val ALT_REVOKE_CONFIRM = "Остановить"
 }
 
 /**
@@ -64,10 +75,12 @@ object TrackConsentTexts {
 @Composable
 fun TrackConsentDialog(
     initialChecked: Boolean,
-    onContinue: (Boolean) -> Unit,
+    onContinue: (saveTracks: Boolean, shareAltitudes: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    initialAltitudeChecked: Boolean = false,
 ) {
     var checked by remember { mutableStateOf(initialChecked) }
+    var altChecked by remember { mutableStateOf(initialAltitudeChecked) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -121,10 +134,31 @@ fun TrackConsentDialog(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    HorizontalDivider()
+                    // Согласие №2: независимо от первого, по умолчанию выключено.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            TrackConsentTexts.ALT_SWITCH_LABEL,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Switch(
+                            checked = altChecked,
+                            onCheckedChange = { altChecked = it },
+                            modifier = Modifier.testTag("track_consent_altitude_switch"),
+                        )
+                    }
+                    Text(
+                        TrackConsentTexts.ALT_NOTE,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 Spacer(Modifier.height(12.dp))
                 Button(
-                    onClick = { onContinue(checked) },
+                    onClick = { onContinue(checked, altChecked) },
                     modifier = Modifier.fillMaxWidth().testTag("track_consent_continue"),
                 ) { Text(TrackConsentTexts.CONTINUE) }
                 TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Отмена") }

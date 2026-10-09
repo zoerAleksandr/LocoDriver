@@ -117,6 +117,11 @@ object RemoteRestClient {
         com.z_company.repository.remote_rest.tracks.KtorTracksApi(createClient { BASE_URL })
     }
 
+    /** Участки советника и вклад высот (согласие №2, SCREEN_SPECS §6.9/§17.7). */
+    val advisorApi: com.z_company.repository.remote_rest.tracks.AdvisorApi by lazy {
+        com.z_company.repository.remote_rest.tracks.KtorAdvisorApi(createClient { BASE_URL })
+    }
+
     val apiForSendEmail: ApiForSendEmail by lazy {
         KtorApiForSendEmail(createClient { BASE_URL_FOR_SEND_EMAIL })
     }

@@ -167,6 +167,8 @@ val repositoryModule = module {
             trackRepository = get(),
             trackConsent = get(),
             onTrackUpload = { com.z_company.loco_driver.track.TrackUploadScheduler.enqueue(androidContext()) },
+            altitudeStore = get(),
+            onAltitudeContrib = { com.z_company.loco_driver.track.AltitudeContribScheduler.enqueue(androidContext()) },
         )
     }
     // Согласие №1 «Сохранять мои треки и историю поездок» (SCREEN_SPECS §6.9, §17.7).
@@ -179,6 +181,31 @@ val repositoryModule = module {
             trackRepository = get(),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
             onConsentChanged = { com.z_company.loco_driver.track.TrackUploadScheduler.enqueue(androidContext()) },
+            onAltitudeConsentChanged = { on ->
+                if (on) {
+                    com.z_company.loco_driver.track.AltitudeContribScheduler.enqueue(androidContext())
+                } else {
+                    // Отзыв №2: накопленные, но не отправленные точки удаляем, отправку отменяем.
+                    com.z_company.loco_driver.track.AltitudeContribScheduler.cancel(androidContext())
+                    get<com.z_company.domain.track.AltitudeContribStore>().clear()
+                }
+            },
+        )
+    }
+    // Вклад высот (согласие №2): временные точки сеанса (не Track.db), кэш осей участков, отправка.
+    single<com.z_company.domain.track.AltitudeContribStore> {
+        com.z_company.route.autorecord.FileAltitudeContribStore(java.io.File(androidContext().filesDir, "altitude_contrib"))
+    }
+    single<com.z_company.domain.track.AxisCache> {
+        com.z_company.route.autorecord.FileAxisCache(java.io.File(androidContext().cacheDir, "advisor_axes"))
+    }
+    single {
+        com.z_company.repository.remote_rest.tracks.AltitudeContributor(
+            api = RemoteRestClient.advisorApi,
+            store = get(),
+            axes = get(),
+            settings = get<com.z_company.route.autorecord.TrackConsentStore>(),
+            tools = get(),
         )
     }
     // История треков на сервере (этап 3б): кодек, связь поезд -> рейс, отправка, чтение.

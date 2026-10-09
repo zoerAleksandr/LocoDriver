@@ -111,7 +111,7 @@ fun TrackHistoryScreen(viewModel: TrackHistoryViewModel, onBack: () -> Unit, onO
         AppAlertDialog(
             onDismissRequest = { noConsent = false },
             title = "Нет согласия на сохранение треков",
-            text = "Чтобы отправлять треки на сервер, включите «Сохранять мои треки и историю поездок» " +
+            text = "Чтобы отправлять треки на сервер, включите «Сохранять треки» " +
                 "в разделе «Данные и конфиденциальность».",
             confirmText = "Открыть настройки",
             onConfirm = {
