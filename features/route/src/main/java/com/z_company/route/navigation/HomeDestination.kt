@@ -114,6 +114,10 @@ fun HomeDestination(
         saveTimeEvent = homeViewModel.saveTimeEvent,
         isNextDeparture = homeViewModel::isNextDeparture,
         onCalendar = router::showCalendar,
+        onTrainMap = { train ->
+            TrainMapLaunch.request()
+            router.showChangeTrainForm(train)
+        },
         onStatistics = router::showStatistics,
         unsyncedRoutesCount = uiState.unsyncedRoutesCount,
         hasActiveSubscription = uiState.hasActiveSubscription,

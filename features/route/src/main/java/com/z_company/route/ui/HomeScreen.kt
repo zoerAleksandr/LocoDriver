@@ -139,6 +139,9 @@ import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.toMoneyString
 import com.z_company.route.R
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
+import com.z_company.route.component.servicephase.TrainMapScreen
 import kotlin.math.abs
 import kotlin.math.ceil
 import android.net.Uri
@@ -236,6 +239,8 @@ fun HomeScreen(
     isNextDeparture: () -> Boolean,
     saveTimeEvent: SharedFlow<String>,
     onCalendar: () -> Unit,
+    /** Плитка «Карта»: поезд текущего маршрута (по правилу «АВТО») - открыть его экран сразу с картой. */
+    onTrainMap: (Train) -> Unit = {},
     onStatistics: () -> Unit = {},
     normaHours: Int? = null,
     unsyncedRoutesCount: Int = 0,
@@ -419,6 +424,20 @@ fun HomeScreen(
     }
 
     var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
+    // Плитка «Карта» без поезда: только карта с текущим положением (TrainMapScreen, состояние 1), без записи данных.
+    var showBareMap by rememberSaveable { mutableStateOf(false) }
+    if (showBareMap) {
+        val mapContext = LocalContext.current
+        TrainMapScreen(
+            missingStation = { null },
+            stops = emptyList(),
+            loadRailLine = { com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel.RailLineResult.NoPath },
+            currentFix = { com.z_company.route.util.DeviceLocation.currentFix(mapContext.applicationContext) },
+            onDetermine = { false },
+            onDismiss = { showBareMap = false },
+            title = "Карта",
+        )
+    }
     var copyRouteId by remember { mutableStateOf<String?>(null) }
     // Шторка подтверждения перехода на официальный сайт (клик по логотипу «Машинист»)
     var showSiteConfirmSheet by remember { mutableStateOf(false) }
@@ -1590,6 +1609,28 @@ fun HomeScreen(
                                     },
                                     minHeightDp = maxHeightBox.toDp(),
                                     onClick = { onCalendar() }
+                                )
+                            }
+                            // Плитка «Карта» (после «Календаря», §4): поезд текущего маршрута -> экран «Поезд» с картой;
+                            // иначе только карта с текущим положением (без записи данных).
+                            item {
+                                ActionCard(
+                                    title = "Карта",
+                                    iconRes = R.drawable.ic_train_map_24,
+                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    widthScreen = widthScreen,
+                                    interactionSource = interactionSource,
+                                    onSizeChanged = { size ->
+                                        if (size.height > maxHeightBox) {
+                                            maxHeightBox = size.height
+                                        }
+                                    },
+                                    minHeightDp = maxHeightBox.toDp(),
+                                    onClick = {
+                                        val target = com.z_company.domain.autorecord.TrainOrdering
+                                            .pickHomeMapTarget(currentRoute?.trains)
+                                        if (target != null) onTrainMap(target) else showBareMap = true
+                                    }
                                 )
                             }
                             // Плашка «Статистика» — экран сводной статистики

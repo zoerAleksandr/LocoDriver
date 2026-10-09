@@ -47,4 +47,11 @@ object TrainOrdering {
      */
     fun findTargetTrain(routesTrains: List<List<Train>>, preferredId: String?): Train? =
         preferredId?.let { id -> routesTrains.firstNotNullOfOrNull { l -> l.firstOrNull { it.trainId == id } } }
+
+    /**
+     * Цель плитки «Карта» на Главном (SCREEN_SPECS §4): поезд текущего маршрута по правилу «АВТО»
+     * ([pickAutoTarget]); null - нет текущего маршрута (`routeTrains == null`) или в нём нет поездов:
+     * тогда открывается только карта с текущим положением, без создания данных.
+     */
+    fun pickHomeMapTarget(routeTrains: List<Train>?): Train? = routeTrains?.let { pickAutoTarget(it) }
 }

@@ -75,4 +75,20 @@ class TrainOrderingTest {
         assertNull(TrainOrdering.findTargetTrain(routes, "gone"))
         assertEquals("cur", TrainOrdering.pickTarget(routes[0], null)?.trainId)
     }
+
+    @Test
+    fun `home map target - no current route gives null`() {
+        assertNull(TrainOrdering.pickHomeMapTarget(null))
+    }
+
+    @Test
+    fun `home map target - route without trains gives null`() {
+        assertNull(TrainOrdering.pickHomeMapTarget(emptyList()))
+    }
+
+    @Test
+    fun `home map target follows auto rule`() {
+        assertEquals("empty", TrainOrdering.pickHomeMapTarget(listOf(t("timed", dep = 100), t("empty")))?.trainId)
+        assertEquals("b", TrainOrdering.pickHomeMapTarget(listOf(t("a", dep = 100), t("b", dep = 200)))?.trainId)
+    }
 }

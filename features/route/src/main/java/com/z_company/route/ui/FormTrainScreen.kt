@@ -87,6 +87,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -181,7 +182,10 @@ fun FormTrainScreen(
     onAddServicePhase: (ServicePhase) -> Unit = {},
     onUpdateServicePhase: (ServicePhase) -> Unit = {},
     onDeleteServicePhase: (ServicePhase) -> Unit = {},
-    dateAndTimeConverter: DateAndTimeConverter?
+    dateAndTimeConverter: DateAndTimeConverter?,
+    /** Открыть карту сразу (плитка «Карта» на Главном); закрытие карты тогда возвращает на Главный. */
+    openMapOnStart: Boolean = false,
+    onMapClosedFromHome: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -312,7 +316,7 @@ fun FormTrainScreen(
         }
 
         // Карта поезда (SCREEN_SPECS §6.9)
-        var showTrainMap by remember { mutableStateOf(false) }
+        var showTrainMap by rememberSaveable { mutableStateOf(openMapOnStart) }
         if (showTrainMap) {
             val railVm: com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel =
                 androidx.lifecycle.viewmodel.compose.viewModel()
@@ -328,7 +332,7 @@ fun FormTrainScreen(
                 loadZone = { viewModel.trainMapZone() },
                 planKey = remember { viewModel.trainMapPlanKey() },
                 onOpenConsentSettings = { showTrainMap = false; onConsentSettings() },
-                onDismiss = { showTrainMap = false },
+                onDismiss = { showTrainMap = false; if (openMapOnStart) onMapClosedFromHome() },
             )
         }
 
