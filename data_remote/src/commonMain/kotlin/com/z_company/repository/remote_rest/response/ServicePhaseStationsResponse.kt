@@ -79,10 +79,24 @@ data class ServicePhaseLookupResponse(val candidates: List<OsmStationCandidate> 
 
 /** `POST /v1/service_phase/stations/nearest` — ближайшая станция к точке (форма поезда без плеча). */
 @Serializable
-data class NearestStationRequest(val latitude: Double, val longitude: Double, val radiusM: Double = 2000.0)
+data class NearestStationRequest(
+    val latitude: Double,
+    val longitude: Double,
+    val radiusM: Double = 2000.0,
+    /** true - ближайшая станция ПО РЕЛЬСАМ (сервер зажимает radiusM в 100..3000); false - по прямой, как раньше. */
+    val alongRail: Boolean = false,
+)
 
 @Serializable
-data class NearestStationResponse(val station: OsmStationCandidate? = null)
+data class NearestStationResponse(
+    val station: OsmStationCandidate? = null,
+    /** Только при alongRail=true (аддитивные поля; у старого сервера и в прямом режиме их нет). */
+    val alongRail: Boolean = false,
+    val distanceAlongM: Int? = null,
+    val offsetM: Int? = null,
+    /** При station=null: off_rails / not_found / no_rail_data. */
+    val reason: String? = null,
+)
 
 /** `POST /v1/service_phase/route/length` — длина плеча по ж/д путям через станции по порядку. */
 @Serializable
