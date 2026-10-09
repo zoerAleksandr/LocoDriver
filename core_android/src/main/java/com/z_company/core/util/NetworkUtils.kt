@@ -2,7 +2,47 @@ package com.z_company.core.util
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+
+/**
+ * Есть ли сейчас выход в интернет: активная сеть с INTERNET и подтверждённой проверкой связи (VALIDATED).
+ * Не гарантирует, что наш сервер достижим (VPN и т.п. см. [vpnAwareErrorMessage]), но отсекает «нет сети».
+ * Нет доступа к состоянию сети - считаем, что интернет есть (не блокируем функции зря).
+ */
+fun isOnline(context: Context): Boolean {
+    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
+    return try {
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork ?: return false) ?: return false
+        caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    } catch (e: Exception) {
+        true
+    }
+}
+
+/** Поток состояния связи ([isOnline]): первое значение сразу, далее при смене сети. */
+fun onlineFlow(context: Context): Flow<Boolean> = callbackFlow {
+    val app = context.applicationContext
+    val cm = app.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+    if (cm == null) {
+        trySend(true)
+        awaitClose { }
+        return@callbackFlow
+    }
+    val callback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) { trySend(isOnline(app)) }
+        override fun onLost(network: Network) { trySend(isOnline(app)) }
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) { trySend(isOnline(app)) }
+    }
+    trySend(isOnline(app))
+    val registered = runCatching { cm.registerDefaultNetworkCallback(callback) }.isSuccess
+    awaitClose { if (registered) runCatching { cm.unregisterNetworkCallback(callback) } }
+}.distinctUntilChanged()
 
 /**
  * Определение активного VPN на устройстве.

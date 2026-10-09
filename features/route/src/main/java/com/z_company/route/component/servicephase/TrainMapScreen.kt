@@ -43,6 +43,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.z_company.core.gps.GpsRecorder
+import com.z_company.route.component.NetworkRequired
+import com.z_company.route.component.rememberIsOnline
+import com.z_company.route.component.rememberNetworkGate
 import com.z_company.domain.track.HeadingEstimator
 import androidx.compose.runtime.collectAsState
 import com.z_company.domain.entities.setting.ServicePhaseStationKind
@@ -162,6 +165,9 @@ internal fun TrainMapScreen(
         var snappedLast by remember { mutableStateOf<TrackPoint?>(null) }
         var offSegments by remember { mutableStateOf(0) }
         val autoRunning by GpsRecorder.isRunning.collectAsState()
+        // Функции, которым нужен интернет (перестроение линии), без сети показывают диалог «Нет интернета».
+        val networkGate = rememberNetworkGate()
+        val online = rememberIsOnline()
         val density = context.resources.displayMetrics.density
         val alive = remember { AtomicBoolean(true) }
         val scope = rememberCoroutineScope()
@@ -738,7 +744,8 @@ internal fun TrainMapScreen(
                     .padding(start = 12.dp, end = 72.dp, top = 64.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (progress != null) {
+                // Блок «Следующая / Конечная» - только когда позиция на пути следования (не дальше 50 м от линии).
+                if (progress != null && !offNow) {
                     val nowEta = System.currentTimeMillis()
                     val nextEta = TrainMapRoute.Eta.arrivalMs(nowEta, progress.nextDistanceM, etaSpeed)
                     val termEta = TrainMapRoute.Eta.arrivalMs(nowEta, progress.terminalDistanceM, etaSpeed)
@@ -987,11 +994,20 @@ internal fun TrainMapScreen(
                             Text(text = "Строим путь по рельсам…", style = Pst.sans.copy(fontSize = 14.sp), color = Pst.text)
                         }
                         is ServicePhaseAutoFillViewModel.RailLineResult.Ok ->
-                            Text(
-                                text = "Маршрут показан из сохранённых данных",
-                                style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
-                                color = Pst.text,
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    text = "Маршрут показан из сохранённых данных",
+                                    style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                                    color = Pst.text,
+                                )
+                                if (!online) {
+                                    Text(
+                                        text = NetworkRequired.TITLE,
+                                        style = Pst.sans.copy(fontSize = 12.sp),
+                                        color = Pst.textMuted,
+                                    )
+                                }
+                            }
                         else -> {
                             Text(
                                 text = when (rail) {
@@ -1009,7 +1025,7 @@ internal fun TrainMapScreen(
                             if (rail is ServicePhaseAutoFillViewModel.RailLineResult.Failed) {
                                 PstButton(
                                     text = "Повторить",
-                                    onClick = { loadAttempt++ },
+                                    onClick = { networkGate.run { loadAttempt++ } },
                                     kind = PstButtonKind.TEXT,
                                     height = 36.dp,
                                     fontSize = 14,
