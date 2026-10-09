@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- левая зона (зелёная) -->
+  <path android:fillColor="#43A047" android:pathData="M2,6.5L8,4.5L8,19.5L2,21.5Z"/>
+  <!-- средняя зона (голубая) -->
+  <path android:fillColor="#29B6F6" android:pathData="M8,4.5L16,7L16,22L8,19.5Z"/>
+  <!-- правая зона (жёлтая) -->
+  <path android:fillColor="#FDD835" android:pathData="M16,7L22,5L22,20L16,22Z"/>
+  <!-- линии сгибов -->
+  <path android:strokeColor="#26FFFFFF" android:strokeWidth="0.8" android:pathData="M8,4.5L8,19.5M16,7L16,22"/>
+  <!-- красная метка -->
+  <path android:fillColor="#E53935" android:strokeColor="#FFFFFF" android:strokeWidth="1"
+      android:pathData="M12,1.5C9.5,1.5 7.8,3.3 7.8,5.5C7.8,8.6 12,12.6 12,12.6C12,12.6 16.2,8.6 16.2,5.5C16.2,3.3 14.5,1.5 12,1.5Z"/>
+  <path android:fillColor="#FFFFFF" android:pathData="M12,4.2m-1.4,0a1.4,1.4 0,1 1,2.8 0a1.4,1.4 0,1 1,-2.8 0"/>
+</vector>
