@@ -89,4 +89,42 @@ class TrackAnalysisTest {
         assertEquals("03:00", TrackAnalysis.clock(5_000, "GMT+3"))
         assertEquals(3, TrackAnalysis.dwellMinutes(0, 170_000))
     }
+
+    @Test
+    fun sparseThreePointStopIsDetected() {
+        val pts = listOf(p(-10, v = 40.0), p(-5, v = 20.0), p(0, v = 0.0), p(60, v = 0.0), p(110, v = 0.0), p(115, v = 12.0), p(120, v = 30.0))
+        val d = TrackAnalysis.detectDwells(pts)
+        assertEquals(1, d.size)
+        assertEquals(0L, d[0].arrivalMs)
+        assertEquals(110_000L, d[0].departureMs)
+    }
+
+    @Test
+    fun sparseSinglePointStopBetweenMovingPointsIsDetected() {
+        // Запись прореживает стоянку до точки раз в 60 с: между движущимися точками осталась одна с нулём.
+        val pts = listOf(p(0, v = 30.0), p(5, v = 8.0), p(65, v = 0.0), p(115, v = 6.0), p(120, v = 25.0))
+        val d = TrackAnalysis.detectDwells(pts)
+        assertEquals(1, d.size)
+        assertEquals(5_000L, d[0].arrivalMs)
+        assertEquals(115_000L, d[0].departureMs)
+        assertEquals(2, TrackAnalysis.dwellMinutes(d[0].arrivalMs, d[0].departureMs))
+    }
+
+    @Test
+    fun sparseTwoPointStopUnder60sSpanIsDetected() {
+        val pts = listOf(p(0, v = 30.0), p(5, v = 9.0), p(60, v = 0.0), p(112, v = 0.0), p(117, v = 10.0))
+        assertEquals(1, TrackAnalysis.detectDwells(pts).size)
+    }
+
+    @Test
+    fun denseSlowdownNearSparsePointIsNotDwell() {
+        val pts = listOf(p(0, v = 30.0), p(5, v = 1.0), p(10, v = 30.0), p(70, v = 30.0))
+        assertTrue(TrackAnalysis.detectDwells(pts).isEmpty())
+    }
+
+    @Test
+    fun recordingGapIsNotDwellExtension() {
+        val pts = listOf(p(0, v = 30.0), p(5, v = 1.0), p(600, v = 30.0))
+        assertTrue(TrackAnalysis.detectDwells(pts).isEmpty())
+    }
 }

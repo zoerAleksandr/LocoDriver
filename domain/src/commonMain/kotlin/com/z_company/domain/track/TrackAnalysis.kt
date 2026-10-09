@@ -40,6 +40,9 @@ object TrackAnalysis {
     const val STOP_SPEED_KMH = 2.0
     const val STOP_MIN_MS = 60_000L
 
+    /** Разрыв между записанными точками стоянки, при котором считаем, что поезд стоял всё это время. */
+    const val SPARSE_MS = 50_000L
+
     /** Разрыв между точками больше — линия не соединяется. */
     const val GAP_MS = 5 * 60_000L
     private const val EARTH_R = 6_371_000.0
@@ -76,10 +79,19 @@ object TrackAnalysis {
         fun close(endExclusive: Int) {
             if (start < 0) return
             val run = points.subList(start, endExclusive)
-            if (run.size >= 2 && run.last().timeMs - run.first().timeMs >= STOP_MIN_MS) {
+            // Запись прореживает стоянку до точки раз в 60 с (TrackThinner): у стоянки в 1–2 минуты остаётся 1–2 «медленные»
+            // точки, а соседние точки (в движении) стоят по краям. Если до/после серии нет точек ≥ SPARSE_MS, поезд всё это
+            // время не двигался (иначе точка в движении записалась бы через 5 с) — граница стоянки отодвигается на соседнюю точку.
+            val prev = points.getOrNull(start - 1)?.takeIf { run.first().timeMs - it.timeMs in SPARSE_MS..GAP_MS }
+            val next = points.getOrNull(endExclusive)?.takeIf { it.timeMs - run.last().timeMs in SPARSE_MS..GAP_MS }
+            val from = prev?.timeMs ?: run.first().timeMs
+            val to = next?.timeMs ?: run.last().timeMs
+            val dense = run.size >= 2 && run.last().timeMs - run.first().timeMs >= STOP_MIN_MS
+            val sparse = to - from >= STOP_MIN_MS || (run.size >= 2 && run.last().timeMs - run.first().timeMs >= SPARSE_MS)
+            if (dense || sparse) {
                 result += TrackDwell(
                     run.map { it.latitude }.average(), run.map { it.longitude }.average(),
-                    run.first().timeMs, run.last().timeMs,
+                    from, to,
                 )
             }
             start = -1
