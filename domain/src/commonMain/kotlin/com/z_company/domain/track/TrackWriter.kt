@@ -13,16 +13,35 @@ class TrackThinner(
     private val movingSpeedKmh: Double = 2.0,
 ) {
     private var lastAcceptedMs: Long? = null
+    private var lastAcceptedMoving: Boolean? = null
+    private var rejectedSlow: TrackPoint? = null
+    private var pending: TrackPoint? = null
 
+    /**
+     * Принимать ли точку. Смена «стоим/едем» принимается сразу (точное время остановки и трогания для детектора стоянок:
+     * иначе первая «медленная» точка терялась бы на до 60 с). При трогании [takePending] отдаёт последнюю отброшенную
+     * «медленную» точку - момент покоя перед ростом скорости.
+     */
     fun accept(point: TrackPoint): Boolean {
+        pending = null
         val last = lastAcceptedMs
         val moving = point.speedKmh?.let { it >= movingSpeedKmh } ?: true
         val interval = if (moving) movingIntervalMs else stoppedIntervalMs
+        val changed = lastAcceptedMoving != null && lastAcceptedMoving != moving
         // Часы пошли назад (смена времени) — принимаем и начинаем отсчёт заново.
-        if (last != null && point.timeMs >= last && point.timeMs - last < interval) return false
+        if (!changed && last != null && point.timeMs >= last && point.timeMs - last < interval) {
+            if (!moving) rejectedSlow = point
+            return false
+        }
+        if (changed && moving) pending = rejectedSlow?.takeIf { last == null || it.timeMs > last }
+        rejectedSlow = null
         lastAcceptedMs = point.timeMs
+        lastAcceptedMoving = moving
         return true
     }
+
+    /** Точка, которую надо записать ПЕРЕД только что принятой (последняя «медленная» перед трогание); null - нет. */
+    fun takePending(): TrackPoint? = pending.also { pending = null }
 }
 
 /**
@@ -54,6 +73,7 @@ class TrackWriter(
             thinner = TrackThinner()
         }
         if (!thinner.accept(point)) return false
+        thinner.takePending()?.let { repository.append(id, targetTrainId, it) }
         repository.append(id, targetTrainId, point)
         return true
     }

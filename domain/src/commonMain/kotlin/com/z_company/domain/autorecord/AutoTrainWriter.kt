@@ -7,8 +7,8 @@ import com.z_company.domain.util.ServicePhaseStationsMerge
 
 /** Станция справочника с координатами для привязки остановки к названию. */
 object AutoStationLocator {
-    /** Радиус «здесь станция» для АВТО (SCREEN_SPECS §6.2 п.6а). */
-    const val RADIUS_M = 500.0
+    /** Радиус «здесь станция» (SCREEN_SPECS §6.2 п.6а, §6.9): 1 км, общий для АВТО, карты и просмотра трека. */
+    const val RADIUS_M = StopDetectionConfig.STATION_RADIUS_M
 
     /**
      * Название ближайшей станции справочника в радиусе [radiusM] или null (вне станций —
@@ -26,6 +26,20 @@ object AutoStationLocator {
             .minByOrNull { it.second }
             ?.let { names[it.first] }
 }
+
+/**
+ * Название станции остановки для поезда [train]: единая функция [ServicePhaseStationPicker.pickForStop] с учётом плеча и
+ * порядка станций поезда. Одинакова для АВТО, карты и просмотра трека.
+ */
+fun stationNameForStop(
+    train: Train?,
+    latitude: Double,
+    longitude: Double,
+    points: Map<String, Pair<Double, Double>>,
+    names: Map<String, String>,
+): String? = ServicePhaseStationPicker.pickForStop(
+    train?.servicePhase, train?.stations?.map { it.stationName }.orEmpty(), latitude, longitude, points, names,
+)
 
 /**
  * Запись события АВТО в поезд по правилам кнопки «GO» (прибытие → отправление → следующая

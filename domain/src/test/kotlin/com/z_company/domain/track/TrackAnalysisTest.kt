@@ -17,23 +17,8 @@ class TrackAnalysisTest {
     }
 
     @Test
-    fun dwellNeedsSixtySecondsBelowTwoKmh() {
-        val pts = listOf(p(0, v = 40.0), p(5, v = 1.0), p(65, v = 0.5), p(125, v = 0.0), p(130, v = 30.0))
-        val d = TrackAnalysis.detectDwells(pts)
-        assertEquals(1, d.size)
-        assertEquals(5_000L, d[0].arrivalMs)
-        assertEquals(125_000L, d[0].departureMs)
-    }
-
-    @Test
     fun shortSlowdownIsNotDwell() {
         val pts = listOf(p(0, v = 40.0), p(5, v = 1.0), p(30, v = 1.0), p(35, v = 30.0))
-        assertTrue(TrackAnalysis.detectDwells(pts).isEmpty())
-    }
-
-    @Test
-    fun unknownSpeedBreaksDwell() {
-        val pts = listOf(p(0, v = 0.0), p(30, v = null), p(70, v = 0.0), p(1000, v = 0.0))
         assertTrue(TrackAnalysis.detectDwells(pts).isEmpty())
     }
 
@@ -91,32 +76,6 @@ class TrackAnalysisTest {
     }
 
     @Test
-    fun sparseThreePointStopIsDetected() {
-        val pts = listOf(p(-10, v = 40.0), p(-5, v = 20.0), p(0, v = 0.0), p(60, v = 0.0), p(110, v = 0.0), p(115, v = 12.0), p(120, v = 30.0))
-        val d = TrackAnalysis.detectDwells(pts)
-        assertEquals(1, d.size)
-        assertEquals(0L, d[0].arrivalMs)
-        assertEquals(110_000L, d[0].departureMs)
-    }
-
-    @Test
-    fun sparseSinglePointStopBetweenMovingPointsIsDetected() {
-        // Запись прореживает стоянку до точки раз в 60 с: между движущимися точками осталась одна с нулём.
-        val pts = listOf(p(0, v = 30.0), p(5, v = 8.0), p(65, v = 0.0), p(115, v = 6.0), p(120, v = 25.0))
-        val d = TrackAnalysis.detectDwells(pts)
-        assertEquals(1, d.size)
-        assertEquals(5_000L, d[0].arrivalMs)
-        assertEquals(115_000L, d[0].departureMs)
-        assertEquals(2, TrackAnalysis.dwellMinutes(d[0].arrivalMs, d[0].departureMs))
-    }
-
-    @Test
-    fun sparseTwoPointStopUnder60sSpanIsDetected() {
-        val pts = listOf(p(0, v = 30.0), p(5, v = 9.0), p(60, v = 0.0), p(112, v = 0.0), p(117, v = 10.0))
-        assertEquals(1, TrackAnalysis.detectDwells(pts).size)
-    }
-
-    @Test
     fun denseSlowdownNearSparsePointIsNotDwell() {
         val pts = listOf(p(0, v = 30.0), p(5, v = 1.0), p(10, v = 30.0), p(70, v = 30.0))
         assertTrue(TrackAnalysis.detectDwells(pts).isEmpty())
@@ -136,24 +95,10 @@ class TrackAnalysisTest {
     }
 
     @Test
-    fun gapUpTo90sStillExtendsDwell() {
-        val pts = listOf(p(0, v = 30.0), p(5, v = 8.0), p(65, v = 0.0), p(115, v = 6.0), p(120, v = 25.0))
-        assertEquals(1, TrackAnalysis.detectDwells(pts).size)
-    }
-
-    @Test
     fun gapOver90sBetweenSlowPointsSplitsDwell() {
         // Две «медленные» точки через 3 минуты - это потеря записи, а не стоянка на 3 минуты.
         val pts = listOf(p(0, v = 0.5), p(180, v = 0.5), p(185, v = 40.0))
         assertTrue(TrackAnalysis.detectDwells(pts).isEmpty())
-    }
-
-    @Test
-    fun denseStopSurvivesOneMinuteSpacing() {
-        val pts = listOf(p(0, v = 30.0), p(5, v = 0.5), p(65, v = 0.5), p(125, v = 0.5), p(185, v = 0.5), p(190, v = 30.0))
-        val d = TrackAnalysis.detectDwells(pts)
-        assertEquals(1, d.size)
-        assertEquals(5_000L, d[0].arrivalMs)
     }
 
     @Test
@@ -163,5 +108,73 @@ class TrackAnalysisTest {
         assertEquals(1, g.size)
         assertEquals(5_000L, g[0].fromMs)
         assertEquals(185_000L, g[0].toMs)
+    }
+
+    // ---- Единый алгоритм: оффлайн = тот же StopDetector, времена кратны минуте ----
+
+    @Test
+    fun dwellNeedsSixtySecondsBelowTwoKmh() {
+        val pts = listOf(p(0, v = 40.0), p(5, v = 1.0), p(65, v = 0.5), p(125, v = 0.0), p(130, v = 30.0), p(135, v = 30.0), p(165, v = 30.0))
+        val d = TrackAnalysis.detectDwells(pts)
+        assertEquals(1, d.size)
+        assertEquals(0L, d[0].arrivalMs) // окно с 5 с, округление вниз до минуты
+        assertEquals(120_000L, d[0].departureMs) // откат к последней точке ≈0 (125 с)
+    }
+
+    @Test
+    fun sparseStopWithTransitionPointsMatchesOnlineDetector() {
+        // Запись по правилам TrackThinner: первая «медленная» точка и последняя перед трогом пишутся всегда.
+        val pts = listOf(
+            p(300, v = 40.0), p(310, v = 20.0), p(335, v = 1.0), p(395, v = 0.0), p(455, v = 0.0), p(500, v = 0.0),
+            p(505, v = 8.0), p(510, v = 12.0), p(515, v = 20.0), p(535, v = 30.0),
+        )
+        val d = TrackAnalysis.detectDwells(pts)
+        assertEquals(1, d.size)
+        assertEquals(300_000L, d[0].arrivalMs) // 335 с -> минута 300
+        assertEquals(480_000L, d[0].departureMs) // последняя точка покоя 500 с -> 480
+        assertEquals(3, TrackAnalysis.dwellMinutes(d[0].arrivalMs, d[0].departureMs))
+    }
+
+    @Test
+    fun slowGapUpTo90sIsAllowedButLongerIsNoData() {
+        val ok = listOf(p(0, v = 30.0), p(5, v = 0.5), p(65, v = 0.5), p(125, v = 0.5), p(130, v = 30.0), p(135, v = 30.0), p(165, v = 30.0))
+        assertEquals(1, TrackAnalysis.detectDwells(ok).size)
+        // Между «медленными» точками 100 с: окно сбрасывается, стоянки нет.
+        val gap = listOf(p(0, v = 30.0), p(5, v = 0.5), p(105, v = 0.5), p(160, v = 0.5), p(170, v = 30.0), p(175, v = 30.0), p(205, v = 30.0))
+        assertTrue(TrackAnalysis.detectDwells(gap).isEmpty())
+    }
+
+    @Test
+    fun unknownSpeedPointsAreIgnoredLikeOnline() {
+        val pts = listOf(p(0, v = 0.0), p(30, v = null), p(70, v = 0.0), p(75, v = 40.0), p(80, v = 40.0), p(110, v = 40.0))
+        val d = TrackAnalysis.detectDwells(pts)
+        assertEquals(1, d.size)
+    }
+
+    @Test
+    fun onlineAndOfflineGiveSameStopsIncludingSignalLoss() {
+        // Один и тот же «истинный» поток 1 Гц; онлайн - сырой, оффлайн - прореженный TrackThinner и записанный TrackWriter.
+        val raw = ArrayList<TrackPoint>()
+        for (t in 0..59) raw += p(t.toLong(), v = 60.0)            // едем
+        for (t in 60..80) raw += p(t.toLong(), v = (60 - (t - 60) * 3).coerceAtLeast(0).toDouble()) // тормозим до 0
+        for (t in 81..260) raw += p(t.toLong(), v = 0.0)           // стоим ~3 мин
+        for (t in 261..275) raw += p(t.toLong(), v = ((t - 260) * 4.0)) // разгон
+        for (t in 276..340) raw += p(t.toLong(), v = 60.0)         // едем
+        // тоннель: нет данных 341..520, потом снова едем
+        for (t in 521..560) raw += p(t.toLong(), v = 60.0)
+
+        val online = ArrayList<com.z_company.domain.autorecord.StopEvent>()
+        val det = com.z_company.domain.autorecord.StopDetector()
+        for (q in raw) det.onSample(com.z_company.domain.autorecord.MotionSample(q.timeMs, q.latitude, q.longitude, q.speedKmh, q.accuracyM))?.let { online += it }
+
+        val th = TrackThinner()
+        val recorded = ArrayList<TrackPoint>()
+        for (q in raw) if (th.accept(q)) { th.takePending()?.let { recorded += it }; recorded += q }
+        val dwells = TrackAnalysis.detectDwells(recorded)
+
+        assertEquals(2, online.size) // прибытие + отправление, тоннель ничего не добавил
+        assertEquals(1, dwells.size)
+        assertEquals(online[0].minuteTimeMs, dwells[0].arrivalMs)
+        assertEquals(online[1].minuteTimeMs, dwells[0].departureMs)
     }
 }

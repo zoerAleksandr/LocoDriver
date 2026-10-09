@@ -487,13 +487,6 @@ class AutoRecordManager(
     }
 
     private suspend fun handleEvent(event: StopEvent) {
-        val name = withContext(Dispatchers.Default) {
-            val dir = stationDirectory.stations()
-            AutoStationLocator.nearestName(
-                StationDirectory.points(dir), StationDirectory.names(dir),
-                event.latitude, event.longitude,
-            )
-        }
         // Цель - поезд, где нажата «АВТО»: ищем среди поездов ВСЕХ неудалённых маршрутов, не только текущего.
         val saved = prefs.getString(KEY_TARGET, null)
         val targeted = withContext(Dispatchers.Default) {
@@ -513,6 +506,14 @@ class AutoRecordManager(
         }
         // Фиксируем фактическую цель (создание нового поезда / fallback при удалённом запомненном).
         if (prefs.getString(KEY_TARGET, null) != train.trainId) saveTarget(train.trainId)
+
+        // Название станции - единая функция (плечо и порядок станций поезда, радиус 1 км, иначе справочник).
+        val name = withContext(Dispatchers.Default) {
+            val dir = stationDirectory.stations()
+            com.z_company.domain.autorecord.stationNameForStop(
+                train, event.latitude, event.longitude, StationDirectory.points(dir), StationDirectory.names(dir),
+            )
+        }
 
         val open = editor
         if (open != null && open.trainId == train.trainId) {

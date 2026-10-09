@@ -1425,14 +1425,14 @@ private fun CompassNeedle(bearingDeg: Float) {
 }
 
 /**
- * Подпись остановки: название станции поезда; иначе станция плеча в пределах 400 м (если плечо есть);
+ * Подпись остановки: название станции поезда; иначе станция плеча в пределах 1 км (если плечо есть);
  * иначе «Стоянка N мин» (по времени прибытия/отправления из трека), иначе «Остановка».
  */
 private fun stopTitle(mk: com.z_company.domain.track.TrainStopMark, routeStops: List<com.z_company.domain.util.TrainMapStop>): String {
     mk.name?.takeIf { it.isNotBlank() }?.let { return it }
     routeStops
         .minByOrNull { TrackAnalysis.distanceM(mk.latitude, mk.longitude, it.latitude, it.longitude) }
-        ?.takeIf { TrackAnalysis.distanceM(mk.latitude, mk.longitude, it.latitude, it.longitude) <= 400.0 && it.name.isNotBlank() }
+        ?.takeIf { TrackAnalysis.distanceM(mk.latitude, mk.longitude, it.latitude, it.longitude) <= com.z_company.domain.autorecord.StopDetectionConfig.STATION_RADIUS_M && it.name.isNotBlank() }
         ?.let { return it.name }
     val a = mk.arrivalMs
     val d = mk.departureMs
