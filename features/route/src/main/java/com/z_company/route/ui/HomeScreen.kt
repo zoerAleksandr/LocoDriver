@@ -239,8 +239,8 @@ fun HomeScreen(
     isNextDeparture: () -> Boolean,
     saveTimeEvent: SharedFlow<String>,
     onCalendar: () -> Unit,
-    /** Плитка «Карта»: поезд текущего маршрута (по правилу «АВТО») - открыть его экран сразу с картой. */
-    onTrainMap: (Train) -> Unit = {},
+    /** Из карты поезда (открыта прямо с Главного): открыть настройки согласия на сохранение треков. */
+    onConsentSettings: () -> Unit = {},
     onStatistics: () -> Unit = {},
     normaHours: Int? = null,
     unsyncedRoutesCount: Int = 0,
@@ -426,6 +426,16 @@ fun HomeScreen(
     var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
     // Плитка «Карта» без поезда: только карта с текущим положением (TrainMapScreen, состояние 1), без записи данных.
     var showBareMap by rememberSaveable { mutableStateOf(false) }
+    // Плитка «Карта» с поездом: карта поезда открывается сразу поверх Главного (без формы «Поезд»).
+    var mapTrainId by rememberSaveable { mutableStateOf<String?>(null) }
+    var mapBasicId by rememberSaveable { mutableStateOf("") }
+    mapTrainId?.let { id ->
+        HomeTrainMap(
+            trainId = id, basicId = mapBasicId,
+            onConsentSettings = onConsentSettings,
+            onDismiss = { mapTrainId = null },
+        )
+    }
     if (showBareMap) {
         val mapContext = LocalContext.current
         // Кнопка записи на карте без поезда: цель определяется при включении (текущий/последний поезд, иначе создаётся).
@@ -1634,7 +1644,10 @@ fun HomeScreen(
                                     onClick = {
                                         val target = com.z_company.domain.autorecord.TrainOrdering
                                             .pickHomeMapTarget(currentRoute?.trains)
-                                        if (target != null) onTrainMap(target) else showBareMap = true
+                                        if (target != null) {
+                                            mapBasicId = target.basicId
+                                            mapTrainId = target.trainId
+                                        } else showBareMap = true
                                     }
                                 )
                             }
