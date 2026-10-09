@@ -23,6 +23,7 @@ fun FormTrainDestination(
         parameters = { parametersOf(trainId, basicId) }
     )
     val formUiState by viewModel.uiState.collectAsState()
+    val openMapFromHome = androidx.compose.runtime.saveable.rememberSaveable(backStackEntry) { TrainMapLaunch.consume() }
 
     FormTrainScreen(
         viewModel = viewModel,
@@ -45,6 +46,8 @@ fun FormTrainDestination(
         onAddServicePhase = viewModel::addServicePhase,
         onUpdateServicePhase = viewModel::updateServicePhase,
         onDeleteServicePhase = viewModel::deleteServicePhase,
-        dateAndTimeConverter = formUiState.dateAndTimeConverter
+        dateAndTimeConverter = formUiState.dateAndTimeConverter,
+        openMapOnStart = openMapFromHome,
+        onMapClosedFromHome = router::back,
     )
 }
