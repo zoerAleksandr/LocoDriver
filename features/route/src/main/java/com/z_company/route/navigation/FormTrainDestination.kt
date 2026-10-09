@@ -41,7 +41,7 @@ fun FormTrainDestination(
         onSelectServicePhase = viewModel::setSelectedServicePhase,
         selectedServicePhase = formUiState.selectedServicePhase,
         onSettingClick = router::showSettingsTrain,
-        onConsentSettings = router::showSettingsPrivacy,
+        onConsentSettings = router::showDataPrivacy,
         onAddServicePhase = viewModel::addServicePhase,
         onUpdateServicePhase = viewModel::updateServicePhase,
         onDeleteServicePhase = viewModel::deleteServicePhase,

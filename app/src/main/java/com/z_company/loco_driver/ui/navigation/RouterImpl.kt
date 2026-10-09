@@ -236,8 +236,12 @@ class RouterImpl(
         requireNavController().navigate(SettingsScreenRoute.buildRoute("TRAIN"))
     }
 
-    override fun showSettingsPrivacy() {
-        requireNavController().navigate(SettingsScreenRoute.buildRoute("DATA_PRIVACY"))
+    override fun showDataPrivacy() {
+        requireNavController().navigate(com.z_company.route.navigation.DataPrivacyRoute.route)
+    }
+
+    override fun showTrackHistory() {
+        requireNavController().navigate(com.z_company.route.navigation.TrackHistoryRoute.route)
     }
 
     override fun showSettingsRest() {
