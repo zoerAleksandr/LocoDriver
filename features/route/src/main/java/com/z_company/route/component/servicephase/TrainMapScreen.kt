@@ -14,6 +14,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.z_company.domain.util.ArrivalPlan
+import com.z_company.domain.util.ArrivalPlanData
+import com.z_company.domain.util.PlanTarget
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -93,7 +100,9 @@ private const val TRAIN_MARKS_SOURCE = "train-map-marks"
 private const val TRAIN_SEL_SOURCE = "train-map-sel"
 private const val TRAIN_TAIL_SOURCE = "train-map-tail"
 private const val TRAIN_OFF_SOURCE = "train-map-off"
+private const val TRAIN_PLAN_SOURCE = "train-map-plan"
 private const val ME_ICON_IMAGE = "train-me-icon"
+private const val PLAN_FLAG_IMAGE = "train-plan-flag"
 
 /** Выбранное тапом на карте: точка пройденного пути или остановка. */
 private sealed interface TrainMapSelection {
@@ -124,6 +133,10 @@ internal fun TrainMapScreen(
     /** Сделать этот поезд целью записи «АВТО»; true - цель назначена. */
     makeTarget: () -> Boolean = { false },
     onDetermine: suspend (String) -> Boolean,
+    /** Пояс отображения времени (displayTimeZone), нужен для ввода планового времени, когда трека нет. */
+    loadZone: suspend () -> String = { "GMT+3" },
+    /** Ключ хранения плана прибытия (id поезда); null - план не сохраняется между открытиями карты. */
+    planKey: String? = null,
     onOpenConsentSettings: () -> Unit = {},
     onDismiss: () -> Unit,
     /** Заголовок плашки; для просмотра трека из «Истории» — название поездки. */
@@ -171,6 +184,14 @@ internal fun TrainMapScreen(
         val autoRunning by GpsRecorder.isRunning.collectAsState()
         // Функции, которым нужен интернет (перестроение линии), без сети показывают диалог «Нет интернета».
         val networkGate = rememberNetworkGate()
+        // Планирование прибытия (этап 5, §6.9 п.7): сохранённый план, ещё не рассчитанная точка (draft) и пояснение «недоступно».
+        var plan by remember(planKey) {
+            mutableStateOf(TrainMapPlanStore.load(context, planKey)?.takeIf { !ArrivalPlan.isStale(it, System.currentTimeMillis()) })
+        }
+        var draft by remember { mutableStateOf<PlanTarget?>(null) }
+        var planNote by remember { mutableStateOf<String?>(null) }
+        var planOpen by remember { mutableStateOf(true) }
+        var displayZone by remember { mutableStateOf("GMT+3") }
         val online = rememberIsOnline()
         val density = context.resources.displayMetrics.density
         val alive = remember { AtomicBoolean(true) }
@@ -409,6 +430,18 @@ internal fun TrainMapScreen(
                             ),
                             "train-map-me-layer",
                         )
+                        // Флажок точки плана прибытия (этап 5).
+                        style.addSource(GeoJsonSource(TRAIN_PLAN_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addImage(PLAN_FLAG_IMAGE, renderPlanFlag(density))
+                        style.addLayerBelow(
+                            SymbolLayer("train-map-plan-layer", TRAIN_PLAN_SOURCE).withProperties(
+                                PropertyFactory.iconImage(PLAN_FLAG_IMAGE),
+                                PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM_LEFT),
+                                PropertyFactory.iconAllowOverlap(true),
+                                PropertyFactory.iconIgnorePlacement(true),
+                            ),
+                            "train-map-me-layer",
+                        )
                         styleReady = true
                     }
                 }
@@ -606,6 +639,16 @@ internal fun TrainMapScreen(
                 ).apply { addNumberProperty("speed", liveSpeed ?: last.speedKmh ?: -1.0) }
             )
         }
+        LaunchedEffect(Unit) { displayZone = runCatching { loadZone() }.getOrDefault(displayZone) }
+        // Флажок на карте: точка плана или ещё не рассчитанная выбранная точка.
+        val activeTarget = draft ?: plan?.target
+        LaunchedEffect(styleReady, activeTarget) {
+            if (!styleReady) return@LaunchedEffect
+            val src = map?.style?.getSourceAs<GeoJsonSource>(TRAIN_PLAN_SOURCE) ?: return@LaunchedEffect
+            val t = activeTarget
+            if (t == null) src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+            else src.setGeoJson(Point.fromLngLat(t.longitude, t.latitude))
+        }
         // Смена значка положения (настройки или быстрый выбор) - заново регистрируем картинку слоя.
         LaunchedEffect(styleReady, positionIcon) {
             if (!styleReady) return@LaunchedEffect
@@ -621,13 +664,33 @@ internal fun TrainMapScreen(
                 null -> src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
             }
         }
-        // Тап: остановка (до 24 dp) → иначе ближайшая точка пройденного пути (до 30 dp) → иначе снять выбор.
+        // Тап: точка маршрута впереди (план прибытия, этап 5) → остановка (до 24 dp) → ближайшая точка пройденного пути (до 30 dp)
+        // → иначе снять выбор. Точки позади - время и скорость пройденного, без плана.
         DisposableEffect(map) {
             val m = map
             val click = MapLibreMap.OnMapClickListener { latLng ->
-                val t = track ?: return@OnMapClickListener false
                 val tap = m!!.projection.toScreenLocation(latLng)
-                val stopHit = t.stops.minByOrNull { st ->
+                val mpp = m.projection.getMetersPerPixelAtLatitude(latLng.latitude) * density
+                val railLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
+                // Тап по флажку сохранённого плана - снова открыть карточку.
+                plan?.let { pl ->
+                    val fp = m.projection.toScreenLocation(LatLng(pl.target.latitude, pl.target.longitude))
+                    if (Math.hypot((fp.x - tap.x).toDouble(), (fp.y - tap.y).toDouble()) <= 28 * density) {
+                        planOpen = true
+                        draft = null
+                        return@OnMapClickListener true
+                    }
+                }
+                val planTap = if (viewOnly || !hasRoute) null
+                else ArrivalPlan.resolveTap(stops, railLine, myFix, latLng.latitude, latLng.longitude, mpp * 30.0, mpp * 24.0)
+                if (planTap is ArrivalPlan.TapResult.Ahead) {
+                    selection = null
+                    planNote = null
+                    draft = planTap.target
+                    return@OnMapClickListener true
+                }
+                val t = track
+                val stopHit = t?.stops?.minByOrNull { st ->
                     val p = m.projection.toScreenLocation(LatLng(st.latitude, st.longitude))
                     Math.hypot((p.x - tap.x).toDouble(), (p.y - tap.y).toDouble())
                 }?.takeIf { st ->
@@ -638,10 +701,30 @@ internal fun TrainMapScreen(
                     selection = TrainMapSelection.Stop(stopHit)
                     return@OnMapClickListener true
                 }
-                val tolM = m.projection.getMetersPerPixelAtLatitude(latLng.latitude) * 30.0 * density
-                val hit = TrackAnalysis.nearestPoint(t.points, latLng.latitude, latLng.longitude, tolM)
-                selection = hit?.let { TrainMapSelection.PathPoint(it) }
-                hit != null
+                val tolM = mpp * 30.0
+                val hit = t?.let { TrackAnalysis.nearestPoint(it.points, latLng.latitude, latLng.longitude, tolM) }
+                if (hit != null) {
+                    selection = TrainMapSelection.PathPoint(hit)
+                    return@OnMapClickListener true
+                }
+                // Положение вне путей / не определено: карточка планирования недоступна, с пояснением.
+                if (planTap == ArrivalPlan.TapResult.OffRail || planTap == ArrivalPlan.TapResult.NoFix) {
+                    selection = null
+                    draft = null
+                    planNote = if (planTap == ArrivalPlan.TapResult.OffRail) TrainMapPlanTexts.OFF_RAIL else TrainMapPlanTexts.NO_FIX
+                    return@OnMapClickListener true
+                }
+                // Линии нет (не построилась): тап по станции плеча требует интернета - повторить построение или «Нет интернета».
+                if (!viewOnly && hasRoute && railLine == null && railState is ServicePhaseAutoFillViewModel.RailLineResult.Failed &&
+                    stops.any { TrackAnalysis.distanceM(latLng.latitude, latLng.longitude, it.latitude, it.longitude) <= mpp * 24.0 }
+                ) {
+                    networkGate.run { loadAttempt++ }
+                    return@OnMapClickListener true
+                }
+                selection = null
+                draft = null
+                planNote = null
+                false
             }
             m?.addOnMapClickListener(click)
             onDispose { m?.removeOnMapClickListener(click) }
@@ -701,6 +784,24 @@ internal fun TrainMapScreen(
             else (TrainMapRoute.project(line, cum, f.latitude, f.longitude)?.offsetM ?: 0.0) > TrainMapRoute.SNAP_TOLERANCE_M
         }
 
+        // Планирование прибытия: расстояние до точки плана по линии пересчитывается раз в ~5 с (тик nowMs) и с первым положением.
+        val planTarget = draft ?: plan?.target
+        val planDistance = remember(planTarget, railLineNow, nowMs, myFix != null) {
+            planTarget?.let { ArrivalPlan.distance(railLineNow, myFix, it) }
+        }
+        // Точка достигнута/пройдена, не лежит на линии (сменили плечо) или план устарел - снять.
+        LaunchedEffect(planDistance, plan, nowMs) {
+            val d = planDistance
+            val p = plan
+            if (p != null && (ArrivalPlan.isStale(p, System.currentTimeMillis()) ||
+                    (d == ArrivalPlan.PlanDistance.Arrived && draft == null) || d == ArrivalPlan.PlanDistance.TargetNotOnLine && draft == null)
+            ) {
+                plan = null
+                TrainMapPlanStore.clear(context, planKey)
+            }
+            if (draft != null && (d == ArrivalPlan.PlanDistance.Arrived || d == ArrivalPlan.PlanDistance.TargetNotOnLine)) draft = null
+        }
+
         BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Pst.bg)) {
             AndroidView(modifier = Modifier.fillMaxSize(), factory = { mapView })
 
@@ -740,7 +841,7 @@ internal fun TrainMapScreen(
             val lastPoint = track?.points?.lastOrNull()
             val liveFresh = liveSpeed != null && nowMs - liveAtMs < 15_000
             val speedNow: Double? = if (viewOnly) null else if (liveFresh) liveSpeed else lastPoint?.speedKmh
-            val zone = track?.zone ?: "GMT+3"
+            val zone = track?.zone ?: displayZone
             Column(
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -972,9 +1073,88 @@ internal fun TrainMapScreen(
                 )
             }
 
+            // Карточка планирования прибытия (этап 5): ввод времени / результат расчёта / «недоступно» с пояснением.
+            val planCardVisible = !viewOnly && ((planTarget != null && (draft != null || planOpen)) || planNote != null)
+            val planChipVisible = !viewOnly && draft == null && plan != null && !planOpen && planNote == null
+            if (planCardVisible) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .imePadding()
+                        .navigationBarsPadding()
+                        .padding(16.dp)
+                        .shadow(8.dp, RoundedCornerShape(20.dp))
+                        .background(Pst.surface, RoundedCornerShape(20.dp))
+                        .heightIn(max = maxHeight * 0.7f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(14.dp),
+                ) {
+                    val d = planDistance
+                    if (planTarget != null && planNote == null) {
+                        ArrivalPlanCard(
+                            target = planTarget,
+                            plan = if (draft == null) plan else null,
+                            distanceM = (d as? ArrivalPlan.PlanDistance.Ahead)?.meters,
+                            note = when (d) {
+                                ArrivalPlan.PlanDistance.OffRail -> TrainMapPlanTexts.OFF_RAIL
+                                ArrivalPlan.PlanDistance.NoFix -> TrainMapPlanTexts.NO_FIX
+                                ArrivalPlan.PlanDistance.NoLine -> TrainMapPlanTexts.NO_LINE
+                                else -> null
+                            },
+                            nowMs = nowMs,
+                            zone = zone,
+                            speedKmh = etaSpeed,
+                            onSave = { ms ->
+                                val t = draft ?: plan?.target
+                                if (t != null) {
+                                    val np = ArrivalPlanData(t, ms)
+                                    plan = np
+                                    TrainMapPlanStore.save(context, planKey, np)
+                                    draft = null
+                                    planOpen = true
+                                }
+                            },
+                            onReset = {
+                                plan = null
+                                draft = null
+                                TrainMapPlanStore.clear(context, planKey)
+                            },
+                            onClose = {
+                                if (draft != null) draft = null else planOpen = false
+                            },
+                        )
+                    } else {
+                        Text(planNote.orEmpty(), style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 18.sp), color = Pst.text)
+                        PstButton(
+                            TrainMapPlanTexts.CLOSE, onClick = { planNote = null },
+                            kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14,
+                        )
+                    }
+                }
+            } else if (planChipVisible) {
+                val pl = plan
+                if (pl != null) {
+                    Text(
+                        text = "План прибытия: " + (pl.target.name?.let { "$it · " } ?: "") + TrackAnalysis.clock(pl.plannedMs, zone),
+                        style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+                        color = Pst.text,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .navigationBarsPadding()
+                            .padding(16.dp)
+                            .shadow(4.dp, RoundedCornerShape(14.dp))
+                            .background(Pst.surface, RoundedCornerShape(14.dp))
+                            .clickable { planOpen = true }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
+            }
+
             val name = missing
             val rail = railState
-            if (hasRoute && (rail !is ServicePhaseAutoFillViewModel.RailLineResult.Ok ||
+            if (hasRoute && !(planCardVisible || planChipVisible) && (rail !is ServicePhaseAutoFillViewModel.RailLineResult.Ok ||
                     (rail.fromCache && name == null && savedName == null))
             ) {
                 Row(

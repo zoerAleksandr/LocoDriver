@@ -323,6 +323,8 @@ fun FormTrainScreen(
                 loadRecordingState = { viewModel.trainMapRecordingState() },
                 makeTarget = { viewModel.trainMapMakeTarget() },
                 onDetermine = { viewModel.saveStationCoordinatesFromGps(it) },
+                loadZone = { viewModel.trainMapZone() },
+                planKey = remember { viewModel.trainMapPlanKey() },
                 onOpenConsentSettings = { showTrainMap = false; onConsentSettings() },
                 onDismiss = { showTrainMap = false },
             )
