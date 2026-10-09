@@ -14,7 +14,7 @@ class SqlDelightTrackRepository(private val db: TrackDatabase) : TrackRepository
             q.insertTrack(trackId, trainId, point.timeMs, point.timeMs)
             q.insertPoint(
                 trackId, point.timeMs, point.latitude, point.longitude,
-                point.speedKmh, point.accuracyM?.toDouble(), point.altitudeM,
+                point.speedKmh, point.accuracyM?.toDouble(), point.altitudeM, point.baroAltitudeM,
             )
             q.touchTrack(point.timeMs, trackId)
         }
@@ -22,7 +22,7 @@ class SqlDelightTrackRepository(private val db: TrackDatabase) : TrackRepository
 
     override fun points(trackId: String): List<TrackPoint> =
         q.selectPoints(trackId).executeAsList().map {
-            TrackPoint(it.timeMs, it.latitude, it.longitude, it.speedKmh, it.accuracyM?.toFloat(), it.altitudeM)
+            TrackPoint(it.timeMs, it.latitude, it.longitude, it.speedKmh, it.accuracyM?.toFloat(), it.altitudeM, it.baroAltitudeM)
         }
 
     override fun pointCount(trackId: String): Long = q.countPoints(trackId).executeAsOne()

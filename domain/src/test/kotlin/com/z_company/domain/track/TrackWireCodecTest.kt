@@ -139,7 +139,7 @@ class TrackWireCodecTest {
                 altitudeM = if (i % 3 == 0) null else 120.0 + i * 0.25,
             )
         }
-        val back = TrackWireCodec.decodeChunk(TrackWireCodec.encodeChunk(src, tools), tools)
+        val back = TrackWireCodec.decodeChunk(TrackWireCodec.encodeChunk(src, tools, includeAltitude = true), tools)
         assertEquals(src.size, back.size)
         src.zip(back).forEach { (a, b) ->
             assertEquals(a.timeMs, b.timeMs)
@@ -149,6 +149,16 @@ class TrackWireCodecTest {
             assertEquals(a.accuracyM!!, b.accuracyM!!, 0.051f)
             if (a.altitudeM == null) assertNull(b.altitudeM) else assertEquals(a.altitudeM!!, b.altitudeM!!, 0.051)
         }
+    }
+
+    @Test
+    fun altitudesAreNotUploadedByDefault() {
+        val src = listOf(
+            TrackPoint(1L, 55.0, 37.0, 10.0, 5f, altitudeM = 120.5, baroAltitudeM = 118.0),
+            TrackPoint(6_001L, 55.0001, 37.0001, 11.0, 5f, altitudeM = 121.0, baroAltitudeM = 118.5),
+        )
+        val back = TrackWireCodec.decodeChunk(TrackWireCodec.encodeChunk(src, tools), tools)
+        back.forEach { assertNull(it.altitudeM) }
     }
 
     @Test

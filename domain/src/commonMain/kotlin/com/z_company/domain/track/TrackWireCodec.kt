@@ -72,8 +72,15 @@ object TrackWireCodec {
     )
 
     /** Блоб для отправки: raw -> zlib. [points] — по возрастанию времени, 1..[MAX_CHUNK_POINTS]. */
-    fun encodeChunk(points: List<TrackPoint>, tools: TrackBlobTools): ByteArray =
-        tools.deflate(encodeRaw(points.map(::toWire), withBaro = false), 6)
+    fun encodeChunk(points: List<TrackPoint>, tools: TrackBlobTools, includeAltitude: Boolean = false): ByteArray =
+        // Высоты (GPS и барометр) пишутся локально, но на сервер уходят только с согласием №2 (следующий этап): по умолчанию отбрасываем.
+        tools.deflate(
+            encodeRaw(
+                points.map { toWire(if (includeAltitude) it else it.copy(altitudeM = null, baroAltitudeM = null)) },
+                withBaro = false,
+            ),
+            6,
+        )
 
     fun decodeChunk(blob: ByteArray, tools: TrackBlobTools): List<TrackPoint> =
         decodeRaw(tools.inflate(blob, MAX_CHUNK_RAW)).map(::fromWire)

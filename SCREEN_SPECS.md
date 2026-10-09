@@ -2859,13 +2859,17 @@ domain; состояние записи опрашивается раз в 3 с,
 новый трек); пока целевой поезд не определён, точки не пишутся. Хранилище — **отдельный файл БД `Track.db`** (SQLDelight
 `TrackDatabase`, `data_local`; существующие `Route.db`/`Settings.db` не затронуты). **Схема версии 2** (этап 3б): у уже созданных
 `Track.db` миграция `1.sqm` добавляет три колонки `Track` и таблицу `TrackPendingDelete` (записи и точки не затрагиваются),
-свежая установка создаёт сразу версию 2. Таблицы:
+свежая установка создаёт сразу последнюю версию (3, см. высоты ниже). Таблицы:
 `Track(trackId PK, trainId, startedAt, endedAt, isFavorite 0/1, uploadState 0/1/2, uploadedPoints, favoriteDirty 0/1)`
 (индексы по `trainId` и `endedAt`; `uploadState`: 0 — ждёт отправки, 1 — отправлен, 2 — сервер отклонил окончательно, напр.
 квота; `uploadedPoints` — сколько точек было в отправленной версии; `favoriteDirty` — звезда изменена и не доставлена);
 `TrackPendingDelete(trackId PK)` — очередь удалений, которые надо доставить на сервер;
-`TrackPoint(trackId, timeMs, latitude, longitude, speedKmh?, accuracyM?, altitudeM?, PK(trackId, timeMs))` — первичный ключ
-служит индексом «трек + время»; высота пока всегда `NULL` (запись высот — отдельное согласие №2, не реализовано).
+`TrackPoint(trackId, timeMs, latitude, longitude, speedKmh?, accuracyM?, altitudeM?, baroAltitudeM?, PK(trackId, timeMs))` — первичный ключ
+служит индексом «трек + время». **Высоты (этап 3в, часть 1, схема версии 3, миграция `2.sqm` добавляет `baroAltitudeM`)** пишутся ЛОКАЛЬНО: `altitudeM` —
+высота GPS (`Location.mslAltitudeMeters` на API 34+, иначе `altitude`, только при `hasAltitude`), `baroAltitudeM` — по барометру (`TYPE_PRESSURE` →
+`SensorManager.getAltitude` по стандартной атмосфере, только если датчик есть, иначе `NULL`); значения вне -500…9000 м и NaN отбрасываются
+(`AltitudeMath`). На сервер высоты НЕ отправляются (`TrackWireCodec.encodeChunk` по умолчанию их обнуляет) — отправка только с согласием №2
+(следующий этап, не реализовано).
 Время — мс UTC. **Прореживание при записи** (`TrackThinner`): первая точка — всегда; затем в движении (скорость ≥ 2 км/ч или
 неизвестна) — не чаще раза в 5 с, на стоянке (< 2 км/ч) — не чаще раза в 60 с; при тронулении после стоянки запись возвращается
 к 5 с сразу. **Срок хранения:** 180 дней от окончания трека (`endedAt` = время последней точки); избранный трек (`isFavorite`)

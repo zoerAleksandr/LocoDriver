@@ -391,7 +391,7 @@ class AutoRecordManager(
             synchronized(writer) {
                 writer.onPoint(
                     target,
-                    TrackPoint(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM),
+                    TrackPoint(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM, p.altitudeM, p.baroAltitudeM),
                     consent,
                 )
             }

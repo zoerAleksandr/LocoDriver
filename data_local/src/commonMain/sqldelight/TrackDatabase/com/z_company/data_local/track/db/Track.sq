@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS TrackPoint (
     speedKmh REAL,
     accuracyM REAL,
     altitudeM REAL,
+    -- Барометрическая высота (этап 3в, миграция 2.sqm); null - датчика давления нет.
+    baroAltitudeM REAL,
     PRIMARY KEY (trackId, timeMs)
 ) WITHOUT ROWID;
 
@@ -42,8 +44,8 @@ touchTrack:
 UPDATE Track SET endedAt = MAX(endedAt, :endedAt) WHERE trackId = :trackId;
 
 insertPoint:
-INSERT OR IGNORE INTO TrackPoint(trackId, timeMs, latitude, longitude, speedKmh, accuracyM, altitudeM)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT OR IGNORE INTO TrackPoint(trackId, timeMs, latitude, longitude, speedKmh, accuracyM, altitudeM, baroAltitudeM)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 selectPoints:
 SELECT * FROM TrackPoint WHERE trackId = :trackId ORDER BY timeMs ASC;
