@@ -74,21 +74,27 @@ object DeviceLocation {
 
     /**
      * Подписка на обновления положения (раз в [intervalMs]), пока коллектор жив: при отмене подписка снимается —
-     * экономия батареи, обновления идут только пока открыта карта поезда. Пусто и сразу закрывается, если нет
-     * разрешения или включённых провайдеров (GPS, иначе сеть).
+     * экономия батареи, обновления идут только пока открыта карта поезда. Слушает ВСЕ включённые провайдеры (GPS и
+     * сеть): в помещении/до первого fix GPS положение приходит от сети, и карта должна показывать его, а не стоять.
+     * Сетевой fix игнорируется, пока GPS присылал fix последние [GPS_PREFERRED_MS] (иначе маркер «прыгал» бы между
+     * источниками). Пусто и сразу закрывается, если нет разрешения или включённых провайдеров.
      */
     @SuppressLint("MissingPermission")
     fun updates(context: Context, intervalMs: Long = 1_000L): Flow<LiveFix> = callbackFlow {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
-        val provider = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).firstOrNull {
+        val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).filter {
             hasPermission(context) && runCatching { lm?.isProviderEnabled(it) }.getOrNull() == true
         }
-        if (lm == null || provider == null) {
+        if (lm == null || providers.isEmpty()) {
             close()
             return@callbackFlow
         }
+        var lastGpsAt = 0L
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
+                val now = SystemClock.elapsedRealtime()
+                if (location.provider == LocationManager.GPS_PROVIDER) lastGpsAt = now
+                else if (lastGpsAt != 0L && now - lastGpsAt < GPS_PREFERRED_MS) return
                 trySend(
                     LiveFix(
                         location.latitude, location.longitude,
@@ -103,10 +109,16 @@ object DeviceLocation {
             @Deprecated("Deprecated in Java")
             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
         }
-        runCatching { lm.requestLocationUpdates(provider, intervalMs, 0f, listener, Looper.getMainLooper()) }
-            .onFailure { close() }
+        var registered = 0
+        providers.forEach { provider ->
+            if (runCatching { lm.requestLocationUpdates(provider, intervalMs, 0f, listener, Looper.getMainLooper()) }.isSuccess) registered++
+        }
+        if (registered == 0) close()
         awaitClose { runCatching { lm.removeUpdates(listener) } }
     }
+
+    /** Сколько после GPS-fix сетевые fix игнорируются. */
+    private const val GPS_PREFERRED_MS = 10_000L
 
     /**
      * Курс провайдера. Эмулятор и часть mock-провайдеров сообщают `hasBearing() = true` (даже с точностью курса) и курсом
