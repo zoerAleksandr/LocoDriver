@@ -85,17 +85,43 @@ data class NearestStationRequest(
     val radiusM: Double = 2000.0,
     /** true - ближайшая станция ПО РЕЛЬСАМ (сервер зажимает radiusM в 100..3000); false - по прямой, как раньше. */
     val alongRail: Boolean = false,
+    /** Станции справочника клиента (только при alongRail=true, <= 40): сервер выбирает ближайшую по рельсам. */
+    val candidates: List<NearestStationCandidate>? = null,
+)
+
+@Serializable
+data class NearestStationCandidate(
+    val key: String,
+    val name: String,
+    val latitude: Double,
+    val longitude: Double,
+)
+
+/** Станция в ответе nearest: у выбранного кандидата клиента osmId = null. */
+@Serializable
+data class NearestStationDto(
+    val osmId: Long? = null,
+    val name: String,
+    val kind: String = "station",
+    val esr: String? = null,
+    val operator: String? = null,
+    val latitude: Double,
+    val longitude: Double,
 )
 
 @Serializable
 data class NearestStationResponse(
-    val station: OsmStationCandidate? = null,
+    val station: NearestStationDto? = null,
     /** Только при alongRail=true (аддитивные поля; у старого сервера и в прямом режиме их нет). */
     val alongRail: Boolean = false,
     val distanceAlongM: Int? = null,
     val offsetM: Int? = null,
     /** При station=null: off_rails / not_found / no_rail_data. */
     val reason: String? = null,
+    /** "candidate" | "osm" (аддитивно; у старого сервера нет). */
+    val source: String? = null,
+    /** Ключ выбранного кандидата (только при source="candidate"). */
+    val candidateKey: String? = null,
 )
 
 /** `POST /v1/service_phase/route/length` — длина плеча по ж/д путям через станции по порядку. */

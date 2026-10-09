@@ -6,6 +6,7 @@ import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.setting.ServicePhasePoint
 import com.z_company.domain.entities.setting.ServicePhaseStation
+import com.z_company.domain.util.RailCandidate
 import com.z_company.domain.util.RailLookupResult
 import com.z_company.domain.util.RailStation
 import com.z_company.domain.util.RailStationLookup
@@ -33,8 +34,9 @@ class StopStationNamerTest {
 
     private var now = 1_000_000L
     private var calls = 0
+    private var sent: List<RailCandidate> = emptyList()
     private var answer: RailLookupResult = RailLookupResult.NoStation("not_found")
-    private val lookup = RailStationLookup { _, _, _ -> calls++; answer }
+    private val lookup = RailStationLookup { _, _, _, c -> calls++; sent = c; answer }
     private val namer = StopStationNamer(lookup, { now })
 
     private fun rail(name: String) = RailLookupResult.Found(RailStation(1, name, "station", null, 60.0, 30.0, 400, 5))
@@ -110,7 +112,7 @@ class StopStationNamerTest {
 
     @Test
     fun `lookup exception is a fallback, not a crash`() {
-        val n = StopStationNamer({ _, _, _ -> error("boom") }, { now })
+        val n = StopStationNamer({ _, _, _, _ -> error("boom") }, { now })
         assertEquals("Справочная", name(null, emptyList(), 30.003, n))
         val noLookup = StopStationNamer(null, { now })
         assertEquals("Справочная", name(null, emptyList(), 30.003, noLookup))
@@ -138,5 +140,42 @@ class StopStationNamerTest {
         var got: String? = null
         runBlocking { namer.name(null, emptyList(), 60.0, 30.0, points, names) { got = it.name } }
         assertEquals("Новая", got)
+    }
+
+    @Test
+    fun `server picks a directory candidate - directory name, no discovery`() {
+        answer = RailLookupResult.Found(RailStation(null, "Чужое", "station", null, 60.0, 30.002, 300, 4, candidateKey = "справочная"))
+        var discovered = false
+        val r = runBlocking { namer.name(null, emptyList(), 60.0, 30.0, points, names) { discovered = true } }
+        assertEquals("Справочная", r)
+        assertEquals(false, discovered)
+        assertEquals(listOf("справочная"), sent.map { it.key })
+    }
+
+    @Test
+    fun `server picks osm - osm name and discovery`() {
+        answer = RailLookupResult.Found(RailStation(5, "Осм", "station", null, 60.0, 30.0, 300, 4))
+        var got: String? = null
+        val r = runBlocking { namer.name(null, emptyList(), 60.0, 30.0, points, names) { got = it.name } }
+        assertEquals("Осм", r)
+        assertEquals("Осм", got)
+    }
+
+    @Test
+    fun `candidates - at most 40, nearest first, within 2 km, only with coordinates`() {
+        val pts = (0 until 60).associate { "k$it" to (60.0 to 30.0 + it * 0.0002) } + ("far" to (60.0 to 31.0)) + ("noname" to (60.0 to 30.0))
+        val nms = (0 until 60).associate { "k$it" to "С$it" } + ("far" to "Далеко") + ("nocoords" to "Без координат")
+        val c = StopStationNamer.candidatesFor(60.0, 30.0, pts, nms)
+        assertEquals(40, c.size)
+        assertEquals((0 until 40).map { "k$it" }, c.map { it.key })
+        assertEquals(false, c.any { it.key == "far" || it.key == "noname" || it.key == "nocoords" })
+        val few = StopStationNamer.candidatesFor(60.0, 30.0, mapOf("a" to (60.0 to 31.0)), mapOf("a" to "A"))
+        assertEquals(0, few.size)
+    }
+
+    @Test
+    fun `candidates not sent when phase is selected`() {
+        runBlocking { namer.name(phase, emptyList(), 60.0, 30.0, points, names) }
+        assertEquals(0, calls)
     }
 }

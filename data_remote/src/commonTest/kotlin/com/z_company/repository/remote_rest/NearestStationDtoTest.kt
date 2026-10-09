@@ -48,4 +48,36 @@ class NearestStationDtoTest {
         val rail = json.encodeToString(NearestStationRequest.serializer(), NearestStationRequest(1.0, 2.0, 1000.0, alongRail = true))
         assertTrue(rail.contains("\"alongRail\":true") && rail.contains("\"radiusM\":1000.0"))
     }
+
+    @Test
+    fun `request - candidates are optional and additive`() {
+        val plain = json.encodeToString(NearestStationRequest.serializer(), NearestStationRequest(1.0, 2.0, alongRail = true))
+        assertTrue(!plain.contains("candidates\":[") )
+        val withC = json.encodeToString(
+            NearestStationRequest.serializer(),
+            NearestStationRequest(1.0, 2.0, alongRail = true, candidates = listOf(
+                com.z_company.repository.remote_rest.response.NearestStationCandidate("k", "Имя", 1.5, 2.5),
+            )),
+        )
+        assertTrue(withC.contains("\"candidates\":[{\"key\":\"k\",\"name\":\"Имя\",\"latitude\":1.5,\"longitude\":2.5}]"))
+    }
+
+    @Test
+    fun `candidate response - null osmId, key and source`() {
+        val r = json.decodeFromString<NearestStationResponse>(
+            """{"station":{"osmId":null,"name":"Моя","kind":"station","esr":null,"operator":null,"latitude":59.0,"longitude":30.0},
+               "alongRail":true,"source":"candidate","candidateKey":"моя","distanceAlongM":100,"offsetM":3}""",
+        )
+        val f = assertIs<RailLookupResult.Found>(r.toRailResult())
+        assertEquals("моя", f.station.candidateKey)
+        assertEquals(null, f.station.osmId)
+    }
+
+    @Test
+    fun `osm source has no candidate key`() {
+        val r = json.decodeFromString<NearestStationResponse>(
+            """{"station":{"osmId":9,"name":"Осм","latitude":59.0,"longitude":30.0},"source":"osm","candidateKey":"x"}""",
+        )
+        assertEquals(null, (r.toRailResult() as RailLookupResult.Found).station.candidateKey)
+    }
 }

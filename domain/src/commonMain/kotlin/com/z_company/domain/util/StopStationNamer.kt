@@ -5,7 +5,8 @@ import com.z_company.domain.entities.setting.ServicePhase
 
 /** Станция, найденная сервером по рельсам (`stations/nearest`, `alongRail=true`). */
 data class RailStation(
-    val osmId: Long,
+    /** null у выбранного кандидата клиента (станции справочника). */
+    val osmId: Long?,
     val name: String,
     val kind: String,
     val esr: String?,
@@ -15,7 +16,12 @@ data class RailStation(
     val distanceAlongM: Int?,
     /** Расстояние точки до пути, м. */
     val offsetM: Int?,
+    /** Не null, если сервер выбрал станцию справочника клиента (`source=candidate`): имя берём из справочника по ключу. */
+    val candidateKey: String? = null,
 )
+
+/** Станция справочника клиента, отправляемая серверу как кандидат (только с координатами). */
+data class RailCandidate(val key: String, val name: String, val latitude: Double, val longitude: Double)
 
 /** Ответ поиска ближайшей станции по рельсам. */
 sealed interface RailLookupResult {
@@ -31,7 +37,12 @@ sealed interface RailLookupResult {
 
 /** Источник «ближайшая станция по рельсам» (сервер; в тестах - фейк). Координата только в запросе, не логируется. */
 fun interface RailStationLookup {
-    suspend fun nearestAlongRail(latitude: Double, longitude: Double, radiusM: Double): RailLookupResult
+    suspend fun nearestAlongRail(
+        latitude: Double,
+        longitude: Double,
+        radiusM: Double,
+        candidates: List<RailCandidate>,
+    ): RailLookupResult
 }
 
 /**
@@ -67,6 +78,8 @@ class RailLookupCache(private val nowMs: () -> Long) {
  * 1. выбрано плечо с координатами станций - [ServicePhaseStationPicker.pickForStop] (радиус 1 км, порядок плеча,
  *    иначе справочник, иначе null);
  * 2. плеча нет (или у него нет координат) - ближайшая станция ПО РЕЛЬСАМ с сервера (радиус [StopDetectionConfig.STATION_RADIUS_M]);
+ *    вместе с точкой уходят кандидаты - станции справочника в [CANDIDATE_RADIUS_M] (<= [MAX_CANDIDATES], ближайшие по прямой);
+ *    если сервер выбрал кандидата - берём имя справочника (в справочник ничего не добавляем), если OSM-станцию - как раньше;
  * 3. сервер не ответил / `off_rails` / `not_found` / `no_rail_data` / нет сети - запасной вариант: ближайшая
  *    станция справочника по прямой в радиусе 1 км (как [ServicePhaseStationPicker.pickForStop] без плеча).
  */
@@ -92,8 +105,10 @@ class StopStationNamer(
     ): String? {
         val planned = phase?.takeIf(ServicePhaseStationPicker::hasCoordinates)
         if (planned == null) {
-            val found = railStation(latitude, longitude)
+            val found = railStation(latitude, longitude, candidatesFor(latitude, longitude, points, names))
             if (found != null) {
+                val key = found.candidateKey
+                if (key != null) return names[key]?.takeIf { it.isNotBlank() } ?: found.name
                 runCatching { onDiscovered?.invoke(found) }
                 return found.name
             }
@@ -101,12 +116,12 @@ class StopStationNamer(
         return ServicePhaseStationPicker.pickForStop(planned, trainStationNames, latitude, longitude, points, names)
     }
 
-    private suspend fun railStation(latitude: Double, longitude: Double): RailStation? {
+    private suspend fun railStation(latitude: Double, longitude: Double, candidates: List<RailCandidate>): RailStation? {
         val source = lookup ?: return null
         val result = cache.get(latitude, longitude) ?: run {
             if (nowMs() < unavailableUntil) return null
             val fresh = runCatching {
-                source.nearestAlongRail(latitude, longitude, StopDetectionConfig.STATION_RADIUS_M)
+                source.nearestAlongRail(latitude, longitude, StopDetectionConfig.STATION_RADIUS_M, candidates)
             }.getOrElse { RailLookupResult.Unavailable() }
             if (fresh is RailLookupResult.Unavailable) {
                 unavailableUntil = nowMs() + (fresh.retryAfterMs ?: DEFAULT_BACKOFF_MS)
@@ -117,6 +132,29 @@ class StopStationNamer(
     }
 
     companion object {
+        const val CANDIDATE_RADIUS_M = 2_000.0
+        const val MAX_CANDIDATES = 40
+        private const val MAX_KEY = 64
+        private const val MAX_NAME = 120
+
+        /** Станции справочника с координатами в [CANDIDATE_RADIUS_M], ближайшие по прямой, не более [MAX_CANDIDATES]. */
+        fun candidatesFor(
+            latitude: Double,
+            longitude: Double,
+            points: Map<String, Pair<Double, Double>>,
+            names: Map<String, String>,
+        ): List<RailCandidate> = points.asSequence()
+            .mapNotNull { (key, p) ->
+                val name = names[key]?.trim()?.takeIf { it.isNotEmpty() && it.length <= MAX_NAME } ?: return@mapNotNull null
+                if (key.isEmpty() || key.length > MAX_KEY) return@mapNotNull null
+                val d = ServicePhaseStationPicker.distanceM(latitude, longitude, p.first, p.second)
+                if (d > CANDIDATE_RADIUS_M) null else d to RailCandidate(key, name, p.first, p.second)
+            }
+            .sortedBy { it.first }
+            .take(MAX_CANDIDATES)
+            .map { it.second }
+            .toList()
+
         /** Пауза после недоступности сервера (Retry-After: 30), чтобы не долбить пачкой остановок. */
         const val DEFAULT_BACKOFF_MS = 30_000L
     }
