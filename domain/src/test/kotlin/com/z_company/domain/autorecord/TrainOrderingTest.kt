@@ -110,7 +110,7 @@ class TrainOrderingTest {
     }
 
     @Test
-    fun `record target - no route gets new route`() {
-        assertEquals(TrainOrdering.RecordTarget.NewRoute, TrainOrdering.pickRecordTarget(null, null, null))
+    fun `record target - no route yields no-train target`() {
+        assertEquals(TrainOrdering.RecordTarget.NoTrain, TrainOrdering.pickRecordTarget(null, null, null))
     }
 }

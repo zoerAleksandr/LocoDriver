@@ -74,4 +74,16 @@ class TrackOrphanCleanerTest {
         assertEquals(listOf("alive"), TrackOrphanCleaner.visible(repo.tracks(), setOf("train-1")).map { it.trackId })
         assertEquals(2, TrackOrphanCleaner.visible(repo.tracks(), emptySet()).size)
     }
+
+    @Test
+    fun tracksWithoutTrainAreNeverOrphansAndStayVisible() {
+        val repo = repoWith(
+            Triple("free", NO_TRAIN_ID, now - 100 * day),
+            Triple("orphan", "train-gone", now - 100 * day),
+        )
+        assertEquals(1, TrackOrphanCleaner.clean(repo, setOf("train-1"), now))
+        assertNotNull(repo.track("free"))
+        assertNull(repo.track("orphan"))
+        assertEquals(listOf("free"), TrackOrphanCleaner.visible(repo.tracks(), setOf("train-1")).map { it.trackId })
+    }
 }

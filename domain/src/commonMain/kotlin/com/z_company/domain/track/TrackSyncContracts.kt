@@ -47,7 +47,8 @@ object TrackOrphanCleaner {
      * прочитать рейсы», тогда показываем всё, как и [clean] ничего не удаляет.
      */
     fun visible(tracks: List<TrackInfo>, existingTrainIds: Set<String>): List<TrackInfo> =
-        if (existingTrainIds.isEmpty()) tracks else tracks.filter { it.trainId in existingTrainIds }
+        if (existingTrainIds.isEmpty()) tracks
+        else tracks.filter { it.trainId == NO_TRAIN_ID || it.trainId in existingTrainIds }
 
     /**
      * @param existingTrainIds идентификаторы ВСЕХ поездов во ВСЕХ рейсах, включая корзину и ожидающие удаления.
@@ -62,7 +63,7 @@ object TrackOrphanCleaner {
     ): Int {
         if (existingTrainIds.isEmpty()) return 0
         val orphans = repository.tracks().filter {
-            it.trainId !in existingTrainIds && it.endedAt < nowMs - graceMs
+            it.trainId != NO_TRAIN_ID && it.trainId !in existingTrainIds && it.endedAt < nowMs - graceMs
         }
         orphans.forEach { repository.deleteTrack(it.trackId, queueRemoteDelete = true) }
         return orphans.size
