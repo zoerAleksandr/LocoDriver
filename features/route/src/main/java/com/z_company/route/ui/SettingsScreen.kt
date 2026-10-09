@@ -269,12 +269,8 @@ fun SettingsScreen(
         )
     }
 
-    // «Плечи» — вложенный экран: нижнее меню приложения на нём не показываем.
-    val hideMenu = currentSubScreen == SettingsSubScreen.SHOULDERS
-    androidx.compose.runtime.DisposableEffect(hideMenu) {
-        com.z_company.route.navigation.NestedScreenBarState.hideBottomMenu = hideMenu
-        onDispose { com.z_company.route.navigation.NestedScreenBarState.hideBottomMenu = false }
-    }
+    // Любой подэкран Настроек глубже хаба — нижнее меню приложения на нём не показываем (SCREEN_SPECS §3.1).
+    com.z_company.route.navigation.HideBottomMenu(hide = currentSubScreen != SettingsSubScreen.HUB)
 
     BackHandler(currentSubScreen != SettingsSubScreen.HUB) {
         when (currentSubScreen) {

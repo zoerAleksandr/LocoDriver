@@ -16,6 +16,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.fullRest
 import com.z_company.domain.entities.route.UtilsForEntities.monthBoundsMillis
 import com.z_company.domain.entities.route.UtilsForEntities.shortRest
 import com.z_company.domain.repositories.RouteRepository
+import com.z_company.domain.track.TrackRepository
 import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.moreThan
@@ -42,7 +43,16 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 
 
-class RouteUseCase(private val repository: RouteRepository) {
+class RouteUseCase(
+    private val repository: RouteRepository,
+    /** Локальные треки «АВТО»: удаляются вместе с рейсом, в том числе при переносе в корзину (SCREEN_SPECS §6.9). */
+    private val trackRepository: TrackRepository? = null,
+) {
+    /** Треки поездов рейса удаляются сразу и не возвращаются при восстановлении из корзины. Не роняет удаление рейса. */
+    private fun deleteTracksOf(route: Route) {
+        route.trains.forEach { train -> runCatching { trackRepository?.deleteByTrain(train.trainId) } }
+    }
+
     fun routeListByMonthFlow(monthOfYear: MonthOfYear, offsetInMoscow: Long): Flow<List<Route>> {
         return callbackFlow {
             // Границы месяца всегда в московском времени (GMT+3): пользователь вводит времена в МСК
@@ -200,8 +210,14 @@ class RouteUseCase(private val repository: RouteRepository) {
 
     fun listTrash(): List<Route> = repository.loadTrash()
 
-    fun restoreFromTrash(routeId: String): Flow<ResultState<Unit>> =
-        repository.restoreFromTrash(routeId)
+    fun restoreFromTrash(routeId: String): Flow<ResultState<Unit>> = flow {
+        // Удалённые треки не возвращаются, но запись «АВТО» в поезда восстановленного рейса снова разрешена.
+        runCatching {
+            repository.loadTrash().firstOrNull { it.basicData.id == routeId }
+                ?.trains?.forEach { trackRepository?.allowTrain(it.trainId) }
+        }
+        emitAll(repository.restoreFromTrash(routeId))
+    }
 
     fun acknowledgeRemoteDeletion(routeId: String, deletedAt: Long): Flow<ResultState<Unit>> =
         repository.acknowledgeRemoteDeletion(routeId, deletedAt)
@@ -223,19 +239,31 @@ class RouteUseCase(private val repository: RouteRepository) {
     }
 
     fun removeRoute(route: Route): Flow<ResultState<Unit>> {
-        return repository.remove(route)
+        return flow {
+            deleteTracksOf(route)
+            emitAll(repository.remove(route))
+        }
     }
 
-    fun purgeRoute(route: Route, reason: com.z_company.domain.entities.route.PhysicalDeletionReason): Flow<ResultState<Unit>> =
-        repository.purgeRoute(route, reason)
+    fun purgeRoute(route: Route, reason: com.z_company.domain.entities.route.PhysicalDeletionReason): Flow<ResultState<Unit>> {
+        return flow {
+            deleteTracksOf(route)
+            emitAll(repository.purgeRoute(route, reason))
+        }
+    }
 
     fun markAsRemoved(route: Route): Flow<ResultState<Unit>> {
         // Штампуем updatedAt удаления — время soft-delete участвует в LWW-merge
         // (удаление на этом устройстве побеждает более старую правку на другом).
         val now = Clock.System.now().toEpochMilliseconds()
-        return repository.markAsRemoved(
-            route.copy(basicData = route.basicData.copy(updatedAt = now))
-        )
+        return flow {
+            deleteTracksOf(route)
+            emitAll(
+                repository.markAsRemoved(
+                    route.copy(basicData = route.basicData.copy(updatedAt = now))
+                )
+            )
+        }
     }
 
     fun markAsPendingRemoteDeletion(route: Route): Flow<ResultState<Unit>> {

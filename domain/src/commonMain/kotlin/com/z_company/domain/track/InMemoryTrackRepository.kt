@@ -5,8 +5,10 @@ class InMemoryTrackRepository : TrackRepository {
     private val infos = LinkedHashMap<String, TrackInfo>()
     private val pts = HashMap<String, MutableList<TrackPoint>>()
     private val pending = LinkedHashSet<String>()
+    private val removedTrains = HashSet<String>()
 
     override fun append(trackId: String, trainId: String, point: TrackPoint) {
+        if (trainId in removedTrains) return
         val list = pts.getOrPut(trackId) { mutableListOf() }
         if (list.none { it.timeMs == point.timeMs }) list += point
         val old = infos[trackId]
@@ -50,7 +52,12 @@ class InMemoryTrackRepository : TrackRepository {
         pending.clear()
     }
 
+    override fun allowTrain(trainId: String) {
+        removedTrains -= trainId
+    }
+
     override fun deleteByTrain(trainId: String) {
+        removedTrains += trainId
         tracksForTrain(trainId).forEach { deleteTrack(it.trackId, queueRemoteDelete = true) }
     }
 

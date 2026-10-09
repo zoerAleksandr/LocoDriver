@@ -33,6 +33,11 @@ class TrackRouteResolver(
         return loaded
     }
 
+    /** Сбросить снимок рейсов (после удаления поезда/рейса, перед открытием списка треков). */
+    fun invalidate() {
+        cached = null
+    }
+
     override suspend fun resolve(trainId: String): TrackTrainResolution {
         val routes = allRoutes() ?: return TrackTrainResolution.Unknown
         for (route in routes) {
@@ -44,15 +49,20 @@ class TrackRouteResolver(
         return TrackTrainResolution.Missing
     }
 
+    /** Идентификаторы поездов всех рейсов (включая корзину); null — рейсы прочитать не удалось. */
+    suspend fun existingTrainIds(): Set<String>? =
+        allRoutes()?.flatMap { r -> r.trains.map { it.trainId } }?.toSet()
+
     /**
      * Очистка осиротевших треков; безопасна к вызову с любого потока и сколь угодно часто.
+     * @param graceMs защита свежих треков; для списка «Мои треки» — [TrackOrphanCleaner.EXPLICIT_GRACE_MS]
      * @return сколько треков удалено
      */
-    suspend fun cleanOrphans(): Int {
+    suspend fun cleanOrphans(graceMs: Long = TrackOrphanCleaner.GRACE_MS): Int {
         val routes = allRoutes() ?: return 0
         val trainIds = routes.flatMap { r -> r.trains.map { it.trainId } }.toSet()
         return withContext(Dispatchers.Default) {
-            runCatching { TrackOrphanCleaner.clean(trackRepository, trainIds, nowMs()) }.getOrDefault(0)
+            runCatching { TrackOrphanCleaner.clean(trackRepository, trainIds, nowMs(), graceMs) }.getOrDefault(0)
         }
     }
 

@@ -50,6 +50,7 @@ fun NavGraphBuilder.homeGraph(
             com.z_company.route.ui.TrackHistoryScreen(
                 viewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
                 onBack = { router.back() },
+                onOpenDataPrivacy = router::showDataPrivacy,
             )
         }
 

@@ -9,7 +9,12 @@ import com.z_company.domain.track.TrackRetention
 class SqlDelightTrackRepository(private val db: TrackDatabase) : TrackRepository {
     private val q get() = db.trackQueries
 
+    /** Поезда, чьи треки удалены явно: запись «АВТО» с запомненной целью не должна воскрешать трек. */
+    @kotlin.concurrent.Volatile
+    private var removedTrains: Set<String> = emptySet()
+
     override fun append(trackId: String, trainId: String, point: TrackPoint) {
+        if (trainId in removedTrains) return
         db.transaction {
             q.insertTrack(trackId, trainId, point.timeMs, point.timeMs)
             q.insertPoint(
@@ -69,7 +74,12 @@ class SqlDelightTrackRepository(private val db: TrackDatabase) : TrackRepository
         }
     }
 
+    override fun allowTrain(trainId: String) {
+        removedTrains = removedTrains - trainId
+    }
+
     override fun deleteByTrain(trainId: String) {
+        removedTrains = removedTrains + trainId
         db.transaction {
             q.selectTrackIdsByTrain(trainId).executeAsList().forEach { q.insertPendingDelete(it) }
             q.deletePointsByTrain(trainId)
