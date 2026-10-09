@@ -61,11 +61,11 @@ class StopStationNamerTest {
     }
 
     @Test
-    fun `dense node with phase - by order, one km radius`() {
-        assertEquals("Узел-1", name(phase, listOf("Начало"), 30.0045))
+    fun `dense node with phase - nearest by path, one km radius`() {
+        assertEquals("Узел-2", name(phase, listOf("Начало"), 30.0045))
         assertEquals("Узел-2", name(phase, listOf("Начало", "Узел-1", "Узел-2"), 30.0))
         // 1 км (~0.018°) - ещё «здесь», старые 500 м уже не ограничивают
-        assertEquals("Узел-1", name(phase, emptyList(), 30.012))
+        assertEquals("Узел-2", name(phase, emptyList(), 30.012))
     }
 
     @Test

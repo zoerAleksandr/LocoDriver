@@ -31,13 +31,30 @@ object ServicePhaseStationPicker {
     /** Есть ли у плеча хоть одна станция с координатами (иначе подставлять нечего). */
     fun hasCoordinates(phase: ServicePhase): Boolean = stops(phase).any { it.lat != null && it.lon != null }
 
+    /** Боковое отклонение станции справочника от рельсовой линии плеча, при котором она «на пути плеча», м. */
+    const val LINE_TOLERANCE_M = 100.0
+
+    /** То же при запасном варианте (нет линии - прямые между станциями плеча), м. */
+    const val STRAIGHT_TOLERANCE_M = 150.0
+
+    private class Cand(
+        val name: String,
+        val lat: Double?,
+        val lon: Double?,
+        val along: Double,
+        /** Индекс станции плеча; у станции справочника - Int.MAX_VALUE. */
+        val rank: Int,
+    )
+
     /**
      * ЕДИНЫЙ выбор названия станции остановки (АВТО, карта, просмотр трека; SCREEN_SPECS §6.9, §6.2 п.6а), радиус [radiusM]
      * (по умолчанию 1 км, [com.z_company.domain.autorecord.StopDetectionConfig.STATION_RADIUS_M]):
-     * - плечо выбрано и в радиусе есть его станции (полный список с промежуточными) - берётся станция, стоящая по порядку плеча
-     *   ближайшей впереди последней записанной станции поезда (не ранее неё: повтор той же - «уже на станции»); если у поезда
-     *   ничего не записано - ближайшая к началу плеча;
-     * - иначе (плеча нет или рядом нет его станций) - ближайшая станция справочника ([points]/[names]) в радиусе;
+     * - плечо выбрано: кандидаты = станции плеча (с промежуточными) + станции справочника ([points]/[names]), лежащие НА ПУТИ
+     *   плеча (отклонение от рельсовой линии [railLine] <= [LINE_TOLERANCE_M]; нет линии - от прямых между станциями плеча,
+     *   <= [STRAIGHT_TOLERANCE_M]). Все кандидаты упорядочены по положению вдоль линии; берутся не ранее последней записанной
+     *   станции поезда (повтор допускается); из подходящих в радиусе - ближайшая по пути к точке остановки (при равенстве -
+     *   впереди по порядку); если у поезда ничего не записано - ограничения «не ранее» нет;
+     * - иначе (плеча нет или подходящих кандидатов нет) - ближайшая станция справочника в радиусе;
      * - иначе null (название остаётся пустым).
      */
     fun pickForStop(
@@ -48,25 +65,80 @@ object ServicePhaseStationPicker {
         points: Map<String, Pair<Double, Double>>,
         names: Map<String, String>,
         radiusM: Double = com.z_company.domain.autorecord.StopDetectionConfig.STATION_RADIUS_M,
+        railLine: List<Pair<Double, Double>>? = null,
     ): String? {
         if (phase != null) {
-            val all = stops(phase)
-            val norm = all.map { ServicePhaseStationsMerge.normalizeName(it.name) }
-            val lastKnown = trainStationNames.asReversed().asSequence()
-                .mapNotNull { it?.takeIf(String::isNotBlank) }
-                .map { ServicePhaseStationsMerge.normalizeName(it) }
-                .map { norm.indexOf(it) }
-                .firstOrNull { it >= 0 } ?: -1
-            val inRadius = all.withIndex().filter { (_, st) ->
-                st.lat != null && st.lon != null && distanceM(latitude, longitude, st.lat, st.lon) <= radiusM
-            }
-            // Не ранее последней записанной; если все кандидаты позади - станция плеча не подходит (справочник ниже).
-            inRadius.firstOrNull { it.index >= maxOf(lastKnown, 0) }?.let { return it.value.name }
+            pickOnPhase(phase, trainStationNames, latitude, longitude, points, names, radiusM, railLine)?.let { return it }
         }
         return points.map { (key, p) -> key to distanceM(latitude, longitude, p.first, p.second) }
             .filter { it.second <= radiusM }
             .minByOrNull { it.second }
             ?.let { names[it.first] }
+    }
+
+    private fun pickOnPhase(
+        phase: ServicePhase,
+        trainStationNames: List<String?>,
+        latitude: Double,
+        longitude: Double,
+        points: Map<String, Pair<Double, Double>>,
+        names: Map<String, String>,
+        radiusM: Double,
+        railLine: List<Pair<Double, Double>>?,
+    ): String? {
+        val all = stops(phase)
+        val withCoords = all.withIndex().filter { it.value.lat != null && it.value.lon != null }
+        val realLine = railLine?.takeIf { it.size >= 2 }
+        val line = realLine ?: withCoords.map { it.value.lat!! to it.value.lon!! }.takeIf { it.size >= 2 }
+        val tolerance = if (realLine != null) LINE_TOLERANCE_M else STRAIGHT_TOLERANCE_M
+        val cum = line?.let(TrainMapRoute::cumulativeM)
+
+        // Положение станций плеча вдоль линии (не убывает по порядку плеча); без координат - по предыдущей.
+        val cands = ArrayList<Cand>()
+        var seg = 0
+        var prevAlong = 0.0
+        all.forEachIndexed { i, st ->
+            var along = prevAlong
+            if (line != null && cum != null && st.lat != null && st.lon != null) {
+                TrainMapRoute.project(line, cum, st.lat, st.lon, seg)?.let { pr ->
+                    seg = pr.segment
+                    along = maxOf(pr.alongM, prevAlong)
+                }
+            }
+            prevAlong = along
+            cands.add(Cand(st.name, st.lat, st.lon, along, i))
+        }
+        // Станции справочника на пути плеча.
+        if (line != null && cum != null) {
+            val phaseNames = all.map { ServicePhaseStationsMerge.normalizeName(it.name) }.toSet()
+            for ((key, p) in points) {
+                val name = names[key]?.takeIf { it.isNotBlank() } ?: continue
+                if (key in phaseNames || ServicePhaseStationsMerge.normalizeName(name) in phaseNames) continue
+                val pr = TrainMapRoute.project(line, cum, p.first, p.second) ?: continue
+                if (pr.offsetM <= tolerance) cands.add(Cand(name, p.first, p.second, pr.alongM, Int.MAX_VALUE))
+            }
+        }
+        val ordered = cands.sortedWith(compareBy<Cand> { it.along }.thenBy { it.rank })
+        val norm = ordered.map { ServicePhaseStationsMerge.normalizeName(it.name) }
+        val lastKnown = trainStationNames.asReversed().asSequence()
+            .mapNotNull { it?.takeIf(String::isNotBlank) }
+            .map { ServicePhaseStationsMerge.normalizeName(it) }
+            .map { norm.indexOf(it) }
+            .firstOrNull { it >= 0 } ?: -1
+
+        val stop = if (line != null && cum != null) TrainMapRoute.project(line, cum, latitude, longitude) else null
+        val stopOnLine = stop != null && stop.offsetM <= tolerance
+        val best = ordered.withIndex()
+            .filter { (i, c) -> i >= maxOf(lastKnown, 0) && c.lat != null && c.lon != null }
+            .mapNotNull { (i, c) ->
+                val straight = distanceM(latitude, longitude, c.lat!!, c.lon!!)
+                if (straight > radiusM) return@mapNotNull null
+                val d = if (stopOnLine) kotlin.math.abs(c.along - stop!!.alongM) else straight
+                Triple(i, c, d)
+            }
+            // Ближайшая по пути; при равенстве - впереди по порядку (меньший индекс).
+            .minWithOrNull(compareBy<Triple<Int, Cand, Double>> { it.third }.thenBy { it.first })
+        return best?.second?.name
     }
 
     /** Нормализованное название → как оно записано в плече. */
