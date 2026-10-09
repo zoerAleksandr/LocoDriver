@@ -203,6 +203,10 @@ internal fun settingsSwitchColors() = SwitchDefaults.colors(
     checkedThumbColor = MaterialTheme.colorScheme.onTertiary,
     checkedTrackColor = MaterialTheme.colorScheme.tertiary,
     checkedBorderColor = MaterialTheme.colorScheme.tertiary,
+    // Выключенный: серый трек (слоты surfaceContainer* в теме окрашены нестандартно).
+    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+    uncheckedBorderColor = MaterialTheme.colorScheme.outline,
 )
 
 // ─── RadioRow — радио-кружок + лейбл (600 при selected) + опц. sub ───
