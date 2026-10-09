@@ -2231,7 +2231,7 @@ private fun TrainBottomAppBar(
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
         // Четыре равных по ширине слота (weight 1): центры кнопок равноудалены (шаг = ширина/4),
-        // большая «+» не нарушает шаг, т.к. центрируется в своём слоте.
+        // большая «+» (самая правая) не нарушает шаг, т.к. центрируется в своём слоте.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -2259,6 +2259,16 @@ private fun TrainBottomAppBar(
                 )
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                TrainBottomIconButton(
+                    modifier = Modifier.width(48.dp),
+                    iconRes = com.z_company.route.R.drawable.ic_train_map_color_24,
+                    contentDescription = "Карта",
+                    active = false,
+                    colored = true,
+                    onClick = onMapClick,
+                )
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 FilledIconButton(
                     modifier = Modifier.size(56.dp),
                     onClick = onAddStationClick,
@@ -2274,16 +2284,6 @@ private fun TrainBottomAppBar(
                         contentDescription = "Добавить станцию",
                     )
                 }
-            }
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                TrainBottomIconButton(
-                    modifier = Modifier.width(48.dp),
-                    iconRes = com.z_company.route.R.drawable.ic_train_map_color_24,
-                    contentDescription = "Карта",
-                    active = false,
-                    colored = true,
-                    onClick = onMapClick,
-                )
             }
         }
     }
