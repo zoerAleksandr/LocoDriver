@@ -38,4 +38,13 @@ object TrainOrdering {
      */
     fun pickTarget(trains: List<Train>, preferredId: String?): Train? =
         preferredId?.let { id -> trains.firstOrNull { it.trainId == id } } ?: pickAutoTarget(trains)
+
+    /**
+     * Цель «АВТО» строго по запомненному id среди поездов ВСЕХ переданных маршрутов (вызывающий
+     * отфильтровывает удалённые): цель может быть в любом, в том числе ещё не начавшемся маршруте.
+     * Найден — это и есть цель (с `basicId` его маршрута). Не найден / не задан — null: вызывающий
+     * применяет [pickTarget] на текущем маршруте.
+     */
+    fun findTargetTrain(routesTrains: List<List<Train>>, preferredId: String?): Train? =
+        preferredId?.let { id -> routesTrains.firstNotNullOfOrNull { l -> l.firstOrNull { it.trainId == id } } }
 }

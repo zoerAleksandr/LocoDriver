@@ -473,14 +473,23 @@ class AutoRecordManager(
                 event.latitude, event.longitude,
             )
         }
-        val route = withContext(Dispatchers.Default) { currentRoute() }
-        if (route == null) {
-            // Писать некуда (маршрута нет / время работы вышло) — событие отбрасываем, но не молчим.
-            notifyNoRoute()
-            return
+        // Цель - поезд, где нажата «АВТО»: ищем среди поездов ВСЕХ неудалённых маршрутов, не только текущего.
+        val saved = prefs.getString(KEY_TARGET, null)
+        val targeted = withContext(Dispatchers.Default) {
+            TrainOrdering.findTargetTrain(
+                routeUseCase.getListRoutes().filter { !it.basicData.isDeleted }.map { it.trains }, saved,
+            )
         }
-        val train = TrainOrdering.pickTarget(route.trains, prefs.getString(KEY_TARGET, null))
-            ?: Train(basicId = route.basicData.id)
+        val train = targeted ?: run {
+            // Цели нет / поезд удалён: fallback по правилу TrainOrdering на текущем маршруте.
+            val route = withContext(Dispatchers.Default) { currentRoute() }
+            if (route == null) {
+                // Писать некуда (маршрута нет / время работы вышло) - событие отбрасываем, но не молчим.
+                notifyNoRoute()
+                return
+            }
+            TrainOrdering.pickTarget(route.trains, null) ?: Train(basicId = route.basicData.id)
+        }
         // Фиксируем фактическую цель (создание нового поезда / fallback при удалённом запомненном).
         if (prefs.getString(KEY_TARGET, null) != train.trainId) saveTarget(train.trainId)
 
