@@ -112,4 +112,10 @@ class PhaseMapPickTest {
         assertTrue(russia.zoom < 4.0)
         assertTrue(russia.latitude in 50.0..70.0 && russia.longitude in 60.0..130.0)
     }
+
+    @Test
+    fun `geo pin description tells whether coordinates exist`() {
+        assertEquals("Координаты станции есть. Открыть карточку станции", stationGeoPinDescription(true))
+        assertEquals("Нет координат. Открыть карточку станции", stationGeoPinDescription(false))
+    }
 }

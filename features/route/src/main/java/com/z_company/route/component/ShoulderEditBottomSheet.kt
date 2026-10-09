@@ -113,6 +113,7 @@ import com.z_company.domain.entities.setting.ServicePhaseStationKind
 import com.z_company.domain.util.toIntOrZero
 import com.z_company.route.component.servicephase.PhaseInsertRow
 import com.z_company.route.component.servicephase.PhaseStationSheet
+import com.z_company.route.component.servicephase.StationGeoPin
 import com.z_company.route.component.servicephase.PhaseStopRow
 import com.z_company.route.component.servicephase.Pst
 import com.z_company.route.component.servicephase.PstButton
@@ -1045,6 +1046,10 @@ fun ShoulderEditBottomSheet(
                             onDone = { focusManager.clearFocus() },
                             departureFocus = departureFocus,
                             arrivalFocus = arrivalFocus,
+                            departureKnown = pointFor(depPoint, departure.text.trim()) != null,
+                            arrivalKnown = pointFor(arrPoint, arrival.text.trim()) != null,
+                            onOpenDeparture = { editingTerminal = true },
+                            onOpenArrival = { editingTerminal = false },
                             currency = currencySymbol(country),
                             measure = {
                                 val isMeasured = measured?.let {
@@ -1121,6 +1126,8 @@ fun ShoulderEditBottomSheet(
                         activeInsert = if (stationSheetOpen && editingStation == null) insertAt else null,
                         onOpen = { openStation(it, null) },
                         onOpenTerminal = { isStart -> editingTerminal = isStart },
+                        departureKnown = pointFor(depPoint, departure.text.trim()) != null,
+                        arrivalKnown = pointFor(arrPoint, arrival.text.trim()) != null,
                         onInsert = { at -> openStation(null, at) },
                         onRemove = { st ->
                             val idx = stations.indexOfFirst { it.id == st.id }
@@ -1220,12 +1227,16 @@ private fun PhaseFields(
     onDone: () -> Unit,
     departureFocus: FocusRequester,
     arrivalFocus: FocusRequester,
+    departureKnown: Boolean,
+    arrivalKnown: Boolean,
+    onOpenDeparture: () -> Unit,
+    onOpenArrival: () -> Unit,
     currency: String,
     measure: @Composable () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        StationNameField("От станции", departure, onDeparture, stationList, onDeleteStationName, onNext, departureFocus)
-        StationNameField("До станции", arrival, onArrival, stationList, onDeleteStationName, onNext, arrivalFocus)
+        StationNameField("От станции", departure, onDeparture, stationList, onDeleteStationName, onNext, departureFocus, departureKnown, onOpenDeparture)
+        StationNameField("До станции", arrival, onArrival, stationList, onDeleteStationName, onNext, arrivalFocus, arrivalKnown, onOpenArrival)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PstTextField(
                 value = distance,
@@ -1279,6 +1290,8 @@ private fun StationNameField(
     onDeleteStationName: (String) -> Unit,
     onNext: () -> Unit,
     focusRequester: FocusRequester,
+    hasCoordinates: Boolean,
+    onOpenStation: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val filtered = remember(value.text, stationList) { stationList.filter { it.contains(value.text, ignoreCase = true) } }
@@ -1291,7 +1304,8 @@ private fun StationNameField(
             },
             label = label,
             placeholder = "Начните вводить название",
-            leadingIcon = PstIcons.MapPin,
+            // Значок местоположения - справа и кликабельный: открывает карточку этой станции (название, «Координаты»).
+            trailing = { StationGeoPin(hasCoordinates = hasCoordinates, onClick = onOpenStation) },
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
@@ -1365,6 +1379,8 @@ private fun LazyListScope.stationScheme(
     activeInsert: Int?,
     onOpen: (ServicePhaseStation) -> Unit,
     onOpenTerminal: (isStart: Boolean) -> Unit,
+    departureKnown: Boolean,
+    arrivalKnown: Boolean,
     onInsert: (Int) -> Unit,
     onRemove: (ServicePhaseStation) -> Unit,
 ) {
@@ -1379,6 +1395,7 @@ private fun LazyListScope.stationScheme(
                     isFirst = true,
                     isLast = false,
                     mode = mode,
+                    geoKnown = departureKnown,
                     onClick = if (editMode) null else ({ onOpenTerminal(true) }),
                 )
             }
@@ -1399,6 +1416,7 @@ private fun LazyListScope.stationScheme(
                             km = st.kmFromStart,
                             esr = st.esr,
                             noCoordinates = !st.hasCoordinates,
+                            geoKnown = st.hasCoordinates,
                             lifted = isDragging,
                             fresh = st.id in freshIds,
                             onClick = if (editMode) null else ({ onOpen(st) }),
@@ -1432,6 +1450,7 @@ private fun LazyListScope.stationScheme(
                         isLast = true,
                         mode = mode,
                         terminalKm = distanceKm.takeIf { it > 0 },
+                        geoKnown = arrivalKnown,
                         onClick = if (editMode) null else ({ onOpenTerminal(false) }),
                     )
                 }
