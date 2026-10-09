@@ -1,0 +1,2 @@
+-- Миграция 2 -> 3 (этап 3в): барометрическая высота точки трека. Существующие точки остаются как есть (NULL).
+ALTER TABLE TrackPoint ADD COLUMN baroAltitudeM REAL;

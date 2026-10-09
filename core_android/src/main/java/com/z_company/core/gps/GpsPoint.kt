@@ -7,6 +7,8 @@ package com.z_company.core.gps
  * @property timeMs время фикса, мс от Unix epoch (UTC).
  * @property speedMps скорость в м/с или null, если провайдер её не сообщил.
  * @property accuracyM горизонтальная точность в метрах или null.
+ * @property altitudeM высота GPS в метрах (над уровнем моря, если провайдер отдаёт) или null.
+ * @property baroAltitudeM барометрическая высота в метрах (датчик давления, стандартная атмосфера) или null, если датчика нет.
  */
 data class GpsPoint(
     val timeMs: Long,
@@ -14,6 +16,8 @@ data class GpsPoint(
     val longitude: Double,
     val speedMps: Float?,
     val accuracyM: Float?,
+    val altitudeM: Double? = null,
+    val baroAltitudeM: Double? = null,
 ) {
     val speedKmh: Double? get() = speedMps?.let { it * 3.6 }
 }

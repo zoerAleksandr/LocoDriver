@@ -320,6 +320,8 @@ fun FormTrainScreen(
                 loadRailLine = { railVm.railLine(it) },
                 currentFix = { viewModel.trainMapCurrentFix() },
                 loadTrack = { viewModel.trainMapTrack() },
+                loadRecordingState = { viewModel.trainMapRecordingState() },
+                makeTarget = { viewModel.trainMapMakeTarget() },
                 onDetermine = { viewModel.saveStationCoordinatesFromGps(it) },
                 onOpenConsentSettings = { showTrainMap = false; onConsentSettings() },
                 onDismiss = { showTrainMap = false },

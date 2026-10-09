@@ -24,6 +24,7 @@ import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.track.TrackPoint
+import com.z_company.domain.track.TrackRecordingState
 import com.z_company.domain.track.TrackRepository
 import com.z_company.domain.track.TrackWriter
 import com.z_company.domain.use_cases.RouteUseCase
@@ -169,6 +170,31 @@ class AutoRecordManager(
     }
 
     fun disable() = stopInternal(notifyExpired = false)
+
+    /**
+     * Состояние записи трека для диагностики пустого графика (SCREEN_SPECS §6.9): согласие, АВТО, цель.
+     * [thisTrainId] - поезд, на экране которого открыта карта; [otherTrainNumber] - номер целевого, если он другой.
+     */
+    fun trackRecordingState(thisTrainId: String?, otherTrainNumber: String? = null) = TrackRecordingState(
+        consent = trackConsent?.saveTracks?.value == true,
+        autoEnabled = _state.value.enabled,
+        targetTrainId = prefs.getString(KEY_TARGET, null),
+        thisTrainId = thisTrainId,
+        otherTrainNumber = otherTrainNumber,
+    )
+
+    /** Поезд, который сейчас пишет «АВТО» (null - цель не определена). */
+    fun targetTrainId(): String? = prefs.getString(KEY_TARGET, null)
+
+    /**
+     * Сделать [trainId] целью записи, не перезапуская сеанс (следующая точка откроет новый трек для этого поезда).
+     * Только при включённом «АВТО».
+     */
+    fun setTarget(trainId: String): Boolean {
+        if (!_state.value.enabled) return false
+        saveTarget(trainId)
+        return true
+    }
 
     /** Из Application после старта графа: возобновить, если включено и не истекло. */
     fun restore() {
@@ -365,7 +391,7 @@ class AutoRecordManager(
             synchronized(writer) {
                 writer.onPoint(
                     target,
-                    TrackPoint(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM),
+                    TrackPoint(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM, p.altitudeM, p.baroAltitudeM),
                     consent,
                 )
             }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,12 +58,28 @@ import com.z_company.domain.track.ChartWindow
 import com.z_company.domain.track.SpeedChart
 import com.z_company.domain.track.SpeedScale
 import com.z_company.domain.track.TrackAnalysis
+import com.z_company.domain.track.TrackEmptyReason
+import com.z_company.domain.track.TrackEmptyReasons
+import com.z_company.domain.track.TrackRecordingState
 import com.z_company.domain.track.TrackPoint
 import com.z_company.domain.util.LabelPlacer
 import com.z_company.domain.util.MapLabelItem
 import com.z_company.route.viewmodel.TrainFormViewModel
+import kotlinx.coroutines.delay
 
-private const val EMPTY_TEXT = "Нет записи скорости. Включите АВТО и согласие на сохранение трека"
+private const val EMPTY_TEXT_UNKNOWN = "Нет записи скорости. Включите АВТО и согласие на сохранение трека"
+
+/** Текст пустого графика по реальной причине (§6.9). */
+private fun emptyText(reason: TrackEmptyReason, otherTrainNumber: String?): String = when (reason) {
+    TrackEmptyReason.UNKNOWN -> EMPTY_TEXT_UNKNOWN
+    TrackEmptyReason.CONSENT_OFF -> "Согласие на сохранение трека выключено"
+    TrackEmptyReason.AUTO_OFF -> "АВТО выключено. Включите АВТО, чтобы записывать путь"
+    TrackEmptyReason.OTHER_TRAIN ->
+        "АВТО записывает другой поезд" + otherTrainNumber?.takeIf { it.isNotBlank() }?.let { " (№$it)" }.orEmpty()
+    TrackEmptyReason.NO_TARGET -> "АВТО включено, но поезд для записи не выбран"
+    TrackEmptyReason.NO_POINTS_YET -> "Запись идёт, точек пока нет. Нужно проехать несколько секунд"
+    TrackEmptyReason.NO_SPEED -> "Нет данных о скорости от GPS"
+}
 
 /** Всё, что нужно обработчикам жестов (актуальное значение на момент жеста). */
 private class ChartGeometry(
@@ -83,6 +100,8 @@ private class ChartGeometry(
 @Composable
 internal fun SpeedChartScreen(
     track: TrainFormViewModel.TrainMapTrack?,
+    loadRecordingState: suspend () -> TrackRecordingState? = { null },
+    makeTarget: () -> Boolean = { false },
     selectedTimeMs: Long?,
     onSelect: (TrackPoint?) -> Unit,
     onOpenConsent: () -> Unit,
@@ -165,19 +184,48 @@ internal fun SpeedChartScreen(
                 }
                 Spacer(Modifier.height(8.dp))
 
-                if (samples.size < 2) {
+                val pointsWithSpeed = points.count { it.speedKmh != null }
+                if (samples.size < 2 || pointsWithSpeed == 0) {
+                    // Пустое состояние с реальной причиной: состояние записи опрашивается, пока экран пуст.
+                    var recording by remember { mutableStateOf<TrackRecordingState?>(null) }
+                    var refresh by remember { mutableStateOf(0) }
+                    LaunchedEffect(refresh) {
+                        while (true) {
+                            recording = runCatching { loadRecordingState() }.getOrNull()
+                            delay(3_000)
+                        }
+                    }
+                    val reason = TrackEmptyReasons.determine(recording, points.size, pointsWithSpeed)
                     Column(
                         modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Text(
-                            text = EMPTY_TEXT,
+                            text = emptyText(reason, recording?.otherTrainNumber),
                             style = Pst.sans.copy(fontSize = 15.sp, lineHeight = 22.sp),
                             color = Pst.textMuted,
                             modifier = Modifier.padding(bottom = 16.dp),
                         )
-                        PstButton(text = "Настройки согласия", onClick = onOpenConsent, kind = PstButtonKind.CTA)
+                        when (reason) {
+                            TrackEmptyReason.CONSENT_OFF ->
+                                PstButton(text = "Открыть настройки", onClick = onOpenConsent, kind = PstButtonKind.CTA)
+                            TrackEmptyReason.UNKNOWN ->
+                                PstButton(text = "Настройки согласия", onClick = onOpenConsent, kind = PstButtonKind.CTA)
+                            TrackEmptyReason.OTHER_TRAIN, TrackEmptyReason.NO_TARGET ->
+                                PstButton(
+                                    text = "Записывать этот поезд",
+                                    onClick = { if (makeTarget()) refresh++ },
+                                    kind = PstButtonKind.CTA,
+                                )
+                            else -> Unit
+                        }
+                        Spacer(Modifier.weight(1f, fill = false).height(24.dp))
+                        Text(
+                            text = TrackEmptyReasons.debugLine(recording, points.size),
+                            style = Pst.mono.copy(fontSize = 10.sp),
+                            color = Pst.textFaint,
+                        )
                     }
                     return@Column
                 }

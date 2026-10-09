@@ -10,6 +10,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -18,6 +22,7 @@ import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import com.z_company.domain.track.AltitudeMath
 
 /**
  * Foreground service записи GPS (тип location). Данные не пишет на диск и не логирует:
@@ -27,6 +32,11 @@ import androidx.core.app.ServiceCompat
 class GpsRecordingService : Service() {
 
     private var listener: LocationListener? = null
+    private var pressureListener: SensorEventListener? = null
+
+    /** Последнее показание барометра, гПа; null - датчика нет или показаний ещё не было. */
+    @Volatile
+    private var pressureHpa: Float? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -69,7 +79,7 @@ class GpsRecordingService : Service() {
         val lm = getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
         val l = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                GpsRecorder.emit(location.toPoint())
+                GpsRecorder.emit(location.toPoint(baroAltitudeM()))
             }
 
             override fun onProviderEnabled(provider: String) {
@@ -86,13 +96,46 @@ class GpsRecordingService : Service() {
             )
             GpsRecorder.setGpsAvailable(lm.isProviderEnabled(LocationManager.GPS_PROVIDER))
             listener = l
+            startPressure()
             true
         } catch (e: Exception) {
             false
         }
     }
 
+    /** Барометр (если есть): только запоминаем последнее давление, высота считается при каждой точке. */
+    private fun startPressure() {
+        if (pressureListener != null) return
+        val sm = getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: return
+        val sensor = sm.getDefaultSensor(Sensor.TYPE_PRESSURE) ?: return
+        val l = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                pressureHpa = event.values.firstOrNull()
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+        }
+        // Редкие обновления (SENSOR_DELAY_NORMAL): точке нужно значение раз в секунду, экономим батарею.
+        if (sm.registerListener(l, sensor, SensorManager.SENSOR_DELAY_NORMAL)) pressureListener = l
+    }
+
+    private fun stopPressure() {
+        pressureListener?.let { l ->
+            (getSystemService(Context.SENSOR_SERVICE) as? SensorManager)?.unregisterListener(l)
+        }
+        pressureListener = null
+        pressureHpa = null
+    }
+
+    /** Барометрическая высота по стандартной атмосфере; null - датчика нет / давление неправдоподобно. */
+    private fun baroAltitudeM(): Double? {
+        val hpa = pressureHpa
+        if (!AltitudeMath.isPlausiblePressureHpa(hpa)) return null
+        return AltitudeMath.sanitize(SensorManager.getAltitude(SensorManager.PRESSURE_STANDARD_ATMOSPHERE, hpa!!).toDouble())
+    }
+
     private fun removeUpdates() {
+        stopPressure()
         listener?.let { l ->
             (getSystemService(Context.LOCATION_SERVICE) as? LocationManager)?.removeUpdates(l)
         }
@@ -151,12 +194,21 @@ class GpsRecordingService : Service() {
             .build()
     }
 
-    private fun Location.toPoint() = GpsPoint(
+    private fun Location.toPoint(baroAltitudeM: Double?) = GpsPoint(
         timeMs = time,
         latitude = latitude,
         longitude = longitude,
         speedMps = if (hasSpeed()) speed else null,
         accuracyM = if (hasAccuracy()) accuracy else null,
+        // Над уровнем моря (MSL) там, где система его отдаёт (API 34+), иначе высота над эллипсоидом WGS84.
+        altitudeM = AltitudeMath.sanitize(
+            when {
+                Build.VERSION.SDK_INT >= 34 && hasMslAltitude() -> mslAltitudeMeters
+                hasAltitude() -> altitude
+                else -> null
+            },
+        ),
+        baroAltitudeM = baroAltitudeM,
     )
 
     companion object {
