@@ -63,6 +63,13 @@ fun SwipeToRevealDelete(
     // соседнего в списке/на главном), offsetX/revealed сбрасываются — иначе новый
     // элемент отрисовывался бы уже в раскрытом («свайпнутом») положении.
     itemKey: Any? = Unit,
+    // Свайп ВПРАВО (необязательный): слева проявляется фон с иконкой [rightIconRes]; при протяжке дальше половины
+    // кнопки вызывается [onSwipeRight] и карточка сама возвращается на место (действие мгновенное, без подтверждения).
+    onSwipeRight: (() -> Unit)? = null,
+    rightIconRes: Int = 0,
+    rightIconTint: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified,
+    rightBackground: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified,
+    rightContentDescription: String? = null,
     // content получает флаг revealed — на случай если контенту нужно знать состояние.
     content: @Composable (revealed: Boolean) -> Unit,
 ) {
@@ -72,6 +79,7 @@ fun SwipeToRevealDelete(
     val offsetX = remember(itemKey) { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var revealed by remember(itemKey) { mutableStateOf(false) }
+    val rightAction by androidx.compose.runtime.rememberUpdatedState(onSwipeRight)
 
     fun close() {
         revealed = false
@@ -89,6 +97,28 @@ fun SwipeToRevealDelete(
     }
 
     Box(modifier = modifier) {
+        // Фон свайпа вправо: показывается только пока карточка сдвинута вправо.
+        if (onSwipeRight != null && offsetX.value > 0f) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .padding(horizontal = if (compact) 0.dp else 6.dp, vertical = if (compact) 0.dp else backgroundVerticalPadding)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                    .background(
+                        if (rightBackground != androidx.compose.ui.graphics.Color.Unspecified) rightBackground
+                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    )
+                    .padding(start = 28.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Icon(
+                    painter = painterResource(rightIconRes),
+                    contentDescription = rightContentDescription,
+                    tint = if (rightIconTint != androidx.compose.ui.graphics.Color.Unspecified) rightIconTint else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+        }
         // Фон: красная кнопка «Удалить» справа.
         // compact — фон занимает всю высоту карточки (без вертикальных отступов).
         Box(
@@ -136,15 +166,19 @@ fun SwipeToRevealDelete(
                 // offsetX, и детектор жеста обязан перезапуститься, иначе его
                 // замыкание продолжит двигать старый Animatable, а .offset{} читает
                 // новый — карточка визуально не сдвигается («свайп перестаёт работать»).
-                .pointerInput(itemKey) {
+                .pointerInput(itemKey, onSwipeRight != null) {
                     detectHorizontalDragGestures(
                         onHorizontalDrag = { change, dragAmount ->
                             change.consume()
-                            val newX = (offsetX.value + dragAmount).coerceIn(-buttonWidthPx, 0f)
+                            val newX = (offsetX.value + dragAmount).coerceIn(-buttonWidthPx, if (onSwipeRight != null) buttonWidthPx else 0f)
                             scope.launch { offsetX.snapTo(newX) }
                         },
                         onDragEnd = {
-                            if (offsetX.value < -buttonWidthPx / 2f) open() else close()
+                            val rightNow = rightAction
+                            if (rightNow != null && offsetX.value > buttonWidthPx / 2f) {
+                                close()
+                                rightNow()
+                            } else if (offsetX.value < -buttonWidthPx / 2f) open() else close()
                         }
                     )
                 }
