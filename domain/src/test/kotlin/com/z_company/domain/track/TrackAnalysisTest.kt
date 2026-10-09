@@ -127,4 +127,41 @@ class TrackAnalysisTest {
         val pts = listOf(p(0, v = 30.0), p(5, v = 1.0), p(600, v = 30.0))
         assertTrue(TrackAnalysis.detectDwells(pts).isEmpty())
     }
+
+    @Test
+    fun signalLossBetweenMovingPointsIsNotDwell() {
+        // Ехал, тоннель 3 минуты, первая точка после выхода с малой скоростью: раньше (разрыв ≤ 5 мин) считалось стоянкой.
+        val pts = listOf(p(0, v = 60.0), p(5, v = 60.0), p(185, v = 1.0), p(190, v = 40.0))
+        assertTrue(TrackAnalysis.detectDwells(pts).isEmpty())
+    }
+
+    @Test
+    fun gapUpTo90sStillExtendsDwell() {
+        val pts = listOf(p(0, v = 30.0), p(5, v = 8.0), p(65, v = 0.0), p(115, v = 6.0), p(120, v = 25.0))
+        assertEquals(1, TrackAnalysis.detectDwells(pts).size)
+    }
+
+    @Test
+    fun gapOver90sBetweenSlowPointsSplitsDwell() {
+        // Две «медленные» точки через 3 минуты - это потеря записи, а не стоянка на 3 минуты.
+        val pts = listOf(p(0, v = 0.5), p(180, v = 0.5), p(185, v = 40.0))
+        assertTrue(TrackAnalysis.detectDwells(pts).isEmpty())
+    }
+
+    @Test
+    fun denseStopSurvivesOneMinuteSpacing() {
+        val pts = listOf(p(0, v = 30.0), p(5, v = 0.5), p(65, v = 0.5), p(125, v = 0.5), p(185, v = 0.5), p(190, v = 30.0))
+        val d = TrackAnalysis.detectDwells(pts)
+        assertEquals(1, d.size)
+        assertEquals(5_000L, d[0].arrivalMs)
+    }
+
+    @Test
+    fun dataGapsAreReported() {
+        val pts = listOf(p(0, v = 60.0), p(5, v = 60.0), p(185, v = 40.0), p(190, v = 40.0), p(280, v = 40.0))
+        val g = TrackAnalysis.dataGaps(pts)
+        assertEquals(1, g.size)
+        assertEquals(5_000L, g[0].fromMs)
+        assertEquals(185_000L, g[0].toMs)
+    }
 }

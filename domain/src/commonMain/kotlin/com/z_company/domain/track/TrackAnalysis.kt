@@ -43,6 +43,12 @@ object TrackAnalysis {
     /** Разрыв между записанными точками стоянки, при котором считаем, что поезд стоял всё это время. */
     const val SPARSE_MS = 50_000L
 
+    /**
+     * Разрыв между записанными точками больше этого — «нет данных» (потеря сигнала/записи): стоянка пишется точкой
+     * раз в 60 с, поэтому больший разрыв не доказывает остановку. Стоянка через такой разрыв не расширяется и не склеивается.
+     */
+    const val DATA_GAP_MS = 90_000L
+
     /** Разрыв между точками больше — линия не соединяется. */
     const val GAP_MS = 5 * 60_000L
     private const val EARTH_R = 6_371_000.0
@@ -82,8 +88,8 @@ object TrackAnalysis {
             // Запись прореживает стоянку до точки раз в 60 с (TrackThinner): у стоянки в 1–2 минуты остаётся 1–2 «медленные»
             // точки, а соседние точки (в движении) стоят по краям. Если до/после серии нет точек ≥ SPARSE_MS, поезд всё это
             // время не двигался (иначе точка в движении записалась бы через 5 с) — граница стоянки отодвигается на соседнюю точку.
-            val prev = points.getOrNull(start - 1)?.takeIf { run.first().timeMs - it.timeMs in SPARSE_MS..GAP_MS }
-            val next = points.getOrNull(endExclusive)?.takeIf { it.timeMs - run.last().timeMs in SPARSE_MS..GAP_MS }
+            val prev = points.getOrNull(start - 1)?.takeIf { run.first().timeMs - it.timeMs in SPARSE_MS..DATA_GAP_MS }
+            val next = points.getOrNull(endExclusive)?.takeIf { it.timeMs - run.last().timeMs in SPARSE_MS..DATA_GAP_MS }
             val from = prev?.timeMs ?: run.first().timeMs
             val to = next?.timeMs ?: run.last().timeMs
             val dense = run.size >= 2 && run.last().timeMs - run.first().timeMs >= STOP_MIN_MS
@@ -99,7 +105,7 @@ object TrackAnalysis {
         for (i in points.indices) {
             val p = points[i]
             val slow = p.speedKmh?.let { it < STOP_SPEED_KMH } == true
-            if (i > 0 && p.timeMs - points[i - 1].timeMs > GAP_MS) close(i)
+            if (i > 0 && p.timeMs - points[i - 1].timeMs > DATA_GAP_MS) close(i)
             if (slow) {
                 if (start < 0) start = i
             } else {
@@ -108,6 +114,20 @@ object TrackAnalysis {
         }
         close(points.size)
         return result
+    }
+
+    /** Участок трека без данных (потеря сигнала/записи): между точками больше [DATA_GAP_MS]. */
+    data class DataGap(val fromMs: Long, val toMs: Long, val fromLat: Double, val fromLon: Double, val toLat: Double, val toLon: Double)
+
+    /** Разрывы записи длиннее [DATA_GAP_MS]: на графике и карте это «нет данных», а не стоянка. */
+    fun dataGaps(points: List<TrackPoint>): List<DataGap> {
+        val out = mutableListOf<DataGap>()
+        for (i in 1 until points.size) {
+            val a = points[i - 1]
+            val b = points[i]
+            if (b.timeMs - a.timeMs > DATA_GAP_MS) out += DataGap(a.timeMs, b.timeMs, a.latitude, a.longitude, b.latitude, b.longitude)
+        }
+        return out
     }
 
     /** Точка трека, ближайшая по времени к [timeMs], не дальше [tolMs]; null — трек этот момент не покрывает. */

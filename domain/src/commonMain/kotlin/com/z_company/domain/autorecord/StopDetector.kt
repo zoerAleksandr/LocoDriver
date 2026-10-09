@@ -79,10 +79,23 @@ class StopDetector(private val config: StopDetectorConfig = StopDetectorConfig()
         windowStart = null
     }
 
+    /**
+     * Сигнал GPS потерян (уровень LOST, SCREEN_SPECS §6.9): окно «прибытие/отправление» сбрасывается, события не
+     * генерируются; пауза не считается стоянкой — после возвращения окно начинается с первого достоверного отсчёта.
+     */
+    fun onSignalLost() {
+        windowStart = null
+        lastTimeMs = null
+    }
+
     /** Подать очередной отсчёт; возвращает событие, если оно только что подтвердилось. */
     fun onSample(sample: MotionSample): StopEvent? {
         val speed = sample.speedKmh ?: return null
-        if (sample.accuracyM != null && sample.accuracyM > config.maxAccuracyM) return null
+        if (sample.accuracyM != null && sample.accuracyM > config.maxAccuracyM) {
+            // Недостоверная скорость не доказывает ни стоянку, ни движение: окно ожидания начинается заново.
+            windowStart = null
+            return null
+        }
 
         val last = lastTimeMs
         if (last != null && sample.timeMs - last > config.maxGapMs) windowStart = null

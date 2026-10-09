@@ -37,9 +37,15 @@ class TrackWriter(
     private var trackId: String? = null
     private var thinner = TrackThinner()
 
-    /** Записать точку; false — не записана (нет согласия / нет цели / прорежена). */
-    fun onPoint(targetTrainId: String?, point: TrackPoint, consent: Boolean): Boolean {
+    /**
+     * Записать точку; false — не записана (нет согласия / нет цели / прорежена / нет сигнала).
+     * [signalOk] = false (сигнал потерян, fix устарел или точность хуже порога): «точка стоянки» (скорость < 2 км/ч или
+     * неизвестна) не пишется — иначе потеря сигнала выглядела бы как стоянка; точка в движении (скорость известна и высока)
+     * пишется как обычно.
+     */
+    fun onPoint(targetTrainId: String?, point: TrackPoint, consent: Boolean, signalOk: Boolean = true): Boolean {
         if (!consent || targetTrainId == null) return false
+        if (!signalOk && (point.speedKmh?.let { it < TrackAnalysis.STOP_SPEED_KMH } != false)) return false
         var id = trackId
         if (trainId != targetTrainId || id == null) {
             id = newTrackId()

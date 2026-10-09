@@ -174,8 +174,9 @@ class StopDetectorTest {
         val d = StopDetector()
         d.feed(0, 40, 0.0)
         assertNull(d.onSample(sample(45, null)))
-        assertNull(d.onSample(sample(50, 30.0, acc = 200f))) // плохой фикс не сбрасывает окно
-        assertNotNull(d.onSample(sample(61, 0.0)))
+        assertNull(d.onSample(sample(50, 30.0, acc = 200f))) // плохой фикс игнорируется и сбрасывает окно (§6.9)
+        assertNull(d.onSample(sample(61, 0.0)))
+        assertNotNull(d.feed(62, 125, 0.0))
     }
 
     @Test
@@ -195,5 +196,66 @@ class StopDetectorTest {
         d.feed(0, 70, 0.0)
         assertEquals(true, d.isStopped)
         assertEquals(t0, d.stoppedSince)
+    }
+
+    // ---- Потеря сигнала (SCREEN_SPECS §6.9, §6.2 п.6а) ----
+
+    @Test
+    fun `tunnel while moving - no false arrival after signal returns`() {
+        val d = StopDetector()
+        assertNull(d.feed(0, 60, 80.0))
+        d.onSignalLost() // 15 с без fix - уровень LOST
+        // 3 минуты тишины, потом поезд снова едет
+        assertNull(d.feed(240, 300, 80.0))
+        assertEquals(false, d.isStopped)
+    }
+
+    @Test
+    fun `tunnel gap is not counted as stop window`() {
+        val d = StopDetector()
+        // Начало медленного участка, затем тоннель 3 минуты, после выхода снова ~0 км/ч.
+        assertNull(d.feed(0, 10, 0.5))
+        d.onSignalLost()
+        // Окно ожидания начинается заново: прибытие не раньше чем через минуту ПОСЛЕ возвращения сигнала.
+        assertNull(d.feed(190, 249, 0.5))
+        val ev = d.onSample(sample(250, 0.5))
+        assertNotNull(ev)
+        assertEquals(StopEventType.ARRIVAL, ev.type)
+        assertEquals(t0 + 190_000L, ev.timeMs) // не из тоннеля
+    }
+
+    @Test
+    fun `gap longer than max gap resets window even without explicit signal lost`() {
+        val d = StopDetector()
+        assertNull(d.feed(0, 40, 0.5))
+        assertNull(d.feed(220, 270, 0.5)) // 50 с после возвращения - ещё не минута
+        assertNotNull(d.onSample(sample(280, 0.5)))
+    }
+
+    @Test
+    fun `departure is not lost after signal gap while standing`() {
+        val d = StopDetector()
+        d.seed(stopped = true, sinceMs = t0 - 600_000L)
+        assertNull(d.feed(0, 5, 0.0))
+        d.onSignalLost()
+        // Сигнал вернулся, поезд уже едет
+        assertNull(d.feed(200, 220, 20.0))
+        val ev = d.onSample(sample(231, 25.0))
+        assertNotNull(ev)
+        assertEquals(StopEventType.DEPARTURE, ev.type)
+        assertEquals(t0 + 200_000L, ev.timeMs) // откат не уходит через дыру в данных
+        assertEquals(false, d.isStopped)
+    }
+
+    @Test
+    fun `poor accuracy sample resets stop window`() {
+        val d = StopDetector()
+        assertNull(d.feed(0, 40, 0.5))
+        assertNull(d.onSample(sample(41, 0.0, acc = 120f)))
+        // окно началось заново с 42-й секунды
+        assertNull(d.feed(42, 100, 0.5))
+        val ev = d.onSample(sample(102, 0.5))
+        assertNotNull(ev)
+        assertEquals(t0 + 42_000L, ev.timeMs)
     }
 }

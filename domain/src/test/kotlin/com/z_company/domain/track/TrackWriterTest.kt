@@ -111,4 +111,23 @@ class TrackWriterTest {
         assertFalse(TrackRetention.isExpired(now - 179 * day, isFavorite = false, nowMs = now))
         assertFalse(TrackRetention.isExpired(now - 400 * day, isFavorite = true, nowMs = now))
     }
+
+    @Test
+    fun stopPointNotWrittenWithoutSignalButMovingPointIs() {
+        val repo = FakeRepo()
+        val w = TrackWriter(repo, newTrackId = { "t1" })
+        assertFalse(w.onPoint("tr", p(0, 0.0), consent = true, signalOk = false)) // устаревший fix "стоим"
+        assertFalse(w.onPoint("tr", p(1_000, null), consent = true, signalOk = false))
+        assertTrue(w.onPoint("tr", p(2_000, 40.0), consent = true, signalOk = false))
+        assertEquals(1, repo.appended.size)
+    }
+
+    @Test
+    fun rejectedStopPointDoesNotShiftThinner() {
+        val repo = FakeRepo()
+        val w = TrackWriter(repo, newTrackId = { "t1" })
+        assertTrue(w.onPoint("tr", p(0, 0.0), consent = true))
+        assertFalse(w.onPoint("tr", p(59_000, 0.0), consent = true, signalOk = false))
+        assertTrue(w.onPoint("tr", p(60_000, 0.0), consent = true))
+    }
 }
