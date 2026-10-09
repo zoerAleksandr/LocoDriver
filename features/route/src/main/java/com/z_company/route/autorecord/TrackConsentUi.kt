@@ -51,7 +51,8 @@ object TrackConsentTexts {
         "но путь не сохранится."
     const val CONTINUE = "Продолжить"
     const val REVOKE_TITLE = "Отозвать согласие?"
-    const val REVOKE_TEXT = "Все ваши треки будут удалены с этого устройства и с сервера. Записи стоянок и отправлений в поездах останутся."
+    const val REVOKE_TEXT = "Новые треки сохраняться не будут. Уже записанные треки останутся в разделе «Мои треки» — " +
+        "удалить их можно там."
     const val REVOKE_CONFIRM = "Отозвать"
     const val REVOKE_CANCEL = "Отмена"
 }

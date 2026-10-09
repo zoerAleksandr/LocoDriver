@@ -43,13 +43,8 @@ private class FakeTracksApi : TracksApi {
         maybeFail("putConsent")
         serverConsent = body.storageGranted
         consentPuts += body.storageGranted
-        var n = 0
-        if (!body.storageGranted) {
-            n = tracks.size
-            tracks.clear()
-            chunks.clear()
-        }
-        return TrackConsentResponse(body.storageGranted, deletedTracks = n)
+        // Отзыв согласия не удаляет серверные треки.
+        return TrackConsentResponse(body.storageGranted, deletedTracks = 0)
     }
 
     override suspend fun putTrack(token: String, trackId: String, body: TrackMetaRequest): TrackCardResponse {
@@ -244,7 +239,7 @@ class TrackUploaderTest {
     }
 
     @Test
-    fun revokeSendsConsentFalseDeliversDeletesAndResetsMarks() {
+    fun revokeSendsConsentFalseAndKeepsTracksAndMarks() {
         seed("t1", 50)
         run()
         assertEquals(TrackUploadState.UPLOADED, repo.track("t1")!!.uploadState)
@@ -253,9 +248,10 @@ class TrackUploaderTest {
         val r = run()
         assertEquals(TrackUploader.Outcome.NO_CONSENT, r.outcome)
         assertEquals(listOf(false), api.consentPuts.takeLast(1))
-        assertTrue(api.tracks.isEmpty())
+        // Отзыв только останавливает отправку: серверные и локальные треки не трогаются.
+        assertTrue(api.tracks.containsKey("t1"))
         assertEquals(false, settings.server)
-        assertEquals(TrackUploadState.PENDING, repo.track("t1")!!.uploadState)
+        assertEquals(TrackUploadState.UPLOADED, repo.track("t1")!!.uploadState)
     }
 
     @Test

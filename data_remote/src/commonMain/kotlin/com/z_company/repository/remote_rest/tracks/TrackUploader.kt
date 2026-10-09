@@ -101,8 +101,7 @@ class TrackUploader(
             } else {
                 api.putConsent(token, TrackConsentRequest(local, POLICY_VERSION))
                 settings.setServerConsent(local)
-                // Отзыв удалил серверные копии: метки «отправлено» больше не верны.
-                if (!local) repository.resetUploadState()
+                // Отзыв не удаляет треки (ни на устройстве, ни на сервере): метки «отправлено» остаются верными.
             }
         }
 
