@@ -41,6 +41,20 @@ enum class TrackEmptyReason {
     NO_SPEED,
 }
 
+/** Действие кнопки пустого графика скорости. */
+enum class TrackEmptyAction {
+    NONE,
+
+    /** «Включить АВТО» (для текущего поезда, как кнопка в «Поезде»). */
+    ENABLE_AUTO,
+
+    /** «Открыть согласие» - экран «Данные и конфиденциальность». */
+    OPEN_CONSENT,
+
+    /** «Записывать этот поезд» - сделать этот поезд целью записи. */
+    MAKE_TARGET,
+}
+
 /** Выбор причины пустого графика и отладочная строка состояния. */
 object TrackEmptyReasons {
 
@@ -71,5 +85,33 @@ object TrackEmptyReasons {
         }
         fun onOff(v: Boolean) = if (v) "вкл" else "выкл"
         return "согласие: ${onOff(state.consent)} · АВТО: ${onOff(state.autoEnabled)} · цель: $target · точек: $pointsInTrack"
+    }
+
+    /** Текст пустого графика по причине (по центру экрана). */
+    fun message(reason: TrackEmptyReason, otherTrainNumber: String? = null): String = when (reason) {
+        TrackEmptyReason.UNKNOWN -> "Нет записи скорости. Включите АВТО и согласие на сохранение трека"
+        TrackEmptyReason.CONSENT_OFF -> "Для записи скорости дайте согласие на сохранение трека"
+        TrackEmptyReason.AUTO_OFF -> "Для записи скорости включите режим АВТО"
+        TrackEmptyReason.OTHER_TRAIN ->
+            "АВТО записывает другой поезд" + otherTrainNumber?.takeIf { it.isNotBlank() }?.let { " (№$it)" }.orEmpty()
+        TrackEmptyReason.NO_TARGET -> "АВТО включено, но поезд для записи не выбран"
+        TrackEmptyReason.NO_POINTS_YET -> "Запись идёт, точек пока нет. Нужно проехать несколько секунд"
+        TrackEmptyReason.NO_SPEED -> "Нет данных о скорости от GPS"
+    }
+
+    /** Какая кнопка нужна под текстом. [canEnableAuto] - есть ли у экрана возможность включить АВТО (не просмотр трека). */
+    fun action(reason: TrackEmptyReason, canEnableAuto: Boolean = true): TrackEmptyAction = when (reason) {
+        TrackEmptyReason.CONSENT_OFF, TrackEmptyReason.UNKNOWN -> TrackEmptyAction.OPEN_CONSENT
+        TrackEmptyReason.AUTO_OFF -> if (canEnableAuto) TrackEmptyAction.ENABLE_AUTO else TrackEmptyAction.NONE
+        TrackEmptyReason.OTHER_TRAIN, TrackEmptyReason.NO_TARGET -> TrackEmptyAction.MAKE_TARGET
+        else -> TrackEmptyAction.NONE
+    }
+
+    /** Подпись кнопки действия. */
+    fun actionLabel(action: TrackEmptyAction, reason: TrackEmptyReason): String = when (action) {
+        TrackEmptyAction.ENABLE_AUTO -> "Включить АВТО"
+        TrackEmptyAction.OPEN_CONSENT -> if (reason == TrackEmptyReason.CONSENT_OFF) "Открыть согласие" else "Настройки согласия"
+        TrackEmptyAction.MAKE_TARGET -> "Записывать этот поезд"
+        TrackEmptyAction.NONE -> ""
     }
 }

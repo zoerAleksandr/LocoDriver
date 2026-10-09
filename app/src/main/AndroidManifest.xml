@@ -25,6 +25,7 @@
             android:launchMode="singleTask"
             android:exported="true"
             android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
             android:theme="@style/Theme.LocoDriver.Splash">
 
             <intent-filter android:autoVerify="true">

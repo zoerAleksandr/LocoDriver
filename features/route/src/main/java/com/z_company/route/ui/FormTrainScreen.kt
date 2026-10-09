@@ -332,6 +332,8 @@ fun FormTrainScreen(
                 loadZone = { viewModel.trainMapZone() },
                 planKey = remember { viewModel.trainMapPlanKey() },
                 onOpenConsentSettings = { showTrainMap = false; onConsentSettings() },
+                // Та же логика, что у кнопки «АВТО» в «Поезде» (разрешения, согласие, цель - этот поезд).
+                onEnableAuto = { if (!autoRecordManager.state.value.enabled) onAutoToggle() },
                 onDismiss = { showTrainMap = false; if (openMapOnStart) onMapClosedFromHome() },
             )
         }
@@ -1835,10 +1837,6 @@ fun FormTrainScreen(
                                         state = autoRecordState,
                                         onToggle = onAutoToggle,
                                         goHeight = true,
-                                    )
-                                    com.z_company.route.autorecord.AutoGnssIndicator(
-                                        manager = autoRecordManager,
-                                        state = autoRecordState,
                                     )
                                 }
 

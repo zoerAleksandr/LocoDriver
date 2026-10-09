@@ -2,6 +2,7 @@ package com.z_company.domain.track
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -14,6 +15,36 @@ class TrackAnalysisTest {
         assertEquals(5_000L, TrackAnalysis.nearestPoint(pts, 55.0011, 37.0, 30.0)?.timeMs)
         assertNull(TrackAnalysis.nearestPoint(pts, 55.01, 37.0, 30.0))
         assertNull(TrackAnalysis.nearestPoint(emptyList(), 55.0, 37.0, 30.0))
+    }
+
+    @Test
+    fun nearestOnTrackPicksNearerEndpointOfSegmentUnderTap() {
+        // Точки через ~222 м (0.002°): тап на линии в 80 м от первой и 142 м от второй - далеко от обеих точек.
+        val pts = listOf(p(0, 55.0, 37.0, 10.0), p(5, 55.002, 37.0, 70.0))
+        val lat = 55.0 + 80.0 / 111_195.0
+        assertNull(TrackAnalysis.nearestPoint(pts, lat, 37.0, 30.0))
+        assertEquals(0L, TrackAnalysis.nearestOnTrack(pts, lat, 37.0, 30.0, 48.0 + 40.0)?.timeMs)
+        val lat2 = 55.0 + 150.0 / 111_195.0
+        assertEquals(5_000L, TrackAnalysis.nearestOnTrack(pts, lat2, 37.0, 30.0, 88.0)?.timeMs)
+    }
+
+    @Test
+    fun nearestOnTrackUsesLineToleranceSideways() {
+        val pts = listOf(p(0, 55.0, 37.0), p(5, 55.002, 37.0))
+        // 40 м в сторону от середины линии: в допуске линии 48 м - попадание, в допуске 30 м - нет.
+        val lon = 37.0 + 40.0 / (111_195.0 * kotlin.math.cos(55.001 * kotlin.math.PI / 180))
+        assertNotNull(TrackAnalysis.nearestOnTrack(pts, 55.001, lon, 30.0, 48.0))
+        assertNull(TrackAnalysis.nearestOnTrack(pts, 55.001, lon, 30.0, 30.0))
+        assertNull(TrackAnalysis.nearestOnTrack(emptyList(), 55.0, 37.0, 30.0, 48.0))
+    }
+
+    @Test
+    fun nearestOnTrackIgnoresSegmentAcrossGap() {
+        // Разрыв записи 10 мин: между точками линии нет, тап посередине не попадает.
+        val pts = listOf(p(0, 55.0, 37.0), p(600, 55.002, 37.0))
+        assertNull(TrackAnalysis.nearestOnTrack(pts, 55.001, 37.0, 30.0, 48.0))
+        // но у самой точки - попадание по допуску точки
+        assertEquals(0L, TrackAnalysis.nearestOnTrack(pts, 55.0001, 37.0, 30.0, 48.0)?.timeMs)
     }
 
     @Test

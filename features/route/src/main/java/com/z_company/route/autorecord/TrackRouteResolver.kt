@@ -1,6 +1,7 @@
 package com.z_company.route.autorecord
 
 import com.z_company.domain.entities.route.Route
+import com.z_company.domain.track.SpeedScale
 import com.z_company.domain.track.TrackOrphanCleaner
 import com.z_company.domain.track.TrackPacking
 import com.z_company.domain.track.TrackRepository
@@ -48,6 +49,10 @@ class TrackRouteResolver(
         }
         return TrackTrainResolution.Missing
     }
+
+    /** Пассажирский ли поезд трека (по категории номера); поезд/рейсы не найдены - false. */
+    suspend fun isPassengerTrain(trainId: String): Boolean =
+        SpeedScale.isPassengerTrain(allRoutes()?.firstNotNullOfOrNull { r -> r.trains.firstOrNull { it.trainId == trainId } })
 
     /** Явка рейса (`basicData.timeStartWork`) по поезду трека; null — рейса/явки нет. */
     suspend fun workStartByTrain(trainId: String): Long? =

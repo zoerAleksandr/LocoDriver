@@ -3,6 +3,7 @@ package com.z_company.route.autorecord
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -65,7 +66,11 @@ object GnssSignalStyle {
  * ([GnssQualityText.tooltip]) на 4 секунды.
  */
 @Composable
-fun GnssSignalIndicator(quality: GnssQuality, modifier: Modifier = Modifier) {
+fun GnssSignalIndicator(
+    quality: GnssQuality,
+    modifier: Modifier = Modifier,
+    labelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) {
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val color = GnssSignalStyle.color(quality.level, dark)
     val filled = GnssSignalStyle.bars(quality.level)
@@ -80,11 +85,12 @@ fun GnssSignalIndicator(quality: GnssQuality, modifier: Modifier = Modifier) {
     val description = GnssQualityText.description(quality)
     Box(
         modifier = modifier
-            .size(40.dp)
+            .size(width = 44.dp, height = 52.dp)
             .semantics { contentDescription = description }
             .clickable(role = Role.Button, onClickLabel = "Пояснить уровень сигнала GPS") { showTip = true },
         contentAlignment = Alignment.Center,
     ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Canvas(modifier = Modifier.size(22.dp)) {
             val barW = size.width * 0.22f
             val gap = (size.width - 3 * barW) / 2f
@@ -107,6 +113,8 @@ fun GnssSignalIndicator(quality: GnssQuality, modifier: Modifier = Modifier) {
                     cap = StrokeCap.Round,
                 )
             }
+        }
+        Text(text = "GPS", fontSize = 10.sp, lineHeight = 12.sp, color = labelColor, modifier = Modifier.padding(top = 2.dp))
         }
         if (showTip) {
             val px = with(androidx.compose.ui.platform.LocalDensity.current) { 44.dp.roundToPx() }
@@ -134,15 +142,4 @@ fun GnssSignalIndicator(quality: GnssQuality, modifier: Modifier = Modifier) {
             }
         }
     }
-}
-
-/**
- * Индикатор рядом с чипом «АВТО»: виден, только пока «АВТО» включено или идёт запись ([GpsRecorder.isRunning]).
- */
-@Composable
-fun AutoGnssIndicator(manager: AutoRecordManager, state: AutoRecordState, modifier: Modifier = Modifier) {
-    val running by GpsRecorder.isRunning.collectAsState()
-    if (!state.enabled && !running) return
-    val quality by manager.gnssQuality.collectAsState()
-    GnssSignalIndicator(quality = quality, modifier = modifier)
 }
