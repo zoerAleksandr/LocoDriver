@@ -30,7 +30,7 @@ iOS на 30-40% готов: главный экран, FormScreen, автори�
 WorkScheduleView, SearchView, расчёт зарплаты, AllRoutes, Profile до конца,
 Purchases, авторизация по VK ID, чистка от Compose Multiplatform.
 
-📋 См. `60_IOS_TODO.md` для актуального roadmap'а.
+📋 См. `docs/IOS_PLAN.md` — актуальные итоги и план iOS (волны экранов, сквозные задачи). `60_IOS_TODO.md` устарел.
 
 ---
 
@@ -389,7 +389,7 @@ SSH на прод: `ssh root@87.228.110.32`.
 - `03_CODING_CONVENTIONS.md` — стандарты кода
 - `30_SERVER_ARCHITECTURE.md` — про сервер
 - `31_API_REFERENCE.md` — все эндпоинты, контракты, известные проблемы
-- `60_IOS_TODO.md` — задачи на 2 недели до релиза iOS
+- `docs/IOS_PLAN.md` — итоги и план iOS (`60_IOS_TODO.md` — устаревший план от апреля 2026)
 - `SECURITY_ACTION_PLAN.md` — оставшиеся задачи по безопасности
   (некритичные)
 
