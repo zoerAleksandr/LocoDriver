@@ -286,8 +286,41 @@ def top_steam():
     s.append(fl(circ(11,3.6,0.7),"#FFD84A"))
     return s
 
+
+def top_chme3():
+    G="#1F8A3C"; GD="#146A2C"; GL="#3FB05A"; R="#C8302B"; OR="#F07A2A"; Y="#F5C518"; roof="#AEB5BD"; win="#22313F"
+    s=[]
+    out=rrect(2,1,18,58,1.6)
+    s+=top_halo([out])
+    s.append(body(out,R))                                  # красная рама / нижний пояс
+    s.append(fl(rrect(2.4,1.4,17.2,3.6,0.8),OR))            # буферная балка спереди
+    s.append(fl(rrect(2.4,55.2,17.2,3.4,0.8),OR))           # и сзади
+    for x in (3.4,18.6): s.append(fl(circ(x,2.5,0.8),"#FFE9B0")); s.append(fl(circ(x,57.5,0.8),"#FFE9B0"))
+    # капот (длинный, ниже кабины)
+    s.append(body(rrect(5.4,26,11.2,29,1.2),G))
+    s.append(fl(rrect(6.4,27.4,9.2,26.2,0.8),GL))
+    for yy in (30,34,38,42): s.append(ln("M6.6 %s H15.4"%yy,GD,0.6))
+    s.append(fl(rrect(7,44,8,5.5,0.8),"#8C949D")); s.append(ln("M8.4 46.8 H13.6","#5A626B",0.5))     # вентиляционный люк
+    s.append(fl(circ(11,52.2,1.8),"#2B2F38")); s.append(fl(circ(11,52.2,0.8),"#6B747E"))            # вентилятор
+    s.append(fl(rrect(5.4,26,1.0,29,0.5),GD)); s.append(fl(rrect(15.6,26,1.0,29,0.5),GD))
+    # лобовая «тигровая» маска: жёлтый шеврон + красная полоса + звезда
+    s.append(body(rrect(3.6,4.2,14.8,5.4,0.8),Y))
+    s.append(fl(poly([(3.9,5.6),(11,8.2),(18.1,5.6),(18.1,7.0),(11,9.6),(3.9,7.0)]),R))
+    s.append(fl(poly([(11,4.5),(11.5,5.5),(12.5,5.5),(11.7,6.1),(12,7.1),(11,6.5),(10,7.1),(10.3,6.1),(9.5,5.5),(10.5,5.5)]),R))
+    # кабина (высокая, угловатая, ближе к носу)
+    s.append(body(rrect(3.8,9.6,14.4,16.4,1.4),G))
+    s.append(fl(rrect(5.0,10.8,12,3.4,0.8),win))                                             # лобовые стёкла
+    s.append(ln("M11 10.8 V14.2",GD,0.6))
+    s.append(fl(rrect(5.0,15.4,12,9.0,1.0),GL))
+    s.append(fl(rrect(7.4,17,7.2,5.2,0.8),roof)); s.append(ln("M8.2 19.6 H13.8","#8C949D",0.55))
+    for x in (4.3,16.9): s.append(fl(rrect(x,12,0.8,11,0.4),win))                           # боковые окна
+    # жёлтые поручни вдоль рамы и по торцам
+    for x in (2.55,19.45): s.append(ln("M%s 4.5 V55.5"%x,Y,0.9))
+    s.append(ln("M2.55 4.5 H19.45",Y,0.7)); s.append(ln("M2.55 55.5 H19.45",Y,0.7))
+    return s
+
 TOPS={"arrow":(24,24,top_arrow),"vl10":(22,60,lambda:top_vl("vl10")),"vl80":(22,60,lambda:top_vl("vl80")),"es6":(22,60,top_es6),"te25km":(22,60,top_te25),
-      "swallow":(22,60,top_swallow),"steam":(22,60,top_steam)}
+      "swallow":(22,60,top_swallow),"steam":(22,60,top_steam),"chme3":(22,60,top_chme3)}
 
 # ---------- изометрия ----------
 def slope_pt(b,dx,zs,z1,t,y): return (b-dx*t,y,zs+(z1-zs)*t)
@@ -464,7 +497,31 @@ def iso_steam():
     iso.line3((1.0,3.05,1.05),(5.8,3.05,1.05),"#8A929C",0.2)
     return iso
 
-ISOS={"arrow":iso_arrow,"vl10":lambda:iso_vl("vl10"),"vl80":lambda:iso_vl("vl80"),"es6":iso_es6,"te25km":iso_te25,"swallow":iso_swallow,"steam":iso_steam}
+
+def iso_chme3():
+    iso=Iso(); iso.shadow(0,14.8,0,3)
+    G="#1F8A3C"; DK="#146A2C"; R="#C8302B"; OR="#F07A2A"; Y="#F5C518"
+    for x in (1.6,3.8,6.0,8.2,10.4,12.6):                                   # красные колёса
+        iso.wheel(x,0.62,0.58,2.65,"#B22E2A","#2B2F38")
+    iso.box(0.2,14.4,0.3,2.7,0.5,1.0,R)                                     # красная рама
+    iso.box(14.0,14.8,0.2,2.8,0.85,1.7,OR,end=darken(OR,0.15))              # буферная балка
+    iso.qX(0.2,0.7,1.1,1.5,14.8,"#FFE9B0"); iso.qX(2.3,2.8,1.1,1.5,14.8,"#FFE9B0")
+    sec(iso,0.2,9.4,G,1.0,3.0,y0=0.25,y1=2.75)                              # капот
+    for i in range(4): louvre(iso,0.9+i*2.0,2.1+i*2.0,1.5,2.7,2.75,DK,4)
+    iso.box(2.0,3.3,0.7,2.3,3.0,3.28,"#8C949D"); iso.circZ(7.4,1.5,0.7,3.0,"#2B2F38"); iso.circZ(7.4,1.5,0.35,3.03,"#6B747E")
+    sec(iso,9.4,13.9,G,1.0,4.5,y0=0.1,y1=2.9)                               # кабина
+    iso.qY(10.0,13.3,2.7,4.0,2.9,"#22313F"); iso.qY(11.5,11.7,2.7,4.0,2.9,G)
+    iso.qX(0.5,1.35,3.0,4.0,13.9,"#22313F"); iso.qX(1.65,2.5,3.0,4.0,13.9,"#22313F")
+    iso.poly3([(13.9,0.1,1.0),(13.9,2.9,1.0),(13.9,2.9,2.8),(13.9,1.5,2.2),(13.9,0.1,2.8)],Y)   # жёлтая маска
+    iso.poly3([(13.9,0.1,1.9),(13.9,1.5,1.5),(13.9,2.9,1.9),(13.9,2.9,2.25),(13.9,1.5,1.85),(13.9,0.1,2.25)],R)
+    iso.qX(1.4,1.6,2.35,2.6,13.9,R)
+    iso.line3((0.4,3.0,1.9),(13.8,3.0,1.9),Y,0.14)                          # жёлтые поручни
+    for x in (0.6,4.0,7.4,10.8,13.6): iso.line3((x,3.0,1.0),(x,3.0,1.9),Y,0.12)
+    iso.line3((14.5,0.0,1.8),(14.5,3.0,1.8),Y,0.14)
+    seam(iso,9.4,1.0,3.0,"#0E4A1E")
+    return iso
+
+ISOS={"arrow":iso_arrow,"vl10":lambda:iso_vl("vl10"),"vl80":lambda:iso_vl("vl80"),"es6":iso_es6,"te25km":iso_te25,"swallow":iso_swallow,"steam":iso_steam,"chme3":iso_chme3}
 def iso_shapes(iso,size=60,margin=3):
     pts=[]
     for it in iso.items:
