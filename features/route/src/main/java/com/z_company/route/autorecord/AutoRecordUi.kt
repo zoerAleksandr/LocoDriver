@@ -105,9 +105,10 @@ fun rememberAutoRecordToggle(manager: AutoRecordManager, trainId: String? = null
     if (showConsent) {
         TrackConsentDialog(
             initialChecked = false,
-            onContinue = { checked ->
+            onContinue = { checked, shareAltitudes ->
                 showConsent = false
                 consent.setConsent(checked)
+                if (shareAltitudes) consent.setAltitudeContrib(true)
                 startEnable()
             },
             onDismiss = { showConsent = false },

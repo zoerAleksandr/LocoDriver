@@ -26,7 +26,11 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.track.TrackPoint
 import com.z_company.domain.track.TrackRecordingState
 import com.z_company.domain.track.TrackRepository
+import com.z_company.domain.track.AltitudeContribStore
+import com.z_company.domain.track.AltitudeSessionBuffer
+import com.z_company.domain.track.PendingContribSession
 import com.z_company.domain.track.TrackWriter
+import com.z_company.domain.track.newContribSessionId
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.domain.util.displayTimeZone
@@ -88,6 +92,13 @@ class AutoRecordManager(
      * сеанса «АВТО»; воркер сам ждёт, пока трек «затихнет», и пропускает прогон без согласия.
      */
     private val onTrackUpload: () -> Unit = {},
+    /**
+     * Временное хранилище точек для вклада высот (согласие №2, SCREEN_SPECS §6.9); null - вклад недоступен.
+     * Не зависит от согласия №1 и не пишет в Track.db.
+     */
+    private val altitudeStore: AltitudeContribStore? = null,
+    /** Запланировать отправку вклада высот (WorkManager в app) после сеанса «АВТО». */
+    private val onAltitudeContrib: () -> Unit = {},
 ) {
     private val _state = MutableStateFlow(AutoRecordState())
     val state: StateFlow<AutoRecordState> = _state.asStateFlow()
@@ -101,6 +112,7 @@ class AutoRecordManager(
     private var settings: UserSettings = UserSettings()
     private var lastBeatWriteMs = 0L
     private val trackWriter = trackRepository?.let { TrackWriter(it) }
+    private val altitudeBuffer = AltitudeSessionBuffer()
 
     init {
         if (prefs.getLong(KEY_UNTIL, 0L) == 0L && prefs.getBoolean(KEY_INTERRUPTED, false)) {
@@ -205,6 +217,16 @@ class AutoRecordManager(
             }
             // Отправка накопленного и очистка осиротевших треков (воркер без сети/входа просто выходит).
             runCatching { onTrackUpload() }
+        }
+        // Вклад высот (согласие №2): неотправленные сеансы - в отправку; без согласия - удалить.
+        altitudeStore?.let { st ->
+            runCatching {
+                if (trackConsent?.altitudeContrib?.value == true) {
+                    if (st.pendingIds().isNotEmpty()) onAltitudeContrib()
+                } else {
+                    st.clear()
+                }
+            }
         }
         val until = prefs.getLong(KEY_UNTIL, 0L)
         if (until == 0L) return
@@ -384,6 +406,7 @@ class AutoRecordManager(
 
     /** Точка трека: только при согласии №1, в поезд, где нажата «АВТО»; прореживается TrackWriter. */
     private fun recordTrackPoint(p: GpsPoint) {
+        recordAltitudeSample(p)
         val writer = trackWriter ?: return
         val consent = trackConsent?.saveTracks?.value == true
         val target = prefs.getString(KEY_TARGET, null)
@@ -400,7 +423,31 @@ class AutoRecordManager(
         }
     }
 
+    /** Точка для вклада высот: только при согласии №2 (независимо от №1), в память до конца сеанса. */
+    private fun recordAltitudeSample(p: GpsPoint) {
+        if (altitudeStore == null || trackConsent?.altitudeContrib?.value != true) return
+        synchronized(altitudeBuffer) {
+            altitudeBuffer.add(
+                TrackPoint(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM, p.altitudeM, p.baroAltitudeM),
+            )
+        }
+    }
+
+    /** Сеанс закончен: накопленные точки - во временный файл для воркера (если согласие №2 ещё действует). */
+    private fun flushAltitudeSession() {
+        val samples = synchronized(altitudeBuffer) { altitudeBuffer.drain() }
+        val store = altitudeStore ?: return
+        if (samples.isEmpty() || trackConsent?.altitudeContrib?.value != true) return
+        try {
+            store.save(PendingContribSession(newContribSessionId(), nowMs(), samples))
+            runCatching { onAltitudeContrib() }
+        } catch (e: Exception) {
+            e.sendToSentry("AutoRecordManager", "altitudeFlush") // без координат
+        }
+    }
+
     private fun resetTrack() {
+        flushAltitudeSession()
         trackWriter?.let { synchronized(it) { it.reset() } }
         // Сеанс закончен — трек готов к отправке (воркер подождёт паузу без новых точек).
         if (trackConsent?.saveTracks?.value == true) runCatching { onTrackUpload() }

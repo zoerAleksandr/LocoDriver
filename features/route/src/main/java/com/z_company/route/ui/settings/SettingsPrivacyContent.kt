@@ -24,13 +24,30 @@ import java.util.Locale
 /**
  * «Данные и конфиденциальность» (SCREEN_SPECS §17.7): согласие №1 «Сохранять мои треки и историю
  * поездок». Выключено по умолчанию; отзыв — с подтверждением, треки не удаляет.
- * Переключатель №2 (обезличенные высоты) пока не показывается.
+ * Ниже - независимое согласие №2 «Передавать обезличенные высоты для режимной карты».
  */
 @Composable
 fun SettingsPrivacyContent() {
     val consent: TrackConsentStore = koinInject()
     val saveTracks by consent.saveTracks.collectAsState()
+    val shareAltitudes by consent.altitudeContrib.collectAsState()
     var confirmRevoke by remember { mutableStateOf(false) }
+    var confirmRevokeAltitudes by remember { mutableStateOf(false) }
+
+    if (confirmRevokeAltitudes) {
+        AppAlertDialog(
+            onDismissRequest = { confirmRevokeAltitudes = false },
+            title = TrackConsentTexts.ALT_REVOKE_TITLE,
+            text = TrackConsentTexts.ALT_REVOKE_TEXT,
+            confirmText = TrackConsentTexts.ALT_REVOKE_CONFIRM,
+            isDestructive = true,
+            onConfirm = {
+                confirmRevokeAltitudes = false
+                consent.setAltitudeContrib(false)
+            },
+            dismissText = TrackConsentTexts.REVOKE_CANCEL,
+        )
+    }
 
     if (confirmRevoke) {
         AppAlertDialog(
@@ -72,5 +89,23 @@ fun SettingsPrivacyContent() {
         SettingsSectionNote(TrackConsentTexts.BODY)
         TrackConsentTexts.POINTS.forEach { SettingsSectionNote("• $it") }
         SettingsSectionNote(TrackConsentTexts.NO_CONSENT_NOTE)
+
+        // Согласие №2: независимо от №1 (можно включить только его).
+        SettingsGroupHeader("ВЫСОТЫ ДЛЯ РЕЖИМНОЙ КАРТЫ", top = 24.dp, startPad = 4.dp)
+        SettingsCard {
+            SettingsSwitchRow(
+                label = TrackConsentTexts.ALT_SWITCH_LABEL,
+                checked = shareAltitudes,
+                onCheckedChange = { on ->
+                    if (on) consent.setAltitudeContrib(true) else confirmRevokeAltitudes = true
+                },
+            )
+        }
+        if (shareAltitudes) {
+            SettingsSectionNote(
+                "Согласие дано " + SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date(consent.altitudeConsentAtMs()))
+            )
+        }
+        SettingsSectionNote(TrackConsentTexts.ALT_NOTE)
     }
 }

@@ -1,6 +1,7 @@
 package com.z_company.route.autorecord
 
 import android.content.SharedPreferences
+import com.z_company.domain.track.AltitudeContribSettings
 import com.z_company.domain.track.TrackRepository
 import com.z_company.domain.track.TrackSyncSettings
 import kotlinx.coroutines.CoroutineScope
@@ -14,6 +15,7 @@ import kotlinx.coroutines.launch
  * Согласие №1: «Сохранять мои треки и историю поездок» (SCREEN_SPECS §6.9, §17.7).
  * По умолчанию ВЫКЛ; состояние и время согласия — только на устройстве (SharedPreferences).
  * Отзыв только останавливает запись и отправку новых треков; уже записанные треки не удаляются.
+ * Здесь же согласие №2 (обезличенные высоты, `altitude_contrib` + время), независимое от №1.
  */
 class TrackConsentStore(
     private val prefs: SharedPreferences,
@@ -22,7 +24,9 @@ class TrackConsentStore(
     private val nowMs: () -> Long = { System.currentTimeMillis() },
     /** Согласие изменилось: запланировать отправку/отзыв на сервере (WorkManager в app). */
     private val onConsentChanged: () -> Unit = {},
-) : TrackSyncSettings {
+    /** Согласие №2 изменилось (true - включено): при отзыве удалить накопленные точки и отменить отправку. */
+    private val onAltitudeConsentChanged: (Boolean) -> Unit = {},
+) : TrackSyncSettings, AltitudeContribSettings {
     private val _saveTracks = MutableStateFlow(prefs.getBoolean(KEY_SAVE_TRACKS, false))
 
     /** Дано ли согласие на сохранение треков. */
@@ -43,6 +47,28 @@ class TrackConsentStore(
         // Серверу нужно сообщить об изменении (PUT consent; при отзыве треки на сервере сохраняются).
         runCatching { onConsentChanged() }
     }
+
+    private val _altitudeContrib = MutableStateFlow(prefs.getBoolean(KEY_ALTITUDE_CONTRIB, false))
+
+    /** Согласие №2: «Передавать обезличенные высоты для режимной карты». Независимо от №1, по умолчанию ВЫКЛ. */
+    val altitudeContrib: StateFlow<Boolean> = _altitudeContrib.asStateFlow()
+
+    /** Время согласия №2, мс (0 - не давалось). */
+    fun altitudeConsentAtMs(): Long = prefs.getLong(KEY_ALTITUDE_CONTRIB_AT, 0L)
+
+    /**
+     * Включить/отозвать согласие №2. Отзыв только останавливает дальнейшую передачу: уже отправленные
+     * обезличенные высоты вернуть нельзя (они не связаны с аккаунтом).
+     */
+    fun setAltitudeContrib(enabled: Boolean) {
+        val editor = prefs.edit().putBoolean(KEY_DECIDED, true).putBoolean(KEY_ALTITUDE_CONTRIB, enabled)
+        if (enabled) editor.putLong(KEY_ALTITUDE_CONTRIB_AT, nowMs()) else editor.remove(KEY_ALTITUDE_CONTRIB_AT)
+        editor.apply()
+        _altitudeContrib.value = enabled
+        runCatching { onAltitudeConsentChanged(enabled) }
+    }
+
+    override fun enabled(): Boolean = _altitudeContrib.value
 
     override fun localConsent(): Boolean = _saveTracks.value
 
@@ -83,5 +109,7 @@ class TrackConsentStore(
         private const val KEY_DECIDED = "decided"
         private const val KEY_WARNED = "no_consent_warned"
         private const val KEY_SERVER_CONSENT = "server_consent"
+        private const val KEY_ALTITUDE_CONTRIB = "altitude_contrib"
+        private const val KEY_ALTITUDE_CONTRIB_AT = "altitude_contrib_at_ms"
     }
 }
