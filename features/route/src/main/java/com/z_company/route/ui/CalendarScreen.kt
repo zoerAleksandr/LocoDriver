@@ -726,6 +726,7 @@ fun CalendarScreen(
                     )
                 }
             },
+            contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(route.trains.map { it.trainId }),
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") {
                     routeForRemove = null
@@ -1455,6 +1456,7 @@ private fun DayDetails(
                     )
                 }
             },
+            contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(route.trains.map { it.trainId }),
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") { onDeleteRoute(route) }
             ),

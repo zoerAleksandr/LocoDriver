@@ -23,6 +23,8 @@ fun ProfileDestination(
         viewModel = viewModel,
         trashViewModel = trashViewModel,
         onBillingClick = showPurchasesScreen,
+        onOpenTrackHistory = router::showTrackHistory,
+        onOpenDataPrivacy = router::showDataPrivacy,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh(viewModel::refresh) },
         pullSyncMessage = pullToSyncState.message,

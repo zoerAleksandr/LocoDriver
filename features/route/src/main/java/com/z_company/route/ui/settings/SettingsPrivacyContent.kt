@@ -23,7 +23,7 @@ import java.util.Locale
 
 /**
  * «Данные и конфиденциальность» (SCREEN_SPECS §17.7): согласие №1 «Сохранять мои треки и историю
- * поездок». Выключено по умолчанию; отзыв — с подтверждением, удаляет локальные треки.
+ * поездок». Выключено по умолчанию; отзыв — с подтверждением, треки не удаляет.
  * Переключатель №2 (обезличенные высоты) пока не показывается.
  */
 @Composable
@@ -58,15 +58,15 @@ fun SettingsPrivacyContent() {
         SettingsCard {
             SettingsSwitchRow(
                 label = TrackConsentTexts.SWITCH_LABEL,
-                sub = if (saveTracks) {
-                    "Согласие дано " + SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date(consent.consentAtMs()))
-                } else {
-                    "Не сохраняются"
-                },
                 checked = saveTracks,
                 onCheckedChange = { on ->
                     if (on) consent.setConsent(true) else confirmRevoke = true
                 },
+            )
+        }
+        if (saveTracks) {
+            SettingsSectionNote(
+                "Согласие дано " + SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date(consent.consentAtMs()))
             )
         }
         SettingsSectionNote(TrackConsentTexts.BODY)

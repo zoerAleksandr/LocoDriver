@@ -42,6 +42,17 @@ fun NavGraphBuilder.homeGraph(
             ProfileDestination(router = router)
         }
 
+        composableScreen(DataPrivacyRoute.route) {
+            com.z_company.route.ui.DataPrivacyScreen(onBack = { router.back() })
+        }
+
+        composableScreen(TrackHistoryRoute.route) {
+            com.z_company.route.ui.TrackHistoryScreen(
+                viewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+                onBack = { router.back() },
+            )
+        }
+
         composableScreen(
             route = FormLoco.route,
             arguments = FormLoco.navArguments,

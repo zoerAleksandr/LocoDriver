@@ -70,10 +70,15 @@ fun TrashScreen(viewModel: TrashViewModel, onBack: () -> Unit) {
     val purgeableCount = state.routes.count(TrashPurgePolicy::canPurgeManually)
 
     if (showEmptyConfirmation) {
+        val purgeTrainIds = state.routes
+            .filter(TrashPurgePolicy::canPurgeManually)
+            .flatMap { route -> route.trains.map { it.trainId } }
+        val hasTracks by com.z_company.route.component.rememberHasTracks(purgeTrainIds)
         AppAlertDialog(
             onDismissRequest = { if (!state.isPurging) showEmptyConfirmation = false },
             title = "Очистить корзину?",
-            text = "Будут безвозвратно удалены $purgeableCount маршрутов.",
+            text = "Будут безвозвратно удалены $purgeableCount маршрутов." +
+                if (hasTracks) "\n${com.z_company.route.component.TRACKS_WILL_BE_DELETED_NOTE}" else "",
             confirmText = "Удалить",
             isDestructive = true,
             onConfirm = {

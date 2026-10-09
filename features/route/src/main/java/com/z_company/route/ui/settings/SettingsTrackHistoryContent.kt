@@ -146,7 +146,7 @@ fun SettingsTrackHistoryContent(viewModel: TrackHistoryViewModel) {
                             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp),
                         )
                         Text(
-                            text = "Новые поездки не записываются в историю. Включить сохранение можно в Настройках → «Данные и конфиденциальность».",
+                            text = "Новые поездки не записываются в историю. Включить сохранение можно в Профиле → «Данные и конфиденциальность».",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 14.dp),

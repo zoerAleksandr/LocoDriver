@@ -18,7 +18,8 @@ interface Router {
     fun showSettingsRouteForm() { showSettings() }
     fun showSettingsLoco(seriesName: String? = null) { showSettings() }
     fun showSettingsTrain() { showSettings() }
-    fun showSettingsPrivacy() { showSettings() }
+    fun showDataPrivacy() { showSettings() }
+    fun showTrackHistory() { showSettings() }
     fun showSettingsRest() { showSettings() }
     fun showSettingsSeriesList() { showSettings() }
     fun showSettingsSeriesEditor(seriesId: String) { showSettingsSeriesList() }

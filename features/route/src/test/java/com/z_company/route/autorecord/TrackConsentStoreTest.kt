@@ -80,7 +80,7 @@ class TrackConsentStoreTest {
     }
 
     @Test
-    fun revokeDeletesLocalTracks() = runTest {
+    fun revokeKeepsLocalTracks() = runTest {
         val repo = Repo()
         val dispatcher = StandardTestDispatcher(testScheduler)
         val store = TrackConsentStore(MemPrefs(), repo, CoroutineScope(dispatcher + Job()))
@@ -89,9 +89,9 @@ class TrackConsentStoreTest {
         advanceUntilIdle()
         assertFalse(store.saveTracks.value)
         assertEquals(0L, store.consentAtMs())
-        // удаление идёт на Dispatchers.Default; дожидаемся
         Thread.sleep(200)
-        assertEquals(1, repo.deletedAll)
+        // Отзыв не удаляет уже записанные треки.
+        assertEquals(0, repo.deletedAll)
     }
 
     @Test

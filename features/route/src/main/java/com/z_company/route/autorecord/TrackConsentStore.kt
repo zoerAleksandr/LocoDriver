@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 /**
  * Согласие №1: «Сохранять мои треки и историю поездок» (SCREEN_SPECS §6.9, §17.7).
  * По умолчанию ВЫКЛ; состояние и время согласия — только на устройстве (SharedPreferences).
- * Отзыв удаляет все локальные треки.
+ * Отзыв только останавливает запись и отправку новых треков; уже записанные треки не удаляются.
  */
 class TrackConsentStore(
     private val prefs: SharedPreferences,
@@ -34,16 +34,13 @@ class TrackConsentStore(
     /** Решение уже принято (экран согласия показан и подтверждён). */
     fun hasDecided(): Boolean = prefs.getBoolean(KEY_DECIDED, false)
 
-    /** Включить/отозвать согласие. Отзыв удаляет локальные треки. */
+    /** Включить/отозвать согласие. Отзыв треки не удаляет. */
     fun setConsent(enabled: Boolean) {
         val editor = prefs.edit().putBoolean(KEY_DECIDED, true).putBoolean(KEY_SAVE_TRACKS, enabled)
         if (enabled) editor.putLong(KEY_CONSENT_AT, nowMs()) else editor.remove(KEY_CONSENT_AT)
         editor.apply()
         _saveTracks.value = enabled
-        if (!enabled) {
-            scope.launch(Dispatchers.Default) { runCatching { trackRepository?.deleteAll() } }
-        }
-        // Серверу нужно сообщить об изменении (при отзыве он удалит все серверные треки).
+        // Серверу нужно сообщить об изменении (PUT consent; при отзыве треки на сервере сохраняются).
         runCatching { onConsentChanged() }
     }
 

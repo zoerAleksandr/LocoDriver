@@ -206,6 +206,8 @@ fun ProfileScreen(
     viewModel: ProfileViewModel,
     trashViewModel: TrashViewModel,
     onBillingClick: () -> Unit,
+    onOpenTrackHistory: () -> Unit = {},
+    onOpenDataPrivacy: () -> Unit = {},
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
     pullSyncMessage: String? = null,
@@ -1365,37 +1367,40 @@ fun ProfileScreen(
                             item {
                                 val trashState by trashViewModel.uiState.collectAsState()
                                 ProfileGroupLabel("ДАННЫЕ")
-                                Row(
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .shadow(1.dp, Shapes.medium)
-                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-                                        .clickable { showTrash = true }
-                                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium),
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceBright),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Icon(painterResource(R.drawable.delete_24px), null, modifier = Modifier.size(21.dp), tint = MaterialTheme.colorScheme.tertiary)
-                                    }
-                                    Column(Modifier.weight(1f)) {
-                                        Text("Корзина маршрутов", style = styleData, color = primaryColor)
-                                        Text(
-                                            "${trashState.routes.size} ${trashPluralRu(trashState.routes.size, "маршрут", "маршрута", "маршрутов")}",
-                                            style = styleHint,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    Icon(
-                                        painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ProfileDataRow(
+                                        iconRes = R.drawable.outline_history_24,
+                                        title = "Мои треки",
+                                        subtitle = "История записанных поездок",
+                                        titleStyle = styleData,
+                                        subtitleStyle = styleHint,
+                                        titleColor = primaryColor,
+                                        onClick = onOpenTrackHistory,
+                                    )
+                                    ProfileDataDivider()
+                                    ProfileDataRow(
+                                        iconRes = R.drawable.outline_visibility_24,
+                                        title = "Данные и конфиденциальность",
+                                        subtitle = "Треки и история поездок",
+                                        titleStyle = styleData,
+                                        subtitleStyle = styleHint,
+                                        titleColor = primaryColor,
+                                        onClick = onOpenDataPrivacy,
+                                    )
+                                    ProfileDataDivider()
+                                    ProfileDataRow(
+                                        iconRes = R.drawable.delete_24px,
+                                        title = "Корзина маршрутов",
+                                        subtitle = "${trashState.routes.size} ${trashPluralRu(trashState.routes.size, "маршрут", "маршрута", "маршрутов")}",
+                                        titleStyle = styleData,
+                                        subtitleStyle = styleHint,
+                                        titleColor = primaryColor,
+                                        onClick = { showTrash = true },
                                     )
                                 }
                             }
@@ -1844,4 +1849,51 @@ fun ProfileScreen(
             }
         }
     }
+}
+
+@Composable
+private fun ProfileDataRow(
+    iconRes: Int,
+    title: String,
+    subtitle: String,
+    titleStyle: androidx.compose.ui.text.TextStyle,
+    subtitleStyle: androidx.compose.ui.text.TextStyle,
+    titleColor: androidx.compose.ui.graphics.Color,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceBright),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(painterResource(iconRes), null, modifier = Modifier.size(21.dp), tint = MaterialTheme.colorScheme.tertiary)
+        }
+        Column(Modifier.weight(1f)) {
+            Text(title, style = titleStyle, color = titleColor)
+            Text(subtitle, style = subtitleStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(
+            painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun ProfileDataDivider() {
+    androidx.compose.material3.HorizontalDivider(
+        modifier = Modifier.padding(start = 70.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+    )
 }

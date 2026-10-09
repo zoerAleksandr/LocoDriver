@@ -297,6 +297,8 @@ fun FormScreen(
     var pendingDeleteTitle by remember { mutableStateOf("") }
     var pendingDeleteMessage by remember { mutableStateOf("") }
     var pendingDeleteAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    // Поезд, удаляемый текущим подтверждением (только для «Удалить поезд?»): для строки про треки.
+    var pendingDeleteTrainIds by remember { mutableStateOf<List<String>>(emptyList()) }
 
     // Подтверждение удаления единицы маршрута — шторка (как удаление маршрута).
     pendingDeleteAction?.let { action ->
@@ -322,6 +324,7 @@ fun FormScreen(
                     )
                 }
             },
+            contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(pendingDeleteTrainIds),
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") { action() }
             )
@@ -341,6 +344,9 @@ fun FormScreen(
             onDismissRequest = { showDeleteConfirmDialog = false },
             sheetState = sheetState,
             title = deleteTitle,
+            contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(
+                currentRoute?.trains?.map { it.trainId }.orEmpty()
+            ),
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") {
                     viewModel.onDeleteRoute()
@@ -1374,6 +1380,7 @@ fun FormScreen(
                                     basicId = basicId,
                                     onDeleteClick = { loco ->
                                         pendingDeleteTitle = "Удалить локомотив?"
+                                        pendingDeleteTrainIds = emptyList()
                                         pendingDeleteMessage =
                                             "Локомотив будет убран из маршрута. Это действие нельзя отменить."
                                         pendingDeleteAction = { onDeleteLoco(loco) }
@@ -1394,6 +1401,7 @@ fun FormScreen(
                                     basicId = basicId,
                                     onDeleteClick = { train ->
                                         pendingDeleteTitle = "Удалить поезд?"
+                                        pendingDeleteTrainIds = listOf(train.trainId)
                                         pendingDeleteMessage =
                                             "Поезд будет убран из маршрута. Это действие нельзя отменить."
                                         pendingDeleteAction = { onDeleteTrain(train) }
@@ -1412,6 +1420,7 @@ fun FormScreen(
                                     basicId = basicId,
                                     onDeleteClick = { otherWork ->
                                         pendingDeleteTitle = "Удалить запись?"
+                                        pendingDeleteTrainIds = emptyList()
                                         pendingDeleteMessage =
                                             "Запись прочей работы будет убрана из маршрута. Это действие нельзя отменить."
                                         pendingDeleteAction = { onDeleteOtherWork(otherWork) }
@@ -1430,6 +1439,7 @@ fun FormScreen(
                                     basicId = basicId,
                                     onDeleteClick = { passenger ->
                                         pendingDeleteTitle = "Удалить поездку пассажиром?"
+                                        pendingDeleteTrainIds = emptyList()
                                         pendingDeleteMessage =
                                             "Запись будет убрана из маршрута. Это действие нельзя отменить."
                                         pendingDeleteAction = { onDeletePassenger(passenger) }
