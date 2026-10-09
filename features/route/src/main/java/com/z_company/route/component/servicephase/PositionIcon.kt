@@ -33,7 +33,8 @@ enum class PositionIcon(
     ES6("es6", "2ЭС6 «Синара»", R.drawable.ic_posicon_es6_top, R.drawable.ic_posicon_es6_iso, 56f),
     TE25KM("te25km", "2ТЭ25КМ «Витязь»", R.drawable.ic_posicon_te25km_top, R.drawable.ic_posicon_te25km_iso, 56f),
     SWALLOW("swallow", "Ласточка", R.drawable.ic_posicon_swallow_top, R.drawable.ic_posicon_swallow_iso, 56f),
-    STEAM("steam", "Паровоз", R.drawable.ic_posicon_steam_top, R.drawable.ic_posicon_steam_iso, 56f);
+    STEAM("steam", "Паровоз", R.drawable.ic_posicon_steam_top, R.drawable.ic_posicon_steam_iso, 56f),
+    CHME3("chme3", "ЧМЭ3", R.drawable.ic_posicon_chme3_top, R.drawable.ic_posicon_chme3_iso, 56f);
 
     companion object {
         /** Старые значения (до замены набора): паровоз → Паровоз, тепловоз → 2ТЭ25КМ, электровоз → ВЛ-10, электропоезд → Ласточка, остальное → Стрелка. */
