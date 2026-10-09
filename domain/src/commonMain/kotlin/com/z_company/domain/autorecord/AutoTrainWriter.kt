@@ -3,6 +3,7 @@ package com.z_company.domain.autorecord
 import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.util.ServicePhaseStationPicker
+import com.z_company.domain.util.ServicePhaseStationsMerge
 
 /** Станция справочника с координатами для привязки остановки к названию. */
 object AutoStationLocator {
@@ -75,7 +76,13 @@ object AutoTrainWriter {
             if (event.type != StopEventType.ARRIVAL) return null
             val nextIdx = lastIdx + 1
             val isPhaseArrival = hasServicePhase && nextIdx == stations.lastIndex
-            if (nextIdx <= stations.lastIndex && !isPhaseArrival) {
+            // Прибытие на конечную станцию плеча (или на станцию, уже стоящую следующей и названную так же) —
+            // в неё же, а не новой промежуточной (дубль «Веймарн»).
+            val endMatches = isPhaseArrival && name != null && stations[nextIdx].timeArrival == null &&
+                sameStation(stations[nextIdx].stationName?.takeIf { it.isNotBlank() } ?: train.servicePhase?.arrivalStation, name)
+            if (endMatches) {
+                stations[nextIdx] = stations[nextIdx].withArrival(time, name)
+            } else if (nextIdx <= stations.lastIndex && !isPhaseArrival) {
                 stations[nextIdx] = stations[nextIdx].withArrival(time, name)
             } else {
                 val fresh = Station(trainId = train.trainId, stationName = name, timeArrival = time)
@@ -85,6 +92,10 @@ object AutoTrainWriter {
         }
         return train.copy(stations = stations)
     }
+
+    private fun sameStation(a: String?, b: String?): Boolean =
+        !a.isNullOrBlank() && !b.isNullOrBlank() &&
+            ServicePhaseStationsMerge.normalizeName(a) == ServicePhaseStationsMerge.normalizeName(b)
 
     // Название подставляется только в пустое поле — введённое пользователем не трогаем.
     private fun Station.withDeparture(time: Long, name: String?) = copy(
