@@ -591,6 +591,13 @@ class TrainFormViewModel(
         }
     }
 
+    /** Пояс отображения времени (displayTimeZone) для ввода планового времени прибытия на карте (§6.9). */
+    suspend fun trainMapZone(): String =
+        runCatching { settingsUseCase.getUserSettingFlow().first().displayTimeZone() }.getOrDefault("GMT+3")
+
+    /** Ключ хранения плана прибытия на карте - id поезда; null - поезд ещё не создан. */
+    fun trainMapPlanKey(): String? = currentTrain?.trainId?.toString()
+
     /** Состояние записи трека для пустого графика скорости (§6.9): согласие, «АВТО», цель; null - поезд ещё не определён. */
     suspend fun trainMapRecordingState(): com.z_company.domain.track.TrackRecordingState? {
         val thisId = currentTrain?.trainId ?: return null
