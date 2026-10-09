@@ -59,6 +59,7 @@ class SubscriptionNoticesViewModel : ViewModel(), KoinComponent {
     private val secureTokenStorage: SecureTokenStorage by inject()
     private val remoteRestApi: RemoteRestApi by inject()
     private val sharedPrefs: SharedPreferencesRepositories by inject()
+    private val trackUploadTrigger: com.z_company.route.autorecord.TrackUploadTrigger by inject()
 
     private val _bonusAwardedDays = MutableStateFlow<Int?>(null)
     val bonusAwardedDays = _bonusAwardedDays.asStateFlow()
@@ -69,6 +70,13 @@ class SubscriptionNoticesViewModel : ViewModel(), KoinComponent {
     private val policy = SubscriptionNoticesPolicy(sharedPrefs.asSubscriptionSeenStore())
 
     init {
+        // Подписка появилась/продлена: накопленные локальные треки уходят на сервер сами (гейт в TrackUploader).
+        viewModelScope.launch {
+            settingsUseCase.getUserSettingFlow()
+                .map { it.subscriptionPeriod > System.currentTimeMillis() }
+                .distinctUntilChanged()
+                .collect { active -> if (active) runCatching { trackUploadTrigger.trigger() } }
+        }
         viewModelScope.launch {
             combine(
                 secureTokenStorage.getAuthBearerTokenFlow()

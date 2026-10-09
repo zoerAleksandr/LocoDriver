@@ -84,19 +84,29 @@ fun DataPrivacyScreen(onBack: () -> Unit) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrackHistoryScreen(viewModel: TrackHistoryViewModel, onBack: () -> Unit, onOpenDataPrivacy: () -> Unit = {}) {
+fun TrackHistoryScreen(
+    viewModel: TrackHistoryViewModel,
+    onBack: () -> Unit,
+    onOpenDataPrivacy: () -> Unit = {},
+    onOpenPurchases: () -> Unit = {},
+) {
     val ui by viewModel.state.collectAsState()
     val isSelectionMode = ui.isSelectionMode
     val selectedIds = ui.selectedIds
     val isAllSelected = ui.items.isNotEmpty() && selectedIds.containsAll(ui.items.map { it.id })
     var confirmDelete by remember { mutableStateOf(false) }
     var noConsent by remember { mutableStateOf(false) }
+    var noSubscription by remember { mutableStateOf(false) }
     val networkGate = rememberNetworkGate()
 
     val snackbarHostState = remember { SnackbarHostState() }
     // Гейт синхронизации одного трека: нет согласия — диалог, нет сети — «Нет интернета» (как в массовом действии).
     fun requestSync(item: TrackHistoryItem) {
-        if (!ui.consent) noConsent = true else networkGate.run { viewModel.syncOne(item) }
+        when {
+            !ui.subscribed -> noSubscription = true
+            !ui.consent -> noConsent = true
+            else -> networkGate.run { viewModel.syncOne(item) }
+        }
     }
     LaunchedEffect(ui.message) {
         ui.message?.let {
@@ -121,6 +131,20 @@ fun TrackHistoryScreen(viewModel: TrackHistoryViewModel, onBack: () -> Unit, onO
                 viewModel.deleteSelected()
             },
             dismissText = "Отмена",
+        )
+    }
+    if (noSubscription) {
+        AppAlertDialog(
+            onDismissRequest = { noSubscription = false },
+            title = "Синхронизация треков доступна по подписке",
+            text = "Синхронизация треков доступна по подписке «Машинист Pro». " +
+                "Треки сохраняются на устройстве и отправятся на сервер после оформления подписки.",
+            confirmText = "Оформить подписку",
+            onConfirm = {
+                noSubscription = false
+                onOpenPurchases()
+            },
+            dismissText = "Закрыть",
         )
     }
     if (noConsent) {
@@ -195,7 +219,11 @@ fun TrackHistoryScreen(viewModel: TrackHistoryViewModel, onBack: () -> Unit, onO
                     isAllFavorite = chosen.isNotEmpty() && chosen.all { it.isFavorite },
                     onFavoriteClick = viewModel::toggleFavoriteSelected,
                     onSyncClick = {
-                        if (!ui.consent) noConsent = true else networkGate.run { viewModel.syncSelected() }
+                        when {
+                            !ui.subscribed -> noSubscription = true
+                            !ui.consent -> noConsent = true
+                            else -> networkGate.run { viewModel.syncSelected() }
+                        }
                     },
                     onDeleteClick = { confirmDelete = true },
                 )

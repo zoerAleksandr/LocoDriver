@@ -2,6 +2,7 @@ package com.z_company.route.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.domain.track.NO_TRAIN_ID
 import com.z_company.domain.track.TrackAnalysis
 import com.z_company.domain.track.TrackInfo
 import com.z_company.domain.track.TrackOrphanCleaner
@@ -56,6 +57,8 @@ data class TrackHistoryItem(
     val preview: List<Pair<Double, Double>>,
     val isFavorite: Boolean,
     val status: TrackHistoryStatus,
+    /** Трек записан без поезда и маршрута (`NO_TRAIN_ID`): только на устройстве, на сервер не уходит. */
+    val noTrain: Boolean = false,
 ) {
     val isLocal: Boolean get() = status != TrackHistoryStatus.SERVER_ONLY
 
@@ -109,6 +112,8 @@ data class TrackHistoryUiState(
     val bulkBusy: Boolean = false,
     /** Треки, отправляемые на сервер прямо сейчас: индикатор синхронизации на карточке крутится. */
     val syncingIds: Set<String> = emptySet(),
+    /** Активна подписка «Машинист Pro»: без неё треки не синхронизируются (только устройство). */
+    val subscribed: Boolean = false,
 )
 
 /**
@@ -140,7 +145,8 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
     fun refresh() {
         viewModelScope.launch {
             val zone = runCatching { settingsUseCase.getUserSettingFlow().first().displayTimeZone() }.getOrDefault("GMT+3")
-            _state.update { it.copy(consent = consent.saveTracks.value, zone = zone) }
+            val subscribed = hasSubscription()
+            _state.update { it.copy(consent = consent.saveTracks.value, zone = zone, subscribed = subscribed) }
             // Треки удалённых рейсов/поездов не показываем: сначала убираем осиротевшие.
             resolver.invalidate()
             runCatching { resolver.cleanOrphans(TrackOrphanCleaner.EXPLICIT_GRACE_MS) }
@@ -151,11 +157,16 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
         trigger.trigger()
     }
 
+    /** Подписка активна (тот же критерий, что у синхронизации маршрутов); ошибка чтения настроек - считаем, что нет. */
+    private suspend fun hasSubscription(): Boolean = runCatching {
+        settingsUseCase.getUserSettingFlow().first().subscriptionPeriod > System.currentTimeMillis()
+    }.getOrDefault(false)
+
     private suspend fun loadLocal() {
         // Сирот (поезда нет ни в одном рейсе) не показываем, даже если чистка их ещё не удалила (свежие).
         val trainIds = resolver.existingTrainIds().orEmpty()
         val infos = withContext(Dispatchers.Default) { TrackOrphanCleaner.visible(repository.tracks(), trainIds) }
-        val canSend = consent.saveTracks.value
+        val canSend = consent.saveTracks.value && _state.value.subscribed
         // Сначала быстрый список без сводок, затем карточки достраиваются по одной.
         val remoteOnly = _state.value.items.filter { it.status == TrackHistoryStatus.SERVER_ONLY }
         val first = infos.map { skeleton(it, canSend, statsCache[it.trackId]) }
@@ -172,29 +183,36 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
 
     private fun skeleton(info: TrackInfo, canSend: Boolean, cached: Pair<Long, TrackHistoryItem>?): TrackHistoryItem =
         (cached?.second ?: TrackHistoryItem(
-            id = info.trackId, title = "Трек", startedAt = info.startedAt, endedAt = info.endedAt,
+            id = info.trackId, title = if (info.trainId == NO_TRAIN_ID) NO_TRAIN_TITLE else "Трек",
+            startedAt = info.startedAt, endedAt = info.endedAt,
             distanceKm = null, preview = emptyList(),
             isFavorite = info.isFavorite, status = TrackHistoryStatus.DEVICE_ONLY,
+            noTrain = info.trainId == NO_TRAIN_ID,
         )).copy(isFavorite = info.isFavorite, status = statusOf(info, canSend), endedAt = info.endedAt)
 
     private suspend fun build(info: TrackInfo, canSend: Boolean): TrackHistoryItem {
         val points = repository.points(info.trackId)
         val stats = TrackPacking.stats(points)
-        val title = (resolver.resolve(info.trainId) as? TrackTrainResolution.Found)?.title ?: "Трек"
+        val noTrain = info.trainId == NO_TRAIN_ID
+        val title = if (noTrain) NO_TRAIN_TITLE
+        else (resolver.resolve(info.trainId) as? TrackTrainResolution.Found)?.title ?: "Трек"
         return TrackHistoryItem(
             id = info.trackId,
             title = title,
             startedAt = points.firstOrNull()?.timeMs ?: info.startedAt,
             endedAt = points.lastOrNull()?.timeMs ?: info.endedAt,
             distanceKm = stats.distanceKm,
-            workStartAt = runCatching { resolver.workStartByTrain(info.trainId) }.getOrNull(),
+            workStartAt = if (noTrain) null else runCatching { resolver.workStartByTrain(info.trainId) }.getOrNull(),
             preview = TrackPacking.preview(points, 60).map { it.latitude to it.longitude },
             isFavorite = info.isFavorite,
             status = statusOf(info, canSend),
+            noTrain = noTrain,
         )
     }
 
+    /** [canSend] - согласие №1 И активная подписка; трек без поезда на сервер не уходит никогда. */
     private fun statusOf(info: TrackInfo, canSend: Boolean) = when {
+        info.trainId == NO_TRAIN_ID -> TrackHistoryStatus.DEVICE_ONLY
         info.uploadState == TrackUploadState.UPLOADED -> TrackHistoryStatus.SENT
         info.uploadState == TrackUploadState.REJECTED -> TrackHistoryStatus.REJECTED
         !canSend -> TrackHistoryStatus.DEVICE_ONLY
@@ -207,6 +225,8 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
     /** Серверные карточки, которых нет на устройстве. Нужны вход и согласие; ошибка не мешает локальному списку. */
     private suspend fun loadRemote(reset: Boolean) {
         if (!consent.saveTracks.value) return
+        // Серверные треки - часть синхронизации: без подписки не загружаем.
+        if (!_state.value.subscribed) return
         val token = bearer() ?: return
         if (reset) remoteCursor = null
         _state.update { it.copy(remoteLoading = true, remoteError = false) }
@@ -390,10 +410,13 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
     }
 
     private fun syncItems(chosen: List<TrackHistoryItem>) {
-        val ids = chosen.filter { it.isLocal }.map { it.id }.toSet()
+        val ids = chosen.filter { it.isLocal && !it.noTrain }.map { it.id }.toSet()
         if (ids.isEmpty()) {
             exitSelectionMode()
-            postMessage("Выбранные треки уже на сервере")
+            postMessage(
+                if (chosen.any { it.noTrain }) "Треки без поезда остаются на устройстве"
+                else "Выбранные треки уже на сервере",
+            )
             return
         }
         _state.update { it.copy(bulkBusy = true, syncingIds = ids) }
@@ -421,6 +444,7 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
                     report.outcome == TrackUploader.Outcome.QUOTA_EXCEEDED -> "Лимит хранилища на сервере исчерпан"
                     report.outcome == TrackUploader.Outcome.UNAUTHORIZED -> "Войдите в аккаунт, чтобы синхронизировать треки"
                     report.outcome == TrackUploader.Outcome.NO_CONSENT -> "Нет согласия на сохранение треков"
+                    report.outcome == TrackUploader.Outcome.NO_SUBSCRIPTION -> "Синхронизация треков доступна по подписке «Машинист Pro»"
                     report.outcome == TrackUploader.Outcome.RETRY_LATER -> "Не все треки отправлены, повторим позже"
                     report.uploaded == 0 -> "Выбранные треки уже синхронизированы"
                     report.uploaded == 1 -> "Трек отправлен на сервер"
@@ -521,6 +545,9 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
         }
     }
 }
+
+/** Заголовок карточки трека, записанного без поезда и маршрута. */
+internal const val NO_TRAIN_TITLE = "Без поезда"
 
 /** Тексты снекбаров «Моих треков», вынесены для юнит-теста. */
 internal object TrackHistoryMessages {

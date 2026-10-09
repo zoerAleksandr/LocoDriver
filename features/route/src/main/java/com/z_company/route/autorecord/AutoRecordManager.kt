@@ -27,6 +27,7 @@ import com.z_company.domain.gnss.GnssQualityRules
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.track.NO_TRAIN_ID
 import com.z_company.domain.track.TrackPoint
 import com.z_company.domain.track.TrackRecordingState
 import com.z_company.domain.track.TrackRepository
@@ -180,10 +181,7 @@ class AutoRecordManager(
         if (trainId == null) {
             // Одноразовая фиксация по TrainOrdering в момент включения; нет маршрута/поездов — при первом событии.
             scope.launch {
-                runCatching {
-                    val route = withContext(Dispatchers.Default) { currentRoute() } ?: return@launch
-                    TrainOrdering.pickAutoTarget(route.trains)?.let { saveTarget(it.trainId) }
-                }
+                runCatching { resolveRecordTarget(null)?.let { saveTarget(it) } }
             }
         }
         cancelAlerts()
@@ -210,7 +208,7 @@ class AutoRecordManager(
     /**
      * Цель кнопки записи на карте (SCREEN_SPECS §6.9): id поезда, в который писать трек. [openedTrainId] - поезд
      * экрана, из которого открыта карта (null - с Главного: текущий по явке / последний поезд, иначе новый поезд
-     * в текущем маршруте, иначе новый маршрут с явкой «сейчас» и пустым поездом). Возвращает null при ошибке.
+     * в текущем маршруте, иначе [NO_TRAIN_ID]: трек без маршрута и поезда). Возвращает null при ошибке.
      */
     suspend fun resolveRecordTarget(openedTrainId: String?): String? = withContext(Dispatchers.Default) {
         runCatching {
@@ -222,15 +220,8 @@ class AutoRecordManager(
                     trainUseCase.updateTrain(train).first { it !is ResultState.Loading }
                     train.trainId
                 }
-                TrainOrdering.RecordTarget.NewRoute -> {
-                    val basic = com.z_company.domain.entities.route.BasicData(timeStartWork = nowMs())
-                    val train = Train(basicId = basic.id)
-                    val newRoute = com.z_company.domain.entities.route.Route(
-                        basicData = basic, trains = mutableListOf(train),
-                    )
-                    routeUseCase.saveRoute(newRoute).first { it !is ResultState.Loading }
-                    train.trainId
-                }
+                // Текущего маршрута нет: маршрут НЕ создаём, пишем локальный трек «без поезда».
+                TrainOrdering.RecordTarget.NoTrain -> NO_TRAIN_ID
             }
         }.onFailure { it.sendToSentry("AutoRecordManager", "resolveRecordTarget") }.getOrNull()
     }
@@ -518,7 +509,15 @@ class AutoRecordManager(
 
     private suspend fun handleEvent(event: StopEvent) {
         // Цель - поезд, где нажата «АВТО»: ищем среди поездов ВСЕХ неудалённых маршрутов, не только текущего.
-        val saved = prefs.getString(KEY_TARGET, null)
+        var saved = prefs.getString(KEY_TARGET, null)
+        if (saved == NO_TRAIN_ID) {
+            // Трек «без поезда»: станциям писать некуда. Если маршрут уже появился - переходим на его поезд
+            // (следующая точка откроет новый трек), иначе событие отбрасываем.
+            val resolved = resolveRecordTarget(null)
+            if (resolved == null || resolved == NO_TRAIN_ID) return
+            saveTarget(resolved)
+            saved = resolved
+        }
         val targeted = withContext(Dispatchers.Default) {
             TrainOrdering.findTargetTrain(
                 routeUseCase.getListRoutes().filter { !it.basicData.isDeleted }.map { it.trains }, saved,
@@ -528,7 +527,8 @@ class AutoRecordManager(
             // Цели нет / поезд удалён: fallback по правилу TrainOrdering на текущем маршруте.
             val route = withContext(Dispatchers.Default) { currentRoute() }
             if (route == null) {
-                // Писать некуда (маршрута нет / время работы вышло) - событие отбрасываем, но не молчим.
+                // Маршрута нет: пишется только трек «без поезда», события станций отбрасываем.
+                saveTarget(NO_TRAIN_ID)
                 notifyNoRoute()
                 return
             }

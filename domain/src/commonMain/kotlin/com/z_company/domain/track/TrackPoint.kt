@@ -14,6 +14,13 @@ data class TrackPoint(
     val baroAltitudeM: Double? = null,
 )
 
+/**
+ * Значение `Track.trainId` для локального трека «без поезда» (запись на карте без текущего маршрута).
+ * Колонка `trainId` остаётся NOT NULL, схема Track.db не меняется. Такой трек не имеет рейса:
+ * не уходит на сервер, не считается сиротой.
+ */
+const val NO_TRAIN_ID = ""
+
 /** Заголовок трека: один непрерывный сеанс «АВТО» на одном поезде. */
 data class TrackInfo(
     val trackId: String,

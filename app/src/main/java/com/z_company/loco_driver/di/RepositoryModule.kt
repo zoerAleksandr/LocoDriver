@@ -238,6 +238,7 @@ val repositoryModule = module {
             tools = get(),
             resolver = get<com.z_company.route.autorecord.TrackRouteResolver>(),
             settings = get<com.z_company.route.autorecord.TrackConsentStore>(),
+            isSubscribed = { get<com.z_company.route.viewmodel.RouteActionsHelper>().hasActiveSubscription() },
         )
     }
     single { com.z_company.repository.remote_rest.tracks.TrackHistoryLoader(api = RemoteRestClient.tracksApi, tools = get()) }
