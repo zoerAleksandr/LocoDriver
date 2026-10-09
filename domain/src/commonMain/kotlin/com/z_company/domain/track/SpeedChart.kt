@@ -21,35 +21,84 @@ data class ChartWindow(val start: Double, val end: Double) {
     val span: Double get() = end - start
 }
 
-/** Шкала цвета скорости (SCREEN_SPECS §6.9): общая для линии на карте и графика. */
+/** Диапазон скорости на общей цветовой шкале карты и графика. */
+enum class SpeedBand { GREEN, YELLOW, ORANGE, RED, UNKNOWN }
+
+/** Профиль шкалы: грузовой (по умолчанию) или пассажирский/пригородный поезд. */
+enum class SpeedProfile { FREIGHT, PASSENGER }
+
+/**
+ * Шкала цвета скорости (SCREEN_SPECS §6.9): ОДНА для линии на карте, графика и легенды.
+ * Грузовой: до 20 км/ч включительно - зелёный, (20; 70] - жёлтый, (70; 80] - оранжевый, свыше 80 - красный.
+ * Пассажирский/пригородный (допущение: пороги выше 20 км/ч не заданы, кроме красного > 160): до 20 - зелёный,
+ * (20; 120] - жёлтый, (120; 160] - оранжевый, свыше 160 - красный. Неизвестная (null/отрицательная) - серый.
+ */
 object SpeedScale {
-    /** (км/ч, RGB). */
-    val STOPS: List<Pair<Int, Int>> = listOf(
-        0 to 0xD32F2F, 30 to 0xF57C00, 60 to 0xFBC02D, 90 to 0x7CB342, 120 to 0x00897B, 160 to 0x1E88E5,
-    )
     const val UNKNOWN_RGB = 0x78909C
 
-    fun rgb(speedKmh: Double?): Int {
-        if (speedKmh == null || speedKmh < 0) return UNKNOWN_RGB
-        val first = STOPS.first()
-        val last = STOPS.last()
-        if (speedKmh <= first.first) return first.second
-        if (speedKmh >= last.first) return last.second
-        for (i in 1 until STOPS.size) {
-            val (v1, c1) = STOPS[i]
-            if (speedKmh <= v1) {
-                val (v0, c0) = STOPS[i - 1]
-                val t = (speedKmh - v0) / (v1 - v0)
-                fun ch(shift: Int): Int {
-                    val a = (c0 shr shift) and 0xFF
-                    val b = (c1 shr shift) and 0xFF
-                    return (a + (b - a) * t).toInt().coerceIn(0, 255)
-                }
-                return (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
-            }
-        }
-        return last.second
+    /** Верхние границы (включительно) зелёного, жёлтого и оранжевого диапазонов, км/ч. */
+    fun limits(profile: SpeedProfile): Triple<Double, Double, Double> = when (profile) {
+        SpeedProfile.FREIGHT -> Triple(20.0, 70.0, 80.0)
+        SpeedProfile.PASSENGER -> Triple(20.0, 120.0, 160.0)
     }
+
+    fun band(speedKmh: Double?, profile: SpeedProfile = SpeedProfile.FREIGHT): SpeedBand {
+        if (speedKmh == null || speedKmh < 0 || speedKmh.isNaN()) return SpeedBand.UNKNOWN
+        val (g, y, o) = limits(profile)
+        return when {
+            speedKmh <= g -> SpeedBand.GREEN
+            speedKmh <= y -> SpeedBand.YELLOW
+            speedKmh <= o -> SpeedBand.ORANGE
+            else -> SpeedBand.RED
+        }
+    }
+
+    /** RGB диапазона; [dark] - более светлые оттенки для тёмного фона (контраст ≥ 3:1 к фону в обеих темах). */
+    fun rgb(band: SpeedBand, dark: Boolean = false): Int = when (band) {
+        SpeedBand.GREEN -> if (dark) 0x66BB6A else 0x2E7D32
+        SpeedBand.YELLOW -> if (dark) 0xFDD835 else 0xF9A825
+        SpeedBand.ORANGE -> if (dark) 0xFFA040 else 0xEF6C00
+        SpeedBand.RED -> if (dark) 0xEF5350 else 0xD32F2F
+        SpeedBand.UNKNOWN -> UNKNOWN_RGB
+    }
+
+    fun rgb(speedKmh: Double?, profile: SpeedProfile = SpeedProfile.FREIGHT, dark: Boolean = false): Int =
+        rgb(band(speedKmh, profile), dark)
+
+    /** Подписи порогов для легенды: (диапазон, подпись). */
+    fun legend(profile: SpeedProfile): List<Pair<SpeedBand, String>> {
+        val (g, y, o) = limits(profile)
+        fun n(v: Double) = v.toInt().toString()
+        return listOf(
+            SpeedBand.GREEN to "≤${n(g)}",
+            SpeedBand.YELLOW to "${n(g)}–${n(y)}",
+            SpeedBand.ORANGE to "${n(y)}–${n(o)}",
+            SpeedBand.RED to ">${n(o)}",
+        )
+    }
+
+    /**
+     * Пассажирский/пригородный ли поезд по категории `Train.trainCategory()` (по номеру поезда). Грузовые, служебные,
+     * «без пассажиров» (порожний моторвагон), толкачи/резервные локомотивы, почтово-багажные и грузопассажирские -
+     * грузовая шкала.
+     */
+    fun isPassengerCategory(category: String?): Boolean {
+        if (category.isNullOrBlank()) return false
+        val c = category.trim().lowercase()
+        return listOf(
+            "скорые", "скоростные", "высокоскоростные", "пассажирские", "обслуживаемые моторвагон",
+            "пригородные", "туристические", "людские",
+        ).any { c.startsWith(it) }
+    }
+
+    /** Пассажирский ли поезд по его категории; поезд неизвестен - false (грузовая шкала). */
+    fun isPassengerTrain(train: com.z_company.domain.entities.route.Train?): Boolean =
+        train != null && isPassengerCategory(
+            with(com.z_company.domain.entities.route.UtilsForEntities) { train.trainCategory() },
+        )
+
+    fun profileForCategory(category: String?): SpeedProfile =
+        if (isPassengerCategory(category)) SpeedProfile.PASSENGER else SpeedProfile.FREIGHT
 }
 
 /** Чистая логика графика скорости (SCREEN_SPECS §6.9, этап 4b): ряды, зум/окно, прореживание, поиск точки. */

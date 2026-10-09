@@ -85,7 +85,8 @@ class GnssQualityEvaluator {
 
     /**
      * [startedMs] - момент старта записи (для ожидания первого fix), [lastFixMs] - момент (по тем же часам, что [nowMs])
-     * получения последнего fix или null.
+     * получения последнего fix или null. [lostWithoutFix] - переводить ли «fix так и не было» в LOST после
+     * [GnssQualityConfig.FIRST_FIX_GRACE_MS] (запись) или оставлять UNKNOWN (просмотр на карте).
      */
     fun update(
         nowMs: Long,
@@ -95,10 +96,12 @@ class GnssQualityEvaluator {
         satellitesUsed: Int?,
         satellitesVisible: Int?,
         providerEnabled: Boolean = true,
+        lostWithoutFix: Boolean = true,
     ): GnssQuality {
         val age = lastFixMs?.let { (nowMs - it).coerceAtLeast(0L) }
         var raw = GnssQualityRules.rawLevel(age, accuracyM, satellitesUsed, providerEnabled)
-        if (raw == GnssLevel.UNKNOWN && nowMs - startedMs > GnssQualityConfig.FIRST_FIX_GRACE_MS) raw = GnssLevel.LOST
+        // [lostWithoutFix] = false (индикатор на карте без записи): пока fix не было ни разу - «нет данных» (UNKNOWN), не LOST.
+        if (lostWithoutFix && raw == GnssLevel.UNKNOWN && nowMs - startedMs > GnssQualityConfig.FIRST_FIX_GRACE_MS) raw = GnssLevel.LOST
         shown = smooth(raw, nowMs)
         return GnssQuality(shown, satellitesUsed, satellitesVisible, accuracyM, age)
     }

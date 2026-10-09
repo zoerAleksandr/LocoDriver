@@ -78,7 +78,13 @@ internal fun <T> remoteOnlyCards(cards: List<T>, idOf: (T) -> String, localIds: 
     cards.filter { idOf(it) !in localIds && idOf(it) !in pendingDelete }
 
 /** Открытый для просмотра трек: точки и пояс времени. */
-class OpenedTrack(val title: String, val points: List<TrackPoint>, val zone: String)
+class OpenedTrack(
+    val title: String,
+    val points: List<TrackPoint>,
+    val zone: String,
+    /** Поезд трека пассажирский/пригородный (шкала скорости); поезд неизвестен - false. */
+    val passenger: Boolean = false,
+)
 
 data class TrackHistoryUiState(
     val loading: Boolean = true,
@@ -451,7 +457,11 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
                     return@launch
                 }
                 val zone = runCatching { settingsUseCase.getUserSettingFlow().first().displayTimeZone() }.getOrDefault("GMT+3")
-                _state.update { it.copy(opening = false, opened = OpenedTrack(item.title, points, zone)) }
+                val passenger = item.isLocal && runCatching {
+                    val trainId = withContext(Dispatchers.Default) { repository.track(item.id)?.trainId }
+                    trainId != null && resolver.isPassengerTrain(trainId)
+                }.getOrDefault(false)
+                _state.update { it.copy(opening = false, opened = OpenedTrack(item.title, points, zone, passenger)) }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -487,6 +497,7 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
                 }
             },
             zone = opened.zone,
+            passenger = opened.passenger,
         )
     }
 

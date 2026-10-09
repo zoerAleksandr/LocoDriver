@@ -32,6 +32,21 @@ class GnssQualityTest {
     }
 
     @Test
+    fun `map without recording shows no data instead of lost when no fix ever`() {
+        val e = GnssQualityEvaluator()
+        assertEquals(GnssLevel.UNKNOWN, e.update(60_000L, 0L, null, null, null, null, lostWithoutFix = false).level)
+        // fix пошли, потом пропали на > 15 с - уже красный
+        assertEquals(GnssLevel.GOOD, e.update(61_000L, 0L, 61_000L, 5f, 8, 8, lostWithoutFix = false).level)
+        assertEquals(GnssLevel.LOST, e.update(80_000L, 0L, 61_000L, 5f, 8, 8, lostWithoutFix = false).level)
+    }
+
+    @Test
+    fun `network fix without satellites is weak not lost`() {
+        val e = GnssQualityEvaluator()
+        assertEquals(GnssLevel.WEAK, e.update(1_000L, 0L, 1_000L, 30f, 0, 12, lostWithoutFix = false).level)
+    }
+
+    @Test
     fun `downgrade to weak needs hold and does not flicker`() {
         val e = GnssQualityEvaluator()
         assertEquals(GnssLevel.GOOD, e.at(1, 1))

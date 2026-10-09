@@ -564,6 +564,8 @@ class TrainFormViewModel(
         val stops: List<com.z_company.domain.track.TrainStopMark>,
         /** Пояс отображения времени (displayTimeZone). */
         val zone: String,
+        /** Поезд пассажирский/пригородный - шкала цвета скорости с пассажирскими порогами (§6.9). */
+        val passenger: Boolean = false,
     )
 
     /** Трек поезда из локального хранилища, асинхронно (не на главном потоке); null — трека нет. */
@@ -588,6 +590,7 @@ class TrainFormViewModel(
                     currentTrain?.servicePhase, stationTimes.map { it.name },
                 ),
                 zone = zone,
+                passenger = com.z_company.domain.track.SpeedScale.isPassengerTrain(currentTrain),
             )
         }
     }
