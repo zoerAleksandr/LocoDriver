@@ -119,6 +119,10 @@ internal fun TrainMapScreen(
     loadRailLine: suspend (List<Pair<Double, Double>>) -> ServicePhaseAutoFillViewModel.RailLineResult,
     currentFix: suspend () -> GeoFix?,
     loadTrack: suspend () -> TrainFormViewModel.TrainMapTrack? = { null },
+    /** Состояние записи «АВТО» для точного пустого экрана графика (§6.9); null - неизвестно. */
+    loadRecordingState: suspend () -> com.z_company.domain.track.TrackRecordingState? = { null },
+    /** Сделать этот поезд целью записи «АВТО»; true - цель назначена. */
+    makeTarget: () -> Boolean = { false },
     onDetermine: suspend (String) -> Boolean,
     onOpenConsentSettings: () -> Unit = {},
     onDismiss: () -> Unit,
@@ -952,6 +956,8 @@ internal fun TrainMapScreen(
             if (showChart) {
                 SpeedChartScreen(
                     track = track,
+                    loadRecordingState = loadRecordingState,
+                    makeTarget = makeTarget,
                     selectedTimeMs = (selection as? TrainMapSelection.PathPoint)?.point?.timeMs,
                     onSelect = { p -> selection = p?.let { TrainMapSelection.PathPoint(it) } },
                     onOpenConsent = { showChart = false; onOpenConsentSettings() },

@@ -591,6 +591,26 @@ class TrainFormViewModel(
         }
     }
 
+    /** Состояние записи трека для пустого графика скорости (§6.9): согласие, «АВТО», цель; null - поезд ещё не определён. */
+    suspend fun trainMapRecordingState(): com.z_company.domain.track.TrackRecordingState? {
+        val thisId = currentTrain?.trainId ?: return null
+        val target = autoRecord.targetTrainId()
+        val otherNumber = if (target != null && target != thisId) {
+            runCatching {
+                kotlinx.coroutines.withContext(Dispatchers.Default) {
+                    trainUseCase.getTrainById(target).first { it !is ResultState.Loading }.let { (it as? ResultState.Success)?.data?.number }
+                }
+            }.getOrNull()
+        } else null
+        return autoRecord.trackRecordingState(thisId, otherNumber)
+    }
+
+    /** Сделать этот поезд целью записи «АВТО» (кнопка пустого графика, §6.9). */
+    fun trainMapMakeTarget(): Boolean {
+        val id = currentTrain?.trainId ?: return false
+        return autoRecord.setTarget(id)
+    }
+
     /** Текущее местоположение для карты поезда; null — нет разрешения/сигнала. */
     suspend fun trainMapCurrentFix(): GeoFix? = DeviceLocation.currentFix(appContext)
 
