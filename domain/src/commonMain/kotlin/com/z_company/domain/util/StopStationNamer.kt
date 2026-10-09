@@ -41,7 +41,7 @@ fun interface RailStationLookup {
         latitude: Double,
         longitude: Double,
         radiusM: Double,
-        candidates: List<RailCandidate> = emptyList(),
+        candidates: List<RailCandidate>,
     ): RailLookupResult
 }
 
