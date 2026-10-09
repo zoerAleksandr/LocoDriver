@@ -747,6 +747,7 @@ private fun StationLegCard(
 
                         StationDropdownMenu(
                             expanded = isDropdownExpanded,
+                            currentText = stationName.text,
                             stations = dropDownMenuList,
                             onSelect = { selectionStation ->
                                 onStationChanged(selectionStation)

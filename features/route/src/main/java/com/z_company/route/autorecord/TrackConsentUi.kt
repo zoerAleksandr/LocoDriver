@@ -114,6 +114,7 @@ fun TrackConsentDialog(
                         Switch(
                             checked = checked,
                             onCheckedChange = { checked = it },
+                            colors = com.z_company.route.ui.settings.settingsSwitchColors(),
                             modifier = Modifier.testTag("track_consent_switch"),
                         )
                     }
@@ -147,6 +148,7 @@ fun TrackConsentDialog(
                         Switch(
                             checked = altChecked,
                             onCheckedChange = { altChecked = it },
+                            colors = com.z_company.route.ui.settings.settingsSwitchColors(),
                             modifier = Modifier.testTag("track_consent_altitude_switch"),
                         )
                     }

@@ -269,6 +269,7 @@ fun StationEditBottomSheet(
 
                     StationDropdownMenu(
                         expanded = isDropdownExpanded,
+                        currentText = localName.text,
                         stations = menuList,
                         onSelect = { stationName ->
                             localName = localName.copy(
@@ -849,6 +850,7 @@ private fun SegmentStationField(
 
         StationDropdownMenu(
             expanded = expanded,
+            currentText = value.text,
             stations = menuList,
             onSelect = { stationName ->
                 onValueChange(
