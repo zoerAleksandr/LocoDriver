@@ -14,14 +14,19 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.location.GnssStatus
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Build
+import android.os.Handler
+import android.os.SystemClock
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import com.z_company.domain.gnss.GnssQuality
+import com.z_company.domain.gnss.GnssQualityEvaluator
 import com.z_company.domain.track.AltitudeMath
 
 /**
@@ -37,6 +42,71 @@ class GpsRecordingService : Service() {
     /** Последнее показание барометра, гПа; null - датчика нет или показаний ещё не было. */
     @Volatile
     private var pressureHpa: Float? = null
+
+    // Качество GNSS (SCREEN_SPECS §6.9): статус спутников + возраст/точность последнего fix, раз в секунду.
+    private var gnssCallback: GnssStatus.Callback? = null
+    private val qualityEvaluator = GnssQualityEvaluator()
+    private val qualityHandler = Handler(Looper.getMainLooper())
+    private var qualityStartedMs = 0L
+    private var lastFixElapsedMs: Long? = null
+    private var lastFixAccuracyM: Float? = null
+    private var satsUsed: Int? = null
+    private var satsVisible: Int? = null
+    private val qualityTick = object : Runnable {
+        override fun run() {
+            publishQuality()
+            qualityHandler.postDelayed(this, QUALITY_TICK_MS)
+        }
+    }
+
+    private fun publishQuality() {
+        GpsRecorder.setQuality(
+            qualityEvaluator.update(
+                nowMs = SystemClock.elapsedRealtime(),
+                startedMs = qualityStartedMs,
+                lastFixMs = lastFixElapsedMs,
+                accuracyM = lastFixAccuracyM,
+                satellitesUsed = satsUsed,
+                satellitesVisible = satsVisible,
+                providerEnabled = GpsRecorder.gpsAvailable.value,
+            ),
+        )
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startQuality(lm: LocationManager) {
+        qualityEvaluator.reset()
+        qualityStartedMs = SystemClock.elapsedRealtime()
+        lastFixElapsedMs = null
+        lastFixAccuracyM = null
+        satsUsed = null
+        satsVisible = null
+        val cb = object : GnssStatus.Callback() {
+            override fun onSatelliteStatusChanged(status: GnssStatus) {
+                var used = 0
+                for (i in 0 until status.satelliteCount) if (status.usedInFix(i)) used++
+                satsUsed = used
+                satsVisible = status.satelliteCount
+            }
+
+            override fun onStopped() {
+                satsUsed = 0
+            }
+        }
+        val ok = runCatching { lm.registerGnssStatusCallback(cb, qualityHandler) }.getOrDefault(false)
+        if (ok) gnssCallback = cb
+        qualityHandler.removeCallbacks(qualityTick)
+        qualityHandler.post(qualityTick)
+    }
+
+    private fun stopQuality() {
+        qualityHandler.removeCallbacks(qualityTick)
+        gnssCallback?.let { cb ->
+            runCatching { (getSystemService(Context.LOCATION_SERVICE) as? LocationManager)?.unregisterGnssStatusCallback(cb) }
+        }
+        gnssCallback = null
+        GpsRecorder.setQuality(GnssQuality())
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -79,6 +149,8 @@ class GpsRecordingService : Service() {
         val lm = getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
         val l = object : LocationListener {
             override fun onLocationChanged(location: Location) {
+                lastFixElapsedMs = SystemClock.elapsedRealtime()
+                lastFixAccuracyM = if (location.hasAccuracy()) location.accuracy else null
                 GpsRecorder.emit(location.toPoint(baroAltitudeM()))
             }
 
@@ -96,6 +168,7 @@ class GpsRecordingService : Service() {
             )
             GpsRecorder.setGpsAvailable(lm.isProviderEnabled(LocationManager.GPS_PROVIDER))
             listener = l
+            startQuality(lm)
             startPressure()
             true
         } catch (e: Exception) {
@@ -135,6 +208,7 @@ class GpsRecordingService : Service() {
     }
 
     private fun removeUpdates() {
+        stopQuality()
         stopPressure()
         listener?.let { l ->
             (getSystemService(Context.LOCATION_SERVICE) as? LocationManager)?.removeUpdates(l)
@@ -224,5 +298,6 @@ class GpsRecordingService : Service() {
         private const val CHANNEL_ID = "gps_recording"
         private const val NOTIFICATION_ID = 7401
         private const val UPDATE_INTERVAL_MS = 1_000L
+        private const val QUALITY_TICK_MS = 1_000L
     }
 }
