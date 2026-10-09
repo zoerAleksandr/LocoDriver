@@ -58,15 +58,15 @@ fun SettingsPrivacyContent() {
         SettingsCard {
             SettingsSwitchRow(
                 label = TrackConsentTexts.SWITCH_LABEL,
-                sub = if (saveTracks) {
-                    "Согласие дано " + SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date(consent.consentAtMs()))
-                } else {
-                    "Не сохраняются"
-                },
                 checked = saveTracks,
                 onCheckedChange = { on ->
                     if (on) consent.setConsent(true) else confirmRevoke = true
                 },
+            )
+        }
+        if (saveTracks) {
+            SettingsSectionNote(
+                "Согласие дано " + SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date(consent.consentAtMs()))
             )
         }
         SettingsSectionNote(TrackConsentTexts.BODY)
