@@ -487,7 +487,7 @@ internal fun TrainMapScreen(
                     if (role == "ahead" || role == "terminal") 0 else 1,
                 )
             }
-            val markRows = marks.map { Row(it.latitude, it.longitude, it.name.orEmpty(), "mark", 11f, 8.5f, 1) }
+            val markRows = marks.map { Row(it.latitude, it.longitude, stopTitle(it, stops), "mark", 11f, 8.5f, 1) }
             val rows = routeRows + markRows
             val items = rows.map { r ->
                 val pt = m.projection.toScreenLocation(LatLng(r.lat, r.lon))
@@ -943,7 +943,7 @@ internal fun TrainMapScreen(
                             is TrainMapSelection.Stop -> {
                                 val mk = sel.mark
                                 Text(
-                                    text = mk.name ?: "Остановка",
+                                    text = stopTitle(mk, stops),
                                     style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                                     color = Pst.text,
                                     maxLines = 2,
@@ -953,7 +953,7 @@ internal fun TrainMapScreen(
                                     mk.departureMs?.let { add("Отправление " + TrackAnalysis.clock(it, zone)) }
                                     val a = mk.arrivalMs
                                     val d = mk.departureMs
-                                    if (a != null && d != null && d > a) add("стоянка ${TrackAnalysis.dwellMinutes(a, d)} м")
+                                    if (a != null && d != null && d > a) add("стоянка ${TrackAnalysis.dwellMinutes(a, d)} мин")
                                 }
                                 Text(
                                     text = parts.joinToString(" · "),
@@ -1388,4 +1388,19 @@ private fun CompassNeedle(bearingDeg: Float) {
         drawPath(down, south)
         drawPath(up, north)
     }
+}
+
+/**
+ * Подпись остановки: название станции поезда; иначе станция плеча в пределах 400 м (если плечо есть);
+ * иначе «Стоянка N мин» (по времени прибытия/отправления из трека), иначе «Остановка».
+ */
+private fun stopTitle(mk: com.z_company.domain.track.TrainStopMark, routeStops: List<com.z_company.domain.util.TrainMapStop>): String {
+    mk.name?.takeIf { it.isNotBlank() }?.let { return it }
+    routeStops
+        .minByOrNull { TrackAnalysis.distanceM(mk.latitude, mk.longitude, it.latitude, it.longitude) }
+        ?.takeIf { TrackAnalysis.distanceM(mk.latitude, mk.longitude, it.latitude, it.longitude) <= 400.0 && it.name.isNotBlank() }
+        ?.let { return it.name }
+    val a = mk.arrivalMs
+    val d = mk.departureMs
+    return if (a != null && d != null && d > a) "Стоянка ${TrackAnalysis.dwellMinutes(a, d)} мин" else "Остановка"
 }
