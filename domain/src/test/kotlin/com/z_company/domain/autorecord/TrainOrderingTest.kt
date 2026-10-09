@@ -91,4 +91,26 @@ class TrainOrderingTest {
         assertEquals("empty", TrainOrdering.pickHomeMapTarget(listOf(t("timed", dep = 100), t("empty")))?.trainId)
         assertEquals("b", TrainOrdering.pickHomeMapTarget(listOf(t("a", dep = 100), t("b", dep = 200)))?.trainId)
     }
+
+    @Test
+    fun `record target - opened train wins`() {
+        val r = TrainOrdering.pickRecordTarget("opened", "r1", listOf(t("a", dep = 1)))
+        assertEquals(TrainOrdering.RecordTarget.Existing("opened"), r)
+    }
+
+    @Test
+    fun `record target - from home uses auto rule of current route`() {
+        val r = TrainOrdering.pickRecordTarget(null, "r1", listOf(t("timed", dep = 100), t("empty")))
+        assertEquals(TrainOrdering.RecordTarget.Existing("empty"), r)
+    }
+
+    @Test
+    fun `record target - route without trains gets new train`() {
+        assertEquals(TrainOrdering.RecordTarget.NewTrainInRoute("r1"), TrainOrdering.pickRecordTarget(null, "r1", emptyList()))
+    }
+
+    @Test
+    fun `record target - no route gets new route`() {
+        assertEquals(TrainOrdering.RecordTarget.NewRoute, TrainOrdering.pickRecordTarget(null, null, null))
+    }
 }

@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.draw.alpha
 import androidx.activity.compose.BackHandler
 import kotlin.math.abs
 import androidx.compose.ui.draw.rotate
@@ -171,6 +173,10 @@ internal fun TrainMapScreen(
     onOpenConsentSettings: () -> Unit = {},
     /** Включить «АВТО» для этого поезда (кнопка пустого графика); null - кнопки нет (просмотр трека из «Истории»). */
     onEnableAuto: (() -> Unit)? = null,
+    /** Режим «АВТО» включён (запись трека идёт): состояние кнопки записи в колонке кнопок карты. */
+    autoRecording: Boolean = false,
+    /** Нажатие кнопки «Начать/Остановить запись» (то же переключение, что чип «АВТО»); null - кнопки нет. */
+    onToggleRecording: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     /** Заголовок плашки; для просмотра трека из «Истории» — название поездки. */
     title: String = "Карта поезда",
@@ -204,6 +210,19 @@ internal fun TrainMapScreen(
         var permGranted by remember { mutableStateOf(DeviceLocation.hasPermission(context)) }
         var selection by remember { mutableStateOf<TrainMapSelection?>(null) }
         var showChart by rememberSaveable { mutableStateOf(false) }
+        // Кнопка записи: подтверждаем смену состояния короткой подсказкой (включение может идти через разрешения/согласие).
+        var prevRecording by remember { mutableStateOf(autoRecording) }
+        LaunchedEffect(autoRecording) {
+            if (autoRecording != prevRecording) {
+                prevRecording = autoRecording
+                if (onToggleRecording != null && !viewOnly) {
+                    android.widget.Toast.makeText(
+                        context, if (autoRecording) "Запись трека включена" else "Запись трека остановлена",
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
+        }
         // Курс маркера (Location.bearing, иначе по двум точкам; на стоянке сохраняется), значок положения, режим «еду по карте».
         val heading = remember { HeadingEstimator() }
         var headingDeg by remember { mutableStateOf<Double?>(null) }
@@ -1129,6 +1148,11 @@ internal fun TrainMapScreen(
                         PstIcon(PstIcons.SpeedChart, 22.dp, Pst.text)
                     }
                 }
+                if (!viewOnly && onToggleRecording != null) {
+                    // Кнопка записи трека (= «АВТО»): запись идёт - красный квадрат «стоп» и пульсирующая красная точка.
+                    val recDesc = if (autoRecording) "Остановить запись" else "Начать запись"
+                    MapButton(onClick = onToggleRecording, description = recDesc) { RecordIcon(autoRecording) }
+                }
                 if (!viewOnly) {
                     Box(
                         modifier = Modifier
@@ -1538,4 +1562,33 @@ private fun stopTitle(mk: com.z_company.domain.track.TrainStopMark, routeStops: 
     val a = mk.arrivalMs
     val d = mk.departureMs
     return if (a != null && d != null && d > a) "Стоянка ${TrackAnalysis.dwellMinutes(a, d)} мин" else "Остановка"
+}
+
+/** Иконка кнопки записи: кольцо с красной точкой (запись выключена) / красный квадрат «стоп» с пульсирующей точкой-бейджем. */
+@Composable
+private fun RecordIcon(recording: Boolean) {
+    val red = androidx.compose.ui.graphics.Color(0xFFE53935)
+    Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+        if (recording) {
+            Box(Modifier.size(14.dp).background(red, RoundedCornerShape(3.dp)))
+            val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "rec_pulse")
+            val a by t.animateFloat(
+                initialValue = 1f,
+                targetValue = 0.25f,
+                animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                    androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.LinearEasing),
+                    androidx.compose.animation.core.RepeatMode.Reverse,
+                ),
+                label = "rec_pulse_alpha",
+            )
+            Box(
+                Modifier.align(Alignment.TopEnd).size(8.dp)
+                    .alpha(a).background(red, CircleShape),
+            )
+        } else {
+            Box(Modifier.size(22.dp).border(2.dp, Pst.text, CircleShape), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(10.dp).background(red, CircleShape))
+            }
+        }
+    }
 }

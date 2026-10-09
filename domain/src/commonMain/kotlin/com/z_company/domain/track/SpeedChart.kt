@@ -148,6 +148,50 @@ object SpeedChart {
         return clamp(ChartWindow(start, start + newSpan), total)
     }
 
+    /**
+     * Окно просмотра при смене оси X («Путь» <-> «Время»): те же точки трека. Левая граница - первая точка ряда
+     * внутри окна, правая - последняя; их индексы пересчитываются в единицы новой оси. Полное окно остаётся полным.
+     * [w] - в единицах оси [from]; результат - в единицах оси [to].
+     */
+    fun convertWindow(samples: List<SpeedSample>, from: ChartAxis, to: ChartAxis, w: ChartWindow): ChartWindow {
+        if (samples.isEmpty() || from == to) return w
+        val t0 = samples.first().timeMs
+        val totalFrom = total(samples, from)
+        val totalTo = total(samples, to)
+        val eps = 1e-6 * totalFrom.coerceAtLeast(1.0)
+        if (w.start <= eps && w.end >= totalFrom - eps) return fullWindow(totalTo)
+        val iStart = lowerBound(samples, from, t0, w.start)
+        // Последний индекс с x <= end (на стоянке «Пути» несколько точек с одним x - берём последнюю).
+        var lo = 0
+        var hi = samples.size
+        while (lo < hi) {
+            val mid = (lo + hi) ushr 1
+            if (xOf(samples[mid], from, t0) <= w.end + eps) lo = mid + 1 else hi = mid
+        }
+        val iEnd = (lo - 1).coerceAtLeast(0)
+        val a = xOf(samples[iStart], to, t0)
+        val b = xOf(samples[maxOf(iEnd, iStart)], to, t0)
+        val min = minSpan(to, totalTo)
+        val span = (b - a).coerceAtLeast(min)
+        val centre = (a + b) / 2
+        return clamp(ChartWindow(centre - span / 2, centre + span / 2), totalTo)
+    }
+
+    /** Допуск «край виден»: 0,1 % ряда (не меньше 1 единицы оси). */
+    private fun edgeTolerance(total: Double) = (total * 1e-3).coerceAtLeast(1.0)
+
+    /** Показывать ли «В начало» (левый край ряда за окном). Если виден весь ряд - нет. */
+    fun canScrollToStart(w: ChartWindow, total: Double): Boolean = total > 0.0 && w.start > edgeTolerance(total)
+
+    /** Показывать ли «В конец» (правый край ряда за окном). */
+    fun canScrollToEnd(w: ChartWindow, total: Double): Boolean = total > 0.0 && w.end < total - edgeTolerance(total)
+
+    /** Окно того же охвата, прижатое к началу ([toEnd] = false) или к концу ряда. */
+    fun edgeWindow(w: ChartWindow, total: Double, toEnd: Boolean): ChartWindow {
+        val span = w.span.coerceIn(0.0, total)
+        return if (toEnd) ChartWindow(total - span, total) else ChartWindow(0.0, span)
+    }
+
     /** Сдвиг окна на [dx] единиц оси (положительный — вправо). */
     fun pan(w: ChartWindow, total: Double, dx: Double): ChartWindow =
         clamp(ChartWindow(w.start + dx, w.end + dx), total)

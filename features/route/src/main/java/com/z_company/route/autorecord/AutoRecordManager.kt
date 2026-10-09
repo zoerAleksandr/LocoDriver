@@ -207,6 +207,34 @@ class AutoRecordManager(
         otherTrainNumber = otherTrainNumber,
     )
 
+    /**
+     * Цель кнопки записи на карте (SCREEN_SPECS §6.9): id поезда, в который писать трек. [openedTrainId] - поезд
+     * экрана, из которого открыта карта (null - с Главного: текущий по явке / последний поезд, иначе новый поезд
+     * в текущем маршруте, иначе новый маршрут с явкой «сейчас» и пустым поездом). Возвращает null при ошибке.
+     */
+    suspend fun resolveRecordTarget(openedTrainId: String?): String? = withContext(Dispatchers.Default) {
+        runCatching {
+            val route = currentRoute()
+            when (val t = TrainOrdering.pickRecordTarget(openedTrainId, route?.basicData?.id, route?.trains)) {
+                is TrainOrdering.RecordTarget.Existing -> t.trainId
+                is TrainOrdering.RecordTarget.NewTrainInRoute -> {
+                    val train = Train(basicId = t.routeId)
+                    trainUseCase.updateTrain(train).first { it !is ResultState.Loading }
+                    train.trainId
+                }
+                TrainOrdering.RecordTarget.NewRoute -> {
+                    val basic = com.z_company.domain.entities.route.BasicData(timeStartWork = nowMs())
+                    val train = Train(basicId = basic.id)
+                    val newRoute = com.z_company.domain.entities.route.Route(
+                        basicData = basic, trains = mutableListOf(train),
+                    )
+                    routeUseCase.saveRoute(newRoute).first { it !is ResultState.Loading }
+                    train.trainId
+                }
+            }
+        }.onFailure { it.sendToSentry("AutoRecordManager", "resolveRecordTarget") }.getOrNull()
+    }
+
     /** Поезд, который сейчас пишет «АВТО» (null - цель не определена). */
     fun targetTrainId(): String? = prefs.getString(KEY_TARGET, null)
 

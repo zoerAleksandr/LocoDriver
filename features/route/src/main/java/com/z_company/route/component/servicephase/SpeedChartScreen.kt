@@ -76,6 +76,7 @@ import com.z_company.domain.util.LabelPlacer
 import com.z_company.domain.util.MapLabelItem
 import com.z_company.route.viewmodel.TrainFormViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** Всё, что нужно обработчикам жестов (актуальное значение на момент жеста). */
 private class ChartGeometry(
@@ -128,6 +129,11 @@ internal fun SpeedChartScreen(
         val total = SpeedChart.total(samples, axis)
         val minSpan = SpeedChart.minSpan(axis, total)
         val window = windowState?.let { SpeedChart.clamp(it, total) } ?: SpeedChart.fullWindow(total)
+        val stops = remember(samples, track, axis) { SpeedChart.stopsOnAxis(samples, track?.stops.orEmpty(), axis) }
+        // Голубая полоса на оси «Время» - стоянка станции (прибытие-отправление): объясняется в легенде.
+        val hasStopBands = axis == ChartAxis.TIME && stops.any { it.xEnd > it.x }
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+        var scrollJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
         var plotLeft by remember { mutableStateOf(0f) }
         var plotWidth by remember { mutableStateOf(1f) }
         val geo = rememberUpdatedState(ChartGeometry(total, window, axis, plotLeft, plotWidth, minSpan))
@@ -144,9 +150,13 @@ internal fun SpeedChartScreen(
                 fun backButton() = ChartButton("Назад", onDismiss) { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
 
                 @Composable
-                fun axisToggle() = AxisToggle(axis) {
-                    axisName = it.name
-                    windowState = null
+                fun axisToggle() = AxisToggle(axis) { newAxis ->
+                    if (newAxis != axis) {
+                        scrollJob?.cancel()
+                        // Окно просмотра не меняется: те же точки трека по краям, пересчитанные в новую ось (полное окно остаётся полным).
+                        windowState = windowState?.let { SpeedChart.convertWindow(samples, axis, newAxis, window) }
+                        axisName = newAxis.name
+                    }
                 }
 
                 @Composable
@@ -158,8 +168,26 @@ internal fun SpeedChartScreen(
                     ChartButton("Приблизить", onClick = {
                         if (enabled) windowState = SpeedChart.zoom(window, total, 2.0, (window.start + window.end) / 2, minSpan)
                     }) { Text("+", style = Pst.sans.copy(fontSize = 22.sp), color = if (enabled) Pst.text else Pst.textFaint) }
-                    ChartButton("Показать весь путь", onClick = { windowState = null }) {
+                    ChartButton("Показать весь путь", onClick = { scrollJob?.cancel(); windowState = null }) {
                         Text("Всё", style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold), color = if (enabled) Pst.text else Pst.textFaint)
+                    }
+                    // Края ряда за окном: прокрутка к началу/концу с анимацией (кнопка скрыта, когда этот край уже виден).
+                    fun scrollToEdge(toEnd: Boolean) {
+                        scrollJob?.cancel()
+                        val from = window
+                        val to = SpeedChart.edgeWindow(from, total, toEnd)
+                        scrollJob = scope.launch {
+                            androidx.compose.animation.core.animate(0f, 1f, animationSpec = androidx.compose.animation.core.tween(350)) { f, _ ->
+                                val st = from.start + (to.start - from.start) * f
+                                windowState = SpeedChart.clamp(ChartWindow(st, st + from.span), total)
+                            }
+                        }
+                    }
+                    if (SpeedChart.canScrollToStart(window, total)) {
+                        ChartButton("В начало", onClick = { scrollToEdge(false) }) { EdgeIcon(toEnd = false) }
+                    }
+                    if (SpeedChart.canScrollToEnd(window, total)) {
+                        ChartButton("В конец", onClick = { scrollToEdge(true) }) { EdgeIcon(toEnd = true) }
                     }
                 }
 
@@ -169,6 +197,7 @@ internal fun SpeedChartScreen(
                         style = Pst.sans.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
                         color = Pst.text,
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = m,
                     )
                 }
@@ -176,7 +205,7 @@ internal fun SpeedChartScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         backButton()
                         title(Modifier.weight(1f))
-                        if (samples.size >= 2) SpeedLegend(profile, dark)
+                        if (samples.size >= 2) SpeedLegend(profile, dark, hasStopBands)
                         axisToggle()
                         zoomButtons()
                     }
@@ -192,7 +221,7 @@ internal fun SpeedChartScreen(
                     }
                     if (samples.size >= 2) {
                         Spacer(Modifier.height(6.dp))
-                        SpeedLegend(profile, dark)
+                        SpeedLegend(profile, dark, hasStopBands)
                     }
                 }
                 Spacer(Modifier.height(8.dp))
@@ -553,7 +582,7 @@ private fun SpeedPlot(
 
 /** Легенда цвета скорости: маленькие цветные метки с порогами (км/ч) по той же шкале, что линия графика и карта. */
 @Composable
-private fun SpeedLegend(profile: SpeedProfile, dark: Boolean) {
+private fun SpeedLegend(profile: SpeedProfile, dark: Boolean, showStopBand: Boolean = false) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         SpeedScale.legend(profile).forEach { (band, label) ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -566,6 +595,13 @@ private fun SpeedLegend(profile: SpeedProfile, dark: Boolean) {
             }
         }
         Text("км/ч", style = Pst.mono.copy(fontSize = 10.sp), color = Pst.textFaint, maxLines = 1)
+        if (showStopBand) {
+            // Голубая полоса на оси «Время»: стоянка станции от прибытия до отправления.
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(Modifier.size(width = 14.dp, height = 8.dp).background(Pst.accent.copy(alpha = 0.18f), RoundedCornerShape(3.dp)))
+                Text("стоянка", style = Pst.mono.copy(fontSize = 10.sp), color = Pst.textMuted, maxLines = 1)
+            }
+        }
     }
 }
 
@@ -637,6 +673,24 @@ private fun ChartButton(description: String, onClick: () -> Unit, content: @Comp
             .clickable(onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { content() }
+}
+
+/** Иконка «к краю»: вертикальная черта и шеврон (влево - «В начало», вправо - «В конец»). */
+@Composable
+private fun EdgeIcon(toEnd: Boolean) {
+    val c = Pst.text
+    Canvas(Modifier.size(22.dp)) {
+        val w = size.width
+        val h = size.height
+        val sw = 2.2f * density
+        val dir = if (toEnd) 1f else -1f
+        val barX = w / 2 + dir * w * 0.3f
+        drawLine(c, Offset(barX, h * 0.2f), Offset(barX, h * 0.8f), strokeWidth = sw, cap = StrokeCap.Round)
+        val tipX = w / 2 + dir * w * 0.15f
+        val backX = tipX - dir * w * 0.3f
+        drawLine(c, Offset(backX, h * 0.25f), Offset(tipX, h / 2), strokeWidth = sw, cap = StrokeCap.Round)
+        drawLine(c, Offset(backX, h * 0.75f), Offset(tipX, h / 2), strokeWidth = sw, cap = StrokeCap.Round)
+    }
 }
 
 @Composable

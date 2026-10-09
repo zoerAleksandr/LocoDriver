@@ -183,9 +183,6 @@ fun FormTrainScreen(
     onUpdateServicePhase: (ServicePhase) -> Unit = {},
     onDeleteServicePhase: (ServicePhase) -> Unit = {},
     dateAndTimeConverter: DateAndTimeConverter?,
-    /** Открыть карту сразу (плитка «Карта» на Главном); закрытие карты тогда возвращает на Главный. */
-    openMapOnStart: Boolean = false,
-    onMapClosedFromHome: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -316,7 +313,7 @@ fun FormTrainScreen(
         }
 
         // Карта поезда (SCREEN_SPECS §6.9)
-        var showTrainMap by rememberSaveable { mutableStateOf(openMapOnStart) }
+        var showTrainMap by rememberSaveable { mutableStateOf(false) }
         if (showTrainMap) {
             val railVm: com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel =
                 androidx.lifecycle.viewmodel.compose.viewModel()
@@ -334,7 +331,10 @@ fun FormTrainScreen(
                 onOpenConsentSettings = { showTrainMap = false; onConsentSettings() },
                 // Та же логика, что у кнопки «АВТО» в «Поезде» (разрешения, согласие, цель - этот поезд).
                 onEnableAuto = { if (!autoRecordManager.state.value.enabled) onAutoToggle() },
-                onDismiss = { showTrainMap = false; if (openMapOnStart) onMapClosedFromHome() },
+                // Кнопка записи на карте: то же переключение «АВТО», цель - этот поезд.
+                autoRecording = autoRecordState.enabled,
+                onToggleRecording = onAutoToggle,
+                onDismiss = { showTrainMap = false },
             )
         }
 
