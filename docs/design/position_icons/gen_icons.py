@@ -180,13 +180,17 @@ def top_es6():
         s.append(fl(v.poly([(2.4,28.6),(2.4,15),(3.2,11.6),(4.6,11.6),(4.6,28.6)]),grey))
         s.append(fl(v.poly([(19.6,28.6),(19.6,15),(18.8,11.6),(17.4,11.6),(17.4,28.6)]),grey))
         s.append(fl(v.rect(2.2,18,3.0,28.6),dg)); s.append(fl(v.rect(19.0,18,19.8,28.6),dg))
-        s.append(fl(v.rect(4.6,11.4,17.4,28.2,1),"#E8EBEF"))
+        s.append(fl(v.poly([(2.4,16.5),(2.4,12.6),(4.6,11.6),(4.6,19.5)]),red)); s.append(fl(v.poly([(19.6,16.5),(19.6,12.6),(17.4,11.6),(17.4,19.5)]),red))
+        s.append(fl(v.poly([(2.4,28.6),(2.4,23),(3.5,25.6),(4.6,27.2),(4.6,28.6)]),red)); s.append(fl(v.poly([(19.6,28.6),(19.6,23),(18.5,25.6),(17.4,27.2),(17.4,28.6)]),red))
+        s.append(fl(v.rect(4.6,11.4,17.4,28.2,1),"#C3CAD2"))
+        s.append(ln(v.line([(4.9,12),(4.9,27.6)]),red,0.9)); s.append(ln(v.line([(17.1,12),(17.1,27.6)]),red,0.9))
         for y0 in (13,19.5):
-            s.append(fl(v.rect(5.8,y0,16.2,y0+4.6,0.6),"#BFC6CE"))
+            s.append(fl(v.rect(5.8,y0,16.2,y0+4.6,0.6),"#A9B1BA"))
         s.append(fl(v.poly([(5.2,7.6),(7,3.6),(15,3.6),(16.8,7.6)]),win))
         s.append(ln(v.line([(11,3.6),(11,7.6)]),red,0.6))
-        s.append(ln(v.line([(4.4,9.4),(17.6,9.4)]),"#8E1F1B",0.6))
-        s+=panto_top(v,11,24)
+        s.append(fl(v.poly([(4.6,9.9),(5.0,8.7),(17.0,8.7),(17.4,9.9)]),"#8E1F1B"))
+        s.append(ln(v.line([(2.9,9.2),(6.9,2.9),(15.1,2.9),(19.1,9.2)]),"#FFFFFF",0.7))
+        s+=panto_top(v,11,24,red)
         s.append(fl(v.rect(8.2,12.4,13.8,14.0,0.4),"#2B2F38"))
         s.append(fl(v.circ(7.4,3.2,0.8),"#FFFFFF")); s.append(fl(v.circ(14.6,3.2,0.8),"#FFFFFF"))
         s.append(ln(v.line([(5,28.6),(17,28.6)]),"#7D8793",0.6))
@@ -201,17 +205,19 @@ def top_te25():
     s.append(body("M6 28 H16 V32 H6 Z",GAP))
     for v in secs:
         s.append(body(out(v),red))
-        s.append(fl(v.poly([(2.8,6.4),(3.7,3.9),(5.8,2.8),(8.5,2.4),(13.5,2.4),(16.2,2.8),(18.3,3.9),(19.2,6.4),(17.2,5.6),(15.4,4.6),(6.6,4.6),(4.8,5.6)]),org))
+        s.append(fl(v.poly([(2.8,6.4),(3.7,3.9),(5.8,2.8),(8.5,2.4),(13.5,2.4),(16.2,2.8),(18.3,3.9),(19.2,6.4),(17.2,5.6),(15.4,4.6),(6.6,4.6),(4.8,5.6)]),"#2E343C"))
         s.append(fl(v.poly([(5.4,9.6),(6.2,5.8),(10.5,5.2),(10.5,9.6)]),win))
         s.append(fl(v.poly([(11.5,9.6),(11.5,5.2),(15.8,5.8),(16.6,9.6)]),win))
         s.append(fl(v.circ(11,4.2,0.8),"#FFE27A"))
         s.append(fl(v.rect(4,10.4,18,13.6,0.8),lighten(red,0.15)))
         s.append(fl(v.rect(3.4,14,18.6,28.6,0.8),grey))
-        s.append(ln(v.line([(3.4,14),(18.6,14)]),"#7C838B",0.7))
-        for xx in (4.4,17.6): s.append(ln(v.line([(xx,15.5),(xx,27.5)]),"#7C838B",0.6))
+        s.append(fl(v.poly([(3.4,14),(5.4,14),(5.4,16.6),(4.4,18.6),(3.4,18.6)]),red)); s.append(fl(v.poly([(18.6,14),(16.6,14),(16.6,16.6),(17.6,18.6),(18.6,18.6)]),red))
+        s.append(fl(v.rect(5.4,14,16.6,28.6,0.6),"#363C44"))
+        for xx in (5.4,16.6): s.append(ln(v.line([(xx,14),(xx,28.6)]),"#7C838B",0.6))
         for cy in (18.5,24.5):
-            s.append(fl(v.circ(11,cy,2.6),"#2F353D")); s.append(ln(v.circ(11,cy,1.3),"#68717B",0.6))
-            s.append(ln(v.line([(8.6,cy),(13.4,cy)]),"#68717B",0.5)); s.append(ln(v.line([(11,cy-2.4),(11,cy+2.4)]),"#68717B",0.5))
+            s.append(fl(v.circ(11,cy,2.6),"#1E2228")); s.append(ln(v.circ(11,cy,1.3),"#6B747E",0.6))
+            s.append(ln(v.line([(8.6,cy),(13.4,cy)]),"#6B747E",0.5)); s.append(ln(v.line([(11,cy-2.4),(11,cy+2.4)]),"#6B747E",0.5))
+        for yy in (15.6,21.4,27.0): s.append(ln(v.line([(7,yy),(15,yy)]),"#4A525B",0.5))
         s.append(ln(v.line([(2,28.6),(20,28.6)]),"#8E2418",0.6))
     return s
 
@@ -231,19 +237,24 @@ def top_swallow():
         s.append(body("M6.5 %s H15.5 V%s H6.5 Z"%(fmt(cars[i][1]-0.3),fmt(cars[i+1][0]+0.3)),dg))
     for i in range(5):
         a,b=cars[i]; s.append(body(car(i),w))
-        for x in (3.5,18.5): s.append(ln("M%s %s V%s"%(fmt(x),fmt(a+(6 if i==0 else 1.2)),fmt(b-(6 if i==4 else 1.2))),red,1.1))
+        for x in (3.7,18.3): s.append(ln("M%s %s V%s"%(fmt(x),fmt(a+(6 if i==0 else 1.2)),fmt(b-(6 if i==4 else 1.2))),"#E8542B",1.5))
         y0=a+(7 if i==0 else 1.8); y1=b-(7 if i==4 else 1.8)
-        s.append(fl(rrect(6,y0,10,y1-y0,0.8),"#DDE1E6"))
+        s.append(fl(rrect(5.6,y0,10.8,y1-y0,0.8),"#4B535D"))
         if y1-y0>6:
             for k in range(1,int((y1-y0)//2.4)):
-                s.append(ln("M6.8 %s H15.2"%fmt(y0+k*2.4),"#B6BDC6",0.45))
+                s.append(ln("M6.4 %s H15.6"%fmt(y0+k*2.4),"#68717C",0.45))
     a,b=cars[0]
-    s.append(fl("M4 %s Q4 %s 5.4 %s Q8 %s 11 %s Q14 %s 16.6 %s Q18 %s 18 %s L18 %s L4 %s Z"%(fmt(a+7),fmt(a+3.8),fmt(a+2.2),fmt(a+1.1),fmt(a+1.1),fmt(a+1.1),fmt(a+2.2),fmt(a+3.8),fmt(a+7),fmt(a+7),fmt(a+7)),red))
-    s.append(fl(poly([(5.4,a+6.4),(6.6,a+3.6),(15.4,a+3.6),(16.6,a+6.4)]),win))
+    NOSE="M4 %s Q4 %s 5.4 %s Q8 %s 11 %s Q14 %s 16.6 %s Q18 %s 18 %s L18 %s L4 %s Z"%(fmt(a+7),fmt(a+3.8),fmt(a+2.2),fmt(a+1.1),fmt(a+1.1),fmt(a+1.1),fmt(a+2.2),fmt(a+3.8),fmt(a+7),fmt(a+7),fmt(a+7))
+    s.append(fl(NOSE,"#F08A2C"))
+    s.append(fl("M4 %s Q4 %s 5.4 %s L16.6 %s Q18 %s 18 %s Z"%(fmt(a+7),fmt(a+4.6),fmt(a+3.4),fmt(a+3.4),fmt(a+4.6),fmt(a+7)),red))
+    s.append(fl(poly([(4.8,a+7),(4.6,a+5.4),(6.4,a+3.3),(15.6,a+3.3),(17.4,a+5.4),(17.2,a+7)]),"#8C949D"))
+    s.append(fl(poly([(5.4,a+6.4),(6.6,a+3.9),(15.4,a+3.9),(16.6,a+6.4)]),win))
     s.append(fl(circ(6.2,a+1.9,0.6),"#FFE27A")); s.append(fl(circ(15.8,a+1.9,0.6),"#FFE27A"))
     a,b=cars[4]
-    s.append(fl("M4 %s Q4 %s 5.4 %s Q8 %s 11 %s Q14 %s 16.6 %s Q18 %s 18 %s L18 %s L4 %s Z"%(fmt(b-7),fmt(b-3.8),fmt(b-2.2),fmt(b-1.1),fmt(b-1.1),fmt(b-1.1),fmt(b-2.2),fmt(b-3.8),fmt(b-7),fmt(b-7),fmt(b-7)),red))
-    s.append(fl(poly([(5.4,b-6.4),(6.6,b-3.6),(15.4,b-3.6),(16.6,b-6.4)]),"#33465C"))
+    s.append(fl("M4 %s Q4 %s 5.4 %s Q8 %s 11 %s Q14 %s 16.6 %s Q18 %s 18 %s L18 %s L4 %s Z"%(fmt(b-7),fmt(b-3.8),fmt(b-2.2),fmt(b-1.1),fmt(b-1.1),fmt(b-1.1),fmt(b-2.2),fmt(b-3.8),fmt(b-7),fmt(b-7),fmt(b-7)),"#F08A2C"))
+    s.append(fl("M4 %s Q4 %s 5.4 %s L16.6 %s Q18 %s 18 %s Z"%(fmt(b-7),fmt(b-4.6),fmt(b-3.4),fmt(b-3.4),fmt(b-4.6),fmt(b-7)),red))
+    s.append(fl(poly([(4.8,b-7),(4.6,b-5.4),(6.4,b-3.3),(15.6,b-3.3),(17.4,b-5.4),(17.2,b-7)]),"#8C949D"))
+    s.append(fl(poly([(5.4,b-6.4),(6.6,b-3.9),(15.4,b-3.9),(16.6,b-6.4)]),"#33465C"))
     s.append(fl(circ(6.2,b-1.9,0.6),"#E23B3B")); s.append(fl(circ(15.8,b-1.9,0.6),"#E23B3B"))
     for i in (1,3):
         a,b=cars[i]; cy=(a+b)/2
@@ -285,6 +296,7 @@ def sec(iso,a,b,base,z0,z1,fdx=0,fzs=None,bdx=0,bzs=None,y0=0,y1=3,top=None,side
     top=top or lighten(base,0.22); side=side or base; end=end or darken(base,0.25); frame=frame or lighten(base,0.1)
     fzs=fzs if fzs is not None else z1
     bzs=bzs if bzs is not None else z1
+    if not fdx: fzs=z1  # торец без скоса — на полную высоту крыши (иначе щель между крышей кабины и капота)
     iso.poly3([(b,y0,z0),(b,y1,z0),(b,y1,fzs),(b,y0,fzs)],end)
     if fdx:
         iso.poly3([slope_pt(b,fdx,fzs,z1,0,y0),slope_pt(b,fdx,fzs,z1,0,y1),slope_pt(b,fdx,fzs,z1,1,y1),slope_pt(b,fdx,fzs,z1,1,y0)],frame)
@@ -345,20 +357,25 @@ def iso_es6():
     RED="#C8302B"; GR="#D3D8DE"; DG="#56606B"; z1=3.7
     iso.box(0.3,18.7,0.3,2.7,0.55,1.0,"#2B2F38")
     for (a,b,front) in ((0,9.5,False),(9.5,19,True)):
-        sec(iso,a,b,GR,1.0,z1,fdx=1.5 if front else 0,fzs=1.9,bdx=0 if front else 1.5,bzs=1.9,frame=RED,top="#E8EBEF",end=RED)
-        iso.qY(a,b,1.0,1.55,3,DG)
+        sec(iso,a,b,GR,1.0,z1,fdx=1.5 if front else 0,fzs=1.9,bdx=0 if front else 1.5,bzs=1.9,frame=RED,top="#C3CAD2",end=RED)
+        iso.qY(a,b,1.0,1.55,3,"#454E58")
+        iso.qY(a,b,3.3,3.7,3,RED)
+        if front:
+            iso.poly3([slope_pt(b,1.5,1.9,z1,0.84,0.0),slope_pt(b,1.5,1.9,z1,0.84,3.0),slope_pt(b,1.5,1.9,z1,1,3.0),slope_pt(b,1.5,1.9,z1,1,0.0)],"#8E1F1B")
+            iso.line3((b-1.5,3,z1),(b,3,1.9),"#FFFFFF",0.14)
         if front:
             iso.poly3([(a,3,2.95),(a,3,z1),(b-1.5,3,z1),(b,3,1.9),(b,3,1.55),(b-1.3,3,1.55),(b-2.4,3,2.1),(b-4.2,3,2.75),(b-6,3,2.95)],RED)
         else:
             iso.poly3([(b,3,2.95),(b,3,z1),(a+1.5,3,z1),(a,3,1.9),(a,3,1.55),(a+1.3,3,1.55),(a+2.4,3,2.1),(a+4.2,3,2.75),(a+6,3,2.95)],RED)
-        iso.box(a+1.3,b-1.3,0.5,2.5,z1,z1+0.28,"#EDEFF2")
-        iso.box(a+3.0,a+5.0,0.8,2.2,z1+0.28,z1+0.45,"#BFC6CE")
+        iso.box(a+1.3,b-1.3,0.5,2.5,z1,z1+0.28,"#C9CFD6")
+        iso.box(a+3.0,a+5.0,0.8,2.2,z1+0.28,z1+0.45,"#A9B1BA")
         for i in range(3): louvre(iso,a+(2.6 if front else 1.9)+i*1.7,a+(3.5 if front else 2.8)+i*1.7,1.8,2.7,3,"#9AA3AC",3)
-        panto2(iso,(b-4.2) if front else (a+4.2),z1+0.28,arm=1.5)
+        panto2(iso,(b-4.2) if front else (a+4.2),z1+0.28,arm=1.5,col="#C8302B")
         if front: iso.qY(b-2.6,b-1.6,2.35,3.2,3,"#1F2E40")
         else: iso.qY(a+0.5,a+1.2,2.35,3.2,3,"#1F2E40")
     seam(iso,9.5,1.0,3.7,"#8E959D")
     iso.qX(0.3,0.9,1.3,1.7,19,"#FFFFFF"); iso.qX(2.1,2.7,1.3,1.7,19,"#FFFFFF")
+    iso.qX(0.1,2.9,1.0,1.12,19,"#FFFFFF")
     return iso
 
 def iso_te25():
@@ -370,19 +387,24 @@ def iso_te25():
         h0,h1=(a+3.3,b) if not front else (a,b-3.3)
         ca,cb=(b-3.3,b) if front else (a,a+3.3)
         def hood():
-            sec(iso,h0,h1,GR,1.0,3.5)
-            iso.qY(h0,h1,1.0,1.5,3,DGR)
+            sec(iso,h0,h1,GR,1.0,3.5,top="#3A4048")
+            e=h1 if not front else h1
+            if front: iso.poly3([(h1,3,1.0),(h1,3,3.5),(h1-0.8,3,3.5),(h1-1.6,3,2.5),(h1-2.6,3,2.5),(h1-3.2,3,1.5),(h1-3.2,3,1.0)],RED)
+            else: iso.poly3([(h0,3,1.0),(h0,3,3.5),(h0+0.8,3,3.5),(h0+1.6,3,2.5),(h0+2.6,3,2.5),(h0+3.2,3,1.5),(h0+3.2,3,1.0)],RED)
+            iso.qY(h0,h1,1.0,1.5,3,"#4A525B")
             for i in range(2): louvre(iso,h0+0.8+i*1.8,h0+1.8+i*1.8,1.8,3.1,3,DGR,3)
             iso.qY(h0+3.9,h0+4.4,2.0,3.2,3,"#22313F"); iso.qY(h0+4.7,h0+5.2,2.0,3.2,3,"#22313F")
             for cx in (h0+1.7,h0+4.2):
-                iso.circZ(cx,1.5,0.8,3.52,"#2F353D"); iso.circZ(cx,1.5,0.42,3.55,"#68717B")
+                iso.circZ(cx,1.5,0.8,3.52,"#1E2228"); iso.circZ(cx,1.5,0.42,3.55,"#6B747E")
+            ox=h0+2.2 if front else h0+2.2
+            iso.circY(ox,2.3,0.32,3,RED); iso.circY(ox,2.3,0.1,3,"#FFFFFF")
         def cab():
-            sec(iso,ca,cb,RED,1.0,4.05,fdx=0.9 if front else 0,fzs=2.5,bdx=0 if front else 0.9,bzs=2.5)
+            sec(iso,ca,cb,RED,1.0,4.05,fdx=0.9 if front else 0,fzs=2.5,bdx=0 if front else 0.9,bzs=2.5,top="#2E343C")
             if front: iso.qY(cb-2.5,cb-1.2,2.4,3.5,3,"#22313F")
             else: iso.qY(ca+0.5,ca+1.8,2.4,3.5,3,"#22313F")
         if front: hood(); cab()
         else: cab(); hood()
-    iso.qX(0.05,2.95,1.0,1.4,18.5,ORG)
+    iso.qX(0.05,2.95,1.0,1.4,18.5,RED); iso.qX(0.05,2.95,1.0,1.1,18.5,"#2B2F38")
     iso.qX(0.4,0.9,1.5,1.9,18.5,"#FFFFFF"); iso.qX(2.1,2.6,1.5,1.9,18.5,"#FFFFFF")
     seam(iso,9.25,1.0,3.5,"#555C66")
     return iso
@@ -397,18 +419,19 @@ def iso_swallow():
         bogies(iso,[xc-1.0,xc+1.0],0.3,Wd-0.3)
     for i,a in enumerate(xs):
         b=a+L; first=i==0; last=i==n-1
-        sec(iso,a,b,WH,1.0,z1,y1=Wd,fdx=1.6 if last else 0,fzs=2.0,bdx=1.6 if first else 0,bzs=2.0,top="#FFFFFF",end=RED,frame=WH,pane="#1F2E40")
+        sec(iso,a,b,WH,1.0,z1,y1=Wd,fdx=1.6 if last else 0,fzs=2.0,bdx=1.6 if first else 0,bzs=2.0,top="#4B535D",end="#F08A2C" if last else DG,frame="#7C848E" if (first or last) else WH,pane="#1F2E40")
         sx0=a+(1.8 if first else 0.3); sx1=b-(1.8 if last else 0.3)
         iso.qY(sx0,sx1,2.0,3.2,Wd,"#1F2E40")
         k=max(1,int((sx1-sx0)//1.1))
         for j in range(1,k):
             xx=sx0+(sx1-sx0)*j/k; iso.qY(xx-0.07,xx+0.07,2.0,3.2,Wd,WH)
-        iso.qY(a,b,1.15,1.55,Wd,RED); iso.qY(a,b,1.0,1.15,Wd,DG)
-        iso.box(a+0.8,b-0.8,0.7,2.2,z1,z1+0.22,"#DDE1E6")
+        iso.qY(a,b,1.15,1.55,Wd,"#E8542B"); iso.qY(a,b,1.0,1.15,Wd,DG)
+        if last: iso.poly3([(b,Wd,1.0),(b,Wd,1.95),(b-1.2,Wd,1.95),(b-2.6,Wd,1.7),(b-4.0,Wd,1.2),(b-4.0,Wd,1.0)],"#E8542B")
+        iso.box(a+0.8,b-0.8,0.7,2.2,z1,z1+0.22,"#3A4350")
         if i in (1,3): panto2(iso,(a+b)/2+0.3,z1+0.22,ys=1.45,arm=1.2,h=1.0)
         if not first: seam(iso,a-g/2,1.0,3.8,"#7D8793")
     X=tot-1.6*0  # торец на уровне низа; лобовая зона — козырёк
-    iso.qX(0.25,Wd-0.25,1.0,1.6,X,RED)
+    iso.qX(0.25,Wd-0.25,1.45,2.0,X,RED)
     iso.qX(0.45,0.95,1.7,2.0,X,"#FFE27A"); iso.qX(Wd-0.95,Wd-0.45,1.7,2.0,X,"#FFE27A")
     return iso
 

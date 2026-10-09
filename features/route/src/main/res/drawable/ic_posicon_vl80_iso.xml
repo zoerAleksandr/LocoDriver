@@ -100,10 +100,10 @@
         android:pathData="M14.56 17.14 L54.33 40.1 L49 43.18 L9.22 20.22 Z"
         android:fillColor="#5A5D64"/>
     <path
-        android:pathData="M35.11 28.24 L28.44 32.08 L28.44 29.26 L35.11 25.41 Z"
+        android:pathData="M35.11 28.24 L28.44 32.08 L28.44 25.16 L35.11 21.31 Z"
         android:fillColor="#23502F"/>
     <path
-        android:pathData="M7.89 20.22 L28.44 32.08 L28.44 29.26 L28.44 25.16 L10 14.51 L7.89 17.39 Z"
+        android:pathData="M7.89 20.22 L28.44 32.08 L28.44 25.16 L28.44 25.16 L10 14.51 L7.89 17.39 Z"
         android:fillColor="#2F6B3F"/>
     <path
         android:pathData="M16.67 10.66 L35.11 21.31 L28.44 25.16 L10 14.51 Z"
