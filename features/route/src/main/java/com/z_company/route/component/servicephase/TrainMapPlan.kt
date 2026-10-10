@@ -28,6 +28,7 @@ import com.z_company.domain.track.TrackAnalysis
 import com.z_company.domain.util.ArrivalPlan
 import com.z_company.domain.util.ArrivalPlanData
 import com.z_company.domain.util.PlanTarget
+import com.z_company.domain.util.TimeMask
 
 /** Локальное хранилище плана прибытия (SharedPreferences, ключ - поезд); на сервер не уходит (SCREEN_SPECS §6.9, состояние 7). */
 internal object TrainMapPlanStore {
@@ -174,7 +175,8 @@ private fun PlanInput(nowMs: Long, zone: String, enabled: Boolean, onSave: (Long
     PstTextField(
         value = text,
         onValueChange = { v ->
-            val clean = v.text.filter { it.isDigit() || it == ':' }.take(5)
+            // Маска чч:мм: только цифры, двоеточие после часов ставится само (TimeMask).
+            val clean = TimeMask.format(v.text, previous = text.text)
             text = if (clean == v.text) v else TextFieldValue(clean, TextRange(clean.length))
             error = false
             pendingNextDay = null
@@ -183,10 +185,15 @@ private fun PlanInput(nowMs: Long, zone: String, enabled: Boolean, onSave: (Long
         placeholder = TrainMapPlanTexts.FIELD_PLACEHOLDER,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         mono = true,
+        isError = error,
         modifier = Modifier.fillMaxWidth(),
     )
     if (error) {
-        Text(TrainMapPlanTexts.INPUT_ERROR, style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.danger)
+        Text(
+            TrainMapPlanTexts.INPUT_ERROR,
+            style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold),
+            color = Pst.danger,
+        )
     }
     val pending = pendingNextDay
     if (pending != null) {

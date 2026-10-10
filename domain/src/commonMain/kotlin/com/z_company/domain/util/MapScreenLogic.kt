@@ -1,0 +1,121 @@
+package com.z_company.domain.util
+
+import com.z_company.domain.track.TrackPoint
+import kotlin.math.hypot
+
+/**
+ * Маска ввода «чч:мм» (SCREEN_SPECS §6.9, карточка планирования): вводятся только цифры, двоеточие ставится автоматически
+ * после двух цифр часов. Если первая цифра 3-9, час однозначный и двоеточие идёт сразу за ней («905» -> «9:05»).
+ * При стирании (текст стал короче) завершающее двоеточие не возвращается, иначе его нельзя удалить.
+ */
+object TimeMask {
+    fun format(input: String, previous: String = ""): String {
+        val digits = input.filter { it in '0'..'9' }.take(4)
+        if (digits.isEmpty()) return ""
+        val hourLen = if (digits[0] in '3'..'9') 1 else 2
+        if (digits.length < hourLen) return digits
+        val deleting = input.length < previous.length
+        if (digits.length == hourLen) return if (deleting) digits else "$digits:"
+        return digits.substring(0, hourLen) + ":" + digits.substring(hourLen)
+    }
+}
+
+/**
+ * Возврат карты в слежение после ручного перемещения (SCREEN_SPECS §6.9): через [RETURN_DELAY_MS] без касаний
+ * камера снова ведётся за положением. Константа - в одном месте.
+ */
+object FollowReturn {
+    const val RETURN_DELAY_MS = 10_000L
+
+    /**
+     * Пора ли вернуться в слежение. [blocked] - открыта карточка планирования/выбранной точки/график/панель значка;
+     * [fingerDown] - палец на карте; [viewOnly] - просмотр записанного трека (не применяется).
+     */
+    fun shouldReturn(
+        following: Boolean,
+        viewOnly: Boolean,
+        blocked: Boolean,
+        fingerDown: Boolean,
+        nowMs: Long,
+        lastInteractionMs: Long,
+    ): Boolean = !following && !viewOnly && !blocked && !fingerDown && nowMs - lastInteractionMs >= RETURN_DELAY_MS
+
+    /** Сколько ещё ждать до возврата, мс (не меньше 0). */
+    fun remainingMs(nowMs: Long, lastInteractionMs: Long): Long =
+        (RETURN_DELAY_MS - (nowMs - lastInteractionMs)).coerceIn(0L, RETURN_DELAY_MS)
+}
+
+/** Подпись базовой карты в экранных координатах (px). */
+data class BaseMapLabel(val x: Double, val y: Double, val name: String)
+
+/** Подпись приложения, проверяемая на дубль с подписями базовой карты. */
+data class AppMapLabel(val x: Double, val y: Double, val name: String)
+
+/**
+ * Дубли подписей станций: подпись приложения не рисуется, если рядом (≤ [radiusPx], 40 dp в пикселях)
+ * есть подпись базовой карты с тем же названием (иначе тексты накладываются друг на друга).
+ */
+object LabelDedup {
+    const val RADIUS_DP = 40.0
+
+    fun normalize(name: String): String =
+        name.lowercase().replace('ё', 'е').replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+
+    /** Одно название: совпадают после нормализации либо одно целиком входит в другое (от 4 символов: «Луга» / «Луга I»). */
+    fun sameName(a: String, b: String): Boolean {
+        val x = normalize(a)
+        val y = normalize(b)
+        if (x.isEmpty() || y.isEmpty()) return false
+        if (x == y) return true
+        val (short, long) = if (x.length <= y.length) x to y else y to x
+        return short.length >= 4 && (long.startsWith("$short ") || long.endsWith(" $short"))
+    }
+
+    /** Индексы подписей приложения, дублирующих подписи базовой карты. */
+    fun duplicates(app: List<AppMapLabel>, base: List<BaseMapLabel>, radiusPx: Double): Set<Int> {
+        if (base.isEmpty()) return emptySet()
+        val result = mutableSetOf<Int>()
+        for ((i, a) in app.withIndex()) {
+            if (a.name.isBlank()) continue
+            if (base.any { b -> hypot(a.x - b.x, a.y - b.y) <= radiusPx && sameName(a.name, b.name) }) result += i
+        }
+        return result
+    }
+}
+
+/**
+ * Пройденный путь не должен пропадать (SCREEN_SPECS §6.9): ошибка/пустой/«усохший» результат загрузки из Track.db
+ * не затирает прежний, а живые точки записи дорисовываются к загруженным. Не зависит от интернета и рельсовой линии.
+ */
+object PathKeeper {
+    /** Что показывать после очередной загрузки: пустой результат или результат с меньшим числом точек - прежний. */
+    fun <T : Any> keep(previous: T?, loaded: T?, count: (T) -> Int): T? {
+        if (loaded == null) return previous
+        if (previous == null) return loaded
+        return if (count(loaded) == 0 || count(loaded) < count(previous)) previous else loaded
+    }
+
+    /** Точки пути: загруженные + живые точки новее последней загруженной (без дублей, по времени). */
+    fun withLive(base: List<TrackPoint>, live: List<TrackPoint>): List<TrackPoint> {
+        if (live.isEmpty()) return base
+        val last = base.lastOrNull()?.timeMs ?: Long.MIN_VALUE
+        val extra = live.filter { it.timeMs > last }.sortedBy { it.timeMs }
+        return if (extra.isEmpty()) base else base + extra
+    }
+
+    /** Живой буфер ограничен: хранятся последние [max] точек. */
+    fun appendLive(live: List<TrackPoint>, p: TrackPoint, max: Int = 5000): List<TrackPoint> {
+        val out = if (live.isNotEmpty() && live.last().timeMs >= p.timeMs) live else live + p
+        return if (out.size > max) out.takeLast(max) else out
+    }
+}
+
+/** Рельсовая линия и сеть: автоперезапрос при возврате интернета (SCREEN_SPECS §6.9). */
+object RailRefetch {
+    /** Перезапросить линию: сеть вернулась (был офлайн, стал онлайн), а линия из кэша или не построена. */
+    fun shouldRefetch(wasOnline: Boolean, online: Boolean, lineIsCachedOrFailed: Boolean): Boolean =
+        !wasOnline && online && lineIsCachedOrFailed
+
+    /** Подпись «Нет интернета» на плашке показывается только пока сети нет. */
+    fun showOfflineCaption(online: Boolean): Boolean = !online
+}
