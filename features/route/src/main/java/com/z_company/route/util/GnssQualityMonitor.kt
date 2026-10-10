@@ -10,6 +10,7 @@ import android.os.SystemClock
 import androidx.core.location.LocationManagerCompat
 import com.z_company.domain.gnss.GnssQuality
 import com.z_company.domain.gnss.GnssQualityEvaluator
+import com.z_company.domain.util.GnssPlausibility
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +39,7 @@ class GnssQualityMonitor(private val context: Context) {
     private var lastAccuracyM: Float? = null
     private var satsUsed: Int? = null
     private var satsVisible: Int? = null
+    private val rejects = ArrayDeque<Long>()
 
     private val tick = object : Runnable {
         override fun run() {
@@ -52,6 +54,15 @@ class GnssQualityMonitor(private val context: Context) {
         lastAccuracyM = accuracyM
     }
 
+    /**
+     * Fix отвергнут как подмена/скачок ([GnssPlausibility]): не считается «свежим fix», но копится для состояния
+     * «Помеха GPS» (>= 2 за 60 с).
+     */
+    fun onRejected() {
+        rejects.addLast(SystemClock.elapsedRealtime())
+        while (rejects.size > 64) rejects.removeFirst()
+    }
+
     @SuppressLint("MissingPermission")
     fun start() {
         if (running) return
@@ -60,6 +71,7 @@ class GnssQualityMonitor(private val context: Context) {
         startedMs = SystemClock.elapsedRealtime()
         lastFixMs = null
         lastAccuracyM = null
+        rejects.clear()
         satsUsed = null
         satsVisible = null
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
@@ -92,6 +104,11 @@ class GnssQualityMonitor(private val context: Context) {
         _quality.value = GnssQuality()
     }
 
+    private fun rejectedRecent(now: Long): Int {
+        while (rejects.isNotEmpty() && now - rejects.first() > GnssPlausibility.REJECT_WINDOW_MS) rejects.removeFirst()
+        return rejects.size
+    }
+
     private fun publish() {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         val enabled = lm?.let { runCatching { LocationManagerCompat.isLocationEnabled(it) }.getOrDefault(true) } ?: true
@@ -105,6 +122,7 @@ class GnssQualityMonitor(private val context: Context) {
             // Определение местоположения выключено в системе - LOST только если fix уже были (иначе «нет данных»).
             providerEnabled = enabled || lastFixMs == null,
             lostWithoutFix = false,
+            rejectedRecent = rejectedRecent(SystemClock.elapsedRealtime()),
         )
     }
 

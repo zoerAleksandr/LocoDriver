@@ -580,6 +580,8 @@ class TrainFormViewModel(
                 .sortedBy { it.startedAt }
                 .flatMap { trackRepository.points(it.trackId) }
                 .sortedBy { it.timeMs }
+                // Подменные точки GNSS (старые записи) не должны давать ложные старт/финиш и линию через полстраны (§6.9).
+                .let { com.z_company.domain.util.GnssPlausibility.sanitize(it) }
             if (points.isEmpty()) return@withContext null
             val dwells = com.z_company.domain.track.TrackAnalysis.detectDwells(points)
             TrainMapTrack(

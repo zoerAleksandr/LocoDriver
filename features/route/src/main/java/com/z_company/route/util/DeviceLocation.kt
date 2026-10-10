@@ -11,7 +11,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.core.os.CancellationSignal
 import androidx.core.util.Consumer
+import com.z_company.core.gps.NetworkLocationReference
 import com.z_company.domain.util.GeoFix
+import com.z_company.domain.util.GnssPlausibility
 import android.location.LocationListener
 import android.os.Bundle
 import android.os.Looper
@@ -78,9 +80,14 @@ object DeviceLocation {
      * сеть): в помещении/до первого fix GPS положение приходит от сети, и карта должна показывать его, а не стоять.
      * Сетевой fix игнорируется, пока GPS присылал fix последние [GPS_PREFERRED_MS] (иначе маркер «прыгал» бы между
      * источниками). Пусто и сразу закрывается, если нет разрешения или включённых провайдеров.
+     *
+     * Подмена/скачки (SCREEN_SPECS §6.9): GPS-fix проверяется [GnssPlausibility] (скорость, прыжок, сверка с сетевой позицией,
+     * [NetworkLocationReference]); отвергнутый fix не отдаётся (позиция остаётся последней правдоподобной), о нём
+     * сообщает [onRejected]. Сетевой fix показывается, только если GPS-fix ещё не был принят либо GPS молчит >= 10 с и сеть
+     * не противоречит последней принятой позиции (радиус max(5 км, 3 x точность сети)).
      */
     @SuppressLint("MissingPermission")
-    fun updates(context: Context, intervalMs: Long = 1_000L): Flow<LiveFix> = callbackFlow {
+    fun updates(context: Context, intervalMs: Long = 1_000L, onRejected: (() -> Unit)? = null): Flow<LiveFix> = callbackFlow {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).filter {
             hasPermission(context) && runCatching { lm?.isProviderEnabled(it) }.getOrNull() == true
@@ -90,11 +97,34 @@ object DeviceLocation {
             return@callbackFlow
         }
         var lastGpsAt = 0L
+        val plausibility = GnssPlausibility()
+        NetworkLocationReference.acquire(context)
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 val now = SystemClock.elapsedRealtime()
-                if (location.provider == LocationManager.GPS_PROVIDER) lastGpsAt = now
-                else if (lastGpsAt != 0L && now - lastGpsAt < GPS_PREFERRED_MS) return
+                if (location.provider == LocationManager.GPS_PROVIDER) {
+                    val verdict = plausibility.check(
+                        timeMs = location.time,
+                        lat = location.latitude,
+                        lon = location.longitude,
+                        speedKmh = if (location.hasSpeed()) location.speed * 3.6 else null,
+                        accuracyM = if (location.hasAccuracy()) location.accuracy else null,
+                        network = NetworkLocationReference.current(),
+                        nowMs = now,
+                    )
+                    if (!verdict.accepted) {
+                        onRejected?.invoke()
+                        return
+                    }
+                    lastGpsAt = now
+                } else {
+                    if (lastGpsAt != 0L && now - lastGpsAt < GPS_PREFERRED_MS) return
+                    // Сеть при молчащем GPS: не уводим маркер далеко от последней правдоподобной позиции.
+                    plausibility.lastAccepted?.let { (lat, lon) ->
+                        val limit = maxOf(GnssPlausibility.NETWORK_MIN_RADIUS_M, GnssPlausibility.NETWORK_ACCURACY_FACTOR * (if (location.hasAccuracy()) location.accuracy else 0f))
+                        if (GnssPlausibility.distanceM(lat, lon, location.latitude, location.longitude) > limit) return
+                    }
+                }
                 trySend(
                     LiveFix(
                         location.latitude, location.longitude,
@@ -114,7 +144,10 @@ object DeviceLocation {
             if (runCatching { lm.requestLocationUpdates(provider, intervalMs, 0f, listener, Looper.getMainLooper()) }.isSuccess) registered++
         }
         if (registered == 0) close()
-        awaitClose { runCatching { lm.removeUpdates(listener) } }
+        awaitClose {
+            runCatching { lm.removeUpdates(listener) }
+            NetworkLocationReference.release()
+        }
     }
 
     /** Сколько после GPS-fix сетевые fix игнорируются. */

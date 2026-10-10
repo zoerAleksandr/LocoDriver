@@ -674,7 +674,7 @@ class AutoRecordManager(
                     }
                 }
             }
-            GnssLevel.UNKNOWN -> Unit
+            GnssLevel.UNKNOWN, GnssLevel.INTERFERENCE -> Unit
         }
     }
 

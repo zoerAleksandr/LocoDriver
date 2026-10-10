@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,6 +52,8 @@ object GnssSignalStyle {
         GnssLevel.WEAK -> if (dark) Color(0xFFFBBF24) else Color(0xFFB45309)
         GnssLevel.LOST -> if (dark) Color(0xFFF87171) else Color(0xFFB91C1C)
         GnssLevel.UNKNOWN -> if (dark) Color(0xFF9CA3AF) else Color(0xFF6B7280)
+        // Помеха: оранжевый (отличим от жёлтого WEAK и красного LOST).
+        GnssLevel.INTERFERENCE -> if (dark) Color(0xFFFB923C) else Color(0xFFC2410C)
     }
 
     /** Сколько из трёх штрихов залито: 3 - хороший, 2 - слабый, 0 - нет сигнала / неизвестно. */
@@ -75,6 +78,7 @@ fun GnssSignalIndicator(
     val color = GnssSignalStyle.color(quality.level, dark)
     val filled = GnssSignalStyle.bars(quality.level)
     val lost = quality.level == GnssLevel.LOST
+    val interference = quality.level == GnssLevel.INTERFERENCE
     var showTip by remember { mutableStateOf(false) }
     LaunchedEffect(showTip) {
         if (showTip) {
@@ -85,7 +89,7 @@ fun GnssSignalIndicator(
     val description = GnssQualityText.description(quality)
     Box(
         modifier = modifier
-            .size(width = 44.dp, height = 52.dp)
+            .defaultMinSize(minWidth = 44.dp, minHeight = 52.dp)
             .semantics { contentDescription = description }
             .clickable(role = Role.Button, onClickLabel = "Пояснить уровень сигнала GPS") { showTip = true },
         contentAlignment = Alignment.Center,
@@ -96,7 +100,7 @@ fun GnssSignalIndicator(
             val gap = (size.width - 3 * barW) / 2f
             for (i in 0 until 3) {
                 val h = size.height * (0.4f + 0.3f * i)
-                val on = i < filled || lost
+                val on = i < filled || lost || interference
                 drawRoundRect(
                     color = if (on) color else color.copy(alpha = 0.3f),
                     topLeft = Offset(i * (barW + gap), size.height - h),
@@ -114,7 +118,13 @@ fun GnssSignalIndicator(
                 )
             }
         }
-        Text(text = "GPS", fontSize = 10.sp, lineHeight = 12.sp, color = labelColor, modifier = Modifier.padding(top = 2.dp))
+        Text(
+            text = if (interference) "Помеха GPS" else "GPS",
+            fontSize = 10.sp, lineHeight = 12.sp,
+            color = if (interference) color else labelColor,
+            maxLines = 1, softWrap = false,
+            modifier = Modifier.padding(top = 2.dp),
+        )
         }
         if (showTip) {
             val px = with(androidx.compose.ui.platform.LocalDensity.current) { 44.dp.roundToPx() }
