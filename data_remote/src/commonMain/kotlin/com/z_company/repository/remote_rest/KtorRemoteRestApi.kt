@@ -377,6 +377,7 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
     ): com.z_company.repository.remote_rest.response.ServicePhaseSuggestResponse =
         withAnonymousFallback(token) { auth ->
             client.post("v1/service_phase/stations/suggest") {
+                attributes.put(GeoRequestKey, true)
                 contentType(ContentType.Application.Json)
                 if (auth != null) header("Authorization", auth)
                 setBody(body)
@@ -389,6 +390,7 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
     ): com.z_company.repository.remote_rest.response.RouteLengthResponse =
         withAnonymousFallback(token) { auth ->
             client.post("v1/service_phase/route/length") {
+                attributes.put(GeoRequestKey, true)
                 contentType(ContentType.Application.Json)
                 if (auth != null) header("Authorization", auth)
                 setBody(body)
@@ -401,6 +403,7 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
     ): com.z_company.repository.remote_rest.response.NearestStationResponse =
         withAnonymousFallback(token) { auth ->
             client.post("v1/service_phase/stations/nearest") {
+                attributes.put(GeoRequestKey, true)
                 contentType(ContentType.Application.Json)
                 if (auth != null) header("Authorization", auth)
                 setBody(body)
@@ -413,6 +416,7 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
     ): com.z_company.repository.remote_rest.response.ServicePhaseLookupResponse =
         withAnonymousFallback(token) { auth ->
             client.post("v1/service_phase/stations/lookup") {
+                attributes.put(GeoRequestKey, true)
                 contentType(ContentType.Application.Json)
                 if (auth != null) header("Authorization", auth)
                 setBody(body)
