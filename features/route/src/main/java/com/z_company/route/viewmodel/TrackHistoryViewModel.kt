@@ -503,11 +503,12 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
 
     /** Данные для карты (прореживание, стоянки) готовим вне главного потока. */
     suspend fun mapTrack(opened: OpenedTrack): TrainFormViewModel.TrainMapTrack = withContext(Dispatchers.Default) {
-        val dwells = TrackAnalysis.detectDwells(opened.points)
+        val openedPoints = com.z_company.domain.util.GnssPlausibility.sanitize(opened.points)
+        val dwells = TrackAnalysis.detectDwells(openedPoints)
         TrainFormViewModel.TrainMapTrack(
-            points = opened.points,
-            drawPoints = TrackAnalysis.decimate(opened.points),
-            stops = TrackAnalysis.stopMarks(opened.points, dwells, emptyList()).let { marks ->
+            points = openedPoints,
+            drawPoints = TrackAnalysis.decimate(openedPoints),
+            stops = TrackAnalysis.stopMarks(openedPoints, dwells, emptyList()).let { marks ->
                 val dir = runCatching { stationDirectory.stations() }.getOrNull()
                 if (dir == null) marks else {
                     val pts = com.z_company.domain.util.StationDirectory.points(dir)

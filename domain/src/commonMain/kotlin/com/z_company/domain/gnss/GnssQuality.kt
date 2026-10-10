@@ -3,7 +3,7 @@ package com.z_company.domain.gnss
 import kotlin.math.ceil
 
 /** Уровень связи со спутниками (SCREEN_SPECS §6.9, §6.2 п.6а). */
-enum class GnssLevel { GOOD, WEAK, LOST, UNKNOWN }
+enum class GnssLevel { GOOD, WEAK, LOST, UNKNOWN, INTERFERENCE }
 
 /**
  * Качество GNSS-сигнала.
@@ -45,6 +45,8 @@ object GnssQualityConfig {
     const val FIRST_FIX_GRACE_MS = LOST_AGE_MS
     /** LOST дольше этого - одноразовое уведомление «Потерян сигнал GPS». */
     const val LOST_NOTIFY_AFTER_MS = 30_000L
+    /** «Помеха GPS»: отвергнутых как подмена/скачок фиксов за последние 60 с не меньше. */
+    const val INTERFERENCE_MIN_REJECTS = 2
 }
 
 /** Сырой (без сглаживания) уровень по мгновенным показателям. */
@@ -97,19 +99,22 @@ class GnssQualityEvaluator {
         satellitesVisible: Int?,
         providerEnabled: Boolean = true,
         lostWithoutFix: Boolean = true,
+        rejectedRecent: Int = 0,
     ): GnssQuality {
         val age = lastFixMs?.let { (nowMs - it).coerceAtLeast(0L) }
         var raw = GnssQualityRules.rawLevel(age, accuracyM, satellitesUsed, providerEnabled)
         // [lostWithoutFix] = false (индикатор на карте без записи): пока fix не было ни разу - «нет данных» (UNKNOWN), не LOST.
         if (lostWithoutFix && raw == GnssLevel.UNKNOWN && nowMs - startedMs > GnssQualityConfig.FIRST_FIX_GRACE_MS) raw = GnssLevel.LOST
-        shown = smooth(raw, nowMs)
+        // «Помеха GPS» (подмена/скачки): >= 2 отвергнутых фикса за 60 с - приоритетнее остальных уровней, без сглаживания.
+        if (providerEnabled && rejectedRecent >= GnssQualityConfig.INTERFERENCE_MIN_REJECTS) raw = GnssLevel.INTERFERENCE
+        shown = if (raw == GnssLevel.INTERFERENCE) raw.also { candidate = null } else smooth(raw, nowMs)
         return GnssQuality(shown, satellitesUsed, satellitesVisible, accuracyM, age)
     }
 
     private fun rank(l: GnssLevel) = when (l) {
         GnssLevel.GOOD -> 2
         GnssLevel.WEAK -> 1
-        GnssLevel.LOST -> 0
+        GnssLevel.LOST, GnssLevel.INTERFERENCE -> 0
         GnssLevel.UNKNOWN -> -1
     }
 
@@ -160,6 +165,7 @@ object GnssQualityText {
         GnssLevel.WEAK -> "GPS: слабый сигнал" + details(q).let { if (it.isEmpty()) "" else ", $it" }
         GnssLevel.LOST -> "Нет сигнала GPS — записи стоянок и отправлений приостановлены"
         GnssLevel.UNKNOWN -> "GPS: поиск спутников"
+        GnssLevel.INTERFERENCE -> "Помеха GPS — координаты скачут или подменены, такие точки не учитываются"
     }
 
     /** Для чтения скринридером. */

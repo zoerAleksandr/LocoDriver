@@ -692,7 +692,7 @@ internal fun TrainMapScreen(
         // обновлялась). Обновляет маркер, скорость и, в режиме «следовать» при движении, плавно ведёт камеру.
         LaunchedEffect(styleReady, permGranted) {
             if (!styleReady || !permGranted || viewOnly) return@LaunchedEffect
-            DeviceLocation.updates(context).collect { f ->
+            DeviceLocation.updates(context, onRejected = { gnssMonitor.onRejected() }).collect { f ->
                 val m = map ?: return@collect
                 if (!alive.get()) return@collect
                 val moving = (f.speedKmh ?: 0.0) >= 2.0

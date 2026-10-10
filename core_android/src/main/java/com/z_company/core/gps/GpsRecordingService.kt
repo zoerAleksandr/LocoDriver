@@ -28,6 +28,7 @@ import androidx.core.app.ServiceCompat
 import com.z_company.domain.gnss.GnssQuality
 import com.z_company.domain.gnss.GnssQualityEvaluator
 import com.z_company.domain.track.AltitudeMath
+import com.z_company.domain.util.GnssPlausibility
 
 /**
  * Foreground service записи GPS (тип location). Данные не пишет на диск и не логирует:
@@ -52,6 +53,10 @@ class GpsRecordingService : Service() {
     private var lastFixAccuracyM: Float? = null
     private var satsUsed: Int? = null
     private var satsVisible: Int? = null
+
+    // Подмена/скачки GNSS: отвергнутые фиксы не уходят в GpsRecorder.points (SCREEN_SPECS §6.9).
+    private val plausibility = GnssPlausibility()
+    private var networkRefHeld = false
     private val qualityTick = object : Runnable {
         override fun run() {
             publishQuality()
@@ -69,6 +74,7 @@ class GpsRecordingService : Service() {
                 satellitesUsed = satsUsed,
                 satellitesVisible = satsVisible,
                 providerEnabled = GpsRecorder.gpsAvailable.value,
+                rejectedRecent = plausibility.rejectedCount(SystemClock.elapsedRealtime()),
             ),
         )
     }
@@ -76,6 +82,11 @@ class GpsRecordingService : Service() {
     @SuppressLint("MissingPermission")
     private fun startQuality(lm: LocationManager) {
         qualityEvaluator.reset()
+        plausibility.reset()
+        if (!networkRefHeld) {
+            NetworkLocationReference.acquire(this)
+            networkRefHeld = true
+        }
         qualityStartedMs = SystemClock.elapsedRealtime()
         lastFixElapsedMs = null
         lastFixAccuracyM = null
@@ -100,6 +111,10 @@ class GpsRecordingService : Service() {
     }
 
     private fun stopQuality() {
+        if (networkRefHeld) {
+            NetworkLocationReference.release()
+            networkRefHeld = false
+        }
         qualityHandler.removeCallbacks(qualityTick)
         gnssCallback?.let { cb ->
             runCatching { (getSystemService(Context.LOCATION_SERVICE) as? LocationManager)?.unregisterGnssStatusCallback(cb) }
@@ -149,7 +164,19 @@ class GpsRecordingService : Service() {
         val lm = getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
         val l = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                lastFixElapsedMs = SystemClock.elapsedRealtime()
+                val nowElapsed = SystemClock.elapsedRealtime()
+                val verdict = plausibility.check(
+                    timeMs = location.time,
+                    lat = location.latitude,
+                    lon = location.longitude,
+                    speedKmh = if (location.hasSpeed()) location.speed * 3.6 else null,
+                    accuracyM = if (location.hasAccuracy()) location.accuracy else null,
+                    network = NetworkLocationReference.current(),
+                    nowMs = nowElapsed,
+                )
+                // Подмена/скачок: точку не принимаем нигде (ни в трек, ни в детектор, ни в «текущую позицию»).
+                if (!verdict.accepted) return
+                lastFixElapsedMs = nowElapsed
                 lastFixAccuracyM = if (location.hasAccuracy()) location.accuracy else null
                 GpsRecorder.emit(location.toPoint(baroAltitudeM()))
             }
