@@ -61,6 +61,29 @@ class InMemoryTrackRepository : TrackRepository {
         tracksForTrain(trainId).forEach { deleteTrack(it.trackId, queueRemoteDelete = true) }
     }
 
+    override fun mergeTracks(keepTrackId: String, absorbedTrackId: String) {
+        val keep = infos[keepTrackId] ?: return
+        val gone = infos[absorbedTrackId] ?: return
+        if (keepTrackId == absorbedTrackId) return
+        val list = pts.getOrPut(keepTrackId) { mutableListOf() }
+        val have = list.mapTo(HashSet()) { it.timeMs }
+        pts[absorbedTrackId].orEmpty().filter { have.add(it.timeMs) }.forEach { list += it }
+        val favorite = keep.isFavorite || gone.isFavorite
+        infos[keepTrackId] = keep.copy(
+            startedAt = minOf(keep.startedAt, gone.startedAt),
+            endedAt = maxOf(keep.endedAt, gone.endedAt),
+            isFavorite = favorite,
+            favoriteDirty = keep.favoriteDirty || favorite,
+            uploadState = if (keep.uploadState == TrackUploadState.REJECTED && gone.uploadState != TrackUploadState.REJECTED) {
+                TrackUploadState.PENDING
+            } else {
+                keep.uploadState
+            },
+            uploadedPoints = 0L,
+        )
+        deleteTrack(absorbedTrackId, queueRemoteDelete = true)
+    }
+
     override fun deleteAll() {
         infos.clear()
         pts.clear()

@@ -50,6 +50,13 @@ interface TrackRepository {
     /** Снять метку «поезд удалён» (рейс восстановлен из корзины); удалённые треки не возвращаются. */
     fun allowTrain(trainId: String)
 
+    /**
+     * Атомарно влить [absorbedTrackId] в [keepTrackId] (один поезд): точки переносятся, startedAt/endedAt пересчитываются,
+     * звезда сохраняется, если была у любого; [keepTrackId] помечается к повторной отправке (uploadedPoints = 0),
+     * поглощённый удаляется локально и ставится в очередь удаления на сервере.
+     */
+    fun mergeTracks(keepTrackId: String, absorbedTrackId: String)
+
     /** Удалить все локальные треки. */
     fun deleteAll()
 

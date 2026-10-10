@@ -74,6 +74,17 @@ UPDATE Track SET uploadState = :uploadState, uploadedPoints = :uploadedPoints WH
 resetAllUploadState:
 UPDATE Track SET uploadState = 0, uploadedPoints = 0, favoriteDirty = 0;
 
+-- Склейка треков: точки поглощённого переносятся в оставляемый (дубли по времени игнорируются).
+moveTrackPoints:
+INSERT OR IGNORE INTO TrackPoint(trackId, timeMs, latitude, longitude, speedKmh, accuracyM, altitudeM, baroAltitudeM)
+SELECT :keepTrackId, timeMs, latitude, longitude, speedKmh, accuracyM, altitudeM, baroAltitudeM
+FROM TrackPoint WHERE trackId = :absorbedTrackId;
+
+updateMergedTrack:
+UPDATE Track SET startedAt = :startedAt, endedAt = :endedAt, isFavorite = :isFavorite, favoriteDirty = :favoriteDirty,
+    uploadState = :uploadState, uploadedPoints = 0
+WHERE trackId = :trackId;
+
 deletePointsOne:
 DELETE FROM TrackPoint WHERE trackId = :trackId;
 

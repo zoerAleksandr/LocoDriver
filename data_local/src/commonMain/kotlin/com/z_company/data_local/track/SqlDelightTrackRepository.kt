@@ -5,6 +5,7 @@ import com.z_company.domain.track.TrackInfo
 import com.z_company.domain.track.TrackPoint
 import com.z_company.domain.track.TrackRepository
 import com.z_company.domain.track.TrackRetention
+import com.z_company.domain.track.TrackUploadState
 
 class SqlDelightTrackRepository(private val db: TrackDatabase) : TrackRepository {
     private val q get() = db.trackQueries
@@ -84,6 +85,30 @@ class SqlDelightTrackRepository(private val db: TrackDatabase) : TrackRepository
             q.selectTrackIdsByTrain(trainId).executeAsList().forEach { q.insertPendingDelete(it) }
             q.deletePointsByTrain(trainId)
             q.deleteTracksByTrain(trainId)
+        }
+    }
+
+    override fun mergeTracks(keepTrackId: String, absorbedTrackId: String) {
+        if (keepTrackId == absorbedTrackId) return
+        db.transaction {
+            val keep = q.selectTrack(keepTrackId).executeAsOneOrNull() ?: return@transaction
+            val gone = q.selectTrack(absorbedTrackId).executeAsOneOrNull() ?: return@transaction
+            q.moveTrackPoints(keepTrackId, absorbedTrackId)
+            val favorite = keep.isFavorite != 0L || gone.isFavorite != 0L
+            val state = if (keep.uploadState.toInt() == TrackUploadState.REJECTED &&
+                gone.uploadState.toInt() != TrackUploadState.REJECTED
+            ) TrackUploadState.PENDING else keep.uploadState.toInt()
+            q.updateMergedTrack(
+                startedAt = minOf(keep.startedAt, gone.startedAt),
+                endedAt = maxOf(keep.endedAt, gone.endedAt),
+                isFavorite = if (favorite) 1L else 0L,
+                favoriteDirty = if (keep.favoriteDirty != 0L || favorite) 1L else 0L,
+                uploadState = state.toLong(),
+                trackId = keepTrackId,
+            )
+            q.deletePointsOne(absorbedTrackId)
+            q.deleteTrackOne(absorbedTrackId)
+            q.insertPendingDelete(absorbedTrackId)
         }
     }
 
