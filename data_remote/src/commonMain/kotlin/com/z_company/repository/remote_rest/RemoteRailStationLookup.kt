@@ -14,7 +14,7 @@ import kotlinx.coroutines.withTimeout
 
 /**
  * `POST /v1/service_phase/stations/nearest` с `alongRail=true`: ближайшая станция по рельсам.
- * Координата уходит только в этом запросе и не логируется. Любая ошибка (нет сети, 503, нет токена) - [RailLookupResult.Unavailable].
+ * Координата уходит только в этом запросе и не логируется. Токен необязателен. Любая ошибка (нет сети, 503, 429 - пауза по Retry-After) - [RailLookupResult.Unavailable].
  */
 class RemoteRailStationLookup(
     private val api: RemoteRestApi,
@@ -23,25 +23,27 @@ class RemoteRailStationLookup(
 ) : RailStationLookup {
 
     override suspend fun nearestAlongRail(latitude: Double, longitude: Double, radiusM: Double, candidates: List<RailCandidate>): RailLookupResult = try {
+        // Без аккаунта - запрос без Authorization (лимит по IP, SCREEN_SPECS §6.9).
         val token = bearerToken()?.takeIf { it.isNotBlank() }
-        if (token == null) {
-            RailLookupResult.Unavailable()
-        } else {
-            withTimeout(timeoutMs) {
-                api.nearestStation("Bearer $token", NearestStationRequest(
-                        latitude, longitude, radiusM, alongRail = true,
-                        candidates = candidates.takeIf { it.isNotEmpty() }
-                            ?.map { NearestStationCandidate(it.key, it.name, it.latitude, it.longitude) },
-                    ),
-                )
-            }.toRailResult()
-        }
+        // Лимит 429: молча уходим на запасной вариант (справочник по прямой), пока не истечёт Retry-After.
+        val paused = GeoRateLimit.remainingMs()
+        if (paused > 0) RailLookupResult.Unavailable(paused) else withTimeout(timeoutMs) {
+            api.nearestStation(
+                token?.let { "Bearer $it" },
+                NearestStationRequest(
+                    latitude, longitude, radiusM, alongRail = true,
+                    candidates = candidates.takeIf { it.isNotEmpty() }
+                        ?.map { NearestStationCandidate(it.key, it.name, it.latitude, it.longitude) },
+                ),
+            )
+        }.toRailResult()
     } catch (e: TimeoutCancellationException) {
         RailLookupResult.Unavailable()
     } catch (e: CancellationException) {
         throw e
     } catch (e: ResponseException) {
-        RailLookupResult.Unavailable(e.response.headers["Retry-After"]?.trim()?.toLongOrNull()?.times(1000))
+        GeoRateLimit.recordIfRateLimited(listOf(e))
+        RailLookupResult.Unavailable(GeoRateLimit.retryAfterMs(e))
     } catch (e: Exception) {
         RailLookupResult.Unavailable()
     }

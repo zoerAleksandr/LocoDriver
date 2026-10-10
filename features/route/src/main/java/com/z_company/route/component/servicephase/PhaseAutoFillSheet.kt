@@ -773,7 +773,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.FailureContent(
         )
         AutoFillFailure.RATE_LIMITED -> Spec(
             PstIcons.Clock, "Слишком много запросов",
-            "Автоподбор запускали много раз подряд. Попробуйте позже — или добавьте станции вручную.",
+            "Запросов к карте слишком много. Попробуйте позже или войдите в аккаунт — или добавьте станции вручную.",
             "Добавить вручную" to onAddManually, "Закрыть" to onClose,
         )
         AutoFillFailure.BUSY -> Spec(

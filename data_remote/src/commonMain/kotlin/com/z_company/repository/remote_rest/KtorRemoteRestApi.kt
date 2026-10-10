@@ -372,44 +372,52 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
         }.body()
 
     override suspend fun suggestServicePhaseStations(
-        token: String,
+        token: String?,
         body: com.z_company.repository.remote_rest.response.ServicePhaseSuggestRequest,
     ): com.z_company.repository.remote_rest.response.ServicePhaseSuggestResponse =
-        client.post("v1/service_phase/stations/suggest") {
-            contentType(ContentType.Application.Json)
-            header("Authorization", token)
-            setBody(body)
-        }.body()
+        withAnonymousFallback(token) { auth ->
+            client.post("v1/service_phase/stations/suggest") {
+                contentType(ContentType.Application.Json)
+                if (auth != null) header("Authorization", auth)
+                setBody(body)
+            }.body()
+        }
 
     override suspend fun measureRouteLength(
-        token: String,
+        token: String?,
         body: com.z_company.repository.remote_rest.response.RouteLengthRequest,
     ): com.z_company.repository.remote_rest.response.RouteLengthResponse =
-        client.post("v1/service_phase/route/length") {
-            contentType(ContentType.Application.Json)
-            header("Authorization", token)
-            setBody(body)
-        }.body()
+        withAnonymousFallback(token) { auth ->
+            client.post("v1/service_phase/route/length") {
+                contentType(ContentType.Application.Json)
+                if (auth != null) header("Authorization", auth)
+                setBody(body)
+            }.body()
+        }
 
     override suspend fun nearestStation(
-        token: String,
+        token: String?,
         body: com.z_company.repository.remote_rest.response.NearestStationRequest,
     ): com.z_company.repository.remote_rest.response.NearestStationResponse =
-        client.post("v1/service_phase/stations/nearest") {
-            contentType(ContentType.Application.Json)
-            header("Authorization", token)
-            setBody(body)
-        }.body()
+        withAnonymousFallback(token) { auth ->
+            client.post("v1/service_phase/stations/nearest") {
+                contentType(ContentType.Application.Json)
+                if (auth != null) header("Authorization", auth)
+                setBody(body)
+            }.body()
+        }
 
     override suspend fun lookupServicePhaseStation(
-        token: String,
+        token: String?,
         body: com.z_company.repository.remote_rest.response.ServicePhaseLookupRequest,
     ): com.z_company.repository.remote_rest.response.ServicePhaseLookupResponse =
-        client.post("v1/service_phase/stations/lookup") {
-            contentType(ContentType.Application.Json)
-            header("Authorization", token)
-            setBody(body)
-        }.body()
+        withAnonymousFallback(token) { auth ->
+            client.post("v1/service_phase/stations/lookup") {
+                contentType(ContentType.Application.Json)
+                if (auth != null) header("Authorization", auth)
+                setBody(body)
+            }.body()
+        }
 
     override suspend fun applyReferralCode(
         token: String,
@@ -421,3 +429,14 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             setBody(request)
         }.body()
 }
+
+/**
+ * Гео-запросы доступны анонимно (SCREEN_SPECS §6.9). Токен есть, но сервер ответил 401 (просрочен/невалиден) -
+ * повторяем ровно один раз без Authorization: пользователь остаётся «анонимом» и получает ответ по лимиту IP.
+ */
+internal suspend fun <T> withAnonymousFallback(token: String?, call: suspend (authorization: String?) -> T): T =
+    try {
+        call(token)
+    } catch (e: io.ktor.client.plugins.ClientRequestException) {
+        if (token != null && e.response.status == HttpStatusCode.Unauthorized) call(null) else throw e
+    }
