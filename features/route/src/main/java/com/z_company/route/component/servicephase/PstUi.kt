@@ -157,6 +157,8 @@ internal object PstIcons {
     )
     /** «График скорости»: оси и ломаная линия. */
     val SpeedChart = strokeIcon("speedChart", "M4 4v16h16", "M7 15l4-5 3 3 5-7")
+    /** «Зоны без GPS»: волны сигнала, перечёркнутые. */
+    val GnssZones = strokeIcon("gnssZones", circle(12f, 12f, 2f), "M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4", "M4 4l16 16")
     val Edit = strokeIcon("edit", "M4 20h4L18.5 9.5a2.12 2.12 0 0 0-3-3L5 17v3z", "M13.5 6.5l3 3")
 }
 
