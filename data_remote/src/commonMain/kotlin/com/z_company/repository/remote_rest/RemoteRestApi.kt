@@ -199,27 +199,31 @@ interface RemoteRestApi {
     /** Личный код и право применить чужой код до первой оплаты. */
     suspend fun getReferralStatus(token: String): com.z_company.repository.remote_rest.response.ReferralStatusResponse
 
+    /**
+     * Четыре гео-эндпоинта (suggest, route/length, nearest, lookup) доступны без аккаунта (лимит по IP, SCREEN_SPECS §6.9):
+     * [token] == null - запрос без Authorization; 401 с токеном - один повтор без токена.
+     */
     /** Автоподбор промежуточных станций плеча по OSM (сервер). */
     suspend fun suggestServicePhaseStations(
-        token: String,
+        token: String?,
         body: com.z_company.repository.remote_rest.response.ServicePhaseSuggestRequest,
     ): com.z_company.repository.remote_rest.response.ServicePhaseSuggestResponse
 
     /** «Измерить по карте»: длина плеча по ж/д путям через станции по порядку. */
     suspend fun measureRouteLength(
-        token: String,
+        token: String?,
         body: com.z_company.repository.remote_rest.response.RouteLengthRequest,
     ): com.z_company.repository.remote_rest.response.RouteLengthResponse
 
     /** Ближайшая станция к точке телефона (радиус по умолчанию 2 км). */
     suspend fun nearestStation(
-        token: String,
+        token: String?,
         body: com.z_company.repository.remote_rest.response.NearestStationRequest,
     ): com.z_company.repository.remote_rest.response.NearestStationResponse
 
     /** Координаты одной станции по названию (ближние к соседям — первыми). */
     suspend fun lookupServicePhaseStation(
-        token: String,
+        token: String?,
         body: com.z_company.repository.remote_rest.response.ServicePhaseLookupRequest,
     ): com.z_company.repository.remote_rest.response.ServicePhaseLookupResponse
 
