@@ -236,6 +236,8 @@ internal fun PstTextField(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     singleLine: Boolean = true,
     mono: Boolean = false,
+    /** Ошибочное состояние: рамка и подпись цвета ошибки (контраст >= 3:1 к фону карточки в обеих темах), лёгкая заливка. */
+    isError: Boolean = false,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
@@ -265,7 +267,8 @@ internal fun PstTextField(
                     .heightIn(min = 56.dp)
                     .then(if (focused) Modifier else Modifier.shadow(1.dp, shape))
                     .background(Pst.surface, shape)
-                    .border(2.dp, if (focused) Pst.accent else Color.Transparent, shape)
+                    .then(if (isError) Modifier.background(Pst.danger.copy(alpha = 0.10f), shape) else Modifier)
+                    .border(2.dp, if (isError) Pst.danger else if (focused) Pst.accent else Color.Transparent, shape)
                     .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -277,7 +280,7 @@ internal fun PstTextField(
                     Text(
                         text = label,
                         style = Pst.sans.copy(fontSize = 12.sp),
-                        color = if (focused) Pst.accent else Pst.textMuted,
+                        color = if (isError) Pst.danger else if (focused) Pst.accent else Pst.textMuted,
                     )
                     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Box(modifier = Modifier.weight(1f, fill = false)) {
