@@ -325,6 +325,7 @@ fun FormTrainScreen(
                 loadTrack = { viewModel.trainMapTrack() },
                 loadRecordingState = { viewModel.trainMapRecordingState() },
                 makeTarget = { viewModel.trainMapMakeTarget() },
+                loadConflictText = { viewModel.trainMapConflictText() },
                 onDetermine = { viewModel.saveStationCoordinatesFromGps(it) },
                 loadZone = { viewModel.trainMapZone() },
                 planKey = remember { viewModel.trainMapPlanKey() },

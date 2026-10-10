@@ -181,13 +181,24 @@ object RemoteRestClient {
         install(DefaultRequest) {
             url(baseUrl())
         }
-        HttpResponseValidator {
+        installSessionExpiredDetection()
+    }
+}
+
+/** Метка гео-запроса (SCREEN_SPECS §6.9): 401 на нём не означает конец сессии - клиент повторит запрос анонимно. */
+internal val GeoRequestKey = io.ktor.util.AttributeKey<Boolean>("GeoRequest")
+
+/** 401 с bearer-токеном - сигнал о просроченной сессии, кроме гео-запросов. */
+internal fun io.ktor.client.HttpClientConfig<*>.installSessionExpiredDetection() {
+    HttpResponseValidator {
             // Обработчик срабатывает после того, как expectSuccess уже превратил
             // 4xx в исключение; исходное исключение Ktor бросает дальше сам,
             // поэтому здесь только сигналим — поведение вызывающего кода не меняется.
             handleResponseExceptionWithRequest { cause, request ->
                 if (cause !is ClientRequestException) return@handleResponseExceptionWithRequest
                 if (cause.response.status != HttpStatusCode.Unauthorized) return@handleResponseExceptionWithRequest
+                // Гео-запрос: 401 лечится повтором без токена (withAnonymousFallback), разлогина не будет.
+                if (request.attributes.contains(GeoRequestKey)) return@handleResponseExceptionWithRequest
                 val hadAuthorization = request.headers.contains(HttpHeaders.Authorization)
                 // Тело сохранено вместе с исключением (call.save()), читать можно повторно.
                 val body = runCatching { cause.response.bodyAsText() }.getOrNull()
@@ -201,5 +212,4 @@ object RemoteRestClient {
                 }
             }
         }
-    }
 }

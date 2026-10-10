@@ -644,6 +644,15 @@ class TrainFormViewModel(
         return autoRecord.trackRecordingState(thisId, otherNumber)
     }
 
+    /** Предупреждение «Запись уже идёт», если «АВТО» пишет другой поезд (иначе null) - для «Сделать целью» (§6.9). */
+    suspend fun trainMapConflictText(): String? {
+        val thisId = currentTrain?.trainId?.toString() ?: return null
+        val enabled = autoRecord.state.value.enabled
+        return if (com.z_company.domain.autorecord.AutoTargetRules.conflictsWith(enabled, autoRecord.targetTrainId(), thisId)) {
+            autoRecord.conflictText()
+        } else null
+    }
+
     /** Сделать этот поезд целью записи «АВТО» (кнопка пустого графика, §6.9). */
     fun trainMapMakeTarget(): Boolean {
         val id = currentTrain?.trainId ?: return false

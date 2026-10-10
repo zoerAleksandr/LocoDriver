@@ -173,6 +173,8 @@ internal fun TrainMapScreen(
     loadRecordingState: suspend () -> com.z_company.domain.track.TrackRecordingState? = { null },
     /** Сделать этот поезд целью записи «АВТО»; true - цель назначена. */
     makeTarget: () -> Boolean = { false },
+    /** Текст предупреждения «Запись уже идёт» для кнопки «Сделать целью»; null - пишется не другой поезд. */
+    loadConflictText: suspend () -> String? = { null },
     onDetermine: suspend (String) -> Boolean,
     /** Пояс отображения времени (displayTimeZone), нужен для ввода планового времени, когда трека нет. */
     loadZone: suspend () -> String = { "GMT+3" },
@@ -1397,6 +1399,7 @@ internal fun TrainMapScreen(
                     profile = speedProfile,
                     loadRecordingState = loadRecordingState,
                     makeTarget = makeTarget,
+                    loadConflictText = loadConflictText,
                     onEnableAuto = onEnableAuto,
                     selectedTimeMs = (selection as? TrainMapSelection.PathPoint)?.point?.timeMs,
                     onSelect = { p -> selection = p?.let { TrainMapSelection.PathPoint(it) } },

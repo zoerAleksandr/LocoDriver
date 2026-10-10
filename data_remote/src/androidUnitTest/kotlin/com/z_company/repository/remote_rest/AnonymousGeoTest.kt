@@ -19,6 +19,7 @@ import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.util.date.GMTDate
 import io.ktor.utils.io.ByteReadChannel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -57,6 +58,7 @@ class AnonymousGeoTest {
         HttpClient(engine) {
             expectSuccess = true
             install(ContentNegotiation) { json(RemoteRestClient.appJson) }
+            installSessionExpiredDetection()
         },
     )
 
@@ -83,6 +85,27 @@ class AnonymousGeoTest {
         val e = fake(unauthorized, ok)
         apiOver(e).nearestStation("Bearer stale", req)
         assertEquals(listOf<String?>("Bearer stale", null), e.auth)
+    }
+
+    /** Считает сигналы SessionExpiredNotifier за время блока. */
+    private suspend fun countSignals(block: suspend () -> Unit): Int = kotlinx.coroutines.coroutineScope {
+        var n = 0
+        val job = launch(kotlinx.coroutines.Dispatchers.Unconfined) { SessionExpiredNotifier.events.collect { n++ } }
+        try { block() } catch (_: Exception) {} finally { job.cancel() }
+        n
+    }
+
+    @Test fun `401 with token on geo request - no session-expired signal when anonymous retry succeeds`() = runBlocking {
+        val e = fake(unauthorized, ok)
+        val signals = countSignals { apiOver(e).nearestStation("Bearer stale", req) }
+        assertEquals(0, signals)
+        assertEquals(listOf<String?>("Bearer stale", null), e.auth)
+    }
+
+    @Test fun `401 with token on non-geo request - session-expired signal as before`() = runBlocking {
+        val e = fake(unauthorized)
+        val signals = countSignals { apiOver(e).getReferralStatus("Bearer stale") }
+        assertEquals(1, signals)
     }
 
     @Test fun `401 without token - no retry, error propagates`() {

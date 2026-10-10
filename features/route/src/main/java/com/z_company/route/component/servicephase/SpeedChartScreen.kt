@@ -101,6 +101,8 @@ internal fun SpeedChartScreen(
     profile: SpeedProfile = SpeedProfile.FREIGHT,
     loadRecordingState: suspend () -> TrackRecordingState? = { null },
     makeTarget: () -> Boolean = { false },
+    /** Текст предупреждения «Запись уже идёт», если сейчас пишется ДРУГОЙ поезд; null - конфликта нет. */
+    loadConflictText: suspend () -> String? = { null },
     onEnableAuto: (() -> Unit)? = null,
     selectedTimeMs: Long?,
     onSelect: (TrackPoint?) -> Unit,
@@ -133,6 +135,23 @@ internal fun SpeedChartScreen(
         // Голубая полоса на оси «Время» - стоянка станции (прибытие-отправление): объясняется в легенде.
         val hasStopBands = axis == ChartAxis.TIME && stops.any { it.xEnd > it.x }
         val scope = androidx.compose.runtime.rememberCoroutineScope()
+        // «Сделать целью» при записи другого поезда: то же предупреждение, что и у «АВТО» на экране поезда (§6.2 п.6а).
+        var refresh by remember { mutableStateOf(0) }
+        var conflictText by remember { mutableStateOf<String?>(null) }
+        conflictText?.let { text ->
+            com.z_company.route.component.AppAlertDialog(
+                onDismissRequest = { conflictText = null },
+                title = com.z_company.domain.autorecord.AutoTargetRules.CONFLICT_TITLE,
+                text = text,
+                confirmText = com.z_company.domain.autorecord.AutoTargetRules.CONFLICT_CONFIRM,
+                onConfirm = {
+                    conflictText = null
+                    if (makeTarget()) refresh++
+                },
+                dismissText = com.z_company.domain.autorecord.AutoTargetRules.CONFLICT_DISMISS,
+                onDismiss = { conflictText = null },
+            )
+        }
         var scrollJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
         var plotLeft by remember { mutableStateOf(0f) }
         var plotWidth by remember { mutableStateOf(1f) }
@@ -230,7 +249,6 @@ internal fun SpeedChartScreen(
                 if (samples.size < 2 || pointsWithSpeed == 0) {
                     // Пустое состояние с реальной причиной: состояние записи опрашивается, пока экран пуст.
                     var recording by remember { mutableStateOf<TrackRecordingState?>(null) }
-                    var refresh by remember { mutableStateOf(0) }
                     LaunchedEffect(refresh) {
                         while (true) {
                             recording = runCatching { loadRecordingState() }.getOrNull()
@@ -259,7 +277,10 @@ internal fun SpeedChartScreen(
                                     when (action) {
                                         TrackEmptyAction.ENABLE_AUTO -> { onEnableAuto?.invoke(); refresh++ }
                                         TrackEmptyAction.OPEN_CONSENT -> onOpenConsent()
-                                        TrackEmptyAction.MAKE_TARGET -> if (makeTarget()) refresh++
+                                        TrackEmptyAction.MAKE_TARGET -> scope.launch {
+                                            val conflict = runCatching { loadConflictText() }.getOrNull()
+                                            if (conflict != null) conflictText = conflict else if (makeTarget()) refresh++
+                                        }
                                         TrackEmptyAction.NONE -> Unit
                                     }
                                 },
