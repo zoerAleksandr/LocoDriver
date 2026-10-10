@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.z_company.domain.autorecord.AutoTargetRules
 import com.z_company.route.component.AppAlertDialog
 import kotlinx.coroutines.launch
 
@@ -137,9 +139,29 @@ fun rememberAutoRecordToggle(
             onDismiss = { showConsent = false },
         )
     }
+    // «Единственное активное АВТО»: включение на другом поезде, пока пишется трек для поезда № X, - диалог.
+    var conflictText by remember { mutableStateOf<String?>(null) }
+    conflictText?.let { text ->
+        AppAlertDialog(
+            onDismissRequest = { conflictText = null },
+            title = AutoTargetRules.CONFLICT_TITLE,
+            text = text,
+            confirmText = AutoTargetRules.CONFLICT_CONFIRM,
+            onConfirm = {
+                conflictText = null
+                // Текущий трек завершается, следующая точка открывает новый трек для этого поезда.
+                currentTrainId?.let { manager.setTarget(it) }
+            },
+            dismissText = AutoTargetRules.CONFLICT_DISMISS,
+            onDismiss = { conflictText = null },
+        )
+    }
     return remember(manager) {
         {
-            if (manager.state.value.enabled) {
+            val st = manager.state.value
+            if (AutoTargetRules.conflictsWith(st.enabled, manager.targetTrainId(), currentTrainId)) {
+                scope.launch { conflictText = manager.conflictText() }
+            } else if (st.enabled) {
                 manager.disable()
             } else if (!consent.hasDecided()) {
                 showConsent = true
@@ -148,6 +170,19 @@ fun rememberAutoRecordToggle(
             }
         }
     }
+}
+
+/**
+ * Состояние «АВТО» для экрана поезда [trainId]: включённым показывается только у поезда, который пишется
+ * (`target_train_id`); у остальных - выключенным. Без поезда ([trainId] == null) - общее состояние.
+ */
+@Composable
+fun rememberAutoStateFor(manager: AutoRecordManager, trainId: String?): AutoRecordState {
+    val state by manager.state.collectAsState()
+    val target by manager.target.collectAsState()
+    return if (state.enabled && !AutoTargetRules.isRecordingThis(true, target, trainId)) {
+        state.copy(enabled = false, interrupted = false)
+    } else state
 }
 
 private fun needsBatteryHelp(context: Context): Boolean {

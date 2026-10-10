@@ -17,6 +17,8 @@ import com.z_company.core.sendToSentry
 import com.z_company.domain.autorecord.AutoStationLocator
 import com.z_company.domain.autorecord.AutoTrainWriter
 import com.z_company.domain.autorecord.MotionSample
+import com.z_company.domain.autorecord.RecordTargetResolver
+import com.z_company.domain.autorecord.AutoTargetRules
 import com.z_company.domain.autorecord.StopDetector
 import com.z_company.domain.autorecord.StopEvent
 import com.z_company.domain.autorecord.TrainOrdering
@@ -113,6 +115,20 @@ class AutoRecordManager(
     /** Качество связи со спутниками (SCREEN_SPECS §6.9); UNKNOWN, пока запись не идёт. */
     val gnssQuality: StateFlow<GnssQuality> get() = GpsRecorder.quality
 
+    private val _target = MutableStateFlow(prefs.getString(KEY_TARGET, null))
+
+    /** Поезд, который пишет «АВТО» (`target_train_id`); null - не определён. Экраны сравнивают со своим поездом. */
+    val target: StateFlow<String?> = _target.asStateFlow()
+
+    /**
+     * Единственное место создания поезда-цели: под мьютексом и с ожиданием записи в БД (см. [RecordTargetResolver]),
+     * поэтому включение АВТО, первое событие и кнопка на карте не создают двух поездов.
+     */
+    private val targetResolver = RecordTargetResolver(
+        currentRoute = { currentRoute()?.let { it.basicData.id to it.trains } },
+        createTrain = { train -> trainUseCase.updateTrain(train).first { it !is ResultState.Loading } },
+    )
+
     private var detector = StopDetector()
     private var qualityJob: Job? = null
     private var lostSinceMs: Long? = null
@@ -178,6 +194,7 @@ class AutoRecordManager(
             .putBoolean(KEY_INTERRUPTED, false)
             .apply { if (trainId != null) putString(KEY_TARGET, trainId) else remove(KEY_TARGET) }
             .apply()
+        _target.value = trainId
         if (trainId == null) {
             // Одноразовая фиксация по TrainOrdering в момент включения; нет маршрута/поездов — при первом событии.
             scope.launch {
@@ -211,19 +228,22 @@ class AutoRecordManager(
      * в текущем маршруте, иначе [NO_TRAIN_ID]: трек без маршрута и поезда). Возвращает null при ошибке.
      */
     suspend fun resolveRecordTarget(openedTrainId: String?): String? = withContext(Dispatchers.Default) {
-        runCatching {
-            val route = currentRoute()
-            when (val t = TrainOrdering.pickRecordTarget(openedTrainId, route?.basicData?.id, route?.trains)) {
-                is TrainOrdering.RecordTarget.Existing -> t.trainId
-                is TrainOrdering.RecordTarget.NewTrainInRoute -> {
-                    val train = Train(basicId = t.routeId)
-                    trainUseCase.updateTrain(train).first { it !is ResultState.Loading }
-                    train.trainId
-                }
-                // Текущего маршрута нет: маршрут НЕ создаём, пишем локальный трек «без поезда».
-                TrainOrdering.RecordTarget.NoTrain -> NO_TRAIN_ID
-            }
-        }.onFailure { it.sendToSentry("AutoRecordManager", "resolveRecordTarget") }.getOrNull()
+        runCatching { targetResolver.resolve(openedTrainId) }
+            .onFailure { it.sendToSentry("AutoRecordManager", "resolveRecordTarget") }.getOrNull()
+    }
+
+    /**
+     * Текст предупреждения «Запись уже идёт» для поезда, который пишется сейчас (SCREEN_SPECS §6.2 п.6а):
+     * номер, иначе «Начало — конец» по станциям, иначе «без номера». Поезд берётся из открытой формы или из БД.
+     */
+    suspend fun conflictText(): String = withContext(Dispatchers.Default) {
+        val id = prefs.getString(KEY_TARGET, null)
+        val train = id?.takeIf { it != NO_TRAIN_ID }?.let { tid ->
+            runCatching {
+                TrainOrdering.findTargetTrain(routeUseCase.getListRoutes().map { it.trains }, tid)
+            }.getOrNull()
+        }
+        AutoTargetRules.conflictText(train, id)
     }
 
     /** Поезд, который сейчас пишет «АВТО» (null - цель не определена). */
@@ -409,6 +429,7 @@ class AutoRecordManager(
         expiryJob?.cancel()
         prefs.edit().remove(KEY_UNTIL).remove(KEY_TARGET).remove(KEY_STOPPED).remove(KEY_STOPPED_SINCE)
             .remove(KEY_INTERRUPTED_UNTIL).putBoolean(KEY_INTERRUPTED, false).apply()
+        _target.value = null
         resetTrack()
         onWatchdog(false)
         cancelAlerts()
@@ -505,11 +526,27 @@ class AutoRecordManager(
 
     private fun saveTarget(id: String) {
         prefs.edit().putString(KEY_TARGET, id).apply()
+        _target.value = id
     }
 
     private suspend fun handleEvent(event: StopEvent) {
         // Цель - поезд, где нажата «АВТО»: ищем среди поездов ВСЕХ неудалённых маршрутов, не только текущего.
         var saved = prefs.getString(KEY_TARGET, null)
+        // Цель - поезд открытой формы «Поезд», который ещё не сохранён в БД (новый): пишем через форму. Иначе
+        // fallback создавал бы ВТОРОЙ поезд, а форма позже сохранила бы свой.
+        val open = editor
+        val formOwnsTarget = open != null && saved != null && open.trainId == saved
+        if (formOwnsTarget) {
+            val inDb = withContext(Dispatchers.Default) {
+                TrainOrdering.findTargetTrain(
+                    routeUseCase.getListRoutes().filter { !it.basicData.isDeleted }.map { it.trains }, saved,
+                ) != null
+            }
+            if (!inDb) {
+                val name = stationNameFor(null, event)
+                if (withContext(Dispatchers.Main) { open!!.apply(event, name) }) return
+            }
+        }
         if (saved == NO_TRAIN_ID) {
             // Трек «без поезда»: станциям писать некуда. Если маршрут уже появился - переходим на его поезд
             // (следующая точка откроет новый трек), иначе событие отбрасываем.
@@ -518,60 +555,63 @@ class AutoRecordManager(
             saveTarget(resolved)
             saved = resolved
         }
-        val targeted = withContext(Dispatchers.Default) {
-            TrainOrdering.findTargetTrain(
-                routeUseCase.getListRoutes().filter { !it.basicData.isDeleted }.map { it.trains }, saved,
-            )
-        }
-        val train = targeted ?: run {
-            // Цели нет / поезд удалён: fallback по правилу TrainOrdering на текущем маршруте.
-            val route = withContext(Dispatchers.Default) { currentRoute() }
-            if (route == null) {
+        fun findInDb() = TrainOrdering.findTargetTrain(
+            routeUseCase.getListRoutes().filter { !it.basicData.isDeleted }.map { it.trains }, saved,
+        )
+        var train = withContext(Dispatchers.Default) { findInDb() }
+        if (train == null) {
+            // Цели нет / поезд удалён: правило TrainOrdering на текущем маршруте; пустого поезда нет - он создаётся
+            // СРАЗУ и один раз (RecordTargetResolver), чтобы формы и главный экран увидели его через подписку на БД.
+            val resolved = resolveRecordTarget(null)
+            if (resolved == null) return
+            if (resolved == NO_TRAIN_ID) {
                 // Маршрута нет: пишется только трек «без поезда», события станций отбрасываем.
                 saveTarget(NO_TRAIN_ID)
                 notifyNoRoute()
                 return
             }
-            TrainOrdering.pickTarget(route.trains, null) ?: Train(basicId = route.basicData.id)
+            saved = resolved
+            train = withContext(Dispatchers.Default) { findInDb() } ?: return
         }
         // Фиксируем фактическую цель (создание нового поезда / fallback при удалённом запомненном).
         if (prefs.getString(KEY_TARGET, null) != train.trainId) saveTarget(train.trainId)
 
-        // Название станции - единая функция (плечо и порядок станций поезда, радиус 1 км; без плеча - станция по рельсам
-        // с сервера, запасной вариант - справочник).
-        val name = withContext(Dispatchers.Default) {
-            val dir = stationDirectory.stations()
-            val points = StationDirectory.points(dir)
-            val names = StationDirectory.names(dir)
-            val phase = train.servicePhase?.let { sp ->
-                val full = runCatching {
-                    settingsUseCase.getUserSettingFlow().first().servicePhases.firstOrNull { it.id == sp.id }
-                }.getOrNull() ?: sp
-                stationDirectory.resolve(full)
-            }
-            val written = com.z_company.domain.util.ServicePhaseStationPicker.writtenNames(
-                train.stations.map { it.stationName }, train.servicePhase != null,
-            )
-            if (stopNamer != null) {
-                stopNamer.name(
-                    phase, written, event.latitude, event.longitude, points, names,
-                    onDiscovered = { stationDirectory.fillCoordinates(it.name, it.latitude, it.longitude) },
-                )
-            } else {
-                com.z_company.domain.util.ServicePhaseStationPicker.pickForStop(
-                    phase, written, event.latitude, event.longitude, points, names,
-                )
-            }
-        }
+        val name = stationNameFor(train, event)
 
-        val open = editor
-        if (open != null && open.trainId == train.trainId) {
+        val openForm = editor
+        if (openForm != null && openForm.trainId == train.trainId) {
             // Форма «Поезд» открыта на этом поезде: пишем через неё, иначе её автосохранение затрёт запись.
-            if (withContext(Dispatchers.Main) { open.apply(event, name) }) return
+            if (withContext(Dispatchers.Main) { openForm.apply(event, name) }) return
         }
         val updated = AutoTrainWriter.apply(train, event, name) ?: return
         withContext(Dispatchers.Default) {
             trainUseCase.updateTrain(updated).first { it !is ResultState.Loading }
+        }
+    }
+
+    /** Название станции события: плечо поезда и порядок станций (радиус 1 км); [train] == null - без плеча. */
+    private suspend fun stationNameFor(train: Train?, event: StopEvent): String? = withContext(Dispatchers.Default) {
+        val dir = stationDirectory.stations()
+        val points = StationDirectory.points(dir)
+        val names = StationDirectory.names(dir)
+        val phase = train?.servicePhase?.let { sp ->
+            val full = runCatching {
+                settingsUseCase.getUserSettingFlow().first().servicePhases.firstOrNull { it.id == sp.id }
+            }.getOrNull() ?: sp
+            stationDirectory.resolve(full)
+        }
+        val written = com.z_company.domain.util.ServicePhaseStationPicker.writtenNames(
+            train?.stations?.map { it.stationName } ?: emptyList(), train?.servicePhase != null,
+        )
+        if (stopNamer != null) {
+            stopNamer.name(
+                phase, written, event.latitude, event.longitude, points, names,
+                onDiscovered = { stationDirectory.fillCoordinates(it.name, it.latitude, it.longitude) },
+            )
+        } else {
+            com.z_company.domain.util.ServicePhaseStationPicker.pickForStop(
+                phase, written, event.latitude, event.longitude, points, names,
+            )
         }
     }
 

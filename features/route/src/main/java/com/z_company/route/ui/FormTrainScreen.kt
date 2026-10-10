@@ -284,7 +284,7 @@ fun FormTrainScreen(
 
         // Кнопка «АВТО» (SCREEN_SPECS §6.2 п.6а)
         val autoRecordManager: com.z_company.route.autorecord.AutoRecordManager = org.koin.compose.koinInject()
-        val autoRecordState by autoRecordManager.state.collectAsState()
+        val autoRecordState = com.z_company.route.autorecord.rememberAutoStateFor(autoRecordManager, currentTrain?.trainId)
         val onAutoToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoRecordManager, currentTrain?.trainId)
 
         // Геолокация для подстановки ближайшей станции: спрашиваем один раз, при первом GO /
@@ -330,7 +330,7 @@ fun FormTrainScreen(
                 planKey = remember { viewModel.trainMapPlanKey() },
                 onOpenConsentSettings = { showTrainMap = false; onConsentSettings() },
                 // Та же логика, что у кнопки «АВТО» в «Поезде» (разрешения, согласие, цель - этот поезд).
-                onEnableAuto = { if (!autoRecordManager.state.value.enabled) onAutoToggle() },
+                onEnableAuto = { if (!autoRecordState.enabled) onAutoToggle() },
                 // Кнопка записи на карте: то же переключение «АВТО», цель - этот поезд.
                 autoRecording = autoRecordState.enabled,
                 onToggleRecording = onAutoToggle,
