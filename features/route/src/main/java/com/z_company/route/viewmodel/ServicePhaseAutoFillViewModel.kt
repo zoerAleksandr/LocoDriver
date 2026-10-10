@@ -3,6 +3,7 @@ package com.z_company.route.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.repository.SecureTokenStorage
+import com.z_company.repository.remote_rest.GeoRateLimit
 import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.response.LatLon
 import com.z_company.repository.remote_rest.response.OsmPathStation
@@ -33,6 +34,9 @@ enum class PhaseEnd { DEPARTURE, ARRIVAL }
  * недоступен — что именно, по телефону не понять, поэтому текст без утверждений);
  * VPN — то же при включённом VPN; SERVICE — сервер ответил ошибкой или не уложился в 30 с.
  */
+/** Внутренний сигнал: гео-запросы на паузе после 429 (SCREEN_SPECS §6.9), на сервер не ходили. */
+private class RateLimitPauseException : RuntimeException()
+
 enum class AutoFillFailure { NO_INTERNET, NO_CONNECTION, VPN, STATION_NOT_FOUND, NO_PATH, SERVICE, RATE_LIMITED, BUSY }
 
 /** Короткий текст сетевой/серверной ошибки для снекбаров и подписей. */
@@ -40,7 +44,7 @@ fun AutoFillFailure.message(): String = when (this) {
     AutoFillFailure.NO_INTERNET -> "Нет подключения к интернету"
     AutoFillFailure.NO_CONNECTION -> "Не удалось связаться с сервером — проверьте подключение к интернету"
     AutoFillFailure.VPN -> com.z_company.core.util.VPN_ERROR_HINT
-    AutoFillFailure.RATE_LIMITED -> "Слишком много запросов — попробуйте позже"
+    AutoFillFailure.RATE_LIMITED -> "Слишком много запросов. Попробуйте позже или войдите в аккаунт"
     AutoFillFailure.BUSY -> "Сервер занят или долго считал — повторите через минуту"
     else -> "Сервис не ответил — попробуйте позже"
 }
@@ -201,6 +205,10 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     private fun run() {
         val r = request ?: return
         job?.cancel()
+        if (GeoRateLimit.remainingMs() > 0) {
+            _state.value = AutoFillState.Failed(AutoFillFailure.RATE_LIMITED)
+            return
+        }
         job = viewModelScope.launch {
             _state.value = AutoFillState.Loading(0)
             // Шаги — для ощущения хода работы: сервер отвечает одним ответом.
@@ -211,8 +219,8 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
                 _state.value = AutoFillState.Loading(2)
             }
             val result = try {
-                val token = tokens.getAuthBearerTokenFlow().first()
-                withTimeout(TIMEOUT_MS) { api.suggestServicePhaseStations("Bearer $token", r) }
+                val token = bearerOrNull()
+                withTimeout(TIMEOUT_MS) { api.suggestServicePhaseStations(token, r) }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 if (e !is TimeoutCancellationException) throw e
                 fail(ticker, failureOf(e))
@@ -263,8 +271,16 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         points: List<Pair<Double, Double>>,
         withVariants: Boolean = false,
         withGeometry: Boolean = withVariants,
+    ): MeasureResult =
+        if (GeoRateLimit.remainingMs() > 0) MeasureResult.Failed(AutoFillFailure.RATE_LIMITED)
+        else measureRequest(points, withVariants, withGeometry)
+
+    private suspend fun measureRequest(
+        points: List<Pair<Double, Double>>,
+        withVariants: Boolean,
+        withGeometry: Boolean,
     ): MeasureResult = try {
-        val token = tokens.getAuthBearerTokenFlow().first()
+        val token = bearerOrNull()
         val res = withTimeout(TIMEOUT_MS) {
             val request = RouteLengthRequest(
                 points = points.map { (lat, lon) -> LatLon(lat, lon) },
@@ -281,13 +297,10 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
                     (first.latitude == second.latitude && first.longitude <= second.longitude)
                 val canonicalRequest = if (requestedIsCanonical) request
                 else request.copy(points = request.points.asReversed())
-                val canonical = api.measureRouteLength("Bearer $token", canonicalRequest)
+                val canonical = api.measureRouteLength(token, canonicalRequest)
                 if (requestedIsCanonical) canonical else reverseRouteResponse(canonical)
             } else {
-                api.measureRouteLength(
-                    "Bearer $token",
-                    request,
-                )
+                api.measureRouteLength(token, request)
             }
         }
         if (withGeometry) saveRailLine(points, res.geometry)
@@ -327,6 +340,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
      */
     private fun failureOf(e: Throwable): AutoFillFailure {
         val chain = generateSequence(e) { it.cause }.take(6).toList()
+        GeoRateLimit.recordIfRateLimited(chain)
         android.util.Log.w("ServicePhaseNet", "request failed: " + chain.joinToString(" <- ") { it::class.simpleName.orEmpty() })
         val text = chain.joinToString(" ") { "${it::class.simpleName} ${it.message.orEmpty()}" }
         httpFailureOf(text)?.let { return it }
@@ -341,6 +355,10 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
             else -> AutoFillFailure.NO_CONNECTION
         }
     }
+
+    /** Токен или null: без аккаунта гео-запросы идут анонимно (лимит по IP, SCREEN_SPECS §6.9). */
+    private suspend fun bearerOrNull(): String? =
+        tokens.getAuthBearerTokenFlow().first()?.takeIf { it.isNotBlank() }?.let { "Bearer $it" }
 
     private fun hasInternet(): Boolean = runCatching {
         val cm = appContext.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
@@ -395,10 +413,14 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
         for (attempt in 0..1) {
             if (attempt > 0) delay(2_000)
             result = try {
-                val token = tokens.getAuthBearerTokenFlow().first()
+                if (GeoRateLimit.remainingMs() > 0) {
+                    result = RailLineResult.Failed(AutoFillFailure.RATE_LIMITED)
+                    break
+                }
+                val token = bearerOrNull()
                 val line = withTimeout(TIMEOUT_MS) {
                     api.measureRouteLength(
-                        "Bearer $token",
+                        token,
                         com.z_company.repository.remote_rest.response.RouteLengthRequest(
                             points = points.map { (lat, lon) -> LatLon(lat, lon) },
                             withGeometry = true,
@@ -442,10 +464,11 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     ): List<OsmStationCandidate>? =
         try {
             lastLookupFailure = null
-            val token = tokens.getAuthBearerTokenFlow().first()
+            if (GeoRateLimit.remainingMs() > 0) throw RateLimitPauseException()
+            val token = bearerOrNull()
             withTimeout(TIMEOUT_MS) {
                 api.lookupServicePhaseStation(
-                    "Bearer $token",
+                    token,
                     ServicePhaseLookupRequest(
                         name = name.trim(),
                         country = country.ifBlank { "RU" },
@@ -454,6 +477,9 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
                     ),
                 ).candidates
             }
+        } catch (e: RateLimitPauseException) {
+            lastLookupFailure = AutoFillFailure.RATE_LIMITED
+            null
         } catch (e: kotlinx.coroutines.CancellationException) {
             if (e !is TimeoutCancellationException) throw e
             lastLookupFailure = failureOf(e)
