@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import com.z_company.domain.util.ActualRails
 import com.z_company.domain.util.ArrivalPlan
 import com.z_company.domain.util.ArrivalPlanData
 import com.z_company.domain.util.PlanTarget
@@ -209,6 +210,9 @@ internal fun TrainMapScreen(
         val hasRoute = TrainMapRoute.hasRoute(stops)
         var railState by remember { mutableStateOf<ServicePhaseAutoFillViewModel.RailLineResult?>(null) }
         var loadAttempt by remember { mutableStateOf(0) }
+        // «Линии по факту» (ActualRails): пути, по которым поезд реально ехал вне линии плеча (соседний/параллельный путь).
+        var factLines by remember { mutableStateOf(emptyList<List<Pair<Double, Double>>>()) }
+        val triedFactRuns = remember { mutableSetOf<String>() }
         var fittedKey by remember { mutableStateOf<String?>(null) }
         var track by remember { mutableStateOf<TrainFormViewModel.TrainMapTrack?>(null) }
         var liveSpeed by remember { mutableStateOf<Double?>(null) }
@@ -583,7 +587,7 @@ internal fun TrainMapScreen(
             if (!alive.get()) return
             // «Впереди» — вдоль рельсовой линии с сервера (не по прямым между станциями); без линии не выделяется.
             val railLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
-            val ahead = if (hasRoute) TrainMapRoute.nextAhead(stops, railLine, myFix)?.index else null
+            val ahead = if (hasRoute) TrainMapRoute.nextAhead(stops, railLine, ActualRails.alongRouteFix(railLine, factLines, myFix))?.index else null
             val marks = track?.stops.orEmpty()
             data class Row(val lat: Double, val lon: Double, val name: String, val role: String, val sizeSp: Float, val dotR: Float, val prio: Int)
             val routeRows = if (!hasRoute) emptyList() else stops.mapIndexed { i, st ->
@@ -746,15 +750,17 @@ internal fun TrainMapScreen(
         // Пройденный путь жирной линией: сегменты со скоростью, разрыв по времени линию прерывает.
         // Путь рисуется из ЛОКАЛЬНЫХ данных (Track.db + живые точки записи) и не зависит от интернета и рельсовой линии:
         // привязка к рельсам - улучшение; сбой привязки -> сырые точки. Слои переживают смену стиля (styleGen).
-        LaunchedEffect(styleGen, styleReady, track, railState, livePoints.lastOrNull()?.timeMs) {
+        LaunchedEffect(styleGen, styleReady, track, railState, factLines, livePoints.lastOrNull()?.timeMs) {
             if (!styleReady) return@LaunchedEffect
-            // Привязка к рельсовой линии маршрута там, где отклонение ≤ 50 м; иначе сырые точки («вне путей», пунктир сверху).
+            // Привязка к ближайшему из путей (линия плеча + линии по факту) там, где отклонение ≤ 50 м; иначе сырые точки
+            // («вне путей» - только если дальше 50 м от ЛЮБОГО известного пути; пунктир сверху).
             val railLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
+            val railLines = listOfNotNull(railLine) + factLines
             val raw = PathKeeper.withLive(track?.drawPoints.orEmpty(), livePoints)
             if (raw.isEmpty() && drawnCount.value > 0) return@LaunchedEffect
             val pts = try {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-                    TrainMapRoute.snapMarked(raw, railLine)
+                    ActualRails.snapMarked(raw, railLines)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -796,11 +802,29 @@ internal fun TrainMapScreen(
             map?.style?.getSourceAs<GeoJsonSource>(TRAIN_OFF_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(offFeats))
             map?.style?.getSourceAs<GeoJsonSource>(TRAIN_NODATA_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(noDataFeats))
         }
+        // Линия по факту: трек устойчиво ушёл (>15 м) от всех известных путей (соседний путь многопутного участка) ->
+        // сервер строит линию по рельсам через via-точки трека (route/length, без изменения контракта); принимается,
+        // только если проходит по точкам трека и не делает крупного объезда. Не удалось - остаётся прежнее поведение.
+        LaunchedEffect(track, railState, livePoints.lastOrNull()?.timeMs) {
+            val routeLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line ?: return@LaunchedEffect
+            if (viewOnly || !hasRoute) return@LaunchedEffect
+            val raw = PathKeeper.withLive(track?.drawPoints.orEmpty(), livePoints)
+            val run = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                ActualRails.deviationRun(raw, listOf(routeLine) + factLines)
+            } ?: return@LaunchedEffect
+            val key = ActualRails.runKey(run)
+            if (!triedFactRuns.add(key)) return@LaunchedEffect
+            val res = loadRailLine(ActualRails.viaPoints(run))
+            val line = (res as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
+            if (line != null && ActualRails.accept(run, line)) {
+                factLines = ActualRails.withFactLine(factLines, line)
+            }
+            // Сбой/отказ: тот же участок не запрашиваем повторно; растущий участок (другой ключ) попробует снова.
+        }
         // «Хвост»: пока «АВТО» пишет, жирная линия дорисовывается от последней точки трека до текущего положения
         // (трек прорежен и подгружается раз в 10 с, из-за чего линия отставала от маркера на 60-100 м).
         val railLineNow = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
-        val railCum = remember(railLineNow) { railLineNow?.let { TrainMapRoute.cumulativeM(it) } }
-        LaunchedEffect(styleGen, styleReady, myFix, snappedLast, autoRunning, liveSpeed) {
+        LaunchedEffect(styleGen, styleReady, myFix, snappedLast, autoRunning, liveSpeed, factLines) {
             if (!styleReady || viewOnly) return@LaunchedEffect
             val src = map?.style?.getSourceAs<GeoJsonSource>(TRAIN_TAIL_SOURCE) ?: return@LaunchedEffect
             val last = snappedLast
@@ -814,12 +838,10 @@ internal fun TrainMapScreen(
             }
             var endLat = fix.latitude
             var endLon = fix.longitude
-            if (railLineNow != null && railCum != null) {
-                val pr = TrainMapRoute.project(railLineNow, railCum, endLat, endLon)
-                if (pr != null && pr.offsetM <= TrainMapRoute.SNAP_TOLERANCE_M) {
-                    endLat = pr.latitude
-                    endLon = pr.longitude
-                }
+            val pr = ActualRails.project(listOfNotNull(railLineNow) + factLines, endLat, endLon)?.projection
+            if (pr != null && pr.offsetM <= TrainMapRoute.SNAP_TOLERANCE_M) {
+                endLat = pr.latitude
+                endLon = pr.longitude
             }
             src.setGeoJson(
                 Feature.fromGeometry(
@@ -894,7 +916,7 @@ internal fun TrainMapScreen(
                     }
                 }
                 val planTap = if (viewOnly || !hasRoute) null
-                else ArrivalPlan.resolveTap(stops, railLine, myFix, latLng.latitude, latLng.longitude, mpp * 30.0, mpp * 24.0)
+                else ArrivalPlan.resolveTap(stops, railLine, ActualRails.alongRouteFix(railLine, factLines, myFix), latLng.latitude, latLng.longitude, mpp * 30.0, mpp * 24.0)
                 if (planTap is ArrivalPlan.TapResult.Ahead) {
                     selection = null
                     planNote = null
@@ -998,26 +1020,26 @@ internal fun TrainMapScreen(
         }
 
         // Движение по маршруту: расстояние и время до ближайшей станции и до конечной (по рельсовой линии), обновляется с каждой точкой.
+        // Положение для расчётов вдоль линии плеча: на «линии по факту» берётся проекция на линию плеча (не «вне путей»).
+        val alongFix = remember(myFix, railLineNow, factLines) { ActualRails.alongRouteFix(railLineNow, factLines, myFix) }
         val liveFreshTop = liveSpeed != null && nowMs - liveAtMs < 15_000
-        val progress = remember(stops, railLineNow, myFix) {
-            if (viewOnly || !hasRoute) null else TrainMapRoute.progress(stops, railLineNow, myFix)
+        val progress = remember(stops, railLineNow, alongFix) {
+            if (viewOnly || !hasRoute) null else TrainMapRoute.progress(stops, railLineNow, alongFix)
         }
         val etaSpeed = remember(progress, liveSpeed, liveFreshTop, track) {
             TrainMapRoute.etaSpeedKmh(if (liveFreshTop) liveSpeed else null, track?.points.orEmpty(), System.currentTimeMillis())
         }
         // Вне путей: текущее положение дальше 50 м от рельсовой линии маршрута.
-        val offNow = remember(myFix, railLineNow, railCum) {
+        val offNow = remember(myFix, railLineNow, factLines) {
             val f = myFix
-            val line = railLineNow
-            val cum = railCum
-            if (viewOnly || f == null || line == null || cum == null) false
-            else (TrainMapRoute.project(line, cum, f.latitude, f.longitude)?.offsetM ?: 0.0) > TrainMapRoute.SNAP_TOLERANCE_M
+            if (viewOnly || f == null || railLineNow == null) false
+            else (ActualRails.offsetFromAny(listOf(railLineNow) + factLines, f.latitude, f.longitude) ?: 0.0) > TrainMapRoute.SNAP_TOLERANCE_M
         }
 
         // Планирование прибытия: расстояние до точки плана по линии пересчитывается раз в ~5 с (тик nowMs) и с первым положением.
         val planTarget = draft ?: plan?.target
-        val planDistance = remember(planTarget, railLineNow, nowMs, myFix != null) {
-            planTarget?.let { ArrivalPlan.distance(railLineNow, myFix, it) }
+        val planDistance = remember(planTarget, railLineNow, nowMs, alongFix != null) {
+            planTarget?.let { ArrivalPlan.distance(railLineNow, alongFix, it) }
         }
         // Точка достигнута/пройдена, не лежит на линии (сменили плечо) или план устарел - снять.
         LaunchedEffect(planDistance, plan, nowMs) {
