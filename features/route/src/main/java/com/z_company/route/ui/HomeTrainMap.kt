@@ -39,7 +39,7 @@ internal fun HomeTrainMap(trainId: String, basicId: String, onConsentSettings: (
     if (formUiState.trainDetailState !is ResultState.Success || viewModel.currentTrain == null) return
 
     val autoRecordManager: AutoRecordManager = koinInject()
-    val autoRecordState by autoRecordManager.state.collectAsState()
+    val autoRecordState = com.z_company.route.autorecord.rememberAutoStateFor(autoRecordManager, viewModel.currentTrain?.trainId)
     val onAutoToggle = rememberAutoRecordToggle(autoRecordManager, viewModel.currentTrain?.trainId)
     val railVm: ServicePhaseAutoFillViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     TrainMapScreen(
@@ -54,7 +54,7 @@ internal fun HomeTrainMap(trainId: String, basicId: String, onConsentSettings: (
         loadZone = { viewModel.trainMapZone() },
         planKey = remember { viewModel.trainMapPlanKey() },
         onOpenConsentSettings = { onDismiss(); onConsentSettings() },
-        onEnableAuto = { if (!autoRecordManager.state.value.enabled) onAutoToggle() },
+        onEnableAuto = { if (!autoRecordState.enabled) onAutoToggle() },
         autoRecording = autoRecordState.enabled,
         onToggleRecording = onAutoToggle,
         onDismiss = onDismiss,
