@@ -85,6 +85,13 @@ UPDATE Track SET startedAt = :startedAt, endedAt = :endedAt, isFavorite = :isFav
     uploadState = :uploadState, uploadedPoints = 0
 WHERE trackId = :trackId;
 
+-- Починка ложных меток времени: точки вне границ удаляются, границы пересчитываются, трек уходит на сервер заново.
+deletePointsOutside:
+DELETE FROM TrackPoint WHERE trackId = :trackId AND (timeMs < :startedAt OR timeMs > :endedAt);
+
+updateTrackBounds:
+UPDATE Track SET startedAt = :startedAt, endedAt = :endedAt, uploadedPoints = 0 WHERE trackId = :trackId;
+
 deletePointsOne:
 DELETE FROM TrackPoint WHERE trackId = :trackId;
 

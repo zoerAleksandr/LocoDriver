@@ -103,6 +103,10 @@ object DeviceLocation {
             override fun onLocationChanged(location: Location) {
                 val now = SystemClock.elapsedRealtime()
                 if (location.provider == LocationManager.GPS_PROVIDER) {
+                    if (!GnssPlausibility.isTimeSane(location.time, System.currentTimeMillis())) {
+                        onRejected?.invoke()
+                        return
+                    }
                     val verdict = plausibility.check(
                         timeMs = location.time,
                         lat = location.latitude,
@@ -120,7 +124,9 @@ object DeviceLocation {
                 } else {
                     if (lastGpsAt != 0L && now - lastGpsAt < GPS_PREFERRED_MS) return
                     // Сеть при молчащем GPS: не уводим маркер далеко от последней правдоподобной позиции.
-                    plausibility.lastAccepted?.let { (lat, lon) ->
+                    // Принятых GPS-фиксов давно не было (> STALE_ANCHOR_MS): якорь устарел, иначе карта «залипала» бы в старой области.
+                    val anchorFresh = lastGpsAt != 0L && now - lastGpsAt <= GnssPlausibility.STALE_ANCHOR_MS
+                    plausibility.lastAccepted?.takeIf { anchorFresh }?.let { (lat, lon) ->
                         val limit = maxOf(GnssPlausibility.NETWORK_MIN_RADIUS_M, GnssPlausibility.NETWORK_ACCURACY_FACTOR * (if (location.hasAccuracy()) location.accuracy else 0f))
                         if (GnssPlausibility.distanceM(lat, lon, location.latitude, location.longitude) > limit) return
                     }

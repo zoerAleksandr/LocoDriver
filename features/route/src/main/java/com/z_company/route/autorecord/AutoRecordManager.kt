@@ -266,6 +266,14 @@ class AutoRecordManager(
         trackRepository?.let { repo ->
             scope.launch(Dispatchers.Default) {
                 runCatching { repo.purgeExpired(nowMs()) }.onFailure { it.sendToSentry("AutoRecordManager", "purgeTracks") }
+                // Одноразовая починка границ треков с ложными метками времени (спуфинг): tracks_fixed_v2 (до склейки).
+                if (!prefs.getBoolean(KEY_TRACKS_FIXED, false)) {
+                    runCatching {
+                        val fixed = com.z_company.domain.track.TrackRepair.fixBounds(repo, liveFromMs = nowMs() - 5 * 60_000L)
+                        prefs.edit().putBoolean(KEY_TRACKS_FIXED, true).apply()
+                        if (fixed > 0) runCatching { onTrackUpload() }
+                    }.onFailure { it.sendToSentry("AutoRecordManager", "fixTracks") }
+                }
                 // Одноразовая склейка треков одного поезда, разорванных перезапусками записи (разрыв ≤ 15 мин).
                 if (!prefs.getBoolean(KEY_TRACKS_MERGED, false)) {
                     runCatching {
@@ -727,6 +735,7 @@ class AutoRecordManager(
         private const val KEY_UNTIL = "until_ms"
         private const val KEY_TARGET = "target_train_id"
         private const val KEY_TRACKS_MERGED = "tracks_merged_v1"
+        private const val KEY_TRACKS_FIXED = "tracks_fixed_v2"
         private const val KEY_BEAT = "heartbeat_ms"
         private const val KEY_INTERRUPTED = "interrupted"
         private const val KEY_STOPPED = "detector_stopped"

@@ -146,4 +146,77 @@ class GnssPlausibilityTest {
         )
         assertEquals(listOf(0L, 10_000L), GnssPlausibility.sanitize(pts).map { it.timeMs })
     }
+
+    // --- Выезд из зоны глушения (Кириши): восстановление карты ---
+
+    /** 20 минут в Киришах с подменой (прыжки в Новгород), затем выезд на 30 км и нормальные фиксы. */
+    private fun kirishiThenLeave(f: GnssPlausibility, network: (Long) -> GnssPlausibility.NetworkFix?): Long {
+        var t = 0L
+        while (t < 20 * 60_000L) { // 20 мин: стоим в Киришах, каждый 3-й фикс - подмена
+            val spoof = (t / 5_000L) % 3L == 1L
+            f.check(t, if (spoof) novgorodLat else kirishiLat, if (spoof) novgorodLon else kirishiLon, 0.0, network = network(t))
+            t += 5_000L
+        }
+        // Выехали: 30 км севернее, фиксы раз в секунду на ~60 км/ч (нормальные, согласованные).
+        val start = t + 10_000L
+        var firstAccepted = -1L
+        for (i in 0..120) {
+            val ts = start + i * 1_000L
+            val lat = kirishiLat + northM(30_000.0 + i * 16.7)
+            val r = f.check(ts, lat, kirishiLon, 60.0, network = network(ts))
+            if (r.accepted && firstAccepted < 0) firstAccepted = ts - start
+        }
+        return firstAccepted
+    }
+
+    @Test
+    fun `leaving Kirishi after 20 min of spoofing new area is accepted within 60 s`() {
+        val accepted = kirishiThenLeave(GnssPlausibility()) { null }
+        assertTrue(accepted in 0..60_000L, "accepted at $accepted")
+    }
+
+    @Test
+    fun `stale network stuck in Kirishi does not block forever`() {
+        // Сеть залипла: свежая по времени, но показывает Кириши (старая область), точность разумная.
+        val net = { _: Long -> GnssPlausibility.NetworkFix(kirishiLat, kirishiLon, 800f, ageMs = 10_000) }
+        val accepted = kirishiThenLeave(GnssPlausibility(), net)
+        assertTrue(accepted in 0..130_000L, "accepted at $accepted")
+    }
+
+    @Test
+    fun `network that does not confirm the last accepted position does not block`() {
+        val f = GnssPlausibility()
+        assertTrue(f.check(0, kirishiLat, kirishiLon, 0.0).accepted)
+        val net = GnssPlausibility.NetworkFix(novgorodLat, novgorodLon, 800f, ageMs = 10_000) // ни там, ни там
+        val far = kirishiLat + northM(30_000.0)
+        val results = (0..5).map { i -> f.check(10_000L + i * 12_000L, far, kirishiLon, 0.0, network = net) }
+        assertTrue(results.last().accepted) // сработал обычный NEW_AREA, сеть не мешает
+    }
+
+    @Test
+    fun `network with poor accuracy is ignored`() {
+        val f = GnssPlausibility()
+        val net = GnssPlausibility.NetworkFix(kirishiLat, kirishiLon, 8_000f, ageMs = 10_000)
+        assertTrue(f.check(0, novgorodLat, novgorodLon, 0.0, network = net).accepted)
+    }
+
+    @Test
+    fun `long silence over 5 min drops the sticky anchor`() {
+        val f = GnssPlausibility()
+        assertTrue(f.check(0, kirishiLat, kirishiLon, 0.0).accepted)
+        // 6 мин молчания, затем сразу 150 км (нереально быстро для якоря, но якорь уже снят)
+        val r = f.check(6 * 60_000L + 1_000L, novgorodLat, novgorodLon, 0.0)
+        assertTrue(r.accepted)
+        assertEquals(GnssPlausibility.Reason.FIRST, r.reason)
+    }
+
+    @Test
+    fun `time sanity and outliers`() {
+        val now = 1_700_000_000_000L
+        assertTrue(GnssPlausibility.isTimeSane(now + 60_000, now))
+        assertFalse(GnssPlausibility.isTimeSane(now + 396L * 24 * 3_600_000L, now))
+        fun p(t: Long) = TrackPoint(t, kirishiLat, kirishiLon, 50.0, 5f)
+        val pts = listOf(p(now), p(now + 5_000), p(now + 396L * 24 * 3_600_000L), p(now + 10_000))
+        assertEquals(listOf(now, now + 5_000, now + 10_000), GnssPlausibility.dropTimeOutliers(pts).map { it.timeMs })
+    }
 }

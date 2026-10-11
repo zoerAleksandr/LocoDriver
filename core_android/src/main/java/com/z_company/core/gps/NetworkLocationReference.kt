@@ -29,7 +29,9 @@ object NetworkLocationReference {
     private val listener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
             last = location
-            lastAtElapsedMs = SystemClock.elapsedRealtime()
+            // Возраст - по метке самого фикса, а не по моменту доставки: провайдер может повторно отдать старую позицию.
+            lastAtElapsedMs = SystemClock.elapsedRealtime() -
+                ((SystemClock.elapsedRealtimeNanos() - location.elapsedRealtimeNanos) / 1_000_000L).coerceAtLeast(0L)
         }
 
         override fun onProviderEnabled(provider: String) {}

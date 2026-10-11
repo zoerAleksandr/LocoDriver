@@ -165,6 +165,8 @@ class GpsRecordingService : Service() {
         val l = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 val nowElapsed = SystemClock.elapsedRealtime()
+                // Подмена времени (GNSS-спуфинг сдвигает часы на недели): такой фикс нельзя писать в трек.
+                if (!GnssPlausibility.isTimeSane(location.time, System.currentTimeMillis())) return
                 val verdict = plausibility.check(
                     timeMs = location.time,
                     lat = location.latitude,

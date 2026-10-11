@@ -246,12 +246,14 @@ class TrackUploader(
         if (points.isEmpty()) return null
         val chunks = TrackPacking.chunks(points)
         val blobs = chunks.map { TrackWireCodec.encodeChunk(it, tools) }
-        val stats = TrackPacking.stats(points)
+        // Ложные метки времени (спуфинг) и скачки не должны попадать в сводку (время в пути, длина).
+        val timeClean = com.z_company.domain.util.GnssPlausibility.dropTimeOutliers(points).ifEmpty { points }
+        val stats = TrackPacking.stats(com.z_company.domain.util.GnssPlausibility.sanitize(points).ifEmpty { timeClean })
         val preview = TrackWireCodec.encodeChunk(TrackPacking.preview(points), tools)
         val meta = TrackMetaRequest(
             title = "",
-            startedAt = points.first().timeMs,
-            endedAt = points.last().timeMs,
+            startedAt = timeClean.first().timeMs,
+            endedAt = timeClean.last().timeMs,
             distanceKm = stats.distanceKm,
             maxSpeedKmh = stats.maxSpeedKmh,
             avgSpeedKmh = stats.avgSpeedKmh,

@@ -19,7 +19,11 @@ import kotlin.math.sqrt
  * нельзя использовать нигде (трек, путь на карте, маркеры старта/финиша, детектор остановок, скорость/ETA, «текущая
  * позиция»): текущая позиция остаётся последней правдоподобной. Чтобы не застрять навсегда после реального телепорта,
  * [NEW_AREA_MIN_FIXES] согласованных между собой фиксов в новой области в течение >= [NEW_AREA_MIN_DURATION_MS] принимают
- * новую область (кроме случая, когда её опровергает сетевая позиция). Координаты не логируются.
+ * новую область. Сетевая позиция блокирует фикс, только если она свежая ([NETWORK_MAX_AGE_MS]), достаточно точная
+ * (< [NETWORK_MAX_ACCURACY_M]) и совпадает с последней принятой позицией (подтверждает старую область); устаревшая сеть,
+ * «залипшая» в старой области, не может блокировать вечно: согласованная серия фиксов с реальным перемещением
+ * >= [NETWORK_OVERRIDE_DISPLACEMENT_M] за >= [NETWORK_OVERRIDE_DURATION_MS] принимается вопреки ней. Якорь «последняя принятая»
+ * снимается после [STALE_ANCHOR_MS] без принятых фиксов. Координаты не логируются.
  */
 class GnssPlausibility {
 
@@ -40,6 +44,7 @@ class GnssPlausibility {
     private var clusterStart: Long = 0L
     private var clusterLast: Anchor? = null
     private var clusterCount = 0
+    private var clusterOrigin: Anchor? = null
     private val rejections = ArrayDeque<Long>()
 
     /** Последняя принятая позиция (lat, lon) или null. */
@@ -64,16 +69,30 @@ class GnssPlausibility {
         network: NetworkFix? = null,
         nowMs: Long = timeMs,
     ): Result {
-        val net = network?.takeIf { it.ageMs in 0..NETWORK_MAX_AGE_MS }
         if (speedKmh != null && speedKmh > MAX_CLAIMED_SPEED_KMH) return reject(Reason.SPEED_CLAIM, nowMs)
+        // Долгое молчание (нет принятых фиксов > STALE_ANCHOR_MS): якорь устарел, «залипание» снимается.
+        last?.let { if (timeMs - it.timeMs > STALE_ANCHOR_MS) { last = null; clearCluster() } }
+        val prev = last
+        val net = network?.takeIf {
+            it.ageMs in 0..NETWORK_MAX_AGE_MS && (it.accuracyM == null || it.accuracyM < NETWORK_MAX_ACCURACY_M)
+        }
         if (net != null) {
             val limit = max(NETWORK_MIN_RADIUS_M, NETWORK_ACCURACY_FACTOR * (net.accuracyM ?: 0f))
-            if (distanceM(lat, lon, net.latitude, net.longitude) > limit) {
-                clearCluster()
+            // Сеть блокирует, только если подтверждает последнюю принятую область (или принятых ещё нет).
+            val confirmsOld = prev == null || distanceM(prev.lat, prev.lon, net.latitude, net.longitude) <= limit
+            if (confirmsOld && distanceM(lat, lon, net.latitude, net.longitude) > limit) {
+                accumulate(timeMs, lat, lon)
+                val origin = clusterOrigin
+                if (clusterCount >= NEW_AREA_MIN_FIXES && timeMs - clusterStart >= NETWORK_OVERRIDE_DURATION_MS &&
+                    origin != null && distanceM(origin.lat, origin.lon, lat, lon) >= NETWORK_OVERRIDE_DISPLACEMENT_M
+                ) {
+                    last = Anchor(timeMs, lat, lon)
+                    clearCluster()
+                    return Result(true, Reason.NEW_AREA)
+                }
                 return reject(Reason.NETWORK_MISMATCH, nowMs, net)
             }
         }
-        val prev = last
         if (prev == null) {
             last = Anchor(timeMs, lat, lon)
             return Result(true, Reason.FIRST)
@@ -84,20 +103,25 @@ class GnssPlausibility {
             return Result(true, Reason.OK)
         }
         // Прыжок: копим согласованные между собой фиксы в новой области.
-        val cl = clusterLast
-        if (cl == null || isJump(cl, timeMs, lat, lon)) {
-            clusterStart = timeMs
-            clusterCount = 1
-        } else {
-            clusterCount++
-        }
-        clusterLast = Anchor(timeMs, lat, lon)
+        accumulate(timeMs, lat, lon)
         if (clusterCount >= NEW_AREA_MIN_FIXES && timeMs - clusterStart >= NEW_AREA_MIN_DURATION_MS) {
             last = Anchor(timeMs, lat, lon)
             clearCluster()
             return Result(true, Reason.NEW_AREA)
         }
         return reject(Reason.JUMP, nowMs)
+    }
+
+    private fun accumulate(timeMs: Long, lat: Double, lon: Double) {
+        val cl = clusterLast
+        if (cl == null || isJump(cl, timeMs, lat, lon)) {
+            clusterStart = timeMs
+            clusterCount = 1
+            clusterOrigin = Anchor(timeMs, lat, lon)
+        } else {
+            clusterCount++
+        }
+        clusterLast = Anchor(timeMs, lat, lon)
     }
 
     /** Сколько фиксов отвергнуто за последние [windowMs] (по часам [nowMs]). */
@@ -114,6 +138,7 @@ class GnssPlausibility {
 
     private fun clearCluster() {
         clusterLast = null
+        clusterOrigin = null
         clusterCount = 0
         clusterStart = 0L
     }
@@ -136,6 +161,17 @@ class GnssPlausibility {
         /** «Помеха GPS»: отвергнуто за [REJECT_WINDOW_MS] не меньше стольких. */
         const val INTERFERENCE_MIN_REJECTS = 2
         const val NETWORK_MAX_AGE_MS = 120_000L
+        /** Сеть грубее этого (вышка без привязки) не используется как опровержение. */
+        const val NETWORK_MAX_ACCURACY_M = 5_000f
+        /** Нет принятых фиксов дольше этого - якорь «последняя принятая» снимается. */
+        const val STALE_ANCHOR_MS = 5 * 60_000L
+        /** Принятие области вопреки сети: согласованная серия >= 5 фиксов за >= 120 с с перемещением >= 500 м. */
+        const val NETWORK_OVERRIDE_DURATION_MS = 120_000L
+        const val NETWORK_OVERRIDE_DISPLACEMENT_M = 500.0
+        /** Время фикса дальше этого от часов телефона - подмена времени (GNSS-спуфинг), фикс отвергается/отбрасывается. */
+        const val TIME_SKEW_MS = 24 * 3_600_000L
+        /** Точка трека дальше этого от медианы времени трека - ложная метка времени. */
+        const val TIME_OUTLIER_MS = 72 * 3_600_000L
         const val NETWORK_MIN_RADIUS_M = 5_000.0
         const val NETWORK_ACCURACY_FACTOR = 3.0
         private const val MIN_DT_MS = 1_000L
@@ -159,7 +195,22 @@ class GnssPlausibility {
         fun sanitize(points: List<TrackPoint>): List<TrackPoint> {
             if (points.size < 2) return points
             val f = GnssPlausibility()
-            return points.filter { f.check(it.timeMs, it.latitude, it.longitude, it.speedKmh).accepted }
+            return dropTimeOutliers(points).filter { f.check(it.timeMs, it.latitude, it.longitude, it.speedKmh).accepted }
+        }
+
+        /** Время фикса правдоподобно относительно часов телефона (иначе - подмена времени, фикс нельзя писать в трек). */
+        fun isTimeSane(fixTimeMs: Long, wallNowMs: Long): Boolean =
+            kotlin.math.abs(fixTimeMs - wallNowMs) <= TIME_SKEW_MS
+
+        /**
+         * Убирает точки с ложной меткой времени (GNSS-спуфинг может сдвинуть время на недели/месяцы): точки дальше
+         * [TIME_OUTLIER_MS] от медианы времени трека отбрасываются. Результат отсортирован по времени.
+         */
+        fun dropTimeOutliers(points: List<TrackPoint>): List<TrackPoint> {
+            if (points.size < 2) return points
+            val sorted = points.sortedBy { it.timeMs }
+            val median = sorted[sorted.size / 2].timeMs
+            return sorted.filter { kotlin.math.abs(it.timeMs - median) <= TIME_OUTLIER_MS }
         }
     }
 }
