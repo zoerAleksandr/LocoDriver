@@ -27,6 +27,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.z_company.domain.gnss.GnssQuality
 import com.z_company.domain.gnss.GnssQualityEvaluator
+import com.z_company.domain.gnss.GpsFixDiagnostics
 import com.z_company.domain.track.AltitudeMath
 import com.z_company.domain.util.DriftFilter
 import com.z_company.domain.util.GnssPlausibility
@@ -61,9 +62,16 @@ class GpsRecordingService : Service() {
     // Дрейф на стоянке: ДО GnssPlausibility; позиция дрейфующего фикса заменяется якорем стоянки (SCREEN_SPECS §6.9).
     private val drift = DriftFilter()
     private var networkRefHeld = false
+
+    // Диагностика дыр без координат (SCREEN_SPECS §6.9): счётчики отказов по причинам, дыры, возраст последнего фикса;
+    // сохраняется в prefs gps_recorder (читается через run-as).
+    private val diag = GpsFixDiagnostics()
+    private var networkIgnored = 0
+    private var tickCount = 0
     private val qualityTick = object : Runnable {
         override fun run() {
             publishQuality()
+            if (++tickCount % DIAG_SAVE_EVERY_TICKS == 0) saveDiagnostics()
             qualityHandler.postDelayed(this, QUALITY_TICK_MS)
         }
     }
@@ -88,6 +96,8 @@ class GpsRecordingService : Service() {
         qualityEvaluator.reset()
         plausibility.reset()
         drift.reset()
+        diag.reset()
+        networkIgnored = 0
         if (!networkRefHeld) {
             NetworkLocationReference.acquire(this)
             networkRefHeld = true
@@ -115,7 +125,23 @@ class GpsRecordingService : Service() {
         qualityHandler.post(qualityTick)
     }
 
+    private fun saveDiagnostics() {
+        runCatching {
+            getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putInt("diag_delivered", diag.delivered)
+                .putInt("diag_accepted", diag.accepted)
+                .putInt("diag_net_ignored", networkIgnored)
+                .putString("diag_rejected", diag.rejectedTotals().entries.joinToString(",") { "${it.key}:${it.value}" })
+                .putLong("diag_max_gap_s", diag.maxGapMs / 1000)
+                .putLong("diag_last_delivery_wall_ms", diag.lastDeliveryWallMs ?: 0L)
+                .putLong("diag_last_accepted_wall_ms", diag.lastAcceptedWallMs ?: 0L)
+                .putString("diag_gaps", diag.recentGaps().joinToString("\n") { it.serialize() })
+                .apply()
+        }
+    }
+
     private fun stopQuality() {
+        saveDiagnostics()
         if (networkRefHeld) {
             NetworkLocationReference.release()
             networkRefHeld = false
@@ -170,8 +196,13 @@ class GpsRecordingService : Service() {
         val l = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 val nowElapsed = SystemClock.elapsedRealtime()
+                val wallNow = System.currentTimeMillis()
+                diag.onDelivered(wallNow)
                 // Подмена времени (GNSS-спуфинг сдвигает часы на недели): такой фикс нельзя писать в трек.
-                if (!GnssPlausibility.isTimeSane(location.time, System.currentTimeMillis())) return
+                if (!GnssPlausibility.isTimeSane(location.time, wallNow)) {
+                    diag.onRejected("TIME")
+                    return
+                }
                 val accuracy = if (location.hasAccuracy()) location.accuracy else null
                 val speedKmh = if (location.hasSpeed()) location.speed * 3.6 else null
                 // Дрейф стоянки: ничего не отбрасывается, позиция дрейфующего фикса = якорь (held), скорость/время исходные.
@@ -188,7 +219,12 @@ class GpsRecordingService : Service() {
                     nowMs = nowElapsed,
                 )
                 // Подмена/скачок: точку не принимаем нигде (ни в трек, ни в детектор, ни в «текущую позицию»).
-                if (!verdict.accepted) return
+                if (!verdict.accepted) {
+                    diag.onRejected(verdict.reason.name)
+                    return
+                }
+                if (verdict.networkIgnored) networkIgnored++
+                if (diag.onAccepted(wallNow, accuracy) != null) saveDiagnostics() // дыра - сразу на диск
                 lastFixElapsedMs = nowElapsed
                 lastFixAccuracyM = accuracy
                 GpsRecorder.emit(
@@ -344,5 +380,6 @@ class GpsRecordingService : Service() {
         private const val NOTIFICATION_ID = 7401
         private const val UPDATE_INTERVAL_MS = 1_000L
         private const val QUALITY_TICK_MS = 1_000L
+        private const val DIAG_SAVE_EVERY_TICKS = 15
     }
 }

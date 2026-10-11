@@ -22,7 +22,9 @@ import kotlin.math.sqrt
  * новую область. Сетевая позиция блокирует фикс, только если она свежая ([NETWORK_MAX_AGE_MS]), достаточно точная
  * (< [NETWORK_MAX_ACCURACY_M]) и совпадает с последней принятой позицией (подтверждает старую область); устаревшая сеть,
  * «залипшая» в старой области, не может блокировать вечно: согласованная серия фиксов с реальным перемещением
- * >= [NETWORK_OVERRIDE_DISPLACEMENT_M] за >= [NETWORK_OVERRIDE_DURATION_MS] принимается вопреки ней. Якорь «последняя принятая»
+ * >= [NETWORK_OVERRIDE_DISPLACEMENT_M] за >= [NETWORK_OVERRIDE_DURATION_MS] принимается вопреки ней. Непрерывная цепочка (фикс
+ * не позже [CONTINUITY_MAX_GAP_MS] после предыдущего принятого, без прыжка) сетью не блокируется: сеть проверяет только старт
+ * цепочки и прыжки (в поезде сетевая позиция уезжает на километры - иначе дыра ~2 мин на ходу). Якорь «последняя принятая»
  * снимается после [STALE_ANCHOR_MS] без принятых фиксов. Координаты не логируются.
  */
 class GnssPlausibility {
@@ -36,7 +38,7 @@ class GnssPlausibility {
      * [accepted] - можно использовать. [newArea] - принята новая область после серии согласованных фиксов.
      * [landmark] - при [Reason.NETWORK_MISMATCH] сетевая оценка как ориентир (не точка трека).
      */
-    data class Result(val accepted: Boolean, val reason: Reason, val landmark: NetworkFix? = null)
+    data class Result(val accepted: Boolean, val reason: Reason, val landmark: NetworkFix? = null, val networkIgnored: Boolean = false)
 
     private class Anchor(val timeMs: Long, val lat: Double, val lon: Double, val accuracyM: Float? = null)
 
@@ -80,7 +82,18 @@ class GnssPlausibility {
             val limit = max(NETWORK_MIN_RADIUS_M, NETWORK_ACCURACY_FACTOR * (net.accuracyM ?: 0f))
             // Сеть блокирует, только если подтверждает последнюю принятую область (или принятых ещё нет).
             val confirmsOld = prev == null || distanceM(prev.lat, prev.lon, net.latitude, net.longitude) <= limit
-            if (confirmsOld && distanceM(lat, lon, net.latitude, net.longitude) > limit) {
+            val farFromNet = confirmsOld && distanceM(lat, lon, net.latitude, net.longitude) > limit
+            // Непрерывная цепочка: фикс сразу за предыдущим принятым без прыжка - реальное движение. Сеть в поезде врёт на
+            // километры (Wi-Fi/вышки едущего состава, залипший кэш), и блокировка такого фикса даёт дыру в ~2 мин на ходу
+            // при точности 2-4 м; сеть тут не опровержение (проверяет только старт цепочки и прыжки).
+            if (farFromNet && prev != null && timeMs - prev.timeMs <= CONTINUITY_MAX_GAP_MS &&
+                !isJump(prev, timeMs, lat, lon, accuracyM)
+            ) {
+                last = Anchor(timeMs, lat, lon, accuracyM)
+                clearCluster()
+                return Result(true, Reason.OK, networkIgnored = true)
+            }
+            if (farFromNet) {
                 accumulate(timeMs, lat, lon, accuracyM)
                 val origin = clusterOrigin
                 if (clusterCount >= NEW_AREA_MIN_FIXES && timeMs - clusterStart >= NETWORK_OVERRIDE_DURATION_MS &&
@@ -178,6 +191,8 @@ class GnssPlausibility {
         const val TIME_SKEW_MS = 24 * 3_600_000L
         /** Точка трека дальше этого от медианы времени трека - ложная метка времени. */
         const val TIME_OUTLIER_MS = 72 * 3_600_000L
+        /** Фикс не позже этого после предыдущего принятого и без прыжка - непрерывная цепочка, сеть её не блокирует. */
+        const val CONTINUITY_MAX_GAP_MS = 30_000L
         const val NETWORK_MIN_RADIUS_M = 5_000.0
         const val NETWORK_ACCURACY_FACTOR = 3.0
         /** Больше этого заявленная точность фикса не засчитывается как допуск (спуфер не спрячет скачок огромной «погрешностью»). */

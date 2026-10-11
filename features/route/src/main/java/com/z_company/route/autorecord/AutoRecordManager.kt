@@ -30,6 +30,7 @@ import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.track.NO_TRAIN_ID
+import com.z_company.domain.track.TrackAnalysis
 import com.z_company.domain.track.TrackPoint
 import com.z_company.domain.track.TrackRecordingState
 import com.z_company.domain.track.TrackRepository
@@ -478,6 +479,8 @@ class AutoRecordManager(
         if (wasEnabled && notifyExpired) showExpiredNotification()
     }
 
+    private var signalDrops = 0
+
     private suspend fun onPoint(p: GpsPoint) {
         val s = _state.value
         if (!s.enabled) return
@@ -510,15 +513,21 @@ class AutoRecordManager(
         val consent = trackConsent?.saveTracks?.value == true
         val target = prefs.getString(KEY_TARGET, null)
         try {
+            // Потеря сигнала / плохая точность: «точку стоянки» не пишем (§6.9). Возраст fix по часам
+            // устройства не сравниваем: при неверном времени телефона отбрасывались бы все точки.
+            val signalOk = GpsRecorder.quality.value.level != GnssLevel.LOST &&
+                GnssQualityRules.isUsableFix(0L, p.accuracyM)
+            // Диагностика (без координат): сколько точек стоянки отброшено из-за сигнала.
+            if (!signalOk && (p.speedKmh?.let { it < TrackAnalysis.STOP_SPEED_KMH } != false)) {
+                signalDrops++
+                if (signalDrops % 10 == 1) prefs.edit().putInt("diag_signal_drops", signalDrops).apply()
+            }
             synchronized(writer) {
                 writer.onPoint(
                     target,
                     TrackPoint(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM, p.altitudeM, p.baroAltitudeM),
                     consent,
-                    // Потеря сигнала / плохая точность: «точку стоянки» не пишем (§6.9). Возраст fix по часам
-                    // устройства не сравниваем: при неверном времени телефона отбрасывались бы все точки.
-                    signalOk = GpsRecorder.quality.value.level != GnssLevel.LOST &&
-                        GnssQualityRules.isUsableFix(0L, p.accuracyM),
+                    signalOk = signalOk,
                     held = p.held,
                 )
             }
