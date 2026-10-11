@@ -5,6 +5,7 @@ import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.LocomotiveSeriesTombstone
 import com.z_company.domain.entities.norma_time.StationNorm
 import com.z_company.domain.entities.norma_time.StationTombstone
 import com.z_company.domain.entities.partner.Partner
@@ -229,18 +230,29 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             header("Authorization", token)
         }.body()
 
-    override suspend fun saveNormaTimeLocomotives(token: String, body: List<LocomotiveSeries>) {
+    override suspend fun saveNormaTimeLocomotives(
+        token: String,
+        series: List<LocomotiveSeries>,
+        tombstones: List<LocomotiveSeriesTombstone>,
+    ) {
         client.post("v1/norma_time/locomotives/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
-            setBody(body.map { NormaTimeLocomotiveResponse.fromDomain(it) })
+            setBody(
+                series.map { NormaTimeLocomotiveResponse.fromDomain(it) } +
+                    tombstones.map { NormaTimeLocomotiveResponse.fromTombstone(it) }
+            )
         }.bodyAsText()
     }
 
-    override suspend fun getNormaTimeLocomotives(token: String): List<LocomotiveSeries> =
-        client.get("v1/norma_time/locomotives/") {
+    override suspend fun getNormaTimeLocomotives(token: String): SeriesSnapshot {
+        val items = client.get("v1/norma_time/locomotives/") {
             header("Authorization", token)
-        }.body<List<NormaTimeLocomotiveResponse>>().map { it.toDomain() }
+            parameter("includeDeleted", "true")
+        }.body<List<NormaTimeLocomotiveResponse>>()
+        val (dead, alive) = items.partition { it.isDeleted == true }
+        return SeriesSnapshot(alive.map { it.toDomain() }, dead.map { it.toTombstone() })
+    }
 
     override suspend fun saveNormaTimeStations(
         token: String,

@@ -1,6 +1,13 @@
--- Миграция 25: надгробия удалённых станций справочника (синхронизация удалений).
+-- Миграция 25: надгробия удалённых станций и серий справочника (синхронизация удалений).
 CREATE TABLE IF NOT EXISTS StationTombstone (
     stationId TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
+    deletedAt INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS LocomotiveSeriesTombstone (
+    seriesId TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
     deletedAt INTEGER NOT NULL
 );

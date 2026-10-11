@@ -1,6 +1,7 @@
 package com.z_company.repository.remote_rest.response
 
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.LocomotiveSeriesTombstone
 import com.z_company.domain.entities.norma_time.SectionNumberingType
 import com.z_company.domain.entities.route.LocoType
 import kotlinx.serialization.Serializable
@@ -16,7 +17,9 @@ data class NormaTimeLocomotiveResponse(
     val acceptanceHandToHandMin: Int? = null,
     val deliveryHandToHandMin: Int? = null,
     val sectionNumberingType: SectionNumberingType = SectionNumberingType.NUMERIC,
-    val updatedAt: Double
+    val updatedAt: Double,
+    /** Надгробие; новый клиент шлёт поле всегда (true/false) — см. [NormaTimeStationResponse]. */
+    val isDeleted: Boolean? = null,
 ) {
     fun toDomain(): LocomotiveSeries = LocomotiveSeries(
         seriesId = seriesId,
@@ -30,7 +33,23 @@ data class NormaTimeLocomotiveResponse(
         updatedAt = updatedAt.toLong()
     )
 
+    fun toTombstone(): LocomotiveSeriesTombstone = LocomotiveSeriesTombstone(
+        seriesId = seriesId,
+        name = name,
+        type = LocoType.entries.find { it.name == type } ?: LocoType.ELECTRIC,
+        deletedAt = updatedAt.toLong(),
+    )
+
     companion object {
+        fun fromTombstone(t: LocomotiveSeriesTombstone): NormaTimeLocomotiveResponse =
+            NormaTimeLocomotiveResponse(
+                seriesId = t.seriesId,
+                name = t.name,
+                type = t.type.name,
+                updatedAt = t.deletedAt.toDouble(),
+                isDeleted = true,
+            )
+
         fun fromDomain(series: LocomotiveSeries): NormaTimeLocomotiveResponse =
             NormaTimeLocomotiveResponse(
                 seriesId = series.seriesId,
@@ -41,7 +60,8 @@ data class NormaTimeLocomotiveResponse(
                 acceptanceHandToHandMin = series.acceptanceHandToHandMin,
                 deliveryHandToHandMin = series.deliveryHandToHandMin,
                 sectionNumberingType = series.sectionNumberingType,
-                updatedAt = series.updatedAt.toDouble()
+                updatedAt = series.updatedAt.toDouble(),
+                isDeleted = false,
             )
     }
 }

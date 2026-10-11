@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.z_company.data_local.norma_time
 
 import app.cash.sqldelight.coroutines.asFlow
@@ -6,12 +8,14 @@ import com.z_company.core.ResultState
 import com.z_company.core.ResultState.Companion.flowRequest
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.LocomotiveSeriesTombstone
 import com.z_company.domain.entities.norma_time.SectionNumberingType
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlin.time.Clock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -27,7 +31,45 @@ class SqlDelightLocomotiveSeriesRepository : LocomotiveSeriesRepository, KoinCom
     override fun getAll(): List<LocomotiveSeries> =
         db.locomotiveSeriesQueries.getAll().executeAsList().map { it.toDomain() }
 
+    override fun getTombstones(): List<LocomotiveSeriesTombstone> =
+        db.locomotiveSeriesQueries.getTombstones().executeAsList().map {
+            LocomotiveSeriesTombstone(
+                seriesId = it.seriesId,
+                name = it.name,
+                type = LocoType.entries.find { t -> t.name == it.type } ?: LocoType.ELECTRIC,
+                deletedAt = it.deletedAt,
+            )
+        }
+
     override fun replaceAll(series: List<LocomotiveSeries>): Flow<ResultState<Unit>> = flowRequest {
+        val now = Clock.System.now().toEpochMilliseconds()
+        db.locomotiveSeriesQueries.transaction {
+            val kept = series.map { it.seriesId }.toSet()
+            // Пропавшие из списка серии — удалены пользователем: оставляем надгробие.
+            db.locomotiveSeriesQueries.getAll().executeAsList()
+                .filter { it.seriesId !in kept }
+                .forEach { gone ->
+                    db.locomotiveSeriesQueries.insertTombstone(gone.seriesId, gone.name, gone.type, now)
+                }
+            kept.forEach { db.locomotiveSeriesQueries.deleteTombstone(it) }
+            writeSeries(series)
+        }
+    }
+
+    override fun applySync(
+        series: List<LocomotiveSeries>,
+        tombstones: List<LocomotiveSeriesTombstone>,
+    ): Flow<ResultState<Unit>> = flowRequest {
+        db.locomotiveSeriesQueries.transaction {
+            writeSeries(series)
+            db.locomotiveSeriesQueries.deleteAllTombstones()
+            tombstones.forEach {
+                db.locomotiveSeriesQueries.insertTombstone(it.seriesId, it.name, it.type.name, it.deletedAt)
+            }
+        }
+    }
+
+    private fun writeSeries(series: List<LocomotiveSeries>) {
         db.locomotiveSeriesQueries.deleteAll()
         series.forEach { s ->
             db.locomotiveSeriesQueries.insertOrReplace(

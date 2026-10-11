@@ -10,6 +10,14 @@ CREATE TABLE IF NOT EXISTS LocomotiveSeries (
     updatedAt INTEGER NOT NULL
 );
 
+-- Надгробия удалённых серий (миграция 25): чтобы удаление дошло до других устройств.
+CREATE TABLE IF NOT EXISTS LocomotiveSeriesTombstone (
+    seriesId TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    deletedAt INTEGER NOT NULL
+);
+
 insertOrReplace:
 INSERT OR REPLACE INTO LocomotiveSeries (seriesId, name, type, acceptanceDurationMin, deliveryDurationMin, acceptanceHandToHandMin, deliveryHandToHandMin, sectionNumberingType, updatedAt)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -19,3 +27,15 @@ SELECT * FROM LocomotiveSeries ORDER BY name;
 
 deleteAll:
 DELETE FROM LocomotiveSeries;
+
+getTombstones:
+SELECT * FROM LocomotiveSeriesTombstone;
+
+insertTombstone:
+INSERT OR REPLACE INTO LocomotiveSeriesTombstone (seriesId, name, type, deletedAt) VALUES (?, ?, ?, ?);
+
+deleteTombstone:
+DELETE FROM LocomotiveSeriesTombstone WHERE seriesId = ?;
+
+deleteAllTombstones:
+DELETE FROM LocomotiveSeriesTombstone;
