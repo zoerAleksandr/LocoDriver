@@ -122,6 +122,11 @@ object RemoteRestClient {
         com.z_company.repository.remote_rest.tracks.KtorAdvisorApi(createClient { BASE_URL })
     }
 
+    /** Общая карта зон без GPS и вклад (согласие №2, SCREEN_SPECS §6.9, «Зоны без GPS»). */
+    val gnssZonesApi: com.z_company.repository.remote_rest.tracks.GnssZonesApi by lazy {
+        com.z_company.repository.remote_rest.tracks.KtorGnssZonesApi(createClient { BASE_URL })
+    }
+
     val apiForSendEmail: ApiForSendEmail by lazy {
         KtorApiForSendEmail(createClient { BASE_URL_FOR_SEND_EMAIL })
     }

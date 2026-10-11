@@ -182,6 +182,8 @@ val repositoryModule = module {
             onTrackUpload = { com.z_company.loco_driver.track.TrackUploadScheduler.enqueue(androidContext()) },
             altitudeStore = get(),
             onAltitudeContrib = { com.z_company.loco_driver.track.AltitudeContribScheduler.enqueue(androidContext()) },
+            gnssStore = get(),
+            onGnssContrib = { com.z_company.loco_driver.track.GnssZoneContribScheduler.enqueue(androidContext()) },
         )
     }
     // Согласие №1 «Сохранять мои треки и историю поездок» (SCREEN_SPECS §6.9, §17.7).
@@ -197,7 +199,12 @@ val repositoryModule = module {
             onAltitudeConsentChanged = { on ->
                 if (on) {
                     com.z_company.loco_driver.track.AltitudeContribScheduler.enqueue(androidContext())
+                    com.z_company.loco_driver.track.GnssZoneContribScheduler.enqueue(androidContext())
                 } else {
+                    // Места без GPS: то же согласие. Накопленное удаляем, отправку отменяем, tag забываем.
+                    com.z_company.loco_driver.track.GnssZoneContribScheduler.cancel(androidContext())
+                    get<com.z_company.domain.gnss.GnssContribStore>().clear()
+                    get<com.z_company.domain.gnss.GnssContribTag>().reset()
                     // Отзыв №2: накопленные, но не отправленные точки удаляем, отправку отменяем.
                     com.z_company.loco_driver.track.AltitudeContribScheduler.cancel(androidContext())
                     get<com.z_company.domain.track.AltitudeContribStore>().clear()
@@ -219,6 +226,39 @@ val repositoryModule = module {
             axes = get(),
             settings = get<com.z_company.route.autorecord.TrackConsentStore>(),
             tools = get(),
+        )
+    }
+    // Вклад «места без GPS» (согласие №2 в редакции с GPS): временные ячейки сеанса, случайный tag, отправка.
+    single<com.z_company.domain.gnss.GnssContribStore> {
+        com.z_company.route.autorecord.FileGnssContribStore(java.io.File(androidContext().filesDir, "gnss_contrib"))
+    }
+    single {
+        com.z_company.domain.gnss.GnssContribTag(
+            com.z_company.route.autorecord.PrefsGnssTagStorage(
+                androidContext().getSharedPreferences(
+                    com.z_company.route.autorecord.PrefsGnssTagStorage.PREFS_NAME,
+                    android.content.Context.MODE_PRIVATE,
+                ),
+            ),
+        )
+    }
+    single {
+        com.z_company.repository.remote_rest.tracks.GnssZoneContributor(
+            api = RemoteRestClient.gnssZonesApi,
+            store = get(),
+            settings = get<com.z_company.route.autorecord.TrackConsentStore>().gnssContribSettings,
+            tag = get(),
+        )
+    }
+    // Общая карта зон без GPS: кэш плиток в cacheDir; серверные ячейки видят только вошедшие.
+    single {
+        com.z_company.repository.remote_rest.tracks.GnssZonesRepository(
+            api = RemoteRestClient.gnssZonesApi,
+            store = com.z_company.route.autorecord.FileGnssTileStore(java.io.File(androidContext().cacheDir, "gnss_zones")),
+            token = {
+                get<com.z_company.repository.SecureTokenStorage>().getAuthBearerTokenFlow().first()
+                    ?.takeIf { it.isNotBlank() }?.let { "Bearer $it" }
+            },
         )
     }
     // История треков на сервере (этап 3б): кодек, связь поезд -> рейс, отправка, чтение.

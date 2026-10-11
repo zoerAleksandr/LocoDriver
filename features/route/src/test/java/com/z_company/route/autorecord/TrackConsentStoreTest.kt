@@ -165,4 +165,43 @@ class TrackConsentStoreTest {
         assertEquals(0L, store.altitudeConsentAtMs())
         assertEquals(listOf(true, false), calls)
     }
+
+    @Test
+    fun gnssContribNeedsNewTextEdition() = runTest {
+        val prefs = MemPrefs()
+        val scope = TestScope(StandardTestDispatcher(testScheduler))
+        val store = TrackConsentStore(prefs, Repo(), scope)
+        // Нет согласия №2 - вклада зон нет.
+        assertFalse(store.gnssContribAllowed())
+        assertFalse(store.gnssContribSettings.enabled())
+        assertFalse(store.needsGnssTextConfirm())
+        // Новое включение сразу в новой редакции (высоты и места потери GPS).
+        store.setAltitudeContrib(true)
+        assertTrue(store.gnssContribAllowed())
+        assertTrue(store.gnssContribSettings.enabled())
+        assertFalse(store.needsGnssTextConfirm())
+        // Отзыв закрывает вклад зон.
+        store.setAltitudeContrib(false)
+        assertFalse(store.gnssContribAllowed())
+    }
+
+    @Test
+    fun oldAltitudeConsentDoesNotSendZonesUntilConfirmed() = runTest {
+        // Согласие №2 дано прежде (только высоты): отметки редакции нет.
+        val prefs = MemPrefs()
+        prefs.map["altitude_contrib"] = true
+        val calls = mutableListOf<Boolean>()
+        val store = TrackConsentStore(prefs, Repo(), TestScope(StandardTestDispatcher(testScheduler)), onAltitudeConsentChanged = { calls += it })
+        assertTrue(store.enabled())
+        assertFalse(store.gnssContribAllowed())
+        assertTrue(store.needsGnssTextConfirm())
+        store.confirmGnssText()
+        assertTrue(store.gnssContribAllowed())
+        assertFalse(store.needsGnssTextConfirm())
+        assertEquals(listOf(true), calls)
+        // Подтверждение не создаёт согласие из воздуха.
+        val none = TrackConsentStore(MemPrefs(), Repo(), TestScope(StandardTestDispatcher(testScheduler)))
+        none.confirmGnssText()
+        assertFalse(none.gnssContribAllowed())
+    }
 }

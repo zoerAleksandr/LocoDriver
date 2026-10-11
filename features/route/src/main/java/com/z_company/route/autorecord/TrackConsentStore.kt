@@ -1,6 +1,7 @@
 package com.z_company.route.autorecord
 
 import android.content.SharedPreferences
+import com.z_company.domain.gnss.GnssContribSettings
 import com.z_company.domain.track.AltitudeContribSettings
 import com.z_company.domain.track.TrackRepository
 import com.z_company.domain.track.TrackSyncSettings
@@ -62,13 +63,38 @@ class TrackConsentStore(
      */
     fun setAltitudeContrib(enabled: Boolean) {
         val editor = prefs.edit().putBoolean(KEY_DECIDED, true).putBoolean(KEY_ALTITUDE_CONTRIB, enabled)
-        if (enabled) editor.putLong(KEY_ALTITUDE_CONTRIB_AT, nowMs()) else editor.remove(KEY_ALTITUDE_CONTRIB_AT)
+        // Включение - всегда по текущей редакции текста (с местами потери GPS); отзыв стирает отметку редакции.
+        if (enabled) {
+            editor.putLong(KEY_ALTITUDE_CONTRIB_AT, nowMs()).putInt(KEY_ALTITUDE_TEXT_VERSION, ALTITUDE_TEXT_VERSION)
+        } else {
+            editor.remove(KEY_ALTITUDE_CONTRIB_AT).remove(KEY_ALTITUDE_TEXT_VERSION)
+        }
         editor.apply()
         _altitudeContrib.value = enabled
         runCatching { onAltitudeConsentChanged(enabled) }
     }
 
     override fun enabled(): Boolean = _altitudeContrib.value
+
+    /**
+     * Вклад «места без GPS» разрешён: согласие №2 дано именно в редакции с этими данными ([ALTITUDE_TEXT_VERSION]).
+     * Согласившиеся на прежнюю редакцию (только высоты) должны подтвердить новую - [confirmGnssText].
+     */
+    fun gnssContribAllowed(): Boolean =
+        _altitudeContrib.value && prefs.getInt(KEY_ALTITUDE_TEXT_VERSION, 1) >= ALTITUDE_TEXT_VERSION
+
+    /** Согласие №2 дано, но на прежних условиях (только высоты): места без GPS не передаются. */
+    fun needsGnssTextConfirm(): Boolean = _altitudeContrib.value && !gnssContribAllowed()
+
+    /** Подтвердить новую редакцию согласия №2 (высоты и места потери GPS). */
+    fun confirmGnssText() {
+        if (!_altitudeContrib.value) return
+        prefs.edit().putInt(KEY_ALTITUDE_TEXT_VERSION, ALTITUDE_TEXT_VERSION).apply()
+        runCatching { onAltitudeConsentChanged(true) }
+    }
+
+    /** Вклад зон: тот же переключатель, но только для новой редакции текста. */
+    val gnssContribSettings = GnssContribSettings { gnssContribAllowed() }
 
     override fun localConsent(): Boolean = _saveTracks.value
 
@@ -111,5 +137,9 @@ class TrackConsentStore(
         private const val KEY_SERVER_CONSENT = "server_consent"
         private const val KEY_ALTITUDE_CONTRIB = "altitude_contrib"
         private const val KEY_ALTITUDE_CONTRIB_AT = "altitude_contrib_at_ms"
+        private const val KEY_ALTITUDE_TEXT_VERSION = "altitude_contrib_text_v"
+
+        /** Редакция текста согласия №2: 1 - только высоты, 2 - высоты и места потери GPS (участки ~250 м). */
+        const val ALTITUDE_TEXT_VERSION = 2
     }
 }

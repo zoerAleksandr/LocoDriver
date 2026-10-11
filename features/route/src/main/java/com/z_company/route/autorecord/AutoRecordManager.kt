@@ -33,6 +33,10 @@ import com.z_company.domain.track.NO_TRAIN_ID
 import com.z_company.domain.track.TrackPoint
 import com.z_company.domain.track.TrackRecordingState
 import com.z_company.domain.track.TrackRepository
+import com.z_company.domain.gnss.GnssContribBuilder
+import com.z_company.domain.gnss.GnssContribSession
+import com.z_company.domain.gnss.GnssContribStore
+import com.z_company.domain.gnss.GnssSessionBuffer
 import com.z_company.domain.track.AltitudeContribStore
 import com.z_company.domain.track.AltitudeSessionBuffer
 import com.z_company.domain.track.PendingContribSession
@@ -109,6 +113,13 @@ class AutoRecordManager(
     private val altitudeStore: AltitudeContribStore? = null,
     /** Запланировать отправку вклада высот (WorkManager в app) после сеанса «АВТО». */
     private val onAltitudeContrib: () -> Unit = {},
+    /**
+     * Временное хранилище вклада «места без GPS» (согласие №2 в редакции с GPS, SCREEN_SPECS §6.9); null - вклад недоступен.
+     * Не зависит от согласия №1 и не пишет в Track.db.
+     */
+    private val gnssStore: GnssContribStore? = null,
+    /** Запланировать отправку вклада зон (WorkManager в app) после сеанса «АВТО». */
+    private val onGnssContrib: () -> Unit = {},
 ) {
     private val _state = MutableStateFlow(AutoRecordState())
     val state: StateFlow<AutoRecordState> = _state.asStateFlow()
@@ -143,6 +154,7 @@ class AutoRecordManager(
     private var lastBeatWriteMs = 0L
     private val trackWriter = trackRepository?.let { TrackWriter(it) }
     private val altitudeBuffer = AltitudeSessionBuffer()
+    private val gnssBuffer = GnssSessionBuffer()
 
     init {
         if (prefs.getLong(KEY_UNTIL, 0L) == 0L && prefs.getBoolean(KEY_INTERRUPTED, false)) {
@@ -291,6 +303,16 @@ class AutoRecordManager(
             runCatching {
                 if (trackConsent?.altitudeContrib?.value == true) {
                     if (st.pendingIds().isNotEmpty()) onAltitudeContrib()
+                } else {
+                    st.clear()
+                }
+            }
+        }
+        // Вклад зон без GPS: то же правило (согласие №2 в новой редакции).
+        gnssStore?.let { st ->
+            runCatching {
+                if (trackConsent?.gnssContribAllowed() == true) {
+                    if (st.pendingIds().isNotEmpty()) onGnssContrib()
                 } else {
                     st.clear()
                 }
@@ -483,6 +505,7 @@ class AutoRecordManager(
     /** Точка трека: только при согласии №1, в поезд, где нажата «АВТО»; прореживается TrackWriter. */
     private fun recordTrackPoint(p: GpsPoint) {
         recordAltitudeSample(p)
+        recordGnssPoint(p)
         val writer = trackWriter ?: return
         val consent = trackConsent?.saveTracks?.value == true
         val target = prefs.getString(KEY_TARGET, null)
@@ -513,6 +536,31 @@ class AutoRecordManager(
         }
     }
 
+    /** Точка для вклада зон без GPS: согласие №2 в новой редакции, в память до конца сеанса (без записи на диск). */
+    private fun recordGnssPoint(p: GpsPoint) {
+        if (gnssStore == null || trackConsent?.gnssContribAllowed() != true) return
+        synchronized(gnssBuffer) {
+            gnssBuffer.add(
+                TrackPoint(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM, p.altitudeM, p.baroAltitudeM),
+            )
+        }
+    }
+
+    /** Сеанс закончен: плохие участки -> ячейки сетки -> временный файл для воркера. Пустой вклад не сохраняется и не отправляется. */
+    private fun flushGnssSession() {
+        val points = synchronized(gnssBuffer) { gnssBuffer.drain() }
+        val store = gnssStore ?: return
+        if (points.size < 2 || trackConsent?.gnssContribAllowed() != true) return
+        try {
+            val cells = GnssContribBuilder.fromPoints(points)
+            if (cells.isEmpty()) return
+            store.save(GnssContribSession(newContribSessionId(), nowMs(), cells))
+            runCatching { onGnssContrib() }
+        } catch (e: Exception) {
+            e.sendToSentry("AutoRecordManager", "gnssFlush") // без координат
+        }
+    }
+
     /** Сеанс закончен: накопленные точки - во временный файл для воркера (если согласие №2 ещё действует). */
     private fun flushAltitudeSession() {
         val samples = synchronized(altitudeBuffer) { altitudeBuffer.drain() }
@@ -528,6 +576,7 @@ class AutoRecordManager(
 
     private fun resetTrack() {
         flushAltitudeSession()
+        flushGnssSession()
         trackWriter?.let { synchronized(it) { it.reset() } }
         // Сеанс закончен — трек готов к отправке (воркер подождёт паузу без новых точек).
         if (trackConsent?.saveTracks?.value == true) runCatching { onTrackUpload() }
