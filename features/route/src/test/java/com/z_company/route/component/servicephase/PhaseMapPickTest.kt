@@ -15,7 +15,7 @@ class PhaseMapPickTest {
     @Test
     fun `both stations empty - first and last`() {
         val b = PhaseMapPick.buttons("", "  ")
-        assertEquals(listOf("Указать первую станцию", "Указать конечную станцию"), b.map { it.label })
+        assertEquals(listOf("Указать станцию отправления", "Указать станцию прибытия"), b.map { it.label })
         assertEquals(listOf(true, false), b.map { it.isStart })
     }
 
@@ -57,10 +57,19 @@ class PhaseMapPickTest {
 
     @Test
     fun `prompt names the station being picked`() {
-        assertEquals("Нажмите на карте место первой станции", PhaseMapPick.prompt(true, "", ""))
-        assertEquals("Нажмите на карте место конечной станции", PhaseMapPick.prompt(false, "", ""))
-        assertEquals("Нажмите на карте место станции отправления", PhaseMapPick.prompt(true, "Луга", ""))
-        assertEquals("Нажмите на карте место станции прибытия", PhaseMapPick.prompt(false, "", "Луга"))
+        assertEquals("Нажмите на карте место станции отправления", PhaseMapPick.prompt(true))
+        assertEquals("Нажмите на карте место станции прибытия", PhaseMapPick.prompt(false))
+    }
+
+    @Test
+    fun `target - first tap departure, second arrival, whatever button`() {
+        assertEquals(true, PhaseMapPick.target(null, "", ""))
+        assertEquals(true, PhaseMapPick.target(false, "", " "))
+        assertEquals(false, PhaseMapPick.target(null, "Луга", ""))
+        assertEquals(true, PhaseMapPick.target(null, "", "Луга"))
+        assertEquals(false, PhaseMapPick.target(false, "Луга", "Ультрамар"))
+        assertEquals(true, PhaseMapPick.target(true, "Луга", "Ультрамар"))
+        assertEquals(null, PhaseMapPick.target(null, "Луга", "Ультрамар"))
     }
 
     @Test
@@ -68,7 +77,7 @@ class PhaseMapPickTest {
         val c = PhaseMapPick.confirm(PointStationResult(st("Ультрамар", 350), offline = false), "")
         c as PickConfirm.Found
         assertEquals("Станция «Ультрамар»?", c.title)
-        assertEquals("Расстояние до точки 350 м", c.text)
+        assertEquals("", c.text)
         assertEquals("Применить", c.confirmText)
         assertEquals("Отмена", c.dismissText)
     }
@@ -76,16 +85,16 @@ class PhaseMapPickTest {
     @Test
     fun `found station warns when it replaces another name`() {
         val c = PhaseMapPick.confirm(PointStationResult(st("Ультрамар"), offline = false), "Ультра")
-        assertEquals("Расстояние до точки 120 м. Название в поле «Ультра» будет заменено.", c.text)
+        assertEquals("Название в поле «Ультра» будет заменено.", c.text)
         // то же название (без учёта регистра) - без предупреждения
         val same = PhaseMapPick.confirm(PointStationResult(st("Ультрамар"), offline = false), "ультрамар")
-        assertEquals("Расстояние до точки 120 м", same.text)
+        assertEquals("", same.text)
     }
 
     @Test
-    fun `offline note is added`() {
+    fun `offline note is not shown`() {
         val c = PhaseMapPick.confirm(PointStationResult(st("Луга"), offline = true), "")
-        assertTrue(c.text.endsWith("Нет связи с сервером — искали среди сохранённых станций."))
+        assertEquals("", c.text)
     }
 
     @Test

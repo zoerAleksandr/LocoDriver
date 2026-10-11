@@ -224,6 +224,30 @@ object StationSuggestionOrder {
  */
 object ServicePhaseOrder {
     /**
+     * Текущая станция для порядка плеч: первая станция поезда, если от неё есть плечи; иначе станция отправления плеча
+     * (с координатами), ближайшая к [fix] в пределах [ServicePhaseStationPicker.NEAR_RADIUS_M]; иначе первая станция
+     * поезда как есть (или null). Учитываются только отправления плеч - ближайшая «просто известная» станция
+     * (прибытие, промежуточная) не должна затмевать станцию, от которой реально есть плечи.
+     */
+    fun currentStation(phases: List<ServicePhase>, firstStationName: String?, fix: GeoFix?): String? {
+        val typed = firstStationName?.takeIf { it.isNotBlank() }
+        if (typed != null) {
+            val key = ServicePhaseStationsMerge.normalizeName(typed)
+            if (phases.any { ServicePhaseStationsMerge.normalizeName(it.departureStation) == key }) return typed
+        }
+        if (fix != null) {
+            phases.mapNotNull { ph ->
+                val p = ph.departurePoint ?: return@mapNotNull null
+                ph.departureStation to ServicePhaseStationPicker.distanceM(fix.latitude, fix.longitude, p.latitude, p.longitude)
+            }
+                .filter { it.second <= ServicePhaseStationPicker.NEAR_RADIUS_M }
+                .minByOrNull { it.second }
+                ?.let { return it.first }
+        }
+        return typed
+    }
+
+    /**
      * @param currentStation станция, где сейчас машинист (ближайшая по GPS или последняя в поезде)
      * @param usage id плеча → сколько раз выбирали в рейсах
      * @param lastUsedAt id плеча → время последнего рейса с ним (мс)

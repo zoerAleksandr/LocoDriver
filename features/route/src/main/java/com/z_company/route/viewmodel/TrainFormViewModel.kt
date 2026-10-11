@@ -189,10 +189,12 @@ class TrainFormViewModel(
     private val stopNamer: com.z_company.domain.util.StopStationNamer by inject()
     /** Координата прошлого добавления станции — чтобы не подставлять одно и то же стоя на месте. */
     /** Последняя известная координата — для сортировки подсказок. */
-    private var lastFix: GeoFix? = null
+    // lastFix/phaseUsage/phaseLastUsed - Compose-состояние: порядок плеч читается при композиции и должен
+    // пересортироваться, когда статистика/координата приходят позже открытия экрана.
+    private var lastFix: GeoFix? by mutableStateOf(null)
     private var stationUsage: Map<String, Int> = emptyMap()
-    private var phaseUsage: Map<String, Int> = emptyMap()
-    private var phaseLastUsed: Map<String, Long> = emptyMap()
+    private var phaseUsage: Map<String, Int> by mutableStateOf(emptyMap())
+    private var phaseLastUsed: Map<String, Long> by mutableStateOf(emptyMap())
 
     init {
         loadUsageStats()
@@ -718,16 +720,7 @@ class TrainFormViewModel(
 
     /** Порядок плеч в шторке выбора: последнее с текущей станции → другие с неё → по частоте. */
     fun sortedServicePhases(phases: List<ServicePhase>): List<ServicePhase> {
-        val here = stationsListState.firstOrNull()?.station?.data?.takeIf { it.isNotBlank() }
-            ?: lastFix?.let { fix ->
-                ServicePhaseStationPicker.knownPoints(phases).minByOrNull { (_, p) ->
-                    ServicePhaseStationPicker.distanceM(fix.latitude, fix.longitude, p.first, p.second)
-                }?.takeIf { (_, p) ->
-                    ServicePhaseStationPicker.distanceM(fix.latitude, fix.longitude, p.first, p.second) <= ServicePhaseStationPicker.NEAR_RADIUS_M
-                }?.let { (norm, _) ->
-                    phases.firstOrNull { ServicePhaseStationsMerge.normalizeName(it.departureStation) == norm }?.departureStation
-                }
-            }
+        val here = ServicePhaseOrder.currentStation(phases, stationsListState.firstOrNull()?.station?.data, lastFix)
         return ServicePhaseOrder.sort(phases, here, phaseUsage, phaseLastUsed)
     }
 

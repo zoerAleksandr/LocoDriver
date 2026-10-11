@@ -58,7 +58,6 @@ internal object PhaseMapPick {
             MapPickButton(
                 isStart = true,
                 label = when {
-                    dep && arr -> "Указать первую станцию"
                     dep -> "Указать станцию отправления"
                     else -> "Уточнить на карте отправление"
                 },
@@ -66,7 +65,6 @@ internal object PhaseMapPick {
             MapPickButton(
                 isStart = false,
                 label = when {
-                    dep && arr -> "Указать конечную станцию"
                     arr -> "Указать станцию прибытия"
                     else -> "Уточнить на карте прибытие"
                 },
@@ -78,31 +76,40 @@ internal object PhaseMapPick {
     fun canMeasure(departure: String, arrival: String, departureKnown: Boolean, arrivalKnown: Boolean): Boolean =
         departure.isNotBlank() && arrival.isNotBlank() && departureKnown && arrivalKnown
 
-    /** Подсказка в режиме выбора (пользователь нажимает точку на карте). */
-    fun prompt(isStart: Boolean, departure: String, arrival: String): String {
-        val both = departure.isBlank() && arrival.isBlank()
-        return "Нажмите на карте место " + when {
-            both && isStart -> "первой станции"
-            both -> "конечной станции"
-            isStart -> "станции отправления"
-            else -> "станции прибытия"
+    /**
+     * Какую станцию определит нажатие на карте. Обе пусты - всегда отправление (первое нажатие), затем прибытие,
+     * какая бы кнопка ни была нажата. Иначе - [requested] (кнопка), а без кнопки - первая пустая станция
+     * (null, если обе названы: уточнять нужно кнопкой).
+     */
+    fun target(requested: Boolean?, departure: String, arrival: String): Boolean? {
+        val dep = departure.isBlank()
+        val arr = arrival.isBlank()
+        return when {
+            dep && arr -> true
+            requested != null -> requested
+            dep -> true
+            arr -> false
+            else -> null
         }
     }
+
+    /** Подсказка в режиме выбора (пользователь нажимает точку на карте). */
+    fun prompt(isStart: Boolean): String =
+        "Нажмите на карте место станции " + if (isStart) "отправления" else "прибытия"
 
     /** [currentName] - название, уже стоящее в поле этой станции. */
     fun confirm(result: PointStationResult, currentName: String): PickConfirm {
         val current = currentName.trim()
         val st = result.station
-        val offlineNote = if (result.offline) " Нет связи с сервером — искали среди сохранённых станций." else ""
         if (st == null) {
             return if (current.isNotEmpty()) {
                 PickConfirm.UseTypedName(
                     name = current,
-                    text = "Рядом (в радиусе 1 км) станций нет. Указать эту точку как «$current»?$offlineNote",
+                    text = "Рядом (в радиусе 1 км) станций нет. Указать эту точку как «$current»?",
                 )
             } else {
                 PickConfirm.NothingNearby(
-                    text = "Рядом (в радиусе 1 км) станций нет. Нажмите ближе к станции или сначала введите название в поле.$offlineNote",
+                    text = "Рядом (в радиусе 1 км) станций нет. Нажмите ближе к станции или сначала введите название в поле.",
                 )
             }
         }
@@ -110,9 +117,7 @@ internal object PhaseMapPick {
         return PickConfirm.Found(
             station = st,
             title = "Станция «${st.name}»?",
-            text = "Расстояние до точки ${st.distanceM} м" +
-                (if (replaces) ". Название в поле «$current» будет заменено." else "") +
-                offlineNote,
+            text = if (replaces) "Название в поле «$current» будет заменено." else "",
         )
     }
 
