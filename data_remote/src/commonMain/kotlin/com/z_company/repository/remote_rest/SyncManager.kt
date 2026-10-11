@@ -9,6 +9,7 @@ import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.PartnerRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.repositories.StationNormRepository
+import com.z_company.domain.util.StationNormMerge
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.ProductionCalendarUseCase
 import com.z_company.domain.use_cases.ReleaseDayUseCase
@@ -275,12 +276,8 @@ class SyncManager(
                 .catch { /* Не прерываем основную синхронизацию */ }
                 .collect {}
         }
-        val localStationNorms = stationNormRepository.getAll()
-        if (localStationNorms.isNotEmpty()) {
-            settingManager.saveNormaTimeStationsInRemote(localStationNorms, bearerToken)
-                .catch { /* Не прерываем основную синхронизацию */ }
-                .collect {}
-        }
+        // Станции — слияние с сервером (LWW по станции + надгробия удалённых), не full-replace.
+        syncStationNorms(bearerToken)
 
         // 3.6. Синхронизация справочника напарников (full replace).
         val localPartners = partnerRepository.getAll()
@@ -481,16 +478,7 @@ class SyncManager(
                     }
                 }
         }
-        val localStationsForDownload = stationNormRepository.getAll()
-        if (localStationsForDownload.isEmpty()) {
-            settingManager.getNormaTimeStationsFromRemote(bearerToken)
-                .catch { /* Не прерываем основную синхронизацию */ }
-                .collect { loadState ->
-                    if (loadState is ResultState.Success && loadState.data.isNotEmpty()) {
-                        stationNormRepository.replaceAll(loadState.data).collect {}
-                    }
-                }
-        }
+        syncStationNorms(bearerToken)
         // Справочник напарников: если локально пусто — GET с сервера и сохранить.
         val localPartnersForDownload = partnerRepository.getAll()
         if (localPartnersForDownload.isEmpty()) {
@@ -931,16 +919,8 @@ class SyncManager(
                 if (s is ResultState.Success && s.data.isNotEmpty()) locomotiveSeriesRepository.replaceAll(s.data).collect {}
             }
         }
-        val localStationNorms = stationNormRepository.getAll()
-        if (settingsPending && localStationNorms.isNotEmpty()) {
-            settingManager.saveNormaTimeStationsInRemote(localStationNorms, bearerToken)
-                .catch { settingsUploadSucceeded = false }
-                .collect { if (it is ResultState.Error) settingsUploadSucceeded = false }
-        } else if (localStationNorms.isEmpty()) {
-            settingManager.getNormaTimeStationsFromRemote(bearerToken).catch { }.collect { s ->
-                if (s is ResultState.Success && s.data.isNotEmpty()) stationNormRepository.replaceAll(s.data).collect {}
-            }
-        }
+        // Станции сливаются с сервером при каждой синхронизации (не только при pending).
+        if (!syncStationNorms(bearerToken)) settingsUploadSucceeded = false
         val localPartners = partnerRepository.getAll()
         if (settingsPending) {
             settingManager.savePartnersInRemote(localPartners, bearerToken)
@@ -1205,6 +1185,42 @@ class SyncManager(
      * специально не реагирует на удаление 1 маршрута с другого устройства — это
      * нормальный частый сценарий, спрашивать подтверждение на него было бы шумно.
      */
+    /**
+     * Справочник станций: слияние с сервером. Скачивает станции и надгробия, сливает с
+     * локальными по каждой станции (кто новее — тот и прав, удаление — тоже запись), пишет
+     * результат локально и отправляет, если сервер отстаёт. Пустой список не отправляется
+     * (сервер принял бы его за full-replace старого клиента). Возвращает false, если сеть
+     * не отдала справочник или отправка не удалась; тогда локальное не меняем.
+     */
+    private suspend fun syncStationNorms(bearerToken: String): Boolean {
+        var remote: StationSnapshot? = null
+        settingManager.getNormaTimeStationsFromRemote(bearerToken)
+            .catch { }
+            .collect { if (it is ResultState.Success) remote = it.data }
+        val server = remote ?: return false
+
+        val localStations = stationNormRepository.getAll()
+        val staleBefore = Clock.System.now().toEpochMilliseconds() - STATION_TOMBSTONE_TTL_MS
+        val localTombstones = stationNormRepository.getTombstones().filter { it.deletedAt >= staleBefore }
+        val merged = StationNormMerge.merge(localStations, localTombstones, server.stations, server.tombstones)
+
+        if (merged.stations.toSet() != localStations.toSet() ||
+            merged.tombstones.toSet() != stationNormRepository.getTombstones().toSet()
+        ) {
+            stationNormRepository.applySync(merged.stations, merged.tombstones).collect {}
+        }
+
+        val serverBehind = merged.stations.toSet() != server.stations.toSet() ||
+            merged.tombstones.toSet() != server.tombstones.toSet()
+        if (!serverBehind || (merged.stations.isEmpty() && merged.tombstones.isEmpty())) return true
+
+        var ok = true
+        settingManager.saveNormaTimeStationsInRemote(merged.stations, merged.tombstones, bearerToken)
+            .catch { ok = false }
+            .collect { if (it is ResultState.Error) ok = false }
+        return ok
+    }
+
     private fun isSignificantRouteDeletion(deletionCount: Int, totalSyncedLocal: Int): Boolean {
         if (deletionCount >= SIGNIFICANT_DELETION_MIN_COUNT) return true
         if (deletionCount < 2) return false
@@ -1389,12 +1405,7 @@ class SyncManager(
                 .catch { allOk = false }
                 .collect { if (it is ResultState.Error) allOk = false }
         }
-        val localStationNorms = stationNormRepository.getAll()
-        if (localStationNorms.isNotEmpty()) {
-            settingManager.saveNormaTimeStationsInRemote(localStationNorms, bearerToken)
-                .catch { allOk = false }
-                .collect { if (it is ResultState.Error) allOk = false }
-        }
+        if (!syncStationNorms(bearerToken)) allOk = false
         val localPartners = partnerRepository.getAll()
         if (localPartners.isNotEmpty()) {
             settingManager.savePartnersInRemote(localPartners, bearerToken)
@@ -1510,12 +1521,7 @@ class SyncManager(
                 .catch { /* Не прерываем основную синхронизацию */ }
                 .collect {}
         }
-        val localStationNormsFirst = stationNormRepository.getAll()
-        if (localStationNormsFirst.isNotEmpty()) {
-            settingManager.saveNormaTimeStationsInRemote(localStationNormsFirst, bearerToken)
-                .catch { /* Не прерываем основную синхронизацию */ }
-                .collect {}
-        }
+        syncStationNorms(bearerToken)
         val localPartnersFirst = partnerRepository.getAll()
         if (localPartnersFirst.isNotEmpty()) {
             settingManager.savePartnersInRemote(localPartnersFirst, bearerToken)
@@ -1574,6 +1580,9 @@ class SyncManager(
     }.flowOn(Dispatchers.Default).abortOnSessionExpired().withSyncDeadline()
 
     companion object {
+        /** Как на сервере: надгробия старше полугода вычищаются. */
+        private const val STATION_TOMBSTONE_TTL_MS = 180L * 24 * 3600 * 1000
+
         /** Даём экрану завершить первый кадр и локальные расчёты до тихой синхронизации. */
         const val SUBSCRIPTION_REQUIRED_MESSAGE = "Синхронизация доступна по подписке"
         const val BACKGROUND_SYNC_START_DELAY_MILLIS: Long = 1_500L

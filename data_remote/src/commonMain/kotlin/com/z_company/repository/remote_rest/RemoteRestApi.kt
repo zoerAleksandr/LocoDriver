@@ -6,6 +6,7 @@ import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.norma_time.StationNorm
+import com.z_company.domain.entities.norma_time.StationTombstone
 import com.z_company.domain.entities.partner.Partner
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
@@ -125,11 +126,15 @@ interface RemoteRestApi {
     /** Получить серии локомотивов с сервера */
     suspend fun getNormaTimeLocomotives(token: String): List<LocomotiveSeries>
 
-    /** Сохранить станции с нормами на сервере (полная замена) */
-    suspend fun saveNormaTimeStations(token: String, body: List<StationNorm>)
+    /**
+     * Отправить станции и надгробия удалённых. Сервер сливает по `updatedAt`, ничего не
+     * удаляя из-за отсутствия в списке. Не вызывать с пустыми обоими списками: пустой список
+     * без поля isDeleted сервер понимает как full-replace старого клиента.
+     */
+    suspend fun saveNormaTimeStations(token: String, stations: List<StationNorm>, tombstones: List<StationTombstone>)
 
-    /** Получить станции с нормами с сервера */
-    suspend fun getNormaTimeStations(token: String): List<StationNorm>
+    /** Получить станции с нормами и надгробия (`includeDeleted=true`). */
+    suspend fun getNormaTimeStations(token: String): StationSnapshot
 
     // --- Partners (справочник напарников) ---
 
@@ -273,3 +278,9 @@ interface RemoteRestApi {
      */
     suspend fun getSharedRoute(shareId: String): Route
 }
+
+/** Справочник станций с сервера: живые станции и надгробия удалённых. */
+data class StationSnapshot(
+    val stations: List<StationNorm>,
+    val tombstones: List<StationTombstone>,
+)

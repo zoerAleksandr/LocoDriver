@@ -1,6 +1,7 @@
 package com.z_company.repository.remote_rest.response
 
 import com.z_company.domain.entities.norma_time.StationNorm
+import com.z_company.domain.entities.norma_time.StationTombstone
 import com.z_company.domain.entities.setting.ServicePhaseStationKind
 import kotlinx.serialization.Serializable
 
@@ -26,7 +27,13 @@ data class NormaTimeStationResponse(
     val kind: String? = null,
     val axisKm: Int? = null,
     val axisPk: Int? = null,
-    val updatedAt: Double
+    val updatedAt: Double,
+    /**
+     * Надгробие: станцию удалили. Новый клиент шлёт поле всегда (true/false) — по нему сервер
+     * понимает, что это слияние, а не full-replace старого клиента. GET отдаёт поле только
+     * при `includeDeleted=true`.
+     */
+    val isDeleted: Boolean? = null,
 ) {
     fun toDomain(): StationNorm = StationNorm(
         stationId = stationId,
@@ -49,7 +56,18 @@ data class NormaTimeStationResponse(
         updatedAt = updatedAt.toLong()
     )
 
+    fun toTombstone(): StationTombstone =
+        StationTombstone(stationId = stationId, name = name, deletedAt = updatedAt.toLong())
+
     companion object {
+        fun fromTombstone(t: StationTombstone): NormaTimeStationResponse =
+            NormaTimeStationResponse(
+                stationId = t.stationId,
+                name = t.name,
+                updatedAt = t.deletedAt.toDouble(),
+                isDeleted = true,
+            )
+
         fun fromDomain(station: StationNorm): NormaTimeStationResponse =
             NormaTimeStationResponse(
                 stationId = station.stationId,
@@ -70,7 +88,8 @@ data class NormaTimeStationResponse(
                 },
                 axisKm = station.axisKm,
                 axisPk = station.axisPicket,
-                updatedAt = station.updatedAt.toDouble()
+                updatedAt = station.updatedAt.toDouble(),
+                isDeleted = false,
             )
     }
 }
