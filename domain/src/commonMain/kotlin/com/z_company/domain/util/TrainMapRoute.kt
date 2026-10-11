@@ -40,14 +40,37 @@ object TrainMapRoute {
         val segment: Int,
     )
 
-    /** Накопленная длина линии (м) к каждой вершине. */
+    /**
+     * Накопленная длина линии (м) к каждой вершине. Линии (рельсовая линия плеча, «линии по факту») неизменяемы и живут
+     * долго, а расчёт нужен на каждое обновление GPS в нескольких местах - результат запоминается по ИДЕНТИЧНОСТИ списка
+     * (небольшой кэш из последних линий). Возвращённый массив не изменять.
+     */
     fun cumulativeM(line: List<Pair<Double, Double>>): DoubleArray {
+        if (line.size < CUM_CACHE_MIN_SIZE) return computeCumulative(line)
+        val cached = cumCache
+        for (e in cached) if (e.line === line && e.cum.size == line.size) return e.cum
+        val cum = computeCumulative(line)
+        cumCache = (listOf(CumEntry(line, cum)) + cached).take(CUM_CACHE_SIZE)
+        return cum
+    }
+
+    private class CumEntry(val line: List<Pair<Double, Double>>, val cum: DoubleArray)
+
+    // Копирование-при-записи: чтение без блокировок из любого потока, гонка даёт максимум лишний пересчёт.
+    private var cumCache: List<CumEntry> = emptyList()
+    private const val CUM_CACHE_SIZE = 8
+    private const val CUM_CACHE_MIN_SIZE = 32
+
+    private fun computeCumulative(line: List<Pair<Double, Double>>): DoubleArray {
         val cum = DoubleArray(line.size)
         for (i in 1 until line.size) {
             cum[i] = cum[i - 1] + TrackAnalysis.distanceM(line[i - 1].first, line[i - 1].second, line[i].first, line[i].second)
         }
         return cum
     }
+
+    /** Метров в градусе широты - нижняя граница расстояния до точки по одной широте (distanceM >= это * |dLat|). */
+    private const val LAT_BOUND_M_PER_DEG = 111_000.0
 
     /**
      * Проекция (lat, lon) на ломаную [line] (пары «широта, долгота») среди отрезков, начиная с [fromSegment].
@@ -63,9 +86,32 @@ object TrainMapRoute {
         if (line.size < 2) return null
         val kx = cos(lat * PI / 180.0)
         var best: LineProjection? = null
-        for (i in fromSegment.coerceAtLeast(0) until line.size - 1) {
+        val start = fromSegment.coerceAtLeast(0)
+        // Отсев по широте: расстояние до отрезка не меньше |разности широт| * 111 км/град. Верхняя граница ответа -
+        // расстояние до ближайшей из ~64 равномерно выбранных вершин; отрезки, у которых вся широта дальше этой границы,
+        // не могут быть ни лучшими, ни равными лучшему (строго больше), поэтому результат тот же, но без тригонометрии
+        // на каждом отрезке (раньше: O(длина линии) haversine-подобных расчётов на каждую точку трека).
+        var bound = Double.MAX_VALUE
+        if (line.size - start > 128) {
+            val step = (line.size - start) / 64
+            var i = start
+            while (i < line.size) {
+                val d = TrackAnalysis.distanceM(lat, lon, line[i].first, line[i].second)
+                if (d < bound) bound = d
+                i += step
+            }
+        }
+        for (i in start until line.size - 1) {
             val (aLat, aLon) = line[i]
             val (bLat, bLon) = line[i + 1]
+            if (bound != Double.MAX_VALUE) {
+                val lo = if (aLat < bLat) aLat else bLat
+                val hi = if (aLat < bLat) bLat else aLat
+                val outside = if (lat < lo) lo - lat else if (lat > hi) lat - hi else 0.0
+                val limit = if (best != null && best.offsetM < bound) best.offsetM else bound
+                // Запас 1% + 1 м против разницы линейной модели проекции и distanceM.
+                if (outside * LAT_BOUND_M_PER_DEG > limit * 1.01 + 1.0) continue
+            }
             val dx = (bLon - aLon) * kx
             val dy = bLat - aLat
             val len2 = dx * dx + dy * dy

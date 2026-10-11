@@ -63,6 +63,10 @@ object PathCleaner {
         val cluster = ArrayList<TrackPoint>()
         var cLat = 0.0
         var cLon = 0.0
+        // Бегущие суммы вместо sumOf по всему кластеру на каждой точке: было O(k^2) на долгой стоянке; порядок сложения
+        // тот же, поэтому центроид получается бит-в-бит прежним.
+        var sumLat = 0.0
+        var sumLon = 0.0
 
         fun close() {
             if (cluster.isEmpty()) return
@@ -77,6 +81,8 @@ object PathCleaner {
             out += c
             if (last.timeMs != first.timeMs) out += c.copy(timeMs = last.timeMs)
             cluster.clear()
+            sumLat = 0.0
+            sumLon = 0.0
         }
 
         for (p in points) {
@@ -92,8 +98,10 @@ object PathCleaner {
                 if (gap || far) close()
             }
             cluster += p
-            cLat = cluster.sumOf { it.latitude } / cluster.size
-            cLon = cluster.sumOf { it.longitude } / cluster.size
+            sumLat += p.latitude
+            sumLon += p.longitude
+            cLat = sumLat / cluster.size
+            cLon = sumLon / cluster.size
         }
         close()
         return out
@@ -183,4 +191,25 @@ object PathCleaner {
     }
 
     private fun dist(a: TrackPoint, b: TrackPoint) = TrackAnalysis.distanceM(a.latitude, a.longitude, b.latitude, b.longitude)
+}
+
+/**
+ * Кэш последней очистки пути: пройденный путь чистится в нескольких местах карты (отрисовка, поиск съезда на соседний
+ * путь) по одним и тем же точкам - второй проход берётся из кэша. Ключ - число точек, первая и последняя точка.
+ * Потокобезопасен без блокировок: хранится неизменяемая запись, гонка даёт максимум лишний пересчёт.
+ */
+class PathCleanCache {
+    private class Entry(val size: Int, val first: TrackPoint?, val last: TrackPoint?, val result: List<TrackPoint>)
+
+    private var entry: Entry? = null
+
+    fun clean(points: List<TrackPoint>): List<TrackPoint> {
+        val first = points.firstOrNull()
+        val last = points.lastOrNull()
+        val e = entry
+        if (e != null && e.size == points.size && e.first == first && e.last == last) return e.result
+        val result = PathCleaner.clean(points)
+        entry = Entry(points.size, first, last, result)
+        return result
+    }
 }
