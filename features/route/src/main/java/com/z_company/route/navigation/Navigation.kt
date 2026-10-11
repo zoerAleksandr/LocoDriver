@@ -130,6 +130,12 @@ fun NavGraphBuilder.homeGraph(
         composableScreen(StatisticsRoute.route) {
             StatisticsDestination(router = router)
         }
+        composableScreen(
+            route = BrakeCertificateRoute.route,
+            arguments = BrakeCertificateRoute.navArguments,
+        ) { backStackEntry ->
+            BrakeCertificateDestination(router = router, backStackEntry = backStackEntry)
+        }
         composableScreen(CalendarRoute.route) {
             CalendarDestination(router = router)
         }

@@ -58,4 +58,10 @@ interface Router {
     fun showScheduleWizard()
     fun showAbsence()
     fun showStatistics()
+
+    /**
+     * Инструмент «Справка ВУ-45» (расчёт обеспеченности поезда тормозами). [weight]/[axles] — предзаполнение
+     * из поезда текущего маршрута (строки как в `Train`). По умолчанию no-op для платформ без этого экрана.
+     */
+    fun showBrakeCertificate(weight: String? = null, axles: String? = null) {}
 }

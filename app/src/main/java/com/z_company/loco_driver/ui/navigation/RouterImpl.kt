@@ -32,6 +32,7 @@ import com.z_company.route.navigation.CalendarRoute
 import com.z_company.route.navigation.ScheduleWizardRoute
 import com.z_company.route.navigation.AbsenceRoute
 import com.z_company.route.navigation.StatisticsRoute
+import com.z_company.route.navigation.BrakeCertificateRoute
 import com.z_company.route.navigation.login.LogInScreenRoute
 import com.z_company.route.navigation.login.SignInScreenRoute
 
@@ -207,6 +208,10 @@ class RouterImpl(
 
     override fun showAbsence() {
         requireNavController().navigate(AbsenceRoute.route)
+    }
+
+    override fun showBrakeCertificate(weight: String?, axles: String?) {
+        requireNavController().navigate(BrakeCertificateRoute.buildRoute(weight, axles))
     }
 
     override fun showStatistics() {

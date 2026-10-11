@@ -116,6 +116,7 @@ fun HomeDestination(
         onCalendar = router::showCalendar,
         onConsentSettings = router::showDataPrivacy,
         onStatistics = router::showStatistics,
+        onBrakeCertificate = { weight, axles -> router.showBrakeCertificate(weight, axles) },
         unsyncedRoutesCount = uiState.unsyncedRoutesCount,
         hasActiveSubscription = uiState.hasActiveSubscription,
         subscriptionEndTime = uiState.subscriptionEndTime,

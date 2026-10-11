@@ -196,6 +196,37 @@ object ProfileRoute: AppRoutes("ProfileRoute")
 object DataPrivacyRoute: AppRoutes("DataPrivacyRoute")
 object TrackHistoryRoute: AppRoutes("TrackHistoryRoute")
 object StatisticsRoute: AppRoutes("StatisticsRoute")
+object BrakeCertificateRoute: AppRoutes("BrakeCertificateRoute") {
+    private const val paramWeight = "weight"
+    private const val paramAxles = "axles"
+    override val route: String = "$basicRoute?$paramWeight={$paramWeight}&$paramAxles={$paramAxles}"
+    val navArguments = listOf(
+        navArgument(paramWeight) {
+            type = NavType.StringType
+            nullable = true
+            defaultValue = null
+        },
+        navArgument(paramAxles) {
+            type = NavType.StringType
+            nullable = true
+            defaultValue = null
+        },
+    )
+
+    fun getWeight(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramWeight)
+
+    fun getAxles(backStackEntry: NavBackStackEntry): String? =
+        backStackEntry.arguments?.getString(paramAxles)
+
+    fun buildRoute(weight: String?, axles: String?): String {
+        val parts = buildList {
+            weight?.takeIf { it.isNotBlank() }?.let { add("$paramWeight=${android.net.Uri.encode(it)}") }
+            axles?.takeIf { it.isNotBlank() }?.let { add("$paramAxles=${android.net.Uri.encode(it)}") }
+        }
+        return if (parts.isEmpty()) basicRoute else "$basicRoute?${parts.joinToString("&")}"
+    }
+}
 object CalendarRoute: AppRoutes("CalendarRoute")
 object ScheduleWizardRoute: AppRoutes("ScheduleWizardRoute")
 object AbsenceRoute: AppRoutes("AbsenceRoute")

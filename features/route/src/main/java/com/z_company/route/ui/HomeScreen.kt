@@ -242,6 +242,7 @@ fun HomeScreen(
     /** Из карты поезда (открыта прямо с Главного): открыть настройки согласия на сохранение треков. */
     onConsentSettings: () -> Unit = {},
     onStatistics: () -> Unit = {},
+    onBrakeCertificate: (weight: String?, axles: String?) -> Unit = { _, _ -> },
     normaHours: Int? = null,
     unsyncedRoutesCount: Int = 0,
     hasActiveSubscription: Boolean = false,
@@ -1666,6 +1667,28 @@ fun HomeScreen(
                                     },
                                     minHeightDp = maxHeightBox.toDp(),
                                     onClick = { onStatistics() }
+                                )
+                            }
+                            // Карточка «ВУ-45» — расчёт справки о тормозах (SCREEN_SPECS §26); данные берутся
+                            // из поезда текущего маршрута (правило «АВТО»), если он есть.
+                            item {
+                                ActionCard(
+                                    title = "ВУ-45",
+                                    iconRes = R.drawable.ic_card_brake,
+                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    widthScreen = widthScreen,
+                                    interactionSource = interactionSource,
+                                    onSizeChanged = { size ->
+                                        if (size.height > maxHeightBox) {
+                                            maxHeightBox = size.height
+                                        }
+                                    },
+                                    minHeightDp = maxHeightBox.toDp(),
+                                    onClick = {
+                                        val train = com.z_company.domain.autorecord.TrainOrdering
+                                            .pickHomeMapTarget(currentRoute?.trains)
+                                        onBrakeCertificate(train?.weight, train?.axle)
+                                    }
                                 )
                             }
                             // Карточка "PDF" — открывает диалог формирования PDF
