@@ -5,7 +5,9 @@ import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.LocomotiveSeriesTombstone
 import com.z_company.domain.entities.norma_time.StationNorm
+import com.z_company.domain.entities.norma_time.StationTombstone
 import com.z_company.domain.entities.partner.Partner
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
@@ -228,31 +230,53 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             header("Authorization", token)
         }.body()
 
-    override suspend fun saveNormaTimeLocomotives(token: String, body: List<LocomotiveSeries>) {
+    override suspend fun saveNormaTimeLocomotives(
+        token: String,
+        series: List<LocomotiveSeries>,
+        tombstones: List<LocomotiveSeriesTombstone>,
+    ) {
         client.post("v1/norma_time/locomotives/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
-            setBody(body.map { NormaTimeLocomotiveResponse.fromDomain(it) })
+            setBody(
+                series.map { NormaTimeLocomotiveResponse.fromDomain(it) } +
+                    tombstones.map { NormaTimeLocomotiveResponse.fromTombstone(it) }
+            )
         }.bodyAsText()
     }
 
-    override suspend fun getNormaTimeLocomotives(token: String): List<LocomotiveSeries> =
-        client.get("v1/norma_time/locomotives/") {
+    override suspend fun getNormaTimeLocomotives(token: String): SeriesSnapshot {
+        val items = client.get("v1/norma_time/locomotives/") {
             header("Authorization", token)
-        }.body<List<NormaTimeLocomotiveResponse>>().map { it.toDomain() }
+            parameter("includeDeleted", "true")
+        }.body<List<NormaTimeLocomotiveResponse>>()
+        val (dead, alive) = items.partition { it.isDeleted == true }
+        return SeriesSnapshot(alive.map { it.toDomain() }, dead.map { it.toTombstone() })
+    }
 
-    override suspend fun saveNormaTimeStations(token: String, body: List<StationNorm>) {
+    override suspend fun saveNormaTimeStations(
+        token: String,
+        stations: List<StationNorm>,
+        tombstones: List<StationTombstone>,
+    ) {
         client.post("v1/norma_time/stations/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
-            setBody(body.map { NormaTimeStationResponse.fromDomain(it) })
+            setBody(
+                stations.map { NormaTimeStationResponse.fromDomain(it) } +
+                    tombstones.map { NormaTimeStationResponse.fromTombstone(it) }
+            )
         }.bodyAsText()
     }
 
-    override suspend fun getNormaTimeStations(token: String): List<StationNorm> =
-        client.get("v1/norma_time/stations/") {
+    override suspend fun getNormaTimeStations(token: String): StationSnapshot {
+        val items = client.get("v1/norma_time/stations/") {
             header("Authorization", token)
-        }.body<List<NormaTimeStationResponse>>().map { it.toDomain() }
+            parameter("includeDeleted", "true")
+        }.body<List<NormaTimeStationResponse>>()
+        val (dead, alive) = items.partition { it.isDeleted == true }
+        return StationSnapshot(alive.map { it.toDomain() }, dead.map { it.toTombstone() })
+    }
 
     override suspend fun savePartners(token: String, body: List<Partner>) {
         client.post("v1/partners/") {

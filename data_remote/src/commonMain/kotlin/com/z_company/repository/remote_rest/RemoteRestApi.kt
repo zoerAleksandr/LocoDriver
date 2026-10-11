@@ -5,7 +5,9 @@ import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.LocomotiveSeriesTombstone
 import com.z_company.domain.entities.norma_time.StationNorm
+import com.z_company.domain.entities.norma_time.StationTombstone
 import com.z_company.domain.entities.partner.Partner
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
@@ -119,17 +121,28 @@ interface RemoteRestApi {
 
     // --- NormaTime (нормы времени приёмки/сдачи) ---
 
-    /** Сохранить серии локомотивов на сервере (полная замена) */
-    suspend fun saveNormaTimeLocomotives(token: String, body: List<LocomotiveSeries>)
+    /**
+     * Отправить серии и надгробия удалённых; сервер сливает по `updatedAt`. Не вызывать с
+     * пустыми обоими списками: пустой список без isDeleted сервер понимает как full-replace.
+     */
+    suspend fun saveNormaTimeLocomotives(
+        token: String,
+        series: List<LocomotiveSeries>,
+        tombstones: List<LocomotiveSeriesTombstone>,
+    )
 
-    /** Получить серии локомотивов с сервера */
-    suspend fun getNormaTimeLocomotives(token: String): List<LocomotiveSeries>
+    /** Получить серии локомотивов и надгробия (`includeDeleted=true`). */
+    suspend fun getNormaTimeLocomotives(token: String): SeriesSnapshot
 
-    /** Сохранить станции с нормами на сервере (полная замена) */
-    suspend fun saveNormaTimeStations(token: String, body: List<StationNorm>)
+    /**
+     * Отправить станции и надгробия удалённых. Сервер сливает по `updatedAt`, ничего не
+     * удаляя из-за отсутствия в списке. Не вызывать с пустыми обоими списками: пустой список
+     * без поля isDeleted сервер понимает как full-replace старого клиента.
+     */
+    suspend fun saveNormaTimeStations(token: String, stations: List<StationNorm>, tombstones: List<StationTombstone>)
 
-    /** Получить станции с нормами с сервера */
-    suspend fun getNormaTimeStations(token: String): List<StationNorm>
+    /** Получить станции с нормами и надгробия (`includeDeleted=true`). */
+    suspend fun getNormaTimeStations(token: String): StationSnapshot
 
     // --- Partners (справочник напарников) ---
 
@@ -273,3 +286,15 @@ interface RemoteRestApi {
      */
     suspend fun getSharedRoute(shareId: String): Route
 }
+
+/** Справочник станций с сервера: живые станции и надгробия удалённых. */
+data class StationSnapshot(
+    val stations: List<StationNorm>,
+    val tombstones: List<StationTombstone>,
+)
+
+/** Справочник серий с сервера: живые серии и надгробия удалённых. */
+data class SeriesSnapshot(
+    val series: List<LocomotiveSeries>,
+    val tombstones: List<LocomotiveSeriesTombstone>,
+)

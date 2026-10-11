@@ -7,7 +7,9 @@ import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.LocomotiveSeriesTombstone
 import com.z_company.domain.entities.norma_time.StationNorm
+import com.z_company.domain.entities.norma_time.StationTombstone
 import com.z_company.domain.entities.partner.Partner
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
@@ -151,10 +153,11 @@ class SettingManager(
 
     fun saveNormaTimeLocomotivesInRemote(
         series: List<LocomotiveSeries>,
+        tombstones: List<LocomotiveSeriesTombstone>,
         bearerToken: String
     ): Flow<ResultState<Unit>> = flow {
         emit(ResultState.Loading())
-        remoteRestApi.saveNormaTimeLocomotives(token = bearerToken, body = series)
+        remoteRestApi.saveNormaTimeLocomotives(token = bearerToken, series = series, tombstones = tombstones)
         emit(ResultState.Success(Unit))
     }.catch { e ->
         emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
@@ -162,20 +165,20 @@ class SettingManager(
 
     fun getNormaTimeLocomotivesFromRemote(
         bearerToken: String
-    ): Flow<ResultState<List<LocomotiveSeries>>> = flow {
+    ): Flow<ResultState<SeriesSnapshot>> = flow {
         emit(ResultState.Loading())
-        val series = remoteRestApi.getNormaTimeLocomotives(token = bearerToken)
-        emit(ResultState.Success(series))
+        emit(ResultState.Success(remoteRestApi.getNormaTimeLocomotives(token = bearerToken)))
     }.catch { e ->
         emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
 
     fun saveNormaTimeStationsInRemote(
         stations: List<StationNorm>,
+        tombstones: List<StationTombstone>,
         bearerToken: String
     ): Flow<ResultState<Unit>> = flow {
         emit(ResultState.Loading())
-        remoteRestApi.saveNormaTimeStations(token = bearerToken, body = stations)
+        remoteRestApi.saveNormaTimeStations(token = bearerToken, stations = stations, tombstones = tombstones)
         emit(ResultState.Success(Unit))
     }.catch { e ->
         emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
@@ -183,10 +186,9 @@ class SettingManager(
 
     fun getNormaTimeStationsFromRemote(
         bearerToken: String
-    ): Flow<ResultState<List<StationNorm>>> = flow {
+    ): Flow<ResultState<StationSnapshot>> = flow {
         emit(ResultState.Loading())
-        val stations = remoteRestApi.getNormaTimeStations(token = bearerToken)
-        emit(ResultState.Success(stations))
+        emit(ResultState.Success(remoteRestApi.getNormaTimeStations(token = bearerToken)))
     }.catch { e ->
         emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }
