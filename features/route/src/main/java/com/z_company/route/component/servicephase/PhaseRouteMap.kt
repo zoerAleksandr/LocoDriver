@@ -212,7 +212,7 @@ internal fun PhaseRouteMap(
         }
         fun nameFor(isStart: Boolean) = if (isStart) departureName else arrivalName
         val onTap by rememberUpdatedState<(LatLng) -> Unit> { latLng ->
-            val isStart = pickFor
+            val isStart = PhaseMapPick.target(pickFor, departureName, arrivalName)
             val find = findStation
             val m = map
             if (isStart != null && find != null && m != null && !searching && pending == null) {
@@ -231,7 +231,7 @@ internal fun PhaseRouteMap(
                 }
             }
         }
-        val pickActive by rememberUpdatedState(pickFor != null)
+        val pickActive by rememberUpdatedState(PhaseMapPick.target(pickFor, departureName, arrivalName) != null)
         val mapView = remember {
             MapView(context).also { mv ->
                 mv.getMapAsync { m ->
@@ -485,7 +485,7 @@ internal fun PhaseRouteMap(
                                     )
                                 }
                                 Text(
-                                    text = if (searching) "Ищем ближайшую станцию…" else PhaseMapPick.prompt(picking, departureName, arrivalName),
+                                    text = if (searching) "Ищем ближайшую станцию…" else PhaseMapPick.prompt(PhaseMapPick.target(picking, departureName, arrivalName) ?: picking),
                                     style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
                                     color = Pst.text,
                                     modifier = Modifier.weight(1f),
@@ -500,7 +500,11 @@ internal fun PhaseRouteMap(
                         } else {
                             if (stops.isEmpty()) {
                                 Text(
-                                    text = "У станций плеча пока нет координат. Нажмите кнопку и укажите место станции на карте.",
+                                    text = if (departureName.isBlank() && arrivalName.isBlank()) {
+                                        "Станции не выбраны. Укажите их на карте: первое нажатие на карту определяет станцию отправления, второе — станцию прибытия."
+                                    } else {
+                                        "У станций плеча пока нет координат. Нажмите кнопку и укажите место станции на карте."
+                                    },
                                     style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp),
                                     color = Pst.textMuted,
                                 )
@@ -566,7 +570,7 @@ internal fun PhaseRouteMap(
                     dismissText = c.dismissText,
                     onDismiss = { finish(keepPicking = false) },
                     content = {
-                        Text(text = c.text, fontSize = 14.sp, lineHeight = 20.sp)
+                        if (c.text.isNotEmpty()) Text(text = c.text, fontSize = 14.sp, lineHeight = 20.sp)
                         if (c is PickConfirm.Found) {
                             TextButton(onClick = { finish(keepPicking = true) }) {
                                 Text(text = "Выбрать другую", fontSize = 14.sp, fontWeight = FontWeight.W600, color = Pst.accent)
