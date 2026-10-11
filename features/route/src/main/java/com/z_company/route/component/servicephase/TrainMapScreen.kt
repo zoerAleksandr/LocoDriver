@@ -76,6 +76,7 @@ import com.z_company.domain.util.BaseMapLabel
 import com.z_company.domain.util.FollowReturn
 import com.z_company.domain.util.LabelDedup
 import com.z_company.domain.util.LabelPlacer
+import com.z_company.domain.util.PathCleaner
 import com.z_company.domain.util.PathKeeper
 import com.z_company.domain.util.RailRefetch
 import com.z_company.domain.util.MapLabelItem
@@ -650,12 +651,18 @@ internal fun TrainMapScreen(
                 baseMapLabels(m, mapView.width, mapView.height),
                 LabelDedup.RADIUS_DP * density,
             )
+            // Дубли подписей одного названия рядом (<= 300 м; остановки в парке станции): остаётся одна, ближайшая к центру карты.
+            val center = m.cameraPosition.target
+            val sameNameDups = if (center == null) emptySet() else LabelDedup.sameNameDuplicates(
+                rows.map { LabelDedup.GeoLabel(it.lat, it.lon, it.name, it.prio) },
+                center.latitude, center.longitude,
+            )
             val items = rows.mapIndexed { i, r ->
                 val pt = screenPts[i]
                 val fs = r.sizeSp * density
                 MapLabelItem(
                     pt.x.toDouble(), pt.y.toDouble(),
-                    labelW = if (r.name.isBlank() || i in dups) 0.0 else r.name.length * fs * 0.55,
+                    labelW = if (r.name.isBlank() || i in dups || i in sameNameDups) 0.0 else r.name.length * fs * 0.55,
                     labelH = fs * 1.3,
                     dotRadius = r.dotR.toDouble() * density,
                     priority = r.prio,
@@ -858,7 +865,8 @@ internal fun TrainMapScreen(
             if (raw.isEmpty() && drawnCount.value > 0) return@LaunchedEffect
             val pts = try {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-                    ActualRails.snapMarked(raw, railLines)
+                    // Стоянка -> один центроид, шипы убраны, упрощение 4 м (PathCleaner); привязка с гистерезисом по путям.
+                    ActualRails.snapMarked(PathCleaner.clean(raw), railLines)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -908,7 +916,7 @@ internal fun TrainMapScreen(
             if (viewOnly || !hasRoute) return@LaunchedEffect
             val raw = PathKeeper.withLive(track?.drawPoints.orEmpty(), livePoints)
             val run = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-                ActualRails.deviationRun(raw, listOf(routeLine) + factLines)
+                ActualRails.deviationRun(PathCleaner.clean(raw), listOf(routeLine) + factLines)
             } ?: return@LaunchedEffect
             val key = ActualRails.runKey(run)
             if (!triedFactRuns.add(key)) return@LaunchedEffect
@@ -929,7 +937,10 @@ internal fun TrainMapScreen(
             val fix = myFix
             val now = System.currentTimeMillis()
             if (!autoRunning || last == null || fix == null || now - last.timeMs > TrackAnalysis.GAP_MS ||
-                TrackAnalysis.distanceM(last.latitude, last.longitude, fix.latitude, fix.longitude) < 3.0
+                TrackAnalysis.distanceM(last.latitude, last.longitude, fix.latitude, fix.longitude) < 3.0 ||
+                // Стоянка: GPS «гуляет» - хвост не рисуем (иначе зигзаг от последней точки к дрейфующему маркеру).
+                ((liveSpeed ?: Double.MAX_VALUE) < PathCleaner.STILL_KMH &&
+                    TrackAnalysis.distanceM(last.latitude, last.longitude, fix.latitude, fix.longitude) < PathCleaner.STILL_RADIUS_M)
             ) {
                 src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
                 return@LaunchedEffect
