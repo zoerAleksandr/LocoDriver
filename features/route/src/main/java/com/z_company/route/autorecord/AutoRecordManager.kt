@@ -519,6 +519,7 @@ class AutoRecordManager(
                     // устройства не сравниваем: при неверном времени телефона отбрасывались бы все точки.
                     signalOk = GpsRecorder.quality.value.level != GnssLevel.LOST &&
                         GnssQualityRules.isUsableFix(0L, p.accuracyM),
+                    held = p.held,
                 )
             }
         } catch (e: Exception) {

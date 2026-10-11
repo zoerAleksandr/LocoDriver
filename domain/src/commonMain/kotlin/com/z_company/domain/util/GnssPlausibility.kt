@@ -38,7 +38,7 @@ class GnssPlausibility {
      */
     data class Result(val accepted: Boolean, val reason: Reason, val landmark: NetworkFix? = null)
 
-    private class Anchor(val timeMs: Long, val lat: Double, val lon: Double)
+    private class Anchor(val timeMs: Long, val lat: Double, val lon: Double, val accuracyM: Float? = null)
 
     private var last: Anchor? = null
     private var clusterStart: Long = 0L
@@ -81,12 +81,12 @@ class GnssPlausibility {
             // Сеть блокирует, только если подтверждает последнюю принятую область (или принятых ещё нет).
             val confirmsOld = prev == null || distanceM(prev.lat, prev.lon, net.latitude, net.longitude) <= limit
             if (confirmsOld && distanceM(lat, lon, net.latitude, net.longitude) > limit) {
-                accumulate(timeMs, lat, lon)
+                accumulate(timeMs, lat, lon, accuracyM)
                 val origin = clusterOrigin
                 if (clusterCount >= NEW_AREA_MIN_FIXES && timeMs - clusterStart >= NETWORK_OVERRIDE_DURATION_MS &&
                     origin != null && distanceM(origin.lat, origin.lon, lat, lon) >= NETWORK_OVERRIDE_DISPLACEMENT_M
                 ) {
-                    last = Anchor(timeMs, lat, lon)
+                    last = Anchor(timeMs, lat, lon, accuracyM)
                     clearCluster()
                     return Result(true, Reason.NEW_AREA)
                 }
@@ -94,34 +94,34 @@ class GnssPlausibility {
             }
         }
         if (prev == null) {
-            last = Anchor(timeMs, lat, lon)
+            last = Anchor(timeMs, lat, lon, accuracyM)
             return Result(true, Reason.FIRST)
         }
-        if (!isJump(prev, timeMs, lat, lon)) {
-            last = Anchor(timeMs, lat, lon)
+        if (!isJump(prev, timeMs, lat, lon, accuracyM)) {
+            last = Anchor(timeMs, lat, lon, accuracyM)
             clearCluster()
             return Result(true, Reason.OK)
         }
         // Прыжок: копим согласованные между собой фиксы в новой области.
-        accumulate(timeMs, lat, lon)
+        accumulate(timeMs, lat, lon, accuracyM)
         if (clusterCount >= NEW_AREA_MIN_FIXES && timeMs - clusterStart >= NEW_AREA_MIN_DURATION_MS) {
-            last = Anchor(timeMs, lat, lon)
+            last = Anchor(timeMs, lat, lon, accuracyM)
             clearCluster()
             return Result(true, Reason.NEW_AREA)
         }
         return reject(Reason.JUMP, nowMs)
     }
 
-    private fun accumulate(timeMs: Long, lat: Double, lon: Double) {
+    private fun accumulate(timeMs: Long, lat: Double, lon: Double, accuracyM: Float?) {
         val cl = clusterLast
-        if (cl == null || isJump(cl, timeMs, lat, lon)) {
+        if (cl == null || isJump(cl, timeMs, lat, lon, accuracyM)) {
             clusterStart = timeMs
             clusterCount = 1
-            clusterOrigin = Anchor(timeMs, lat, lon)
+            clusterOrigin = Anchor(timeMs, lat, lon, accuracyM)
         } else {
             clusterCount++
         }
-        clusterLast = Anchor(timeMs, lat, lon)
+        clusterLast = Anchor(timeMs, lat, lon, accuracyM)
     }
 
     /** Сколько фиксов отвергнуто за последние [windowMs] (по часам [nowMs]). */
@@ -143,9 +143,15 @@ class GnssPlausibility {
         clusterStart = 0L
     }
 
-    private fun isJump(from: Anchor, timeMs: Long, lat: Double, lon: Double): Boolean {
+    /**
+     * Прыжок с учётом точности: смещение, которое укладывается в сумму заявленных погрешностей двух фиксов, - шум, а не
+     * прыжок (фикс с точностью 200 м не должен «отравлять» якорь и отвергать следующие хорошие фиксы минутами).
+     */
+    private fun isJump(from: Anchor, timeMs: Long, lat: Double, lon: Double, accuracyM: Float?): Boolean {
         val dt = max(timeMs - from.timeMs, MIN_DT_MS)
-        val d = distanceM(from.lat, from.lon, lat, lon)
+        val raw = distanceM(from.lat, from.lon, lat, lon)
+        val credit = min(ACCURACY_CREDIT_MAX_M, (from.accuracyM ?: 0f).toDouble()) + min(ACCURACY_CREDIT_MAX_M, (accuracyM ?: 0f).toDouble())
+        val d = max(0.0, raw - credit)
         val kmh = d / (dt / 1000.0) * 3.6
         return kmh > MAX_MOVE_SPEED_KMH || (d > JUMP_DISTANCE_M && dt < JUMP_WINDOW_MS)
     }
@@ -174,6 +180,8 @@ class GnssPlausibility {
         const val TIME_OUTLIER_MS = 72 * 3_600_000L
         const val NETWORK_MIN_RADIUS_M = 5_000.0
         const val NETWORK_ACCURACY_FACTOR = 3.0
+        /** Больше этого заявленная точность фикса не засчитывается как допуск (спуфер не спрячет скачок огромной «погрешностью»). */
+        private const val ACCURACY_CREDIT_MAX_M = 300.0
         private const val MIN_DT_MS = 1_000L
         private const val MAX_REJECTIONS_KEPT = 64
         private const val EARTH_R = 6_371_000.0

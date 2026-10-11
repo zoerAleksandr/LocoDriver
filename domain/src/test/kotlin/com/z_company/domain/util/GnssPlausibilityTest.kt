@@ -79,6 +79,27 @@ class GnssPlausibilityTest {
     }
 
     @Test
+    fun `poor accuracy fix does not poison the anchor for good fixes`() {
+        val f = GnssPlausibility()
+        assertTrue(f.check(0, kirishiLat, kirishiLon, 55.0, 3f).accepted)
+        // фикс с погрешностью 250 м в 1 с от хорошего: в пределах заявленной точности - шум, не прыжок
+        assertTrue(f.check(1_000, kirishiLat + northM(300.0), kirishiLon, 55.0, 250f).accepted)
+        // следующий хороший фикс (поезд на самом деле ушёл на ~15 м) принимается сразу, а не после минуты «нового района»
+        assertTrue(f.check(2_000, kirishiLat + northM(15.0), kirishiLon, 55.0, 3f).accepted)
+        // без заявленной точности те же 300 м за 1 с - по-прежнему прыжок
+        val g = GnssPlausibility()
+        assertTrue(g.check(0, kirishiLat, kirishiLon, 55.0).accepted)
+        assertFalse(g.check(1_000, kirishiLat + northM(300.0), kirishiLon, 55.0).accepted)
+    }
+
+    @Test
+    fun `huge claimed accuracy cannot hide a spoofed jump`() {
+        val f = GnssPlausibility()
+        assertTrue(f.check(0, kirishiLat, kirishiLon, 50.0, 3f).accepted)
+        assertFalse(f.check(1_000, novgorodLat, novgorodLon, 50.0, 100_000f).accepted)
+    }
+
+    @Test
     fun `claimed speed 1200 kmh is rejected`() {
         val f = GnssPlausibility()
         assertTrue(f.check(0, kirishiLat, kirishiLon, 50.0).accepted)

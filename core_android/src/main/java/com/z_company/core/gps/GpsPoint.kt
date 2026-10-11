@@ -9,6 +9,7 @@ package com.z_company.core.gps
  * @property accuracyM горизонтальная точность в метрах или null.
  * @property altitudeM высота GPS в метрах (над уровнем моря, если провайдер отдаёт) или null.
  * @property baroAltitudeM барометрическая высота в метрах (датчик давления, стандартная атмосфера) или null, если датчика нет.
+ * @property held координаты заменены якорем стоянки (DriftFilter, дрейф GNSS на стоянке): скорость и время - исходные.
  */
 data class GpsPoint(
     val timeMs: Long,
@@ -18,6 +19,7 @@ data class GpsPoint(
     val accuracyM: Float?,
     val altitudeM: Double? = null,
     val baroAltitudeM: Double? = null,
+    val held: Boolean = false,
 ) {
     val speedKmh: Double? get() = speedMps?.let { it * 3.6 }
 }
