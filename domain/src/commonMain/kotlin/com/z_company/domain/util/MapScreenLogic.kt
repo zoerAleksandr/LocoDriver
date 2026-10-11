@@ -58,13 +58,17 @@ data class AppMapLabel(val x: Double, val y: Double, val name: String)
 object LabelDedup {
     const val RADIUS_DP = 40.0
 
+    /** Регулярка компилируется один раз (раньше - на каждый вызов, а вызовов O(n^2) на каждый пересчёт подписей). */
+    private val NON_WORD = Regex("[^\\p{L}\\p{N}]+")
+
     fun normalize(name: String): String =
-        name.lowercase().replace('ё', 'е').replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+        name.lowercase().replace('ё', 'е').replace(NON_WORD, " ").trim()
 
     /** Одно название: совпадают после нормализации либо одно целиком входит в другое (от 4 символов: «Луга» / «Луга I»). */
-    fun sameName(a: String, b: String): Boolean {
-        val x = normalize(a)
-        val y = normalize(b)
+    fun sameName(a: String, b: String): Boolean = sameNormalized(normalize(a), normalize(b))
+
+    /** То же, что [sameName], для уже нормализованных ([normalize]) названий. */
+    fun sameNormalized(x: String, y: String): Boolean {
         if (x.isEmpty() || y.isEmpty()) return false
         if (x == y) return true
         val (short, long) = if (x.length <= y.length) x to y else y to x
@@ -89,6 +93,7 @@ object LabelDedup {
         radiusM: Double = SAME_NAME_RADIUS_M,
     ): Set<Int> {
         val hidden = mutableSetOf<Int>()
+        val norm = Array(labels.size) { normalize(labels[it].name) }
         val order = labels.indices.filter { labels[it].name.isNotBlank() }.sortedWith(
             compareBy<Int> { labels[it].priority }.thenBy {
                 com.z_company.domain.track.TrackAnalysis.distanceM(labels[it].lat, labels[it].lon, refLat, refLon)
@@ -97,8 +102,9 @@ object LabelDedup {
         val kept = ArrayList<Int>()
         for (i in order) {
             val l = labels[i]
+            // Сначала дешёвое сравнение нормализованных названий (строки посчитаны один раз), потом расстояние.
             val dup = kept.any { k ->
-                sameName(labels[k].name, l.name) &&
+                sameNormalized(norm[k], norm[i]) &&
                     com.z_company.domain.track.TrackAnalysis.distanceM(labels[k].lat, labels[k].lon, l.lat, l.lon) <= radiusM
             }
             if (dup) hidden += i else kept += i
@@ -110,9 +116,17 @@ object LabelDedup {
     fun duplicates(app: List<AppMapLabel>, base: List<BaseMapLabel>, radiusPx: Double): Set<Int> {
         if (base.isEmpty()) return emptySet()
         val result = mutableSetOf<Int>()
+        // Названия базовой карты нормализуются лениво и один раз (их сотни, а проверка по расстоянию отсекает почти все).
+        val baseNorm = arrayOfNulls<String>(base.size)
         for ((i, a) in app.withIndex()) {
             if (a.name.isBlank()) continue
-            if (base.any { b -> hypot(a.x - b.x, a.y - b.y) <= radiusPx && sameName(a.name, b.name) }) result += i
+            val an = normalize(a.name)
+            val dup = base.indices.any { j ->
+                val b = base[j]
+                hypot(a.x - b.x, a.y - b.y) <= radiusPx &&
+                    sameNormalized(an, baseNorm[j] ?: normalize(b.name).also { baseNorm[j] = it })
+            }
+            if (dup) result += i
         }
         return result
     }
