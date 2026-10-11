@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,7 +26,7 @@ import java.util.Locale
 /**
  * «Данные и конфиденциальность» (SCREEN_SPECS §17.7): согласие №1 «Сохранять мои треки и историю
  * поездок». Выключено по умолчанию; отзыв — с подтверждением, треки не удаляет.
- * Ниже - независимое согласие №2 «Передавать обезличенные высоты для режимной карты».
+ * Ниже - независимое согласие №2 «Передавать обезличенные данные для карт».
  */
 @Composable
 fun SettingsPrivacyContent() {
@@ -91,7 +93,7 @@ fun SettingsPrivacyContent() {
         SettingsSectionNote(TrackConsentTexts.NO_CONSENT_NOTE)
 
         // Согласие №2: независимо от №1 (можно включить только его).
-        SettingsGroupHeader("ВЫСОТЫ ДЛЯ РЕЖИМНОЙ КАРТЫ", top = 24.dp, startPad = 4.dp)
+        SettingsGroupHeader("ДАННЫЕ ДЛЯ КАРТ", top = 24.dp, startPad = 4.dp)
         SettingsCard {
             SettingsSwitchRow(
                 label = TrackConsentTexts.ALT_SWITCH_LABEL,
@@ -107,5 +109,17 @@ fun SettingsPrivacyContent() {
             )
         }
         SettingsSectionNote(TrackConsentTexts.ALT_NOTE)
+        // Согласие дано на прежних условиях (только высоты): места потери GPS не передаются, пока не подтвердят.
+        var needsConfirm by remember(shareAltitudes) { mutableStateOf(consent.needsGnssTextConfirm()) }
+        if (shareAltitudes && needsConfirm) {
+            SettingsSectionNote(TrackConsentTexts.ALT_RECONFIRM_NOTE)
+            TextButton(
+                modifier = Modifier.padding(start = 6.dp),
+                onClick = {
+                    consent.confirmGnssText()
+                    needsConfirm = false
+                },
+            ) { Text(TrackConsentTexts.ALT_RECONFIRM_BUTTON) }
+        }
     }
 }

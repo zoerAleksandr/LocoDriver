@@ -5,6 +5,7 @@ import com.z_company.domain.gnss.GnssDeadZoneDetector
 import com.z_company.domain.gnss.GnssBadSpan
 import com.z_company.domain.gnss.GnssDeadZones
 import com.z_company.domain.gnss.GnssTrackSpans
+import com.z_company.domain.gnss.GnssMapZone
 import com.z_company.domain.gnss.GnssZone
 import com.z_company.domain.track.TrackAnalysis
 import com.z_company.domain.track.TrackRepository
@@ -69,12 +70,12 @@ internal object GnssDeadZoneLocal {
     }
 }
 
-internal fun gnssZoneFeatures(zones: List<GnssZone>): FeatureCollection =
+internal fun gnssZoneFeatures(zones: List<GnssMapZone>): FeatureCollection =
     FeatureCollection.fromFeatures(
         zones.map { z ->
             Feature.fromGeometry(Point.fromLngLat(z.longitude, z.latitude)).apply {
-                // Вес: 1 поездка - бледно, 4 и больше - насыщенно.
-                addNumberProperty("w", (z.tracks / 4.0).coerceIn(0.0, 1.0))
+                // Вес: 1 поездка - бледно, 4 и больше - насыщенно; общий уровень 1/2/3 - 0,5/0,75/1 (берётся больший).
+                addNumberProperty("w", z.weight)
             }
         },
     )
@@ -90,7 +91,7 @@ internal fun gnssRadiusExpression(latitude: Double): Expression {
 }
 
 /** Зона под тапом (ближайший центр ячейки не дальше [GNSS_HIT_RADIUS_M] и не дальше [minRadiusM]); null - нет. */
-internal fun gnssZoneAt(zones: List<GnssZone>, latitude: Double, longitude: Double, minRadiusM: Double): GnssZone? {
+internal fun gnssZoneAt(zones: List<GnssMapZone>, latitude: Double, longitude: Double, minRadiusM: Double): GnssMapZone? {
     val limit = maxOf(GNSS_HIT_RADIUS_M, minRadiusM)
     return zones
         .map { it to TrackAnalysis.distanceM(latitude, longitude, it.latitude, it.longitude) }

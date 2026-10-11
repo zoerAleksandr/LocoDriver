@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -133,7 +134,7 @@ private sealed interface TrainMapSelection {
     /** Начало ([isStart]) или окончание пройденного пути. */
     data class Endpoint(val point: TrackPoint, val isStart: Boolean) : TrainMapSelection
     /** Зона без GPS по локальным трекам (§6.9, «Зоны без GPS»). */
-    data class GnssZoneSel(val zone: com.z_company.domain.gnss.GnssZone) : TrainMapSelection
+    data class GnssZoneSel(val zone: com.z_company.domain.gnss.GnssMapZone) : TrainMapSelection
 }
 
 /**
@@ -231,6 +232,16 @@ internal fun TrainMapScreen(
         val trackRepo: com.z_company.domain.track.TrackRepository = org.koin.compose.koinInject()
         var gnssOn by remember { mutableStateOf(GnssDeadZonePrefs.enabled(context)) }
         var gnssZones by remember { mutableStateOf(emptyList<com.z_company.domain.gnss.GnssZone>()) }
+        // Общая карта (серверные ячейки): только при включённой кнопке и входе; кэш и обновление - GnssZonesRepository.
+        val gnssRepo: com.z_company.repository.remote_rest.tracks.GnssZonesRepository = org.koin.compose.koinInject()
+        var gnssServer by remember { mutableStateOf(emptyList<com.z_company.domain.gnss.GnssServerCell>()) }
+        var gnssView by remember { mutableStateOf<com.z_company.repository.remote_rest.tracks.GnssBbox?>(null) }
+        // Один слой: локальные и серверные ячейки вместе (читается из обработчика тапа - поэтому через State).
+        val gnssShown by remember {
+            derivedStateOf {
+                if (gnssOn) com.z_company.domain.gnss.GnssZoneMerge.merge(gnssZones, gnssServer) else emptyList()
+            }
+        }
         // Кнопка записи: подтверждаем смену состояния короткой подсказкой (включение может идти через разрешения/согласие).
         var prevRecording by remember { mutableStateOf(autoRecording) }
         LaunchedEffect(autoRecording) {
@@ -795,10 +806,37 @@ internal fun TrainMapScreen(
                 delay(60_000)
             }
         }
-        LaunchedEffect(styleGen, styleReady, gnssOn, gnssZones) {
+        // Видимая область для запроса серверных ячеек: обновляется, когда камера остановилась.
+        DisposableEffect(map, gnssOn) {
+            val m = map
+            fun update() {
+                val b = runCatching { m?.projection?.visibleRegion?.latLngBounds }.getOrNull() ?: return
+                gnssView = com.z_company.repository.remote_rest.tracks.GnssBbox(
+                    b.latitudeSouth, b.longitudeWest, b.latitudeNorth, b.longitudeEast,
+                )
+            }
+            val idle = MapLibreMap.OnCameraIdleListener { update() }
+            if (gnssOn && m != null) {
+                update()
+                m.addOnCameraIdleListener(idle)
+            } else {
+                gnssView = null
+            }
+            onDispose { m?.removeOnCameraIdleListener(idle) }
+        }
+        LaunchedEffect(gnssOn, gnssView) {
+            val view = gnssView
+            if (!gnssOn || view == null) {
+                gnssServer = emptyList()
+                return@LaunchedEffect
+            }
+            // Не бросает: 404/429/503/сеть - тихо, остаётся кэш (или пусто).
+            gnssServer = gnssRepo.load(view)
+        }
+        LaunchedEffect(styleGen, styleReady, gnssOn, gnssShown) {
             if (!styleReady) return@LaunchedEffect
             val style = map?.style ?: return@LaunchedEffect
-            val shown = if (gnssOn) gnssZones else emptyList()
+            val shown = gnssShown
             style.getSourceAs<GeoJsonSource>(GNSS_ZONES_SOURCE)?.setGeoJson(gnssZoneFeatures(shown))
             if (shown.isNotEmpty()) {
                 style.getLayerAs<CircleLayer>(GNSS_ZONES_LAYER)
@@ -1022,7 +1060,7 @@ internal fun TrainMapScreen(
                 }
                 // Зона без GPS (пятно под линией): после пути и остановок, чтобы не мешать им.
                 if (gnssOn) {
-                    val zoneHit = gnssZoneAt(gnssZones, latLng.latitude, latLng.longitude, mpp * 24.0)
+                    val zoneHit = gnssZoneAt(gnssShown, latLng.latitude, latLng.longitude, mpp * 24.0)
                     if (zoneHit != null) {
                         draft = null
                         planNote = null
@@ -1312,25 +1350,35 @@ internal fun TrainMapScreen(
                                 )
                             }
                             is TrainMapSelection.GnssZoneSel -> {
-                                val z = sel.zone
+                                val mz = sel.zone
+                                val z = mz.local
                                 val t = com.z_company.domain.gnss.GnssDeadZoneText
+                                val shared = com.z_company.domain.gnss.GnssSharedZoneText
                                 Text(
-                                    text = t.TITLE,
+                                    text = if (mz.isShared) shared.TITLE else t.TITLE,
                                     style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                                     color = Pst.text,
                                     maxLines = 2,
                                 )
                                 Text(
-                                    text = listOf(
-                                        t.trips(z.tracks),
-                                        t.kinds(z.kinds) + " (" + t.duration(z.maxDurationMs) + ")",
-                                        "Последний раз " + t.date(z.lastMs, zone),
-                                    ).joinToString("\n"),
+                                    text = buildList {
+                                        // Общая зона: уровень словами и виды сбоев (без точного числа машинистов).
+                                        if (mz.isShared) {
+                                            add(shared.levelLine(mz.serverLevel))
+                                            if (mz.serverKinds.isNotEmpty()) add(t.kinds(mz.serverKinds))
+                                        }
+                                        // Свои поездки (локальные данные) - по-прежнему со сроком и датой.
+                                        if (z != null) {
+                                            add((if (mz.isShared) "Ваши поездки: ${z.tracks}" else t.trips(z.tracks)))
+                                            add(t.kinds(z.kinds) + " (" + t.duration(z.maxDurationMs) + ")")
+                                            add("Последний раз " + t.date(z.lastMs, zone))
+                                        }
+                                    }.joinToString("\n"),
                                     style = Pst.mono.copy(fontSize = 13.sp, lineHeight = 18.sp),
                                     color = Pst.textMuted,
                                 )
                                 Text(
-                                    text = t.NOTE,
+                                    text = if (mz.isShared) shared.NOTE else t.NOTE,
                                     style = Pst.sans.copy(fontSize = 11.sp, lineHeight = 14.sp),
                                     color = Pst.textMuted,
                                     modifier = Modifier.padding(top = 4.dp),

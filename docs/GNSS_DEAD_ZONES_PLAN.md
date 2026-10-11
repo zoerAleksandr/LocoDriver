@@ -1,6 +1,6 @@
 # Зоны без GPS — план (общая карта + локальный слой)
 
-Статус: **локальный слой и детектор реализованы** (ветка `feature/gnss-dead-zones`, SCREEN_SPECS §6.9 «Зоны без GPS»). Общая карта (сервер + вклад) — только план, кода нет.
+Статус: **локальный слой и детектор реализованы** (ветка `feature/gnss-dead-zones`, SCREEN_SPECS §6.9 «Зоны без GPS»). Общая карта: сервер готов (раздел 12, ветка `feature/gnss-dead-zones-server`, не задеплоен), клиент (вклад, показ серверных ячеек, согласие №2 в редакции 2) — ветка `feature/gnss-zones-client`, SCREEN_SPECS §6.9.
 Опора: `docs/TRAIN_TRACKS_SERVER_DESIGN.md` (согласие №2 «км оси + высота», `axisHash`/`offsetM`, обезличенный вклад без `user_id`), `GnssQualityMonitor`/`GnssQuality`, `TrackAnalysis.dataGaps`.
 
 ## 1. Что хотим
