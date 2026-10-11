@@ -141,6 +141,31 @@ class GnssPlausibilityTest {
     }
 
     @Test
+    fun `train at 45 kmh with network 6 km behind has no gap`() {
+        // Регресс: дыра ровно 121 с на ходу при точности 2-4 м (NETWORK_MISMATCH до обхода через 120 с).
+        val f = GnssPlausibility()
+        val net = GnssPlausibility.NetworkFix(kirishiLat - northM(4_000.0), kirishiLon, 800f, ageMs = 30_000)
+        var lat = kirishiLat
+        var ignored = 0
+        for (i in 0..600) { // 10 мин, фикс в секунду, поезд проходит 7.5 км: пересекает радиус 5 км от сети
+            val r = f.check(i * 1_000L, lat, kirishiLon, 45.0, 3f, network = net)
+            assertTrue(r.accepted, "step $i")
+            if (r.networkIgnored) ignored++
+            lat += northM(45_000.0 / 3600.0)
+        }
+        assertTrue(ignored > 0)
+        assertEquals(0, f.rejectedCount(600_000))
+    }
+
+    @Test
+    fun `network mismatch still blocks a jump out of a continuous chain`() {
+        val f = GnssPlausibility()
+        val net = GnssPlausibility.NetworkFix(kirishiLat, kirishiLon, 500f, ageMs = 10_000)
+        assertTrue(f.check(0, kirishiLat, kirishiLon, 0.0, 3f, network = net).accepted)
+        assertFalse(f.check(1_000, novgorodLat, novgorodLon, 0.0, 3f, network = net).accepted)
+    }
+
+    @Test
     fun `rejected count window and interference level`() {
         val f = GnssPlausibility()
         f.check(0, kirishiLat, kirishiLon, 0.0)

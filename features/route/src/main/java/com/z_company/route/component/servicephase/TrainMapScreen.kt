@@ -515,9 +515,9 @@ internal fun TrainMapScreen(
                         style.addSource(GeoJsonSource(TRAIN_NODATA_SOURCE, FeatureCollection.fromFeatures(emptyList())))
                         style.addLayerBelow(
                             LineLayer("train-map-nodata-layer", TRAIN_NODATA_SOURCE).withProperties(
-                                PropertyFactory.lineColor("#78909C"),
-                                PropertyFactory.lineWidth(2.2f),
-                                PropertyFactory.lineDasharray(arrayOf(1.2f, 2f)),
+                                PropertyFactory.lineColor("#546E7A"),
+                                PropertyFactory.lineWidth(4f),
+                                PropertyFactory.lineDasharray(arrayOf(1.2f, 1.6f)),
                             ),
                             "train-map-stops-layer",
                         )
@@ -882,6 +882,11 @@ internal fun TrainMapScreen(
                 val dt = b.point.timeMs - a.point.timeMs
                 if (dt > TrackAnalysis.GAP_MS) continue
                 if (dt > TrackAnalysis.DATA_GAP_MS) {
+                    // Через дыру линия соединяется «нет данных» (пунктир), только если смещение согласуется со скоростью.
+                    val dKm = com.z_company.domain.util.GnssPlausibility.distanceM(
+                        a.point.latitude, a.point.longitude, b.point.latitude, b.point.longitude,
+                    ) / 1000.0
+                    if (dKm / (dt / 3_600_000.0) > 200.0) continue
                     noDataFeats += Feature.fromGeometry(
                         LineString.fromLngLats(
                             listOf(
