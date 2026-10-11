@@ -112,6 +112,13 @@ class SqlDelightTrackRepository(private val db: TrackDatabase) : TrackRepository
         }
     }
 
+    override fun trimTrack(trackId: String, startedAt: Long, endedAt: Long) {
+        db.transaction {
+            q.deletePointsOutside(trackId, startedAt, endedAt)
+            q.updateTrackBounds(startedAt, endedAt, trackId)
+        }
+    }
+
     override fun deleteAll() {
         db.transaction {
             // Отзыв согласия: сервер удаляет все треки одной операцией, очередь не нужна.

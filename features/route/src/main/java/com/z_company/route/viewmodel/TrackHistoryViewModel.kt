@@ -192,18 +192,20 @@ class TrackHistoryViewModel : ViewModel(), KoinComponent {
 
     private suspend fun build(info: TrackInfo, canSend: Boolean): TrackHistoryItem {
         val points = repository.points(info.trackId)
-        val stats = TrackPacking.stats(points)
+        // Ложные метки времени/скачки (спуфинг) не должны раздувать «время в пути» и длину.
+        val clean = com.z_company.domain.util.GnssPlausibility.sanitize(points).ifEmpty { points }
+        val stats = TrackPacking.stats(clean)
         val noTrain = info.trainId == NO_TRAIN_ID
         val title = if (noTrain) NO_TRAIN_TITLE
         else (resolver.resolve(info.trainId) as? TrackTrainResolution.Found)?.title ?: "Трек"
         return TrackHistoryItem(
             id = info.trackId,
             title = title,
-            startedAt = points.firstOrNull()?.timeMs ?: info.startedAt,
-            endedAt = points.lastOrNull()?.timeMs ?: info.endedAt,
+            startedAt = clean.firstOrNull()?.timeMs ?: info.startedAt,
+            endedAt = clean.lastOrNull()?.timeMs ?: info.endedAt,
             distanceKm = stats.distanceKm,
             workStartAt = if (noTrain) null else runCatching { resolver.workStartByTrain(info.trainId) }.getOrNull(),
-            preview = TrackPacking.preview(points, 60).map { it.latitude to it.longitude },
+            preview = TrackPacking.preview(clean, 60).map { it.latitude to it.longitude },
             isFavorite = info.isFavorite,
             status = statusOf(info, canSend),
             noTrain = noTrain,

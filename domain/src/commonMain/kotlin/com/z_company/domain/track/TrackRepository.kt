@@ -57,6 +57,12 @@ interface TrackRepository {
      */
     fun mergeTracks(keepTrackId: String, absorbedTrackId: String)
 
+    /**
+     * Починка границ: оставить в треке только точки с `timeMs` в [[startedAt], [endedAt]], выставить эти границы и
+     * `uploadedPoints = 0` (трек будет отправлен заново). Для одноразовой починки ложных меток времени ([TrackRepair]).
+     */
+    fun trimTrack(trackId: String, startedAt: Long, endedAt: Long)
+
     /** Удалить все локальные треки. */
     fun deleteAll()
 

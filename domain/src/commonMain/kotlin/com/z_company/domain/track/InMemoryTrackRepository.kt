@@ -84,6 +84,12 @@ class InMemoryTrackRepository : TrackRepository {
         deleteTrack(absorbedTrackId, queueRemoteDelete = true)
     }
 
+    override fun trimTrack(trackId: String, startedAt: Long, endedAt: Long) {
+        val info = infos[trackId] ?: return
+        pts[trackId]?.removeAll { it.timeMs < startedAt || it.timeMs > endedAt }
+        infos[trackId] = info.copy(startedAt = startedAt, endedAt = endedAt, uploadedPoints = 0L)
+    }
+
     override fun deleteAll() {
         infos.clear()
         pts.clear()
