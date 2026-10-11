@@ -12,6 +12,7 @@ import androidx.core.location.LocationManagerCompat
 import androidx.core.os.CancellationSignal
 import androidx.core.util.Consumer
 import com.z_company.core.gps.NetworkLocationReference
+import com.z_company.domain.util.DriftFilter
 import com.z_company.domain.util.GeoFix
 import com.z_company.domain.util.GnssPlausibility
 import android.location.LocationListener
@@ -97,7 +98,10 @@ object DeviceLocation {
             return@callbackFlow
         }
         var lastGpsAt = 0L
+        var shownLat = Double.NaN
+        var shownLon = Double.NaN
         val plausibility = GnssPlausibility()
+        val drift = DriftFilter()
         NetworkLocationReference.acquire(context)
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
@@ -107,10 +111,19 @@ object DeviceLocation {
                         onRejected?.invoke()
                         return
                     }
+                    // Дрейф стоянки (SCREEN_SPECS §6.9): позиция дрейфующего фикса = якорь, маркер не «плавает».
+                    val steady = drift.process(
+                        DriftFilter.Fix(
+                            location.time, location.latitude, location.longitude,
+                            if (location.hasSpeed()) location.speed * 3.6 else null,
+                            if (location.hasAccuracy()) location.accuracy else null,
+                            providerBearing(location),
+                        ),
+                    )
                     val verdict = plausibility.check(
                         timeMs = location.time,
-                        lat = location.latitude,
-                        lon = location.longitude,
+                        lat = steady.latitude,
+                        lon = steady.longitude,
                         speedKmh = if (location.hasSpeed()) location.speed * 3.6 else null,
                         accuracyM = if (location.hasAccuracy()) location.accuracy else null,
                         network = NetworkLocationReference.current(),
@@ -120,8 +133,12 @@ object DeviceLocation {
                         onRejected?.invoke()
                         return
                     }
+                    shownLat = steady.latitude
+                    shownLon = steady.longitude
                     lastGpsAt = now
                 } else {
+                    shownLat = location.latitude
+                    shownLon = location.longitude
                     if (lastGpsAt != 0L && now - lastGpsAt < GPS_PREFERRED_MS) return
                     // Сеть при молчащем GPS: не уводим маркер далеко от последней правдоподобной позиции.
                     // Принятых GPS-фиксов давно не было (> STALE_ANCHOR_MS): якорь устарел, иначе карта «залипала» бы в старой области.
@@ -133,7 +150,7 @@ object DeviceLocation {
                 }
                 trySend(
                     LiveFix(
-                        location.latitude, location.longitude,
+                        shownLat, shownLon,
                         if (location.hasSpeed()) location.speed * 3.6 else null,
                         providerBearing(location),
                         if (location.hasAccuracy()) location.accuracy else null,

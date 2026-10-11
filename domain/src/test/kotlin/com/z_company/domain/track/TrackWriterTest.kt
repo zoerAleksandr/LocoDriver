@@ -34,6 +34,16 @@ class TrackWriterTest {
     }
 
     @Test
+    fun heldPointsAreThinnedAsStandEvenWithClaimedSpeed() {
+        val thinner = TrackThinner()
+        // якорь стоянки (DriftFilter) при заявленной скорости 5 км/ч не пишется раз в 5 с
+        val kept = (0L..120L).count { thinner.accept(p(it * 1000, 5.0), held = true) }
+        assertEquals(3, kept) // 0, 60, 120 с
+        // подтверждённое движение (held=false) принимается сразу
+        assertTrue(thinner.accept(p(121_000, 5.0), held = false))
+    }
+
+    @Test
     fun stoppedKeepsPointEveryMinute() {
         val thinner = TrackThinner()
         val kept = (0L..180L).count { thinner.accept(p(it * 1000, 0.0)) }

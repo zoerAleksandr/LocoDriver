@@ -28,6 +28,7 @@ import androidx.core.app.ServiceCompat
 import com.z_company.domain.gnss.GnssQuality
 import com.z_company.domain.gnss.GnssQualityEvaluator
 import com.z_company.domain.track.AltitudeMath
+import com.z_company.domain.util.DriftFilter
 import com.z_company.domain.util.GnssPlausibility
 
 /**
@@ -56,6 +57,9 @@ class GpsRecordingService : Service() {
 
     // Подмена/скачки GNSS: отвергнутые фиксы не уходят в GpsRecorder.points (SCREEN_SPECS §6.9).
     private val plausibility = GnssPlausibility()
+
+    // Дрейф на стоянке: ДО GnssPlausibility; позиция дрейфующего фикса заменяется якорем стоянки (SCREEN_SPECS §6.9).
+    private val drift = DriftFilter()
     private var networkRefHeld = false
     private val qualityTick = object : Runnable {
         override fun run() {
@@ -83,6 +87,7 @@ class GpsRecordingService : Service() {
     private fun startQuality(lm: LocationManager) {
         qualityEvaluator.reset()
         plausibility.reset()
+        drift.reset()
         if (!networkRefHeld) {
             NetworkLocationReference.acquire(this)
             networkRefHeld = true
@@ -167,20 +172,28 @@ class GpsRecordingService : Service() {
                 val nowElapsed = SystemClock.elapsedRealtime()
                 // Подмена времени (GNSS-спуфинг сдвигает часы на недели): такой фикс нельзя писать в трек.
                 if (!GnssPlausibility.isTimeSane(location.time, System.currentTimeMillis())) return
+                val accuracy = if (location.hasAccuracy()) location.accuracy else null
+                val speedKmh = if (location.hasSpeed()) location.speed * 3.6 else null
+                // Дрейф стоянки: ничего не отбрасывается, позиция дрейфующего фикса = якорь (held), скорость/время исходные.
+                val steady = drift.process(
+                    DriftFilter.Fix(location.time, location.latitude, location.longitude, speedKmh, accuracy, providerBearing(location)),
+                )
                 val verdict = plausibility.check(
                     timeMs = location.time,
-                    lat = location.latitude,
-                    lon = location.longitude,
-                    speedKmh = if (location.hasSpeed()) location.speed * 3.6 else null,
-                    accuracyM = if (location.hasAccuracy()) location.accuracy else null,
+                    lat = steady.latitude,
+                    lon = steady.longitude,
+                    speedKmh = speedKmh,
+                    accuracyM = accuracy,
                     network = NetworkLocationReference.current(),
                     nowMs = nowElapsed,
                 )
                 // Подмена/скачок: точку не принимаем нигде (ни в трек, ни в детектор, ни в «текущую позицию»).
                 if (!verdict.accepted) return
                 lastFixElapsedMs = nowElapsed
-                lastFixAccuracyM = if (location.hasAccuracy()) location.accuracy else null
-                GpsRecorder.emit(location.toPoint(baroAltitudeM()))
+                lastFixAccuracyM = accuracy
+                GpsRecorder.emit(
+                    location.toPoint(baroAltitudeM()).copy(latitude = steady.latitude, longitude = steady.longitude, held = steady.held),
+                )
             }
 
             override fun onProviderEnabled(provider: String) {
@@ -296,6 +309,9 @@ class GpsRecordingService : Service() {
             .addAction(0, prefs.getString(EXTRA_STOP_LABEL, null) ?: "Выключить", stop)
             .build()
     }
+
+    /** Курс датчика; 0.0 (эмулятор, mock) считается неизвестным. */
+    private fun providerBearing(l: Location): Float? = if (l.hasBearing() && l.bearing != 0f) l.bearing else null
 
     private fun Location.toPoint(baroAltitudeM: Double?) = GpsPoint(
         timeMs = time,

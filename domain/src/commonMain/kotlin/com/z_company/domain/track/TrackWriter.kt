@@ -22,10 +22,11 @@ class TrackThinner(
      * иначе первая «медленная» точка терялась бы на до 60 с). При трогании [takePending] отдаёт последнюю отброшенную
      * «медленную» точку - момент покоя перед ростом скорости.
      */
-    fun accept(point: TrackPoint): Boolean {
+    fun accept(point: TrackPoint, held: Boolean = false): Boolean {
         pending = null
         val last = lastAcceptedMs
-        val moving = point.speedKmh?.let { it >= movingSpeedKmh } ?: true
+        // held - позиция заменена якорем стоянки (DriftFilter): это покой, даже если датчик заявил скорость.
+        val moving = if (held) false else point.speedKmh?.let { it >= movingSpeedKmh } ?: true
         val interval = if (moving) movingIntervalMs else stoppedIntervalMs
         val changed = lastAcceptedMoving != null && lastAcceptedMoving != moving
         // Часы пошли назад (смена времени) — принимаем и начинаем отсчёт заново.
@@ -70,9 +71,10 @@ class TrackWriter(
      * Записать точку; false — не записана (нет согласия / нет цели / прорежена / нет сигнала).
      * [signalOk] = false (сигнал потерян, fix устарел или точность хуже порога): «точка стоянки» (скорость < 2 км/ч или
      * неизвестна) не пишется — иначе потеря сигнала выглядела бы как стоянка; точка в движении (скорость известна и высока)
-     * пишется как обычно.
+     * пишется как обычно. [held] = true: позиция заменена якорем стоянки (DriftFilter, дрейф) - такая точка пишется как
+     * «стоянка» (раз в [TrackThinner.stoppedIntervalMs]), а не раз в 5 с.
      */
-    fun onPoint(targetTrainId: String?, point: TrackPoint, consent: Boolean, signalOk: Boolean = true): Boolean {
+    fun onPoint(targetTrainId: String?, point: TrackPoint, consent: Boolean, signalOk: Boolean = true, held: Boolean = false): Boolean {
         if (!consent || targetTrainId == null) return false
         if (!signalOk && (point.speedKmh?.let { it < TrackAnalysis.STOP_SPEED_KMH } != false)) return false
         var id = trackId
@@ -88,7 +90,7 @@ class TrackWriter(
             trainId = targetTrainId
             trackId = id
         }
-        if (!thinner.accept(point)) return false
+        if (!thinner.accept(point, held)) return false
         thinner.takePending()?.let { repository.append(id, targetTrainId, it) }
         repository.append(id, targetTrainId, point)
         return true
