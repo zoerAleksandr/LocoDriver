@@ -3,6 +3,8 @@ package com.z_company.domain.util
 import com.z_company.domain.track.TrackAnalysis
 import com.z_company.domain.track.TrackPoint
 import com.z_company.domain.util.TrainMapRoute.SnappedPoint
+import kotlin.math.PI
+import kotlin.math.cos
 
 /**
  * «Фактические рельсы» карты поезда (SCREEN_SPECS §6.9, «вне путей»): кроме рельсовой линии плеча, по которой
@@ -51,9 +53,18 @@ object ActualRails {
     fun offsetFromAny(lines: List<List<Pair<Double, Double>>>, lat: Double, lon: Double): Double? =
         project(lines, lat, lon)?.projection?.offsetM
 
+    /** Ошибка положения по умолчанию, если у точки нет точности, м. */
+    private const val DEFAULT_ERROR_M = 5.0
+
+    /** Смена пути (линии) только если новая линия ближе на >= 2 x ошибку и так [SWITCH_POINTS] точек подряд. */
+    const val SWITCH_POINTS = 3
+
     /**
-     * Точки пути для отрисовки: точка не дальше [toleranceM] от ближайшей из линий заменяется проекцией на неё
-     * (`onRail = true`), остальные остаются сырыми («вне путей»). Нет ни одной линии — все точки сырые и `onRail = true`.
+     * Точки пути для отрисовки: точка не дальше [toleranceM] от выбранной линии заменяется проекцией на неё
+     * (`onRail = true`), остальные остаются сырыми («вне путей»). Нет ни одной линии - все точки сырые и `onRail = true`.
+     * Непрерывность: линия выбирается с гистерезисом - пока точка в допуске от текущей линии, переход на соседнюю
+     * (параллельный путь) возможен, только когда та ближе на >= 2 x ошибку (точность точки, по умолчанию 5 м)
+     * и это держится [SWITCH_POINTS] точек подряд; поодиночные скачки между путями не рисуются.
      */
     fun snapMarked(
         points: List<TrackPoint>,
@@ -63,10 +74,42 @@ object ActualRails {
         val usable = lines.filter { it.size >= 2 }
         if (usable.isEmpty()) return points.map { SnappedPoint(it, true) }
         val cums = usable.map { TrainMapRoute.cumulativeM(it) }
+        var cur = -1
+        var pending = -1
+        var pendingCount = 0
         return points.map { p ->
-            val best = nearest(usable, cums, p.latitude, p.longitude)
-            if (best != null && best.offsetM <= toleranceM) {
-                SnappedPoint(p.copy(latitude = best.latitude, longitude = best.longitude), true)
+            val prs = usable.indices.map { TrainMapRoute.project(usable[it], cums[it], p.latitude, p.longitude) }
+            var best = -1
+            for (i in prs.indices) {
+                val pr = prs[i] ?: continue
+                if (best < 0 || pr.offsetM < prs[best]!!.offsetM) best = i
+            }
+            if (best < 0) return@map SnappedPoint(p, false)
+            val curPr = if (cur >= 0) prs[cur] else null
+            if (curPr == null || curPr.offsetM > toleranceM) {
+                cur = best
+                pending = -1
+                pendingCount = 0
+            } else if (best != cur) {
+                val err = (p.accuracyM?.toDouble() ?: DEFAULT_ERROR_M).coerceAtLeast(2.0)
+                if (curPr.offsetM - prs[best]!!.offsetM >= 2 * err) {
+                    if (pending == best) pendingCount++ else { pending = best; pendingCount = 1 }
+                    if (pendingCount >= SWITCH_POINTS) {
+                        cur = best
+                        pending = -1
+                        pendingCount = 0
+                    }
+                } else {
+                    pending = -1
+                    pendingCount = 0
+                }
+            } else {
+                pending = -1
+                pendingCount = 0
+            }
+            val pr = prs[cur]
+            if (pr != null && pr.offsetM <= toleranceM) {
+                SnappedPoint(p.copy(latitude = pr.latitude, longitude = pr.longitude), true)
             } else {
                 SnappedPoint(p, false)
             }
@@ -120,7 +163,7 @@ object ActualRails {
         var best: List<TrackPoint>? = null
         val cur = ArrayList<TrackPoint>()
         fun flush() {
-            if (cur.size >= MIN_RUN_POINTS && pathLengthM(cur) >= MIN_RUN_M) best = ArrayList(cur)
+            if (cur.size >= MIN_RUN_POINTS && pathLengthM(cur) >= MIN_RUN_M && isCoherentRun(cur)) best = ArrayList(cur)
             cur.clear()
         }
         var prev: TrackPoint? = null
@@ -133,6 +176,17 @@ object ActualRails {
         }
         flush()
         return best
+    }
+
+    /**
+     * Участок трека пригоден для запроса линии по факту: via-точки (до [MAX_VIA]) не образуют петель/самопересечений и
+     * ломаная по ним не длиннее хорды больше чем в [MAX_CHORD_RATIO] раз плюс [CHORD_SLACK_M]. Разброс via-точек по
+     * разным параллельным путям (стоянка/маневры в парке) такой проверки не проходит.
+     */
+    fun isCoherentRun(run: List<TrackPoint>): Boolean {
+        val via = viaPoints(run)
+        if (via.size < 2) return false
+        return isCoherentLine(via) && isCoherentLine(run.map { it.latitude to it.longitude })
     }
 
     fun pathLengthM(points: List<TrackPoint>): Double {
@@ -178,7 +232,60 @@ object ActualRails {
             val off = TrainMapRoute.project(line, cum, p.latitude, p.longitude)?.offsetM ?: return false
             if (off > TrainMapRoute.SNAP_TOLERANCE_M) return false
         }
-        return cum.last() <= pathLengthM(run) * MAX_DETOUR_RATIO + DETOUR_SLACK_M
+        if (cum.last() > pathLengthM(run) * MAX_DETOUR_RATIO + DETOUR_SLACK_M) return false
+        return isCoherentLine(line)
+    }
+
+    /** Линия длиннее хорды больше чем в [MAX_CHORD_RATIO] раз плюс [CHORD_SLACK_M] - это петля/объезд, а не путь. */
+    const val MAX_CHORD_RATIO = 1.3
+    const val CHORD_SLACK_M = 100.0
+
+    /** Не больше стольких вершин проверяем на самопересечения (после упрощения). */
+    private const val MAX_INTERSECT_POINTS = 2000
+
+    /**
+     * Линия «связная»: длина <= [MAX_CHORD_RATIO] x хорда + [CHORD_SLACK_M] и нет самопересечений. Линия по via-точкам
+     * с разных параллельных путей даёт петли и «ёлочки» - такие результаты отклоняются.
+     */
+    fun isCoherentLine(line: List<Pair<Double, Double>>): Boolean {
+        if (line.size < 2) return false
+        val len = TrainMapRoute.cumulativeM(line).last()
+        val chord = TrackAnalysis.distanceM(line.first().first, line.first().second, line.last().first, line.last().second)
+        if (len > chord * MAX_CHORD_RATIO + CHORD_SLACK_M) return false
+        return !selfIntersects(line)
+    }
+
+    /** Есть ли у ломаной самопересечение (несмежные отрезки). Длинные линии сначала упрощаются до 5 м. */
+    fun selfIntersects(line: List<Pair<Double, Double>>): Boolean {
+        var pts = line
+        if (pts.size > 200) {
+            val tp = pts.mapIndexed { i, (la, lo) -> TrackPoint(i.toLong(), la, lo, null, null) }
+            pts = PathCleaner.simplify(tp, 5.0).map { it.latitude to it.longitude }
+        }
+        if (pts.size > MAX_INTERSECT_POINTS) return false
+        val lat0 = pts[0].first
+        val kx = cos(lat0 * PI / 180.0)
+        val xs = DoubleArray(pts.size) { (pts[it].second - pts[0].second) * kx * 111_320.0 }
+        val ys = DoubleArray(pts.size) { (pts[it].first - lat0) * 110_540.0 }
+        for (i in 0 until pts.size - 1) {
+            for (j in i + 2 until pts.size - 1) {
+                if (segmentsCross(xs[i], ys[i], xs[i + 1], ys[i + 1], xs[j], ys[j], xs[j + 1], ys[j + 1])) return true
+            }
+        }
+        return false
+    }
+
+    private fun segmentsCross(
+        ax: Double, ay: Double, bx: Double, by: Double,
+        cx: Double, cy: Double, dx: Double, dy: Double,
+    ): Boolean {
+        fun cross(ox: Double, oy: Double, px: Double, py: Double, qx: Double, qy: Double) =
+            (px - ox) * (qy - oy) - (py - oy) * (qx - ox)
+        val d1 = cross(cx, cy, dx, dy, ax, ay)
+        val d2 = cross(cx, cy, dx, dy, bx, by)
+        val d3 = cross(ax, ay, bx, by, cx, cy)
+        val d4 = cross(ax, ay, bx, by, dx, dy)
+        return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))
     }
 
     /** Ключ участка для «не запрашивать повторно»: концы участка, округление ~100 м. */

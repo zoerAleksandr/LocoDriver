@@ -71,6 +71,41 @@ object LabelDedup {
         return short.length >= 4 && (long.startsWith("$short ") || long.endsWith(" $short"))
     }
 
+    /** Подпись в географических координатах для [sameNameDuplicates]; [priority] меньше = важнее (0 - крайняя станция). */
+    data class GeoLabel(val lat: Double, val lon: Double, val name: String, val priority: Int = 1)
+
+    /** Радиус, в котором одинаковые названия считаются одной подписью, м. */
+    const val SAME_NAME_RADIUS_M = 300.0
+
+    /**
+     * Дубли подписей ОДНОГО названия в радиусе [radiusM] друг от друга (оранжевые «Будогощь» на разных путях парка):
+     * из группы остаётся одна подпись - с меньшим [GeoLabel.priority], при равенстве ближайшая к ([refLat], [refLon]).
+     * Возвращает индексы подписей, которые рисовать не надо (маркеры остаются).
+     */
+    fun sameNameDuplicates(
+        labels: List<GeoLabel>,
+        refLat: Double,
+        refLon: Double,
+        radiusM: Double = SAME_NAME_RADIUS_M,
+    ): Set<Int> {
+        val hidden = mutableSetOf<Int>()
+        val order = labels.indices.filter { labels[it].name.isNotBlank() }.sortedWith(
+            compareBy<Int> { labels[it].priority }.thenBy {
+                com.z_company.domain.track.TrackAnalysis.distanceM(labels[it].lat, labels[it].lon, refLat, refLon)
+            }
+        )
+        val kept = ArrayList<Int>()
+        for (i in order) {
+            val l = labels[i]
+            val dup = kept.any { k ->
+                sameName(labels[k].name, l.name) &&
+                    com.z_company.domain.track.TrackAnalysis.distanceM(labels[k].lat, labels[k].lon, l.lat, l.lon) <= radiusM
+            }
+            if (dup) hidden += i else kept += i
+        }
+        return hidden
+    }
+
     /** Индексы подписей приложения, дублирующих подписи базовой карты. */
     fun duplicates(app: List<AppMapLabel>, base: List<BaseMapLabel>, radiusPx: Double): Set<Int> {
         if (base.isEmpty()) return emptySet()
