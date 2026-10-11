@@ -167,6 +167,13 @@ fun TimeBottomSheet(
         if (selectedStation == null && initialStationId != null) {
             selectedStation = allStations.find { it.stationId == initialStationId }
         }
+        // Нормы станции могли поменяться в справочнике (редактор в пикере станций) —
+        // подтягиваем свежую запись, иначе шторка до переоткрытия держит старые нормы.
+        val current = selectedStation
+        if (current != null) {
+            val fresh = allStations.find { it.stationId == current.stationId }
+            if (fresh != null && fresh != current) selectedStation = fresh
+        }
     }
     var selectedSeriesName by remember { mutableStateOf(seriesName?.takeIf { it.isNotBlank() }) }
     val selectedSeries: LocomotiveSeries? = allSeries.find { it.name == selectedSeriesName }
