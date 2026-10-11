@@ -53,8 +53,9 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     fun prefill(weight: String?, axles: String?) {
         if (prefilled) return
         prefilled = true
-        val w = weight?.trim().orEmpty()
-        val a = axles?.trim().orEmpty()
+        // Нулевые/нечисловые значения поезда (поле не заполнено) за данные не считаем.
+        val w = weight?.trim().orEmpty().takeIf { (it.toFiniteDoubleOrNull() ?: 0.0) > 0 }.orEmpty()
+        val a = axles?.trim().orEmpty().takeIf { (it.toIntOrNull() ?: 0) > 0 }.orEmpty()
         if (w.isEmpty() && a.isEmpty()) return
         _state.update {
             it.copy(

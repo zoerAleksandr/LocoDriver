@@ -363,7 +363,7 @@ private fun ResultCard(result: BrakeCertificateResult?, category: BrakeCategory)
     SettingsCard {
         SettingsFieldRow("Вес для расчёта", "${fmt(result.totalWeight)} тс", mono = true)
         SettingsCardSep()
-        SettingsFieldRow("Потребное нажатие (${category.norm} на 100 тс)", "${fmt(result.requiredPressure)} тс", mono = true)
+        SettingsFieldRow("Потребное (${category.norm}/100 тс)", "${fmt(result.requiredPressure)} тс", mono = true)
         SettingsCardSep()
         SettingsFieldRow("Фактическое нажатие", "${fmt(result.actualPressure)} тс", mono = true)
         SettingsCardSep()
