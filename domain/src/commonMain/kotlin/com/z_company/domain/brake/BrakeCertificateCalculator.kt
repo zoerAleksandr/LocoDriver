@@ -10,7 +10,7 @@ data class AxleRow(val pressurePerAxle: Double, val axles: Int)
 data class LocoBrakeInput(val weight: Double, val axles: Int, val pressurePerAxle: Double)
 
 /** Доля вагонов с композиционными колодками при нагрузке на ось более 21 тс (п. 3.3 Норм). */
-enum class CompositeShare { NONE, P75, P100 }
+enum class CompositeShare { NONE, P50, P75, P100 }
 
 data class BrakeCertificateInput(
     val category: BrakeCategory,
@@ -129,7 +129,7 @@ object BrakeCertificateCalculator {
             val ok = when (input.compositeShare) {
                 CompositeShare.P75 -> per100 >= 31.0 - EPS
                 CompositeShare.P100 -> per100 >= 30.0 - EPS
-                CompositeShare.NONE -> false
+                CompositeShare.NONE, CompositeShare.P50 -> false
             }
             if (ok) {
                 return SpeedLimit.Allowed(

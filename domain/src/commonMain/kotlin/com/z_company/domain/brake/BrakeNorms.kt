@@ -67,6 +67,14 @@ object BrakeNorms {
         BrakeCategory("HEAD_THIRD_16", "11.6", "До 16 тыс. тс, локомотивы в голове и последней трети", TrainGroup.FREIGHT, 33, 70, 80, 65, 28, listOf(60, 60, 55), false, true),
     )
 
+    /** Значения «Тормозное нажатие на ось, тс» в первой графе бланка ВУ-45 (форма по Инструкции 808-2017 ПКБ ЦВ, прил. К). */
+    val blankAxlePressures: List<Double> = listOf(
+        1.25, 3.0, 3.5, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 8.0, 8.5, 9.0, 10.0, 11.0, 11.5, 12.0, 12.5, 13.0, 14.0, 15.0, 16.0, 18.0, 19.0, 20.0, 21.0,
+    )
+
+    /** Типы вагонов табл. 3 с данным нажатием на ось (подсказка к значению бланка). */
+    fun presetsFor(pressure: Double): List<AxlePreset> = axlePresets.filter { it.pressure == pressure }
+
     fun category(id: String): BrakeCategory? = categories.firstOrNull { it.id == id }
 
     /** Табл. 6: единая норма и нормы по крутизне уклона — число ручных тормозных осей на 100 тс веса состава. */

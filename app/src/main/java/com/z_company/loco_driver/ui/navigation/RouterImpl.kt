@@ -210,8 +210,8 @@ class RouterImpl(
         requireNavController().navigate(AbsenceRoute.route)
     }
 
-    override fun showBrakeCertificate(weight: String?, axles: String?) {
-        requireNavController().navigate(BrakeCertificateRoute.buildRoute(weight, axles))
+    override fun showBrakeCertificate(prefill: com.z_company.domain.brake.BrakePrefill?) {
+        requireNavController().navigate(BrakeCertificateRoute.buildRoute(prefill))
     }
 
     override fun showStatistics() {

@@ -17,9 +17,8 @@ fun BrakeCertificateDestination(
 ) {
     val viewModel: BrakeCertificateViewModel = viewModel()
     val state by viewModel.state.collectAsState()
-    val weight = BrakeCertificateRoute.getWeight(backStackEntry)
-    val axles = BrakeCertificateRoute.getAxles(backStackEntry)
-    LaunchedEffect(weight, axles) { viewModel.prefill(weight, axles) }
+    val prefill = BrakeCertificateRoute.getPrefill(backStackEntry)
+    LaunchedEffect(prefill) { viewModel.prefill(prefill) }
 
     BrakeCertificateScreen(
         state = state,

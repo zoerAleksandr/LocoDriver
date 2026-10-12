@@ -60,8 +60,8 @@ interface Router {
     fun showStatistics()
 
     /**
-     * Инструмент «Справка ВУ-45» (расчёт обеспеченности поезда тормозами). [weight]/[axles] — предзаполнение
-     * из поезда текущего маршрута (строки как в `Train`). По умолчанию no-op для платформ без этого экрана.
+     * Инструмент «Справка ВУ-45» (расчёт обеспеченности поезда тормозами). [prefill] — предзаполнение из поезда и
+     * локомотива маршрута (строки как в `Train`/`Locomotive`). По умолчанию no-op для платформ без этого экрана.
      */
-    fun showBrakeCertificate(weight: String? = null, axles: String? = null) {}
+    fun showBrakeCertificate(prefill: com.z_company.domain.brake.BrakePrefill? = null) {}
 }

@@ -183,6 +183,7 @@ fun FormTrainScreen(
     onUpdateServicePhase: (ServicePhase) -> Unit = {},
     onDeleteServicePhase: (ServicePhase) -> Unit = {},
     dateAndTimeConverter: DateAndTimeConverter?,
+    onBrakeCertificateClick: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -2207,6 +2208,7 @@ fun FormTrainScreen(
                 },
                 onAddStationClick = { askLocation { viewModel.startAddingNewStation() } },
                 onMapClick = { showTrainMap = true },
+                onBrakeCertificateClick = onBrakeCertificateClick,
             )
             }
         }
@@ -2234,10 +2236,11 @@ private fun TrainBottomAppBar(
     onAssistsClick: () -> Unit,
     onAddStationClick: () -> Unit,
     onMapClick: () -> Unit,
+    onBrakeCertificateClick: () -> Unit,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-        // Четыре равных по ширине слота (weight 1): центры кнопок равноудалены (шаг = ширина/4),
+        // Пять равных по ширине слотов (weight 1): центры кнопок равноудалены (шаг = ширина/4),
         // большая «+» (самая правая) не нарушает шаг, т.к. центрируется в своём слоте.
         Row(
             modifier = Modifier
@@ -2273,6 +2276,15 @@ private fun TrainBottomAppBar(
                     active = false,
                     colored = true,
                     onClick = onMapClick,
+                )
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                TrainBottomIconButton(
+                    modifier = Modifier.width(48.dp),
+                    iconRes = com.z_company.route.R.drawable.ic_card_brake,
+                    contentDescription = "Справка ВУ-45",
+                    active = false,
+                    onClick = onBrakeCertificateClick,
                 )
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {

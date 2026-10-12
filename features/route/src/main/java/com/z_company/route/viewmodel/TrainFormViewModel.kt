@@ -255,6 +255,19 @@ class TrainFormViewModel(
 
     }
 
+    /** Данные поезда формы и последнего локомотива маршрута для предзаполнения справки ВУ-45. */
+    fun brakePrefill(): com.z_company.domain.brake.BrakePrefill {
+        val train = currentTrain
+        val loco = route.locomotives.lastOrNull()
+        return com.z_company.domain.brake.BrakePrefill(
+            weight = train?.weight,
+            axles = train?.axle,
+            trainNumber = train?.number,
+            locoSeries = loco?.series,
+            locoNumber = loco?.number,
+        )
+    }
+
     private fun changesHave() {
         if (!_uiState.value.changesHaveState) {
             _uiState.update {

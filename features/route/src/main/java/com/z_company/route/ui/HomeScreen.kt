@@ -242,7 +242,7 @@ fun HomeScreen(
     /** Из карты поезда (открыта прямо с Главного): открыть настройки согласия на сохранение треков. */
     onConsentSettings: () -> Unit = {},
     onStatistics: () -> Unit = {},
-    onBrakeCertificate: (weight: String?, axles: String?) -> Unit = { _, _ -> },
+    onBrakeCertificate: (com.z_company.domain.brake.BrakePrefill?) -> Unit = {},
     normaHours: Int? = null,
     unsyncedRoutesCount: Int = 0,
     hasActiveSubscription: Boolean = false,
@@ -1687,7 +1687,16 @@ fun HomeScreen(
                                     onClick = {
                                         val train = com.z_company.domain.autorecord.TrainOrdering
                                             .pickHomeMapTarget(currentRoute?.trains)
-                                        onBrakeCertificate(train?.weight, train?.axle)
+                                        val loco = currentRoute?.locomotives?.lastOrNull()
+                                        onBrakeCertificate(
+                                            com.z_company.domain.brake.BrakePrefill(
+                                                weight = train?.weight,
+                                                axles = train?.axle,
+                                                trainNumber = train?.number,
+                                                locoSeries = loco?.series,
+                                                locoNumber = loco?.number,
+                                            ),
+                                        )
                                     }
                                 )
                             }

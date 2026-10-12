@@ -197,33 +197,35 @@ object DataPrivacyRoute: AppRoutes("DataPrivacyRoute")
 object TrackHistoryRoute: AppRoutes("TrackHistoryRoute")
 object StatisticsRoute: AppRoutes("StatisticsRoute")
 object BrakeCertificateRoute: AppRoutes("BrakeCertificateRoute") {
-    private const val paramWeight = "weight"
-    private const val paramAxles = "axles"
-    override val route: String = "$basicRoute?$paramWeight={$paramWeight}&$paramAxles={$paramAxles}"
-    val navArguments = listOf(
-        navArgument(paramWeight) {
+    private val params = listOf("weight", "axles", "train", "locoSeries", "locoNumber")
+    override val route: String = "$basicRoute?" + params.joinToString("&") { "$it={$it}" }
+    val navArguments = params.map { name ->
+        navArgument(name) {
             type = NavType.StringType
             nullable = true
             defaultValue = null
-        },
-        navArgument(paramAxles) {
-            type = NavType.StringType
-            nullable = true
-            defaultValue = null
-        },
-    )
-
-    fun getWeight(backStackEntry: NavBackStackEntry): String? =
-        backStackEntry.arguments?.getString(paramWeight)
-
-    fun getAxles(backStackEntry: NavBackStackEntry): String? =
-        backStackEntry.arguments?.getString(paramAxles)
-
-    fun buildRoute(weight: String?, axles: String?): String {
-        val parts = buildList {
-            weight?.takeIf { it.isNotBlank() }?.let { add("$paramWeight=${android.net.Uri.encode(it)}") }
-            axles?.takeIf { it.isNotBlank() }?.let { add("$paramAxles=${android.net.Uri.encode(it)}") }
         }
+    }
+
+    fun getPrefill(backStackEntry: NavBackStackEntry): com.z_company.domain.brake.BrakePrefill? {
+        val a = backStackEntry.arguments ?: return null
+        val p = com.z_company.domain.brake.BrakePrefill(
+            weight = a.getString("weight"),
+            axles = a.getString("axles"),
+            trainNumber = a.getString("train"),
+            locoSeries = a.getString("locoSeries"),
+            locoNumber = a.getString("locoNumber"),
+        )
+        return if (listOf(p.weight, p.axles, p.trainNumber, p.locoSeries, p.locoNumber).all { it.isNullOrBlank() }) null else p
+    }
+
+    fun buildRoute(p: com.z_company.domain.brake.BrakePrefill?): String {
+        if (p == null) return basicRoute
+        val pairs = listOf(
+            "weight" to p.weight, "axles" to p.axles, "train" to p.trainNumber,
+            "locoSeries" to p.locoSeries, "locoNumber" to p.locoNumber,
+        )
+        val parts = pairs.mapNotNull { (k, v) -> v?.takeIf { it.isNotBlank() }?.let { "$k=${android.net.Uri.encode(it)}" } }
         return if (parts.isEmpty()) basicRoute else "$basicRoute?${parts.joinToString("&")}"
     }
 }
