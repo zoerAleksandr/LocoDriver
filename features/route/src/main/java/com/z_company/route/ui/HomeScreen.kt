@@ -86,6 +86,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
+import com.z_company.route.util.locomotivesInOrder
+import com.z_company.route.util.trainsInOrder
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -771,12 +773,12 @@ fun HomeScreen(
                         }
                     }
                     when (unitsSheetType) {
-                        "loco" -> route.locomotives.forEachIndexed { index, loco ->
+                        "loco" -> route.locomotivesInOrder().forEachIndexed { index, loco ->
                             UnitSheetRow(R.drawable.ic_card_locomotive_ref, locomotiveName(loco, index + 1)) {
                                 unitsSheetType = null; onChangedLocoClick(loco)
                             }
                         }
-                        "train" -> route.trains.forEach { train ->
+                        "train" -> route.trainsInOrder().forEach { train ->
                             val first = train.stations.firstOrNull()?.stationName
                             val last = if (train.stations.size > 1) train.stations.last().stationName else null
                             UnitSheetRow(R.drawable.ic_card_train_ref, routeUnitFullName(train.number, train.servicePhase, first, last)) {
@@ -1876,10 +1878,10 @@ private fun RouteUnitTile(
             count = route.locomotives.size,
             iconRes = R.drawable.ic_card_locomotive_ref,
             label = "ЛОКОМОТИВ",
-            title = route.locomotives.lastOrNull()?.let { locomotiveName(it, route.locomotives.size) },
+            title = route.locomotivesInOrder().lastOrNull()?.let { locomotiveName(it, route.locomotives.size) },
             onClick = {
                 when {
-                    route.locomotives.size > 1 && alwaysOpenLast -> onChangedLoco(route.locomotives.last())
+                    route.locomotives.size > 1 && alwaysOpenLast -> onChangedLoco(route.locomotivesInOrder().last())
                     route.locomotives.size > 1 -> onOpenSheet("loco")
                     route.locomotives.size == 1 -> onChangedLoco(route.locomotives.first())
                     else -> onNewLoco(route.basicData.id)
@@ -1889,7 +1891,7 @@ private fun RouteUnitTile(
             onStackClick = if (alwaysOpenLast) ({ onOpenSheet("loco") }) else null,
         )
         "train" -> {
-            val train = route.trains.lastOrNull()
+            val train = route.trainsInOrder().lastOrNull()
             val first = train?.stations?.firstOrNull()?.stationName
             val last = if ((train?.stations?.size ?: 0) > 1) train?.stations?.last()?.stationName else null
             StackedTile(
@@ -1902,7 +1904,7 @@ private fun RouteUnitTile(
                 subtitle = train?.let { routeUnitSubtitle(it.number, it.servicePhase, first, last) },
                 onClick = {
                     when {
-                        route.trains.size > 1 && alwaysOpenLast -> onChangedTrain(route.trains.last())
+                        route.trains.size > 1 && alwaysOpenLast -> onChangedTrain(route.trainsInOrder().last())
                         route.trains.size > 1 -> onOpenSheet("train")
                         route.trains.size == 1 -> onChangedTrain(route.trains.first())
                         else -> onNewTrain(route.basicData.id)
