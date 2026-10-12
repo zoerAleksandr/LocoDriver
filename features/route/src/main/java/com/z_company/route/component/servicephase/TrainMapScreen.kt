@@ -59,6 +59,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.z_company.core.gps.GpsRecorder
 import com.z_company.route.component.NetworkRequired
+import com.z_company.route.component.coachAnchor
 import com.z_company.route.component.rememberIsOnline
 import com.z_company.route.component.rememberNetworkGate
 import com.z_company.domain.track.HeadingEstimator
@@ -230,6 +231,20 @@ internal fun TrainMapScreen(
         var permGranted by remember { mutableStateOf(DeviceLocation.hasPermission(context)) }
         var selection by remember { mutableStateOf<TrainMapSelection?>(null) }
         var showChart by rememberSaveable { mutableStateOf(false) }
+        // Метки первого открытия карты + кнопка «?» для повтора (ONBOARDING_MATERIALS §2): один раз, не во время записи.
+        val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+        var mapHintsOpen by rememberSaveable { mutableStateOf(false) }
+        val positionIconAnchor = com.z_company.route.component.rememberCoachAnchor()
+        val helpAnchor = com.z_company.route.component.rememberCoachAnchor()
+        LaunchedEffect(Unit) {
+            if (!viewOnly && com.z_company.domain.onboarding.OnboardingHints.canShow(
+                    id = com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN,
+                    shown = onboardingHints.shown,
+                    homeReached = onboardingHints.homeReached,
+                    recording = autoRecording,
+                )
+            ) mapHintsOpen = true
+        }
         // «Зоны без GPS» (§6.9): личный переключатель, зоны считаются по локальным трекам.
         val trackRepo: com.z_company.domain.track.TrackRepository = org.koin.compose.koinInject()
         var gnssOn by remember { mutableStateOf(GnssDeadZonePrefs.enabled(context)) }
@@ -1282,6 +1297,13 @@ internal fun TrainMapScreen(
                         )
                     }
                 }
+                if (!viewOnly) {
+                    Box(Modifier.coachAnchor(helpAnchor)) {
+                        MapButton(onClick = { mapHintsOpen = true }, description = "Подсказки") {
+                            Text("?", style = Pst.sans.copy(fontSize = 20.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                        }
+                    }
+                }
             }
 
 
@@ -1534,8 +1556,10 @@ internal fun TrainMapScreen(
                             },
                         contentAlignment = Alignment.Center,
                     ) { PstIcon(PstIcons.Navigate, 22.dp, if (ride) androidx.compose.ui.graphics.Color.White else Pst.text) }
-                    MapButton(onClick = { showIconPicker = !showIconPicker }, description = "Значок положения") {
-                        PositionIconTile(positionIcon, 36.dp)
+                    Box(Modifier.coachAnchor(positionIconAnchor)) {
+                        MapButton(onClick = { showIconPicker = !showIconPicker }, description = "Значок положения") {
+                            PositionIconTile(positionIcon, 36.dp)
+                        }
                     }
                     MapButton(onClick = { follow = true; requestOrShowLocation(center = true) }, description = "Моё местоположение") {
                         Box(Modifier.size(14.dp).border(2.dp, Pst.accent, CircleShape), contentAlignment = Alignment.Center) {
@@ -1543,6 +1567,18 @@ internal fun TrainMapScreen(
                         }
                     }
                 }
+            }
+
+            if (mapHintsOpen && !viewOnly) {
+                BackHandler { mapHintsOpen = false; onboardingHints.markShown(com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN) }
+                MapHintsOverlay(
+                    positionAnchor = positionIconAnchor,
+                    helpAnchor = helpAnchor,
+                    onDismiss = {
+                        mapHintsOpen = false
+                        onboardingHints.markShown(com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN)
+                    },
+                )
             }
 
             if (showIconPicker && !viewOnly) {

@@ -41,7 +41,9 @@ internal fun HomeTrainMap(trainId: String, basicId: String, onConsentSettings: (
 
     val autoRecordManager: AutoRecordManager = koinInject()
     val autoRecordState = com.z_company.route.autorecord.rememberAutoStateFor(autoRecordManager, viewModel.currentTrain?.trainId)
-    val onAutoToggle = rememberAutoRecordToggle(autoRecordManager, viewModel.currentTrain?.trainId)
+    val onAutoToggle = rememberAutoRecordToggle(
+        autoRecordManager, viewModel.currentTrain?.trainId, onOpenPrivacy = { onDismiss(); onConsentSettings() },
+    )
     val railVm: ServicePhaseAutoFillViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     TrainMapScreen(
         missingStation = { viewModel.trainMapMissingStation() },

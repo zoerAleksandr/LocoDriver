@@ -206,6 +206,7 @@ class AutoRecordManager(
         // Целевой поезд: из кнопки на экране «Поезд»; без контекста — фиксируется асинхронно ниже.
         prefs.edit().putLong(KEY_UNTIL, until).putLong(KEY_BEAT, nowMs())
             .putBoolean(KEY_INTERRUPTED, false)
+            .putLong(KEY_LAST_ENABLED, nowMs()) // для мягкого напоминания про «АВТО»: пользователь режим уже пробовал
             .apply { if (trainId != null) putString(KEY_TARGET, trainId) else remove(KEY_TARGET) }
             .apply()
         _target.value = trainId
@@ -807,6 +808,7 @@ class AutoRecordManager(
         private const val KEY_TZ = "display_tz"
         private const val KEY_NO_ROUTE_AT = "no_route_notified_ms"
         const val KEY_BATTERY_ASKED = "battery_asked"
+        private const val KEY_LAST_ENABLED = "last_enabled_ms"
         private const val STALE_MS = 10 * 60_000L
         private const val BEAT_WRITE_MS = 20_000L
         private const val NO_ROUTE_REPEAT_MS = 30 * 60_000L
@@ -817,6 +819,10 @@ class AutoRecordManager(
         private const val INTERRUPTED_ID = 7404
         private const val NO_CONSENT_ID = 7405
         private const val GPS_LOST_ID = 7406
+
+        /** Когда «АВТО» включали в последний раз (0 - никогда): мягкое напоминание про «АВТО» (docs/ONBOARDING_MATERIALS.md §4). */
+        fun lastEnabledMs(context: Context): Long =
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getLong(KEY_LAST_ENABLED, 0L)
 
         /** Для виджетов: момент автовыключения или 0, если АВТО выключено. */
         fun savedUntil(context: Context, now: Long = System.currentTimeMillis()): Long =

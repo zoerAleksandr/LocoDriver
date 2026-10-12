@@ -297,6 +297,16 @@ class StartApp : Application() {
             WorkManager.getInstance(this).cancelUniqueWork("recovery_snapshot_upload_now")
             WorkManager.getInstance(this).cancelUniqueWork("recovery_snapshot_upload_periodic")
         }
+        // Мягкое напоминание про «АВТО»: раз в сутки проверяет правило (не чаще раза в 30 дней, ONBOARDING_MATERIALS §4).
+        WorkManager.getInstance(this)
+            .enqueueUniquePeriodicWork(
+                com.z_company.loco_driver.widget.AutoHintReminderWorker.UNIQUE_NAME,
+                ExistingPeriodicWorkPolicy.KEEP,
+                PeriodicWorkRequestBuilder<com.z_company.loco_driver.widget.AutoHintReminderWorker>(
+                    repeatInterval = 1,
+                    repeatIntervalTimeUnit = TimeUnit.DAYS,
+                ).build(),
+            )
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
                 "sync_work",

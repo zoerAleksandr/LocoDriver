@@ -270,6 +270,10 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
+    // Подсказки на месте включаются только после того, как пользователь увидел «Главную» (ONBOARDING_MATERIALS §2).
+    val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+    LaunchedEffect(Unit) { onboardingHints.markHomeReached() }
+
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
@@ -444,6 +448,7 @@ fun HomeScreen(
         val bareToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(
             bareAutoManager,
             resolveTarget = { bareAutoManager.resolveRecordTarget(null) },
+            onOpenPrivacy = onConsentSettings,
         )
         TrainMapScreen(
             missingStation = { null },
@@ -1226,7 +1231,7 @@ fun HomeScreen(
                                 val autoState by autoManager.state.collectAsState()
                                 com.z_company.route.autorecord.AutoRecordChip(
                                     state = autoState,
-                                    onToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoManager),
+                                    onToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoManager, onOpenPrivacy = onConsentSettings),
                                 )
                             }
                             LazyRow(

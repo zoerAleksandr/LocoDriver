@@ -57,6 +57,7 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.repository.remote_rest.RegistrationState
 import com.z_company.route.viewmodel.ProfileViewModel
 import com.z_company.route.component.PullToSyncContainer
+import com.z_company.route.component.coachAnchor
 import com.z_company.core.util.isEmailValid
 import com.z_company.core.util.isVpnActive
 import com.z_company.core.util.vpnAwareErrorMessage
@@ -214,6 +215,9 @@ fun ProfileScreen(
     onPullSyncMessageShown: () -> Unit = {},
 ) {
     var showReferrals by rememberSaveable { mutableStateOf(false) }
+    // Подсказка на строку «Пригласить друга» (ONBOARDING_MATERIALS §2): один раз; строка есть только в авторизованном профиле.
+    val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+    val referralAnchor = com.z_company.route.component.rememberCoachAnchor()
     var showTrash by rememberSaveable { mutableStateOf(false) }
     // Рефералы и Корзина открываются поверх хаба Профиля — глубже основного экрана, меню скрыто (SCREEN_SPECS §3.1).
     com.z_company.route.navigation.HideBottomMenu(hide = showReferrals || showTrash)
@@ -1274,12 +1278,35 @@ fun ProfileScreen(
                                     )
                                 }
                                 Spacer(Modifier.height(10.dp))
+                                DisposableEffect(Unit) { onDispose { referralAnchor.bounds = null } }
+                                val autoManager: com.z_company.route.autorecord.AutoRecordManager = org.koin.compose.koinInject()
+                                val autoOn by autoManager.state.collectAsState()
+                                if (com.z_company.domain.onboarding.OnboardingHints.canShow(
+                                        id = com.z_company.domain.onboarding.HintId.PROFILE_REFERRAL,
+                                        shown = onboardingHints.shown,
+                                        homeReached = onboardingHints.homeReached,
+                                        recording = autoOn.enabled,
+                                        blocked = showReferrals || showTrash,
+                                        authorized = true,
+                                    )
+                                ) {
+                                    com.z_company.route.component.CoachMarkPopup(
+                                        anchor = referralAnchor.bounds,
+                                        text = com.z_company.domain.onboarding.OnboardingHints.TEXT_PROFILE_REFERRAL,
+                                        onDismiss = { onboardingHints.markShown(com.z_company.domain.onboarding.HintId.PROFILE_REFERRAL) },
+                                        tag = "coach_profile_referral",
+                                    )
+                                }
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .coachAnchor(referralAnchor)
                                         .shadow(1.dp, Shapes.medium)
                                         .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-                                        .clickable { showReferrals = true }
+                                        .clickable {
+                                            onboardingHints.markShown(com.z_company.domain.onboarding.HintId.PROFILE_REFERRAL)
+                                            showReferrals = true
+                                        }
                                         .padding(horizontal = 16.dp, vertical = 14.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(14.dp),

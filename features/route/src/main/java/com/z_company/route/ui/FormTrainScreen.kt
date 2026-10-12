@@ -81,6 +81,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import com.z_company.route.autorecord.AutoRecordChip
+import com.z_company.route.component.coachAnchor
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -285,7 +286,19 @@ fun FormTrainScreen(
         // Кнопка «АВТО» (SCREEN_SPECS §6.2 п.6а)
         val autoRecordManager: com.z_company.route.autorecord.AutoRecordManager = org.koin.compose.koinInject()
         val autoRecordState = com.z_company.route.autorecord.rememberAutoStateFor(autoRecordManager, currentTrain?.trainId)
-        val onAutoToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoRecordManager, currentTrain?.trainId)
+        val onAutoToggleRaw = com.z_company.route.autorecord.rememberAutoRecordToggle(
+            autoRecordManager, currentTrain?.trainId, onOpenPrivacy = onConsentSettings,
+        )
+
+        // Подсказки на месте (ONBOARDING_MATERIALS §2): «Карта», затем «АВТО»; один раз, не во время записи.
+        val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+        val globalAutoState by autoRecordManager.state.collectAsState()
+        val mapAnchor = com.z_company.route.component.rememberCoachAnchor()
+        val autoAnchor = com.z_company.route.component.rememberCoachAnchor()
+        val onAutoToggle: () -> Unit = {
+            onboardingHints.markShown(com.z_company.domain.onboarding.HintId.AUTO_CHIP)
+            onAutoToggleRaw()
+        }
 
         // Геолокация для подстановки ближайшей станции: спрашиваем один раз, при первом GO /
         // «добавить станцию».
@@ -1834,10 +1847,12 @@ fun FormTrainScreen(
                                     horizontalArrangement = Arrangement.Start,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    DisposableEffect(Unit) { onDispose { autoAnchor.bounds = null } }
                                     AutoRecordChip(
                                         state = autoRecordState,
                                         onToggle = onAutoToggle,
                                         goHeight = true,
+                                        modifier = Modifier.coachAnchor(autoAnchor),
                                     )
                                 }
 
@@ -2206,8 +2221,37 @@ fun FormTrainScreen(
                     showSettingsSheet = true
                 },
                 onAddStationClick = { askLocation { viewModel.startAddingNewStation() } },
-                onMapClick = { showTrainMap = true },
+                onMapClick = {
+                    onboardingHints.markShown(com.z_company.domain.onboarding.HintId.TRAIN_MAP)
+                    showTrainMap = true
+                },
+                mapAnchor = mapAnchor,
             )
+            }
+
+            val hintBlocked = showTrainMap || showSettingsSheet || showSelectServicePhase || showEditPhaseSheet ||
+                showTrainDataHistory || formUiState.editingStationIndex != null ||
+                formUiState.editingSegmentAfterIndex != null || formUiState.showCreateServicePhaseSheet
+            val trainHint = com.z_company.domain.onboarding.OnboardingHints.nextOnTrainScreen(
+                shown = onboardingHints.shown,
+                homeReached = onboardingHints.homeReached,
+                recording = globalAutoState.enabled,
+                blocked = hintBlocked,
+            )
+            when (trainHint) {
+                com.z_company.domain.onboarding.HintId.TRAIN_MAP -> com.z_company.route.component.CoachMarkPopup(
+                    anchor = mapAnchor.bounds,
+                    text = com.z_company.domain.onboarding.OnboardingHints.TEXT_TRAIN_MAP,
+                    onDismiss = { onboardingHints.markShown(trainHint) },
+                    tag = "coach_train_map",
+                )
+                com.z_company.domain.onboarding.HintId.AUTO_CHIP -> com.z_company.route.component.CoachMarkPopup(
+                    anchor = autoAnchor.bounds,
+                    text = com.z_company.domain.onboarding.OnboardingHints.TEXT_AUTO_CHIP,
+                    onDismiss = { onboardingHints.markShown(trainHint) },
+                    tag = "coach_auto_chip",
+                )
+                else -> Unit
             }
         }
     }
@@ -2234,6 +2278,7 @@ private fun TrainBottomAppBar(
     onAssistsClick: () -> Unit,
     onAddStationClick: () -> Unit,
     onMapClick: () -> Unit,
+    mapAnchor: com.z_company.route.component.CoachAnchor? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
@@ -2267,7 +2312,7 @@ private fun TrainBottomAppBar(
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 TrainBottomIconButton(
-                    modifier = Modifier.width(48.dp),
+                    modifier = Modifier.width(48.dp).let { m -> if (mapAnchor != null) m.coachAnchor(mapAnchor) else m },
                     iconRes = com.z_company.route.R.drawable.ic_train_map_color_24,
                     contentDescription = "Карта",
                     active = false,
