@@ -85,6 +85,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -470,6 +472,16 @@ fun HomeScreen(
     // Тип шторки со списком единиц текущего маршрута (loco/train/passenger), null — скрыта
     var unitsSheetType by remember { mutableStateOf<String?>(null) }
     val unitsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // «Всегда открывать последний» по типу плитки (loco/train/passenger): тап по плитке сразу
+    // открывает последний элемент, список — по бейджу-счётчику.
+    val unitsPrefs = LocalContext.current.getSharedPreferences("home_units_prefs", android.content.Context.MODE_PRIVATE)
+    val alwaysOpenLastUnit = remember {
+        mutableStateMapOf(
+            "loco" to unitsPrefs.getBoolean("always_open_last_loco", false),
+            "train" to unitsPrefs.getBoolean("always_open_last_train", false),
+            "passenger" to unitsPrefs.getBoolean("always_open_last_passenger", false),
+        )
+    }
 
     // ItemState (а не только Route) — чтобы в быстром просмотре показать доплатные
     // признаки, вычисленные на уровне списка.
@@ -724,8 +736,40 @@ fun HomeScreen(
                         text = titleText,
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 4.dp, bottom = 12.dp),
+                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
                     )
+                    unitsSheetType?.let { sheetType ->
+                        val checked = alwaysOpenLastUnit[sheetType] == true
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                                .clickable {
+                                    alwaysOpenLastUnit[sheetType] = !checked
+                                    unitsPrefs.edit().putBoolean("always_open_last_$sheetType", !checked).apply()
+                                }
+                                .padding(bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.material3.Checkbox(
+                                checked = checked,
+                                onCheckedChange = null,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            )
+                            Column {
+                                Text(
+                                    text = "Всегда открывать последний",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    text = "Список — по счётчику на плитке",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
                     when (unitsSheetType) {
                         "loco" -> route.locomotives.forEachIndexed { index, loco ->
                             UnitSheetRow(R.drawable.ic_card_locomotive_ref, locomotiveName(loco, index + 1)) {
@@ -1332,6 +1376,7 @@ fun HomeScreen(
                                                 onNewTrain = onNewTrainClick,
                                                 onChangedPassenger = onChangedPassengerClick,
                                                 onNewPassenger = onNewPassengerClick,
+                                                alwaysOpenLast = alwaysOpenLastUnit[type] == true,
                                             )
                                         }
                                     }
@@ -1822,6 +1867,7 @@ private fun RouteUnitTile(
     onNewTrain: (String) -> Unit,
     onChangedPassenger: (Passenger) -> Unit,
     onNewPassenger: (String) -> Unit,
+    alwaysOpenLast: Boolean = false,
 ) {
     when (type) {
         "loco" -> StackedTile(
@@ -1833,12 +1879,14 @@ private fun RouteUnitTile(
             title = route.locomotives.lastOrNull()?.let { locomotiveName(it, route.locomotives.size) },
             onClick = {
                 when {
+                    route.locomotives.size > 1 && alwaysOpenLast -> onChangedLoco(route.locomotives.last())
                     route.locomotives.size > 1 -> onOpenSheet("loco")
                     route.locomotives.size == 1 -> onChangedLoco(route.locomotives.first())
                     else -> onNewLoco(route.basicData.id)
                 }
             },
             onAddClick = { onNewLoco(route.basicData.id) },
+            onStackClick = if (alwaysOpenLast) ({ onOpenSheet("loco") }) else null,
         )
         "train" -> {
             val train = route.trains.lastOrNull()
@@ -1854,12 +1902,14 @@ private fun RouteUnitTile(
                 subtitle = train?.let { routeUnitSubtitle(it.number, it.servicePhase, first, last) },
                 onClick = {
                     when {
+                        route.trains.size > 1 && alwaysOpenLast -> onChangedTrain(route.trains.last())
                         route.trains.size > 1 -> onOpenSheet("train")
                         route.trains.size == 1 -> onChangedTrain(route.trains.first())
                         else -> onNewTrain(route.basicData.id)
                     }
                 },
                 onAddClick = { onNewTrain(route.basicData.id) },
+                onStackClick = if (alwaysOpenLast) ({ onOpenSheet("train") }) else null,
             )
         }
         else -> {
@@ -1874,12 +1924,14 @@ private fun RouteUnitTile(
                 subtitle = p?.let { routeUnitSubtitle(it.trainNumber, null, it.stationDeparture, it.stationArrival) },
                 onClick = {
                     when {
+                        route.passengers.size > 1 && alwaysOpenLast -> onChangedPassenger(route.passengers.last())
                         route.passengers.size > 1 -> onOpenSheet("passenger")
                         route.passengers.size == 1 -> onChangedPassenger(route.passengers.first())
                         else -> onNewPassenger(route.basicData.id)
                     }
                 },
                 onAddClick = { onNewPassenger(route.basicData.id) },
+                onStackClick = if (alwaysOpenLast) ({ onOpenSheet("passenger") }) else null,
             )
         }
     }
@@ -2029,6 +2081,9 @@ private fun StackedTile(
     subtitle: String? = null,
     onClick: () -> Unit,
     onAddClick: () -> Unit,
+    // Клик по бейджу-счётчику стопки (когда основной клик открывает последний элемент напрямую —
+    // бейдж остаётся способом открыть список).
+    onStackClick: (() -> Unit)? = null,
 ) {
     val tileSize = 150.dp
     val stackOffset = 6.dp
@@ -2052,7 +2107,12 @@ private fun StackedTile(
                 }
                 if (hasStack) {
                     Badge(
-                        modifier = Modifier.align(Alignment.TopEnd),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .then(
+                                if (onStackClick != null) Modifier.clickable(enabled = enabled) { onStackClick() }
+                                else Modifier
+                            ),
                         containerColor = c.tertiary,
                         contentColor = c.surface,
                     ) { Text("$count") }

@@ -642,6 +642,8 @@ private fun StationRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 val subtitle = when {
+                    item.isPassingStation && !item.trackNumber.isNullOrBlank() ->
+                        "проходная · путь ${item.trackNumber}"
                     item.isPassingStation -> "проходная"
                     !item.trackNumber.isNullOrBlank() -> "путь ${item.trackNumber}"
                     else -> null

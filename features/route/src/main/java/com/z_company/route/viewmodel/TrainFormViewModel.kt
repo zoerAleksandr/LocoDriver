@@ -238,7 +238,13 @@ class TrainFormViewModel(
                                 )
                             }
                             com.z_company.core.ui.perf.ScreenPerf.section("train.settingsLists") {
-                                stationNameList.addAllOrSkip(settings.stationList)
+                                // Подсказки станций: настройки + справочник станций.
+                                stationNameList.addAllOrSkip(
+                                    com.z_company.route.util.mergeStationSuggestions(
+                                        settings.stationList,
+                                        stationDirectory.stations().map { it.name },
+                                    )
+                                )
                                 mutableStationList.addAllOrSkip(stationNameList)
                                 locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList)
                                 mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
@@ -1642,7 +1648,7 @@ class TrainFormViewModel(
             val newStationList =
                 sortSuggestions(
                     stationNameList
-                        .filter { it.startsWith(prefix = value, ignoreCase = true) }
+                        .filter { com.z_company.route.util.stationNameMatches(it, value) }
                         .filterNot { it == value }
                         .distinct()
                 ).toMutableStateList()

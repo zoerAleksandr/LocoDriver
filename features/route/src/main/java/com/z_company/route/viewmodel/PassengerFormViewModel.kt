@@ -46,6 +46,7 @@ class PassengerFormViewModel(
     private val passengerUseCase: PassengerUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
+    private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
 
     private val routeBasicId: String = basicId
 
@@ -105,7 +106,10 @@ class PassengerFormViewModel(
             ) { settingState, routeState ->
                 if (settingState is ResultState.Success) {
                     settingState.data?.let { settings ->
-                        initStationList = settings.stationList.toMutableStateList()
+                        initStationList = com.z_company.route.util.mergeStationSuggestions(
+                            settings.stationList,
+                            stationDirectory.stations().map { it.name },
+                        ).toMutableList()
                     }
                 }
 
@@ -526,7 +530,7 @@ class PassengerFormViewModel(
             currentStationList.clear()
             val newStationList =
                 initStationList
-                    .filter { it.startsWith(prefix = value, ignoreCase = true) }
+                    .filter { com.z_company.route.util.stationNameMatches(it, value) }
                     .filterNot { it == value }
                     .toMutableStateList()
             newStationList.forEach { st ->
@@ -544,7 +548,7 @@ class PassengerFormViewModel(
             currentStationList.clear()
             val newStationList =
                 initStationList
-                    .filter { it.startsWith(prefix = value, ignoreCase = true) }
+                    .filter { com.z_company.route.util.stationNameMatches(it, value) }
                     .filterNot { it == value }
                     .toMutableStateList()
             newStationList.forEach { st ->
