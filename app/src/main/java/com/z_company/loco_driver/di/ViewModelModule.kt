@@ -52,7 +52,10 @@ val viewModelModule = module {
     viewModel { PurchasesViewModel() }
     viewModel { SubscriptionNoticesViewModel() }
     viewModel { PullToSyncViewModel() }
-    single(createdAtStart = true) { SalaryCalculationViewModel() }
+    // Раньше createdAtStart = true: init (и всё дерево зависимостей: БД, репозитории)
+    // выполнялся прямо в startKoin на главном потоке до первого кадра. Теперь создаётся
+    // в фоне сразу после старта (см. StartApp.warmUpSingletons).
+    single { SalaryCalculationViewModel() }
     viewModel { SettingSalaryViewModel() }
     viewModel { AllRouteViewModel(androidApplication()) }
     viewModel { ProfileViewModel() }

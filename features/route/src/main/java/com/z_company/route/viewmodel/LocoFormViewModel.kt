@@ -115,7 +115,7 @@ class LocoFormViewModel(
                 val known = seriesList.value.map { it.trim().lowercase() }.toSet()
                 val missing = names.filter { it.lowercase() !in known }.distinct()
                 if (missing.isNotEmpty()) {
-                    _seriesList.update { list -> list.addAllOrSkip(missing.toMutableStateList()); list }
+                    _seriesList.update { list -> list.addAllOrSkip(missing); list }
                     settingsUseCase.setLocomotiveSeriesList(missing)
                 }
                 val expected = seriesList.value
@@ -160,10 +160,10 @@ class LocoFormViewModel(
                     )
                 }
                 _seriesList.update { list ->
-                    list.addAllOrSkip(sett.locomotiveSeriesList.toMutableStateList())
+                    list.addAllOrSkip(sett.locomotiveSeriesList)
                     list
                 }
-                mutableSeriesList.addAllOrSkip(sett.locomotiveSeriesList.toMutableStateList())
+                mutableSeriesList.addAllOrSkip(sett.locomotiveSeriesList)
                 timeZoneText = "GMT+${sett.timeZone}"
             }.join()
             // Load route start/end work times for the time sheet

@@ -62,6 +62,8 @@ android {
         // Адрес бэкенда. Пустая строка — прод-адрес, зашитый в RemoteRestClient.
         // Подменяется только в debug (см. buildTypes ниже).
         buildConfigField(type = "String", name = "API_BASE_URL", value = "\"\"")
+        // Только debug может включить (см. buildTypes.debug); в остальных сборках всегда false.
+        buildConfigField(type = "boolean", name = "HEAVY_DEBUG_TOOLS", value = "false")
     }
     sourceSets.getByName("androidTest").assets.srcDir(
         project(":data_local").file("schemas")
@@ -76,6 +78,15 @@ android {
             val debugApiUrl: String =
                 properties.getProperty("DEBUG_API_URL") ?: ""
             buildConfigField(type = "String", name = "API_BASE_URL", value = "\"$debugApiUrl\"")
+            // Тяжёлые отладочные инструменты (LeakCanary: наблюдение за утечками и
+            // heap dump'ы, подробные логи MyTracker/VK ID) заметно тормозят бюджетные
+            // устройства, поэтому по умолчанию выключены. Включить:
+            //   ./gradlew :app:installDebug -PheavyDebugTools=true
+            val heavyDebugTools = project.findProperty("heavyDebugTools") == "true"
+            buildConfigField("boolean", "HEAVY_DEBUG_TOOLS", heavyDebugTools.toString())
+            // Переопределяют ресурсы LeakCanary (его ContentProvider ставится сам).
+            resValue("bool", "leak_canary_watcher_auto_install", heavyDebugTools.toString())
+            resValue("bool", "leak_canary_add_dynamic_shortcut", heavyDebugTools.toString())
         }
         release {
             isMinifyEnabled = true

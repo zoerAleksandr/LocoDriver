@@ -1,5 +1,7 @@
 package com.z_company.route.navigation
 
+import com.z_company.core.ui.perf.ScreenOpenTrace
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -16,7 +18,8 @@ fun FormTrainDestination(
     router: Router,
     backStackEntry: NavBackStackEntry
 ) {
-    val trainId = FormTrain.getTrainId(backStackEntry) ?: NULLABLE_ID
+    ScreenOpenTrace("form_train")
+    val trainId =FormTrain.getTrainId(backStackEntry) ?: NULLABLE_ID
     val basicId = FormTrain.getBasicId(backStackEntry) ?: NULLABLE_ID
 
     val viewModel = koinViewModel<TrainFormViewModel>(

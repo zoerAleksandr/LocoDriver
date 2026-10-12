@@ -28,6 +28,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -40,6 +43,9 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.Calendar
 import kotlin.String
+
+/** Пауза перед первым расчётом после старта приложения (см. [SalaryCalculationViewModel]). */
+private const val STARTUP_CALC_DELAY_MS = 1_500L
 
 internal fun shouldShowAverageHourInfo(
     underworkTime: Long,
@@ -61,6 +67,14 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
     val userSetting = _userSetting.asStateFlow()
     private var job: Job? = null
     private var setMonthJob: Job? = null
+
+    /**
+     * ~35 параллельных CPU-задач расчёта раньше шли на Dispatchers.IO (до 64 потоков) и
+     * забивали все ядра бюджетного телефона во время анимаций переходов. Ограничиваем двумя
+     * потоками Default: расчёт чуть дольше, но UI/RenderThread получают ядра.
+     */
+    private val calcDispatcher = Dispatchers.Default.limitedParallelism(2)
+    private var startupDelayPassed = false
 
     private val _uiState = MutableStateFlow(SalaryCalculationUIState())
     val uiState = _uiState.asStateFlow()
@@ -98,9 +112,18 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
                         // Соседи месяца — только для переотдыха на стыке месяцев.
                         routeUseCase.adjacentRoutesOfMonthFlow(userRes.selectMonthOfYear, context),
                     ) { routes, adjacent -> MonthRoutes(userRes, salaryRes, routes, adjacent) }
-                }.collectLatest { (userRes, salaryRes, routes, adjacent) ->
+                }.distinctUntilChanged().collectLatest { (userRes, salaryRes, routes, adjacent) ->
+                    if (!startupDelayPassed) {
+                        // Синглтон создаётся на старте приложения: первый полный расчёт
+                        // откладываем, чтобы он не конкурировал с первыми кадрами.
+                        delay(STARTUP_CALC_DELAY_MS)
+                        startupDelayPassed = true
+                    }
                     _uiState.update { it.copy(screenState = ResultState.Loading("Пересчет...")) }
-                    calculationSalary(userRes, salaryRes, routes, adjacent)
+                    // Подготовка расчёта (норма, годовая переработка, хелпер) — не на Main.
+                    withContext(calcDispatcher) {
+                        calculationSalary(userRes, salaryRes, routes, adjacent)
+                    }
                 }
             } catch (e: Exception) {
                 e.sendToSentry("SalaryCalculationViewModel", "init")
@@ -186,7 +209,7 @@ class SalaryCalculationViewModel : ViewModel(), KoinComponent {
             )
             job?.cancel()
             // Параллельный вызов методов с ожиданием завершения
-            job = CoroutineScope(Dispatchers.IO).launch {
+            job = CoroutineScope(calcDispatcher).launch {
                 // Список асинхронных задач, каждая возвращает PartialState
                 val tasks = listOf(
                     async { setHeaderData(currentMonthOfYear, salaryCalculationHelper, currency) },

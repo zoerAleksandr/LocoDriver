@@ -197,12 +197,14 @@ class TrainFormViewModel(
                                     passengerWagonLengthMeters = settings.passengerWagonLengthMeters,
                                 )
                             }
-                            stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
-                            mutableStationList.addAllOrSkip(stationNameList)
-                            locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList.toMutableStateList())
-                            mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
-                            servicePhaseList.clear()
-                            servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
+                            com.z_company.core.ui.perf.ScreenPerf.section("train.settingsLists") {
+                                stationNameList.addAllOrSkip(settings.stationList)
+                                mutableStationList.addAllOrSkip(stationNameList)
+                                locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList)
+                                mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
+                                servicePhaseList.clear()
+                                servicePhaseList.addAllOrSkip(settings.servicePhases)
+                            }
                         }
                     }
                 }
