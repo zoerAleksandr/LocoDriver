@@ -1,5 +1,7 @@
 package com.z_company.route.navigation
 
+import com.z_company.core.ui.perf.ScreenOpenTrace
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -16,6 +18,7 @@ import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 fun AllRouteScreenDestination(
     router: Router
 ) {
+    ScreenOpenTrace("all_routes")
     val viewModel: AllRouteViewModel = viewModel()
     val pullToSyncViewModel: PullToSyncViewModel = viewModel()
     val pullToSyncState by pullToSyncViewModel.uiState.collectAsState()

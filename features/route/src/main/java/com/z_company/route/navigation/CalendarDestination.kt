@@ -1,5 +1,7 @@
 package com.z_company.route.navigation
 
+import com.z_company.core.ui.perf.ScreenOpenTrace
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +22,7 @@ import com.z_company.route.viewmodel.PullToSyncViewModel
 fun CalendarDestination(
     router: Router,
 ) {
+    ScreenOpenTrace("calendar")
     val viewModel: CalendarViewModel = viewModel()
     val pullToSyncViewModel: PullToSyncViewModel = viewModel()
     val pullToSyncState by pullToSyncViewModel.uiState.collectAsState()

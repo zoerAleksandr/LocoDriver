@@ -203,7 +203,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
             }
             } // Box
         }
-        VKID.logsEnabled = true
+        VKID.logsEnabled = BuildConfig.HEAVY_DEBUG_TOOLS
     }
 
     private fun showMigrationRecovery(startApp: StartApp) {
