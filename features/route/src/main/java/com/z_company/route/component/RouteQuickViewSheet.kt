@@ -565,7 +565,7 @@ private fun QuickViewContent(
             val endWork = route.basicData.timeEndWork
             if (route.basicData.restPointOfTurnover) {
                 item {
-                    val station = route.trains.lastOrNull()?.stations?.lastOrNull()?.stationName
+                    val station = com.z_company.route.util.routeEndStation(route)
                     SectionHeader("Отдых в пункте оборота" + (station?.let { " · $it" } ?: ""))
                     val shortAbs = route.shortRest(minTimeRest)
                     val fullAbs = route.fullRest(minTimeRest)
@@ -637,6 +637,17 @@ private fun QuickViewContent(
             item { SectionHeader("Поезда · ${sortedTrains.size}") }
             items(sortedTrains, key = { it.trainId }) { train ->
                 QvCardBlock { TrainBlock(train, dateAndTimeConverter, isPassenger = false) }
+            }
+        }
+
+        // Напарники (машинист / помощник), заведённые в маршруте.
+        val partners = route.partners.filter {
+            !it.fullName.isNullOrBlank() || !it.tabNumber.isNullOrBlank()
+        }
+        if (partners.isNotEmpty()) {
+            item { SectionHeader("Напарники · ${partners.size}") }
+            items(partners, key = { it.routePartnerId }) { partner ->
+                QvCardBlock { PartnerBlock(partner) }
             }
         }
 
@@ -1483,6 +1494,25 @@ private fun CarInspectorLine(
             color = textMuted,
         )
         Text(text = info, style = MaterialTheme.typography.labelMedium, color = text)
+    }
+}
+
+@Composable
+private fun PartnerBlock(partner: com.z_company.domain.entities.route.RoutePartner) {
+    val text = MaterialTheme.colorScheme.primary
+    val textMuted = text.copy(alpha = 0.6f)
+    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = partner.fullName?.takeIf { it.isNotBlank() } ?: "Напарник",
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+            color = text,
+        )
+        partner.tabNumber?.takeIf { it.isNotBlank() }?.let {
+            Text(text = "таб. $it", style = MaterialTheme.typography.labelMedium, color = textMuted)
+        }
+        partner.notes?.takeIf { it.isNotBlank() }?.let {
+            Text(text = it, style = MaterialTheme.typography.labelMedium, color = textMuted)
+        }
     }
 }
 

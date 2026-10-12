@@ -228,7 +228,12 @@ class TrainFormViewModel(
                                     passengerWagonLengthMeters = settings.passengerWagonLengthMeters,
                                 )
                             }
-                            stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
+                            stationNameList.addAllOrSkip(
+                                com.z_company.route.util.mergeStationSuggestions(
+                                    settings.stationList,
+                                    stationDirectory.stations().map { it.name },
+                                ).toMutableStateList()
+                            )
                             mutableStationList.addAllOrSkip(stationNameList)
                             locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList.toMutableStateList())
                             mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
@@ -1489,7 +1494,7 @@ class TrainFormViewModel(
             val newStationList =
                 sortSuggestions(
                     stationNameList
-                        .filter { it.startsWith(prefix = value, ignoreCase = true) }
+                        .filter { com.z_company.route.util.stationNameMatches(it, value) }
                         .filterNot { it == value }
                         .distinct()
                 ).toMutableStateList()

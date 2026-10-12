@@ -283,10 +283,10 @@ fun StationEditBottomSheet(
                     )
                 }
 
-                // ── Поле «Путь» (4 символа) ──
+                // ── Поле «Путь» (6 символов: «ЧМО10», «ЧМ33») ──
                 Column(
                     modifier = Modifier
-                        .width(92.dp)
+                        .width(124.dp)
                         .clip(fieldShape)
                         .background(fieldColor)
                         .padding(horizontal = 12.dp, vertical = 9.dp)
@@ -296,7 +296,7 @@ fun StationEditBottomSheet(
                         modifier = Modifier.fillMaxWidth(),
                         value = localTrackNumber,
                         onValueChange = { newValue ->
-                            if (newValue.text.length <= 4) {
+                            if (newValue.text.length <= 6) {
                                 localTrackNumber = newValue
                             }
                         },
@@ -703,7 +703,7 @@ fun SegmentEditBottomSheet(
                     BasicTextField(
                         modifier = Modifier.fillMaxWidth(),
                         value = localTrack,
-                        onValueChange = { if (it.text.length <= 4) localTrack = it },
+                        onValueChange = { if (it.text.length <= 6) localTrack = it },
                         textStyle = dataTextStyle.copy(
                             fontWeight = FontWeight.Medium,
                             fontFamily = com.z_company.core.ui.theme.MonoFont,
