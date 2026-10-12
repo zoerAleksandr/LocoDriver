@@ -496,9 +496,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                     }
 
                     is ResultState.Error -> {
-                        val errorMsg = resultState.entity.message
-                            ?: resultState.entity.throwable?.message
-                            ?: "Ошибка синхронизации"
+                        val errorMsg = friendlyNetworkErrorMessage(resultState.entity.message ?: resultState.entity.throwable?.message, "Ошибка синхронизации")
                         snackbarManager.show(
                             message = "$label: $errorMsg",
                             duration = androidx.compose.material3.SnackbarDuration.Long
@@ -532,7 +530,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                     is ResultState.Error -> {
                         // также уведомляем об ошибке
                         val message =
-                            result.entity.message ?: result.entity.throwable?.message ?: "Ошибка"
+                            friendlyNetworkErrorMessage(result.entity.message ?: result.entity.throwable?.message, "Ошибка")
                         snackbarManager.show(message = message)
                         _uiState.update { it.copy(removeRouteState = ResultState.Error(result.entity)) }
                     }
@@ -559,7 +557,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 is ResultState.Error -> {
                     // также уведомляем об ошибке
                     val message =
-                        result.entity.message ?: result.entity.throwable?.message ?: "Ошибка"
+                        friendlyNetworkErrorMessage(result.entity.message ?: result.entity.throwable?.message, "Ошибка")
                     snackbarManager.show(message = message)
                     _uiState.update { it.copy(removeRouteState = ResultState.Error(result.entity)) }
                 }
@@ -665,8 +663,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                         }
 
                         is ResultState.Error -> {
-                            val message = result.entity.message ?: result.entity.throwable?.message
-                            ?: "Ошибка загрузки маршрутов"
+                            val message = friendlyNetworkErrorMessage(result.entity.message ?: result.entity.throwable?.message, "Ошибка загрузки маршрутов")
                             _uiState.update {
                                 it.copy(
                                     isLoading = false,

@@ -87,6 +87,20 @@ fun isConnectivityErrorMessage(message: String?): Boolean {
     return CONNECTIVITY_MARKERS.any { m.contains(it) }
 }
 
+/**
+ * Сырая ошибка локальной БД («no such table/column», SQLITE_…) — пользователю её показывать
+ * нельзя: текст нечитаем и раскрывает внутреннее устройство. Такие сообщения заменяются общим.
+ */
+fun isTechnicalDbErrorMessage(message: String?): Boolean {
+    val m = message?.lowercase() ?: return false
+    return DB_ERROR_MARKERS.any { m.contains(it) }
+}
+
+private val DB_ERROR_MARKERS = listOf(
+    "no such table", "no such column", "sqlite", "sqlexception", "has no column named",
+    "database disk image is malformed", "database is locked"
+)
+
 private val CONNECTIVITY_MARKERS = listOf(
     "нет соединения", "нет интернета", "проверьте подключение", "проверьте интернет",
     "не удалось отправить", "сбой связи",
@@ -105,7 +119,7 @@ const val VPN_ERROR_HINT: String =
  * иначе — исходное сообщение (или запасной текст).
  */
 fun vpnAwareErrorMessage(context: Context, original: String?): String {
-    val fallback = original?.takeIf { it.isNotBlank() } ?: "Произошла ошибка"
+    val fallback = original?.takeIf { it.isNotBlank() && !isTechnicalDbErrorMessage(it) } ?: "Произошла ошибка"
     return if (isConnectivityErrorMessage(original) && isVpnActive(context)) {
         VPN_ERROR_HINT
     } else {
@@ -120,6 +134,7 @@ fun vpnAwareErrorMessage(context: Context, original: String?): String {
  */
 fun friendlyNetworkErrorMessage(rawMessage: String?, fallback: String): String = when {
     rawMessage.isNullOrBlank() -> fallback
+    isTechnicalDbErrorMessage(rawMessage) -> fallback
     isConnectivityErrorMessage(rawMessage) ->
         "Нет связи с сервером. Проверьте подключение к интернету и попробуйте снова."
     else -> rawMessage

@@ -2,6 +2,7 @@
 
 package com.z_company.route.viewmodel
 
+import com.z_company.core.util.friendlyNetworkErrorMessage
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -847,7 +848,7 @@ class SettingsViewModel : ViewModel(), KoinComponent {
                 productionCalendarUseCase.saveCalendar(days).collect {}
                 calendarUseCase.applyProductionCalendar(days).collect {}
             } else if (state is ResultState.Error) {
-                throw RuntimeException(state.entity.message ?: state.entity.throwable?.message ?: "Ошибка загрузки")
+                throw RuntimeException(friendlyNetworkErrorMessage(state.entity.message ?: state.entity.throwable?.message, "Ошибка загрузки"))
             }
         }
     }

@@ -8,13 +8,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.z_company.core.R
 
-val InterFont = FontFamily(
-    Font(R.font.inter_regular, FontWeight.Normal),
-    Font(R.font.inter_medium, FontWeight.Medium),
-    Font(R.font.inter_semibold, FontWeight.SemiBold),
-    Font(R.font.inter_bold, FontWeight.Bold),
-    Font(R.font.inter_extrabold, FontWeight.ExtraBold),
-)
+// ВНИМАНИЕ: файлы inter_*.ttf в репозитории были не шрифтами, а сохранёнными HTML-страницами
+// GitHub (ResourcesCompat.getFont падал с «Failed to create internal object» на каждом
+// обращении и тормозил открытие экранов). Они удалены; пока настоящие Inter TTF не добавлены в
+// core_android/src/main/res/font/, используется системный шрифт — визуально то же, что и раньше
+// (фактически рендерился fallback). Когда появятся валидные inter_{regular,medium,semibold,bold,
+// extrabold}.ttf — вернуть FontFamily(Font(R.font.inter_regular, FontWeight.Normal), ...).
+val InterFont: FontFamily = FontFamily.Default
 
 val JetBrainsMonoFont = FontFamily(
     Font(R.font.jetbrains_mono_regular, FontWeight.Normal),

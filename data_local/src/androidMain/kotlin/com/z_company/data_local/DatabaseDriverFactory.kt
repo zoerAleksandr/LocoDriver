@@ -10,6 +10,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlSchema
+import com.z_company.data_local.schema.SchemaSelfCheck
+import com.z_company.data_local.schema.SchemaSpecs
+import com.z_company.data_local.schema.TableSpec
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.z_company.data_local.route.db.RouteDatabase
 import com.z_company.data_local.route.searchdb.SearchResponseDatabase
@@ -238,7 +241,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "StationNorm" to "axisKm",
             "StationNorm" to "axisPicket",
             primaryTable = "UserSettings")
-        return createDriver(SettingsDatabase.Schema, "Settings.db")
+        return createDriver(SettingsDatabase.Schema, "Settings.db", SchemaSpecs.settings)
     }
 
     /**
@@ -396,13 +399,13 @@ actual class DatabaseDriverFactory(private val context: Context) {
             // Миграция 6: метка updatedAt для LWW-синхронизации
             "SalarySetting" to "updatedAt",
             primaryTable = "SalarySetting")
-        return createDriver(SalarySettingDatabase.Schema, "SalarySetting.db")
+        return createDriver(SalarySettingDatabase.Schema, "SalarySetting.db", SchemaSpecs.salarySetting)
     }
 
     actual fun createSearchResponseDriver(): SqlDriver =
-        createDriver(SearchResponseDatabase.Schema, "SearchResponse.db")
+        createDriver(SearchResponseDatabase.Schema, "SearchResponse.db", SchemaSpecs.searchResponse)
 
-    actual fun createTrackDriver(): SqlDriver = createDriver(TrackDatabase.Schema, "Track.db")
+    actual fun createTrackDriver(): SqlDriver = createDriver(TrackDatabase.Schema, "Track.db", SchemaSpecs.track)
 
     /**
      * Перед созданием драйвера гарантируем, что все нужные столбцы существуют
@@ -618,7 +621,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
      */
     private fun createDriver(
         schema: SqlSchema<QueryResult.Value<Unit>>,
-        name: String
+        name: String,
+        selfCheckSpecs: List<TableSpec>? = null,
     ): SqlDriver = AndroidSqliteDriver(
         schema = schema,
         context = context,
@@ -628,7 +632,10 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 // Все миграции выполнены в fix*IfNeeded — просто пропускаем.
             }
         }
-    )
+    ).also { driver ->
+        // Самопроверка схемы: достраивает таблицы/столбцы, если user_version поднят в обход миграций.
+        if (selfCheckSpecs != null) SchemaSelfCheck.run(driver, schema, selfCheckSpecs)
+    }
 
     private data class RouteBackup(
         val file: File,

@@ -13,6 +13,7 @@ import com.z_company.domain.entities.setting.ServicePhaseStationKind
 import com.z_company.domain.repositories.StationNormRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 import org.koin.core.component.KoinComponent
@@ -26,6 +27,8 @@ class SqlDelightStationNormRepository : StationNormRepository, KoinComponent {
             .asFlow()
             .mapToList(Dispatchers.Default)
             .map { rows -> rows.map { it.toDomain() } }
+            // Повреждённая локальная схема не должна ронять подписчика: отдаём пустой список.
+            .catch { emit(emptyList()) }
 
     override fun getAll(): List<StationNorm> =
         db.stationNormQueries.getAll().executeAsList().map { it.toDomain() }

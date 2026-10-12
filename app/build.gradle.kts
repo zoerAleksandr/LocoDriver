@@ -104,6 +104,15 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }
+        // Release-подобная сборка для проверки скорости на устройстве: R8/shrink как в release,
+        // не debuggable, но подпись от debug-keystore и тот же applicationId — ставится поверх
+        // debug-версии с сохранением данных. Не для публикации.
+        create("perfRelease") {
+            initWith(buildTypes.getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = false
+            matchingFallbacks += listOf("release", "debug")
+        }
         create("benchmarkRelease") {
             initWith(buildTypes.getByName("release"))
             signingConfig = signingConfigs.getByName("debug")

@@ -327,7 +327,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     is ResultState.Error -> {
                         // также уведомляем об ошибке
                         val message =
-                            result.entity.message ?: result.entity.throwable?.message ?: "Ошибка"
+                            friendlyNetworkErrorMessage(result.entity.message ?: result.entity.throwable?.message, "Ошибка")
                         snackbarManager.show(message = message)
                         _uiState.update { it.copy(removeRouteState = ResultState.Error(result.entity)) }
                     }
@@ -1034,7 +1034,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 is ResultState.Error -> {
                     // также уведомляем об ошибке
                     val message =
-                        result.entity.message ?: result.entity.throwable?.message ?: "Ошибка"
+                        friendlyNetworkErrorMessage(result.entity.message ?: result.entity.throwable?.message, "Ошибка")
                     snackbarManager.show(message = message)
                     _uiState.update { it.copy(removeRouteState = ResultState.Error(result.entity)) }
                 }
@@ -1073,8 +1073,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
                     is ResultState.Error -> {
                         val message =
-                            resultState.entity.message ?: resultState.entity.throwable?.message
-                            ?: "Ошибка синхронизации"
+                            friendlyNetworkErrorMessage(resultState.entity.message ?: resultState.entity.throwable?.message, "Ошибка синхронизации")
                         snackbarManager.show(message = message)
                     }
 
