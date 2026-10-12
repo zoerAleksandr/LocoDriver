@@ -1,12 +1,8 @@
 package com.z_company.domain.track
 
 import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
-import kotlin.math.sqrt
 
 /*
  * Согласие №2: обезличенный вклад «километр оси + высота» (SCREEN_SPECS §6.9, §17.7;
@@ -24,6 +20,9 @@ class SectionAxis(val sectionId: String, val axisHash: String, val points: List<
     val maxLat: Double = points.maxOfOrNull { it.lat } ?: 0.0
     val minLon: Double = points.minOfOrNull { it.lon } ?: 0.0
     val maxLon: Double = points.maxOfOrNull { it.lon } ?: 0.0
+
+    /** Индекс для проекции (окно вокруг прошлой позиции + аварийный полный перебор, [AxisLocator]). */
+    val locator: AxisLocator by lazy { AxisLocator(points) }
 }
 
 /** Точка буфера вклада: только то, что нужно для привязки к оси (без времени). */
@@ -39,40 +38,9 @@ data class AltitudeSample(
 data class AxisProjection(val kmM: Double, val offsetM: Double)
 
 object AxisProjector {
-    private const val M_PER_DEG = 111_320.0
-
-    /** Ближайший отрезок оси; null - ось короче двух точек. */
-    fun project(axis: SectionAxis, lat: Double, lon: Double): AxisProjection? {
-        val pts = axis.points
-        if (pts.size < 2) return null
-        val kx = cos(lat * PI_OVER_180) * M_PER_DEG
-        var best = Double.MAX_VALUE
-        var bestKm = 0.0
-        for (i in 0 until pts.size - 1) {
-            val a = pts[i]
-            val b = pts[i + 1]
-            val ax = (a.lon - lon) * kx
-            val ay = (a.lat - lat) * M_PER_DEG
-            val bx = (b.lon - lon) * kx
-            val by = (b.lat - lat) * M_PER_DEG
-            // Быстрый отказ: отрезок целиком дальше текущего лучшего по одной из осей.
-            if (min(ay, by) > best || max(ay, by) < -best || min(ax, bx) > best || max(ax, bx) < -best) continue
-            val dx = bx - ax
-            val dy = by - ay
-            val len2 = dx * dx + dy * dy
-            val t = if (len2 <= 0.0) 0.0 else ((-ax * dx - ay * dy) / len2).coerceIn(0.0, 1.0)
-            val px = ax + t * dx
-            val py = ay + t * dy
-            val d = sqrt(px * px + py * py)
-            if (d < best) {
-                best = d
-                bestKm = (a.km + t * (b.km - a.km)) * 1000.0
-            }
-        }
-        return if (best == Double.MAX_VALUE) null else AxisProjection(bestKm, best)
-    }
-
-    private const val PI_OVER_180 = 0.017453292519943295
+    /** Ближайший отрезок оси (плоская метрика, интерполяция по отрезку); null - ось короче двух точек. Полный перебор. */
+    fun project(axis: SectionAxis, lat: Double, lon: Double): AxisProjection? =
+        axis.locator.project(lat, lon)?.let { AxisProjection(it.kmM, it.offsetM) }
 }
 
 /** Один вклад: фрагмент оси `[kmFromM, kmFromM + n*stepM)`, высоты в дм (null - нет данных) и отклонения по ячейкам. */
@@ -91,6 +59,9 @@ data class ContribFragment(
 object AltitudeContribBuilder {
     const val STEP_M = 25
     const val MAX_OFFSET_M = 30.0
+
+    /** Привязка точек окном вокруг прошлой позиции (KM_MAPPING_PLAN.md). false - полный перебор на каждую точку. */
+    const val WINDOWED_PROJECTION = true
     const val MAX_ACCURACY_M = 20f
     const val MAX_CELLS = 4000
 
@@ -125,12 +96,18 @@ object AltitudeContribBuilder {
         if (axis.points.size < 2 || samples.isEmpty()) return emptyList()
         val margin = 0.0005 // ~55 м: грубый отсев по рамке оси
         val onAxis = ArrayList<Pair<AltitudeSample, AxisProjection>>()
+        // Точки буфера идут по времени: ищем в окне вокруг прошлой позиции (параллельный путь не перехватывает привязку),
+        // при d > 200 м - полный перебор. При WINDOWED_PROJECTION = false - прежний полный перебор для каждой точки.
+        var hint: Int? = null
         for (s in samples) {
             if (s.lat < axis.minLat - margin || s.lat > axis.maxLat + margin ||
                 s.lon < axis.minLon - margin || s.lon > axis.maxLon + margin
             ) continue
-            val pr = AxisProjector.project(axis, s.lat, s.lon) ?: continue
-            if (pr.offsetM <= MAX_OFFSET_M) onAxis += s to pr
+            val hit = axis.locator.project(s.lat, s.lon, if (WINDOWED_PROJECTION) hint else null) ?: continue
+            if (hit.offsetM <= MAX_OFFSET_M) {
+                onAxis += s to AxisProjection(hit.kmM, hit.offsetM)
+                hint = hit.vertex
+            }
         }
         if (onAxis.isEmpty()) return emptyList()
         val baroCount = onAxis.count { it.first.baroM != null }
