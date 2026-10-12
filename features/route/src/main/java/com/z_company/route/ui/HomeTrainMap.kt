@@ -25,6 +25,7 @@ import org.koin.core.parameter.parametersOf
  */
 @Composable
 internal fun HomeTrainMap(trainId: String, basicId: String, onConsentSettings: () -> Unit, onDismiss: () -> Unit) {
+    com.z_company.core.ui.perf.ScreenOpenTrace("train_map")
     val owner = remember {
         object : ViewModelStoreOwner {
             override val viewModelStore = ViewModelStore()

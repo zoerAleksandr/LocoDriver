@@ -299,23 +299,26 @@ class AutoRecordManager(
             // Отправка накопленного и очистка осиротевших треков (воркер без сети/входа просто выходит).
             runCatching { onTrackUpload() }
         }
-        // Вклад высот (согласие №2): неотправленные сеансы - в отправку; без согласия - удалить.
-        altitudeStore?.let { st ->
-            runCatching {
-                if (trackConsent?.altitudeContrib?.value == true) {
-                    if (st.pendingIds().isNotEmpty()) onAltitudeContrib()
-                } else {
-                    st.clear()
+        // Файловые хранилища вкладов читаем вне главного потока.
+        scope.launch(Dispatchers.Default) {
+            // Вклад высот (согласие №2): неотправленные сеансы - в отправку; без согласия - удалить.
+            altitudeStore?.let { st ->
+                runCatching {
+                    if (trackConsent?.altitudeContrib?.value == true) {
+                        if (st.pendingIds().isNotEmpty()) onAltitudeContrib()
+                    } else {
+                        st.clear()
+                    }
                 }
             }
-        }
-        // Вклад зон без GPS: то же правило (согласие №2 в новой редакции).
-        gnssStore?.let { st ->
-            runCatching {
-                if (trackConsent?.gnssContribAllowed() == true) {
-                    if (st.pendingIds().isNotEmpty()) onGnssContrib()
-                } else {
-                    st.clear()
+            // Вклад зон без GPS: то же правило (согласие №2 в новой редакции).
+            gnssStore?.let { st ->
+                runCatching {
+                    if (trackConsent?.gnssContribAllowed() == true) {
+                        if (st.pendingIds().isNotEmpty()) onGnssContrib()
+                    } else {
+                        st.clear()
+                    }
                 }
             }
         }
