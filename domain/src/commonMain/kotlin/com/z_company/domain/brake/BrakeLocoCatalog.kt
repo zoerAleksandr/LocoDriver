@@ -87,4 +87,19 @@ data class BrakePrefill(
     val trainNumber: String? = null,
     val locoSeries: String? = null,
     val locoNumber: String? = null,
-)
+) {
+    /** Без пустых и нулевых значений: поле поезда «0» или пустое за данные не считается. */
+    fun sanitized(): BrakePrefill {
+        fun num(v: String?): String? {
+            val t = v?.trim().orEmpty().replace(',', '.')
+            return t.takeIf { (it.toDoubleOrNull() ?: 0.0) > 0.0 }?.let { v!!.trim() }
+        }
+        return BrakePrefill(
+            weight = num(weight),
+            axles = axles?.trim()?.takeIf { (it.toIntOrNull() ?: 0) > 0 },
+            trainNumber = trainNumber?.trim()?.takeIf { it.isNotEmpty() },
+            locoSeries = locoSeries?.trim()?.takeIf { it.isNotEmpty() },
+            locoNumber = locoNumber?.trim()?.takeIf { it.isNotEmpty() },
+        )
+    }
+}

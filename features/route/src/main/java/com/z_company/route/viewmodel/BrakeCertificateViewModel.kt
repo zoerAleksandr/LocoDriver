@@ -67,7 +67,9 @@ data class BrakeCertificateUiState(
     val trainNumberText: String = "",
     val weightText: String = "",
     val totalAxlesText: String = "",
-    // Таблица
+    // Нажатие: быстрый ввод (среднее на ось x всего осей) или таблица «оси по типам»
+    val avgPressureText: String = "",
+    val rowsMode: Boolean = false,
     val rows: List<BrakeRowUi> = listOf(BrakeRowUi(id = 0)),
     val nextRowId: Int = 1,
     // Локомотив в подсчёте
@@ -122,19 +124,17 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         if (prefilled) return
         prefilled = true
         if (p == null) return
-        val w = p.weight?.trim().orEmpty().takeIf { (it.toFiniteDoubleOrNull() ?: 0.0) > 0 }.orEmpty()
-        val a = p.axles?.trim().orEmpty().takeIf { (it.toIntOrNull() ?: 0) > 0 }.orEmpty()
+        val q = p.sanitized()
         _state.update {
             it.copy(
-                weightText = w,
-                totalAxlesText = a,
-                trainNumberText = p.trainNumber?.trim().orEmpty(),
-                locoNumberText = p.locoNumber?.trim().orEmpty(),
+                weightText = q.weight.orEmpty(),
+                totalAxlesText = q.axles.orEmpty(),
+                trainNumberText = q.trainNumber.orEmpty(),
+                locoNumberText = q.locoNumber.orEmpty(),
             )
         }
-        setLocoSeries(p.locoSeries?.trim().orEmpty())
+        setLocoSeries(q.locoSeries.orEmpty())
     }
-
     private fun loadManualNorm(): BrakeNorms.ManualBrakeNorm =
         runCatching { BrakeNorms.ManualBrakeNorm.valueOf(prefs.getString(KEY_MANUAL_NORM, null) ?: "") }
             .getOrDefault(BrakeNorms.ManualBrakeNorm.UNIFIED_06)
@@ -181,6 +181,19 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             next = next.copy(locoWeightText = "", locoAxlesText = "", locoPressureText = "", locoAuto = false, locoNote = null)
         }
         next
+    }
+
+    // ── Нажатие ──
+    fun setAvgPressure(v: String) = _state.update { it.copy(avgPressureText = v) }
+
+    /** Переключает ввод «одно среднее нажатие» / «оси по типам»; при переходе в таблицу первая строка берётся из среднего. */
+    fun setRowsMode(on: Boolean) = _state.update {
+        if (on == it.rowsMode) it
+        else if (on) it.copy(
+            rowsMode = true,
+            rows = listOf(BrakeRowUi(id = it.nextRowId, pressureText = it.avgPressureText, axlesText = it.totalAxlesText)),
+            nextRowId = it.nextRowId + 1,
+        ) else it.copy(rowsMode = false)
     }
 
     // ── Таблица ──
@@ -291,10 +304,14 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
 fun BrakeCertificateUiState.toInput(): BrakeCertificateInput? {
     val cat = BrakeNorms.category(categoryId) ?: return null
     val weight = weightText.toFiniteDoubleOrNull()?.takeIf { it > 0 } ?: return null
-    val axleRows = rows.mapNotNull { r ->
+    val axleRows = if (rowsMode) rows.mapNotNull { r ->
         val p = r.pressureText.toFiniteDoubleOrNull() ?: return@mapNotNull null
         val n = r.axlesText.trim().toIntOrNull() ?: return@mapNotNull null
         if (p <= 0 || n <= 0) null else AxleRow(p, n)
+    } else {
+        val p = avgPressureText.toFiniteDoubleOrNull()
+        val n = totalAxlesText.trim().toIntOrNull()
+        if (p != null && n != null && p > 0 && n > 0) listOf(AxleRow(p, n)) else emptyList()
     }
     val loco = if (locoEnabled) {
         val w = locoWeightText.toFiniteDoubleOrNull()
@@ -312,6 +329,6 @@ fun BrakeCertificateUiState.toInput(): BrakeCertificateInput? {
         compositeShare = compositeShare,
         manualNorm = manualNorm,
         actualManualAxles = manualHaveText.trim().toIntOrNull(),
-        declaredAxles = totalAxlesText.trim().toIntOrNull(),
+        declaredAxles = if (rowsMode) totalAxlesText.trim().toIntOrNull() else null,
     )
 }

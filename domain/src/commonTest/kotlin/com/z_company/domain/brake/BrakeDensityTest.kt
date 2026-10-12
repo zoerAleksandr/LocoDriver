@@ -87,3 +87,24 @@ class BrakeDensityTest {
         assertTrue(BrakeLocoCatalog.items.all { it.weight > 0 && it.axles > 0 && it.pressurePerAxle > 0 })
     }
 }
+
+class BrakePrefillTest {
+    @Test
+    fun sanitizedDropsEmptyAndZero() {
+        val p = BrakePrefill(weight = "0", axles = " 0 ", trainNumber = " ", locoSeries = "ВЛ80С", locoNumber = " 123 ").sanitized()
+        assertNull(p.weight)
+        assertNull(p.axles)
+        assertNull(p.trainNumber)
+        assertEquals("ВЛ80С", p.locoSeries)
+        assertEquals("123", p.locoNumber)
+    }
+
+    @Test
+    fun sanitizedKeepsRealTrainData() {
+        val p = BrakePrefill(weight = "3040", axles = "128", trainNumber = "2201", locoSeries = "ВЛ80", locoNumber = "5").sanitized()
+        assertEquals("3040", p.weight)
+        assertEquals("128", p.axles)
+        assertEquals("2201", p.trainNumber)
+        assertEquals("3040,5", BrakePrefill(weight = "3040,5").sanitized().weight)
+    }
+}
