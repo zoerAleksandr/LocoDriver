@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.z_company.loco_driver.R
 import kotlin.math.ceil
@@ -57,6 +58,8 @@ object WKeys {
     val CURRENT_REPORT_DATE = stringPreferencesKey("w_current_report_date") // "16.07.26"
     // id текущего маршрута — для перехода по тапу на блок «ТЕКУЩИЙ МАРШРУТ»
     val CURRENT_ROUTE_ID = stringPreferencesKey("w_current_route_id")
+    // Явка текущего маршрута (мс, UTC) — от неё тикает хронометр «На работе»; 0 — не показывать.
+    val CURRENT_WORK_START_MS = longPreferencesKey("w_current_work_start_ms")
 
     // ─── Состояние нижнего блока развёрнутого виджета ───
     // "current" | "upcoming" | "upcoming_unknown" | "rest" | "home_rest" | "none"
@@ -258,7 +261,16 @@ object WidgetRender {
         to: String,
         trainLine: String,
         showCaption: Boolean = true,
+        workStartMs: Long = 0L,
     ) {
+        // «На работе»: системный Chronometer тикает сам (без перерисовки виджета). База — явка.
+        if (workStartMs > 0L && workStartMs <= System.currentTimeMillis()) {
+            rv.setViewVisibility(R.id.work_row, View.VISIBLE)
+            val base = android.os.SystemClock.elapsedRealtime() - (System.currentTimeMillis() - workStartMs)
+            rv.setChronometer(R.id.work_chrono, base, null, true)
+        } else {
+            rv.setViewVisibility(R.id.work_row, View.GONE)
+        }
         if (showCaption) {
             rv.setViewVisibility(R.id.header_caption_row, View.VISIBLE)
             if (routeNumber.isNotEmpty()) {

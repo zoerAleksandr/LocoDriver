@@ -221,6 +221,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                 // Строка «ТЕКУЩИЙ МАРШРУТ»+номер скрыта, когда под хедером
                 // ещё покажутся кнопки — освобождает высоту под них.
                 showCaption = !showButtons,
+                workStartMs = prefs[WKeys.CURRENT_WORK_START_MS] ?: 0L,
             )
         }
         AndroidRemoteViews(
@@ -341,6 +342,7 @@ class LocoDriverWidget : GlanceAppWidget() {
             currentReportTime: String,
             currentReportDate: String,
             currentRouteId: String,
+            currentWorkStartMs: Long = 0L,
             upTime: String, upDate: String, upNumber: String,
             upFrom: String, upTo: String,
             restShortDur: String, restShortEnd: String,
@@ -372,6 +374,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                         this[WKeys.CURRENT_REPORT_TIME] = currentReportTime
                         this[WKeys.CURRENT_REPORT_DATE] = currentReportDate
                         this[WKeys.CURRENT_ROUTE_ID] = currentRouteId
+                        this[WKeys.CURRENT_WORK_START_MS] = currentWorkStartMs
                         this[WKeys.UP_TIME] = upTime
                         this[WKeys.UP_DATE] = upDate
                         this[WKeys.UP_NUMBER] = upNumber
@@ -580,6 +583,7 @@ object WidgetDataLoader : KoinComponent {
             currentHasTrain = hasTrainWithStations,
             currentReportTime = currentReportTime,
             currentReportDate = currentReportDate,
+            currentWorkStartMs = if (hasCurrentRoute) currentRoute?.basicData?.timeStartWork ?: 0L else 0L,
             currentRouteId = currentRoute?.basicData?.id ?: "",
             upTime = upTime, upDate = upDate, upNumber = upNumber,
             upFrom = upFrom, upTo = upTo,
