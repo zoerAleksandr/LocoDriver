@@ -1142,9 +1142,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
             if (!routeHelper.hasActiveSubscription()) return@launch
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             if (token.isNullOrBlank()) return@launch
-            _uiState.update { it.copy(isBackgroundSyncing = true) }
+            // Полосу загрузки на главном не показываем: пользователь работает и без сети.
             try {
                 var failureMessage: String? = null
+                var connectivityFailed = false
                 var pendingDeletionCount = 0
                 syncManager.syncBidirectional("Bearer $token").collect { state ->
                     when (state) {
@@ -1153,6 +1154,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                 state.entity.message,
                                 state.entity.throwable,
                             )
+                            if (NetworkErrorMapper.isConnectivityError(state.entity.throwable) ||
+                                NetworkErrorMapper.isConnectivityMessage(failureMessage)
+                            ) connectivityFailed = true
                         }
                         is ResultState.Success -> {
                             pendingDeletionCount = state.data.pendingDeletionRouteIds.size
@@ -1160,19 +1164,24 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         else -> {}
                     }
                 }
+                // Нет сети — тихий красный индикатор вместо тоста; успешный проход его гасит.
+                _uiState.update { it.copy(isOffline = connectivityFailed) }
                 // Тихий фоновый sync не удаляет маршруты сам, если это значительный объём —
                 // Подтверждение выполняется непосредственно в корзине.
-                val message = failureMessage ?: if (pendingDeletionCount > 0) {
+                val message = if (connectivityFailed) null
+                else failureMessage ?: if (pendingDeletionCount > 0) {
                     "На сервере пропало маршрутов: $pendingDeletionCount. Проверьте корзину в Настройках."
                 } else null
                 message?.let { snackbarManager.show(it) }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                e.sendToSentry("HomeViewModel", "syncOnScreenOpen")
-                snackbarManager.show(NetworkErrorMapper.syncFailureMessage(e.message, e))
-            } finally {
-                _uiState.update { it.copy(isBackgroundSyncing = false) }
+                if (NetworkErrorMapper.isConnectivityError(e)) {
+                    _uiState.update { it.copy(isOffline = true) }
+                } else {
+                    e.sendToSentry("HomeViewModel", "syncOnScreenOpen")
+                    snackbarManager.show(NetworkErrorMapper.syncFailureMessage(e.message, e))
+                }
             }
         }
     }

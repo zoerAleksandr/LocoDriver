@@ -253,6 +253,7 @@ fun HomeScreen(
     freeRoutesUsedCount: Int = 0,
     onPurchasesClick: () -> Unit = {},
     isBackgroundSyncing: Boolean = false,
+    isOffline: Boolean = false,
     onSyncClick: () -> Unit = {},
     showSyncDialog: Boolean = false,
     isSyncSuccess: Boolean = false,
@@ -978,6 +979,15 @@ fun HomeScreen(
                         }
                     },
                     actions = {
+                        // Красный индикатор: фоновая синхронизация не достучалась до сервера.
+                        if (isOffline) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_offline_24px),
+                                contentDescription = "Нет сети",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                         IconButton(onClick = onSearchClick) {
                             Icon(
                                 painter = painterResource(R.drawable.search_24px),
@@ -987,9 +997,6 @@ fun HomeScreen(
                         }
                     }
                 )
-                if (isBackgroundSyncing) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
                 // Заголовок месяца выровнен по общему внешнему полю контента +
                 // стрелки переключения месяца.
                 val monthYearListState by viewModel.monthYearList.collectAsState()

@@ -143,6 +143,7 @@ fun HomeDestination(
         onResetSyncState = homeViewModel::resetSyncState,
         normaHours = uiState.normaHours,
         isBackgroundSyncing = uiState.isBackgroundSyncing,
+        isOffline = uiState.isOffline,
     )
 }
 
