@@ -86,6 +86,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
+import com.z_company.route.util.HomeUnitPrefs
 import com.z_company.route.util.locomotivesInOrder
 import com.z_company.route.util.trainsInOrder
 import androidx.compose.ui.platform.LocalContext
@@ -477,13 +478,11 @@ fun HomeScreen(
     val unitsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // «Всегда открывать последний» по типу плитки (loco/train/passenger): тап по плитке сразу
     // открывает последний элемент, список — по бейджу-счётчику.
-    val unitsPrefs = LocalContext.current.getSharedPreferences("home_units_prefs", android.content.Context.MODE_PRIVATE)
+    val unitsContext = LocalContext.current
     val alwaysOpenLastUnit = remember {
-        mutableStateMapOf(
-            "loco" to unitsPrefs.getBoolean("always_open_last_loco", false),
-            "train" to unitsPrefs.getBoolean("always_open_last_train", false),
-            "passenger" to unitsPrefs.getBoolean("always_open_last_passenger", false),
-        )
+        mutableStateMapOf<String, Boolean>().apply {
+            HomeUnitPrefs.types.forEach { put(it, HomeUnitPrefs.get(unitsContext, it)) }
+        }
     }
 
     // ItemState (а не только Route) — чтобы в быстром просмотре показать доплатные
@@ -749,7 +748,7 @@ fun HomeScreen(
                                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                                 .clickable {
                                     alwaysOpenLastUnit[sheetType] = !checked
-                                    unitsPrefs.edit().putBoolean("always_open_last_$sheetType", !checked).apply()
+                                    HomeUnitPrefs.set(unitsContext, sheetType, !checked)
                                 }
                                 .padding(bottom = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -981,12 +980,19 @@ fun HomeScreen(
                     actions = {
                         // Красный индикатор: фоновая синхронизация не достучалась до сервера.
                         if (isOffline) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_offline_24px),
-                                contentDescription = "Нет сети",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(22.dp)
-                            )
+                            IconButton(onClick = {
+                                scope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    snackbarHostState.showSnackbar("Нет связи с сервером")
+                                }
+                            }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_offline_24px),
+                                    contentDescription = "Нет связи с сервером",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                         }
                         IconButton(onClick = onSearchClick) {
                             Icon(

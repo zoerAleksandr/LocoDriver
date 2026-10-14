@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -23,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -30,6 +32,8 @@ import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.route.LocoType
+import com.z_company.route.component.ScrollHidingBottomBar
+import com.z_company.route.component.rememberBottomBarScrollState
 import com.z_company.route.viewmodel.SeriesListViewModel
 
 @Composable
@@ -63,6 +67,13 @@ fun SettingsSeriesListContent(
                 .distinct()
                 .map { NoNormItem(it, null) }
 
+    // Кнопка «Добавить серию» уезжает вниз при прокрутке вверх и возвращается при прокрутке назад.
+    val addBarScroll = rememberBottomBarScrollState()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(addBarScroll.nestedScroll)
+    ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -140,11 +151,19 @@ fun SettingsSeriesListContent(
             )
         }
 
-        Spacer(Modifier.height(8.dp))
+        // Место под плавающую кнопку.
+        Spacer(Modifier.height(80.dp))
+    }
 
+    ScrollHidingBottomBar(
+        visible = addBarScroll.visible,
+        modifier = Modifier.align(Alignment.BottomCenter),
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 16.dp)
                 .shadow(elevation = 2.dp, shape = Shapes.medium)
                 .background(color = MaterialTheme.colorScheme.tertiary, shape = Shapes.medium)
                 .clickable { onOpenEditor(null) }
@@ -164,6 +183,7 @@ fun SettingsSeriesListContent(
                 color = MaterialTheme.colorScheme.onPrimary
             )
         }
+    }
     }
 }
 

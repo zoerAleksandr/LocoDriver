@@ -79,7 +79,7 @@ fun SettingsAccountingContent(
                 onClick = { showNightSheet = true },
             )
         }
-        SettingsSectionNote("Интервал ночных часов для расчёта доплаты за работу ночью.")
+        SettingsSectionNote("Интервал ночных часов для расчёта доплаты за работу ночью. Время указывается по МСК.")
 
         SettingsGroupHeader("БУДУЩИЕ МАРШРУТЫ", top = 20.dp, startPad = 4.dp)
         SettingsCard {
@@ -173,7 +173,7 @@ private fun NightRangeSheet(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Интервал, который считается ночным временем",
+                text = "Интервал, который считается ночным временем (по МСК)",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
