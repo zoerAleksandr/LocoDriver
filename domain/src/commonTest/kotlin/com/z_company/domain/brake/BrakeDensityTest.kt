@@ -59,6 +59,23 @@ class BrakeDensityTest {
     }
 
     @Test
+    fun groupNotSelected_assessmentUnavailable() {
+        // Группа не выбрана: даже «хорошее» время не оценивается как норма, текст просит выбрать группу
+        val a = BrakeDensity.assessFreightII(120.0, null, groupSelected = false)
+        assertEquals(BrakeDensity.Verdict.NO_NORM, a.verdict)
+        assertTrue(a.text.contains("группу локомотива"))
+        // и при переданной норме флаг «не выбрана» приоритетнее
+        assertEquals(BrakeDensity.Verdict.NO_NORM, BrakeDensity.assessFreightII(120.0, 69.0, groupSelected = false).verdict)
+        // длина вне таблицы - тоже недоступна, но с другим текстом
+        val b = BrakeDensity.assessFreightII(120.0, null, groupSelected = true)
+        assertEquals(BrakeDensity.Verdict.NO_NORM, b.verdict)
+        assertTrue(!b.text.contains("группу"))
+        // нет серии - группа по серии не подставляется
+        assertNull(BrakeDensity.groupBySeries(""))
+        assertNull(BrakeDensity.groupBySeries("  "))
+    }
+
+    @Test
     fun passengerDensity() {
         assertEquals(BrakeDensity.Verdict.OK, BrakeDensity.assessPassenger(60.0, 0.2).verdict)
         assertEquals(BrakeDensity.Verdict.FAIL, BrakeDensity.assessPassenger(60.0, 0.25).verdict)

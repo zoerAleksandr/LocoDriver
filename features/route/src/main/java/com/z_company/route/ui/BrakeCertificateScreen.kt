@@ -900,7 +900,7 @@ private fun MeasureTab(
             assess = { t ->
                 when (active) {
                     TimerKind.II -> if (passenger) BrakeDensity.assessPassenger(t, state.timerII.dropText.toFiniteDoubleOrNull())
-                    else BrakeDensity.assessFreightII(t, minTime)
+                    else BrakeDensity.assessFreightII(t, minTime, groupSelected = group != null)
                     TimerKind.IV -> BrakeDensity.assessFreightIV(t, state.timerII.recordedSec)
                     TimerKind.ROUTE -> BrakeDensity.assessRoute(t, state.timerII.recordedSec)
                 }
@@ -917,12 +917,12 @@ private fun MeasureTab(
                     }
                     PickerField(
                         label = "Группа локомотива (табл. 9.1)",
-                        value = group?.let { "№ ${it.name.removePrefix("G")}: ${it.title}" } ?: "выбрать",
+                        value = group?.let { "№ ${it.name.removePrefix("G")}: ${it.title}" } ?: "Не выбрана",
                         onClick = onGroupClick,
                     )
                     Text(
                         when {
-                            group == null -> "Норма II положения: выберите группу локомотива."
+                            group == null -> "Группа не выбрана: норма не показывается, оценка II недоступна. Время замера всё равно записывается."
                             minTime == null -> "Норма II положения: длина состава должна быть 1-480 осей (сейчас: $axles)."
                             else -> "Норма II положения: не менее ${fmt(minTime)} с (группа ${group.name.removePrefix("G")}, $axles осей" +
                                 (if (BrakeDensity.chargeFactor(charge) < 1.0) ", с поправкой на зарядное давление" else "") + ")."

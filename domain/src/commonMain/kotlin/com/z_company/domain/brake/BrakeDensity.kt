@@ -87,9 +87,13 @@ object BrakeDensity {
 
     data class Assessment(val verdict: Verdict, val text: String)
 
-    /** II положение, грузовой поезд: время (с) не меньше нормы таблицы 9.1. */
-    fun assessFreightII(timeSec: Double, minTime: Double?): Assessment =
-        if (minTime == null) Assessment(Verdict.NO_NORM, "Норма не определена: выберите серию и число осей (до 480)")
+    /**
+     * II положение, грузовой поезд: время (с) не меньше нормы таблицы 9.1.
+     * [groupSelected] = false (группа локомотива не выбрана и не определена по серии) - оценка недоступна, время всё равно записывается.
+     */
+    fun assessFreightII(timeSec: Double, minTime: Double?, groupSelected: Boolean = true): Assessment =
+        if (!groupSelected) Assessment(Verdict.NO_NORM, "Выберите группу локомотива (табл. 9.1)")
+        else if (minTime == null) Assessment(Verdict.NO_NORM, "Длина состава вне таблицы 9.1: нужно 1-480 осей")
         else if (timeSec + 1e-9 >= minTime) Assessment(Verdict.OK, "Норма: не менее ${fmt(minTime)} с")
         else Assessment(Verdict.FAIL, "Плотность ниже нормы: время ${fmt(timeSec)} с, нужно не менее ${fmt(minTime)} с")
 
