@@ -150,6 +150,7 @@ fun BrakeCertificateScreen(
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var side by rememberSaveable { mutableIntStateOf(0) }
     var measureKind by rememberSaveable { mutableStateOf(TimerKind.II.name) }
+    val keypad = remember { VuKeypadState() }
     var sheet by remember { mutableStateOf<BrakeSheet?>(null) }
     val now by viewModel.nowMs.collectAsState()
     val t = vuColors()
@@ -181,8 +182,10 @@ fun BrakeCertificateScreen(
             )
         },
     ) { padding ->
+      androidx.compose.runtime.CompositionLocalProvider(LocalVuKeypad provides keypad) {
         Column(Modifier.fillMaxSize().padding(padding)) {
-            Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)) { VuTabs(TABS, tab, { tab = it }) }
+            Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)) { VuTabs(TABS, tab, { tab = it; keypad.close() }) }
+            Column(Modifier.weight(1f)) {
             when (tab) {
                 0 -> CalcTab(
                     state, category, result, viewModel,
@@ -204,7 +207,10 @@ fun BrakeCertificateScreen(
                 )
                 else -> ReferenceTab(state, category, onOpenMeasure = { tab = 2 })
             }
+            }
+            VuKeypadPanel(keypad)
         }
+      }
     }
 
     when (val s = sheet) {
@@ -777,25 +783,21 @@ private fun AxleRowCells(label: String, axles: String, product: String, filled: 
     val t = vuColors()
     val line = t.borderStrong
     val bg = if (filled) t.accentSoft else Color.Transparent
-    var focused by remember { mutableStateOf(false) }
     Row(Modifier.height(IntrinsicSize.Min)) {
         Box(Modifier.weight(1f).heightIn(min = 40.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
             Text(label, fontSize = 14.sp, fontWeight = if (filled) FontWeight.Bold else FontWeight.Normal, color = t.text)
         }
         Box(
-            Modifier.weight(1f).heightIn(min = 40.dp).background(bg).vuCellBorders(line)
-                .then(if (focused) Modifier.border(2.dp, t.accent) else Modifier),
+            Modifier.weight(1f).heightIn(min = 40.dp).background(bg).vuCellBorders(line),
             contentAlignment = Alignment.Center,
         ) {
-            BasicTextField(
-                value = axles,
-                onValueChange = { onAxles(it.filter { c -> c.isDigit() }.take(4)) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).onFocusChanged { focused = it.isFocused },
-                singleLine = true,
-                textStyle = TextStyle(fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = t.accent, textAlign = TextAlign.Center),
-                cursorBrush = SolidColor(t.accent),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
+            val h = rememberVuNumeric("Количество осей", axles, { onAxles(it) }, decimal = false, maxLen = 4)
+            Box(Modifier.fillMaxWidth().padding(horizontal = 4.dp).then(h.modifier), contentAlignment = Alignment.Center) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(axles, fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = t.accent, maxLines = 1)
+                    if (h.active) Box(Modifier.width(2.dp).height(18.dp).background(t.accent))
+                }
+            }
         }
         Box(Modifier.weight(1f).heightIn(min = 40.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
             Text(product, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.text, maxLines = 1)
