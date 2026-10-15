@@ -135,7 +135,7 @@ fun SettingsRouteContent(
                 )
             }
         }
-        SettingsSectionNote("Если есть несколько объектов")
+        SettingsSectionNote("В разделе «Текущий маршрут», если есть несколько объектов")
 
         // ── Вид тяги (по умолчанию) ──
         SettingsGroupHeader("ВИД ТЯГИ", top = 20.dp, startPad = 4.dp)
