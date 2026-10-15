@@ -46,3 +46,36 @@ class DecimalInputTest {
         assertEquals("", "abc".sanitizeIntegerInput())
     }
 }
+
+class DecimalTypingTest {
+    /** Имитация поля: IME присылает prev + символ; состояние поля - строка (источник истины), Double - производная. */
+    private fun type(vararg chars: Char): List<Pair<String, Double?>> {
+        var text = ""
+        return chars.map { c ->
+            text = (text + c).sanitizeDecimalInput()
+            text to text.toFiniteDoubleOrNull()
+        }
+    }
+
+    @Test
+    fun separatorIsNotEatenWhileTyping() {
+        val steps = type('8', ',', '5', ',')
+        assertEquals("8" to 8.0, steps[0])
+        assertEquals("8," to 8.0, steps[1])
+        assertEquals("8,5" to 8.5, steps[2])
+        assertEquals("8,5" to 8.5, steps[3]) // второй разделитель отбрасывается, значение не ломается
+    }
+
+    @Test
+    fun dotFromKeyboardBecomesComma() {
+        val steps = type('3', '0', '4', '0', '.', '5')
+        assertEquals("3040,5" to 3040.5, steps.last())
+    }
+
+    @Test
+    fun leadingSeparator() {
+        val steps = type(',', '5')
+        assertEquals("," to null, steps[0])
+        assertEquals(",5" to 0.5, steps[1])
+    }
+}

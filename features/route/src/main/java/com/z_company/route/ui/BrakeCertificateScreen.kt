@@ -469,7 +469,7 @@ private fun VuSpeedBar(result: BrakeCertificateResult?) {
     val below = sp is SpeedLimit.NotDetermined && has
     val belowMin = (sp as? SpeedLimit.NotDetermined)?.kind == SpeedLimit.Kind.BELOW_MIN
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).background(if (low || below) t.danger.copy(alpha = 0.14f) else t.surface, shape).padding(horizontal = 16.dp, vertical = if (belowMin) 8.dp else 0.dp),
+        Modifier.fillMaxWidth().height(IntrinsicSize.Min).heightIn(min = 56.dp).background(if (low || below) t.danger.copy(alpha = 0.14f) else t.surface, shape).padding(horizontal = 16.dp, vertical = if (belowMin) 8.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -1038,25 +1038,30 @@ private fun OtherSheet(state: BrakeCertificateUiState, category: BrakeCategory, 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RowSheet(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onDismiss: () -> Unit) {
-    var pressure by remember { mutableStateOf<Double?>(null) }
+    // Нажатие - строка ввода (источник истины), любое дробное значение; чипы - быстрый выбор типичных.
+    var pressureText by remember { mutableStateOf("") }
     var axles by remember { mutableStateOf("") }
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { /* фокус на поле осей выставляется после выбора значения */ }
+    val pressure = pressureText.toFiniteDoubleOrNull()?.takeIf { it > 0 }
     val n = axles.toIntOrNull()
     val ok = pressure != null && n != null && n > 0
     VuSheet(
-        title = "Нажатие на ось", sub = "Строка таблицы бланка", onDismiss = onDismiss,
+        title = "Нажатие на ось", sub = "Строка таблицы бланка: любое значение, тс на ось", onDismiss = onDismiss,
         footer = {
             VuBtn(
-                if (ok) "Добавить · $n × ${fmtP(pressure!!)} = ${fmt(pressure!! * n!!)} тс" else "Добавить", {
+                if (ok) "Добавить · $n × ${fmtP(pressure!!)} = ${fmt(pressure * n!!)} тс" else "Добавить", {
                     vm.setAxlesForPressure(pressure!!, axles); onDismiss()
                 }, Modifier.fillMaxWidth(), h = 56.dp, enabled = ok,
             )
         },
     ) {
+        VuInput("Нажатие на ось, тс", pressureText, onChange = { pressureText = it }, unit = "тс", placeholder = "например 8,25")
+        Spacer(Modifier.height(10.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             OTHER_VALUES.forEach { v ->
-                VuChip(fmtP(v), pressure == v, { pressure = v; axles = state.effectiveRows().firstOrNull { it.pressureText.toFiniteDoubleOrNull() == v }?.axlesText.orEmpty() }, Modifier.widthIn(min = 56.dp), small = true)
+                VuChip(fmtP(v), pressure == v, {
+                    pressureText = fmtP(v)
+                    axles = state.effectiveRows().firstOrNull { it.pressureText.toFiniteDoubleOrNull() == v }?.axlesText.orEmpty()
+                }, Modifier.widthIn(min = 56.dp), small = true)
             }
         }
         Spacer(Modifier.height(14.dp))
