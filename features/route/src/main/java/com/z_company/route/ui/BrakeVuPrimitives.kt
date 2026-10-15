@@ -74,6 +74,7 @@ internal class VuColors(
     val bgSubtle: Color,
     val success: Color,
     val danger: Color,
+    val warning: Color,
 )
 
 @Composable
@@ -84,7 +85,7 @@ internal fun vuColors(): VuColors {
         border = c.outlineVariant, borderStrong = c.outline,
         accent = c.tertiary, accentInk = c.onPrimary, accentSoft = c.primaryContainer,
         bg = c.background, surface = c.secondary, bgSubtle = c.surfaceBright,
-        success = c.surfaceTint, danger = c.error,
+        success = c.surfaceTint, danger = c.error, warning = c.surfaceContainerHigh,
     )
 }
 
