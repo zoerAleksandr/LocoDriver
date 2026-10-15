@@ -344,6 +344,9 @@ private fun FillFromRoute(state: BrakeCertificateUiState, vm: BrakeCertificateVi
         )
         val text = state.fillReport?.text
         if (text != null) VuHint(text, Modifier.padding(horizontal = 4.dp), color = t.muted)
+        if (state.fillReport?.conflicts?.isNotEmpty() == true) {
+            VuBtn("Заменить введённое данными маршрута", { vm.fillFromRoute(force = true) }, Modifier.fillMaxWidth(), kind = VuBtnKind.Text, h = 44.dp)
+        }
         else if (state.routeId == null) VuHint("Экран открыт без маршрута - данные поезда и локомотива можно ввести вручную.", Modifier.padding(horizontal = 4.dp))
     }
 }

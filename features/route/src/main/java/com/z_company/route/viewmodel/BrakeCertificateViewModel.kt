@@ -8,6 +8,14 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.domain.autorecord.TrainOrdering
 import com.z_company.domain.brake.AxleRow
+import com.z_company.domain.brake.storage.BrakeCertificateUseCase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import com.z_company.domain.brake.AxleRowData
 import com.z_company.domain.brake.BrakeCertificateData
 import com.z_company.domain.brake.DensityMeasurementData
@@ -129,13 +137,17 @@ val BrakeCertificateUiState.grade: GradeClass get() = slope.grade
 val BrakeCertificateUiState.manualInfo: BrakeNorms.ManualInfo get() = BrakeNorms.manualInfo(slope, manualOverride)
 
 /** Итог «Заполнить из маршрута»: что подставлено и чего не нашлось. */
-data class FillReport(val filled: List<String>, val missing: List<String>, val note: String? = null) {
+data class FillReport(val filled: List<String>, val missing: List<String>, val note: String? = null, val conflicts: List<String> = emptyList()) {
     val text: String
         get() = buildString {
             if (filled.isNotEmpty()) append("Подставлено: ").append(filled.joinToString(", "))
             if (missing.isNotEmpty()) {
                 if (isNotEmpty()) append(". ")
                 append("Не нашлось: ").append(missing.joinToString(", "))
+            }
+            if (conflicts.isNotEmpty()) {
+                if (isNotEmpty()) append(". ")
+                append("Не заменено (уже введено): ").append(conflicts.joinToString(", "))
             }
             if (note != null) {
                 if (isNotEmpty()) append(". ")
@@ -147,6 +159,12 @@ data class FillReport(val filled: List<String>, val missing: List<String>, val n
 /** Экран-калькулятор «Справка ВУ-45»: данные не сохраняются (кроме выбранной нормы ручных тормозов). */
 class BrakeCertificateViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
+    private val certificates: BrakeCertificateUseCase by inject()
+    /** Запись справки после выхода с экрана не должна отменяться вместе с viewModelScope. */
+    private val persistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var storedId: String = ""
+    private var lastSavedKey: BrakeCertificateData? = null
+    private var persistStarted = false
     private val prefs = application.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     private val _state = MutableStateFlow(
@@ -184,11 +202,15 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             )
         }
         setLocoSeries(q.locoSeries.orEmpty())
-        if (q.routeId != null) fillFromRoute(silentWhenNoData = true)
+        viewModelScope.launch {
+            loadStored()
+            if (q.routeId != null) fillFromRoute(silentWhenNoData = true)
+            startPersisting()
+        }
     }
 
     /** «Заполнить из маршрута»: вес, оси, номер поезда - из раздела «Поезд»; серия и номер - из раздела «Локомотив». */
-    fun fillFromRoute(silentWhenNoData: Boolean = false) {
+    fun fillFromRoute(silentWhenNoData: Boolean = false, force: Boolean = false) {
         val rid = _state.value.routeId
         if (rid == null) {
             if (!silentWhenNoData) {
@@ -212,24 +234,91 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             ).sanitized()
             val filled = mutableListOf<String>()
             val missing = mutableListOf<String>()
-            if (q.weight != null) filled += "вес" else missing += "вес"
-            if (q.axles != null) filled += "оси" else missing += "оси"
-            if (q.trainNumber != null) filled += "поезд №" else missing += "поезд №"
-            if (q.locoSeries != null || q.locoNumber != null) filled += "локомотив" else missing += "локомотив"
+            val conflicts = mutableListOf<String>()
+            val cur = _state.value
+            // Введённое не затираем без подтверждения: пустое или совпадающее - подставляем, иное - в «не заменено».
+            fun pick(label: String, new: String?, old: String, same: (String, String) -> Boolean = { a, b -> a.trim() == b.trim() }): String {
+                if (new == null) { missing += label; return old }
+                return if (old.isBlank() || same(old, new) || force) { filled += label; new } else { conflicts += label; old }
+            }
+            val num = { a: String, b: String -> a.toFiniteDoubleOrNull() == b.toFiniteDoubleOrNull() }
+            val weight = pick("вес", q.weight, cur.weightText, num)
+            val axles = pick("оси", q.axles, cur.totalAxlesText, num)
+            val trainNo = pick("поезд №", q.trainNumber, cur.trainNumberText)
+            val locoNo = pick("локомотив", q.locoNumber ?: q.locoSeries, cur.locoNumberText.ifBlank { cur.locoSeriesText })
             _state.update {
                 it.copy(
-                    weightText = q.weight ?: it.weightText,
-                    totalAxlesText = q.axles ?: it.totalAxlesText,
-                    trainNumberText = q.trainNumber ?: it.trainNumberText,
-                    locoNumberText = q.locoNumber ?: it.locoNumberText,
+                    weightText = weight,
+                    totalAxlesText = axles,
+                    trainNumberText = trainNo,
+                    locoNumberText = if (q.locoNumber != null && locoNo == q.locoNumber) locoNo else it.locoNumberText,
                     trainId = train?.trainId ?: it.trainId,
                     filling = false,
-                    fillReport = FillReport(filled, missing),
+                    fillReport = FillReport(filled.distinct(), missing.distinct(), conflicts = conflicts.distinct()),
                 )
             }
-            q.locoSeries?.let { setLocoSeries(it) }
+            val curSeries = _state.value.locoSeriesText
+            val newSeries = q.locoSeries
+            if (newSeries != null && (curSeries.isBlank() || force || curSeries.trim() == newSeries)) setLocoSeries(newSeries)
             applyStopCandidates(train?.stations.orEmpty())
         }
+    }
+
+    // ── Хранение (BrakeCertificate.db; docs/VU45_STORAGE_DESIGN.md) ──
+
+    /** Подставляет сохранённую справку поезда: сохранённое приоритетнее предзаполнения, пустые поля берутся из предзаполнения. */
+    private suspend fun loadStored() {
+        val tid = _state.value.trainId ?: return
+        val stored = withContext(Dispatchers.IO) { runCatching { certificates.loadForTrain(tid) }.getOrNull() } ?: return
+        storedId = stored.id
+        _state.update { cur ->
+            val ui = stored.toUiState(cur)
+            ui.copy(
+                weightText = ui.weightText.ifBlank { cur.weightText },
+                totalAxlesText = ui.totalAxlesText.ifBlank { cur.totalAxlesText },
+                trainNumberText = ui.trainNumberText.ifBlank { cur.trainNumberText },
+                locoNumberText = ui.locoNumberText.ifBlank { cur.locoNumberText },
+                locoSeriesText = ui.locoSeriesText.ifBlank { cur.locoSeriesText },
+                routeId = cur.routeId, trainId = cur.trainId, manualOverride = cur.manualOverride,
+            )
+        }
+        lastSavedKey = _state.value.toData().copy(id = "", updatedAt = 0L)
+    }
+
+    /** Автосохранение: дебаунс 1 с после последнего изменения; при выходе - немедленно (onCleared). */
+    @OptIn(FlowPreview::class)
+    private fun startPersisting() {
+        if (persistStarted) return
+        persistStarted = true
+        viewModelScope.launch {
+            _state.map { it.toData().copy(id = "", updatedAt = 0L) }.debounce(1000).collect { persist(it) }
+        }
+    }
+
+    private fun persist(key: BrakeCertificateData) {
+        val st = _state.value
+        val rid = st.routeId ?: return
+        val tid = st.trainId ?: return
+        if (!hasContent(key) || key == lastSavedKey) return
+        lastSavedKey = key
+        persistScope.launch {
+            runCatching {
+                val saved = certificates.save(key.copy(id = storedId), rid, tid) { java.util.UUID.randomUUID().toString() }
+                storedId = saved.id
+            }
+        }
+    }
+
+    private fun hasContent(d: BrakeCertificateData): Boolean =
+        d.weight.isNotBlank() || d.totalAxles.isNotBlank() || d.avgPressure.isNotBlank() || d.rows.any { it.pressure.isNotBlank() || it.axles.isNotBlank() } ||
+            d.measurements.any { it.seconds != null } || d.turnaround.isNotEmpty() || d.stationOrOtherFilled()
+
+    private fun BrakeCertificateData.stationOrOtherFilled() =
+        station.isNotBlank() || tailCar.isNotBlank() || manualHave.isNotBlank() || flags.isNotEmpty() || tcpv.isNotBlank() || dpv.isNotBlank()
+
+    override fun onCleared() {
+        if (persistStarted) persist(_state.value.toData().copy(id = "", updatedAt = 0L))
+        super.onCleared()
     }
 
     /**
@@ -562,5 +651,31 @@ fun BrakeCertificateUiState.toData(updatedAt: Long = 0L): BrakeCertificateData {
         chargePressure = chargePressureText, densityGroup = densityGroup, locoCount = locoCountText,
         measurements = listOf(m(TimerKind.II, timerII), m(TimerKind.IV, timerIV), m(TimerKind.ROUTE, timerRoute)),
         turnaround = turnaround, updatedAt = updatedAt,
+    )
+}
+
+/** Обратное преобразование сохранённой справки в состояние экрана (идущие секундомеры и UI-состояние не восстанавливаются). */
+fun BrakeCertificateData.toUiState(base: BrakeCertificateUiState): BrakeCertificateUiState {
+    fun timer(kind: TimerKind): DensityTimerState {
+        val m = measurements.firstOrNull { it.kind == kind.name } ?: return DensityTimerState()
+        return DensityTimerState(
+            accumulatedMs = ((m.seconds ?: 0.0) * 1000).toLong(), recordedSec = m.seconds,
+            grStartText = m.grStart, grEndText = m.grEnd, dropText = m.drop,
+        )
+    }
+    var next = 0
+    val rowUi = rows.map { BrakeRowUi(id = next++, pressureText = it.pressure, axlesText = it.axles) }.ifEmpty { listOf(BrakeRowUi(id = next++)) }
+    return base.copy(
+        categoryId = categoryId, slope = slope, autoblock3 = autoblock3, manualOverride = manualNorm ?: base.manualOverride,
+        stationText = station, issueTimeText = issueTime, dateText = date.ifBlank { base.dateText },
+        locoSeriesText = locoSeries, locoNumberText = locoNumber, trainNumberText = trainNumber,
+        weightText = weight, totalAxlesText = totalAxles, avgPressureText = avgPressure, rowsMode = rowsMode,
+        rows = rowUi, nextRowId = next,
+        locoEnabled = locoEnabled, locoWeightText = locoWeight, locoAxlesText = locoAxles, locoPressureText = locoPressure,
+        compositeShare = compositeShare, flags = flags.toSet(), tcpvText = tcpv, vstrText = vstr, dpvText = dpv, vo2hvText = vo2hv,
+        manualHaveText = manualHave, feedDensityText = feedDensity, tailVoltageText = tailVoltage, tailCarText = tailCar,
+        chargePressureText = chargePressure, densityGroup = densityGroup, locoCountText = locoCount.ifBlank { "1" },
+        timerII = timer(TimerKind.II), timerIV = timer(TimerKind.IV), timerRoute = timer(TimerKind.ROUTE),
+        turnaround = turnaround,
     )
 }
