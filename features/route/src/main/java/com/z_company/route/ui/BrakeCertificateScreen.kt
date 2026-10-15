@@ -77,6 +77,7 @@ import com.z_company.domain.brake.BrakeNorms
 import com.z_company.domain.brake.CompositeShare
 import com.z_company.domain.brake.DensityLocoGroup
 import com.z_company.domain.brake.GradeClass
+import com.z_company.domain.brake.SlopeStep
 import com.z_company.domain.brake.SpeedLimit
 import com.z_company.domain.brake.StopClass
 import com.z_company.domain.brake.TrainGroup
@@ -90,6 +91,8 @@ import com.z_company.route.viewmodel.BrakeCertificateViewModel
 import com.z_company.route.viewmodel.DensityTimerState
 import com.z_company.route.viewmodel.TimerKind
 import com.z_company.route.viewmodel.effectiveRows
+import com.z_company.route.viewmodel.grade
+import com.z_company.route.viewmodel.manualInfo
 import com.z_company.route.viewmodel.toInput
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -109,10 +112,11 @@ private val TABS = listOf("Расчёт", "Бланк", "Замеры", "Спр�
 private val PRINTED = listOf(2.5, 3.5, 5.0, 6.0, 6.5, 7.0, 8.0, 8.5, 9.0, 10.0, 12.0, 15.0)
 private val OTHER_VALUES = listOf(1.25, 2.5, 3.5, 5.0, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 18.0, 21.0)
 
-private fun fmt(v: Double, digits: Int = 1): String {
+/** Число для показа: без потери значащих дробных разрядов (до [digits] знаков), без хвостовых нулей, запятая. */
+private fun fmt(v: Double, digits: Int = 2): String {
     val factor = Math.pow(10.0, digits.toDouble())
     val r = Math.round(v * factor) / factor
-    val s = if (r % 1.0 == 0.0 && digits > 0) r.toLong().toString() else r.toString()
+    val s = if (r % 1.0 == 0.0) r.toLong().toString() else r.toString()
     return s.replace('.', ',')
 }
 
@@ -217,11 +221,14 @@ fun BrakeCertificateScreen(
             },
         )
         BrakeSheet.ManualNorm -> SettingsPickerSheet(
-            title = "Норма ручных тормозных осей",
-            hint = "Единое наименьшее - 0,6 оси на 100 тс. Для одной дороги и уклонов круче 0,012 норму устанавливает начальник дороги (табл. 6)",
+            title = "Ручные тормозные оси на 100 тс",
+            hint = "«Авто» берёт значение из табл. 6 по руководящему уклону, но не менее единого наименьшего 0,6 (п. 7). Ручное значение запоминается и от уклона не зависит.",
             onDismiss = { sheet = null },
-            options = BrakeNorms.ManualBrakeNorm.values().map { n ->
-                SettingsPickerOption(label = n.title, selected = n == state.manualNorm, onSelect = { viewModel.setManualNorm(n) })
+            options = buildList {
+                add(SettingsPickerOption(label = "Авто (по уклону)", sub = BrakeNorms.manualInfo(state.slope, null).text, selected = state.manualOverride == null, onSelect = { viewModel.setManualOverride(null) }))
+                BrakeNorms.ManualBrakeNorm.values().forEach { n ->
+                    add(SettingsPickerOption(label = n.title, selected = n == state.manualOverride, onSelect = { viewModel.setManualOverride(n) }))
+                }
             },
         )
         BrakeSheet.DensityGroup -> SettingsPickerSheet(
@@ -295,24 +302,25 @@ private fun CalcTab(
                     }
                     if (category.manualBrakesRequired) {
                         VuInput(
-                            "Ручных на 100 тс", state.manualNorm.title.substringBefore(" - "), Modifier.weight(1f),
+                            "Ручных на 100 тс", (if (state.manualOverride == null) "Авто · " else "") + fmt(state.manualInfo.perHundred, 1), Modifier.weight(1f),
                             onClick = { onSheet(BrakeSheet.ManualNorm) }, onHelp = { onSheet(BrakeSheet.Help("manual_req")) },
                         )
                     } else Spacer(Modifier.weight(1f))
                 }
                 Box(Modifier.padding(start = 0.dp)) { VuBtn("Оси по типам вагонов ›", onClick = onOpenBlank, kind = VuBtnKind.Text, h = 40.dp) }
+                if (category.manualBrakesRequired) VuHint(state.manualInfo.text.replaceFirstChar { it.uppercase() }, Modifier.padding(horizontal = 4.dp))
                 // Руководящий спуск
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth().heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Руководящий спуск, ‰", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted)
                         VuHelp({ onSheet(BrakeSheet.Help("grade")) }, touch = 32.dp)
                     }
-                    val ab = category.vFlatAutoblock != null && state.grade != GradeClass.OVER_010_TO_015
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(GradeClass.UP_TO_006 to "≤ 6", GradeClass.OVER_006_TO_010 to "6–10", GradeClass.OVER_010_TO_015 to "10–15").forEach { (g, label) ->
-                            VuChip(label, state.grade == g, { vm.setGrade(g) }, Modifier.weight(1f))
+                    val ab = category.vFlatAutoblock != null && (state.grade == GradeClass.UP_TO_006 || state.grade == GradeClass.OVER_006_TO_010)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SlopeStep.values().forEach { step ->
+                            VuChip(step.slopeText.removePrefix("0,0").removePrefix("до ").let { if (step == SlopeStep.S006) "≤ 6" else it.trimStart('0') }, state.slope == step, { vm.setSlope(step) }, Modifier.widthIn(min = 56.dp))
                         }
-                        if (ab) VuChip("АБ", state.autoblock3, { vm.setAutoblock(!state.autoblock3) }, Modifier.weight(1f))
+                        if (ab) VuChip("АБ", state.autoblock3, { vm.setAutoblock(!state.autoblock3) })
                     }
                 }
             }
@@ -934,7 +942,7 @@ private fun TurnaroundSheet(
             }
             VuInput(
                 "Плотность, с", e.densitySec?.let { fmt(it) } ?: "",
-                onChange = { v -> vm.updateTurnaround(entryId) { it.copy(densitySec = v.replace(',', '.').toDoubleOrNull()) } }, unit = "с", sunk = true,
+                onChange = { v -> vm.updateTurnaround(entryId) { it.copy(densitySec = v.toFiniteDoubleOrNull()) } }, unit = "с", sunk = true,
             )
             VuBtn("Замерить секундомером", onMeasure, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal)
             if (e.stopClass == StopClass.OVER_30) {
@@ -1039,7 +1047,7 @@ private fun HelpSheet(key: String, state: BrakeCertificateUiState, category: Bra
     if (hint == null) { onDismiss(); return }
     val calc = when (key) {
         "required" -> result?.let { "${state.weightText} × ${category.norm} / 100 = ${fmt(it.requiredPressure)} тс" }
-        "manual_req" -> result?.requiredManualAxles?.let { "${state.weightText} × ${fmt(state.manualNorm.perHundred, 1)} / 100 → $it осей" }
+        "manual_req" -> result?.requiredManualAxles?.let { "${state.weightText} × ${fmt(state.manualInfo.perHundred, 1)} / 100 → $it осей" }
         else -> null
     }
     fun row(k: String, v: String, mono: Boolean = false) = @Composable {

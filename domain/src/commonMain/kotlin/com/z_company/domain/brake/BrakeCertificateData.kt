@@ -19,7 +19,9 @@ data class BrakeCertificateData(
     val categoryId: String = "FREIGHT_LOADED",
     val grade: GradeClass = GradeClass.UP_TO_006,
     val autoblock3: Boolean = false,
-    val manualNorm: BrakeNorms.ManualBrakeNorm = BrakeNorms.ManualBrakeNorm.UNIFIED_06,
+    /** Ручное переопределение нормы ручных осей; null - «Авто» по уклону. */
+    val manualNorm: BrakeNorms.ManualBrakeNorm? = null,
+    val slope: SlopeStep = SlopeStep.S006,
     // Шапка бланка
     val station: String = "",
     val issueTime: String = "",

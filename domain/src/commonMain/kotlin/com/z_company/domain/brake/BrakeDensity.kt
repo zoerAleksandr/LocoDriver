@@ -139,8 +139,8 @@ object BrakeDensity {
         }
     }
 
-    private fun fmt(v: Double, digits: Int = 1): String {
-        val f = when (digits) { 2 -> 100.0; else -> 10.0 }
+    private fun fmt(v: Double, digits: Int = 2): String {
+        val f = 100.0
         val r = kotlin.math.round(v * f) / f
         val s = if (r % 1.0 == 0.0) r.toLong().toString() else r.toString()
         return s.replace('.', ',')

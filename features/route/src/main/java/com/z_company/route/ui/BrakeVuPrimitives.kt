@@ -50,6 +50,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.MonoFont
+import com.z_company.domain.util.sanitizeDecimalInput
+import com.z_company.domain.util.sanitizeIntegerInput
 import com.z_company.route.component.separateSheetFromScroll
 
 /**
@@ -196,11 +198,11 @@ internal fun VuInput(
                     value = value,
                     onValueChange = { raw ->
                         val allowed = when {
-                            text -> raw
-                            keyboard == KeyboardType.Number -> raw.filter { it.isDigit() }
-                            else -> raw.filter { it.isDigit() || it == ',' || it == '.' }
+                            text -> raw.take(40)
+                            keyboard == KeyboardType.Number -> raw.sanitizeIntegerInput(maxLen)
+                            else -> raw.sanitizeDecimalInput(maxLen)
                         }
-                        onChange?.invoke(allowed.take(if (text) 40 else maxLen))
+                        onChange?.invoke(allowed)
                     },
                     modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
                     singleLine = true,
@@ -401,9 +403,9 @@ internal fun VuInk(
             BasicTextField(
                 value = value,
                 onValueChange = { raw ->
-                    val v = if (keyboard == KeyboardType.Number) raw.filter { it.isDigit() }
-                    else if (keyboard == KeyboardType.Decimal) raw.filter { it.isDigit() || it == ',' || it == '.' } else raw
-                    onChange(v.take(maxLen))
+                    val v = if (keyboard == KeyboardType.Number) raw.sanitizeIntegerInput(maxLen)
+                    else if (keyboard == KeyboardType.Decimal) raw.sanitizeDecimalInput(maxLen) else raw.take(maxLen)
+                    onChange(v)
                 },
                 modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
                 singleLine = true,

@@ -86,7 +86,7 @@ class BrakeCertificateCalculatorTest {
         // Известное расхождение в самих Нормах: рефрижераторный (REEFER), спуск круче 0,010: формула 80, табл. 2 - 90.
         for (c in BrakeNorms.categories) {
             val min = c.minNorm ?: continue
-            for (g in GradeClass.values()) {
+            for (g in GradeClass.values().filter { it != GradeClass.OVER_015 }) {
                 val expected = c.minSpeeds[g.ordinal] ?: continue
                 val r = BrakeCertificateCalculator.calculate(
                     BrakeCertificateInput(
@@ -162,5 +162,63 @@ class BrakeCertificateCalculatorTest {
         val r = freight(1000.0, 1, 1000.0, id = "PASS_130", grade = GradeClass.OVER_010_TO_015)
         assertNotNull(r)
         assertTrue(r.speed is SpeedLimit.NotDetermined)
+    }
+
+    private fun manualAxles(step: SlopeStep, override: BrakeNorms.ManualBrakeNorm? = null) =
+        BrakeCertificateCalculator.calculate(
+            BrakeCertificateInput(
+                category = cat("FREIGHT_LOADED"), compositionWeight = 3040.0,
+                rows = listOf(AxleRow(8.5, 128)), grade = step.grade, slope = step, manualNorm = override,
+            ),
+        ).requiredManualAxles
+
+    @Test
+    fun manualAuto_byEverySlopeStep_table6WithLowerBound06() {
+        // Q = 3040 тс: k * 30,4 с округлением вверх
+        // ≤0,006: табл. 6 = 0,4, но не менее 0,6 -> 18,24 -> 19
+        assertEquals(19, manualAxles(SlopeStep.S006))
+        assertEquals(0.6, BrakeNorms.manualInfo(SlopeStep.S006, null).perHundred)
+        assertEquals(19, manualAxles(SlopeStep.S008))     // 0,6
+        assertEquals(25, manualAxles(SlopeStep.S010))     // 0,8 -> 24,32
+        assertEquals(31, manualAxles(SlopeStep.S012))     // 1,0 -> 30,4
+        assertEquals(37, manualAxles(SlopeStep.S014))     // 1,2 -> 36,48
+        assertEquals(43, manualAxles(SlopeStep.S016))     // 1,4 -> 42,56
+        assertEquals(49, manualAxles(SlopeStep.S018))     // 1,6 -> 48,64
+        assertEquals(55, manualAxles(SlopeStep.S020))     // 1,8 -> 54,72
+        for (s in SlopeStep.values()) assertEquals(maxOf(0.6, s.table6), BrakeNorms.manualInfo(s, null).perHundred, s.name)
+    }
+
+    @Test
+    fun manualOverride_ignoresSlope() {
+        // ручное 0,4 разрешено (одна дорога): 12,16 -> 13, от уклона не зависит
+        assertEquals(13, manualAxles(SlopeStep.S020, BrakeNorms.ManualBrakeNorm.SLOPE_006))
+        assertEquals(13, manualAxles(SlopeStep.S006, BrakeNorms.ManualBrakeNorm.SLOPE_006))
+        val info = BrakeNorms.manualInfo(SlopeStep.S020, BrakeNorms.ManualBrakeNorm.SLOPE_006)
+        assertTrue(!info.auto)
+        assertTrue(BrakeNorms.manualInfo(SlopeStep.S010, null).text.contains("0,010"))
+    }
+
+    @Test
+    fun slopeSteps_gradeForSpeeds() {
+        assertEquals(GradeClass.UP_TO_006, SlopeStep.S006.grade)
+        assertEquals(GradeClass.OVER_006_TO_010, SlopeStep.S010.grade)
+        assertEquals(GradeClass.OVER_010_TO_015, SlopeStep.S014.grade)
+        assertEquals(GradeClass.OVER_015, SlopeStep.S016.grade)
+        // круче 0,015 скорость по таблицам не определяется
+        val r = BrakeCertificateCalculator.calculate(
+            BrakeCertificateInput(cat("FREIGHT_LOADED"), 3040.0, listOf(AxleRow(8.5, 128)), grade = GradeClass.OVER_015, slope = SlopeStep.S016),
+        )
+        assertTrue(r.speed is SpeedLimit.NotDetermined)
+    }
+
+    @Test
+    fun fractionalInputs() {
+        // 3040,5 тс, 8,25 тс на ось, 128 осей
+        val r = BrakeCertificateCalculator.calculate(
+            BrakeCertificateInput(cat("FREIGHT_LOADED"), 3040.5, listOf(AxleRow(8.25, 128))),
+        )
+        near(r.requiredPressure, 3040.5 * 33 / 100)
+        near(r.actualPressure, 8.25 * 128)
+        assertTrue(r.enough)
     }
 }

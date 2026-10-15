@@ -12,6 +12,23 @@ enum class GradeClass(val title: String) {
     UP_TO_006("до 0,006"),
     OVER_006_TO_010("круче 0,006 до 0,010"),
     OVER_010_TO_015("круче 0,010 до 0,015"),
+    /** Круче 0,015: норм табл. 1/2 нет, скорость устанавливает начальник дороги. */
+    OVER_015("круче 0,015"),
+}
+
+/**
+ * Ступени руководящего уклона по табл. 6 Норм (оси ручных тормозов на 100 тс). Для диапазона берётся верхняя граница ступени
+ * (безопасная сторона). Класс [grade] определяет скорости табл. 1/2; ступени круче 0,015 норм скорости не имеют.
+ */
+enum class SlopeStep(val slopeText: String, val grade: GradeClass, val table6: Double) {
+    S006("до 0,006", GradeClass.UP_TO_006, 0.4),
+    S008("0,008", GradeClass.OVER_006_TO_010, 0.6),
+    S010("0,010", GradeClass.OVER_006_TO_010, 0.8),
+    S012("0,012", GradeClass.OVER_010_TO_015, 1.0),
+    S014("0,014", GradeClass.OVER_010_TO_015, 1.2),
+    S016("0,016", GradeClass.OVER_015, 1.4),
+    S018("0,018", GradeClass.OVER_015, 1.6),
+    S020("0,020", GradeClass.OVER_015, 1.8),
 }
 
 /** Группа поезда (определяет правило снижения скорости по п. 4.4 и учёт локомотива). */
@@ -89,6 +106,23 @@ object BrakeNorms {
         SLOPE_018(1.6, "1,6 - уклон 0,018"),
         SLOPE_020(1.8, "1,8 - уклон 0,020"),
     }
+
+    /** Единое наименьшее число ручных осей на 100 тс (п. 7: поезда в пределах двух и более дорог). */
+    const val UNIFIED_MANUAL = 0.6
+
+    /** Число ручных осей на 100 тс и пояснение, откуда оно получено. [override] != null - ручное значение пользователя. */
+    data class ManualInfo(val perHundred: Double, val text: String, val auto: Boolean)
+
+    fun manualInfo(slope: SlopeStep, override: ManualBrakeNorm?): ManualInfo {
+        if (override != null) return ManualInfo(override.perHundred, "вручную: ${fmtK(override.perHundred)} оси на 100 тс", false)
+        val t6 = slope.table6
+        val v = maxOf(UNIFIED_MANUAL, t6)
+        val text = if (t6 < UNIFIED_MANUAL) "по табл. 6 для уклона ${slope.slopeText} - ${fmtK(t6)}, но не менее единого наименьшего ${fmtK(UNIFIED_MANUAL)} (п. 7)"
+        else "по табл. 6 для уклона ${slope.slopeText} - ${fmtK(t6)}"
+        return ManualInfo(v, text, true)
+    }
+
+    private fun fmtK(v: Double): String = v.toString().replace('.', ',')
 
     /** Табл. 3: расчётные нажатия колодок на ось вагонов (в пересчёте на чугунные), тс. */
     data class AxlePreset(val title: String, val pressure: Double)

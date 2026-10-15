@@ -22,7 +22,9 @@ data class BrakeCertificateInput(
     /** Автоблокировка с трёхзначной сигнализацией, зелёный огонь АЛСН (значения в скобках табл. 1). */
     val autoblock3: Boolean = false,
     val compositeShare: CompositeShare = CompositeShare.NONE,
-    val manualNorm: BrakeNorms.ManualBrakeNorm = BrakeNorms.ManualBrakeNorm.UNIFIED_06,
+    /** Ручное переопределение нормы ручных осей (null - «Авто» по уклону [slope], табл. 6 с нижней границей 0,6). */
+    val manualNorm: BrakeNorms.ManualBrakeNorm? = null,
+    val slope: SlopeStep = SlopeStep.S006,
     /** Фактическое число ручных тормозных осей, если задано. */
     val actualManualAxles: Int? = null,
     /** Число осей состава (для сверки с суммой по строкам), если известно. */
@@ -83,7 +85,7 @@ object BrakeCertificateCalculator {
         }
 
         val manualRequired = if (cat.manualBrakesRequired && input.compositionWeight > 0) {
-            ceil(input.compositionWeight * input.manualNorm.perHundred / 100.0 - EPS).toInt()
+            ceil(input.compositionWeight * BrakeNorms.manualInfo(input.slope, input.manualNorm).perHundred / 100.0 - EPS).toInt()
         } else null
         val manualOk = if (manualRequired != null && input.actualManualAxles != null)
             input.actualManualAxles >= manualRequired else null
@@ -103,12 +105,17 @@ object BrakeCertificateCalculator {
         )
     }
 
+    private fun speedLimitSteep(): SpeedLimit = SpeedLimit.NotDetermined(
+        "Для спуска круче 0,015 норм табл. 1 и 2 нет - скорость устанавливает начальник дороги (п. 5.2)",
+    )
+
     private fun speedLimit(
         cat: BrakeCategory,
         input: BrakeCertificateInput,
         per100: Double,
         enough: Boolean,
     ): SpeedLimit {
+        if (input.grade == GradeClass.OVER_015) return speedLimitSteep()
         val steep = input.grade == GradeClass.OVER_010_TO_015
         val base: Int? = if (steep) cat.vSteep else cat.vFlat
         if (base == null) {

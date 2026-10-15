@@ -25,6 +25,7 @@ import com.z_company.domain.brake.BrakePrefill
 import com.z_company.domain.brake.CompositeShare
 import com.z_company.domain.brake.DensityLocoGroup
 import com.z_company.domain.brake.GradeClass
+import com.z_company.domain.brake.SlopeStep
 import com.z_company.domain.brake.LocoBrakeInput
 import com.z_company.domain.util.toFiniteDoubleOrNull
 import kotlinx.coroutines.Job
@@ -67,9 +68,10 @@ data class DensityTimerState(
 data class BrakeCertificateUiState(
     // Параметры расчёта (не входят в бланк)
     val categoryId: String = "FREIGHT_LOADED",
-    val grade: GradeClass = GradeClass.UP_TO_006,
+    val slope: SlopeStep = SlopeStep.S006,
     val autoblock3: Boolean = false,
-    val manualNorm: BrakeNorms.ManualBrakeNorm = BrakeNorms.ManualBrakeNorm.UNIFIED_06,
+    /** Ручное переопределение нормы ручных осей (запоминается); null - «Авто» по уклону (табл. 6, не менее 0,6). */
+    val manualOverride: BrakeNorms.ManualBrakeNorm? = null,
     // Шапка бланка
     val stationText: String = "",
     val issueTimeText: String = "",
@@ -123,6 +125,9 @@ data class BrakeCertificateUiState(
     val trainStationNames: List<String> = emptyList(),
 )
 
+val BrakeCertificateUiState.grade: GradeClass get() = slope.grade
+val BrakeCertificateUiState.manualInfo: BrakeNorms.ManualInfo get() = BrakeNorms.manualInfo(slope, manualOverride)
+
 /** Итог «Заполнить из маршрута»: что подставлено и чего не нашлось. */
 data class FillReport(val filled: List<String>, val missing: List<String>, val note: String? = null) {
     val text: String
@@ -146,7 +151,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
 
     private val _state = MutableStateFlow(
         BrakeCertificateUiState(
-            manualNorm = loadManualNorm(),
+            manualOverride = loadManualOverride(),
             dateText = LocalDate.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
         ),
     )
@@ -285,9 +290,9 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     /** Следующий замер «В пути» запишется в эту отметку оборота. */
     fun setRouteTarget(id: String?) = _state.update { it.copy(routeTargetEntryId = id) }
 
-    private fun loadManualNorm(): BrakeNorms.ManualBrakeNorm =
-        runCatching { BrakeNorms.ManualBrakeNorm.valueOf(prefs.getString(KEY_MANUAL_NORM, null) ?: "") }
-            .getOrDefault(BrakeNorms.ManualBrakeNorm.UNIFIED_06)
+    /** null - «Авто» (по умолчанию); старые сохранённые значения до введения «Авто» также читаются как ручные. */
+    private fun loadManualOverride(): BrakeNorms.ManualBrakeNorm? =
+        runCatching { BrakeNorms.ManualBrakeNorm.valueOf(prefs.getString(KEY_MANUAL_NORM, null) ?: "") }.getOrNull()
 
     // ── Параметры расчёта ──
     fun setCategory(id: String) = _state.update {
@@ -295,12 +300,13 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         it.copy(categoryId = id, locoEnabled = cat.locoCountedByDefault, compositeShare = CompositeShare.NONE)
     }
 
-    fun setGrade(g: GradeClass) = _state.update { it.copy(grade = g) }
+    fun setSlope(step: SlopeStep) = _state.update { it.copy(slope = step, autoblock3 = if (step.grade == GradeClass.OVER_010_TO_015 || step.grade == GradeClass.OVER_015) false else it.autoblock3) }
     fun setAutoblock(v: Boolean) = _state.update { it.copy(autoblock3 = v) }
 
-    fun setManualNorm(norm: BrakeNorms.ManualBrakeNorm) {
-        prefs.edit().putString(KEY_MANUAL_NORM, norm.name).apply()
-        _state.update { it.copy(manualNorm = norm) }
+    /** null - вернуться на «Авто (по уклону)». */
+    fun setManualOverride(norm: BrakeNorms.ManualBrakeNorm?) {
+        prefs.edit().apply { if (norm == null) remove(KEY_MANUAL_NORM) else putString(KEY_MANUAL_NORM, norm.name) }.apply()
+        _state.update { it.copy(manualOverride = norm) }
     }
 
     // ── Шапка ──
@@ -515,9 +521,10 @@ fun BrakeCertificateUiState.toInput(): BrakeCertificateInput? {
         rows = axleRows,
         loco = loco,
         grade = grade,
+        slope = slope,
         autoblock3 = autoblock3,
         compositeShare = compositeShare,
-        manualNorm = manualNorm,
+        manualNorm = manualOverride,
         actualManualAxles = manualHaveText.trim().toIntOrNull(),
         declaredAxles = if (rowsMode) totalAxlesText.trim().toIntOrNull() else null,
     )
@@ -536,7 +543,7 @@ fun BrakeCertificateUiState.effectiveRows(): List<BrakeRowUi> =
 fun BrakeCertificateUiState.toData(updatedAt: Long = 0L): BrakeCertificateData {
     fun m(kind: TimerKind, t: DensityTimerState) = DensityMeasurementData(kind.name, t.recordedSec, t.grStartText, t.grEndText, t.dropText)
     return BrakeCertificateData(
-        routeId = routeId, trainId = trainId, categoryId = categoryId, grade = grade, autoblock3 = autoblock3, manualNorm = manualNorm,
+        routeId = routeId, trainId = trainId, categoryId = categoryId, grade = grade, slope = slope, autoblock3 = autoblock3, manualNorm = manualOverride,
         station = stationText, issueTime = issueTimeText, date = dateText, locoSeries = locoSeriesText, locoNumber = locoNumberText,
         trainNumber = trainNumberText, weight = weightText, totalAxles = totalAxlesText,
         avgPressure = avgPressureText, rowsMode = rowsMode, rows = rows.map { AxleRowData(it.pressureText, it.axlesText) },
