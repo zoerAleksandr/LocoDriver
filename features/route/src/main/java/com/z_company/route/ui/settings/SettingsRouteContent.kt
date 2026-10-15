@@ -135,7 +135,7 @@ fun SettingsRouteContent(
                 )
             }
         }
-        SettingsSectionNote("Тап по плитке на главной сразу открывает последний элемент. Список — по счётчику на плитке.")
+        SettingsSectionNote("Если есть несколько объектов")
 
         // ── Вид тяги (по умолчанию) ──
         SettingsGroupHeader("ВИД ТЯГИ", top = 20.dp, startPad = 4.dp)
