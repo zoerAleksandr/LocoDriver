@@ -5,7 +5,19 @@ import android.content.Context
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.core.ResultState
+import com.z_company.domain.autorecord.TrainOrdering
 import com.z_company.domain.brake.AxleRow
+import com.z_company.domain.brake.AxleRowData
+import com.z_company.domain.brake.BrakeCertificateData
+import com.z_company.domain.brake.DensityMeasurementData
+import com.z_company.domain.brake.StopClass
+import com.z_company.domain.brake.TurnaroundEntry
+import com.z_company.domain.brake.TurnaroundPlanner
+import com.z_company.domain.use_cases.RouteUseCase
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+import kotlinx.coroutines.flow.first
 import com.z_company.domain.brake.BrakeCertificateInput
 import com.z_company.domain.brake.BrakeLocoCatalog
 import com.z_company.domain.brake.BrakeNorms
@@ -98,10 +110,38 @@ data class BrakeCertificateUiState(
     val timerII: DensityTimerState = DensityTimerState(),
     val timerIV: DensityTimerState = DensityTimerState(),
     val timerRoute: DensityTimerState = DensityTimerState(),
+    // Оборот (опробования в пути)
+    val turnaround: List<TurnaroundEntry> = emptyList(),
+    /** Запись оборота, в которую попадёт результат ближайшего замера «В пути». */
+    val routeTargetEntryId: String? = null,
+    // Источник данных для «Заполнить из маршрута»
+    val routeId: String? = null,
+    val trainId: String? = null,
+    val fillReport: FillReport? = null,
+    val filling: Boolean = false,
+    /** Названия станций раздела «Поезд» (для выбора станции в отметке оборота). */
+    val trainStationNames: List<String> = emptyList(),
 )
 
+/** Итог «Заполнить из маршрута»: что подставлено и чего не нашлось. */
+data class FillReport(val filled: List<String>, val missing: List<String>, val note: String? = null) {
+    val text: String
+        get() = buildString {
+            if (filled.isNotEmpty()) append("Подставлено: ").append(filled.joinToString(", "))
+            if (missing.isNotEmpty()) {
+                if (isNotEmpty()) append(". ")
+                append("Не нашлось: ").append(missing.joinToString(", "))
+            }
+            if (note != null) {
+                if (isNotEmpty()) append(". ")
+                append(note)
+            }
+        }
+}
+
 /** Экран-калькулятор «Справка ВУ-45»: данные не сохраняются (кроме выбранной нормы ручных тормозов). */
-class BrakeCertificateViewModel(application: Application) : AndroidViewModel(application) {
+class BrakeCertificateViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
+    private val routeUseCase: RouteUseCase by inject()
     private val prefs = application.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     private val _state = MutableStateFlow(
@@ -119,7 +159,10 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
 
     private var prefilled = false
 
-    /** Предзаполнение из поезда и локомотива маршрута (один раз за жизнь VM). */
+    /**
+     * Предзаполнение при входе: сразу значениями из аргументов, затем (если известен маршрут) - актуальными
+     * данными из БД, как «Заполнить из маршрута». Один раз за жизнь VM.
+     */
     fun prefill(p: BrakePrefill?) {
         if (prefilled) return
         prefilled = true
@@ -131,10 +174,117 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
                 totalAxlesText = q.axles.orEmpty(),
                 trainNumberText = q.trainNumber.orEmpty(),
                 locoNumberText = q.locoNumber.orEmpty(),
+                routeId = q.routeId,
+                trainId = q.trainId,
             )
         }
         setLocoSeries(q.locoSeries.orEmpty())
+        if (q.routeId != null) fillFromRoute(silentWhenNoData = true)
     }
+
+    /** «Заполнить из маршрута»: вес, оси, номер поезда - из раздела «Поезд»; серия и номер - из раздела «Локомотив». */
+    fun fillFromRoute(silentWhenNoData: Boolean = false) {
+        val rid = _state.value.routeId
+        if (rid == null) {
+            if (!silentWhenNoData) {
+                _state.update { it.copy(fillReport = FillReport(emptyList(), emptyList(), "Нет данных маршрута: экран открыт без маршрута")) }
+            }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(filling = true) }
+            val route = runCatching { (routeUseCase.routeDetails(rid).first() as? ResultState.Success)?.data }.getOrNull()
+            if (route == null) {
+                _state.update { it.copy(filling = false, fillReport = FillReport(emptyList(), emptyList(), "Маршрут не найден")) }
+                return@launch
+            }
+            val wantedTrain = _state.value.trainId
+            val train = route.trains.firstOrNull { it.trainId == wantedTrain } ?: TrainOrdering.pickHomeMapTarget(route.trains)
+            val loco = route.locomotives.lastOrNull()
+            val q = BrakePrefill(
+                weight = train?.weight, axles = train?.axle, trainNumber = train?.number,
+                locoSeries = loco?.series, locoNumber = loco?.number,
+            ).sanitized()
+            val filled = mutableListOf<String>()
+            val missing = mutableListOf<String>()
+            if (q.weight != null) filled += "вес" else missing += "вес"
+            if (q.axles != null) filled += "оси" else missing += "оси"
+            if (q.trainNumber != null) filled += "поезд №" else missing += "поезд №"
+            if (q.locoSeries != null || q.locoNumber != null) filled += "локомотив" else missing += "локомотив"
+            _state.update {
+                it.copy(
+                    weightText = q.weight ?: it.weightText,
+                    totalAxlesText = q.axles ?: it.totalAxlesText,
+                    trainNumberText = q.trainNumber ?: it.trainNumberText,
+                    locoNumberText = q.locoNumber ?: it.locoNumberText,
+                    trainId = train?.trainId ?: it.trainId,
+                    filling = false,
+                    fillReport = FillReport(filled, missing),
+                )
+            }
+            q.locoSeries?.let { setLocoSeries(it) }
+            applyStopCandidates(train?.stations.orEmpty())
+        }
+    }
+
+    /** Обновить отметки оборота по стоянкам поезда (времена прибытия/отправления станций раздела «Поезд»). */
+    fun refreshStops() {
+        val rid = _state.value.routeId ?: return
+        viewModelScope.launch {
+            val route = runCatching { (routeUseCase.routeDetails(rid).first() as? ResultState.Success)?.data }.getOrNull() ?: return@launch
+            val wantedTrain = _state.value.trainId
+            val train = route.trains.firstOrNull { it.trainId == wantedTrain } ?: TrainOrdering.pickHomeMapTarget(route.trains)
+            applyStopCandidates(train?.stations.orEmpty())
+        }
+    }
+
+    // ── Оборот ──
+    private fun applyStopCandidates(stations: List<com.z_company.domain.entities.route.Station>) {
+        val cands = TurnaroundPlanner.candidates(stations, System.currentTimeMillis())
+        val names = stations.sortedBy { it.orderIndex }.mapNotNull { it.stationName?.trim()?.takeIf { n -> n.isNotEmpty() } }.distinct()
+        _state.update { st0 ->
+            val st = st0.copy(trainStationNames = names)
+            val byStation = st.turnaround.filter { it.stationId != null }.associateBy { it.stationId }
+            val merged = mutableListOf<TurnaroundEntry>()
+            // ручные и введённые пользователем записи сохраняются
+            val keep = st.turnaround.filter { e ->
+                e.stationId == null || !e.auto || e.densitySec != null || e.readinessTime.isNotBlank() || e.inspectorTab.isNotBlank() ||
+                    cands.any { it.stationId == e.stationId }
+            }
+            merged += keep.map { e ->
+                val c = cands.firstOrNull { it.stationId == e.stationId }
+                if (c == null) e else e.copy(
+                    stationName = c.stationName.orEmpty().ifBlank { e.stationName },
+                    stopClass = c.stopClass, arrivalMs = c.arrivalMs, departureMs = c.departureMs,
+                )
+            }
+            cands.filter { c -> byStation[c.stationId] == null }.forEach { c ->
+                merged += TurnaroundEntry(
+                    id = "t-" + c.stationId, stationId = c.stationId, stationName = c.stationName.orEmpty(),
+                    stopClass = c.stopClass, arrivalMs = c.arrivalMs, departureMs = c.departureMs, auto = true,
+                )
+            }
+            st.copy(turnaround = merged)
+        }
+    }
+
+    fun newTurnaroundId(): String = "m-" + System.nanoTime()
+
+    fun addTurnaround(stopClass: StopClass, station: String, id: String = newTurnaroundId()) = _state.update {
+        it.copy(turnaround = it.turnaround + TurnaroundEntry(id = id, stationName = station, stopClass = stopClass))
+    }
+
+    fun updateTurnaround(id: String, f: (TurnaroundEntry) -> TurnaroundEntry) = _state.update {
+        it.copy(turnaround = it.turnaround.map { e -> if (e.id == id) f(e) else e })
+    }
+
+    fun removeTurnaround(id: String) = _state.update {
+        it.copy(turnaround = it.turnaround.filterNot { e -> e.id == id }, routeTargetEntryId = it.routeTargetEntryId.takeIf { t -> t != id })
+    }
+
+    /** Следующий замер «В пути» запишется в эту отметку оборота. */
+    fun setRouteTarget(id: String?) = _state.update { it.copy(routeTargetEntryId = id) }
+
     private fun loadManualNorm(): BrakeNorms.ManualBrakeNorm =
         runCatching { BrakeNorms.ManualBrakeNorm.valueOf(prefs.getString(KEY_MANUAL_NORM, null) ?: "") }
             .getOrDefault(BrakeNorms.ManualBrakeNorm.UNIFIED_06)
@@ -194,6 +344,33 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             rows = listOf(BrakeRowUi(id = it.nextRowId, pressureText = it.avgPressureText, axlesText = it.totalAxlesText)),
             nextRowId = it.nextRowId + 1,
         ) else it.copy(rowsMode = false)
+    }
+
+    /** Режим таблицы с заполнением первой строки из среднего нажатия и «Всего осей». */
+    private fun seedRows(it: BrakeCertificateUiState): BrakeCertificateUiState {
+        if (it.rowsMode) return it
+        val p = it.avgPressureText.toFiniteDoubleOrNull()
+        val n = it.totalAxlesText.trim().toIntOrNull()
+        val seed = if (p != null && p > 0 && n != null && n > 0) {
+            listOf(BrakeRowUi(id = it.nextRowId, pressureText = it.avgPressureText, axlesText = it.totalAxlesText))
+        } else emptyList()
+        return it.copy(rowsMode = true, rows = seed, nextRowId = it.nextRowId + 1)
+    }
+
+    /** Число осей для значения нажатия в таблице бланка (пусто - строка удаляется). */
+    fun setAxlesForPressure(pressure: Double, axles: String) = _state.update { s0 ->
+        val st = seedRows(s0)
+        val idx = st.rows.indexOfFirst { it.pressureText.toFiniteDoubleOrNull() == pressure }
+        val clean = axles.filter { it.isDigit() }.take(5)
+        when {
+            idx >= 0 && clean.isBlank() -> st.copy(rows = st.rows.filterIndexed { i, _ -> i != idx })
+            idx >= 0 -> st.copy(rows = st.rows.mapIndexed { i, r -> if (i == idx) r.copy(axlesText = clean) else r })
+            clean.isBlank() -> st
+            else -> st.copy(
+                rows = st.rows + BrakeRowUi(id = st.nextRowId, pressureText = fmtNum(pressure), axlesText = clean),
+                nextRowId = st.nextRowId + 1,
+            )
+        }
     }
 
     // ── Таблица ──
@@ -266,6 +443,19 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
                 it.copy(running = false, accumulatedMs = total, recordedSec = Math.round(total / 100.0) / 10.0)
             }
         }
+        if (k == TimerKind.ROUTE) {
+            val st = _state.value
+            val target = st.routeTargetEntryId
+            val sec = st.timerRoute.recordedSec
+            if (target != null && sec != null) {
+                _state.update { s0 ->
+                    s0.copy(
+                        turnaround = s0.turnaround.map { e -> if (e.id == target) e.copy(densitySec = sec) else e },
+                        routeTargetEntryId = null,
+                    )
+                }
+            }
+        }
         _nowMs.value = now
     }
 
@@ -330,5 +520,31 @@ fun BrakeCertificateUiState.toInput(): BrakeCertificateInput? {
         manualNorm = manualNorm,
         actualManualAxles = manualHaveText.trim().toIntOrNull(),
         declaredAxles = if (rowsMode) totalAxlesText.trim().toIntOrNull() else null,
+    )
+}
+
+/** Строки таблицы нажатий «как в бланке»: в режиме таблицы - введённые строки, иначе одна строка из среднего нажатия. */
+fun BrakeCertificateUiState.effectiveRows(): List<BrakeRowUi> =
+    if (rowsMode) rows.filter { (it.pressureText.toFiniteDoubleOrNull() ?: 0.0) > 0 && (it.axlesText.trim().toIntOrNull() ?: 0) > 0 }
+    else {
+        val p = avgPressureText.toFiniteDoubleOrNull()
+        val n = totalAxlesText.trim().toIntOrNull()
+        if (p != null && p > 0 && n != null && n > 0) listOf(BrakeRowUi(id = -1, pressureText = avgPressureText, axlesText = totalAxlesText)) else emptyList()
+    }
+
+/** Единое сериализуемое состояние справки (без идущих секундомеров и UI-состояния). */
+fun BrakeCertificateUiState.toData(updatedAt: Long = 0L): BrakeCertificateData {
+    fun m(kind: TimerKind, t: DensityTimerState) = DensityMeasurementData(kind.name, t.recordedSec, t.grStartText, t.grEndText, t.dropText)
+    return BrakeCertificateData(
+        routeId = routeId, trainId = trainId, categoryId = categoryId, grade = grade, autoblock3 = autoblock3, manualNorm = manualNorm,
+        station = stationText, issueTime = issueTimeText, date = dateText, locoSeries = locoSeriesText, locoNumber = locoNumberText,
+        trainNumber = trainNumberText, weight = weightText, totalAxles = totalAxlesText,
+        avgPressure = avgPressureText, rowsMode = rowsMode, rows = rows.map { AxleRowData(it.pressureText, it.axlesText) },
+        locoEnabled = locoEnabled, locoWeight = locoWeightText, locoAxles = locoAxlesText, locoPressure = locoPressureText,
+        compositeShare = compositeShare, flags = flags.toList(), tcpv = tcpvText, vstr = vstrText, dpv = dpvText, vo2hv = vo2hvText,
+        manualHave = manualHaveText, feedDensity = feedDensityText, tailVoltage = tailVoltageText, tailCar = tailCarText,
+        chargePressure = chargePressureText, densityGroup = densityGroup, locoCount = locoCountText,
+        measurements = listOf(m(TimerKind.II, timerII), m(TimerKind.IV, timerIV), m(TimerKind.ROUTE, timerRoute)),
+        turnaround = turnaround, updatedAt = updatedAt,
     )
 }

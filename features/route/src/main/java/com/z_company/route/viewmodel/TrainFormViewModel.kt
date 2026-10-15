@@ -55,6 +55,7 @@ class TrainFormViewModel(
     trainId: String?,
     basicId: String
 ) : ViewModel(), KoinComponent {
+    private val brakeRouteId: String = basicId
     private val timeManager = TimeManager()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val trainUseCase: TrainUseCase by inject()
@@ -265,6 +266,8 @@ class TrainFormViewModel(
             trainNumber = train?.number,
             locoSeries = loco?.series,
             locoNumber = loco?.number,
+            routeId = brakeRouteId.takeIf { it.isNotBlank() && it != com.z_company.route.Const.NULLABLE_ID },
+            trainId = train?.trainId,
         )
     }
 

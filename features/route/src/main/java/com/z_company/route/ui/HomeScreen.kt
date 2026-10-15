@@ -1695,6 +1695,8 @@ fun HomeScreen(
                                                 trainNumber = train?.number,
                                                 locoSeries = loco?.series,
                                                 locoNumber = loco?.number,
+                                                routeId = currentRoute?.basicData?.id,
+                                                trainId = train?.trainId,
                                             ),
                                         )
                                     }

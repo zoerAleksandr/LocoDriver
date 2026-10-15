@@ -197,7 +197,7 @@ object DataPrivacyRoute: AppRoutes("DataPrivacyRoute")
 object TrackHistoryRoute: AppRoutes("TrackHistoryRoute")
 object StatisticsRoute: AppRoutes("StatisticsRoute")
 object BrakeCertificateRoute: AppRoutes("BrakeCertificateRoute") {
-    private val params = listOf("weight", "axles", "train", "locoSeries", "locoNumber")
+    private val params = listOf("weight", "axles", "train", "locoSeries", "locoNumber", "routeId", "trainId")
     override val route: String = "$basicRoute?" + params.joinToString("&") { "$it={$it}" }
     val navArguments = params.map { name ->
         navArgument(name) {
@@ -215,8 +215,10 @@ object BrakeCertificateRoute: AppRoutes("BrakeCertificateRoute") {
             trainNumber = a.getString("train"),
             locoSeries = a.getString("locoSeries"),
             locoNumber = a.getString("locoNumber"),
+            routeId = a.getString("routeId"),
+            trainId = a.getString("trainId"),
         )
-        return if (listOf(p.weight, p.axles, p.trainNumber, p.locoSeries, p.locoNumber).all { it.isNullOrBlank() }) null else p
+        return if (listOf(p.weight, p.axles, p.trainNumber, p.locoSeries, p.locoNumber, p.routeId, p.trainId).all { it.isNullOrBlank() }) null else p
     }
 
     fun buildRoute(p: com.z_company.domain.brake.BrakePrefill?): String {
@@ -224,6 +226,7 @@ object BrakeCertificateRoute: AppRoutes("BrakeCertificateRoute") {
         val pairs = listOf(
             "weight" to p.weight, "axles" to p.axles, "train" to p.trainNumber,
             "locoSeries" to p.locoSeries, "locoNumber" to p.locoNumber,
+            "routeId" to p.routeId, "trainId" to p.trainId,
         )
         val parts = pairs.mapNotNull { (k, v) -> v?.takeIf { it.isNotBlank() }?.let { "$k=${android.net.Uri.encode(it)}" } }
         return if (parts.isEmpty()) basicRoute else "$basicRoute?${parts.joinToString("&")}"

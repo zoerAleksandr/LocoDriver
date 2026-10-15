@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,37 +10,38 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -49,17 +51,24 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.z_company.core.ui.theme.MonoFont
-import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.brake.BrakeCategory
 import com.z_company.domain.brake.BrakeCertificateCalculator
 import com.z_company.domain.brake.BrakeCertificateResult
@@ -69,29 +78,36 @@ import com.z_company.domain.brake.CompositeShare
 import com.z_company.domain.brake.DensityLocoGroup
 import com.z_company.domain.brake.GradeClass
 import com.z_company.domain.brake.SpeedLimit
+import com.z_company.domain.brake.StopClass
 import com.z_company.domain.brake.TrainGroup
+import com.z_company.domain.brake.TurnaroundEntry
+import com.z_company.domain.brake.TurnaroundPlanner
 import com.z_company.domain.util.toFiniteDoubleOrNull
-import com.z_company.route.component.OutlinedTextFieldApp
-import com.z_company.route.component.separateSheetFromScroll
-import com.z_company.route.ui.settings.SettingsCard
-import com.z_company.route.ui.settings.SettingsCardSep
 import com.z_company.route.ui.settings.SettingsPickerOption
 import com.z_company.route.ui.settings.SettingsPickerSheet
-import com.z_company.route.ui.settings.SettingsSectionNote
 import com.z_company.route.viewmodel.BrakeCertificateUiState
 import com.z_company.route.viewmodel.BrakeCertificateViewModel
 import com.z_company.route.viewmodel.DensityTimerState
 import com.z_company.route.viewmodel.TimerKind
+import com.z_company.route.viewmodel.effectiveRows
 import com.z_company.route.viewmodel.toInput
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private sealed interface BrakeSheet {
     data object Category : BrakeSheet
     data object ManualNorm : BrakeSheet
     data object DensityGroup : BrakeSheet
-    data class RowPressure(val rowId: Int) : BrakeSheet
+    data object Other : BrakeSheet
+    data object RowPressure : BrakeSheet
+    data class Turnaround(val entryId: String) : BrakeSheet
+    data class Help(val key: String) : BrakeSheet
 }
 
 private val TABS = listOf("Расчёт", "Бланк", "Замеры", "Справочник")
+private val PRINTED = listOf(2.5, 3.5, 5.0, 6.0, 6.5, 7.0, 8.0, 8.5, 9.0, 10.0, 12.0, 15.0)
+private val OTHER_VALUES = listOf(1.25, 2.5, 3.5, 5.0, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 18.0, 21.0)
 
 private fun fmt(v: Double, digits: Int = 1): String {
     val factor = Math.pow(10.0, digits.toDouble())
@@ -100,22 +116,26 @@ private fun fmt(v: Double, digits: Int = 1): String {
     return s.replace('.', ',')
 }
 
+private fun fmtP(p: Double): String = BrakeCertificateViewModel.formatPressure(p)
+
 private fun formatTimer(ms: Long): String {
     val tenths = ms / 100
-    val min = tenths / 600
-    val sec = (tenths % 600) / 10
-    val d = tenths % 10
-    return "%02d:%02d.%d".format(min, sec, d)
+    return "%02d:%02d.%d".format(tenths / 600, (tenths % 600) / 10, tenths % 10)
 }
 
-private fun axlesForNorm(state: BrakeCertificateUiState): Int =
-    state.totalAxlesText.trim().toIntOrNull()
-        ?: state.rows.sumOf { r ->
-            if ((r.pressureText.toFiniteDoubleOrNull() ?: 0.0) > 0) (r.axlesText.trim().toIntOrNull() ?: 0) else 0
-        }
+private fun hhmm(ms: Long): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ms))
 
-/** Экран-инструмент «Справка ВУ-45» (SCREEN_SPECS §26): вкладки «Расчёт», «Бланк», «Замеры», «Справочник». */
-@OptIn(ExperimentalMaterial3Api::class)
+private fun axlesForNorm(state: BrakeCertificateUiState): Int =
+    state.totalAxlesText.trim().toIntOrNull() ?: state.effectiveRows().sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }
+
+private fun BrakeCertificateUiState.timerOf(k: TimerKind): DensityTimerState = when (k) {
+    TimerKind.II -> timerII
+    TimerKind.IV -> timerIV
+    TimerKind.ROUTE -> timerRoute
+}
+
+/** Экран «Справка ВУ-45» (SCREEN_SPECS §26) по дизайну: вкладки «Расчёт», «Бланк», «Замеры», «Справочник». */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun BrakeCertificateScreen(
     state: BrakeCertificateUiState,
@@ -123,15 +143,16 @@ fun BrakeCertificateScreen(
     viewModel: BrakeCertificateViewModel,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var side by rememberSaveable { mutableIntStateOf(0) }
     var measureKind by rememberSaveable { mutableStateOf(TimerKind.II.name) }
     var sheet by remember { mutableStateOf<BrakeSheet?>(null) }
-    var helpKey by remember { mutableStateOf<String?>(null) }
     val now by viewModel.nowMs.collectAsState()
+    val t = vuColors()
 
     val category = BrakeNorms.category(state.categoryId) ?: BrakeNorms.categories.first()
     val input = remember(state) { state.toInput() }
     val result = remember(input) { input?.let(BrakeCertificateCalculator::calculate) }
-    val primary = MaterialTheme.colorScheme.primary
+    val turnaroundApplies = TurnaroundPlanner.applies(category)
 
     // Экран не гаснет, пока идёт замер плотности.
     val anyRunning = state.timerII.running || state.timerIV.running || state.timerRoute.running
@@ -142,34 +163,41 @@ fun BrakeCertificateScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = t.bg,
         topBar = {
             TopAppBar(
-                title = { Text("Справка ВУ-45", style = MaterialTheme.typography.titleMedium, color = primary) },
+                title = { Text("Справка ВУ-45", style = MaterialTheme.typography.titleMedium, color = t.text) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
-                            contentDescription = "Назад",
-                            tint = primary,
-                        )
+                        Icon(painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back), contentDescription = "Назад", tint = t.text)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            TabsRow(tab) { tab = it }
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)) { VuTabs(TABS, tab, { tab = it }) }
             when (tab) {
-                0 -> CalcTab(state, category, result, viewModel, onSheet = { sheet = it }, onHelp = { helpKey = it }, onOpenBlank = { tab = 1 })
-                1 -> BlankTab(state, category, result, viewModel, onSheet = { sheet = it }, onHelp = { helpKey = it }, onOpenMeasure = { tab = 2 })
+                0 -> CalcTab(
+                    state, category, result, viewModel,
+                    onSheet = { sheet = it },
+                    onOpenBlank = { tab = 1; side = 0 },
+                )
+                1 -> BlankTab(
+                    state, category, result, viewModel, now, side, turnaroundApplies,
+                    onSide = { side = it },
+                    onSheet = { sheet = it },
+                    onOpenMeasure = { tab = 2 },
+                )
                 2 -> MeasureTab(
                     state, category, viewModel, now,
                     kind = TimerKind.valueOf(measureKind), onKind = { measureKind = it.name },
-                    onGroupClick = { sheet = BrakeSheet.DensityGroup }, onHelp = { helpKey = it },
+                    onGroupClick = { sheet = BrakeSheet.DensityGroup },
+                    onHelp = { sheet = BrakeSheet.Help(it) },
+                    onBackToTurnaround = { tab = 1; side = 1 },
                 )
-                else -> ReferenceTab()
+                else -> ReferenceTab(state, category, onOpenMeasure = { tab = 2 })
             }
         }
     }
@@ -204,64 +232,24 @@ fun BrakeCertificateScreen(
                 SettingsPickerOption(label = g.title, selected = g == state.densityGroup, onSelect = { viewModel.setDensityGroup(g) })
             },
         )
-        is BrakeSheet.RowPressure -> SettingsPickerSheet(
-            title = "Нажатие на ось, тс",
-            hint = "Значения первой графы бланка. Тип вагона - по табл. 3: груз, режим ВР, колодки",
+        BrakeSheet.Other -> OtherSheet(state, category, viewModel, onDismiss = { sheet = null })
+        BrakeSheet.RowPressure -> RowSheet(state, viewModel, onDismiss = { sheet = null })
+        is BrakeSheet.Turnaround -> TurnaroundSheet(
+            state, s.entryId, viewModel,
             onDismiss = { sheet = null },
-            options = BrakeNorms.blankAxlePressures.map { p ->
-                val types = BrakeNorms.presetsFor(p)
-                SettingsPickerOption(
-                    label = "${BrakeCertificateViewModel.formatPressure(p)} тс",
-                    sub = types.take(3).joinToString("; ") { it.title }.ifBlank { "нет в табл. 3" },
-                    selected = state.rows.firstOrNull { it.id == s.rowId }?.pressureText?.toFiniteDoubleOrNull() == p,
-                    onSelect = { viewModel.setRowPressure(s.rowId, BrakeCertificateViewModel.formatPressure(p)) },
-                )
+            onMeasure = {
+                viewModel.setRouteTarget(s.entryId)
+                measureKind = TimerKind.ROUTE.name
+                sheet = null
+                tab = 2
             },
         )
+        is BrakeSheet.Help -> HelpSheet(s.key, state, category, result, onDismiss = { sheet = null })
         null -> Unit
     }
-
-    helpKey?.let { key ->
-        brakeHints[key]?.let { hint -> HintSheet(hint, onDismiss = { helpKey = null }) }
-    }
 }
 
-// ───────────────────────────── Вкладки ─────────────────────────────
-
-@Composable
-private fun TabsRow(selected: Int, onSelect: (Int) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(12.dp))
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        TABS.forEachIndexed { i, title ->
-            val on = i == selected
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(38.dp)
-                    .background(if (on) MaterialTheme.colorScheme.tertiary else Color.Transparent, RoundedCornerShape(10.dp))
-                    .clickable { onSelect(i) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    title,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 13.sp,
-                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (on) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-    }
-}
-
-// ───────────────────────────── Вкладка «Расчёт» ─────────────────────────────
+// ───────────────────────────── Расчёт ─────────────────────────────
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -271,185 +259,210 @@ private fun CalcTab(
     result: BrakeCertificateResult?,
     vm: BrakeCertificateViewModel,
     onSheet: (BrakeSheet) -> Unit,
-    onHelp: (String) -> Unit,
     onOpenBlank: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .imePadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        PickerField(
-            label = "Категория поезда",
-            value = "${category.title.substringBefore(" / ").substringBefore(" (")} · ${category.norm} тс/100",
-            onClick = { onSheet(BrakeSheet.Category) },
-            onHelp = { onHelp("category") },
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            CompactField("Вес состава, тс", state.weightText, vm::setWeight, Modifier.weight(1f), unit = "тс", helpKey = "weight", onHelp = onHelp)
-            CompactField("Всего осей", state.totalAxlesText, vm::setTotalAxles, Modifier.weight(1f), unit = "осей", integer = true, helpKey = "axles", onHelp = onHelp)
-        }
-        if (!state.rowsMode) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
-                CompactField("Нажатие, тс на ось", state.avgPressureText, vm::setAvgPressure, Modifier.weight(1f), unit = "тс", helpKey = "row", onHelp = onHelp)
-                if (category.manualBrakesRequired) {
-                    PickerField(
-                        label = "Ручные оси на 100 тс",
-                        value = state.manualNorm.title.substringBefore(" - "),
-                        onClick = { onSheet(BrakeSheet.ManualNorm) },
-                        modifier = Modifier.weight(1f),
-                    )
-                } else Spacer(Modifier.weight(1f))
-            }
-            Text(
-                modifier = Modifier.clickable { vm.setRowsMode(true) }.padding(vertical = 2.dp),
-                text = "Оси по типам вагонов ▸",
-                color = MaterialTheme.colorScheme.tertiary,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        } else {
-            if (category.manualBrakesRequired) {
-                PickerField(
-                    label = "Ручные оси на 100 тс",
-                    value = state.manualNorm.title,
-                    onClick = { onSheet(BrakeSheet.ManualNorm) },
+    val t = vuColors()
+    val imeVisible = WindowInsets.isImeVisible
+    val low = result != null && result.actualPressure > 0 && !result.enough
+    Column(Modifier.fillMaxSize()) {
+        if (imeVisible) Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { VuSpeedBar(result) }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                VuInput(
+                    "Категория поезда", "${category.title.substringBefore(" / ").substringBefore(" (")} · ${category.norm} тс/100",
+                    onClick = { onSheet(BrakeSheet.Category) }, onHelp = { onSheet(BrakeSheet.Help("category")) },
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    VuInput("Вес состава, тс", state.weightText, Modifier.weight(1f), onChange = vm::setWeight, unit = "тс", placeholder = "0", onHelp = { onSheet(BrakeSheet.Help("weight")) })
+                    VuInput("Всего осей", state.totalAxlesText, Modifier.weight(1f), onChange = vm::setTotalAxles, unit = "осей", placeholder = "0", keyboard = KeyboardType.Number, onHelp = { onSheet(BrakeSheet.Help("axles")) })
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (state.rowsMode) {
+                        val rows = state.effectiveRows()
+                        VuInput(
+                            "Нажатие на ось, тс", "по типам · ${rows.size} стр.", Modifier.weight(1f),
+                            onClick = onOpenBlank, onHelp = { onSheet(BrakeSheet.Help("row")) },
+                        )
+                    } else {
+                        VuInput("Нажатие на ось, тс", state.avgPressureText, Modifier.weight(1f), onChange = vm::setAvgPressure, unit = "тс", placeholder = "0", error = low, onHelp = { onSheet(BrakeSheet.Help("row")) })
+                    }
+                    if (category.manualBrakesRequired) {
+                        VuInput(
+                            "Ручных на 100 тс", state.manualNorm.title.substringBefore(" - "), Modifier.weight(1f),
+                            onClick = { onSheet(BrakeSheet.ManualNorm) }, onHelp = { onSheet(BrakeSheet.Help("manual_req")) },
+                        )
+                    } else Spacer(Modifier.weight(1f))
+                }
+                Box(Modifier.padding(start = 0.dp)) { VuBtn("Оси по типам вагонов ›", onClick = onOpenBlank, kind = VuBtnKind.Text, h = 40.dp) }
+                // Руководящий спуск
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Руководящий спуск, ‰", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted)
+                        VuHelp({ onSheet(BrakeSheet.Help("grade")) }, touch = 32.dp)
+                    }
+                    val ab = category.vFlatAutoblock != null && state.grade != GradeClass.OVER_010_TO_015
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(GradeClass.UP_TO_006 to "≤ 6", GradeClass.OVER_006_TO_010 to "6–10", GradeClass.OVER_010_TO_015 to "10–15").forEach { (g, label) ->
+                            VuChip(label, state.grade == g, { vm.setGrade(g) }, Modifier.weight(1f))
+                        }
+                        if (ab) VuChip("АБ", state.autoblock3, { vm.setAutoblock(!state.autoblock3) }, Modifier.weight(1f))
+                    }
+                }
             }
-            AxleRowsEditor(state, vm, onSheet, onHelp)
-            Text(
-                modifier = Modifier.clickable { vm.setRowsMode(false) }.padding(vertical = 2.dp),
-                text = "◂ Одно среднее нажатие",
-                color = MaterialTheme.colorScheme.tertiary,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            FillFromRoute(state, vm)
+            if (!imeVisible) ResultCard(result, state, category, onOpenBlank)
+            if (low && result != null) DeficitBlock(result, category, onHelp = { onSheet(BrakeSheet.Help("deficit")) })
         }
-        GradeChips(state, category, vm)
-        ResultBlock(result, state, category, onOpenBlank)
     }
 }
 
 @Composable
-private fun GradeChips(state: BrakeCertificateUiState, category: BrakeCategory, vm: BrakeCertificateViewModel) {
+private fun FillFromRoute(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel) {
+    val t = vuColors()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Руководящий спуск", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            GradeClass.values().forEach { g ->
-                ChoiceChip(when (g) { GradeClass.UP_TO_006 -> "≤0,006"; GradeClass.OVER_006_TO_010 -> "0,006-0,010"; GradeClass.OVER_010_TO_015 -> "0,010-0,015" }, state.grade == g) { vm.setGrade(g) }
+        VuBtn(
+            if (state.filling) "Заполняю…" else "Заполнить из маршрута", { vm.fillFromRoute() },
+            Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, enabled = !state.filling,
+        )
+        val text = state.fillReport?.text
+        if (text != null) VuHint(text, Modifier.padding(horizontal = 4.dp), color = t.muted)
+        else if (state.routeId == null) VuHint("Экран открыт без маршрута - данные поезда и локомотива можно ввести вручную.", Modifier.padding(horizontal = 4.dp))
+    }
+}
+
+@Composable
+private fun MetricCell(label: String, value: String, color: Color? = null, align: TextAlign = TextAlign.Start, modifier: Modifier = Modifier) {
+    val t = vuColors()
+    Column(modifier) {
+        Text(label, fontSize = 12.sp, color = t.muted, maxLines = 1, textAlign = align, modifier = Modifier.fillMaxWidth())
+        Text(value, fontFamily = VuMono, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = color ?: t.text, modifier = Modifier.fillMaxWidth().padding(top = 2.dp), textAlign = align, maxLines = 1)
+    }
+}
+
+@Composable
+private fun ResultCard(result: BrakeCertificateResult?, state: BrakeCertificateUiState, category: BrakeCategory, onOpenBlank: () -> Unit) {
+    val t = vuColors()
+    val has = (result?.actualPressure ?: 0.0) > 0.0
+    val sp = result?.speed
+    val low = has && result != null && !result.enough
+    VuCard {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                VuTag("Допускаемая скорость")
+                if (has) Text("Бланк ›", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.clickable(onClick = onOpenBlank).padding(vertical = 8.dp))
             }
-            if (category.vFlatAutoblock != null && state.grade != GradeClass.OVER_010_TO_015) {
-                ChoiceChip("АБ ${category.vFlatAutoblock}", state.autoblock3) { vm.setAutoblock(!state.autoblock3) }
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.Bottom) {
+                when {
+                    !has || sp == null -> Text("—", fontFamily = VuMono, fontSize = 48.sp, fontWeight = FontWeight.Bold, color = t.faint)
+                    sp is SpeedLimit.Allowed -> {
+                        Text("${sp.kmh}", fontFamily = VuMono, fontSize = 48.sp, fontWeight = FontWeight.Bold, color = if (sp.reducedFrom != null || low) t.danger else t.accent)
+                        Text("км/ч", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = if (sp.reducedFrom != null || low) t.danger else t.accent, modifier = Modifier.padding(start = 8.dp, bottom = 6.dp))
+                    }
+                    else -> Text("не определена", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = t.danger)
+                }
+            }
+            if (!has || result == null) {
+                VuHint("Введите вес состава, число осей и нажатие на ось - скорость и вердикт появятся здесь.", Modifier.padding(top = 12.dp))
+            } else {
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MetricCell("Потребное, тс", fmt(result.requiredPressure), modifier = Modifier.weight(1f))
+                    MetricCell("Фактическое, тс", fmt(result.actualPressure), color = if (low) t.danger else null, modifier = Modifier.weight(1f))
+                    MetricCell(
+                        "Ручных осей", if (category.manualBrakesRequired) (result.requiredManualAxles?.toString() ?: "—") else "все",
+                        align = TextAlign.End, modifier = Modifier.weight(0.8f),
+                    )
+                }
+                Box(Modifier.padding(vertical = 10.dp).fillMaxWidth().height(1.dp).background(t.border))
+                if (low) VuVerdict(false, "Нажатие недостаточно: не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс (${fmt(result.shortagePer100, 2)} на 100 тс при норме ${category.norm})")
+                else VuVerdict(true, "Нажатие достаточно: запас ${fmt(result.actualPressure - result.requiredPressure)} тс (${fmt(result.actualPer100, 2)} на 100 тс)")
+                val note = when (sp) {
+                    is SpeedLimit.Allowed -> sp.note + (sp.reducedFrom?.let { " Было бы по табл. 1: $it км/ч." } ?: "")
+                    is SpeedLimit.NotDetermined -> sp.reason
+                    null -> ""
+                }
+                if (note.isNotBlank()) VuHint(note, Modifier.padding(top = 8.dp))
+                result.manualAxlesOk?.let { ok ->
+                    VuHint(if (ok) "Ручных осей достаточно (потребно ${result.requiredManualAxles})" else "Ручных осей не хватает: потребно ${result.requiredManualAxles}", Modifier.padding(top = 4.dp), color = if (ok) t.success else t.danger)
+                }
+                result.warnings.forEach { VuHint(it, Modifier.padding(top = 4.dp)) }
+                state.timerII.recordedSec?.let { ii ->
+                    VuHint("Плотность II: ${fmt(ii)} с" + (state.timerIV.recordedSec?.let { ", IV: ${fmt(it)} с" } ?: ""), Modifier.padding(top = 4.dp))
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ResultBlock(
-    result: BrakeCertificateResult?,
-    state: BrakeCertificateUiState,
-    category: BrakeCategory,
-    onOpenBlank: () -> Unit,
-) {
-    val okColor = MaterialTheme.colorScheme.tertiary
-    val badColor = MaterialTheme.colorScheme.error
-    val has = (result?.actualPressure ?: 0.0) > 0.0
+private fun DeficitBlock(result: BrakeCertificateResult, category: BrakeCategory, onHelp: () -> Unit) {
+    val t = vuColors()
+    val k = if (category.group == TrainGroup.FREIGHT) "2 км/ч" else "1-2 км/ч"
+    val items = listOf(
+        "Скорость снижается на $k за каждую недостающую тонну нажатия, результат округляется вниз до кратного 5 (п. 4.4).",
+        "Допустимо только в случаях п. 4.2-4.3: выключены неисправные тормоза в пути, особые составы.",
+        "Ниже допускаемого минимума табл. 2 скорость по таблицам не определяется - её устанавливает начальник дороги (п. 5.1). Подробнее - «Справочник».",
+    )
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        Modifier.fillMaxWidth().background(t.danger.copy(alpha = 0.12f), RoundedCornerShape(16.dp)).padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 12.dp),
     ) {
-        Text("ДОПУСКАЕМАЯ СКОРОСТЬ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        val sp = result?.speed
-        when {
-            !has || sp == null -> Text("—", fontSize = 44.sp, fontFamily = MonoFont, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            sp is SpeedLimit.Allowed -> Text(
-                "${sp.kmh} км/ч", fontSize = 44.sp, fontFamily = MonoFont, fontWeight = FontWeight.Bold,
-                color = if (sp.reducedFrom != null) badColor else okColor,
-            )
-            else -> Text("не определена", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = badColor)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Что делать (п. 4.4)", Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = t.danger)
+            VuHelp(onHelp)
         }
-        if (result == null) {
-            Text(
-                "Введите вес состава, число осей и нажатие на ось.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            return@Column
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Text("Потребное, тс", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(fmt(result.requiredPressure), fontFamily = MonoFont, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Фактическое, тс", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    if (has) fmt(result.actualPressure) else "—", fontFamily = MonoFont, fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
-                    color = if (!has) MaterialTheme.colorScheme.primary else if (result.enough) okColor else badColor,
-                )
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text("Ручных осей", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    if (category.manualBrakesRequired) (result.requiredManualAxles?.toString() ?: "—") else "все",
-                    fontFamily = MonoFont, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary,
-                )
+        Column(Modifier.padding(end = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.forEachIndexed { i, x ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("${i + 1}", fontFamily = VuMono, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = t.danger, modifier = Modifier.width(14.dp))
+                    Text(x, fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
+                }
             }
         }
-        if (has) {
-            Text(
-                if (result.enough) "Нажатие достаточно: запас ${fmt(result.actualPressure - result.requiredPressure)} тс (${fmt(result.actualPer100, 2)} на 100 тс)"
-                else "Нажатие недостаточно (${fmt(result.actualPer100, 2)} на 100 тс, норма ${category.norm})",
-                color = if (result.enough) okColor else badColor,
-                fontWeight = FontWeight.SemiBold,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            val note = when (sp) {
-                is SpeedLimit.Allowed -> sp.note + (sp.reducedFrom?.let { " Было бы по табл. 1: $it км/ч." } ?: "")
-                is SpeedLimit.NotDetermined -> sp.reason
-                null -> ""
-            }
-            Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        result.warnings.forEach {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        state.timerII.recordedSec?.let { t ->
-            Text("Плотность II: ${fmt(t)} с" + (state.timerIV.recordedSec?.let { ", IV: ${fmt(it)} с" } ?: ""),
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (has && !result.enough) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    "Не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс (${fmt(result.shortagePer100, 2)} на 100 тс)",
-                    color = badColor, fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    "Что делать (п. 4.4): скорость снижается на 2 км/ч за каждую недостающую тонну (пассажирские - 1-2 км/ч), округление вниз до кратного 5. " +
-                        "Допустимо только в случаях п. 4.2-4.3 (выключены неисправные тормоза в пути, особые составы). " +
-                        "Ниже минимума табл. 2 - скорость устанавливает начальник дороги. См. «Справочник».",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-        TextButton(onClick = onOpenBlank, contentPadding = PaddingValues(0.dp)) { Text("Открыть бланк справки ▸") }
     }
 }
 
-// ───────────────────────────── Вкладка «Бланк» ─────────────────────────────
+/** Закреплённая компактная строка результата (Бланк; Расчёт с клавиатурой): h56, r16. */
+@Composable
+private fun VuSpeedBar(result: BrakeCertificateResult?) {
+    val t = vuColors()
+    val has = (result?.actualPressure ?: 0.0) > 0.0
+    val low = has && result != null && !result.enough
+    val sp = result?.speed
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        Modifier.fillMaxWidth().height(56.dp).background(if (low) t.danger.copy(alpha = 0.14f) else t.surface, shape).padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        val speedText = when {
+            !has || sp == null -> "—"
+            sp is SpeedLimit.Allowed -> if (low) "—" else "${sp.kmh}"
+            else -> "—"
+        }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(speedText, fontFamily = VuMono, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (!has) t.faint else if (low) t.danger else t.accent)
+            Text("км/ч", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (!has) t.faint else if (low) t.danger else t.accent, modifier = Modifier.padding(start = 4.dp, bottom = 3.dp))
+        }
+        Box(Modifier.fillMaxHeight().padding(vertical = 12.dp).width(1.dp).background(t.border))
+        Text(
+            when {
+                !has || result == null -> "Введите вес и оси"
+                low -> "Не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс"
+                else -> "Нажатие достаточно"
+            },
+            Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, lineHeight = 17.sp,
+            color = if (!has) t.muted else if (low) t.danger else t.success, maxLines = 2,
+        )
+    }
+}
+
+// ───────────────────────────── Бланк ─────────────────────────────
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -458,378 +471,593 @@ private fun BlankTab(
     category: BrakeCategory,
     result: BrakeCertificateResult?,
     vm: BrakeCertificateViewModel,
+    now: Long,
+    side: Int,
+    turnaroundApplies: Boolean,
+    onSide: (Int) -> Unit,
     onSheet: (BrakeSheet) -> Unit,
-    onHelp: (String) -> Unit,
     onOpenMeasure: () -> Unit,
 ) {
-    var reqOpen by rememberSaveable { mutableStateOf(false) }
-    var otherOpen by rememberSaveable { mutableStateOf(false) }
-    var tailOpen by rememberSaveable { mutableStateOf(false) }
-    Column(modifier = Modifier.fillMaxSize()) {
-        SummaryLine(result)
+    var rekv by rememberSaveable { mutableStateOf(false) }
+    val effSide = if (turnaroundApplies) side else 0
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) { VuSpeedBar(result) }
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(top = 8.dp, bottom = 24.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("ФОРМА ВУ-45", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    "СПРАВКА об обеспечении поезда тормозами и исправном их действии",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center,
-                )
-            }
-
-            ExpandCard(
-                title = "Реквизиты",
-                subtitle = listOf(
-                    state.trainNumberText.takeIf { it.isNotBlank() }?.let { "поезд № $it" },
-                    (state.locoSeriesText + " " + state.locoNumberText).trim().takeIf { it.isNotBlank() },
-                    state.stationText.takeIf { it.isNotBlank() },
-                ).filterNotNull().joinToString(" · ").ifBlank { "необязательно: станция, время, дата, локомотив, поезд №" },
-                open = reqOpen, onToggle = { reqOpen = !reqOpen },
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CompactField("Штемпель станции", state.stationText, vm::setStation, Modifier.weight(1f), text = true, helpKey = "station", onHelp = onHelp)
-                    CompactField("Дата", state.dateText, vm::setDate, Modifier.weight(1f), text = true, helpKey = "date", onHelp = onHelp)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
-                    CompactField("Время выдачи, ч:мин", state.issueTimeText, vm::setIssueTime, Modifier.weight(1f), text = true, helpKey = "time", onHelp = onHelp)
-                    TextButton(onClick = vm::setIssueTimeNow) { Text("Сейчас") }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CompactField("Локомотив, серия", state.locoSeriesText, vm::setLocoSeries, Modifier.weight(1f), text = true, helpKey = "loco", onHelp = onHelp)
-                    CompactField("Локомотив, №", state.locoNumberText, vm::setLocoNumber, Modifier.weight(1f), text = true)
-                }
-                CompactField("Поезд №", state.trainNumberText, vm::setTrainNumber, Modifier.fillMaxWidth(), text = true, helpKey = "trainNo", onHelp = onHelp)
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                CompactField("Весом, тс", state.weightText, vm::setWeight, Modifier.weight(1f), unit = "тс", helpKey = "weight", onHelp = onHelp)
-                CompactField("Всего осей", state.totalAxlesText, vm::setTotalAxles, Modifier.weight(1f), unit = "осей", integer = true, helpKey = "axles", onHelp = onHelp)
-            }
-            SettingsCard {
-                CalcLine("Требуемое нажатие колодок, тс", result?.let { fmt(it.requiredPressure) } ?: "-", "required", onHelp)
-                SettingsCardSep()
-                CalcLine(
-                    "Ручных тормозов в осях (потребно)",
-                    when {
-                        !category.manualBrakesRequired -> "все вагоны"
-                        result?.requiredManualAxles != null -> result.requiredManualAxles.toString()
-                        else -> "-"
-                    },
-                    "manual_req", onHelp,
-                )
-            }
-
-            // Таблица нажатий
-            Text("ТОРМОЗНОЕ НАЖАТИЕ НА ОСЬ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (state.rowsMode) {
-                AxleRowsEditor(state, vm, onSheet, onHelp)
-            } else {
-                SettingsCard {
-                    val p = state.avgPressureText.toFiniteDoubleOrNull()
-                    val n = state.totalAxlesText.trim().toIntOrNull()
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            modifier = Modifier.weight(1f),
-                            text = if (p != null && n != null) "${fmt(p)} тс × $n осей = ${fmt(p * n)} тс" else "Среднее нажатие не введено (вкладка «Расчёт»)",
-                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
-                        )
-                        HelpDot { onHelp("row") }
-                    }
-                    SettingsCardSep()
-                    Text(
-                        modifier = Modifier.fillMaxWidth().clickable { vm.setRowsMode(true) }.padding(horizontal = 14.dp, vertical = 12.dp),
-                        text = "Разбить оси по типам вагонов ▸",
-                        color = MaterialTheme.colorScheme.tertiary,
-                    )
+            if (turnaroundApplies) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Box(Modifier.width(240.dp)) { VuTabs(listOf("Лицевая", "Оборот"), effSide, onSide, h = 40.dp) }
                 }
             }
-            LocoCard(state, category, vm, onHelp)
-
-            ExpandCard(
-                title = "Другие данные",
-                subtitle = (listOf(
-                    when (state.compositeShare) { CompositeShare.NONE -> null; CompositeShare.P50 -> "К-50"; CompositeShare.P75 -> "К-75"; CompositeShare.P100 -> "К-100" },
-                ).filterNotNull() + state.flags.toList()).joinToString(", ").ifBlank { "К-100, ЭПТ, ТЦПВ, ДПВ, ВО2ХВ..." },
-                open = otherOpen, onToggle = { otherOpen = !otherOpen },
-            ) {
-                LabelWithHelp("Доля композиционных колодок", "k_share", onHelp)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(CompositeShare.NONE to "нет", CompositeShare.P50 to "К-50", CompositeShare.P75 to "К-75", CompositeShare.P100 to "К-100").forEach { (v, t) ->
-                        ChoiceChip(t, state.compositeShare == v) { vm.setCompositeShare(v) }
-                    }
-                }
-                LabelWithHelp("Тормоза в составе", "flags", onHelp)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("ЭПТ", "ЭПП", "ДТ", "МРТ", "П", "В10", "РИЦ").forEach { f -> ChoiceChip(f, f in state.flags) { vm.toggleFlag(f) } }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CompactField("ТЦПВ", state.tcpvText, vm::setTcpv, Modifier.weight(1f), unit = "мм", helpKey = "tcpv", onHelp = onHelp)
-                    CompactField("Встр.", state.vstrText, vm::setVstr, Modifier.weight(1f), text = true, helpKey = "vstr", onHelp = onHelp)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CompactField("ДПВ", state.dpvText, vm::setDpv, Modifier.weight(1f), unit = "кгс/см²", helpKey = "dpv", onHelp = onHelp)
-                    if (category.group == TrainGroup.FREIGHT || category.group == TrainGroup.FREIGHT_PASSENGER) {
-                        CompactField("ВО2ХВ", state.vo2hvText, vm::setVo2hv, Modifier.weight(1f), unit = "с", helpKey = "vo2hv", onHelp = onHelp)
-                    } else Spacer(Modifier.weight(1f))
-                }
-                DpvAssessment(state, category)
-            }
-
-            ExpandCard(
-                title = "Нижняя часть бланка",
-                subtitle = "ручные оси, питательная сеть, напряжение, хвостовой вагон",
-                open = tailOpen, onToggle = { tailOpen = !tailOpen },
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CompactField("Наличие ручных осей", state.manualHaveText, vm::setManualHave, Modifier.weight(1f), unit = "осей", integer = true, helpKey = "manual_have", onHelp = onHelp)
-                    CompactField("Хвостовой вагон №", state.tailCarText, vm::setTailCar, Modifier.weight(1f), text = true, helpKey = "tail_car", onHelp = onHelp)
-                }
-                result?.manualAxlesOk?.let { ok ->
-                    Text(
-                        if (ok) "Ручных осей достаточно (потребно ${result.requiredManualAxles})" else "Ручных осей не хватает: потребно ${result.requiredManualAxles}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = if (ok) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CompactField("Питательная сеть", state.feedDensityText, vm::setFeedDensity, Modifier.weight(1f), text = true, helpKey = "feed", onHelp = onHelp)
-                    CompactField("Напряжение в хвосте", state.tailVoltageText, vm::setTailVoltage, Modifier.weight(1f), unit = "В", helpKey = "tail_voltage", onHelp = onHelp)
+            FillFromRoute(state, vm)
+            VuPaper {
+                PaperHeader(state, vm, open = rekv, onToggle = { rekv = !rekv }, side = effSide == 1, onHelp = { onSheet(BrakeSheet.Help(it)) })
+                if (effSide == 0) {
+                    FrontBody(state, category, result, vm, onSheet, onOpenMeasure)
+                } else {
+                    BackBody(state, vm, onSheet)
                 }
             }
-
-            // Плотность — результаты замеров с вкладки «Замеры»
-            SettingsCard {
-                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "Плотность тормозной сети при II/IV положениях ручки крана машиниста",
-                            modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
-                        )
-                        HelpDot { onHelp("density") }
-                    }
-                    DensityLine("II положение", state.timerII)
-                    if (category.group != TrainGroup.PASSENGER) DensityLine("IV положение", state.timerIV)
-                    if (state.timerRoute.recordedSec != null) DensityLine("В пути", state.timerRoute)
-                    TextButton(onClick = onOpenMeasure, contentPadding = PaddingValues(0.dp)) { Text("Выполнить замеры ▸") }
-                }
-            }
-            SettingsSectionNote(
-                "Расчёт по Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277 (прил. 2, ред. 1994); форма - по прил. К Инструкции 808-2017 ПКБ ЦВ. " +
-                    "Официальной справкой остаётся документ осмотрщика вагонов. Данные нигде не сохраняются.",
-            )
+            if (effSide == 0) LocoCard(state, category, vm, onHelp = { onSheet(BrakeSheet.Help(it)) })
         }
     }
 }
 
 @Composable
-private fun DensityLine(title: String, t: DensityTimerState) {
-    Text(
-        "$title: " + (t.recordedSec?.let { "${fmt(it)} с" } ?: "не замерено"),
-        style = MaterialTheme.typography.bodySmall.copy(fontFamily = MonoFont),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+private fun DashedBox(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val t = vuColors()
+    Box(
+        modifier.drawBehind {
+            drawRoundRect(
+                color = t.borderStrong, cornerRadius = CornerRadius(4.dp.toPx()),
+                style = Stroke(width = 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f))),
+            )
+        },
+        contentAlignment = Alignment.Center,
+    ) { content() }
 }
 
 @Composable
-private fun SummaryLine(result: BrakeCertificateResult?) {
-    val has = (result?.actualPressure ?: 0.0) > 0.0
-    val okColor = MaterialTheme.colorScheme.tertiary
-    val badColor = MaterialTheme.colorScheme.error
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(12.dp))
-            .height(48.dp)
-            .padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val sp = result?.speed
-        val speedText = when {
-            !has || sp == null -> "—"
-            sp is SpeedLimit.Allowed -> "${sp.kmh} км/ч"
-            else -> "нет"
+private fun PaperHeader(
+    state: BrakeCertificateUiState,
+    vm: BrakeCertificateViewModel,
+    open: Boolean,
+    onToggle: () -> Unit,
+    side: Boolean,
+    onHelp: (String) -> Unit,
+) {
+    val t = vuColors()
+    val hh = state.issueTimeText.substringBefore(':', state.issueTimeText)
+    val mm = if (state.issueTimeText.contains(':')) state.issueTimeText.substringAfter(':') else ""
+    Column(Modifier.padding(top = 10.dp)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.weight(1f)) {
+                VuPrint("Штемпель станции", 12)
+                if (open) {
+                    DashedBox(Modifier.padding(top = 6.dp).width(112.dp).height(62.dp)) {
+                        VuInk(state.stationText, Modifier.padding(horizontal = 4.dp), onChange = vm::setStation, placeholder = "станция", align = TextAlign.Center)
+                    }
+                }
+            }
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    VuPrint("Форма ВУ-45", 12)
+                    Box(Modifier.widthIn(min = 70.dp).height(22.dp).border(1.dp, t.borderStrong).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
+                        Text("№ —", fontFamily = VuMono, fontSize = 12.sp, color = t.faint)
+                    }
+                }
+                if (open && !side) {
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        VuPrint("Время выдачи", 12)
+                        VuInk(hh, Modifier.width(38.dp), onChange = { vm.setIssueTime(it.take(2) + ":" + mm) }, align = TextAlign.End, keyboard = KeyboardType.Number, maxLen = 2)
+                        VuPrint("ч.", 12)
+                        VuInk(mm, Modifier.width(38.dp), onChange = { vm.setIssueTime(hh + ":" + it.take(2)) }, align = TextAlign.End, keyboard = KeyboardType.Number, maxLen = 2)
+                        VuPrint("м.", 12)
+                    }
+                }
+            }
         }
-        Text(speedText, fontFamily = MonoFont, fontWeight = FontWeight.Bold, fontSize = 22.sp,
-            color = when {
-                !has || sp == null -> MaterialTheme.colorScheme.primary
-                sp is SpeedLimit.Allowed -> if (sp.reducedFrom != null) badColor else okColor
-                else -> badColor
-            })
-        Spacer(Modifier.width(12.dp))
         Text(
-            when {
-                !has || result == null -> "введите вес и нажатие"
-                result.enough -> "нажатие достаточно"
-                else -> "не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс"
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (has && result != null && !result.enough) badColor else MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            if (side) "ОТМЕТКИ ОБ ОПРОБОВАНИИ В ПУТИ" else "СПРАВКА О ТОРМОЗАХ",
+            Modifier.fillMaxWidth().padding(top = if (open) 10.dp else 8.dp),
+            textAlign = TextAlign.Center, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp, color = t.text,
+        )
+        if (!side) {
+            if (open) {
+                VuFillRow(end = true) {
+                    VuPrint("Дата")
+                    VuInk(state.dateText, Modifier.width(128.dp), onChange = vm::setDate, maxLen = 10)
+                }
+                VuFillRow {
+                    VuPrint("Локомотив, серия")
+                    VuInk(state.locoSeriesText, Modifier.weight(1f), onChange = vm::setLocoSeries, maxLen = 12)
+                    VuPrint("№")
+                    VuInk(state.locoNumberText, Modifier.width(80.dp), onChange = vm::setLocoNumber, maxLen = 8)
+                    VuMiniHelp { onHelp("loco") }
+                }
+                VuFillRow {
+                    VuPrint("Поезд №")
+                    VuInk(state.trainNumberText, Modifier.width(100.dp), onChange = vm::setTrainNumber, maxLen = 10)
+                    Spacer(Modifier.weight(1f))
+                    Text("Свернуть ▴", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.clickable(onClick = onToggle).heightIn(min = 40.dp).padding(horizontal = 4.dp))
+                }
+            } else {
+                val summary = listOf(
+                    (state.locoSeriesText + (if (state.locoNumberText.isNotBlank()) "-" + state.locoNumberText else "")).trim().takeIf { it.isNotBlank() },
+                    state.trainNumberText.takeIf { it.isNotBlank() }?.let { "поезд $it" },
+                    state.dateText.takeIf { it.isNotBlank() },
+                    state.issueTimeText.takeIf { it.length > 1 },
+                ).filterNotNull().joinToString(" · ")
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 6.dp)
+                        .drawBehind {
+                            val w = 1.dp.toPx()
+                            val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 6f))
+                            drawLine(t.borderStrong, androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(size.width, 0f), w, pathEffect = dash)
+                            drawLine(t.borderStrong, androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), w, pathEffect = dash)
+                        }
+                        .clickable(onClick = onToggle).heightIn(min = 48.dp).padding(start = 14.dp, end = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(summary.ifBlank { "Штемпель, время, дата, локомотив, поезд — необязательно" }, Modifier.weight(1f), fontSize = 12.sp, color = t.muted, lineHeight = 16.sp)
+                    Text(if (summary.isBlank()) "Заполнить ▾" else "Показать ▾", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.padding(horizontal = 8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FrontBody(
+    state: BrakeCertificateUiState,
+    category: BrakeCategory,
+    result: BrakeCertificateResult?,
+    vm: BrakeCertificateViewModel,
+    onSheet: (BrakeSheet) -> Unit,
+    onOpenMeasure: () -> Unit,
+) {
+    val t = vuColors()
+    val help = { k: String -> onSheet(BrakeSheet.Help(k)) }
+    VuFillRow {
+        VuPrint("весом")
+        VuInk(state.weightText, Modifier.weight(1f), onChange = vm::setWeight, keyboard = KeyboardType.Decimal, maxLen = 8)
+        VuPrint("тс.")
+        VuPrint("Всего осей", modifier = Modifier.padding(start = 6.dp))
+        VuInk(state.totalAxlesText, Modifier.width(56.dp), onChange = vm::setTotalAxles, keyboard = KeyboardType.Number, maxLen = 4)
+        VuMiniHelp { help("axles") }
+    }
+    VuFillRow {
+        Text("Требуется нажатие тормозных колодок в тс.", Modifier.weight(1f), fontSize = 14.sp, color = t.text, lineHeight = 18.sp)
+        VuInk(result?.let { fmt(it.requiredPressure) } ?: "", Modifier.width(92.dp), calc = true, align = TextAlign.End)
+        VuMiniHelp { help("required") }
+    }
+    VuFillRow(end = true) {
+        VuPrint("ручных тормозов в осях")
+        VuInk(if (!category.manualBrakesRequired) "все" else result?.requiredManualAxles?.toString() ?: "", Modifier.width(56.dp), calc = true, align = TextAlign.End)
+        VuMiniHelp { help("manual_req") }
+    }
+    Spacer(Modifier.height(8.dp))
+    AxleTable(state, vm, onSheet)
+    Spacer(Modifier.height(6.dp))
+    VuFillRow {
+        VuPrint("Наличие ручных тормозных осей")
+        VuInk(state.manualHaveText, Modifier.weight(1f), onChange = vm::setManualHave, keyboard = KeyboardType.Number, maxLen = 3)
+        VuMiniHelp { help("manual_have") }
+    }
+    result?.manualAxlesOk?.let { ok ->
+        Text(
+            if (ok) "ручных осей достаточно (потребно ${result.requiredManualAxles})" else "ручных осей не хватает: потребно ${result.requiredManualAxles}",
+            Modifier.padding(start = 14.dp, end = 14.dp, bottom = 8.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (ok) t.success else t.danger,
+        )
+    }
+    // Плотность из «Замеров»
+    val ii = state.timerII.recordedSec
+    val iv = state.timerIV.recordedSec
+    val dens = listOfNotNull(ii?.let { "II ${fmt(it)} с" }, iv?.let { "IV ${fmt(it)} с" }).joinToString(" · ")
+    VuFillRow(Modifier.clickable(onClick = onOpenMeasure)) {
+        Text("Плотность тормозной сети поезда", Modifier.weight(1f), fontSize = 14.sp, color = t.text, lineHeight = 18.sp)
+        VuInk(dens, Modifier.widthIn(min = 116.dp), calc = false, placeholder = "замерить ›", align = TextAlign.End)
+        VuMiniHelp { help("density") }
+    }
+    if (dens.isNotEmpty()) {
+        Text(
+            "из «Замеров»" + if (iv == null) " · IV не замерено" else "",
+            Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp).padding(top = 0.dp, bottom = 8.dp), fontSize = 12.sp, color = t.accent, textAlign = TextAlign.End,
+        )
+    }
+    VuFillRow {
+        VuPrint("Хвостовой вагон №")
+        VuInk(state.tailCarText, Modifier.weight(1f), onChange = vm::setTailCar, maxLen = 14)
+        VuMiniHelp { help("tail_car") }
+    }
+    VuFillRow {
+        VuPrint("Подпись", bold = true, modifier = Modifier.padding(start = 24.dp))
+        VuInk("", Modifier.weight(1f), placeholder = "осмотрщик")
+    }
+    Spacer(Modifier.height(10.dp))
+}
+
+@Composable
+private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onSheet: (BrakeSheet) -> Unit) {
+    val t = vuColors()
+    val rows = state.effectiveRows()
+    val byPressure = rows.associateBy { it.pressureText.toFiniteDoubleOrNull() }
+    val extra = rows.filter { r -> val p = r.pressureText.toFiniteDoubleOrNull(); p != null && p !in PRINTED }
+    val totalAxles = rows.sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }
+    val totalPressure = rows.sumOf { (it.pressureText.toFiniteDoubleOrNull() ?: 0.0) * (it.axlesText.trim().toIntOrNull() ?: 0) }
+    val low = state.toInput()?.let { BrakeCertificateCalculator.calculate(it) }?.let { it.actualPressure > 0 && !it.enough } == true
+    val lineColor = t.borderStrong
+    val head: @Composable (String, Boolean) -> Unit = { text, right ->
+        Box(Modifier.fillMaxHeight().vuCellBorders(lineColor, right = right, bottom = true).padding(horizontal = 2.dp), contentAlignment = Alignment.Center) {
+            Text(text, fontSize = 10.sp, lineHeight = 12.sp, color = t.text, textAlign = TextAlign.Center)
+        }
+    }
+    Box(Modifier.fillMaxWidth().height(1.dp).background(lineColor))
+    Row(Modifier.height(IntrinsicSize.Min).fillMaxWidth()) {
+        Column(Modifier.width(200.dp)) {
+            Row(Modifier.height(44.dp)) {
+                Box(Modifier.width(58.dp).fillMaxHeight()) { head("Тормозное нажатие на ось, тс", true) }
+                Box(Modifier.width(64.dp).fillMaxHeight()) { head("Количество осей", true) }
+                Box(Modifier.width(78.dp).fillMaxHeight()) { head("Нажатие колодок, тс", true) }
+            }
+            PRINTED.forEach { p ->
+                val r = byPressure[p]
+                AxleRowCells(label = fmtP(p), axles = r?.axlesText.orEmpty(), product = r?.let { fmt(p * (it.axlesText.trim().toIntOrNull() ?: 0)) }.orEmpty(), filled = r != null, onAxles = { vm.setAxlesForPressure(p, it) })
+            }
+            extra.forEach { r ->
+                val p = r.pressureText.toFiniteDoubleOrNull() ?: 0.0
+                AxleRowCells(label = fmtP(p), axles = r.axlesText, product = fmt(p * (r.axlesText.trim().toIntOrNull() ?: 0)), filled = true, onAxles = { vm.setAxlesForPressure(p, it) })
+            }
+            // Всего
+            Row(Modifier.height(IntrinsicSize.Min)) {
+                Box(Modifier.width(58.dp).heightIn(min = 40.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) { VuPrint("Всего", bold = true) }
+                Box(Modifier.width(64.dp).heightIn(min = 40.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) { VuInk(if (totalAxles > 0) "$totalAxles" else "", calc = true, align = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+                Box(Modifier.width(78.dp).heightIn(min = 40.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) {
+                    Text(if (totalPressure > 0) fmt(totalPressure) else "", fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = if (low) t.danger else t.text, maxLines = 1)
+                }
+            }
+        }
+        // «Другие данные» - одна высокая графа
+        Column(Modifier.weight(1f).fillMaxHeight().vuCellBorders(lineColor, right = false, bottom = true)) {
+            Box(Modifier.height(44.dp).fillMaxWidth().vuCellBorders(lineColor, right = false, bottom = true), contentAlignment = Alignment.Center) {
+                Text("Другие данные", fontSize = 10.sp, color = t.text)
+            }
+            OtherColumn(state, onEdit = { onSheet(BrakeSheet.Other) })
+        }
+    }
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onSheet(BrakeSheet.RowPressure) }.vuCellBorders(lineColor, right = false, bottom = true).padding(start = 14.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("+ Другое нажатие", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
+        Spacer(Modifier.weight(1f))
+        Text("1,25…21 тс", fontSize = 12.sp, color = t.muted)
+    }
+}
+
+@Composable
+private fun AxleRowCells(label: String, axles: String, product: String, filled: Boolean, onAxles: (String) -> Unit) {
+    val t = vuColors()
+    val line = t.borderStrong
+    val bg = if (filled) t.accentSoft else Color.Transparent
+    var focused by remember { mutableStateOf(false) }
+    Row(Modifier.height(IntrinsicSize.Min)) {
+        Box(Modifier.width(58.dp).heightIn(min = 40.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
+            Text(label, fontSize = 14.sp, fontWeight = if (filled) FontWeight.Bold else FontWeight.Normal, color = t.text)
+        }
+        Box(
+            Modifier.width(64.dp).heightIn(min = 40.dp).background(bg).vuCellBorders(line)
+                .then(if (focused) Modifier.border(2.dp, t.accent) else Modifier),
+            contentAlignment = Alignment.Center,
+        ) {
+            BasicTextField(
+                value = axles,
+                onValueChange = { onAxles(it.filter { c -> c.isDigit() }.take(4)) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).onFocusChanged { focused = it.isFocused },
+                singleLine = true,
+                textStyle = TextStyle(fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = t.accent, textAlign = TextAlign.Center),
+                cursorBrush = SolidColor(t.accent),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+        }
+        Box(Modifier.width(78.dp).heightIn(min = 40.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
+            Text(product, fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = t.text, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun OtherColumn(state: BrakeCertificateUiState, onEdit: () -> Unit) {
+    val t = vuColors()
+    val items = buildList {
+        when (state.compositeShare) {
+            CompositeShare.NONE -> {}
+            CompositeShare.P50 -> add("К" to "50")
+            CompositeShare.P75 -> add("К" to "75")
+            CompositeShare.P100 -> add("К" to "100")
+        }
+        if (state.flags.isNotEmpty()) add("Торм." to state.flags.joinToString("/"))
+        if (state.tcpvText.isNotBlank()) add("ТЦПВ" to state.tcpvText + " мм")
+        if (state.vstrText.isNotBlank()) add("Встр." to state.vstrText)
+        if (state.dpvText.isNotBlank()) add("ДПВ" to state.dpvText)
+        if (state.vo2hvText.isNotBlank()) add("ВО2ХВ" to state.vo2hvText + " с")
+        if (state.tailVoltageText.isNotBlank()) add("Напр." to state.tailVoltageText + " В")
+        if (state.feedDensityText.isNotBlank()) add("Пит." to state.feedDensityText)
+    }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        items.forEach { (k, v) ->
+            Row(Modifier.heightIn(min = 30.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(k, fontSize = 12.sp, color = t.muted)
+                Text(v, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.accent, maxLines = 1)
+            }
+        }
+        Text(
+            (if (items.isEmpty()) "+ Заполнить" else "+ Изменить"), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = t.accent,
+            modifier = Modifier.clickable(onClick = onEdit).heightIn(min = 44.dp).padding(vertical = 12.dp),
         )
     }
 }
 
 @Composable
-private fun CalcLine(label: String, value: String, helpKey: String, onHelp: (String) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(modifier = Modifier.weight(1f), text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium.copy(fontFamily = MonoFont, fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary)
-        HelpDot { onHelp(helpKey) }
-    }
-}
-
-@Composable
 private fun LocoCard(state: BrakeCertificateUiState, category: BrakeCategory, vm: BrakeCertificateViewModel, onHelp: (String) -> Unit) {
-    SettingsCard {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    val t = vuColors()
+    VuCard {
+        Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Учитывать локомотив", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+                Text("Учитывать локомотив", fontSize = 16.sp, color = t.text)
                 Text(
                     if (category.group == TrainGroup.FREIGHT) "В грузовых поездах не учитывается (п. 6.3)" else "Вес по табл. 5, нажатие по табл. 4",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp, color = t.muted, modifier = Modifier.padding(top = 2.dp),
                 )
             }
-            androidx.compose.material3.Switch(
-                checked = state.locoEnabled,
-                onCheckedChange = vm::setLocoEnabled,
-                colors = androidx.compose.material3.SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.onTertiary,
-                    checkedTrackColor = MaterialTheme.colorScheme.tertiary,
-                    checkedBorderColor = MaterialTheme.colorScheme.tertiary,
-                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    uncheckedBorderColor = MaterialTheme.colorScheme.outline,
+            Switch(
+                checked = state.locoEnabled, onCheckedChange = vm::setLocoEnabled,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = t.accentInk, checkedTrackColor = t.accent, checkedBorderColor = t.accent,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.outline, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant, uncheckedBorderColor = MaterialTheme.colorScheme.outline,
                 ),
             )
         }
         if (state.locoEnabled) {
-            SettingsCardSep()
-            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CompactField("Вес, тс", state.locoWeightText, vm::setLocoWeight, Modifier.weight(1f), unit = "тс", helpKey = "loco_brake", onHelp = onHelp)
-                    CompactField("Осей", state.locoAxlesText, vm::setLocoAxles, Modifier.weight(0.8f), integer = true)
-                    CompactField("тс/ось", state.locoPressureText, vm::setLocoPressure, Modifier.weight(0.9f))
+                    VuInput("Вес, тс", state.locoWeightText, Modifier.weight(1f), onChange = vm::setLocoWeight, unit = "тс", sunk = true, onHelp = { onHelp("loco_brake") })
+                    VuInput("Осей", state.locoAxlesText, Modifier.weight(0.8f), onChange = vm::setLocoAxles, sunk = true, keyboard = KeyboardType.Number)
+                    VuInput("тс/ось", state.locoPressureText, Modifier.weight(0.9f), onChange = vm::setLocoPressure, sunk = true)
                 }
-                Text(
+                VuHint(
                     if (state.locoAuto) "По табл. 4-5 для серии «${state.locoSeriesText}»" + (state.locoNote?.let { ": $it" } ?: "") + ". Можно править."
                     else if (state.locoSeriesText.isNotBlank()) "Серии «${state.locoSeriesText}» нет в справочнике - введите вручную."
-                    else "Введите серию локомотива в «Реквизитах» или значения вручную.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    else "Серия локомотива - в «Реквизитах» бланка; значения можно ввести вручную.",
                 )
             }
         }
     }
 }
 
-@Composable
-private fun DpvAssessment(state: BrakeCertificateUiState, category: BrakeCategory) {
-    if (category.group != TrainGroup.FREIGHT && category.group != TrainGroup.FREIGHT_PASSENGER) return
-    val axles = axlesForNorm(state)
-    val charge = state.chargePressureText.toFiniteDoubleOrNull()
-    val min = BrakeDensity.minTailPressure(charge, axles)
-    val dpv = state.dpvText.toFiniteDoubleOrNull()
-    val (text, ok) = when {
-        min == null -> "Норма в хвосте: укажите зарядное давление локомотива 4,8-5,8 (вкладка «Замеры») и число осей." to null
-        dpv == null -> "Норма в хвосте: не менее ${fmt(min)} кгс/см² (п. 9.2.6)" to null
-        dpv + 1e-9 >= min -> "ДПВ в норме (не менее ${fmt(min)})" to true
-        else -> "ДПВ ниже нормы: нужно не менее ${fmt(min)} кгс/см²" to false
-    }
-    Text(
-        text, style = MaterialTheme.typography.bodySmall,
-        color = when (ok) { true -> MaterialTheme.colorScheme.tertiary; false -> MaterialTheme.colorScheme.error; null -> MaterialTheme.colorScheme.onSurfaceVariant },
-    )
-}
-
-// ───────────────────────────── Таблица осей ─────────────────────────────
-
-private val FREQUENT_PRESSURES = listOf(8.5, 7.0, 3.5, 5.0, 6.0, 10.0, 6.5, 9.0)
+// ───────────────────────────── Оборот ─────────────────────────────
 
 @Composable
-private fun AxleRowsEditor(
-    state: BrakeCertificateUiState,
-    vm: BrakeCertificateViewModel,
-    onSheet: (BrakeSheet) -> Unit,
-    onHelp: (String) -> Unit,
-) {
-    SettingsCard {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                "Нажатие на ось, тс  ×  число осей", Modifier.weight(1f),
-                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            HelpDot { onHelp("row") }
+private fun BackBody(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onSheet: (BrakeSheet) -> Unit) {
+    val t = vuColors()
+    val line = t.borderStrong
+    Column(Modifier.fillMaxWidth()) {
+        VuHint("Оборотная сторона справки. Записи создаются по стоянкам поезда: более 5 мин - станция и плотность; более 30 мин - ещё время готовности и табельный номер вагонника.", Modifier.padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 10.dp))
+        Row(Modifier.fillMaxWidth().vuCellBorders(line, right = false, bottom = true).height(IntrinsicSize.Min)) {
+            listOf("Станция" to 1.2f, "Стоянка" to 1.1f, "Плотн., с" to 0.7f).forEachIndexed { i, (x, w) ->
+                Box(Modifier.weight(w).fillMaxHeight().vuCellBorders(line, right = i < 2, bottom = false).padding(6.dp), contentAlignment = Alignment.Center) {
+                    Text(x, fontSize = 11.sp, color = t.text, textAlign = TextAlign.Center)
+                }
+            }
         }
-        state.rows.forEach { row ->
-            SettingsCardSep()
-            val p = row.pressureText.toFiniteDoubleOrNull()
-            val n = row.axlesText.trim().toIntOrNull()
-            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    FREQUENT_PRESSURES.forEach { v ->
-                        ChoiceChip(BrakeCertificateViewModel.formatPressure(v), p == v) {
-                            vm.setRowPressure(row.id, BrakeCertificateViewModel.formatPressure(v))
+        if (state.turnaround.isEmpty()) {
+            Text(
+                if (state.routeId == null) "Нет данных маршрута: добавьте отметку вручную." else "Стоянок дольше 5 минут пока нет. Отметка появится автоматически, когда на станции раздела «Поезд» стоянка превысит 5 минут.",
+                Modifier.padding(14.dp), fontSize = 13.sp, color = t.muted, lineHeight = 18.sp,
+            )
+        }
+        state.turnaround.forEach { e ->
+            Column(Modifier.fillMaxWidth().clickable { onSheet(BrakeSheet.Turnaround(e.id)) }.vuCellBorders(line, right = false, bottom = true)) {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                    Box(Modifier.weight(1.2f).fillMaxHeight().vuCellBorders(line, right = true, bottom = false).padding(horizontal = 8.dp, vertical = 10.dp), contentAlignment = Alignment.CenterStart) {
+                        Text(e.stationName.ifBlank { "станция" }, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (e.stationName.isBlank()) t.faint else t.accent, lineHeight = 18.sp)
+                    }
+                    Box(Modifier.weight(1.1f).fillMaxHeight().vuCellBorders(line, right = true, bottom = false).padding(horizontal = 8.dp, vertical = 10.dp), contentAlignment = Alignment.CenterStart) {
+                        val period = if (e.arrivalMs != null) hhmm(e.arrivalMs!!) + "–" + (e.departureMs?.let { hhmm(it) } ?: "…") else ""
+                        Column {
+                            Text(if (e.stopClass == StopClass.OVER_30) "> 30 мин" else "> 5 мин", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = t.text)
+                            if (period.isNotEmpty()) Text(period, fontFamily = VuMono, fontSize = 12.sp, color = t.muted)
                         }
                     }
-                    ChoiceChip("ещё…", false) { onSheet(BrakeSheet.RowPressure(row.id)) }
+                    Box(Modifier.weight(0.7f).fillMaxHeight().padding(horizontal = 8.dp, vertical = 10.dp), contentAlignment = Alignment.CenterStart) {
+                        Text(e.densitySec?.let { fmt(it) } ?: "замерить", fontFamily = if (e.densitySec != null) VuMono else null, fontSize = if (e.densitySec != null) 17.sp else 12.sp, fontWeight = if (e.densitySec != null) FontWeight.SemiBold else FontWeight.Normal, color = if (e.densitySec != null) t.accent else t.faint)
+                    }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) { SmallField(row.pressureText, "тс на ось", { vm.setRowPressure(row.id, it) }) }
-                    Box(Modifier.weight(0.9f)) { SmallField(row.axlesText, "осей", { vm.setRowAxles(row.id, it) }, integer = true) }
-                    Text(
-                        modifier = Modifier.weight(0.9f),
-                        text = if (p != null && n != null) "= ${fmt(p * n)}" else "=",
-                        style = MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont),
-                        color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.End,
-                    )
-                    Text(
-                        modifier = Modifier.clickable { vm.removeRow(row.id) }.padding(horizontal = 8.dp, vertical = 4.dp),
-                        text = "×", color = MaterialTheme.colorScheme.error, fontSize = 22.sp,
-                    )
+                if (e.stopClass == StopClass.OVER_30) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
+                        Text("Готовность", fontSize = 11.sp, color = t.muted)
+                        Text(e.readinessTime.ifBlank { "—" }, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (e.readinessTime.isBlank()) t.faint else t.accent)
+                        Text("Таб. № вагонника", fontSize = 11.sp, color = t.muted)
+                        Text(e.inspectorTab.ifBlank { "—" }, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (e.inspectorTab.isBlank()) t.faint else t.accent)
+                    }
                 }
             }
         }
-        SettingsCardSep()
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                modifier = Modifier.weight(1f).clickable { vm.addRow() },
-                text = "+ Строка", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodyLarge,
-            )
-            val ax = state.rows.sumOf { r -> if ((r.pressureText.toFiniteDoubleOrNull() ?: 0.0) > 0) (r.axlesText.trim().toIntOrNull() ?: 0) else 0 }
-            val pr = state.rows.sumOf { r ->
-                val pp = r.pressureText.toFiniteDoubleOrNull() ?: 0.0
-                val nn = r.axlesText.trim().toIntOrNull() ?: 0
-                if (pp > 0 && nn > 0) pp * nn else 0.0
+        Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            VuBtn("+ Добавить опробование", {
+                val id = vm.newTurnaroundId()
+                vm.addTurnaround(StopClass.OVER_5, state.trainStationNames.lastOrNull().orEmpty(), id)
+                onSheet(BrakeSheet.Turnaround(id))
+            }, kind = VuBtnKind.Text, h = 48.dp)
+            Spacer(Modifier.weight(1f))
+            if (state.routeId != null) VuBtn("Обновить по стоянкам", { vm.refreshStops() }, kind = VuBtnKind.Text, h = 48.dp)
+        }
+        VuHint("Отметки живут, пока открыт экран. «Плотность» можно ввести или замерить секундомером во вкладке «Замеры».", Modifier.padding(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 14.dp))
+    }
+}
+
+@Composable
+private fun TurnaroundSheet(
+    state: BrakeCertificateUiState,
+    entryId: String,
+    vm: BrakeCertificateViewModel,
+    onDismiss: () -> Unit,
+    onMeasure: () -> Unit,
+) {
+    val e = state.turnaround.firstOrNull { it.id == entryId }
+    if (e == null) { onDismiss(); return }
+    val t = vuColors()
+    VuSheet(
+        title = "Отметка об опробовании", sub = if (e.auto) "Создана автоматически по стоянке" else "Добавлена вручную", onDismiss = onDismiss,
+        footer = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                VuBtn("Удалить", { vm.removeTurnaround(entryId); onDismiss() }, kind = VuBtnKind.Text, h = 56.dp)
+                VuBtn("Готово", onDismiss, Modifier.weight(1f), h = 56.dp)
             }
-            Text("Всего: $ax осей, ${fmt(pr)} тс", style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont, fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary)
+        },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            VuTag("Стоянка")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                VuChip("более 5 мин", e.stopClass == StopClass.OVER_5, { vm.updateTurnaround(entryId) { it.copy(stopClass = StopClass.OVER_5) } }, Modifier.weight(1f))
+                VuChip("более 30 мин", e.stopClass == StopClass.OVER_30, { vm.updateTurnaround(entryId) { it.copy(stopClass = StopClass.OVER_30) } }, Modifier.weight(1f))
+            }
+            if (e.arrivalMs != null) VuHint("Стоянка: ${hhmm(e.arrivalMs!!)} – ${e.departureMs?.let { hhmm(it) } ?: "идёт"}")
+            VuInput("Станция", e.stationName, onChange = { v -> vm.updateTurnaround(entryId) { it.copy(stationName = v) } }, text = true, sunk = true)
+            if (state.trainStationNames.isNotEmpty()) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    state.trainStationNames.forEach { n -> VuChip(n, e.stationName == n, { vm.updateTurnaround(entryId) { it.copy(stationName = n) } }, small = true) }
+                }
+            }
+            VuInput(
+                "Плотность, с", e.densitySec?.let { fmt(it) } ?: "",
+                onChange = { v -> vm.updateTurnaround(entryId) { it.copy(densitySec = v.replace(',', '.').toDoubleOrNull()) } }, unit = "с", sunk = true,
+            )
+            VuBtn("Замерить секундомером", onMeasure, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal)
+            if (e.stopClass == StopClass.OVER_30) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    VuInput("Время готовности", e.readinessTime, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(readinessTime = v) } }, text = true, sunk = true, placeholder = "ЧЧ:ММ")
+                    VuInput("Таб. № вагонника", e.inspectorTab, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(inspectorTab = v) } }, keyboard = KeyboardType.Number, sunk = true)
+                }
+            }
+            Spacer(Modifier.height(2.dp))
+            Text("", color = t.muted)
         }
     }
 }
 
-// ───────────────────────────── Вкладка «Замеры» ─────────────────────────────
+// ───────────────────────────── Шторки бланка ─────────────────────────────
+
+@Composable
+private fun SheetLabel(text: String) {
+    val t = vuColors()
+    Text(text.uppercase(), Modifier.padding(top = 14.dp, bottom = 6.dp), fontFamily = VuMono, fontSize = 11.sp, letterSpacing = 1.sp, color = t.muted)
+}
+
+@Composable
+private fun OtherSheet(state: BrakeCertificateUiState, category: BrakeCategory, vm: BrakeCertificateViewModel, onDismiss: () -> Unit) {
+    val t = vuColors()
+    VuSheet(title = "Другие данные", sub = "Графа справа от таблицы", onDismiss = onDismiss, footer = { VuBtn("Готово", onDismiss, Modifier.fillMaxWidth(), h = 56.dp) }) {
+        SheetLabel("Композиционные колодки")
+        val share = when (state.compositeShare) { CompositeShare.P50 -> "К-50"; CompositeShare.P75 -> "К-75"; CompositeShare.P100 -> "К-100"; CompositeShare.NONE -> "" }
+        VuCircled(listOf("К-50", "К-75", "К-100"), setOf(share)) { x ->
+            val v = when (x) { "К-50" -> CompositeShare.P50; "К-75" -> CompositeShare.P75; else -> CompositeShare.P100 }
+            vm.setCompositeShare(if (state.compositeShare == v) CompositeShare.NONE else v)
+        }
+        SheetLabel("Тормоза в составе")
+        VuCircled(listOf("ЭПТ", "ЭПП", "ДТ", "МРТ", "П", "В10", "РИЦ"), state.flags) { vm.toggleFlag(it) }
+        Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                VuInput("ТЦПВ, мм", state.tcpvText, Modifier.weight(1f), onChange = vm::setTcpv, sunk = true)
+                VuInput("Встр. (вагон)", state.vstrText, Modifier.weight(1f), onChange = vm::setVstr, sunk = true, text = true)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                VuInput("ДПВ, кгс/см²", state.dpvText, Modifier.weight(1f), onChange = vm::setDpv, sunk = true)
+                if (category.group == TrainGroup.FREIGHT || category.group == TrainGroup.FREIGHT_PASSENGER) {
+                    VuInput("ВО2ХВ, с", state.vo2hvText, Modifier.weight(1f), onChange = vm::setVo2hv, sunk = true)
+                } else Spacer(Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                VuInput("Напряжение в хвосте, В", state.tailVoltageText, Modifier.weight(1f), onChange = vm::setTailVoltage, sunk = true)
+                VuInput("Пит. сеть", state.feedDensityText, Modifier.weight(1f), onChange = vm::setFeedDensity, sunk = true, text = true)
+            }
+            if (category.group == TrainGroup.FREIGHT || category.group == TrainGroup.FREIGHT_PASSENGER) {
+                val axles = axlesForNorm(state)
+                val charge = state.chargePressureText.toFiniteDoubleOrNull()
+                val min = BrakeDensity.minTailPressure(charge, axles)
+                val dpv = state.dpvText.toFiniteDoubleOrNull()
+                when {
+                    min == null -> VuHint("Норма ДПВ: укажите зарядное давление локомотива 4,8-5,8 (вкладка «Замеры») и число осей.")
+                    dpv == null -> VuHint("Норма в хвосте: не менее ${fmt(min)} кгс/см² (п. 9.2.6)")
+                    else -> VuVerdict(dpv + 1e-9 >= min, if (dpv + 1e-9 >= min) "ДПВ в норме (не менее ${fmt(min)})" else "ДПВ ниже нормы: нужно не менее ${fmt(min)} кгс/см²", 14)
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text("", color = t.muted)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RowSheet(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onDismiss: () -> Unit) {
+    var pressure by remember { mutableStateOf<Double?>(null) }
+    var axles by remember { mutableStateOf("") }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { /* фокус на поле осей выставляется после выбора значения */ }
+    val n = axles.toIntOrNull()
+    val ok = pressure != null && n != null && n > 0
+    VuSheet(
+        title = "Нажатие на ось", sub = "Строка таблицы бланка", onDismiss = onDismiss,
+        footer = {
+            VuBtn(
+                if (ok) "Добавить · $n × ${fmtP(pressure!!)} = ${fmt(pressure!! * n!!)} тс" else "Добавить", {
+                    vm.setAxlesForPressure(pressure!!, axles); onDismiss()
+                }, Modifier.fillMaxWidth(), h = 56.dp, enabled = ok,
+            )
+        },
+    ) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            OTHER_VALUES.forEach { v ->
+                VuChip(fmtP(v), pressure == v, { pressure = v; axles = state.effectiveRows().firstOrNull { it.pressureText.toFiniteDoubleOrNull() == v }?.axlesText.orEmpty() }, Modifier.widthIn(min = 56.dp), small = true)
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        VuInput("Количество осей", axles, onChange = { axles = it }, unit = "осей", keyboard = KeyboardType.Number, maxLen = 4)
+    }
+}
+
+@Composable
+private fun HelpSheet(key: String, state: BrakeCertificateUiState, category: BrakeCategory, result: BrakeCertificateResult?, onDismiss: () -> Unit) {
+    val t = vuColors()
+    val hint = brakeHints[key] ?: if (key == "deficit") BrakeHint(
+        "Что делать при недостатке нажатия", "Машинист", "Нажатие ниже нормы табл. 1. Если оно не ниже допускаемого минимума табл. 2 и случай относится к п. 4.2-4.3, скорость снижают: 2 км/ч за каждую недостающую тонну для грузовых, 1-2 км/ч для пассажирских, результат округляют вниз до кратного 5.", "Инструкция 277, прил. 2, п. 4.2-4.5, 5.1",
+    ) else null
+    if (hint == null) { onDismiss(); return }
+    val calc = when (key) {
+        "required" -> result?.let { "${state.weightText} × ${category.norm} / 100 = ${fmt(it.requiredPressure)} тс" }
+        "manual_req" -> result?.requiredManualAxles?.let { "${state.weightText} × ${fmt(state.manualNorm.perHundred, 1)} / 100 → $it осей" }
+        else -> null
+    }
+    fun row(k: String, v: String, mono: Boolean = false) = @Composable {
+        Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            VuTag(k)
+            Text(v, fontFamily = if (mono) VuMono else null, fontSize = 15.sp, fontWeight = if (mono) FontWeight.SemiBold else FontWeight.Normal, color = t.text, lineHeight = 22.sp)
+            Box(Modifier.padding(top = 9.dp).fillMaxWidth().height(1.dp).background(t.border))
+        }
+    }
+    VuSheet(title = hint.title, sub = "Графа бланка ВУ-45", onDismiss = onDismiss) {
+        hint.who?.let { row("Кто заполняет", it)() }
+        row("Что это", hint.text)()
+        if (calc != null) row("Ваш расчёт", calc, mono = true)()
+        hint.clause?.let { row("Пункт инструкции", it)() }
+    }
+}
+
+// ───────────────────────────── Замеры ─────────────────────────────
 
 @Composable
 private fun MeasureTab(
@@ -841,7 +1069,9 @@ private fun MeasureTab(
     onKind: (TimerKind) -> Unit,
     onGroupClick: () -> Unit,
     onHelp: (String) -> Unit,
+    onBackToTurnaround: () -> Unit,
 ) {
+    val t = vuColors()
     val passenger = category.group == TrainGroup.PASSENGER
     val kinds = if (passenger) listOf(TimerKind.II, TimerKind.ROUTE) else TimerKind.values().toList()
     val active = if (kind in kinds) kind else TimerKind.II
@@ -852,97 +1082,77 @@ private fun MeasureTab(
     val minTime = group?.let { BrakeDensity.minTimeSeconds(it, axles, charge, locoCount) }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .imePadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            kinds.forEach { k ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(44.dp)
-                        .background(
-                            if (k == active) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
-                            RoundedCornerShape(12.dp),
-                        )
-                        .clickable { onKind(k) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val t = state.timerOf(k)
-                    Text(
-                        (when (k) { TimerKind.II -> "II"; TimerKind.IV -> "IV"; TimerKind.ROUTE -> "В пути" }) +
-                            (t.recordedSec?.let { " · ${fmt(it)} с" } ?: ""),
-                        color = if (k == active) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
-                    )
-                }
+        val labels = kinds.map { k ->
+            (when (k) { TimerKind.II -> "II"; TimerKind.IV -> "IV"; TimerKind.ROUTE -> "В пути" }) +
+                (state.timerOf(k).let { tm -> if (tm.running) " · идёт" else tm.recordedSec?.let { " · ${fmt(it)} с" } ?: "" })
+        }
+        VuTabs(labels, kinds.indexOf(active), { onKind(kinds[it]) }, mono = true)
+        if (active == TimerKind.ROUTE && state.routeTargetEntryId != null) {
+            val target = state.turnaround.firstOrNull { it.id == state.routeTargetEntryId }
+            Row(
+                Modifier.fillMaxWidth().background(t.accentSoft, RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Результат запишется в отметку оборота: ${target?.stationName?.ifBlank { "станция" } ?: ""}", Modifier.weight(1f), fontSize = 13.sp, color = t.text)
+                Text("Отмена", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.clickable { vm.setRouteTarget(null) }.padding(8.dp))
             }
         }
-
         TimerCard(
             title = when (active) {
-                TimerKind.II -> "II положение - поездное"
-                TimerKind.IV -> "IV положение - перекрыша с питанием"
+                TimerKind.II -> "II положение — поездное"
+                TimerKind.IV -> "IV положение — перекрыша с питанием"
                 TimerKind.ROUTE -> "Контроль в пути"
             },
             subtitle = when (active) {
-                TimerKind.II -> if (passenger) "Перекрыть комбинированный кран, подождать 20 с, «Старт» и замер падения давления в ТМ"
-                else "После снижения давления в ГР на 0,4-0,5 кгс/см² от предельного - «Старт», на снижении ещё на 0,5 - «Стоп»"
-                TimerKind.IV -> "Через 2 мин и более после ступени торможения (УР -0,5...0,7 кгс/см²), ручка в IV. Тот же замер"
-                TimerKind.ROUTE -> "После стоянки, смены бригады и т.п.: отличие от замера II не более 20 %, иначе сокращённое опробование"
+                TimerKind.II -> if (passenger) "Перекрыть комбинированный кран, подождать 20 с, затем «Старт» и замер падения давления в ТМ."
+                else "После снижения давления в ГР на 0,4–0,5 кгс/см² от предельного — «Старт», на снижении ещё на 0,5 — «Стоп»."
+                TimerKind.IV -> "Через 2 мин и более после ступени торможения (УР −0,5…0,7 кгс/см²), ручка в IV. Тот же замер."
+                TimerKind.ROUTE -> "После стоянки, смены бригады и т.п.: отличие от замера II не более 20 %, иначе сокращённое опробование."
             },
             kind = active, timer = state.timerOf(active), now = now, passenger = passenger && active == TimerKind.II, vm = vm,
-            assess = { t ->
+            transferred = when {
+                active == TimerKind.II || active == TimerKind.IV -> "перенесено в бланк"
+                else -> null
+            },
+            normText = when (active) {
+                TimerKind.II -> if (!passenger && minTime != null) "Норма: не менее ${fmt(minTime)} с" else null
+                TimerKind.IV -> state.timerII.recordedSec?.let { "Допуск: не менее ${fmt(it * 0.9)} с (90 % от II)" }
+                TimerKind.ROUTE -> state.timerII.recordedSec?.let { "Допуск ±20 %: ${fmt(it * 0.8)}–${fmt(it * 1.2)} с" }
+            },
+            assess = { sec ->
                 when (active) {
-                    TimerKind.II -> if (passenger) BrakeDensity.assessPassenger(t, state.timerII.dropText.toFiniteDoubleOrNull())
-                    else BrakeDensity.assessFreightII(t, minTime, groupSelected = group != null)
-                    TimerKind.IV -> BrakeDensity.assessFreightIV(t, state.timerII.recordedSec)
-                    TimerKind.ROUTE -> BrakeDensity.assessRoute(t, state.timerII.recordedSec)
+                    TimerKind.II -> if (passenger) BrakeDensity.assessPassenger(sec, state.timerII.dropText.toFiniteDoubleOrNull()) else BrakeDensity.assessFreightII(sec, minTime, groupSelected = group != null)
+                    TimerKind.IV -> BrakeDensity.assessFreightIV(sec, state.timerII.recordedSec)
+                    TimerKind.ROUTE -> BrakeDensity.assessRoute(sec, state.timerII.recordedSec)
                 }
             },
             hideGr = active == TimerKind.ROUTE && passenger,
+            onHelp = { onHelp("density") },
         )
-
+        if (active == TimerKind.ROUTE && TurnaroundPlanner.applies(category)) {
+            VuBtn("К отметкам оборота ›", onBackToTurnaround, kind = VuBtnKind.Text)
+        }
         if (!passenger) {
-            SettingsCard {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
-                        CompactField("Зарядное давление ТМ", state.chargePressureText, vm::setChargePressure, Modifier.weight(1f), unit = "кгс/см²", helpKey = "charge", onHelp = onHelp)
-                        CompactField("Локомотивов (СМЕ)", state.locoCountText, vm::setLocoCount, Modifier.weight(0.8f), integer = true, helpKey = "group", onHelp = onHelp)
-                    }
-                    PickerField(
-                        label = "Группа локомотива (табл. 9.1)",
-                        value = group?.let { "№ ${it.name.removePrefix("G")}: ${it.title}" } ?: "Не выбрана",
-                        onClick = onGroupClick,
-                    )
-                    Text(
+            VuCard {
+                Column(Modifier.padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    VuInput("Зарядное давление ТМ", state.chargePressureText, onChange = vm::setChargePressure, unit = "кгс/см²", sunk = true, onHelp = { onHelp("charge") })
+                    VuInput("Локомотивов (СМЕ)", state.locoCountText, onChange = vm::setLocoCount, sunk = true, keyboard = KeyboardType.Number, onHelp = { onHelp("group") })
+                    VuInput("Группа локомотива (табл. 9.1)", group?.let { "№ ${it.name.removePrefix("G")}: ${it.title}" } ?: "Не выбрана", onClick = onGroupClick, sunk = true)
+                    VuHint(
                         when {
-                            group == null -> "Группа не выбрана: норма не показывается, оценка II недоступна. Время замера всё равно записывается."
+                            group == null -> "Без группы норма не определяется."
                             minTime == null -> "Норма II положения: длина состава должна быть 1-480 осей (сейчас: $axles)."
-                            else -> "Норма II положения: не менее ${fmt(minTime)} с (группа ${group.name.removePrefix("G")}, $axles осей" +
-                                (if (BrakeDensity.chargeFactor(charge) < 1.0) ", с поправкой на зарядное давление" else "") + ")."
+                            else -> "Норма II положения: не менее ${fmt(minTime)} с (группа ${group.name.removePrefix("G")}, $axles осей" + (if (BrakeDensity.chargeFactor(charge) < 1.0) ", с поправкой на зарядное давление" else "") + ")."
                         },
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         }
-        Text(
-            "Результаты замеров автоматически попадают во вкладку «Бланк». Хранятся только на экране. Экран не гаснет, пока идёт замер.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        VuHint("Результаты замеров автоматически попадают во вкладку «Бланк». Хранятся только на экране. Экран не гаснет, пока идёт замер.", Modifier.padding(horizontal = 4.dp))
     }
-}
-
-private fun BrakeCertificateUiState.timerOf(k: TimerKind): DensityTimerState = when (k) {
-    TimerKind.II -> timerII
-    TimerKind.IV -> timerIV
-    TimerKind.ROUTE -> timerRoute
 }
 
 @Composable
@@ -955,307 +1165,117 @@ private fun TimerCard(
     passenger: Boolean,
     vm: BrakeCertificateViewModel,
     assess: (Double) -> BrakeDensity.Assessment,
+    transferred: String?,
+    normText: String?,
     hideGr: Boolean = false,
+    onHelp: () -> Unit,
 ) {
+    val t = vuColors()
     val elapsed = timer.elapsedMs(now)
-    SettingsCard {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                text = formatTimer(elapsed),
-                textAlign = TextAlign.Center,
-                fontSize = 56.sp,
-                fontFamily = MonoFont,
-                fontWeight = FontWeight.Bold,
-                color = if (timer.running) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    val done = timer.recordedSec != null
+    VuCard {
+        Column(Modifier.padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = t.text)
+                VuHelp(onHelp)
+            }
+            VuHint(subtitle, Modifier.padding(top = 4.dp))
+            Row(Modifier.fillMaxWidth().padding(top = 14.dp).height(20.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 if (timer.running) {
-                    Button(
-                        modifier = Modifier.weight(1f).height(60.dp),
-                        onClick = { vm.stopTimer(kind) },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    ) { Text("Стоп", fontSize = 20.sp) }
-                } else {
-                    Button(
-                        modifier = Modifier.weight(1f).height(60.dp),
-                        onClick = { vm.startTimer(kind) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiary,
-                            contentColor = MaterialTheme.colorScheme.onTertiary,
-                        ),
-                    ) { Text(if (timer.recordedSec != null) "Заново" else "Старт", fontSize = 20.sp) }
+                    Box(Modifier.width(8.dp).height(8.dp).background(t.accent, RoundedCornerShape(4.dp)))
+                    Text("  ЗАМЕР ИДЁТ · ЭКРАН НЕ ГАСНЕТ", fontFamily = VuMono, fontSize = 11.sp, letterSpacing = 1.sp, color = t.accent)
                 }
-                if (!timer.running && (timer.recordedSec != null || elapsed > 0)) {
-                    TextButton(onClick = { vm.resetTimer(kind) }) { Text("Сбросить") }
+            }
+            Text(
+                formatTimer(elapsed), Modifier.fillMaxWidth().padding(top = 6.dp), textAlign = TextAlign.Center,
+                fontFamily = VuMono, fontSize = 72.sp, fontWeight = FontWeight.Bold, letterSpacing = (-3).sp,
+                color = if (timer.running) t.accent else if (!done && elapsed == 0L) t.faint else t.text, maxLines = 1,
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                when {
+                    timer.running -> VuBtn("Стоп", { vm.stopTimer(kind) }, Modifier.fillMaxWidth(), kind = VuBtnKind.Cta, h = 64.dp)
+                    done -> {
+                        VuBtn("Заново", { vm.startTimer(kind) }, Modifier.weight(1f), kind = VuBtnKind.Tonal, h = 64.dp)
+                        VuBtn("Сбросить", { vm.resetTimer(kind) }, kind = VuBtnKind.Text, h = 64.dp)
+                    }
+                    else -> VuBtn("Старт", { vm.startTimer(kind) }, Modifier.fillMaxWidth(), h = 64.dp)
                 }
             }
             timer.recordedSec?.let { rec ->
                 val a = assess(rec)
-                val color = when (a.verdict) {
-                    BrakeDensity.Verdict.OK -> MaterialTheme.colorScheme.tertiary
-                    BrakeDensity.Verdict.FAIL -> MaterialTheme.colorScheme.error
-                    BrakeDensity.Verdict.NO_NORM -> MaterialTheme.colorScheme.onSurfaceVariant
+                Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    when (a.verdict) {
+                        BrakeDensity.Verdict.OK -> VuVerdict(true, "Записано: ${fmt(rec)} с — норма", 16)
+                        BrakeDensity.Verdict.FAIL -> VuVerdict(false, "Записано: ${fmt(rec)} с — превышена", 16)
+                        BrakeDensity.Verdict.NO_NORM -> Text("Записано: ${fmt(rec)} с — оценка недоступна", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.muted)
+                    }
+                    val left = if (a.verdict == BrakeDensity.Verdict.NO_NORM) 0.dp else 28.dp
+                    VuHint(
+                        when (a.verdict) {
+                            BrakeDensity.Verdict.NO_NORM -> a.text.replaceFirstChar { it.uppercase() }.let { if (a.text.startsWith("Выберите")) "$it — появится норма" else it }
+                            else -> (normText ?: a.text) + (transferred?.let { " · $it" } ?: "")
+                        },
+                        Modifier.padding(start = left),
+                    )
                 }
-                val head = when (a.verdict) {
-                    BrakeDensity.Verdict.OK -> "Норма"
-                    BrakeDensity.Verdict.FAIL -> "Превышена"
-                    BrakeDensity.Verdict.NO_NORM -> "Оценка недоступна"
-                }
-                Text("Записано: ${fmt(rec)} с - $head", style = MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont, fontWeight = FontWeight.SemiBold), color = color)
-                Text(a.text, style = MaterialTheme.typography.bodySmall, color = color)
             }
             if (passenger) {
-                SmallLabeled("Падение давления в ТМ, кгс/см²") { SmallField(timer.dropText, "0,2", { vm.setDrop(kind, it) }) }
+                Box(Modifier.padding(top = 16.dp)) { VuInput("Падение давления в ТМ, кгс/см²", timer.dropText, onChange = { vm.setDrop(kind, it) }, sunk = true) }
             } else if (!hideGr) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f)) { SmallLabeled("Давление ГР в начале") { SmallField(timer.grStartText, "кгс/см²", { vm.setGrStart(kind, it) }) } }
-                    Box(Modifier.weight(1f)) { SmallLabeled("Давление ГР в конце") { SmallField(timer.grEndText, "кгс/см²", { vm.setGrEnd(kind, it) }) } }
+                Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    VuInput("ГР в начале", timer.grStartText, Modifier.weight(1f), onChange = { vm.setGrStart(kind, it) }, unit = "кгс/см²", sunk = true)
+                    VuInput("ГР в конце", timer.grEndText, Modifier.weight(1f), onChange = { vm.setGrEnd(kind, it) }, unit = "кгс/см²", sunk = true)
                 }
                 val a = timer.grStartText.toFiniteDoubleOrNull()
                 val b = timer.grEndText.toFiniteDoubleOrNull()
                 if (a != null && b != null) {
                     val drop = a - b
                     val okDrop = kotlin.math.abs(drop - 0.5) <= 0.05
-                    Text(
-                        "Снижение: ${fmt(drop, 2)} кгс/см²" + if (okDrop) "" else " - по нормативу замер на снижении 0,5",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (okDrop) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
-                    )
+                    VuHint("Снижение: ${fmt(drop, 2)} кгс/см²" + if (okDrop) "" else " — по нормативу замер на снижении 0,5 кгс/см²", Modifier.padding(top = 6.dp), color = if (okDrop) null else t.danger)
                 }
             }
         }
     }
 }
 
-// ───────────────────────────── Вкладка «Справочник» ─────────────────────────────
+// ───────────────────────────── Справочник ─────────────────────────────
 
 @Composable
-private fun ReferenceTab() {
-    var expanded by rememberSaveable { mutableStateOf(setOf<Int>()) }
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        SettingsCard {
-            brakeReference.forEachIndexed { i, card ->
-                if (i > 0) SettingsCardSep()
-                val open = i in expanded
-                Column(Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { expanded = if (open) expanded - i else expanded + i }
-                            .padding(horizontal = 18.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(modifier = Modifier.weight(1f), text = card.title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
-                        Text(if (open) "−" else "+", fontSize = 22.sp, color = MaterialTheme.colorScheme.tertiary)
-                    }
-                    if (open) {
-                        Column(Modifier.padding(start = 18.dp, end = 18.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            card.lines.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory, onOpenMeasure: () -> Unit) {
+    val t = vuColors()
+    var open by rememberSaveable { mutableIntStateOf(-1) }
+    val group = state.densityGroup ?: BrakeDensity.groupBySeries(state.locoSeriesText)
+    val axles = axlesForNorm(state)
+    val minTime = group?.let { BrakeDensity.minTimeSeconds(it, axles, state.chargePressureText.toFiniteDoubleOrNull(), state.locoCountText.trim().toIntOrNull() ?: 1) }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        VuTag("Справочник · Инструкция 277")
+        brakeReference.forEachIndexed { i, card ->
+            VuCard {
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { open = if (open == i) -1 else i }.padding(start = 18.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${i + 1}", Modifier.width(28.dp), fontFamily = VuMono, fontSize = 12.sp, color = t.faint)
+                    Text(card.title, Modifier.weight(1f).padding(vertical = 8.dp), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.text, lineHeight = 20.sp)
+                    Text(if (open == i) "▴" else "▾", Modifier.padding(horizontal = 14.dp), fontSize = 14.sp, color = t.muted)
+                }
+                if (open == i) {
+                    Column(Modifier.padding(start = 46.dp, end = 18.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        card.lines.forEach { Text(it, fontSize = 14.sp, color = t.text, lineHeight = 20.sp) }
+                        if (card.title.startsWith("Плотность")) {
+                            Row(Modifier.fillMaxWidth().background(t.accentSoft, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    if (group != null) "Ваш поезд: группа ${group.name.removePrefix("G")}, $axles осей" else "Группа локомотива не выбрана",
+                                    Modifier.weight(1f), fontSize = 13.sp, color = t.text,
+                                )
+                                if (minTime != null) Text("≥ ${fmt(minTime)} с", fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.accent)
+                            }
+                            VuBtn("Открыть замер ›", onOpenMeasure, kind = VuBtnKind.Text)
                         }
                     }
                 }
             }
         }
-        SettingsSectionNote(
-            "Расчёт по Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277 (прил. 2, ред. 1994 г.); форма бланка - прил. К Инструкции 808-2017 ПКБ ЦВ. " +
-                "Справочный инструмент: официальной справкой ВУ-45 является документ, выданный осмотрщиком вагонов. Нормы могли измениться - сверяйте с действующими документами.",
+        VuHint(
+            "Расчёт по Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277 (прил. 2, ред. 1994 г.). Справочный инструмент: официальной справкой ВУ-45 является документ, выданный осмотрщиком вагонов. Нормы могли измениться - сверяйте с действующими документами.",
+            Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
         )
-    }
-}
-
-// ───────────────────────────── Общие элементы ─────────────────────────────
-
-@Composable
-private fun ExpandCard(
-    title: String,
-    subtitle: String,
-    open: Boolean,
-    onToggle: () -> Unit,
-    content: @Composable () -> Unit,
-) {
-    SettingsCard {
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Text(if (open) "−" else "+", fontSize = 22.sp, color = MaterialTheme.colorScheme.tertiary)
-        }
-        if (open) {
-            SettingsCardSep()
-            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
-        }
-    }
-}
-
-@Composable
-private fun PickerField(label: String, value: String, onClick: () -> Unit, modifier: Modifier = Modifier, onHelp: (() -> Unit)? = null) {
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (onHelp != null) HelpDot(onHelp)
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .background(MaterialTheme.colorScheme.surfaceBright, RoundedCornerShape(12.dp))
-                .clickable(onClick = onClick)
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(value, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
-            Text("▾", color = MaterialTheme.colorScheme.tertiary, fontSize = 16.sp)
-        }
-    }
-}
-
-@Composable
-private fun CompactField(
-    label: String,
-    value: String,
-    onChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    unit: String? = null,
-    text: Boolean = false,
-    integer: Boolean = false,
-    helpKey: String? = null,
-    onHelp: (String) -> Unit = {},
-) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (helpKey != null) HelpDot { onHelp(helpKey) }
-        }
-        OutlinedTextFieldApp(
-            modifier = Modifier.fillMaxWidth(),
-            value = value,
-            onValueChange = { raw ->
-                val allowed = when {
-                    text -> raw
-                    integer -> raw.filter { it.isDigit() }
-                    else -> raw.filter { it.isDigit() || it == ',' || it == '.' }
-                }
-                onChange(allowed.take(if (text) 40 else 10))
-            },
-            singleLine = true,
-            suffix = unit?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) } },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = when {
-                    text -> KeyboardType.Text
-                    integer -> KeyboardType.Number
-                    else -> KeyboardType.Decimal
-                },
-            ),
-            textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont),
-            shape = RoundedCornerShape(12.dp),
-            fieldElevation = 0.dp,
-            contentPadding = PaddingValues(start = 12.dp, top = 10.dp, end = 12.dp, bottom = 10.dp),
-            colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-            colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-        )
-    }
-}
-
-@Composable
-private fun SmallField(value: String, placeholder: String, onChange: (String) -> Unit, integer: Boolean = false) {
-    OutlinedTextFieldApp(
-        modifier = Modifier.fillMaxWidth(),
-        value = value,
-        onValueChange = { raw ->
-            val allowed = if (integer) raw.filter { it.isDigit() } else raw.filter { it.isDigit() || it == ',' || it == '.' }
-            onChange(allowed.take(8))
-        },
-        singleLine = true,
-        placeholder = { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
-        keyboardOptions = KeyboardOptions(keyboardType = if (integer) KeyboardType.Number else KeyboardType.Decimal),
-        textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont),
-        shape = RoundedCornerShape(12.dp),
-        fieldElevation = 0.dp,
-        contentPadding = PaddingValues(start = 12.dp, top = 10.dp, end = 12.dp, bottom = 10.dp),
-        colorBackgroundEmptyField = MaterialTheme.colorScheme.surfaceBright,
-        colorBackgroundNotEmptyField = MaterialTheme.colorScheme.surfaceBright,
-    )
-}
-
-@Composable
-private fun SmallLabeled(label: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        content()
-    }
-}
-
-@Composable
-private fun LabelWithHelp(label: String, helpKey: String, onHelp: (String) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        HelpDot { onHelp(helpKey) }
-    }
-}
-
-@Composable
-private fun HelpDot(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .padding(start = 4.dp)
-            .size(22.dp)
-            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text("?", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun ChoiceChip(text: String, selected: Boolean, onClick: () -> Unit) {
-    val bg = if (selected) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surfaceBright
-    val fg = if (selected) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.primary
-    Box(
-        modifier = Modifier
-            .background(bg, RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-    ) {
-        Text(text, color = fg, maxLines = 1, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = MonoFont))
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun HintSheet(hint: BrakeHint, onDismiss: () -> Unit) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.secondary,
-        shape = Shapes.large,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .separateSheetFromScroll()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(hint.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            hint.who?.let { Text("Кто заполняет: $it", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary) }
-            Text(hint.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-            hint.clause?.let {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Text("Источник: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
     }
 }

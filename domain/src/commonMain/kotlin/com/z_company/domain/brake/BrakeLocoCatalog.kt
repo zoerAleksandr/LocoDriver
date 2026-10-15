@@ -87,6 +87,9 @@ data class BrakePrefill(
     val trainNumber: String? = null,
     val locoSeries: String? = null,
     val locoNumber: String? = null,
+    /** Маршрут и поезд-источник (для повторного «Заполнить из маршрута»); в расчёте не участвуют. */
+    val routeId: String? = null,
+    val trainId: String? = null,
 ) {
     /** Без пустых и нулевых значений: поле поезда «0» или пустое за данные не считается. */
     fun sanitized(): BrakePrefill {
@@ -100,6 +103,8 @@ data class BrakePrefill(
             trainNumber = trainNumber?.trim()?.takeIf { it.isNotEmpty() },
             locoSeries = locoSeries?.trim()?.takeIf { it.isNotEmpty() },
             locoNumber = locoNumber?.trim()?.takeIf { it.isNotEmpty() },
+            routeId = routeId?.takeIf { it.isNotBlank() },
+            trainId = trainId?.takeIf { it.isNotBlank() },
         )
     }
 }

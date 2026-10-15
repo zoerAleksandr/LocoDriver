@@ -125,3 +125,61 @@ class BrakePrefillTest {
         assertEquals("3040,5", BrakePrefill(weight = "3040,5").sanitized().weight)
     }
 }
+
+class BrakeTurnaroundTest {
+    private fun st(id: String, order: Int, arr: Long?, dep: Long?, final: Boolean = false, passing: Boolean = false, name: String? = id) =
+        com.z_company.domain.entities.route.Station(
+            stationId = id, stationName = name, timeArrival = arr, timeDeparture = dep,
+            orderIndex = order, isFinalStation = final, isPassingStation = passing,
+        )
+
+    private val min = 60_000L
+
+    @Test
+    fun classify() {
+        assertNull(TurnaroundPlanner.classify(5 * min))
+        assertEquals(StopClass.OVER_5, TurnaroundPlanner.classify(5 * min + 1))
+        assertEquals(StopClass.OVER_5, TurnaroundPlanner.classify(30 * min))
+        assertEquals(StopClass.OVER_30, TurnaroundPlanner.classify(30 * min + 1))
+    }
+
+    @Test
+    fun candidatesFromStations() {
+        val now = 1_000 * min
+        val stations = listOf(
+            st("A", 0, null, 100 * min), // начальная: только отправление
+            st("B", 1, 200 * min, 203 * min), // 3 мин - не стоянка
+            st("C", 2, 300 * min, 310 * min), // 10 мин - >5
+            st("D", 3, 400 * min, 450 * min), // 50 мин - >30
+            st("E", 4, 500 * min, null, passing = true), // проходная
+            st("F", 5, now - 40 * min, null), // идёт 40 мин
+            st("G", 6, now - 50 * min, null, final = true), // конечная: не считается
+        )
+        val c = TurnaroundPlanner.candidates(stations, now)
+        assertEquals(listOf("C", "D", "F"), c.map { it.stationId })
+        assertEquals(StopClass.OVER_5, c[0].stopClass)
+        assertEquals(StopClass.OVER_30, c[1].stopClass)
+        assertTrue(c[2].ongoing)
+        assertEquals(StopClass.OVER_30, c[2].stopClass)
+    }
+
+    @Test
+    fun appliesNotToPassenger() {
+        assertTrue(TurnaroundPlanner.applies(BrakeNorms.category("FREIGHT_LOADED")!!))
+        assertTrue(TurnaroundPlanner.applies(BrakeNorms.category("FREIGHT_PASS")!!))
+        assertTrue(!TurnaroundPlanner.applies(BrakeNorms.category("PASS_120")!!))
+    }
+
+    @Test
+    fun dataRoundTripJson() {
+        val d = BrakeCertificateData(
+            id = "x", categoryId = "FREIGHT_LOADED", weight = "3040", totalAxles = "128", avgPressure = "8,5",
+            rows = listOf(AxleRowData("8,5", "128")), flags = listOf("ЭПТ"), densityGroup = DensityLocoGroup.G4,
+            measurements = listOf(DensityMeasurementData("II", 73.2, "8,5", "8,0")),
+            turnaround = listOf(TurnaroundEntry("t1", "s1", "Луга", StopClass.OVER_30, 1L, 2L, 41.0, "17:40", "32027", true)),
+        )
+        val json = kotlinx.serialization.json.Json { encodeDefaults = true }
+        val back = json.decodeFromString(BrakeCertificateData.serializer(), json.encodeToString(BrakeCertificateData.serializer(), d))
+        assertEquals(d, back)
+    }
+}
