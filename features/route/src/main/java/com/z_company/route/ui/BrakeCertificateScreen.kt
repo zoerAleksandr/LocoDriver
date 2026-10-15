@@ -388,7 +388,7 @@ private fun ResultCard(result: BrakeCertificateResult?, state: BrakeCertificateU
                     )
                 }
                 Box(Modifier.padding(vertical = 10.dp).fillMaxWidth().height(1.dp).background(t.border))
-                if (low) VuVerdict(false, "Нажатие недостаточно: не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс (${fmt(result.shortagePer100, 2)} на 100 тс веса при норме ${category.norm})")
+                if (low) VuVerdict(false, "Нажатие недостаточно: не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс (${fmt(result.shortagePer100, 2)} тс на 100 тс веса при норме ${category.norm})")
                 else VuVerdict(true, "Нажатие достаточно: запас ${fmt(result.actualPressure - result.requiredPressure)} тс (${fmt(result.actualPer100, 2)} тс на 100 тс веса)")
                 SpeedExplanation(sp)
                 result.manualAxlesOk?.let { ok ->
@@ -414,7 +414,7 @@ private fun SpeedExplanation(sp: SpeedLimit?) {
                 Column(Modifier.padding(top = 8.dp).fillMaxWidth().background(t.accentSoft, RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     VuTag("Расчёт скорости")
                     Text(steps, fontFamily = VuMono, fontSize = 13.sp, lineHeight = 19.sp, color = t.text)
-                    sp.condition?.let { VuHint("Применимо при условиях: $it", color = t.danger) }
+                    sp.condition?.let { VuHint(it, color = t.danger) }
                 }
             } else VuHint(sp.note + (sp.reducedFrom?.let { " Было бы по табл. 1: $it км/ч." } ?: ""), Modifier.padding(top = 8.dp))
         }
