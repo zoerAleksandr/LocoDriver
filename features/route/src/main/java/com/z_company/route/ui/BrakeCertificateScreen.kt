@@ -662,7 +662,7 @@ private fun FrontBody(
     val dens = listOfNotNull(ii?.let { "II ${fmt(it)} с" }, iv?.let { "IV ${fmt(it)} с" }).joinToString(" · ")
     VuFillRow(Modifier.clickable(onClick = onOpenMeasure)) {
         Text("Плотность тормозной сети поезда", Modifier.weight(1f), fontSize = 14.sp, color = t.text, lineHeight = 18.sp)
-        VuInk(dens, Modifier.widthIn(min = 116.dp), calc = false, placeholder = "замерить ›", align = TextAlign.End)
+        VuInk(dens, Modifier.width(132.dp), calc = false, placeholder = "замерить ›", align = TextAlign.End)
         VuMiniHelp { help("density") }
     }
     if (dens.isNotEmpty()) {
