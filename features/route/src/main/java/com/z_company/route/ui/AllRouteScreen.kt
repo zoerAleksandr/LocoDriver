@@ -273,6 +273,22 @@ fun AllRouteScreen(
                     )
                 },
                 actions = {
+                    // Красный индикатор: фоновая синхронизация не достучалась до сервера.
+                    if (state.isOffline) {
+                        IconButton(onClick = {
+                            coroutineScope.launch {
+                                snackbarHostState.currentSnackbarData?.dismiss()
+                                snackbarHostState.showSnackbar("Нет связи с сервером")
+                            }
+                        }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_offline_24px),
+                                contentDescription = "Нет связи с сервером",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
                     // Вход/выход из режима множественного выбора.
                     TextButton(
                         onClick = {
@@ -288,9 +304,6 @@ fun AllRouteScreen(
                     }
                 },
                 )
-                if (state.isBackgroundSyncing) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
             }
         },
     ) { padding ->
