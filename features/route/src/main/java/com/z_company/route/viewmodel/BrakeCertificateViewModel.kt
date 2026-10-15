@@ -198,7 +198,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         }
         viewModelScope.launch {
             _state.update { it.copy(filling = true) }
-            val route = runCatching { (routeUseCase.routeDetails(rid).first() as? ResultState.Success)?.data }.getOrNull()
+            val route = loadRoute(rid)
             if (route == null) {
                 _state.update { it.copy(filling = false, fillReport = FillReport(emptyList(), emptyList(), "Маршрут не найден")) }
                 return@launch
@@ -232,11 +232,20 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         }
     }
 
+    /**
+     * Маршрут из БД. Поток `routeDetails` первым значением отдаёт `Loading` - раньше брали `first()` и принимали его за
+     * «маршрут не найден»; ждём первое значение, не являющееся `Loading`.
+     */
+    private suspend fun loadRoute(rid: String): com.z_company.domain.entities.route.Route? =
+        runCatching {
+            (routeUseCase.routeDetails(rid).first { it !is ResultState.Loading } as? ResultState.Success)?.data
+        }.getOrNull()
+
     /** Обновить отметки оборота по стоянкам поезда (времена прибытия/отправления станций раздела «Поезд»). */
     fun refreshStops() {
         val rid = _state.value.routeId ?: return
         viewModelScope.launch {
-            val route = runCatching { (routeUseCase.routeDetails(rid).first() as? ResultState.Success)?.data }.getOrNull() ?: return@launch
+            val route = loadRoute(rid) ?: return@launch
             val wantedTrain = _state.value.trainId
             val train = route.trains.firstOrNull { it.trainId == wantedTrain } ?: TrainOrdering.pickHomeMapTarget(route.trains)
             applyStopCandidates(train?.stations.orEmpty())

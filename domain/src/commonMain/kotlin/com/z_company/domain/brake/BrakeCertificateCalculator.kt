@@ -32,11 +32,23 @@ data class BrakeCertificateInput(
 )
 
 sealed interface SpeedLimit {
-    /** Допускаемая скорость, км/ч; [reducedFrom] — норма до снижения (п. 4.4), если снижение было. */
-    data class Allowed(val kmh: Int, val note: String, val reducedFrom: Int? = null) : SpeedLimit
+    /**
+     * Допускаемая скорость, км/ч. [reducedFrom] - скорость табл. 1 до снижения (п. 4.4). [steps] - шаги расчёта для показа.
+     * [conditional] - результат применим только при условиях, указанных в [condition] (п. 4.2-4.3 Инструкции).
+     */
+    data class Allowed(
+        val kmh: Int,
+        val note: String,
+        val reducedFrom: Int? = null,
+        val steps: String? = null,
+        val conditional: Boolean = false,
+        val condition: String? = null,
+    ) : SpeedLimit
 
-    /** По таблицам скорость не определяется (причина в [reason]). */
-    data class NotDetermined(val reason: String) : SpeedLimit
+    enum class Kind { BELOW_MIN, NO_MIN_IN_TABLE, NO_NORM_STEEP, NO_DATA }
+
+    /** По таблицам скорость не определяется (причина в [reason]); [kind] - ветка. */
+    data class NotDetermined(val reason: String, val kind: Kind = Kind.NO_DATA) : SpeedLimit
 }
 
 data class BrakeCertificateResult(
@@ -75,7 +87,7 @@ object BrakeCertificateCalculator {
             if (it != axlesFromRows) warnings += "Осей в таблице: $axlesFromRows, в поезде указано: $it"
         }
         if (cat.group == TrainGroup.FREIGHT && loco != null) {
-            warnings += "Для грузовых поездов вес и нажатие локомотива не учитываются (Нормы, п. 6.3)"
+            warnings += "Для грузовых поездов вес и нажатие локомотива не учитываются (${InstructionRef.p("6.3")}, прил. 2)"
         }
 
         val speed = if (totalWeight <= 0) {
@@ -105,9 +117,10 @@ object BrakeCertificateCalculator {
         )
     }
 
-    private fun speedLimitSteep(): SpeedLimit = SpeedLimit.NotDetermined(
-        "Для спуска круче 0,015 норм табл. 1 и 2 нет - скорость устанавливает начальник дороги (п. 5.2)",
-    )
+    private fun fmtN(v: Double): String {
+        val r = kotlin.math.round(v * 100) / 100
+        return (if (r % 1.0 == 0.0) r.toLong().toString() else r.toString()).replace('.', ',')
+    }
 
     private fun speedLimit(
         cat: BrakeCategory,
@@ -115,20 +128,28 @@ object BrakeCertificateCalculator {
         per100: Double,
         enough: Boolean,
     ): SpeedLimit {
-        if (input.grade == GradeClass.OVER_015) return speedLimitSteep()
+        if (input.grade == GradeClass.OVER_015) {
+            return SpeedLimit.NotDetermined(
+                "Спуск круче 0,015: норм табл. 1 и 2 нет, допускаемые скорости устанавливает начальник железной дороги, " +
+                    "руководствуясь номограммами Правил тяговых расчётов (${InstructionRef.p("5.2")}, прил. 2).",
+                SpeedLimit.Kind.NO_NORM_STEEP,
+            )
+        }
         val steep = input.grade == GradeClass.OVER_010_TO_015
         val base: Int? = if (steep) cat.vSteep else cat.vFlat
         if (base == null) {
             return SpeedLimit.NotDetermined(
-                "Для спуска круче 0,010 норм для этой категории нет - скорость устанавливает начальник дороги",
+                "Для этой категории и спуска круче 0,010 норм табл. 1 нет: допускаемые скорости устанавливает начальник " +
+                    "железной дороги (${InstructionRef.table("1")}, прим. 1 к табл. 2).",
+                SpeedLimit.Kind.NO_NORM_STEEP,
             )
         }
         if (enough) {
             val bracket = cat.vFlatAutoblock
             return if (!steep && input.autoblock3 && bracket != null) {
-                SpeedLimit.Allowed(bracket, "Табл. 1, автоблокировка с 3-значной сигнализацией (значение в скобках)")
+                SpeedLimit.Allowed(bracket, "${InstructionRef.table("1")}, автоблокировка с 3-значной сигнализацией (значение в скобках, ${InstructionRef.p("3.1")})")
             } else {
-                SpeedLimit.Allowed(base, "Табл. 1 (нажатие не менее нормы ${cat.norm} тс на 100 тс)")
+                SpeedLimit.Allowed(base, "${InstructionRef.table("1")}: нажатие не менее нормы ${cat.norm} тс на каждые 100 тс веса")
             }
         }
         // п. 3.3: тяжёлая нагрузка на ось + композиционные колодки
@@ -141,31 +162,42 @@ object BrakeCertificateCalculator {
             if (ok) {
                 return SpeedLimit.Allowed(
                     minOf(80, base),
-                    "П. 3.3 Норм: нагрузка на ось более 21 тс, композиционные колодки, ВР на среднем режиме",
+                    "${InstructionRef.p("3.3")}: нагрузка на ось более 21 тс, композиционные колодки, ВР на среднем режиме - до 80 км/ч",
                 )
             }
         }
         val minNorm = cat.minNorm
             ?: return SpeedLimit.NotDetermined(
-                "Нажатие ниже нормы ${cat.norm}; допускаемый минимум для этой категории в Нормах не задан",
+                "Нажатие ${fmtN(per100)} тс на каждые 100 тс веса ниже нормы ${cat.norm}; для этой категории допускаемый минимум " +
+                    "в ${InstructionRef.table("2")} не задан - скорость таблицами не определяется.",
+                SpeedLimit.Kind.NO_MIN_IN_TABLE,
             )
         if (per100 + EPS < minNorm) {
             return SpeedLimit.NotDetermined(
-                "Нажатие ниже допускаемого минимума ($minNorm тс на 100 тс) - скорость по таблицам не определяется",
+                "Нажатие ${fmtN(per100)} тс на каждые 100 тс веса ниже допускаемого минимума $minNorm (${InstructionRef.table("2")}). " +
+                    "Скорость по таблицам не определяется: в исключительных случаях допускаемые скорости устанавливает начальник " +
+                    "железной дороги по номограммам, на 20 % ниже определённых по ним (${InstructionRef.p("5.1")}).",
+                SpeedLimit.Kind.BELOW_MIN,
             )
         }
         val k = when (cat.group) {
             TrainGroup.FREIGHT -> 2
             else -> if (input.grade == GradeClass.UP_TO_006) 1 else 2
         }
-        val missing = ceil(cat.norm - per100 - EPS).toInt().coerceAtLeast(1)
+        val lack = cat.norm - per100
+        val missing = ceil(lack - EPS).toInt().coerceAtLeast(1)
         val reduced = base - k * missing
         val rounded = (floor(reduced / 5.0) * 5).toInt().coerceAtLeast(0)
+        val steps = "Не хватает ${fmtN(lack)} тс на каждые 100 тс (${cat.norm} - ${fmtN(per100)}) → $missing т (с округлением вверх); " +
+            "скорость = $base - $k×$missing = $reduced → до кратного 5 вниз: $rounded км/ч (${InstructionRef.p("4.4")})"
         return SpeedLimit.Allowed(
             rounded,
-            "П. 4.4 Норм: -$k км/ч за каждую недостающую тонну ($missing т), округление вниз до кратного 5; " +
-                "допустимо только в случаях п. 4.2-4.3",
+            steps,
             reducedFrom = base,
+            steps = steps,
+            conditional = true,
+            condition = "Допустимо только в случаях, указанных в ${InstructionRef.p("4.2-4.3")} (выключены неисправные автотормоза у отдельных вагонов в пути - " +
+                "до первой станции с пунктом ТО вагонов; особые составы и поезда по п. 4.3); при тормозном нажатии не менее допускаемого минимума ${InstructionRef.table("2")}.",
         )
     }
 }

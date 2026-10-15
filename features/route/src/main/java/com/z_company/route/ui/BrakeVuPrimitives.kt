@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.MonoFont
+import com.z_company.domain.brake.InstructionRef
 import com.z_company.domain.util.sanitizeDecimalInput
 import com.z_company.domain.util.sanitizeIntegerInput
 import com.z_company.route.component.separateSheetFromScroll
@@ -285,7 +286,7 @@ internal fun VuVerdict(ok: Boolean, text: String, size: Int = 15) {
         Box(Modifier.padding(top = 1.dp).size(20.dp).background(c, CircleShape), contentAlignment = Alignment.Center) {
             Text(if (ok) "✓" else "!", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = t.bg)
         }
-        Text(text, fontSize = size.sp, fontWeight = FontWeight.SemiBold, color = c, lineHeight = (size * 1.35f).sp)
+        Text(InstructionRef.annotate(text), fontSize = size.sp, fontWeight = FontWeight.SemiBold, color = c, lineHeight = (size * 1.35f).sp)
     }
 }
 
@@ -308,7 +309,7 @@ internal fun VuTag(text: String, color: Color? = null) {
 @Composable
 internal fun VuHint(text: String, modifier: Modifier = Modifier, color: Color? = null) {
     val t = vuColors()
-    Text(text, modifier = modifier, fontSize = 13.sp, lineHeight = 18.sp, color = color ?: t.muted)
+    Text(InstructionRef.annotate(text), modifier = modifier, fontSize = 13.sp, lineHeight = 18.sp, color = color ?: t.muted)
 }
 
 /** Нижняя шторка M3 (r28, грэббер, заголовок 22/500, подзаголовок, кнопка «закрыть», опциональный footer). */

@@ -107,14 +107,14 @@ object BrakeNorms {
         SLOPE_020(1.8, "1,8 - уклон 0,020"),
     }
 
-    /** Единое наименьшее число ручных осей на 100 тс (п. 7: поезда в пределах двух и более дорог). */
+    /** Единое наименьшее число ручных осей на 100 тс веса (п. 7: поезда в пределах двух и более дорог). */
     const val UNIFIED_MANUAL = 0.6
 
-    /** Число ручных осей на 100 тс и пояснение, откуда оно получено. [override] != null - ручное значение пользователя. */
+    /** Число ручных осей на 100 тс веса и пояснение, откуда оно получено. [override] != null - ручное значение пользователя. */
     data class ManualInfo(val perHundred: Double, val text: String, val auto: Boolean)
 
     fun manualInfo(slope: SlopeStep, override: ManualBrakeNorm?): ManualInfo {
-        if (override != null) return ManualInfo(override.perHundred, "вручную: ${fmtK(override.perHundred)} оси на 100 тс", false)
+        if (override != null) return ManualInfo(override.perHundred, "вручную: ${fmtK(override.perHundred)} оси на 100 тс веса", false)
         val t6 = slope.table6
         val v = maxOf(UNIFIED_MANUAL, t6)
         val text = if (t6 < UNIFIED_MANUAL) "по табл. 6 для уклона ${slope.slopeText} - ${fmtK(t6)}, но не менее единого наименьшего ${fmtK(UNIFIED_MANUAL)} (п. 7)"

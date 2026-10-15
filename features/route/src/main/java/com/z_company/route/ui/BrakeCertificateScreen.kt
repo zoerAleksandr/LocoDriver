@@ -77,6 +77,7 @@ import com.z_company.domain.brake.BrakeNorms
 import com.z_company.domain.brake.CompositeShare
 import com.z_company.domain.brake.DensityLocoGroup
 import com.z_company.domain.brake.GradeClass
+import com.z_company.domain.brake.InstructionRef
 import com.z_company.domain.brake.SlopeStep
 import com.z_company.domain.brake.SpeedLimit
 import com.z_company.domain.brake.StopClass
@@ -209,31 +210,31 @@ fun BrakeCertificateScreen(
     when (val s = sheet) {
         BrakeSheet.Category -> SettingsPickerSheet(
             title = "Категория поезда",
-            hint = "Табл. 1 Норм: единое наименьшее нажатие на 100 тс веса и максимальная скорость",
+            hint = InstructionRef.table("1") + ": единое наименьшее тормозное нажатие на каждые 100 тс веса поезда (состава) и максимальная допускаемая скорость",
             onDismiss = { sheet = null },
             options = BrakeNorms.categories.map { c ->
                 SettingsPickerOption(
                     label = c.title,
-                    sub = "п. ${c.tableRow}: ${c.norm} тс/100 тс, до ${c.vFlat} км/ч",
+                    sub = "п. ${c.tableRow} табл. 1: ${c.norm} тс на 100 тс веса, до ${c.vFlat} км/ч",
                     selected = c.id == state.categoryId,
                     onSelect = { viewModel.setCategory(c.id) },
                 )
             },
         )
         BrakeSheet.ManualNorm -> SettingsPickerSheet(
-            title = "Ручные тормозные оси на 100 тс",
-            hint = "«Авто» берёт значение из табл. 6 по руководящему уклону, но не менее единого наименьшего 0,6 (п. 7). Ручное значение запоминается и от уклона не зависит.",
+            title = "Ручные тормозные оси на 100 тс веса",
+            hint = InstructionRef.annotate("«Авто» берёт значение из табл. 6 по руководящему уклону, но не менее единого наименьшего 0,6 (п. 7). Ручное значение запоминается и от уклона не зависит."),
             onDismiss = { sheet = null },
             options = buildList {
-                add(SettingsPickerOption(label = "Авто (по уклону)", sub = BrakeNorms.manualInfo(state.slope, null).text, selected = state.manualOverride == null, onSelect = { viewModel.setManualOverride(null) }))
+                add(SettingsPickerOption(label = "Авто (по уклону)", sub = InstructionRef.annotate(BrakeNorms.manualInfo(state.slope, null).text), selected = state.manualOverride == null, onSelect = { viewModel.setManualOverride(null) }))
                 BrakeNorms.ManualBrakeNorm.values().forEach { n ->
                     add(SettingsPickerOption(label = n.title, selected = n == state.manualOverride, onSelect = { viewModel.setManualOverride(n) }))
                 }
             },
         )
         BrakeSheet.DensityGroup -> SettingsPickerSheet(
-            title = "Группа локомотива (табл. 9.1)",
-            hint = "По серии или по объёму главных резервуаров (прим. 1 к таблице)",
+            title = "Группа локомотива",
+            hint = "По серии или по объёму главных резервуаров (прим. 1 к табл. 9.1 ${InstructionRef.GENITIVE})",
             onDismiss = { sheet = null },
             options = DensityLocoGroup.values().map { g ->
                 SettingsPickerOption(label = g.title, selected = g == state.densityGroup, onSelect = { viewModel.setDensityGroup(g) })
@@ -269,10 +270,9 @@ private fun CalcTab(
     onOpenBlank: () -> Unit,
 ) {
     val t = vuColors()
-    val imeVisible = WindowInsets.isImeVisible
     val low = result != null && result.actualPressure > 0 && !result.enough
     Column(Modifier.fillMaxSize()) {
-        if (imeVisible) Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { VuSpeedBar(result) }
+        Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { VuSpeedBar(result) }
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -283,7 +283,7 @@ private fun CalcTab(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 VuInput(
-                    "Категория поезда", "${category.title.substringBefore(" / ").substringBefore(" (")} · ${category.norm} тс/100",
+                    "Категория поезда", "${category.title.substringBefore(" / ").substringBefore(" (")} · ${category.norm} тс на 100 тс веса",
                     onClick = { onSheet(BrakeSheet.Category) }, onHelp = { onSheet(BrakeSheet.Help("category")) },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -302,7 +302,7 @@ private fun CalcTab(
                     }
                     if (category.manualBrakesRequired) {
                         VuInput(
-                            "Ручных на 100 тс", (if (state.manualOverride == null) "Авто · " else "") + fmt(state.manualInfo.perHundred, 1), Modifier.weight(1f),
+                            "Ручных на 100 тс веса", (if (state.manualOverride == null) "Авто · " else "") + fmt(state.manualInfo.perHundred, 1), Modifier.weight(1f),
                             onClick = { onSheet(BrakeSheet.ManualNorm) }, onHelp = { onSheet(BrakeSheet.Help("manual_req")) },
                         )
                     } else Spacer(Modifier.weight(1f))
@@ -325,7 +325,7 @@ private fun CalcTab(
                 }
             }
             FillFromRoute(state, vm)
-            if (!imeVisible) ResultCard(result, state, category, onOpenBlank)
+            ResultCard(result, state, category, onOpenBlank)
             if (low && result != null) DeficitBlock(result, category, onHelp = { onSheet(BrakeSheet.Help("deficit")) })
         }
     }
@@ -388,14 +388,9 @@ private fun ResultCard(result: BrakeCertificateResult?, state: BrakeCertificateU
                     )
                 }
                 Box(Modifier.padding(vertical = 10.dp).fillMaxWidth().height(1.dp).background(t.border))
-                if (low) VuVerdict(false, "Нажатие недостаточно: не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс (${fmt(result.shortagePer100, 2)} на 100 тс при норме ${category.norm})")
-                else VuVerdict(true, "Нажатие достаточно: запас ${fmt(result.actualPressure - result.requiredPressure)} тс (${fmt(result.actualPer100, 2)} на 100 тс)")
-                val note = when (sp) {
-                    is SpeedLimit.Allowed -> sp.note + (sp.reducedFrom?.let { " Было бы по табл. 1: $it км/ч." } ?: "")
-                    is SpeedLimit.NotDetermined -> sp.reason
-                    null -> ""
-                }
-                if (note.isNotBlank()) VuHint(note, Modifier.padding(top = 8.dp))
+                if (low) VuVerdict(false, "Нажатие недостаточно: не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс (${fmt(result.shortagePer100, 2)} на 100 тс веса при норме ${category.norm})")
+                else VuVerdict(true, "Нажатие достаточно: запас ${fmt(result.actualPressure - result.requiredPressure)} тс (${fmt(result.actualPer100, 2)} тс на 100 тс веса)")
+                SpeedExplanation(sp)
                 result.manualAxlesOk?.let { ok ->
                     VuHint(if (ok) "Ручных осей достаточно (потребно ${result.requiredManualAxles})" else "Ручных осей не хватает: потребно ${result.requiredManualAxles}", Modifier.padding(top = 4.dp), color = if (ok) t.success else t.danger)
                 }
@@ -408,20 +403,48 @@ private fun ResultCard(result: BrakeCertificateResult?, state: BrakeCertificateU
     }
 }
 
+/** Пояснение скорости: шаги расчёта по п. 4.4 с условием применимости (conditional) либо красное сообщение «ниже минимума». */
+@Composable
+private fun SpeedExplanation(sp: SpeedLimit?) {
+    val t = vuColors()
+    when (sp) {
+        is SpeedLimit.Allowed -> {
+            val steps = sp.steps
+            if (steps != null) {
+                Column(Modifier.padding(top = 8.dp).fillMaxWidth().background(t.accentSoft, RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    VuTag("Расчёт скорости")
+                    Text(steps, fontFamily = VuMono, fontSize = 13.sp, lineHeight = 19.sp, color = t.text)
+                    sp.condition?.let { VuHint("Применимо при условиях: $it", color = t.danger) }
+                }
+            } else VuHint(sp.note + (sp.reducedFrom?.let { " Было бы по табл. 1: $it км/ч." } ?: ""), Modifier.padding(top = 8.dp))
+        }
+        is SpeedLimit.NotDetermined -> {
+            Column(Modifier.padding(top = 8.dp).fillMaxWidth().background(t.danger.copy(alpha = 0.14f), RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    if (sp.kind == SpeedLimit.Kind.BELOW_MIN) "Нажатие ниже допускаемого минимума" else "Скорость по таблицам не определяется",
+                    fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = t.danger,
+                )
+                Text(InstructionRef.annotate(sp.reason), fontSize = 14.sp, lineHeight = 20.sp, color = t.text)
+            }
+        }
+        null -> Unit
+    }
+}
+
 @Composable
 private fun DeficitBlock(result: BrakeCertificateResult, category: BrakeCategory, onHelp: () -> Unit) {
     val t = vuColors()
-    val k = if (category.group == TrainGroup.FREIGHT) "2 км/ч" else "1-2 км/ч"
+    val k = if (category.group == TrainGroup.FREIGHT) "2 км/ч" else "1 км/ч (спуск до 0,006) или 2 км/ч (круче)"
     val items = listOf(
-        "Скорость снижается на $k за каждую недостающую тонну нажатия, результат округляется вниз до кратного 5 (п. 4.4).",
-        "Допустимо только в случаях п. 4.2-4.3: выключены неисправные тормоза в пути, особые составы.",
-        "Ниже допускаемого минимума табл. 2 скорость по таблицам не определяется - её устанавливает начальник дороги (п. 5.1). Подробнее - «Справочник».",
+        "Если нажатие не ниже допускаемого минимума ${InstructionRef.table("2")}, скорость табл. 1 снижается на $k за каждую недостающую тонну на 100 тс веса, результат округляется вниз до кратного 5 (${InstructionRef.p("4.4")}).",
+        "Снижение допустимо только в случаях, указанных в ${InstructionRef.p("4.2-4.3")} (выключены неисправные автотормоза в пути; особые составы).",
+        "Если нажатие ниже допускаемого минимума, в исключительных случаях допускаемую скорость устанавливает начальник железной дороги по номограммам, на 20 % ниже определённой по ним (${InstructionRef.p("5.1")}). Подробнее - «Справочник».",
     )
     Column(
         Modifier.fillMaxWidth().background(t.danger.copy(alpha = 0.12f), RoundedCornerShape(16.dp)).padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Что делать (п. 4.4)", Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = t.danger)
+            Text("Что делать (${InstructionRef.p("4.4")})", Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = t.danger)
             VuHelp(onHelp)
         }
         Column(Modifier.padding(end = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -443,14 +466,16 @@ private fun VuSpeedBar(result: BrakeCertificateResult?) {
     val low = has && result != null && !result.enough
     val sp = result?.speed
     val shape = RoundedCornerShape(16.dp)
+    val below = sp is SpeedLimit.NotDetermined && has
+    val belowMin = (sp as? SpeedLimit.NotDetermined)?.kind == SpeedLimit.Kind.BELOW_MIN
     Row(
-        Modifier.fillMaxWidth().height(56.dp).background(if (low) t.danger.copy(alpha = 0.14f) else t.surface, shape).padding(horizontal = 16.dp),
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).background(if (low || below) t.danger.copy(alpha = 0.14f) else t.surface, shape).padding(horizontal = 16.dp, vertical = if (belowMin) 8.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         val speedText = when {
             !has || sp == null -> "—"
-            sp is SpeedLimit.Allowed -> if (low) "—" else "${sp.kmh}"
+            sp is SpeedLimit.Allowed -> "${sp.kmh}"
             else -> "—"
         }
         Row(verticalAlignment = Alignment.Bottom) {
@@ -461,11 +486,12 @@ private fun VuSpeedBar(result: BrakeCertificateResult?) {
         Text(
             when {
                 !has || result == null -> "Введите вес и оси"
-                low -> "Не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс"
+                belowMin -> "Ниже минимума ${InstructionRef.table("2")}: скорость по таблицам не допускается, устанавливает начальник железной дороги (${InstructionRef.p("5.1")})"
+                low -> "Не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс" + ((sp as? SpeedLimit.Allowed)?.let { " · скорость по п. 4.4" } ?: "")
                 else -> "Нажатие достаточно"
             },
-            Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, lineHeight = 17.sp,
-            color = if (!has) t.muted else if (low) t.danger else t.success, maxLines = 2,
+            Modifier.weight(1f), fontSize = if (belowMin) 12.sp else 14.sp, fontWeight = FontWeight.SemiBold, lineHeight = if (belowMin) 15.sp else 17.sp,
+            color = if (!has) t.muted else if (low) t.danger else t.success, maxLines = if (belowMin) 4 else 2,
         )
     }
 }
@@ -708,11 +734,11 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
     }
     Box(Modifier.fillMaxWidth().height(1.dp).background(lineColor))
     Row(Modifier.height(IntrinsicSize.Min).fillMaxWidth()) {
-        Column(Modifier.width(200.dp)) {
+        Column(Modifier.weight(0.66f)) {
             Row(Modifier.height(44.dp)) {
-                Box(Modifier.width(58.dp).fillMaxHeight()) { head("Тормозное нажатие на ось, тс", true) }
-                Box(Modifier.width(64.dp).fillMaxHeight()) { head("Количество осей", true) }
-                Box(Modifier.width(78.dp).fillMaxHeight()) { head("Нажатие колодок, тс", true) }
+                Box(Modifier.weight(1f).fillMaxHeight()) { head("Тормозное нажатие на ось, тс", true) }
+                Box(Modifier.weight(1f).fillMaxHeight()) { head("Количество осей", true) }
+                Box(Modifier.weight(1f).fillMaxHeight()) { head("Нажатие колодок, тс", true) }
             }
             PRINTED.forEach { p ->
                 val r = byPressure[p]
@@ -724,15 +750,15 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
             }
             // Всего
             Row(Modifier.height(IntrinsicSize.Min)) {
-                Box(Modifier.width(58.dp).heightIn(min = 40.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) { VuPrint("Всего", bold = true) }
-                Box(Modifier.width(64.dp).heightIn(min = 40.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) { VuInk(if (totalAxles > 0) "$totalAxles" else "", calc = true, align = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
-                Box(Modifier.width(78.dp).heightIn(min = 40.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) {
-                    Text(if (totalPressure > 0) fmt(totalPressure) else "", fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = if (low) t.danger else t.text, maxLines = 1)
+                Box(Modifier.weight(1f).heightIn(min = 40.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) { VuPrint("Всего", bold = true) }
+                Box(Modifier.weight(1f).heightIn(min = 40.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) { VuInk(if (totalAxles > 0) "$totalAxles" else "", calc = true, align = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+                Box(Modifier.weight(1f).heightIn(min = 40.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) {
+                    Text(if (totalPressure > 0) fmt(totalPressure) else "", fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (low) t.danger else t.text, maxLines = 1)
                 }
             }
         }
         // «Другие данные» - одна высокая графа
-        Column(Modifier.weight(1f).fillMaxHeight().vuCellBorders(lineColor, right = false, bottom = true)) {
+        Column(Modifier.weight(0.34f).fillMaxHeight().vuCellBorders(lineColor, right = false, bottom = true)) {
             Box(Modifier.height(44.dp).fillMaxWidth().vuCellBorders(lineColor, right = false, bottom = true), contentAlignment = Alignment.Center) {
                 Text("Другие данные", fontSize = 10.sp, color = t.text)
             }
@@ -753,11 +779,11 @@ private fun AxleRowCells(label: String, axles: String, product: String, filled: 
     val bg = if (filled) t.accentSoft else Color.Transparent
     var focused by remember { mutableStateOf(false) }
     Row(Modifier.height(IntrinsicSize.Min)) {
-        Box(Modifier.width(58.dp).heightIn(min = 40.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
+        Box(Modifier.weight(1f).heightIn(min = 40.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
             Text(label, fontSize = 14.sp, fontWeight = if (filled) FontWeight.Bold else FontWeight.Normal, color = t.text)
         }
         Box(
-            Modifier.width(64.dp).heightIn(min = 40.dp).background(bg).vuCellBorders(line)
+            Modifier.weight(1f).heightIn(min = 40.dp).background(bg).vuCellBorders(line)
                 .then(if (focused) Modifier.border(2.dp, t.accent) else Modifier),
             contentAlignment = Alignment.Center,
         ) {
@@ -771,8 +797,8 @@ private fun AxleRowCells(label: String, axles: String, product: String, filled: 
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
         }
-        Box(Modifier.width(78.dp).heightIn(min = 40.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
-            Text(product, fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = t.text, maxLines = 1)
+        Box(Modifier.weight(1f).heightIn(min = 40.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
+            Text(product, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.text, maxLines = 1)
         }
     }
 }
@@ -795,11 +821,11 @@ private fun OtherColumn(state: BrakeCertificateUiState, onEdit: () -> Unit) {
         if (state.tailVoltageText.isNotBlank()) add("Напр." to state.tailVoltageText + " В")
         if (state.feedDensityText.isNotBlank()) add("Пит." to state.feedDensityText)
     }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         items.forEach { (k, v) ->
-            Row(Modifier.heightIn(min = 30.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(k, fontSize = 12.sp, color = t.muted)
-                Text(v, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.accent, maxLines = 1)
+            Column(Modifier.padding(bottom = 4.dp)) {
+                Text(k, fontSize = 11.sp, color = t.muted, lineHeight = 13.sp)
+                Text(v, fontFamily = VuMono, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 17.sp)
             }
         }
         Text(
@@ -1042,11 +1068,11 @@ private fun RowSheet(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
 private fun HelpSheet(key: String, state: BrakeCertificateUiState, category: BrakeCategory, result: BrakeCertificateResult?, onDismiss: () -> Unit) {
     val t = vuColors()
     val hint = brakeHints[key] ?: if (key == "deficit") BrakeHint(
-        "Что делать при недостатке нажатия", "Машинист", "Нажатие ниже нормы табл. 1. Если оно не ниже допускаемого минимума табл. 2 и случай относится к п. 4.2-4.3, скорость снижают: 2 км/ч за каждую недостающую тонну для грузовых, 1-2 км/ч для пассажирских, результат округляют вниз до кратного 5.", "Инструкция 277, прил. 2, п. 4.2-4.5, 5.1",
+        "Что делать при недостатке нажатия", "Нажатие ниже нормы табл. 1. Если оно не ниже допускаемого минимума табл. 2 и случай относится к п. 4.2-4.3, скорость снижают: 2 км/ч за каждую недостающую тонну для грузовых, 1-2 км/ч для пассажирских, результат округляют вниз до кратного 5.", "Инструкция 277, прил. 2, п. 4.2-4.5, 5.1",
     ) else null
     if (hint == null) { onDismiss(); return }
     val calc = when (key) {
-        "required" -> result?.let { "${state.weightText} × ${category.norm} / 100 = ${fmt(it.requiredPressure)} тс" }
+        "required" -> result?.let { "${state.weightText} × ${category.norm} / 100 = ${fmt(it.requiredPressure)} тс (норма ${category.norm} тс на каждые 100 тс веса)" }
         "manual_req" -> result?.requiredManualAxles?.let { "${state.weightText} × ${fmt(state.manualInfo.perHundred, 1)} / 100 → $it осей" }
         else -> null
     }
@@ -1058,10 +1084,9 @@ private fun HelpSheet(key: String, state: BrakeCertificateUiState, category: Bra
         }
     }
     VuSheet(title = hint.title, sub = "Графа бланка ВУ-45", onDismiss = onDismiss) {
-        hint.who?.let { row("Кто заполняет", it)() }
-        row("Что это", hint.text)()
+        row("Что это", InstructionRef.annotate(hint.text))()
         if (calc != null) row("Ваш расчёт", calc, mono = true)()
-        hint.clause?.let { row("Пункт инструкции", it)() }
+        row("Источник", (hint.clause ?: InstructionRef.SHORT) + "\n" + InstructionRef.FULL)()
     }
 }
 
@@ -1148,12 +1173,12 @@ private fun MeasureTab(
                 Column(Modifier.padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     VuInput("Зарядное давление ТМ", state.chargePressureText, onChange = vm::setChargePressure, unit = "кгс/см²", sunk = true, onHelp = { onHelp("charge") })
                     VuInput("Локомотивов (СМЕ)", state.locoCountText, onChange = vm::setLocoCount, sunk = true, keyboard = KeyboardType.Number, onHelp = { onHelp("group") })
-                    VuInput("Группа локомотива (табл. 9.1)", group?.let { "№ ${it.name.removePrefix("G")}: ${it.title}" } ?: "Не выбрана", onClick = onGroupClick, sunk = true)
+                    VuInput("Группа локомотива", group?.let { "№ ${it.name.removePrefix("G")}: ${it.title}" } ?: "Не выбрана", onClick = onGroupClick, sunk = true)
                     VuHint(
                         when {
-                            group == null -> "Без группы норма не определяется."
+                            group == null -> "Без группы норма по табл. 9.1 не определяется."
                             minTime == null -> "Норма II положения: длина состава должна быть 1-480 осей (сейчас: $axles)."
-                            else -> "Норма II положения: не менее ${fmt(minTime)} с (группа ${group.name.removePrefix("G")}, $axles осей" + (if (BrakeDensity.chargeFactor(charge) < 1.0) ", с поправкой на зарядное давление" else "") + ")."
+                            else -> "Норма II положения по табл. 9.1: не менее ${fmt(minTime)} с (группа ${group.name.removePrefix("G")}, $axles осей" + (if (BrakeDensity.chargeFactor(charge) < 1.0) ", с поправкой на зарядное давление" else "") + ")."
                         },
                     )
                 }
@@ -1256,7 +1281,7 @@ private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory
     val axles = axlesForNorm(state)
     val minTime = group?.let { BrakeDensity.minTimeSeconds(it, axles, state.chargePressureText.toFiniteDoubleOrNull(), state.locoCountText.trim().toIntOrNull() ?: 1) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        VuTag("Справочник · Инструкция 277")
+        VuTag("Справочник · " + InstructionRef.SHORT)
         brakeReference.forEachIndexed { i, card ->
             VuCard {
                 Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { open = if (open == i) -1 else i }.padding(start = 18.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1266,7 +1291,8 @@ private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory
                 }
                 if (open == i) {
                     Column(Modifier.padding(start = 46.dp, end = 18.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        card.lines.forEach { Text(it, fontSize = 14.sp, color = t.text, lineHeight = 20.sp) }
+                        card.lines.forEach { Text(InstructionRef.annotate(it), fontSize = 14.sp, color = t.text, lineHeight = 20.sp) }
+                        Text("Источник: " + InstructionRef.FULL, fontSize = 12.sp, color = t.muted, lineHeight = 16.sp)
                         if (card.title.startsWith("Плотность")) {
                             Row(Modifier.fillMaxWidth().background(t.accentSoft, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(

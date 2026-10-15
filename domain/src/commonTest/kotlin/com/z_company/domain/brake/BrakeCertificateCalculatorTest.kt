@@ -222,3 +222,77 @@ class BrakeCertificateCalculatorTest {
         assertTrue(r.enough)
     }
 }
+
+class InstructionRefTest {
+    @Test
+    fun annotateAddsInstructionAfterFirstRef() {
+        assertEquals("п. 4.4 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277: снижение", InstructionRef.annotate("п. 4.4: снижение"))
+        assertEquals("(п. 3.2.2, 9.2.3 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277)", InstructionRef.annotate("(п. 3.2.2, 9.2.3)"))
+        assertEquals("по табл. 6 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277 для уклона", InstructionRef.annotate("по табл. 6 для уклона"))
+        assertEquals("без ссылок", InstructionRef.annotate("без ссылок"))
+        val already = "п. 4.4 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"
+        assertEquals(already, InstructionRef.annotate(already))
+        assertEquals("п. 4.4 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277", InstructionRef.p("4.4"))
+    }
+}
+
+class SpeedBranchesTest {
+    private fun r(id: String, weight: Double, total: Double, grade: GradeClass = GradeClass.UP_TO_006) =
+        BrakeCertificateCalculator.calculate(
+            BrakeCertificateInput(BrakeNorms.category(id)!!, weight, listOf(AxleRow(total / 10.0, 10)), grade = grade),
+        ).speed
+
+    @Test
+    fun enough_tableSpeed_notConditional() {
+        val s = r("FREIGHT_LOADED", 1000.0, 400.0) as SpeedLimit.Allowed
+        assertEquals(80, s.kmh)
+        assertEquals(false, s.conditional)
+        assertTrue(s.note.contains("Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"))
+    }
+
+    @Test
+    fun betweenMinAndNorm_reduction_withVisibleSteps() {
+        // 29,5 тс на 100: не хватает 3,5 -> 4 т -> 80 - 2*4 = 72 -> 70
+        val s = r("FREIGHT_LOADED", 1000.0, 295.0) as SpeedLimit.Allowed
+        assertEquals(70, s.kmh)
+        assertEquals(80, s.reducedFrom)
+        assertEquals(true, s.conditional)
+        val steps = s.steps!!
+        assertTrue(steps.contains("80 - 2×4 = 72"), steps)
+        assertTrue(steps.contains("до кратного 5"), steps)
+        assertTrue(steps.contains("п. 4.4 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"), steps)
+        assertTrue(s.condition!!.contains("п. 4.2-4.3 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"))
+    }
+
+    @Test
+    fun belowMinimum_notAllowedByTables_citesP51() {
+        val s = r("FREIGHT_LOADED", 1000.0, 270.0) as SpeedLimit.NotDetermined // 27 < 28
+        assertEquals(SpeedLimit.Kind.BELOW_MIN, s.kind)
+        assertTrue(s.reason.contains("п. 5.1 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"), s.reason)
+        assertTrue(s.reason.contains("начальник железной дороги"), s.reason)
+        assertTrue(s.reason.contains("20 %"), s.reason)
+    }
+
+    @Test
+    fun noMinimumInTable() {
+        // порожний 350-400 осей (44): в табл. 2 минимума нет
+        val s = r("EMPTY_350_400", 1000.0, 300.0) as SpeedLimit.NotDetermined
+        assertEquals(SpeedLimit.Kind.NO_MIN_IN_TABLE, s.kind)
+    }
+
+    @Test
+    fun noNormsForSteepGrade() {
+        val a = r("PASS_130", 1000.0, 900.0, GradeClass.OVER_010_TO_015) as SpeedLimit.NotDetermined
+        assertEquals(SpeedLimit.Kind.NO_NORM_STEEP, a.kind)
+        val b = r("FREIGHT_LOADED", 1000.0, 400.0, GradeClass.OVER_015) as SpeedLimit.NotDetermined
+        assertEquals(SpeedLimit.Kind.NO_NORM_STEEP, b.kind)
+        assertTrue(b.reason.contains("п. 5.2 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"))
+    }
+
+    @Test
+    fun passengerRate_perGrade() {
+        // пассажирский до 120: норма 60, 55 тс на 100 -> не хватает 5 -> 120 - 1*5 = 115 -> 115 (спуск до 0,006)
+        val s = r("PASS_120", 1000.0, 550.0) as SpeedLimit.Allowed
+        assertEquals(115, s.kmh)
+    }
+}
