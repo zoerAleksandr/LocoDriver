@@ -11,6 +11,7 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlSchema
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
+import com.z_company.data_local.brake.db.BrakeCertificateDatabase
 import com.z_company.data_local.route.db.RouteDatabase
 import com.z_company.data_local.route.searchdb.SearchResponseDatabase
 import com.z_company.data_local.setting.db.SettingsDatabase
@@ -403,6 +404,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
         createDriver(SearchResponseDatabase.Schema, "SearchResponse.db")
 
     actual fun createTrackDriver(): SqlDriver = createDriver(TrackDatabase.Schema, "Track.db")
+
+    actual fun createBrakeCertificateDriver(): SqlDriver = createDriver(BrakeCertificateDatabase.Schema, "BrakeCertificate.db")
 
     /**
      * Перед созданием драйвера гарантируем, что все нужные столбцы существуют

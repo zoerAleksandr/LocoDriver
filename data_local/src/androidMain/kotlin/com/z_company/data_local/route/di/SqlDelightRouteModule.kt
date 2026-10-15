@@ -1,6 +1,10 @@
 package com.z_company.data_local.route.di
 
 import com.z_company.data_local.DatabaseDriverFactory
+import com.z_company.data_local.brake.SqlDelightBrakeCertificateRepository
+import com.z_company.data_local.brake.db.BrakeCertificateDatabase
+import com.z_company.domain.brake.storage.BrakeCertificateRepository
+import com.z_company.domain.brake.storage.BrakeCertificateUseCase
 import com.z_company.data_local.route.SqlDelightHistoryResponseRepository
 import com.z_company.data_local.route.SqlDelightRouteRepository
 import com.z_company.data_local.route.db.RouteDatabase
@@ -25,4 +29,9 @@ val sqlDelightRouteModule = module {
     // Локальные GPS-треки «АВТО» (отдельный файл Track.db).
     single { TrackDatabase(get<DatabaseDriverFactory>().createTrackDriver()) }
     single<TrackRepository> { SqlDelightTrackRepository(get()) }
+
+    // Справки ВУ-45 (отдельный файл BrakeCertificate.db).
+    single { BrakeCertificateDatabase(get<DatabaseDriverFactory>().createBrakeCertificateDriver()) }
+    single<BrakeCertificateRepository> { SqlDelightBrakeCertificateRepository(get()) }
+    single { BrakeCertificateUseCase(get()) }
 }

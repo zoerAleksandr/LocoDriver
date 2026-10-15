@@ -301,7 +301,7 @@ val repositoryModule = module {
             vkClientId = BuildConfig.VKID_CLIENT_ID.takeIf { it.isNotBlank() }
         )
     }
-    single { RoutesManager(remoteRestApi = get()) }
+    single { RoutesManager(remoteRestApi = get(), brakeCertificates = get()) }
     single { SettingManager(remoteRestApi = get()) }
     single { ShareRouteManager(remoteRestApi = get()) }
 
@@ -326,6 +326,7 @@ val repositoryModule = module {
             stationNormRepository = get(),
             partnerRepository = get(),
             remoteRestApi = get(),
+            brakeCertificates = get(),
             clientPlatform = "android",
             clientVersion = BuildConfig.VERSION_NAME,
         )

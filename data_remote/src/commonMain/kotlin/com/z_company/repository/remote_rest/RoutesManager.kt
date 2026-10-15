@@ -20,7 +20,9 @@ import kotlinx.serialization.json.jsonPrimitive
  * Менеджер синхронизации маршрутов.
  */
 class RoutesManager(
-    private val remoteRestApi: RemoteRestApi
+    private val remoteRestApi: RemoteRestApi,
+    /** Справки ВУ-45: добавляются в SyncData, пока включён [RemoteFeatureFlags.remoteCertificatesEnabled]. */
+    private val brakeCertificates: com.z_company.domain.brake.storage.BrakeCertificateUseCase? = null,
 ) {
 
     /**
@@ -41,14 +43,21 @@ class RoutesManager(
         // где оно источник истины. Выводим из булевых флагов пассажиров прямо
         // перед отправкой (в БД поле не хранится). Сервер по нему держит булев
         // флаг пассажира в согласии для старых клиентов.
+        val certificatesToSend = if (RemoteFeatureFlags.remoteCertificatesEnabled) {
+            runCatching { brakeCertificates?.forUpload(route.basicData.id) }.getOrNull()
+        } else null
         val routeToSend = route.copy(
             basicData = route.basicData.copy(
                 workStartByArrivalPassengerId =
                     route.passengers.firstOrNull { it.isWorkStartByArrival }?.passengerId
-            )
+            ),
+            // null (флаг выключен / справок нет) - поле не отправляется (explicitNulls=false), сервер ничего не трогает.
+            brakeCertificates = certificatesToSend,
         )
         val result = try {
             val response = remoteRestApi.saveRoute(token = bearerToken, data = routeToSend)
+            // Надгробия справок доставлены (full-replace без них применён) - больше не нужны.
+            if (certificatesToSend != null) runCatching { brakeCertificates?.purgeTombstones(route.basicData.id) }
             ResultState.Success(SaveRouteResult(warnings = response.warnings))
         } catch (e: ClientRequestException) {
             val errorBody = try { e.response.bodyAsText() } catch (_: Exception) { "" }

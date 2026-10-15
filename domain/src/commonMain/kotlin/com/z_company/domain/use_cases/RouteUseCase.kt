@@ -47,6 +47,8 @@ class RouteUseCase(
     private val repository: RouteRepository,
     /** Локальные треки «АВТО»: удаляются вместе с рейсом, в том числе при переносе в корзину (SCREEN_SPECS §6.9). */
     private val trackRepository: TrackRepository? = null,
+    /** Справки ВУ-45 удаляются вместе с рейсом при окончательном удалении (в корзине сохраняются). */
+    private val brakeCertificates: com.z_company.domain.brake.storage.BrakeCertificateUseCase? = null,
 ) {
     /** Треки поездов рейса удаляются сразу и не возвращаются при восстановлении из корзины. Не роняет удаление рейса. */
     private fun deleteTracksOf(route: Route) {
@@ -248,6 +250,7 @@ class RouteUseCase(
     fun purgeRoute(route: Route, reason: com.z_company.domain.entities.route.PhysicalDeletionReason): Flow<ResultState<Unit>> {
         return flow {
             deleteTracksOf(route)
+            runCatching { brakeCertificates?.deleteForRoute(route.basicData.id) }
             emitAll(repository.purgeRoute(route, reason))
         }
     }

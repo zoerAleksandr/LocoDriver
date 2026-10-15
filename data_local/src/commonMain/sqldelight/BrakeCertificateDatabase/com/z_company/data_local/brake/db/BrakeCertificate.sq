@@ -1,0 +1,31 @@
+-- Справки ВУ-45 (docs/VU45_STORAGE_DESIGN.md). Отдельный файл БД: миграций Route.db не требуется.
+CREATE TABLE IF NOT EXISTS BrakeCertificate (
+    certificateId TEXT NOT NULL PRIMARY KEY,
+    routeId TEXT NOT NULL,
+    trainId TEXT,
+    payload TEXT NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    isDeleted INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS index_BrakeCertificate_routeId ON BrakeCertificate(routeId);
+CREATE INDEX IF NOT EXISTS index_BrakeCertificate_trainId ON BrakeCertificate(trainId);
+
+upsert:
+INSERT OR REPLACE INTO BrakeCertificate (certificateId, routeId, trainId, payload, updatedAt, isDeleted)
+VALUES (?, ?, ?, ?, ?, ?);
+
+getByTrain:
+SELECT * FROM BrakeCertificate WHERE trainId = :trainId ORDER BY updatedAt DESC LIMIT 1;
+
+listByRoute:
+SELECT * FROM BrakeCertificate WHERE routeId = :routeId;
+
+markDeletedByTrain:
+UPDATE BrakeCertificate SET isDeleted = 1, updatedAt = :now WHERE trainId = :trainId;
+
+deleteByRoute:
+DELETE FROM BrakeCertificate WHERE routeId = :routeId;
+
+purgeTombstones:
+DELETE FROM BrakeCertificate WHERE routeId = :routeId AND isDeleted = 1;

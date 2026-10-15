@@ -97,6 +97,8 @@ class SyncManager(
     private val remoteRestApi: RemoteRestApi,
     private val clientPlatform: String? = null,
     private val clientVersion: String? = null,
+    /** Справки ВУ-45: слияние (LWW) справок, пришедших вместе с рейсом. */
+    private val brakeCertificates: com.z_company.domain.brake.storage.BrakeCertificateUseCase? = null,
 ) {
 
     private val syncMutex = Mutex()
@@ -644,7 +646,10 @@ class SyncManager(
                             routeUseCase.saveRouteAfterLoading(r)
                                 .collect { saveResult ->
                                     when (saveResult) {
-                                        is ResultState.Success -> { savedCount++ }
+                                        is ResultState.Success -> {
+                                            savedCount++
+                                            runCatching { brakeCertificates?.mergeRemote(route.basicData.id, route.brakeCertificates) }
+                                        }
                                         is ResultState.Error -> {
                                             emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения маршрута локально: ${saveResult.entity.message ?: NetworkErrorMapper.humanMessage(saveResult.entity.throwable)}")))
                                             return@collect
@@ -1300,6 +1305,7 @@ class SyncManager(
         )
         var saved = true
         routeUseCase.saveRouteAfterLoading(r).collect { if (it is ResultState.Error) saved = false }
+        if (saved) runCatching { brakeCertificates?.mergeRemote(server.basicData.id, server.brakeCertificates) }
         return saved
     }
 
