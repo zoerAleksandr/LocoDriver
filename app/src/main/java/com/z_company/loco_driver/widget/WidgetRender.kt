@@ -254,6 +254,16 @@ object WidgetRender {
      * `false`, когда под хедером ещё показаны кнопки записи — так
      * экономится высота, а номер маршрута и так виден в приложении.
      */
+    /** Часовой пояс `GMT±hh:mm`, при котором время суток TextClock равно времени, прошедшему с [startMs]. */
+    internal fun elapsedClockZone(startMs: Long): String {
+        val day = 1440L
+        var offsetMin = ((-(startMs / 60_000L)) % day + day) % day
+        if (offsetMin > day / 2) offsetMin -= day            // в пределах ±12 ч (допустимо ±18)
+        val sign = if (offsetMin < 0) "-" else "+"
+        val abs = kotlin.math.abs(offsetMin)
+        return "GMT%s%02d:%02d".format(sign, abs / 60, abs % 60)
+    }
+
     fun populateRouteHeader(
         rv: RemoteViews,
         routeNumber: String,
@@ -263,11 +273,12 @@ object WidgetRender {
         showCaption: Boolean = true,
         workStartMs: Long = 0L,
     ) {
-        // «На работе»: системный Chronometer тикает сам (без перерисовки виджета). База — явка.
+        // «На работе»: прошедшее время «Ч:ММ» от явки. TextClock показывает время суток в заданном поясе;
+        // пояс GMT±hh:mm = −явка (по модулю суток) → время суток == прошедшее время. Обновляется
+        // сам раз в минуту, без перерисовки виджета. Смена короче 24 часов.
         if (workStartMs > 0L && workStartMs <= System.currentTimeMillis()) {
             rv.setViewVisibility(R.id.work_row, View.VISIBLE)
-            val base = android.os.SystemClock.elapsedRealtime() - (System.currentTimeMillis() - workStartMs)
-            rv.setChronometer(R.id.work_chrono, base, null, true)
+            rv.setString(R.id.work_chrono, "setTimeZone", elapsedClockZone(workStartMs))
         } else {
             rv.setViewVisibility(R.id.work_row, View.GONE)
         }

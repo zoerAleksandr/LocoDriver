@@ -38,7 +38,8 @@
             android:maxLines="1" />
     </LinearLayout>
 
-    <!-- «На работе»: живой хронометр от явки (скрыт, если явки нет). -->
+    <!-- «На работе»: прошедшее время «Ч:ММ» от явки (скрыто, если явки нет). TextClock с подобранным
+         часовым поясом (WidgetRender.populateRouteHeader) обновляется сам раз в минуту. -->
     <LinearLayout
         android:id="@+id/work_row"
         android:layout_width="match_parent"
@@ -59,10 +60,12 @@
             android:letterSpacing="0.13"
             android:maxLines="1" />
 
-        <Chronometer
+        <TextClock
             android:id="@+id/work_chrono"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:format12Hour="H:mm"
+            android:format24Hour="H:mm"
             android:fontFamily="@font/jetbrains_mono_bold"
             android:textColor="@color/widget_text"
             android:textSize="12sp" />
