@@ -164,28 +164,25 @@ internal fun VuInput(
     val t = vuColors()
     var focused by remember { mutableStateOf(false) }
     val select = onClick != null
-    val numeric = !select && !text
-    val numHandle = if (numeric) rememberVuNumeric(label, value, { onChange?.invoke(it) }, decimal = keyboard != KeyboardType.Number, maxLen = maxLen) else null
-    val numActive = numHandle?.active == true
     Column(modifier.widthIn(min = 0.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 label, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
-                fontSize = 13.sp, fontWeight = FontWeight.Medium, color = if (focused || numActive) t.accent else t.muted,
+                fontSize = 13.sp, fontWeight = FontWeight.Medium, color = if (focused) t.accent else t.muted,
             )
             if (onHelp != null) VuHelp(onHelp, touch = 32.dp)
         }
         val shape = RoundedCornerShape(12.dp)
         val borderColor = when {
             error -> t.danger
-            focused || numActive -> t.accent
+            focused -> t.accent
             else -> Color.Transparent
         }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .then(if (!sunk && !focused && !numActive && !error) Modifier.shadow(1.dp, shape) else Modifier)
+                .then(if (!sunk && !focused && !error) Modifier.shadow(1.dp, shape) else Modifier)
                 .background(if (sunk) t.bgSubtle else t.surface, shape)
                 .border(2.dp, borderColor, shape)
                 .then(if (select) Modifier.clickable { onClick?.invoke() } else Modifier)
@@ -198,36 +195,33 @@ internal fun VuInput(
                     fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = if (value.isEmpty()) t.faint else t.text,
                 )
                 Text("▾", fontSize = 12.sp, color = t.muted)
-            } else if (!text) {
-                // Числовое поле: без системной клавиатуры (IME) - собственная панель справки и физическая клавиатура.
-                val h = numHandle!!
-                Box(Modifier.weight(1f).then(h.modifier), contentAlignment = Alignment.CenterStart) {
-                    if (value.isEmpty() && placeholder.isNotEmpty()) Text(placeholder, fontFamily = VuMono, fontSize = 20.sp, color = t.faint)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(value, fontFamily = VuMono, fontSize = 20.sp, fontWeight = FontWeight.Medium, color = t.text, maxLines = 1)
-                        if (h.active) Box(Modifier.padding(start = 1.dp).width(2.dp).height(24.dp).background(t.accent))
-                    }
-                }
             } else {
                 BasicTextField(
                     value = value,
-                    onValueChange = { raw -> onChange?.invoke(raw.take(40)) },
+                    onValueChange = { raw ->
+                        val allowed = when {
+                            text -> raw.take(40)
+                            keyboard == KeyboardType.Number -> raw.sanitizeIntegerInput(maxLen)
+                            else -> raw.sanitizeDecimalInput(maxLen)
+                        }
+                        onChange?.invoke(allowed)
+                    },
                     modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
                     singleLine = true,
-                    textStyle = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Medium, color = t.text),
+                    textStyle = TextStyle(fontFamily = if (text) null else VuMono, fontSize = 20.sp, fontWeight = FontWeight.Medium, color = t.text),
                     cursorBrush = SolidColor(t.accent),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    keyboardOptions = KeyboardOptions(keyboardType = if (text) KeyboardType.Text else keyboard),
                     decorationBox = { inner ->
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (value.isEmpty() && placeholder.isNotEmpty()) {
-                                Text(placeholder, fontSize = 20.sp, color = t.faint)
+                                Text(placeholder, fontFamily = VuMono, fontSize = 20.sp, color = t.faint)
                             }
                             inner()
                         }
                     },
                 )
+                if (unit != null) Text(unit, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted, maxLines = 1)
             }
-            if (unit != null) Text(unit, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted, maxLines = 1)
         }
     }
 }
@@ -330,14 +324,12 @@ internal fun VuSheet(
     content: @Composable () -> Unit,
 ) {
     val t = vuColors()
-    val sheetKeypad = remember { VuKeypadState() }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = t.bg,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
-      androidx.compose.runtime.CompositionLocalProvider(LocalVuKeypad provides sheetKeypad) {
         Column(Modifier.fillMaxWidth()) {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 4.dp), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f).padding(top = 4.dp)) {
@@ -357,9 +349,7 @@ internal fun VuSheet(
                     .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 12.dp),
             ) { content() }
             if (footer != null) Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 16.dp)) { footer() }
-            VuKeypadPanel(sheetKeypad)
         }
-      }
     }
 }
 
@@ -398,39 +388,32 @@ internal fun VuInk(
     val t = vuColors()
     var focused by remember { mutableStateOf(false) }
     val ink = TextStyle(fontFamily = VuMono, fontSize = 17.sp, fontWeight = if (calc) FontWeight.Bold else FontWeight.SemiBold, color = if (calc) t.text else t.accent, textAlign = align)
-    val numeric = onChange != null && (keyboard == KeyboardType.Number || keyboard == KeyboardType.Decimal)
-    val numHandle = if (numeric) rememberVuNumeric("Значение", value, { onChange?.invoke(it) }, decimal = keyboard == KeyboardType.Decimal, maxLen = maxLen) else null
-    val active = focused || numHandle?.active == true
     Box(
         modifier = modifier
             .heightIn(min = 30.dp)
-            .background(if (active) t.accentSoft else Color.Transparent)
+            .background(if (focused) t.accentSoft else Color.Transparent)
             .drawBehind {
                 val w = 1.5.dp.toPx()
-                drawLine(if (active) t.accent else t.faint, Offset(0f, size.height - w / 2), Offset(size.width, size.height - w / 2), w)
+                drawLine(if (focused) t.accent else t.faint, Offset(0f, size.height - w / 2), Offset(size.width, size.height - w / 2), w)
             }
             .padding(horizontal = 4.dp, vertical = 2.dp),
         contentAlignment = Alignment.BottomStart,
     ) {
         if (onChange == null) {
             Text(value.ifEmpty { placeholder }, style = ink.copy(color = if (value.isEmpty()) t.faint else ink.color, fontSize = if (value.isEmpty()) 13.sp else 17.sp, fontWeight = if (value.isEmpty()) FontWeight.Normal else ink.fontWeight), modifier = Modifier.fillMaxWidth(), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        } else if (numHandle != null) {
-            Box(Modifier.fillMaxWidth().then(numHandle.modifier), contentAlignment = if (align == TextAlign.End) Alignment.BottomEnd else Alignment.BottomStart) {
-                if (value.isEmpty() && placeholder.isNotEmpty()) Text(placeholder, fontSize = 13.sp, color = t.faint, maxLines = 1)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(value, style = ink, maxLines = 1)
-                    if (numHandle.active) Box(Modifier.width(2.dp).height(18.dp).background(t.accent))
-                }
-            }
         } else {
             BasicTextField(
                 value = value,
-                onValueChange = { raw -> onChange(raw.take(maxLen)) },
+                onValueChange = { raw ->
+                    val v = if (keyboard == KeyboardType.Number) raw.sanitizeIntegerInput(maxLen)
+                    else if (keyboard == KeyboardType.Decimal) raw.sanitizeDecimalInput(maxLen) else raw.take(maxLen)
+                    onChange(v)
+                },
                 modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
                 singleLine = true,
                 textStyle = ink,
                 cursorBrush = SolidColor(t.accent),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                keyboardOptions = KeyboardOptions(keyboardType = keyboard),
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.BottomStart) {
                         if (value.isEmpty() && placeholder.isNotEmpty()) Text(placeholder, fontSize = 13.sp, color = t.faint, maxLines = 1)
