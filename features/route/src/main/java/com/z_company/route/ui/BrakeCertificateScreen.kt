@@ -215,7 +215,7 @@ fun BrakeCertificateScreen(
             options = BrakeNorms.categories.map { c ->
                 SettingsPickerOption(
                     label = c.title,
-                    sub = "п. ${c.tableRow} табл. 1: ${c.norm} тс на 100 тс веса, до ${c.vFlat} км/ч",
+                    sub = "табл. 1 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277, п. ${c.tableRow}: ${c.norm} тс на 100 тс веса, до ${c.vFlat} км/ч",
                     selected = c.id == state.categoryId,
                     onSelect = { viewModel.setCategory(c.id) },
                 )
@@ -487,7 +487,7 @@ private fun VuSpeedBar(result: BrakeCertificateResult?) {
             when {
                 !has || result == null -> "Введите вес и оси"
                 belowMin -> "Ниже минимума ${InstructionRef.table("2")}: скорость по таблицам не допускается, устанавливает начальник железной дороги (${InstructionRef.p("5.1")})"
-                low -> "Не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс" + ((sp as? SpeedLimit.Allowed)?.let { " · скорость по п. 4.4" } ?: "")
+                low -> "Не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс" + ((sp as? SpeedLimit.Allowed)?.let { " · скорость по п. 4.4 Инструкции" } ?: "")
                 else -> "Нажатие достаточно"
             },
             Modifier.weight(1f), fontSize = if (belowMin) 12.sp else 14.sp, fontWeight = FontWeight.SemiBold, lineHeight = if (belowMin) 15.sp else 17.sp,
@@ -843,7 +843,7 @@ private fun LocoCard(state: BrakeCertificateUiState, category: BrakeCategory, vm
             Column(Modifier.weight(1f)) {
                 Text("Учитывать локомотив", fontSize = 16.sp, color = t.text)
                 Text(
-                    if (category.group == TrainGroup.FREIGHT) "В грузовых поездах не учитывается (п. 6.3)" else "Вес по табл. 5, нажатие по табл. 4",
+                    if (category.group == TrainGroup.FREIGHT) InstructionRef.annotate("В грузовых поездах не учитывается (п. 6.3)") else InstructionRef.annotate("Вес по табл. 5, нажатие по табл. 4"),
                     fontSize = 13.sp, color = t.muted, modifier = Modifier.padding(top = 2.dp),
                 )
             }
@@ -863,7 +863,7 @@ private fun LocoCard(state: BrakeCertificateUiState, category: BrakeCategory, vm
                     VuInput("тс/ось", state.locoPressureText, Modifier.weight(0.9f), onChange = vm::setLocoPressure, sunk = true)
                 }
                 VuHint(
-                    if (state.locoAuto) "По табл. 4-5 для серии «${state.locoSeriesText}»" + (state.locoNote?.let { ": $it" } ?: "") + ". Можно править."
+                    if (state.locoAuto) "По табл. 4-5 ${InstructionRef.GENITIVE} для серии «${state.locoSeriesText}»" + (state.locoNote?.let { ": $it" } ?: "") + ". Можно править."
                     else if (state.locoSeriesText.isNotBlank()) "Серии «${state.locoSeriesText}» нет в справочнике - введите вручную."
                     else "Серия локомотива - в «Реквизитах» бланка; значения можно ввести вручную.",
                 )
@@ -1073,7 +1073,7 @@ private fun RowSheet(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
 private fun HelpSheet(key: String, state: BrakeCertificateUiState, category: BrakeCategory, result: BrakeCertificateResult?, onDismiss: () -> Unit) {
     val t = vuColors()
     val hint = brakeHints[key] ?: if (key == "deficit") BrakeHint(
-        "Что делать при недостатке нажатия", "Нажатие ниже нормы табл. 1. Если оно не ниже допускаемого минимума табл. 2 и случай относится к п. 4.2-4.3, скорость снижают: 2 км/ч за каждую недостающую тонну для грузовых, 1-2 км/ч для пассажирских, результат округляют вниз до кратного 5.", "Инструкция 277, прил. 2, п. 4.2-4.5, 5.1",
+        "Что делать при недостатке нажатия", "Нажатие ниже нормы табл. 1 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277. Если оно не ниже допускаемого минимума табл. 2 и случай относится к п. 4.2-4.3, скорость снижают: 2 км/ч за каждую недостающую тонну для грузовых, 1-2 км/ч для пассажирских, результат округляют вниз до кратного 5.", "Инструкция 277, прил. 2, п. 4.2-4.5, 5.1",
     ) else null
     if (hint == null) { onDismiss(); return }
     val calc = when (key) {
