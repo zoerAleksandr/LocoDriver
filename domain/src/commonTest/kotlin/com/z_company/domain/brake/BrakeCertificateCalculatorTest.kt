@@ -296,3 +296,31 @@ class SpeedBranchesTest {
         assertEquals(115, s.kmh)
     }
 }
+
+class AxleCheckTest {
+    @Test
+    fun compareCases() {
+        assertTrue(AxleCheck.compare(128, 0) is AxleSumCheck.NoTable)
+        assertEquals(AxleSumCheck.Equal(128), AxleCheck.compare(128, 128))
+        assertEquals(AxleSumCheck.TableLess(120, 128, 8), AxleCheck.compare(128, 120))
+        assertEquals(AxleSumCheck.TableMore(136, 128, 8), AxleCheck.compare(128, 136))
+        assertEquals(AxleSumCheck.DeclaredEmpty(120), AxleCheck.compare(null, 120))
+        assertEquals(AxleSumCheck.DeclaredEmpty(120), AxleCheck.compare(0, 120))
+    }
+
+    @Test
+    fun messages() {
+        assertTrue(AxleCheck.message(AxleCheck.compare(128, 120))!!.contains("не хватает 8"))
+        assertTrue(AxleCheck.message(AxleCheck.compare(128, 136))!!.contains("больше на 8"))
+        assertEquals(null, AxleCheck.message(AxleCheck.compare(128, 128)))
+        assertEquals(null, AxleCheck.message(AxleCheck.compare(128, 0)))
+    }
+
+    @Test
+    fun fractionalPressureDoesNotAffectAxleSum() {
+        // оси целые, нажатие дробное: сверка идёт только по числу осей
+        val rows = listOf(AxleRow(8.25, 100), AxleRow(3.5, 28))
+        val sum = rows.sumOf { it.axles }
+        assertEquals(AxleSumCheck.Equal(128), AxleCheck.compare(128, sum))
+    }
+}
