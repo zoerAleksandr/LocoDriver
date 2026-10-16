@@ -1,7 +1,5 @@
 package com.z_company.route.component
 
-import com.z_company.core.ui.component.AppModalBottomSheet
-import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalOverscrollFactory
@@ -75,8 +73,7 @@ fun RouteLegendSheet(
         LegendItem(R.drawable.sync_on_icon, "Статус синхронизации маршрута", isImage = true),
     )
 
-    AppModalBottomSheet(
-        dragHandle = { AppDragHandle() },
+    ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         containerColor = cs.surface,

@@ -1,6 +1,5 @@
 package com.z_company.route.component
 
-import com.z_company.core.ui.component.AppModalBottomSheet
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -94,7 +93,7 @@ fun SearchSettingBottomSheet(
         )
     }
 
-    AppModalBottomSheet(
+    ModalBottomSheet(
         sheetState = bottomSheetState,
         onDismissRequest = closeSheet,
         containerColor = MaterialTheme.colorScheme.background,

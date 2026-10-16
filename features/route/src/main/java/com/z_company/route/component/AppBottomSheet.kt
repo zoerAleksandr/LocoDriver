@@ -1,6 +1,5 @@
 package com.z_company.route.component
 
-import com.z_company.core.ui.component.AppModalBottomSheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -59,7 +58,7 @@ fun AppBottomSheet(
     sheetBackgroundColor: Color = MaterialTheme.colorScheme.secondary,
     sheetCornerRadius: Int = 16,
 ) {
-    AppModalBottomSheet(
+    ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         containerColor = Color.Transparent,

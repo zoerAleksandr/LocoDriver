@@ -1,6 +1,5 @@
 package com.z_company.route.ui
 
-import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.domain.autorecord.TrainOrdering
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -2277,7 +2276,7 @@ private fun RouteSheetShell(
     subtitle: String?,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    AppModalBottomSheet(
+    ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.background,

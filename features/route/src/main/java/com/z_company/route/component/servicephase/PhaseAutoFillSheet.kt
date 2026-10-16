@@ -1,6 +1,5 @@
 package com.z_company.route.component.servicephase
 
-import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.layout.imePadding
@@ -109,7 +108,7 @@ internal fun PhaseAutoFillSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // Выбор точки на карте («Не та станция» → «Указать на карте вручную»): шторка скрыта, карта видна целиком.
     var pickingPoint by remember { mutableStateOf(false) }
-    AppModalBottomSheet(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = if (pickingPoint) androidx.compose.ui.graphics.Color.Transparent else Pst.bg,
@@ -840,7 +839,7 @@ private fun RenameStationSheet(
     var value by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(name, androidx.compose.ui.text.TextRange(name.length))) }
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     androidx.compose.runtime.LaunchedEffect(Unit) { focus.requestFocus() }
-    AppModalBottomSheet(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = Pst.bg,
@@ -953,7 +952,7 @@ internal fun StationChoiceSheet(
     val approximate = candidates.any { it.approximate }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selected by remember(candidates) { mutableStateOf(current) }
-    AppModalBottomSheet(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = Pst.bg,

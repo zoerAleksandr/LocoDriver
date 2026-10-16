@@ -1,6 +1,5 @@
 package com.z_company.route.component
 
-import com.z_company.core.ui.component.AppModalBottomSheet
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -161,7 +160,7 @@ fun DieselSectionItem(
     }
 
     if (false && showRefuel) {
-        AppModalBottomSheet(
+        ModalBottomSheet(
             onDismissRequest = {
                 showRefuel = false
             },
@@ -937,7 +936,7 @@ private fun CoeffSheet(
     val step = if (decimals >= 3) 0.001 else 0.01
     fun fmt(d: Double): String = rounding(d, precision)?.str() ?: ""
 
-    AppModalBottomSheet(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.secondary,

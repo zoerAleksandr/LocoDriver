@@ -2,8 +2,6 @@
 
 package com.z_company.route.ui
 
-import com.z_company.core.ui.component.AppModalBottomSheet
-import com.z_company.core.ui.component.AppDragHandle
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -175,8 +173,7 @@ fun SelectReleaseDaysContent(
 
     if (showMonthSelectorDialog) {
         monthOfYear?.let { currentMonthOfYear ->
-            AppModalBottomSheet(
-                dragHandle = { AppDragHandle() },
+            ModalBottomSheet(
                 onDismissRequest = { showMonthSelectorDialog = false },
                 sheetState = monthSheetState,
                 containerColor = MaterialTheme.colorScheme.secondary,
@@ -329,8 +326,7 @@ fun SelectReleaseDaysContent(
     val typeSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     if (showTypeSheet) {
-        AppModalBottomSheet(
-            dragHandle = { AppDragHandle() },
+        ModalBottomSheet(
             onDismissRequest = { showTypeSheet = false },
             sheetState = typeSheetState,
             containerColor = MaterialTheme.colorScheme.secondary,

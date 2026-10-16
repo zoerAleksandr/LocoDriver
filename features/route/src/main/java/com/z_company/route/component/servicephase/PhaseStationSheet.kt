@@ -1,6 +1,5 @@
 package com.z_company.route.component.servicephase
 
-import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -180,7 +179,7 @@ internal fun PhaseStationSheet(
     // Пока открыт выбор точки на карте, шторка скрыта (состояние сохраняется): карта видна целиком; после «Выбрать»
     // шторка возвращается с новыми координатами, «назад» — без изменений.
     val pickerShown = mapOpen && mapNeighbours != null
-    AppModalBottomSheet(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = if (pickerShown) androidx.compose.ui.graphics.Color.Transparent else Pst.bg,

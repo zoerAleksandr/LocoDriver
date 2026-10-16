@@ -1,8 +1,6 @@
 package com.z_company.core.ui.component.customDateTimePicker
 
 
-import com.z_company.core.ui.component.AppModalBottomSheet
-import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
@@ -43,7 +41,7 @@ fun MyWheelDateTimePickerBottomSheet(
     showMonthAsNumber: Boolean = false,
     containerColor: Color = MaterialTheme.colorScheme.surface,
     shape: Shape = BottomSheetDefaults.ExpandedShape,
-    dragHandle: @Composable (() -> Unit)? = { AppDragHandle() },
+    dragHandle: @Composable (() -> Unit)? = { BottomSheetDefaults.DragHandle() },
     selectorProperties: SelectorProperties = MyWheelPickerDefaults.selectorProperties(),
     onDoneClick: (snappedDate: LocalDateTime) -> Unit = {},
     onDateChangeListener: (snappedDate: LocalDateTime) -> Unit = {},
@@ -53,7 +51,7 @@ fun MyWheelDateTimePickerBottomSheet(
     if (showDatePicker) {
         val modalBottomSheetState = rememberModalBottomSheetState()
 
-        AppModalBottomSheet(
+        ModalBottomSheet(
             onDismissRequest = { onDismiss() },
             sheetState = modalBottomSheetState,
             dragHandle = dragHandle,

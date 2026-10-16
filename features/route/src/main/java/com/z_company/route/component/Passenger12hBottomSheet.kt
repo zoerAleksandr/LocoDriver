@@ -1,7 +1,5 @@
 package com.z_company.route.component
 
-import com.z_company.core.ui.component.AppModalBottomSheet
-import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -102,8 +100,7 @@ fun Passenger12hBottomSheet(
         "Время следования должно быть в пределах рабочего времени"
     } else null
 
-    AppModalBottomSheet(
-        dragHandle = { AppDragHandle() },
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.secondary,

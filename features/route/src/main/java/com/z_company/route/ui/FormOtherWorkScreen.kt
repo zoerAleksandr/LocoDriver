@@ -1,7 +1,5 @@
 package com.z_company.route.ui
 
-import com.z_company.core.ui.component.AppModalBottomSheet
-import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -406,8 +404,7 @@ private fun LocoPickerSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    AppModalBottomSheet(
-        dragHandle = { AppDragHandle() },
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -641,8 +638,7 @@ private fun WorkTypeCard(
     }
 
     if (showSheet) {
-        AppModalBottomSheet(
-            dragHandle = { AppDragHandle() },
+        ModalBottomSheet(
             onDismissRequest = { showSheet = false },
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surface,
