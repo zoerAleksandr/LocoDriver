@@ -91,6 +91,7 @@ import com.z_company.domain.brake.TrainGroup
 import com.z_company.domain.brake.BrakeStations
 import com.z_company.domain.brake.TimeOfDayInput
 import com.z_company.domain.brake.TurnaroundComposition
+import com.z_company.domain.brake.WagonChange
 import com.z_company.domain.brake.TurnaroundDensityCheck
 import com.z_company.domain.brake.TurnaroundEntry
 import com.z_company.domain.brake.TurnaroundPick
@@ -1225,36 +1226,49 @@ private fun TurnaroundSheet(
                 Box(Modifier.weight(1f)) { VuTag("При изменении состава и веса поезда") }
                 VuHelp({ compHelp = true }, touch = 32.dp)
             }
-            VuHint("Прицепка или отцепка вагонов: введите новый вес и число осей - потребное и фактическое нажатие рассчитаются сами (можно поправить). Если состав не менялся - оставьте пустым.")
-            val calc = remember(state, e.newWeight, e.newAxles) {
-                TurnaroundComposition.compute(state.toInput(), e.newWeight.toFiniteDoubleOrNull(), e.newAxles.trim().toIntOrNull())
+            VuHint("Прицепка или отцепка вагонов: введите новый вес и добавьте строки изменений (сколько осей с каким нажатием отцеплено или прицеплено) - число осей, потребное и фактическое нажатие рассчитаются сами (можно поправить). Если состав не менялся - оставьте пустым.")
+            val calc = remember(state, e.newWeight, e.newAxles, e.changes) {
+                TurnaroundComposition.compute(state.toInput(), e.newWeight.toFiniteDoubleOrNull(), e.newAxles.trim().toIntOrNull(), e.changes)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                VuInput("Вес поезда, т", e.newWeight, Modifier.weight(1f), onChange = { v -> vm.updateTurnaroundComposition(entryId) { it.copy(newWeight = v) } }, unit = "т", sunk = true)
-                VuInput("Всего осей", e.newAxles, Modifier.weight(1f), onChange = { v -> vm.updateTurnaroundComposition(entryId) { it.copy(newAxles = v) } }, keyboard = KeyboardType.Number, sunk = true)
+            VuInput("Вес поезда, т", e.newWeight, onChange = { v -> vm.updateTurnaroundComposition(entryId) { it.copy(newWeight = v) } }, unit = "т", sunk = true)
+            VuTag("Что изменилось в составе")
+            e.changes.forEach { c ->
+                WagonChangeRow(
+                    c,
+                    onChange = { n -> vm.updateTurnaroundComposition(entryId) { en -> en.copy(changes = en.changes.map { if (it.id == c.id) n else it }) } },
+                    onRemove = { vm.updateTurnaroundComposition(entryId) { en -> en.copy(changes = en.changes.filterNot { it.id == c.id }) } },
+                )
             }
+            VuBtn("+ строка", { vm.updateTurnaroundComposition(entryId) { en -> en.copy(changes = en.changes + WagonChange(id = vm.newTurnaroundId())) } }, kind = VuBtnKind.Text, h = 48.dp)
+            calc?.warnings?.forEach { w -> VuHint(w) }
+            VuInput("Всего осей", e.newAxles, onChange = { v -> vm.updateTurnaroundComposition(entryId) { it.copy(newAxles = v) } }, keyboard = KeyboardType.Number, sunk = true)
             val reqManual = TurnaroundComposition.isManual(e.newRequired, calc?.requiredText)
             val actManual = TurnaroundComposition.isManual(e.newActual, calc?.actualText)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                VuInput(if (reqManual) "Потребное, тс · правка" else if (calc != null && e.newRequired.isNotBlank()) "Потребное, тс · расчёт" else "Потребное, тс", e.newRequired, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(newRequired = v) } }, sunk = true)
+                VuInput(if (reqManual) "Потребное, тс · правка" else if (calc?.requiredText != null && e.newRequired.isNotBlank()) "Потребное, тс · расчёт" else "Потребное, тс", e.newRequired, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(newRequired = v) } }, sunk = true)
                 VuInput(if (actManual) "Фактическое, тс · правка" else if (calc?.actualText != null && e.newActual.isNotBlank()) "Фактическое, тс · расчёт" else "Фактическое, тс", e.newActual, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(newActual = v) } }, sunk = true)
             }
             if (calc != null && (reqManual || actManual)) {
-                VuBtn("Пересчитать", { vm.updateTurnaround(entryId) { it.copy(newRequired = calc.requiredText, newActual = calc.actualText ?: it.newActual) } }, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, h = 48.dp)
+                VuBtn("Пересчитать", { vm.updateTurnaround(entryId) { it.copy(newRequired = calc.requiredText ?: it.newRequired, newActual = calc.actualText ?: it.newActual) } }, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, h = 48.dp)
             }
             if (calc != null) {
                 if (calc.normChanged) VuHint("Норма изменилась: было ${calc.normBefore}, стало ${calc.normAfter} тс на 100 тс веса (${calc.category.title}).")
-                calc.avgPressure?.let { VuHint("Фактическое: новые оси × среднее нажатие на ось лицевой таблицы (${fmtP(it)} тс/ось)" + (if (state.locoEnabled) " + локомотив" else "") + ".") }
+                if (calc.actual != null && calc.frontActual != null) {
+                    VuHint("Фактическое = лицевое ${fmt(calc.frontActual!!, 1)} тс" + (if (calc.attachedTc > 0) " + прицеплено ${fmt(calc.attachedTc, 1)}" else "") + (if (calc.detachedTc > 0) " − отцеплено ${fmt(calc.detachedTc, 1)}" else "") + ".")
+                } else if ((e.newWeight.isNotBlank() || e.newAxles.isNotBlank()) && e.newActual.isBlank()) {
+                    VuHint("Введите фактическое нажатие или добавьте строки прицепленных/отцепленных вагонов.")
+                }
                 calc.requiredManualAxles?.let { m -> VuHint("Ручных тормозных осей потребно: $m" + (calc.manualAxlesBefore?.takeIf { it != m }?.let { " (было $it)" } ?: "") + " - по табл. III.4 на новый вес.") }
                 val reqE = e.newRequired.toFiniteDoubleOrNull()
                 val actE = e.newActual.toFiniteDoubleOrNull()
-                when (calc.enough(reqE, actE)) {
-                    true -> VuVerdict(true, "Нажатия достаточно: ${fmt(actE ?: calc.actual ?: 0.0, 1)} из ${fmt(reqE ?: calc.required, 1)} тс")
-                    false -> VuVerdict(false, "Нажатия не хватает: ${fmt(actE ?: calc.actual ?: 0.0, 1)} из ${fmt(reqE ?: calc.required, 1)} тс")
-                    null -> VuHint("Нет нажатий на лицевой стороне - введите фактическое нажатие вручную.")
+                val shownAct = actE ?: calc.actual
+                val shownReq = reqE ?: calc.required
+                if (shownAct != null && shownReq != null) {
+                    if (calc.enough(reqE, actE) == true) VuVerdict(true, "Нажатия достаточно: ${fmt(shownAct, 1)} из ${fmt(shownReq, 1)} тс")
+                    else VuVerdict(false, "Нажатия не хватает: ${fmt(shownAct, 1)} из ${fmt(shownReq, 1)} тс")
                 }
-            } else if (e.newWeight.isNotBlank() || e.newAxles.isNotBlank()) {
-                VuHint("Заполните вес и нажатия на лицевой стороне и вес поезда здесь - тогда нажатие рассчитается автоматически; пока можно ввести значения вручную.")
+            } else if (e.newWeight.isNotBlank() || e.newAxles.isNotBlank() || e.changes.isNotEmpty()) {
+                VuHint("Заполните вес и нажатия на лицевой стороне - тогда нажатие рассчитается автоматически; пока можно ввести значения вручную.")
             }
             VuTag("Подпись и время")
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1617,16 +1631,40 @@ private fun turnaroundLabel(e: TurnaroundEntry): String {
     return if (e.readinessTime.isNotBlank()) "$name, ${e.readinessTime}" else name
 }
 
+/** Строка изменения состава: отцеплено/прицеплено, нажатие на ось (значения как на лицевой таблице или своё) и число осей. */
+@Composable
+private fun WagonChangeRow(c: WagonChange, onChange: (WagonChange) -> Unit, onRemove: () -> Unit) {
+    val t = vuColors()
+    Column(Modifier.fillMaxWidth().border(1.dp, t.border, RoundedCornerShape(12.dp)).padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            VuChip("Отцеплено", !c.attached, { onChange(c.copy(attached = false)) }, Modifier.weight(1f), small = true)
+            VuChip("Прицеплено", c.attached, { onChange(c.copy(attached = true)) }, Modifier.weight(1f), small = true)
+            Text("×", Modifier.clickable(onClick = onRemove).heightIn(min = 40.dp).widthIn(min = 40.dp).padding(horizontal = 10.dp, vertical = 6.dp), fontSize = 24.sp, color = t.muted, textAlign = TextAlign.Center)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            VuInput("Нажатие на ось, тс", c.pressureText, Modifier.weight(1f), onChange = { v -> onChange(c.copy(pressureText = v)) }, sunk = true)
+            VuInput("Осей", c.axlesText, Modifier.weight(1f), onChange = { v -> onChange(c.copy(axlesText = v)) }, keyboard = KeyboardType.Number, sunk = true)
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            PRINTED.forEach { p ->
+                val txt = fmt(p)
+                VuChip(txt, c.pressure == p, { onChange(c.copy(pressureText = txt)) }, small = true)
+            }
+        }
+    }
+}
+
 @Composable
 private fun CompositionHelpSheet(onDismiss: () -> Unit) {
     val t = vuColors()
     VuSheet(title = "Как считается", sub = "Графы 3-6 оборота при изменении состава", onDismiss = onDismiss, footer = { VuBtn("Понятно", onDismiss, Modifier.fillMaxWidth(), h = 56.dp) }) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Потребное нажатие = N × Q / 100, дробное значение округляется до ближайшего большего целого (п. 8 прил. М Инструкции 808-2022). Q - новый вес поезда (с учётом локомотива, если он учитывается), N - норма на 100 тс веса.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
+            Text("Потребное нажатие = N × Q / 100, дробное значение округляется до ближайшего большего целого (п. 8 прил. М Инструкции 808-2022). Q - новый вес поезда, который вводите вы (с учётом локомотива, если он учитывается), N - норма на 100 тс веса.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
             Text("N берётся заново по категории поезда (табл. III.1 прил. 2 Правил ТО тормозного оборудования). У порожних поездов категория зависит от числа осей: до 350 осей - 55, от 350 до 400 включительно - 44, более 400 до 520 - 33 тс на 100 тс веса. Поэтому после прицепки или отцепки вагонов норма может измениться - тогда это показано отдельной строкой.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
-            Text("Фактическое нажатие = число осей × нажатие на ось (табл. III.3 прил. 2; нажатия на ось записаны на лицевой стороне). Для изменённой части берётся среднее нажатие на ось лицевой таблицы; если прицепленные вагоны другого типа - поправьте значение вручную, оно помечается «правка». «Пересчитать» возвращает расчётное.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
+            Text("Фактическое нажатие считается по осям (табл. III.3 прил. 2: нажатие на ось × число осей): фактическое лицевой стороны + прицеплено (оси × нажатие) − отцеплено (оси × нажатие). Число осей: оси лицевой ± оси строк. Для каждой группы вагонов добавьте строку: «Отцеплено»/«Прицеплено», нажатие на ось и число осей. Если отцепленного нажатия нет на лицевой, расчёт всё равно идёт по введённому, но показывается предупреждение.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
+            Text("Если строк нет, фактическое вводится вручную. Ручная правка помечается «правка», «Пересчитать» возвращает расчёт по строкам.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
             Text("Ручные тормозные оси: вес × норма по табл. III.4 (не менее 0,6 оси на 100 тс веса, п. 45), округление вверх - пересчитывается по новому весу.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
-            Text("Пример. Порожний поезд 3000 т, 360 осей, среднее нажатие 3,5 тс/ось: N = 44, потребное = 44 × 3000 / 100 = 1320 тс, фактическое = 360 × 3,5 = 1260 тс - не хватает. Отцепили 20 осей (340 осей, 2840 т): N = 55, потребное = 55 × 2840 / 100 = 1562 тс, фактическое = 340 × 3,5 = 1190 тс. Расчёт справочный; окончательно - по Правилам и Инструкции.", fontSize = 14.sp, color = t.muted, lineHeight = 20.sp)
+            Text("Пример. На лицевой 220 осей, фактическое 1500 тс. Отцепили 20 осей по 7 тс/ось: −140 тс, осталось 200 осей. Прицепили 10 осей по 5 тс/ось: +50 тс, стало 210 осей. Итого фактическое = 1500 − 140 + 50 = 1410 тс. Для порожнего поезда на 360 осей (N = 44) отцепка 20 осей даёт 340 осей и N = 55 - норма выросла. Расчёт справочный; окончательно - по Правилам и Инструкции.", fontSize = 14.sp, color = t.muted, lineHeight = 20.sp)
         }
     }
 }

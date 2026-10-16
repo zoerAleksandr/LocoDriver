@@ -403,7 +403,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     fun updateTurnaroundComposition(id: String, f: (TurnaroundEntry) -> TurnaroundEntry) = _state.update { st ->
         val base = st.toInput()
         fun calc(x: TurnaroundEntry) =
-            com.z_company.domain.brake.TurnaroundComposition.compute(base, x.newWeight.toFiniteDoubleOrNull(), x.newAxles.trim().toIntOrNull())
+            com.z_company.domain.brake.TurnaroundComposition.compute(base, x.newWeight.toFiniteDoubleOrNull(), x.newAxles.trim().toIntOrNull(), x.changes)
         st.copy(turnaround = st.turnaround.map { e ->
             if (e.id != id) e else {
                 val n = f(e)

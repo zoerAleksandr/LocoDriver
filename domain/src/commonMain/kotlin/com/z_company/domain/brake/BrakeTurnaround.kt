@@ -82,6 +82,8 @@ data class TurnaroundEntry(
     val newAxles: String = "",
     val newRequired: String = "",
     val newActual: String = "",
+    /** Строки изменения состава (прицеплено/отцеплено вагонов с нажатием на ось и числом осей); пусто у старых записей. */
+    val changes: List<WagonChange> = emptyList(),
 ) {
     /** Состав и вес поезда изменились: заполнены графы 3-6 оборота. */
     val compositionChanged: Boolean get() = newWeight.isNotBlank() || newAxles.isNotBlank() || newRequired.isNotBlank() || newActual.isNotBlank()
@@ -113,6 +115,20 @@ data class TurnaroundEntry(
         const val DEFAULT_TEST_KIND = ""
         val TEST_KINDS = listOf(KIND_FULL, KIND_SHORT)
     }
+}
+
+/** Строка изменения состава: [attached] - прицеплено (иначе отцеплено), нажатие на ось, тс, и число осей (текстом, как вводится). */
+@Serializable
+data class WagonChange(
+    val id: String,
+    val attached: Boolean = false,
+    val pressureText: String = "",
+    val axlesText: String = "",
+) {
+    val pressure: Double? get() = pressureText.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
+    val axles: Int? get() = axlesText.trim().toIntOrNull()?.takeIf { it > 0 }
+    /** Строка учитывается в расчёте, только если заданы и нажатие, и число осей. */
+    val isValid: Boolean get() = pressure != null && axles != null
 }
 
 /** Куда записать замер «В пути» (плотность) на обороте справки. */
@@ -253,30 +269,38 @@ object TimeOfDayInput {
  * Расчёт граф 3-6 оборота ВУ-45 при изменении состава (прицепка/отцепка вагонов) тем же калькулятором, что на лицевой стороне:
  * потребное нажатие = ceil(N * Q / 100) (п. 8 прил. М Инструкции 808-2022), где N берётся заново по категории поезда
  * (для порожних поездов категория зависит от числа осей: до 350 / 350-400 / 400-520, табл. III.1 прил. 2 Правил ТО тормозного оборудования),
- * Q - новый вес (+ учитываемый локомотив); фактическое = новые оси * среднее нажатие на ось лицевой таблицы (+ локомотив).
+ * Q - новый вес, вводимый машинистом (+ учитываемый локомотив). Фактическое нажатие считается по осям: фактическое лицевой стороны
+ * (+ локомотив) + сумма (прицеплено: оси * нажатие на ось) - сумма (отцеплено: оси * нажатие на ось); новое число осей = оси лицевой +/- оси строк.
  */
 object TurnaroundComposition {
     private const val EPS = 1e-9
 
-    /** [normBefore]/[normAfter] - норма, тс на 100 тс веса, до и после изменения; [actual] - null, если на лицевой нет нажатий для среднего. */
+    /** [normBefore]/[normAfter] - норма, тс на 100 тс веса, до и после; [derivedAxles]/[actual] - по строкам изменений (null - строк нет). */
     data class Result(
         val category: BrakeCategory,
         val normBefore: Int,
         val normAfter: Int,
-        val totalWeight: Double,
-        val required: Double,
+        val totalWeight: Double?,
+        val required: Double?,
+        val frontActual: Double?,
+        val frontAxles: Int,
+        val derivedAxles: Int?,
         val actual: Double?,
-        val avgPressure: Double?,
+        val attachedTc: Double,
+        val detachedTc: Double,
         val requiredManualAxles: Int?,
         val manualAxlesBefore: Int?,
+        val warnings: List<String>,
     ) {
         val normChanged: Boolean get() = normBefore != normAfter
         fun enough(requiredEntered: Double? = null, actualEntered: Double? = null): Boolean? {
             val a = actualEntered ?: actual ?: return null
-            return a + EPS >= (requiredEntered ?: required)
+            val r = requiredEntered ?: required ?: return null
+            return a + EPS >= r
         }
-        val requiredText: String get() = required.toLong().toString()
+        val requiredText: String? get() = required?.toLong()?.toString()
         val actualText: String? get() = actual?.let { fmt1(it) }
+        val axlesText: String? get() = derivedAxles?.toString()
     }
 
     fun fmt1(v: Double): String {
@@ -285,31 +309,58 @@ object TurnaroundComposition {
     }
 
     /** [base] - вход лицевой стороны (категория, локомотив, строки нажатий); null - расчёт невозможен. */
-    fun compute(base: BrakeCertificateInput?, newWeight: Double?, newAxles: Int?): Result? {
-        if (base == null || newWeight == null || newWeight <= 0.0) return null
-        val cat = BrakeNorms.categoryForAxles(base.category, newAxles)
-        val axlesRows = base.rows.sumOf { it.axles }
-        val avg = if (axlesRows > 0) base.rows.sumOf { it.pressurePerAxle * it.axles } / axlesRows else null
-        val rows = if (avg != null && newAxles != null && newAxles > 0) listOf(AxleRow(avg, newAxles)) else emptyList()
-        val calc = BrakeCertificateCalculator.calculate(base.copy(category = cat, compositionWeight = newWeight, rows = rows, declaredAxles = null, actualManualAxles = null))
+    fun compute(base: BrakeCertificateInput?, newWeight: Double?, newAxlesEntered: Int?, changes: List<WagonChange>): Result? {
+        if (base == null) return null
+        val valid = changes.filter { it.isValid }
+        val frontAxles = base.rows.sumOf { it.axles }
+        val frontComposition = base.rows.sumOf { it.pressurePerAxle * it.axles }
+        val frontActual = if (base.rows.isEmpty()) null else frontComposition + (base.loco?.let { it.pressurePerAxle * it.axles } ?: 0.0)
+        val attachedTc = valid.filter { it.attached }.sumOf { it.pressure!! * it.axles!! }
+        val detachedTc = valid.filter { !it.attached }.sumOf { it.pressure!! * it.axles!! }
+        val derivedAxles = if (valid.isEmpty()) null else frontAxles + valid.sumOf { (if (it.attached) 1 else -1) * it.axles!! }
+        val actual = if (valid.isEmpty() || frontActual == null) null else frontActual + attachedTc - detachedTc
+
+        val warnings = mutableListOf<String>()
+        valid.filter { !it.attached }.groupBy { it.pressure!! }.forEach { (p, list) ->
+            val want = list.sumOf { it.axles!! }
+            val have = base.rows.filter { kotlin.math.abs(it.pressurePerAxle - p) < EPS }.sumOf { it.axles }
+            if (have == 0) warnings += "Такого нажатия (${fmtP(p)} тс/ось) нет на лицевой"
+            else if (want > have) warnings += "Отцеплено $want осей по ${fmtP(p)} тс/ось, на лицевой только $have"
+        }
+        if (derivedAxles != null && derivedAxles < 0) warnings += "Отцеплено осей больше, чем в составе"
+
+        val effectiveAxles = newAxlesEntered ?: derivedAxles
+        val cat = BrakeNorms.categoryForAxles(base.category, effectiveAxles)
+        val calc = if (newWeight != null && newWeight > 0.0)
+            BrakeCertificateCalculator.calculate(base.copy(category = cat, compositionWeight = newWeight, rows = emptyList(), declaredAxles = null, actualManualAxles = null))
+        else null
         val before = BrakeCertificateCalculator.calculate(base.copy(declaredAxles = null, actualManualAxles = null))
-        val actual = if (rows.isEmpty()) null else calc.actualPressure
         return Result(
-            category = cat, normBefore = base.category.norm, normAfter = cat.norm, totalWeight = calc.totalWeight,
-            required = calc.requiredPressure, actual = actual, avgPressure = avg,
-            requiredManualAxles = calc.requiredManualAxles, manualAxlesBefore = before.requiredManualAxles,
+            category = cat, normBefore = base.category.norm, normAfter = cat.norm, totalWeight = calc?.totalWeight,
+            required = calc?.requiredPressure, frontActual = frontActual, frontAxles = frontAxles, derivedAxles = derivedAxles, actual = actual,
+            attachedTc = attachedTc, detachedTc = detachedTc,
+            requiredManualAxles = calc?.requiredManualAxles, manualAxlesBefore = before.requiredManualAxles, warnings = warnings,
         )
     }
 
+    private fun fmtP(v: Double): String = (if (v % 1.0 == 0.0) v.toLong().toString() else v.toString()).replace('.', ',')
+
     /**
-     * После правки веса/осей: потребное и фактическое пересчитываются, если не правились вручную
-     * (были пусты или равнялись прежнему расчёту [prev]); вручную введённое значение сохраняется.
+     * После правки веса/осей/строк: число осей, потребное и фактическое пересчитываются, если не правились вручную
+     * (были пусты или равнялись прежнему расчёту [prev]) и сама правка относится не к этому полю; вручную введённое значение сохраняется.
      */
     fun autoFill(prevEntry: TurnaroundEntry, next: TurnaroundEntry, prev: Result?, new: Result?): TurnaroundEntry {
         if (new == null) return next
-        val req = if (prevEntry.newRequired.isBlank() || (prev != null && prevEntry.newRequired == prev.requiredText)) new.requiredText else next.newRequired
-        val act = if (prevEntry.newActual.isBlank() || (prev?.actualText != null && prevEntry.newActual == prev.actualText)) (new.actualText ?: next.newActual) else next.newActual
-        return next.copy(newRequired = req, newActual = act)
+        fun pick(prevVal: String, nextVal: String, prevCalc: String?, newCalc: String?): String {
+            val untouched = nextVal == prevVal
+            val wasAuto = prevVal.isBlank() || (prevCalc != null && prevVal.trim() == prevCalc)
+            return if (untouched && wasAuto) (newCalc ?: if (prevCalc != null && prevVal.trim() == prevCalc) "" else nextVal) else nextVal
+        }
+        return next.copy(
+            newAxles = pick(prevEntry.newAxles, next.newAxles, prev?.axlesText, new.axlesText),
+            newRequired = pick(prevEntry.newRequired, next.newRequired, prev?.requiredText, new.requiredText),
+            newActual = pick(prevEntry.newActual, next.newActual, prev?.actualText, new.actualText),
+        )
     }
 
     /** Значение поля введено вручную (отличается от расчёта). */
