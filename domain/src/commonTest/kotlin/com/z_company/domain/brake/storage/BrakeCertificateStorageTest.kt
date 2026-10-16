@@ -122,4 +122,24 @@ class BrakeCertificateStorageTest {
         val empty = j.encodeToString(Route.serializer(), Route(brakeCertificates = emptyList()))
         assertTrue(empty.contains("\"brakeCertificates\":[]"), empty)
     }
+
+    @Test
+    fun serverGetResponse_decodesIntoRoute_andMergesAsSecondDevice() {
+        // Реальный ответ GET /v1/route/ локального стенда (элемент списка), фрагмент контракта VU45_CERTIFICATES_API.md
+        val j = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
+        val body = """{"basicData":{"id":"11111111-1111-4111-8111-111111111111","timeStartWork":1787468481382},
+            "locomotives":[],"trains":[],"passengers":[],"partners":[],"otherWorks":[],
+            "brakeCertificates":[{"certificateId":"c1111111-1111-4111-8111-111111111111",
+            "routeId":"11111111-1111-4111-8111-111111111111","trainId":"33333333-3333-4333-8333-333333333333",
+            "updatedAt":1787468999000,"data":{"category":"A","turnaround":[{"station":"Рыбацкое","inspectorTab":"12345"}]}}]}"""
+        val route = j.decodeFromString(Route.serializer(), body)
+        val certs = route.brakeCertificates!!
+        assertEquals(1, certs.size)
+        assertEquals("33333333-3333-4333-8333-333333333333", certs[0].trainId)
+        assertEquals(1787468999000, certs[0].updatedAt)
+        assertTrue(certs[0].data is JsonObject)
+        // ответ без поля (сервер без миграции / старый ответ) - null, локальные справки не трогаются
+        val noField = j.decodeFromString(Route.serializer(), """{"basicData":{"id":"x"}}""")
+        assertNull(noField.brakeCertificates)
+    }
 }
