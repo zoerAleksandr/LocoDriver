@@ -306,6 +306,11 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             runCatching {
                 val saved = certificates.save(key.copy(id = storedId), rid, tid) { java.util.UUID.randomUUID().toString() }
                 storedId = saved.id
+                // Справка уходит на сервер в составе рейса: без пометки рейс остаётся «синхронизированным»
+                // и правка справки не отправится до следующего изменения самого рейса.
+                if (com.z_company.repository.remote_rest.RemoteFeatureFlags.remoteCertificatesEnabled) {
+                    routeUseCase.markUnsynchronized(rid).first { it !is ResultState.Loading }
+                }
             }
         }
     }
