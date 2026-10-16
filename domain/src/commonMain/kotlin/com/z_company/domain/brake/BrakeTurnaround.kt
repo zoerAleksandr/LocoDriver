@@ -248,3 +248,70 @@ object TimeOfDayInput {
     /** Для показа: старое значение без двоеточия приводится к «ЧЧ:ММ», нераспознанное показывается как есть. */
     fun display(stored: String): String = normalize(stored) ?: stored
 }
+
+/**
+ * Расчёт граф 3-6 оборота ВУ-45 при изменении состава (прицепка/отцепка вагонов) тем же калькулятором, что на лицевой стороне:
+ * потребное нажатие = ceil(N * Q / 100) (п. 8 прил. М Инструкции 808-2022), где N берётся заново по категории поезда
+ * (для порожних поездов категория зависит от числа осей: до 350 / 350-400 / 400-520, табл. III.1 прил. 2 Правил ТО тормозного оборудования),
+ * Q - новый вес (+ учитываемый локомотив); фактическое = новые оси * среднее нажатие на ось лицевой таблицы (+ локомотив).
+ */
+object TurnaroundComposition {
+    private const val EPS = 1e-9
+
+    /** [normBefore]/[normAfter] - норма, тс на 100 тс веса, до и после изменения; [actual] - null, если на лицевой нет нажатий для среднего. */
+    data class Result(
+        val category: BrakeCategory,
+        val normBefore: Int,
+        val normAfter: Int,
+        val totalWeight: Double,
+        val required: Double,
+        val actual: Double?,
+        val avgPressure: Double?,
+        val requiredManualAxles: Int?,
+        val manualAxlesBefore: Int?,
+    ) {
+        val normChanged: Boolean get() = normBefore != normAfter
+        fun enough(requiredEntered: Double? = null, actualEntered: Double? = null): Boolean? {
+            val a = actualEntered ?: actual ?: return null
+            return a + EPS >= (requiredEntered ?: required)
+        }
+        val requiredText: String get() = required.toLong().toString()
+        val actualText: String? get() = actual?.let { fmt1(it) }
+    }
+
+    fun fmt1(v: Double): String {
+        val r = kotlin.math.round(v * 10) / 10
+        return (if (r % 1.0 == 0.0) r.toLong().toString() else r.toString()).replace('.', ',')
+    }
+
+    /** [base] - вход лицевой стороны (категория, локомотив, строки нажатий); null - расчёт невозможен. */
+    fun compute(base: BrakeCertificateInput?, newWeight: Double?, newAxles: Int?): Result? {
+        if (base == null || newWeight == null || newWeight <= 0.0) return null
+        val cat = BrakeNorms.categoryForAxles(base.category, newAxles)
+        val axlesRows = base.rows.sumOf { it.axles }
+        val avg = if (axlesRows > 0) base.rows.sumOf { it.pressurePerAxle * it.axles } / axlesRows else null
+        val rows = if (avg != null && newAxles != null && newAxles > 0) listOf(AxleRow(avg, newAxles)) else emptyList()
+        val calc = BrakeCertificateCalculator.calculate(base.copy(category = cat, compositionWeight = newWeight, rows = rows, declaredAxles = null, actualManualAxles = null))
+        val before = BrakeCertificateCalculator.calculate(base.copy(declaredAxles = null, actualManualAxles = null))
+        val actual = if (rows.isEmpty()) null else calc.actualPressure
+        return Result(
+            category = cat, normBefore = base.category.norm, normAfter = cat.norm, totalWeight = calc.totalWeight,
+            required = calc.requiredPressure, actual = actual, avgPressure = avg,
+            requiredManualAxles = calc.requiredManualAxles, manualAxlesBefore = before.requiredManualAxles,
+        )
+    }
+
+    /**
+     * После правки веса/осей: потребное и фактическое пересчитываются, если не правились вручную
+     * (были пусты или равнялись прежнему расчёту [prev]); вручную введённое значение сохраняется.
+     */
+    fun autoFill(prevEntry: TurnaroundEntry, next: TurnaroundEntry, prev: Result?, new: Result?): TurnaroundEntry {
+        if (new == null) return next
+        val req = if (prevEntry.newRequired.isBlank() || (prev != null && prevEntry.newRequired == prev.requiredText)) new.requiredText else next.newRequired
+        val act = if (prevEntry.newActual.isBlank() || (prev?.actualText != null && prevEntry.newActual == prev.actualText)) (new.actualText ?: next.newActual) else next.newActual
+        return next.copy(newRequired = req, newActual = act)
+    }
+
+    /** Значение поля введено вручную (отличается от расчёта). */
+    fun isManual(entered: String, calculated: String?): Boolean = entered.isNotBlank() && calculated != null && entered.trim() != calculated
+}

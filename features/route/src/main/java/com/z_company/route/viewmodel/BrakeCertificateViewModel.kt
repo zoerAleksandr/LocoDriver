@@ -399,6 +399,19 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         it.copy(turnaround = it.turnaround + TurnaroundEntry(id = id, stationName = station, stopClass = stopClass))
     }
 
+    /** Правка веса/осей новой строки состава: потребное и фактическое пересчитываются калькулятором, если не правились вручную. */
+    fun updateTurnaroundComposition(id: String, f: (TurnaroundEntry) -> TurnaroundEntry) = _state.update { st ->
+        val base = st.toInput()
+        fun calc(x: TurnaroundEntry) =
+            com.z_company.domain.brake.TurnaroundComposition.compute(base, x.newWeight.toFiniteDoubleOrNull(), x.newAxles.trim().toIntOrNull())
+        st.copy(turnaround = st.turnaround.map { e ->
+            if (e.id != id) e else {
+                val n = f(e)
+                com.z_company.domain.brake.TurnaroundComposition.autoFill(e, n, calc(e), calc(n))
+            }
+        })
+    }
+
     fun updateTurnaround(id: String, f: (TurnaroundEntry) -> TurnaroundEntry) = _state.update {
         it.copy(turnaround = it.turnaround.map { e -> if (e.id == id) f(e) else e })
     }

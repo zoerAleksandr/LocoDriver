@@ -127,6 +127,20 @@ object BrakeNorms {
 
     fun category(id: String): BrakeCategory? = categories.firstOrNull { it.id == id }
 
+    /**
+     * Категория для порожнего поезда по числу осей (табл. III.1: до 350 / 350-400 включительно / более 400 до 520 включительно);
+     * для остальных категорий и при неизвестном/вне диапазона числе осей - [current] без изменений.
+     */
+    fun categoryForAxles(current: BrakeCategory, axles: Int?): BrakeCategory {
+        if (axles == null || current.id !in setOf("EMPTY_350", "EMPTY_350_400", "EMPTY_400_520")) return current
+        return when {
+            axles <= 350 -> category("EMPTY_350")
+            axles <= 400 -> category("EMPTY_350_400")
+            axles <= 520 -> category("EMPTY_400_520")
+            else -> null
+        } ?: current
+    }
+
     /** Табл. III.4 (п. 44): единая норма и нормы по крутизне уклона — число ручных тормозных осей на 100 тс веса состава. */
     enum class ManualBrakeNorm(val perHundred: Double, val title: String) {
         UNIFIED_06(0.6, "0,6 - единое наименьшее (по умолчанию)"),
