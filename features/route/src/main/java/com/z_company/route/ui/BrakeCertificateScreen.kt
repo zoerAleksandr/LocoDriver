@@ -72,6 +72,8 @@ import androidx.compose.ui.unit.sp
 import com.z_company.domain.brake.BrakeCategory
 import com.z_company.domain.brake.BrakeCertificateCalculator
 import com.z_company.domain.brake.BrakeCertificateResult
+import com.z_company.domain.brake.BrakeStatusResolver
+import com.z_company.domain.brake.StatusLevel
 import com.z_company.domain.brake.BrakeDensity
 import com.z_company.domain.brake.BrakeNorms
 import com.z_company.domain.brake.CompositeShare
@@ -272,7 +274,8 @@ private fun CalcTab(
     onOpenBlank: () -> Unit,
 ) {
     val t = vuColors()
-    val low = result != null && result.actualPressure > 0 && !result.enough
+    val low = result != null && result.actualPressure > 0 && !result.enough &&
+        BrakeStatusResolver.resolve(result, true).level == StatusLevel.DANGER
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { VuSpeedBar(result) }
         Column(
@@ -289,7 +292,7 @@ private fun CalcTab(
                     onClick = { onSheet(BrakeSheet.Category) }, onHelp = { onSheet(BrakeSheet.Help("category")) },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    VuInput("Вес состава, тс", state.weightText, Modifier.weight(1f), onChange = vm::setWeight, unit = "тс", placeholder = "0", onHelp = { onSheet(BrakeSheet.Help("weight")) })
+                    VuInput("Вес состава, т", state.weightText, Modifier.weight(1f), onChange = vm::setWeight, unit = "т", placeholder = "0", onHelp = { onSheet(BrakeSheet.Help("weight")) })
                     VuInput("Всего осей", state.totalAxlesText, Modifier.weight(1f), onChange = vm::setTotalAxles, unit = "осей", placeholder = "0", keyboard = KeyboardType.Number, onHelp = { onSheet(BrakeSheet.Help("axles")) })
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -312,6 +315,7 @@ private fun CalcTab(
                 if (state.rowsMode) AxleSumWarning(state, vm)
                 Box(Modifier.padding(start = 0.dp)) { VuBtn("Оси по типам вагонов ›", onClick = onOpenBlank, kind = VuBtnKind.Text, h = 40.dp) }
                 if (category.manualBrakesRequired) VuHint(state.manualInfo.text.replaceFirstChar { it.uppercase() }, Modifier.padding(horizontal = 4.dp))
+                CompositeRow(state, vm, onHelp = { onSheet(BrakeSheet.Help("composite")) })
                 // Руководящий спуск
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth().heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -323,13 +327,34 @@ private fun CalcTab(
                         SlopeStep.values().forEach { step ->
                             VuChip(step.slopeText.removePrefix("0,0").removePrefix("до ").let { if (step == SlopeStep.S006) "≤ 6" else it.trimStart('0') }, state.slope == step, { vm.setSlope(step) }, Modifier.widthIn(min = 56.dp))
                         }
-                        if (ab) VuChip("АБ", state.autoblock3, { vm.setAutoblock(!state.autoblock3) })
                     }
+                    if (ab) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        VuChip("Автоблокировка (3-значная)", state.autoblock3, { vm.setAutoblock(!state.autoblock3) })
+                    }
+                    if (ab) VuHint("Автоблокировка - отдельный переключатель, сочетается с выбранным спуском: автоблокировка с 3-значной сигнализацией (зелёный огонь АЛСН), скорости в скобках табл. 1 (${InstructionRef.p("3.1")}).", Modifier.padding(horizontal = 4.dp))
                 }
             }
             FillFromRoute(state, vm)
             ResultCard(result, state, category, onOpenBlank)
-            if (low && result != null) DeficitBlock(result, category, onHelp = { onSheet(BrakeSheet.Help("deficit")) })
+            if (low && result != null && BrakeStatusResolver.resolve(result, true).level == StatusLevel.DANGER) DeficitBlock(result, category, onHelp = { onSheet(BrakeSheet.Help("deficit")) })
+        }
+    }
+}
+
+/** Доля вагонов с композиционными колодками (п. 3.3): то же состояние, что и в «Бланк» - «Другие данные». */
+@Composable
+private fun CompositeRow(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onHelp: () -> Unit) {
+    val t = vuColors()
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Композиционные колодки", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted)
+            VuHelp(onHelp, touch = 32.dp)
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            VuChip("Нет", state.compositeShare == CompositeShare.NONE, { vm.setCompositeShare(CompositeShare.NONE) }, Modifier.widthIn(min = 56.dp))
+            listOf("К-50" to CompositeShare.P50, "К-75" to CompositeShare.P75, "К-100" to CompositeShare.P100).forEach { (label, v) ->
+                VuChip(label, state.compositeShare == v, { vm.setCompositeShare(v) }, Modifier.widthIn(min = 56.dp))
+            }
         }
     }
 }
@@ -365,7 +390,10 @@ private fun ResultCard(result: BrakeCertificateResult?, state: BrakeCertificateU
     val t = vuColors()
     val has = (result?.actualPressure ?: 0.0) > 0.0
     val sp = result?.speed
+    val status = BrakeStatusResolver.resolve(result, has)
     val low = has && result != null && !result.enough
+    val warn = status.level == StatusLevel.WARNING
+    val numColor = when (status.level) { StatusLevel.DANGER -> t.danger; StatusLevel.WARNING -> t.text; else -> t.accent }
     VuCard {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
@@ -376,8 +404,8 @@ private fun ResultCard(result: BrakeCertificateResult?, state: BrakeCertificateU
                 when {
                     !has || sp == null -> Text("—", fontFamily = VuMono, fontSize = 48.sp, fontWeight = FontWeight.Bold, color = t.faint)
                     sp is SpeedLimit.Allowed -> {
-                        Text("${sp.kmh}", fontFamily = VuMono, fontSize = 48.sp, fontWeight = FontWeight.Bold, color = if (sp.reducedFrom != null || low) t.danger else t.accent)
-                        Text("км/ч", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = if (sp.reducedFrom != null || low) t.danger else t.accent, modifier = Modifier.padding(start = 8.dp, bottom = 6.dp))
+                        Text("${sp.kmh}", fontFamily = VuMono, fontSize = 48.sp, fontWeight = FontWeight.Bold, color = numColor)
+                        Text("км/ч", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = numColor, modifier = Modifier.padding(start = 8.dp, bottom = 6.dp))
                     }
                     else -> Text("не определена", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = t.danger)
                 }
@@ -387,16 +415,17 @@ private fun ResultCard(result: BrakeCertificateResult?, state: BrakeCertificateU
             } else {
                 Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     MetricCell("Потребное, тс", fmt(result.requiredPressure), modifier = Modifier.weight(1f))
-                    MetricCell("Фактическое, тс", fmt(result.actualPressure), color = if (low) t.danger else null, modifier = Modifier.weight(1f))
+                    MetricCell("Фактическое, тс", fmt(result.actualPressure), color = if (low) (if (warn) t.warning else t.danger) else null, modifier = Modifier.weight(1f))
                     MetricCell(
                         "Ручных осей", if (category.manualBrakesRequired) (result.requiredManualAxles?.toString() ?: "—") else "все",
                         align = TextAlign.End, modifier = Modifier.weight(0.8f),
                     )
                 }
                 Box(Modifier.padding(vertical = 10.dp).fillMaxWidth().height(1.dp).background(t.border))
-                if (low) VuVerdict(false, "Нажатие недостаточно: не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс (${fmt(result.shortagePer100, 2)} тс на 100 тс веса при норме ${category.norm})")
+                if (warn) VuWarnVerdict("Нажатие недостаточно: не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс (${fmt(result.shortagePer100, 2)} тс на 100 тс веса при норме ${category.norm}), но скорость не снижена")
+                else if (low) VuVerdict(false, "Нажатие недостаточно: не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс (${fmt(result.shortagePer100, 2)} тс на 100 тс веса при норме ${category.norm})")
                 else VuVerdict(true, "Нажатие достаточно: запас ${fmt(result.actualPressure - result.requiredPressure)} тс (${fmt(result.actualPer100, 2)} тс на 100 тс веса)")
-                SpeedExplanation(sp)
+                SpeedExplanation(sp, warn)
                 result.manualAxlesOk?.let { ok ->
                     VuHint(if (ok) "Ручных осей достаточно (потребно ${result.requiredManualAxles})" else "Ручных осей не хватает: потребно ${result.requiredManualAxles}", Modifier.padding(top = 4.dp), color = if (ok) t.success else t.danger)
                 }
@@ -411,7 +440,7 @@ private fun ResultCard(result: BrakeCertificateResult?, state: BrakeCertificateU
 
 /** Пояснение скорости: одна короткая красная строка + «Подробнее» (шаги расчёта по п. 4.4 / условия / причина). */
 @Composable
-private fun SpeedExplanation(sp: SpeedLimit?) {
+private fun SpeedExplanation(sp: SpeedLimit?, warn: Boolean = false) {
     val t = vuColors()
     var open by rememberSaveable { mutableStateOf(false) }
     when (sp) {
@@ -426,6 +455,12 @@ private fun SpeedExplanation(sp: SpeedLimit?) {
                         Text(steps, fontFamily = VuMono, fontSize = 13.sp, lineHeight = 19.sp, color = t.text)
                         sp.condition?.let { VuHint(it, color = t.danger) }
                     }
+                }
+            } else if (warn) {
+                Column(Modifier.padding(top = 8.dp).fillMaxWidth().background(t.warning.copy(alpha = 0.18f), RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Скорость табл. 1 сохранена: нажатия не хватает, но условие ${InstructionRef.p("3.3")} выполнено", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.text, lineHeight = 20.sp)
+                    Text(if (open) "Свернуть ▴" else "Подробнее ▾", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.clickable { open = !open }.padding(vertical = 4.dp))
+                    if (open) Text(InstructionRef.annotate(sp.note) + (sp.reducedFrom?.let { " Было бы по табл. 1: $it км/ч." } ?: ""), fontSize = 14.sp, lineHeight = 20.sp, color = t.text)
                 }
             } else VuHint(sp.note + (sp.reducedFrom?.let { " Было бы по табл. 1: $it км/ч." } ?: ""), Modifier.padding(top = 8.dp))
         }
@@ -479,13 +514,16 @@ private fun DeficitBlock(result: BrakeCertificateResult, category: BrakeCategory
 private fun VuSpeedBar(result: BrakeCertificateResult?) {
     val t = vuColors()
     val has = (result?.actualPressure ?: 0.0) > 0.0
-    val low = has && result != null && !result.enough
+    val status = BrakeStatusResolver.resolve(result, has)
     val sp = result?.speed
     val shape = RoundedCornerShape(16.dp)
-    val below = sp is SpeedLimit.NotDetermined && has
     val belowMin = (sp as? SpeedLimit.NotDetermined)?.kind == SpeedLimit.Kind.BELOW_MIN
+    val warn = status.level == StatusLevel.WARNING
+    val danger = status.level == StatusLevel.DANGER
+    val tone = when (status.level) { StatusLevel.NONE -> t.faint; StatusLevel.OK -> t.accent; StatusLevel.WARNING -> t.warning; StatusLevel.DANGER -> t.danger }
+    val bg = when { danger -> t.danger.copy(alpha = 0.14f); warn -> t.warning.copy(alpha = 0.18f); else -> t.surface }
     Row(
-        Modifier.fillMaxWidth().height(IntrinsicSize.Min).heightIn(min = 56.dp).background(if (low || below) t.danger.copy(alpha = 0.14f) else t.surface, shape).padding(horizontal = 16.dp, vertical = if (belowMin) 8.dp else 0.dp),
+        Modifier.fillMaxWidth().height(IntrinsicSize.Min).heightIn(min = 56.dp).background(bg, shape).padding(horizontal = 16.dp, vertical = if (belowMin || warn) 8.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -495,19 +533,16 @@ private fun VuSpeedBar(result: BrakeCertificateResult?) {
             else -> "—"
         }
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(speedText, fontFamily = VuMono, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (!has) t.faint else if (low) t.danger else t.accent)
-            Text("км/ч", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (!has) t.faint else if (low) t.danger else t.accent, modifier = Modifier.padding(start = 4.dp, bottom = 3.dp))
+            val speedColor = if (warn) t.text else tone
+            Text(speedText, fontFamily = VuMono, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = speedColor)
+            Text("км/ч", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = speedColor, modifier = Modifier.padding(start = 4.dp, bottom = 3.dp))
         }
         Box(Modifier.fillMaxHeight().padding(vertical = 12.dp).width(1.dp).background(t.border))
         Text(
-            when {
-                !has || result == null -> "Введите вес и оси"
-                belowMin -> "Нажатие ниже минимального (табл. 2 ${InstructionRef.GENITIVE}). Скорость по таблицам не определена"
-                low -> "Не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс" + ((sp as? SpeedLimit.Allowed)?.let { " · скорость по п. 4.4 Инструкции" } ?: "")
-                else -> "Нажатие достаточно"
-            },
-            Modifier.weight(1f), fontSize = if (belowMin) 13.sp else 14.sp, fontWeight = FontWeight.SemiBold, lineHeight = if (belowMin) 15.sp else 17.sp,
-            color = if (!has) t.muted else if (low) t.danger else t.success, maxLines = if (belowMin) 3 else 2,
+            InstructionRef.annotate(status.headline),
+            Modifier.weight(1f), fontSize = if (belowMin || warn) 13.sp else 14.sp, fontWeight = FontWeight.SemiBold, lineHeight = if (belowMin || warn) 15.sp else 17.sp,
+            color = when (status.level) { StatusLevel.NONE -> t.muted; StatusLevel.OK -> t.success; StatusLevel.WARNING -> t.text; StatusLevel.DANGER -> t.danger },
+            maxLines = if (belowMin || warn) 3 else 2,
         )
     }
 }
@@ -677,7 +712,7 @@ private fun FrontBody(
     VuFillRow {
         VuPrint("весом")
         VuInk(state.weightText, Modifier.weight(1f), onChange = vm::setWeight, keyboard = KeyboardType.Decimal, maxLen = 8)
-        VuPrint("тс.")
+        VuPrint("т.")
         VuPrint("Всего осей", modifier = Modifier.padding(start = 6.dp))
         VuInk(state.totalAxlesText, Modifier.width(56.dp), onChange = vm::setTotalAxles, keyboard = KeyboardType.Number, maxLen = 4)
         VuMiniHelp { help("axles") }

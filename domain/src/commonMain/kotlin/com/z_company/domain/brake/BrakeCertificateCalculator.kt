@@ -160,9 +160,11 @@ object BrakeCertificateCalculator {
                 CompositeShare.NONE, CompositeShare.P50 -> false
             }
             if (ok) {
+                val v = minOf(80, base)
                 return SpeedLimit.Allowed(
-                    minOf(80, base),
+                    v,
                     "${InstructionRef.p("3.3")}: нагрузка на ось более 21 тс, композиционные колодки, ВР на среднем режиме - до 80 км/ч",
+                    reducedFrom = if (v < base) base else null,
                 )
             }
         }

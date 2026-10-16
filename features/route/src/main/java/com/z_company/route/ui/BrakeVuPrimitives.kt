@@ -291,6 +291,18 @@ internal fun VuVerdict(ok: Boolean, text: String, size: Int = 15) {
     }
 }
 
+/** Предупреждение (жёлтое): нажатия не хватает, но скорость не снижена. Текст в цвете основного текста (читаем в обеих темах), значок - warning. */
+@Composable
+internal fun VuWarnVerdict(text: String, size: Int = 15) {
+    val t = vuColors()
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+        Box(Modifier.padding(top = 1.dp).size(20.dp).background(t.warning, CircleShape), contentAlignment = Alignment.Center) {
+            Text("!", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
+        }
+        Text(InstructionRef.annotate(text), fontSize = size.sp, fontWeight = FontWeight.SemiBold, color = t.text, lineHeight = (size * 1.35f).sp)
+    }
+}
+
 /** Карточка: surface, r16, тень sm. */
 @Composable
 internal fun VuCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
