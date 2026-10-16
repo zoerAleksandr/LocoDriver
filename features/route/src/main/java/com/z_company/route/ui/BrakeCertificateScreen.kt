@@ -94,6 +94,7 @@ import com.z_company.route.ui.settings.SettingsPickerOption
 import com.z_company.route.ui.settings.SettingsPickerSheet
 import com.z_company.route.viewmodel.BrakeCertificateUiState
 import com.z_company.route.viewmodel.BrakeCertificateViewModel
+import com.z_company.route.viewmodel.effectiveDensityGroup
 import com.z_company.route.viewmodel.DensityTimerState
 import com.z_company.route.viewmodel.TimerKind
 import com.z_company.route.viewmodel.effectiveRows
@@ -108,6 +109,7 @@ private sealed interface BrakeSheet {
     data object Category : BrakeSheet
     data object ManualNorm : BrakeSheet
     data object DensityGroup : BrakeSheet
+    data object CustomVolume : BrakeSheet
     data object Other : BrakeSheet
     data object RowPressure : BrakeSheet
     data class Turnaround(val entryId: String) : BrakeSheet
@@ -244,11 +246,13 @@ fun BrakeCertificateScreen(
             onDismiss = { sheet = null },
             options = buildList {
                 DensityLocoGroup.values().forEach { g ->
-                    add(SettingsPickerOption(label = g.title, sub = g.examplesText.ifBlank { null }, selected = g == state.densityGroup, onSelect = { viewModel.setDensityGroup(g) }))
+                    add(SettingsPickerOption(label = g.title, sub = g.examplesText.ifBlank { null }, selected = state.customVolumeText.isBlank() && g == state.densityGroup, onSelect = { viewModel.setDensityGroup(g) }))
                 }
-                add(SettingsPickerOption(label = "Не выбрана", selected = state.densityGroup == null, onSelect = { viewModel.setDensityGroup(null) }))
+                add(SettingsPickerOption(label = "Свой объём, л", sub = if (state.customVolumeText.isNotBlank()) BrakeDensity.volumeCaption(state.customVolumeText) else null, selected = state.customVolumeText.isNotBlank(), onSelect = { sheet = BrakeSheet.CustomVolume }))
+                add(SettingsPickerOption(label = "Не выбрана", selected = state.densityGroup == null && state.customVolumeText.isBlank(), onSelect = { viewModel.setDensityGroup(null) }))
             },
         )
+        BrakeSheet.CustomVolume -> CustomVolumeSheet(state, viewModel, onDismiss = { sheet = null })
         BrakeSheet.Other -> OtherSheet(state, category, viewModel, onDismiss = { sheet = null })
         BrakeSheet.RowPressure -> RowSheet(state, viewModel, onDismiss = { sheet = null })
         is BrakeSheet.Turnaround -> TurnaroundSheet(
@@ -388,10 +392,32 @@ private fun AutoblockRow(state: BrakeCertificateUiState, applicable: Boolean, on
     }
 }
 
+/** Шторка «Свой объём ГР, л»: группа определяется по прим. 3 к табл. IV.1 (ближайший наименьший объём). */
+@Composable
+private fun CustomVolumeSheet(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(state.customVolumeText) }
+    val result = BrakeDensity.groupByVolume(text)
+    VuSheet(
+        title = "Свой объём главных резервуаров", sub = "Общий объём ГР локомотива, литры (дробные допустимы)", onDismiss = onDismiss,
+        footer = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                VuBtn("Сбросить", { vm.setCustomVolume(""); onDismiss() }, kind = VuBtnKind.Text, h = 56.dp)
+                VuBtn("Применить", { vm.setCustomVolume(text.trim()); onDismiss() }, Modifier.weight(1f), h = 56.dp, enabled = result !is BrakeDensity.VolumeGroup.Invalid)
+            }
+        },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            VuInput("Объём ГР, л", text, onChange = { text = it }, unit = "л", sunk = true, placeholder = "например 1700")
+            VuHint(BrakeDensity.volumeCaption(text))
+            VuHint("При объёме, которого нет в таблице, берётся ближайший наименьший (прим. 3 к табл. IV.1 прил. 2 ${InstructionRef.GENITIVE}).")
+        }
+    }
+}
+
 /** Параметры плотности тормозной сети (общее состояние «Расчёта», «Бланка» и «Замеров»): зарядное давление, число локомотивов (СМЕ), группа по объёму ГР. */
 @Composable
 private fun DensityCard(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onGroup: () -> Unit, onHelp: (BrakeSheet) -> Unit) {
-    val group = state.densityGroup ?: BrakeDensity.groupBySeries(state.locoSeriesText)
+    val group = state.effectiveDensityGroup()
     val charge = state.chargePressureText.toFiniteDoubleOrNull()
     val axles = axlesForNorm(state)
     val locoCount = state.locoCountText.trim().toIntOrNull() ?: 1
@@ -405,11 +431,13 @@ private fun DensityCard(state: BrakeCertificateUiState, vm: BrakeCertificateView
             }
             VuInput(
                 "Группа локомотива (объём ГР)",
-                group?.let { it.title + (if (state.densityGroup == null) " · по серии" else "") } ?: "Не выбрана",
+                if (state.customVolumeText.isNotBlank()) BrakeDensity.volumeCaption(state.customVolumeText).let { c -> if (group == null) "Свой объём ${state.customVolumeText} л" else c }
+                else group?.let { it.title + (if (state.densityGroup == null) " · по серии" else "") } ?: "Не выбрана",
                 onClick = onGroup, sunk = true, onHelp = { onHelp(BrakeSheet.Help("group")) },
             )
             VuHint(
                 when {
+                    state.customVolumeText.isNotBlank() && group == null -> BrakeDensity.volumeCaption(state.customVolumeText)
                     group == null -> "Без группы норма плотности (табл. IV.1) не определяется: выберите группу по объёму главных резервуаров локомотива."
                     minTime == null -> "Норма II положения: длина состава должна быть 1-530 осей (сейчас: $axles)."
                     else -> "Норма II положения по табл. IV.1: не менее ${fmt(minTime)} с (${group.title}, $axles осей" + (if (BrakeDensity.chargeFactor(charge) < 1.0) ", с поправкой на зарядное давление" else "") + ")."
@@ -1279,7 +1307,7 @@ private fun MeasureTab(
     val passenger = category.group == TrainGroup.PASSENGER
     val kinds = if (passenger) listOf(TimerKind.II, TimerKind.ROUTE) else TimerKind.values().toList()
     val active = if (kind in kinds) kind else TimerKind.II
-    val group = state.densityGroup ?: BrakeDensity.groupBySeries(state.locoSeriesText)
+    val group = state.effectiveDensityGroup()
     val charge = state.chargePressureText.toFiniteDoubleOrNull()
     val axles = axlesForNorm(state)
     val locoCount = state.locoCountText.trim().toIntOrNull() ?: 1
@@ -1433,7 +1461,7 @@ private fun TimerCard(
 private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory, onOpenMeasure: () -> Unit) {
     val t = vuColors()
     var open by rememberSaveable { mutableIntStateOf(-1) }
-    val group = state.densityGroup ?: BrakeDensity.groupBySeries(state.locoSeriesText)
+    val group = state.effectiveDensityGroup()
     val axles = axlesForNorm(state)
     val minTime = group?.let { BrakeDensity.minTimeSeconds(it, axles, state.chargePressureText.toFiniteDoubleOrNull(), state.locoCountText.trim().toIntOrNull() ?: 1) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

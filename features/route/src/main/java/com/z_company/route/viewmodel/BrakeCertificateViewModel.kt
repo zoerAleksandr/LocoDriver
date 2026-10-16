@@ -31,6 +31,8 @@ import com.z_company.domain.brake.BrakeLocoCatalog
 import com.z_company.domain.brake.BrakeNorms
 import com.z_company.domain.brake.BrakePrefill
 import com.z_company.domain.brake.CompositeShare
+import com.z_company.domain.brake.BrakeDensity
+import com.z_company.domain.brake.BrakeFillResolver
 import com.z_company.domain.brake.DensityLocoGroup
 import com.z_company.domain.brake.GradeClass
 import com.z_company.domain.brake.SlopeStep
@@ -116,6 +118,8 @@ data class BrakeCertificateUiState(
     // Плотность
     val chargePressureText: String = "",
     val densityGroup: DensityLocoGroup? = null,
+    /** Свой объём ГР, л (текст); пусто - не задан. Имеет приоритет над [densityGroup] и автоподбором. */
+    val customVolumeText: String = "",
     val locoCountText: String = "1",
     val timerII: DensityTimerState = DensityTimerState(),
     val timerIV: DensityTimerState = DensityTimerState(),
@@ -165,6 +169,8 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     private var storedId: String = ""
     private var lastSavedKey: BrakeCertificateData? = null
     private var persistStarted = false
+    /** Что подставила кнопка «Заполнить из маршрута» в прошлый раз (по названию поля): такое значение без правок пользователя можно перезаписать актуальным. */
+    private val lastAutoFilled = mutableMapOf<String, String>()
     private val prefs = application.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     private val _state = MutableStateFlow(
@@ -238,30 +244,44 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             val missing = mutableListOf<String>()
             val conflicts = mutableListOf<String>()
             val cur = _state.value
-            // Введённое не затираем без подтверждения: пустое или совпадающее - подставляем, иное - в «не заменено».
+            // Введённое не затираем без подтверждения: пустое, совпадающее, прежняя автоподстановка (не правленая) или force - подставляем, иное - в «не заменено».
             fun pick(label: String, new: String?, old: String, same: (String, String) -> Boolean = { a, b -> a.trim() == b.trim() }): String {
                 if (new == null) { missing += label; return old }
-                return if (old.isBlank() || same(old, new) || force) { filled += label; new } else { conflicts += label; old }
+                return if (BrakeFillResolver.shouldReplace(old, new, lastAutoFilled[label], force, same)) {
+                    filled += label; lastAutoFilled[label] = new; new
+                } else { conflicts += label; old }
             }
             val num = { a: String, b: String -> a.toFiniteDoubleOrNull() == b.toFiniteDoubleOrNull() }
             val weight = pick("вес", q.weight, cur.weightText, num)
             val axles = pick("оси", q.axles, cur.totalAxlesText, num)
             val trainNo = pick("поезд №", q.trainNumber, cur.trainNumberText)
-            val locoNo = pick("локомотив", q.locoNumber ?: q.locoSeries, cur.locoNumberText.ifBlank { cur.locoSeriesText })
+            // Серия и номер локомотива - всегда из актуальных данных маршрута (последний локомотив), группа ГР - заново по серии и номеру
+            val lf = BrakeFillResolver.resolveLoco(q.locoSeries, q.locoNumber, cur.locoSeriesText, cur.locoNumberText, cur.densityGroup.takeIf { cur.customVolumeText.isBlank() }, force)
+            if (q.locoSeries == null && q.locoNumber == null) missing += "локомотив"
+            else {
+                if (q.locoSeries != null) filled += "серия ${lf.series}"
+                if (q.locoNumber != null) filled += "локомотив № ${lf.number}"
+            }
             _state.update {
                 it.copy(
                     weightText = weight,
                     totalAxlesText = axles,
                     trainNumberText = trainNo,
-                    locoNumberText = if (q.locoNumber != null && locoNo == q.locoNumber) locoNo else it.locoNumberText,
+                    locoNumberText = lf.number,
+                    densityGroup = if (cur.customVolumeText.isNotBlank() && !force) it.densityGroup else lf.manualGroup,
+                    customVolumeText = if (force) "" else it.customVolumeText,
                     trainId = train?.trainId ?: it.trainId,
                     filling = false,
-                    fillReport = FillReport(filled.distinct(), missing.distinct(), conflicts = conflicts.distinct()),
                 )
             }
-            val curSeries = _state.value.locoSeriesText
-            val newSeries = q.locoSeries
-            if (newSeries != null && (curSeries.isBlank() || force || curSeries.trim() == newSeries)) setLocoSeries(newSeries)
+            if (q.locoSeries != null) setLocoSeries(lf.series)
+            val st = _state.value
+            val grp = st.effectiveDensityGroup()
+            if (st.customVolumeText.isNotBlank()) conflicts += "группа (свой объём ГР ${st.customVolumeText} л)"
+            else if (lf.manualGroupKept) conflicts += "группа (выбрана вручную: ${grp?.title ?: "не выбрана"})"
+            else if (grp != null) filled += "группа ${grp.title}"
+            else if (q.locoSeries != null || q.locoNumber != null) missing += "группа (серия не определяет объём ГР - выберите вручную)"
+            _state.update { it.copy(fillReport = FillReport(filled.distinct(), missing.distinct(), conflicts = conflicts.distinct())) }
             applyStopCandidates(train?.stations.orEmpty())
         }
     }
@@ -533,7 +553,11 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
 
     // ── Плотность ──
     fun setChargePressure(v: String) = _state.update { it.copy(chargePressureText = v) }
-    fun setDensityGroup(g: DensityLocoGroup?) = _state.update { it.copy(densityGroup = g) }
+    /** Выбор группы по табл. IV.1 вручную сбрасывает свой объём. */
+    fun setDensityGroup(g: DensityLocoGroup?) = _state.update { it.copy(densityGroup = g, customVolumeText = "") }
+
+    /** Свой объём ГР, л: группа определяется по прим. 3 к табл. IV.1 (ближайший наименьший объём). Пусто - свой объём не задан. */
+    fun setCustomVolume(v: String) = _state.update { it.copy(customVolumeText = v, densityGroup = if (v.isBlank()) it.densityGroup else null) }
     fun setLocoCount(v: String) = _state.update { it.copy(locoCountText = v) }
 
     private fun timerOf(s: BrakeCertificateUiState, k: TimerKind) = when (k) {
@@ -671,7 +695,7 @@ fun BrakeCertificateUiState.toData(updatedAt: Long = 0L): BrakeCertificateData {
         locoEnabled = locoEnabled, locoWeight = locoWeightText, locoAxles = locoAxlesText, locoPressure = locoPressureText,
         compositeShare = compositeShare, flags = flags.toList(), tcpv = tcpvText, vstr = vstrText, dpv = dpvText, vo2hv = vo2hvText,
         manualHave = manualHaveText, feedDensity = feedDensityText, tailVoltage = tailVoltageText, tailCar = tailCarText,
-        chargePressure = chargePressureText, densityGroup = densityGroup, locoCount = locoCountText,
+        chargePressure = chargePressureText, densityGroup = densityGroup, customVolume = customVolumeText, locoCount = locoCountText,
         measurements = listOf(m(TimerKind.II, timerII), m(TimerKind.IV, timerIV), m(TimerKind.ROUTE, timerRoute)),
         turnaround = turnaround, updatedAt = updatedAt,
     )
@@ -697,8 +721,13 @@ fun BrakeCertificateData.toUiState(base: BrakeCertificateUiState): BrakeCertific
         locoEnabled = locoEnabled, locoWeightText = locoWeight, locoAxlesText = locoAxles, locoPressureText = locoPressure,
         compositeShare = compositeShare, flags = flags.toSet(), tcpvText = tcpv, vstrText = vstr, dpvText = dpv, vo2hvText = vo2hv,
         manualHaveText = manualHave, feedDensityText = feedDensity, tailVoltageText = tailVoltage, tailCarText = tailCar,
-        chargePressureText = chargePressure, densityGroup = densityGroup, locoCountText = locoCount.ifBlank { "1" },
+        chargePressureText = chargePressure, densityGroup = densityGroup, customVolumeText = customVolume, locoCountText = locoCount.ifBlank { "1" },
         timerII = timer(TimerKind.II), timerIV = timer(TimerKind.IV), timerRoute = timer(TimerKind.ROUTE),
         turnaround = turnaround,
     )
 }
+
+/** Итоговая группа плотности: свой объём ГР (прим. 3 к табл. IV.1) > выбранная вручную > автоподбор по серии и номеру локомотива из маршрута. */
+fun BrakeCertificateUiState.effectiveDensityGroup(): DensityLocoGroup? =
+    if (customVolumeText.isNotBlank()) (BrakeDensity.groupByVolume(customVolumeText) as? BrakeDensity.VolumeGroup.Found)?.group
+    else densityGroup ?: BrakeDensity.groupForLoco(locoSeriesText, locoNumberText)

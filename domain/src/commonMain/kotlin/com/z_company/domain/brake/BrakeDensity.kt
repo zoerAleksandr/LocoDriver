@@ -16,7 +16,7 @@ package com.z_company.domain.brake
  * (rustrain.narod.ru/biblio/tormoza/p1.htm). В действующих Правилах объёмы по сериям не приведены (на локомотиве выписка с объёмом, прим. 4 к табл. IV.1) -
  * данные ориентировочные, проверяйте по паспорту локомотива.
  */
-data class SeriesExample(val series: String, val volume: String, val note: String? = null, val auto: Boolean = true) {
+data class SeriesExample(val series: String, val volume: String, val note: String? = null, val auto: Boolean = true, val show: Boolean = true) {
     val label: String get() = series
 }
 
@@ -43,7 +43,7 @@ enum class DensityLocoGroup(val liters: Int, val examples: List<SeriesExample>, 
     G3(
         1500,
         listOf(
-            SeriesExample("ВЛ10У", "1500 л"), SeriesExample("ВЛ10 с № 19", "1500 л", auto = false),
+            SeriesExample("ВЛ10У", "1500 л"), SeriesExample("ВЛ10 (№ 19+)", "1500 л", auto = false),
             SeriesExample("ВЛ11", "1500 л"),
         ),
         listOf(80, 58, 46, 34, 31, 26, 23, 21, 17, 15),
@@ -52,7 +52,7 @@ enum class DensityLocoGroup(val liters: Int, val examples: List<SeriesExample>, 
         1800,
         listOf(
             SeriesExample("ВЛ80", "1800 л", "все индексы"), SeriesExample("ВЛ82", "1800 л"), SeriesExample("ВЛ82М", "1800 л"),
-            SeriesExample("ВЛ10 № 1-18", "1960 л", auto = false),
+            SeriesExample("ВЛ10 (№ 1-18)", "1960 л", auto = false),
         ),
         listOf(98, 69, 52, 46, 38, 33, 29, 26, 22, 20),
     ),
@@ -70,13 +70,13 @@ enum class DensityLocoGroup(val liters: Int, val examples: List<SeriesExample>, 
         listOf(SeriesExample("ВЛ15", "2500 л"), SeriesExample("2ТЭ10У", "2500 л"), SeriesExample("2ТЭ10УТ", "2500 л")),
         listOf(129, 93, 71, 64, 51, 45, 40, 36, 30, 28),
     ),
-    G7(3000, emptyList(), listOf(207, 138, 102, 87, 75, 66, 60, 51, 45, 33));
+    G7(3000, listOf(SeriesExample("3ЭС4К", "3000 л"), SeriesExample("3ЭС5К", "3000 л")), listOf(207, 138, 102, 87, 75, 66, 60, 51, 45, 33));
 
     /** Название строки: «1000 л». */
     val title: String get() = "$liters л"
 
     /** Серии для показа в пикере и шторке: только названия серий с однозначным объёмом (без пометок и источников - они в docs/VU45_SPEC.md). */
-    val examplesText: String get() = examples.filter { it.auto }.joinToString(", ") { it.series }
+    val examplesText: String get() = examples.filter { it.show }.joinToString(", ") { it.series }
 }
 
 object BrakeDensity {
@@ -105,7 +105,7 @@ object BrakeDensity {
 
     /**
      * Группа по серии локомотива из маршрута: только серии из примеров групп (источник - Приложение 1 прежней Инструкции 277, ориентировочно).
-     * Для ВЛ80 и ВЛ60 - по префиксу (все индексы). Не найдено (в т.ч. ВЛ10 - объём зависит от номера) - null: группу выбирает пользователь.
+     * Для ВЛ80 и ВЛ60 - по префиксу (все индексы). ВЛ10 без номера - null (объём зависит от номера, см. [groupForLoco]).
      */
     fun groupBySeries(series: String?): DensityLocoGroup? {
         val n = normalizeSeries(series ?: return null)
@@ -118,6 +118,64 @@ object BrakeDensity {
         if (n.startsWith("ВЛ60")) return DensityLocoGroup.G2
         return null
     }
+
+    /** Номер ВЛ10, с которого объём ГР 1500 л (до него - 1960 л). */
+    const val VL10_FIRST_1500_NUMBER = 19
+
+    /**
+     * Номер локомотива из строки: цифры до буквы секции («1234А» -> 1234), допускается префикс серии («ВЛ10-1234»), ведущие нули («0012» -> 12).
+     * null - номер не разобран или равен нулю.
+     */
+    fun parseLocoNumber(raw: String?): Int? {
+        var t = (raw ?: return null).trim().uppercase()
+        if (t.isEmpty()) return null
+        t = t.replace(Regex("""^(ВЛ|VL)\s*10[УUМM]?[\s\-№#.]*"""), "")
+        t = t.replace(Regex("""^[№#\s\-]+"""), "")
+        val digits = Regex("""^\d+""").find(t)?.value ?: return null
+        val n = digits.toIntOrNull() ?: return null
+        return n.takeIf { it in 1..9999 }
+    }
+
+    /**
+     * Группа по серии И номеру локомотива. ВЛ10: № 1-18 - 1960 л (ближайшая меньшая строка 1800 л), № 19 и выше - 1500 л; номер не разобран - null (без догадок).
+     * ВЛ10У - 1500 л. Остальные серии - по [groupBySeries].
+     */
+    fun groupForLoco(series: String?, number: String?): DensityLocoGroup? {
+        val n = normalizeSeries(series ?: return null)
+        if (n == "ВЛ10") {
+            val num = parseLocoNumber(number) ?: return null
+            return if (num >= VL10_FIRST_1500_NUMBER) DensityLocoGroup.G3 else DensityLocoGroup.G4
+        }
+        return groupBySeries(series)
+    }
+
+    /** Результат определения строки таблицы по своему объёму ГР. */
+    sealed interface VolumeGroup {
+        /** [group] - строка таблицы (ближайший наименьший объём, прим. 3 к табл. IV.1). */
+        data class Found(val liters: Double, val group: DensityLocoGroup) : VolumeGroup
+
+        /** Объём меньше наименьшей строки (1000 л): Правила для него норму не задают (прим. 3 говорит только о «ближайшем наименьшем»). */
+        data class BelowTable(val liters: Double) : VolumeGroup
+
+        data object Invalid : VolumeGroup
+    }
+
+    /** Группа по своему объёму ГР (л, дробные допустимы): ближайший наименьший из 1000, 1200, 1500, 1800, 2000, 2500, 3000; больше 3000 - строка 3000. */
+    fun groupByVolume(text: String?): VolumeGroup {
+        val v = text?.trim()?.replace(',', '.')?.toDoubleOrNull()
+        if (v == null || v.isNaN() || v.isInfinite() || v <= 0.0) return VolumeGroup.Invalid
+        val g = DensityLocoGroup.values().filter { it.liters <= v + 1e-9 }.maxByOrNull { it.liters } ?: return VolumeGroup.BelowTable(v)
+        return VolumeGroup.Found(v, g)
+    }
+
+    /** Подпись выбранной строки при своём объёме: «Свой объём 1700 л → группа 1500 л». */
+    fun volumeCaption(text: String?): String = when (val r = groupByVolume(text)) {
+        is VolumeGroup.Found -> "Свой объём ${fmtL(r.liters)} л → группа ${r.group.title}"
+        is VolumeGroup.BelowTable -> "Свой объём ${fmtL(r.liters)} л меньше наименьшей строки таблицы (${DensityLocoGroup.G1.title}): норма Правилами не задана, оценка недоступна"
+        VolumeGroup.Invalid -> "Введите объём в литрах"
+    }
+
+    private fun fmtL(v: Double): String = (if (v % 1.0 == 0.0) v.toLong().toString() else v.toString()).replace('.', ',')
 
     /** Поправка на зарядное давление ТМ грузового поезда (прим. 1 к табл. IV.1 и М.3: 0,52-0,54 МПа, т.е. 5,3-5,5 кгс/см2 - минус 10 %). Других поправок в Правилах нет. */
     fun chargeFactor(chargePressure: Double?): Double =

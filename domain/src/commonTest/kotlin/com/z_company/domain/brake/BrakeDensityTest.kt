@@ -223,8 +223,11 @@ class BrakeTurnaroundTest {
         }
         assertTrue(DensityLocoGroup.G1.examplesText.contains("ЭП1"))
         // в UI только названия серий: без объёмов, пометок и сомнительных (ВЛ10 с зависимостью объёма от номера)
-        for (g in DensityLocoGroup.values()) assertTrue(!g.examplesText.contains("л)") && !g.examplesText.contains("ВЛ10 ") && !g.examplesText.contains("ориент"), g.examplesText)
+        for (g in DensityLocoGroup.values()) assertTrue(!g.examplesText.contains("л)") && !g.examplesText.contains("ориент"), g.examplesText)
         assertEquals("ВЛ60", DensityLocoGroup.G2.examplesText)
+        assertEquals("3ЭС4К, 3ЭС5К", DensityLocoGroup.G7.examplesText)
+        assertEquals("ВЛ10 (№ 19+), ВЛ10У, ВЛ11".split(", ").toSet(), DensityLocoGroup.G3.examplesText.split(", ").toSet())
+        assertTrue(DensityLocoGroup.G4.examplesText.contains("ВЛ10 (№ 1-18)"))
         assertEquals("1000 л", DensityLocoGroup.G1.title)
     }
 
@@ -232,5 +235,120 @@ class BrakeTurnaroundTest {
     fun noMinusTwentyPercentCorrection() {
         for (c in listOf(4.8, 5.2, 5.6, 5.7, 5.8)) assertEquals(1.0, BrakeDensity.chargeFactor(c), "$c")
         assertEquals(0.9, BrakeDensity.chargeFactor(5.4))
+    }
+
+    @Test
+    fun threeES_group3000() {
+        assertEquals(DensityLocoGroup.G7, BrakeDensity.groupBySeries("3ЭС4К"))
+        assertEquals(DensityLocoGroup.G7, BrakeDensity.groupBySeries("3ЭС5К"))
+        assertEquals(DensityLocoGroup.G7, BrakeDensity.groupForLoco("3эс5к", "0123"))
+    }
+
+    @Test
+    fun vl10_groupByNumber_boundary18_19() {
+        assertEquals(DensityLocoGroup.G4, BrakeDensity.groupForLoco("ВЛ10", "1"))
+        assertEquals(DensityLocoGroup.G4, BrakeDensity.groupForLoco("ВЛ10", "18"))
+        assertEquals(DensityLocoGroup.G3, BrakeDensity.groupForLoco("ВЛ10", "19"))
+        assertEquals(DensityLocoGroup.G3, BrakeDensity.groupForLoco("ВЛ10", "1234"))
+        assertEquals(DensityLocoGroup.G3, BrakeDensity.groupForLoco("ВЛ10", "1234А"))
+        assertEquals(DensityLocoGroup.G3, BrakeDensity.groupForLoco("ВЛ10", "ВЛ10-1234"))
+        assertEquals(DensityLocoGroup.G4, BrakeDensity.groupForLoco("ВЛ10", "0012Б"))
+        // без догадок
+        assertNull(BrakeDensity.groupForLoco("ВЛ10", ""))
+        assertNull(BrakeDensity.groupForLoco("ВЛ10", null))
+        assertNull(BrakeDensity.groupForLoco("ВЛ10", "0"))
+        assertNull(BrakeDensity.groupForLoco("ВЛ10", "abc"))
+        assertNull(BrakeDensity.groupForLoco("ВЛ10", "99999"))
+        // ВЛ10У - 1500 л независимо от номера; остальные серии - как раньше
+        assertEquals(DensityLocoGroup.G3, BrakeDensity.groupForLoco("ВЛ10У", ""))
+        assertEquals(DensityLocoGroup.G4, BrakeDensity.groupForLoco("ВЛ80С", ""))
+        assertNull(BrakeDensity.groupForLoco("2ЭС5К", "100"))
+    }
+
+    @Test
+    fun parseLocoNumber_formats() {
+        assertEquals(1234, BrakeDensity.parseLocoNumber("1234"))
+        assertEquals(1234, BrakeDensity.parseLocoNumber(" 1234А "))
+        assertEquals(1234, BrakeDensity.parseLocoNumber("1234/1235"))
+        assertEquals(1234, BrakeDensity.parseLocoNumber("ВЛ10-1234"))
+        assertEquals(1234, BrakeDensity.parseLocoNumber("ВЛ10 № 1234Б"))
+        assertEquals(7, BrakeDensity.parseLocoNumber("№007"))
+        assertNull(BrakeDensity.parseLocoNumber(""))
+        assertNull(BrakeDensity.parseLocoNumber("А1234"))
+    }
+
+    @Test
+    fun customVolume_groupByNearestSmaller() {
+        fun g(t: String) = (BrakeDensity.groupByVolume(t) as? BrakeDensity.VolumeGroup.Found)?.group
+        assertEquals(DensityLocoGroup.G3, g("1700")) // между 1500 и 1800 -> 1500
+        assertEquals(DensityLocoGroup.G4, g("1800"))
+        assertEquals(DensityLocoGroup.G3, g("1799,9"))
+        assertEquals(DensityLocoGroup.G1, g("1000"))
+        assertEquals(DensityLocoGroup.G1, g("1199.99"))
+        assertEquals(DensityLocoGroup.G2, g("1200"))
+        assertEquals(DensityLocoGroup.G7, g("3000"))
+        assertEquals(DensityLocoGroup.G7, g("4500")) // больше таблицы - ближайший наименьший 3000
+        assertTrue(BrakeDensity.groupByVolume("999") is BrakeDensity.VolumeGroup.BelowTable)
+        assertTrue(BrakeDensity.groupByVolume("999,99") is BrakeDensity.VolumeGroup.BelowTable)
+        assertTrue(BrakeDensity.groupByVolume("") is BrakeDensity.VolumeGroup.Invalid)
+        assertTrue(BrakeDensity.groupByVolume("abc") is BrakeDensity.VolumeGroup.Invalid)
+        assertTrue(BrakeDensity.groupByVolume("0") is BrakeDensity.VolumeGroup.Invalid)
+        assertTrue(BrakeDensity.groupByVolume("-5") is BrakeDensity.VolumeGroup.Invalid)
+        assertEquals("Свой объём 1700 л → группа 1500 л", BrakeDensity.volumeCaption("1700"))
+        assertEquals("Свой объём 1700,5 л → группа 1500 л", BrakeDensity.volumeCaption("1700,5"))
+        assertTrue(BrakeDensity.volumeCaption("800").contains("оценка недоступна"))
+    }
+
+    @Test
+    fun customVolume_serialization_additiveField() {
+        val json = kotlinx.serialization.json.Json { encodeDefaults = true; ignoreUnknownKeys = true }
+        val old = """{"id":"x","categoryId":"FREIGHT_LOADED","grade":"UP_TO_006"}"""
+        val parsedOld = json.decodeFromString(BrakeCertificateData.serializer(), old)
+        assertEquals("", parsedOld.customVolume)
+        val withVol = BrakeCertificateData(id = "x", categoryId = "FREIGHT_LOADED", grade = GradeClass.UP_TO_006, customVolume = "1700")
+        val back = json.decodeFromString(BrakeCertificateData.serializer(), json.encodeToString(BrakeCertificateData.serializer(), withVol))
+        assertEquals("1700", back.customVolume)
+    }
+
+    @Test
+    fun fillFromRoute_seriesChanged_regroupsAutomatically() {
+        // первая подстановка: ЭП1 -> 1000 л
+        val first = BrakeFillResolver.resolveLoco("ЭП1", "123", "", "", manualGroup = null, force = false)
+        assertEquals("ЭП1", first.series)
+        assertEquals(DensityLocoGroup.G1, first.effectiveGroup)
+        // в маршруте серия сменилась (ВЛ80С): кнопка берёт актуальные данные, группа определяется заново (1800 л)
+        val second = BrakeFillResolver.resolveLoco("ВЛ80С", "2345", first.series, "123", first.manualGroup, force = false)
+        assertEquals("ВЛ80С", second.series)
+        assertEquals("2345", second.number)
+        assertEquals(DensityLocoGroup.G4, second.effectiveGroup)
+        assertTrue(!second.manualGroupKept)
+        // ВЛ10: группа по номеру из маршрута
+        assertEquals(DensityLocoGroup.G4, BrakeFillResolver.resolveLoco("ВЛ10", "17", "", "", null, false).effectiveGroup)
+        assertEquals(DensityLocoGroup.G3, BrakeFillResolver.resolveLoco("ВЛ10", "20", "", "", null, false).effectiveGroup)
+    }
+
+    @Test
+    fun fillFromRoute_manualGroup_keptUnlessConfirmed() {
+        val kept = BrakeFillResolver.resolveLoco("ВЛ80С", "1", "ЭП1", "9", manualGroup = DensityLocoGroup.G6, force = false)
+        assertEquals("ВЛ80С", kept.series) // серия и номер - всегда актуальные
+        assertTrue(kept.manualGroupKept)
+        assertEquals(DensityLocoGroup.G6, kept.effectiveGroup)
+        val forced = BrakeFillResolver.resolveLoco("ВЛ80С", "1", "ЭП1", "9", manualGroup = DensityLocoGroup.G6, force = true)
+        assertTrue(!forced.manualGroupKept)
+        assertEquals(DensityLocoGroup.G4, forced.effectiveGroup)
+        // в маршруте нет локомотива - значения остаются
+        val none = BrakeFillResolver.resolveLoco(null, null, "ЭП1", "9", null, false)
+        assertEquals("ЭП1", none.series)
+        assertEquals("9", none.number)
+    }
+
+    @Test
+    fun fillFromRoute_staleAutoFilledValuesAreReplaced() {
+        // старое значение - прошлая автоподстановка (не правленая) -> заменяется актуальным
+        assertTrue(BrakeFillResolver.shouldReplace("3000", "3100", lastAutoFilled = "3000", force = false))
+        // пользователь поправил вручную -> не затираем
+        assertTrue(!BrakeFillResolver.shouldReplace("2900", "3100", lastAutoFilled = "3000", force = false))
+        assertTrue(BrakeFillResolver.shouldReplace("2900", "3100", lastAutoFilled = "3000", force = true))
+        assertTrue(BrakeFillResolver.shouldReplace("", "3100", null, false))
     }
 }

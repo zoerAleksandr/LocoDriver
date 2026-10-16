@@ -55,6 +55,8 @@ data class BrakeCertificateData(
     // Плотность
     val chargePressure: String = "",
     val densityGroup: DensityLocoGroup? = null,
+    /** Свой объём главных резервуаров, л (текст, дробные допустимы); пусто - не задан. Необязательное поле (старые сохранённые справки читаются без него). */
+    val customVolume: String = "",
     val locoCount: String = "1",
     val measurements: List<DensityMeasurementData> = emptyList(),
     // Оборот
