@@ -123,6 +123,9 @@ object BrakeNorms {
         return ManualInfo(v, text, true)
     }
 
+    /** Значение поля «Ручные на 100 тс веса»: «0,6 · авто» (по уклону, табл. III.4) или «0,8» при ручном выборе. */
+    fun manualFieldText(info: ManualInfo): String = fmtK(info.perHundred) + if (info.auto) " · авто" else ""
+
     private fun fmtK(v: Double): String = v.toString().replace('.', ',')
 
     /** Табл. III.3 (п. 39): расчётные нажатия колодок на ось вагонов (в пересчёте на чугунные), тс. */

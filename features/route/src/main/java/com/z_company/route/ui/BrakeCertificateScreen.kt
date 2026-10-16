@@ -328,7 +328,7 @@ private fun CalcTab(
                     }
                     if (category.manualBrakesRequired) {
                         VuInput(
-                            "Ручных на 100 тс веса", (if (state.manualOverride == null) "Авто · " else "") + fmt(state.manualInfo.perHundred, 1), Modifier.weight(1f),
+                            "Ручных на 100 тс веса", BrakeNorms.manualFieldText(state.manualInfo), Modifier.weight(1f),
                             onClick = { onSheet(BrakeSheet.ManualNorm) }, onHelp = { onSheet(BrakeSheet.Help("manual_req")) },
                         )
                     } else Spacer(Modifier.weight(1f))
@@ -437,11 +437,7 @@ private fun DensityFields(state: BrakeCertificateUiState, vm: BrakeCertificateVi
         VuInput("Кол-во локомотивов", state.locoCountText, Modifier.weight(1f), onChange = vm::setLocoCount, keyboard = KeyboardType.Number, placeholder = "1", onHelp = { onHelp(BrakeSheet.Help("sme")) })
     VuInput(
         "Объём ГР",
-        when {
-            state.customVolumeText.isNotBlank() -> BrakeDensity.volumeCaption(state.customVolumeText)
-            group != null -> group.title + (if (state.densityGroup == null) " · по серии" else "")
-            else -> "Не выбрана"
-        },
+        BrakeDensity.volumeFieldText(state.customVolumeText, group, manuallySelected = state.densityGroup != null),
         onClick = onGroup, modifier = Modifier.weight(1f), onHelp = { onHelp(BrakeSheet.Help("group")) },
     )
     }
@@ -1362,7 +1358,6 @@ private fun MeasureTab(
                     TimerKind.ROUTE -> BrakeDensity.assessRoute(sec, state.timerII.recordedSec)
                 }
             },
-            hideGr = active == TimerKind.ROUTE && passenger,
             onHelp = { onHelp("density") },
         )
         if (active == TimerKind.ROUTE && TurnaroundPlanner.applies(category)) {
@@ -1385,7 +1380,6 @@ private fun TimerCard(
     assess: (Double) -> BrakeDensity.Assessment,
     transferred: String?,
     normText: String?,
-    hideGr: Boolean = false,
     onHelp: () -> Unit,
 ) {
     val t = vuColors()
@@ -1424,7 +1418,7 @@ private fun TimerCard(
                 Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     when (a.verdict) {
                         BrakeDensity.Verdict.OK -> VuVerdict(true, "Записано: ${fmt(rec)} с — норма", 16)
-                        BrakeDensity.Verdict.FAIL -> VuVerdict(false, "Записано: ${fmt(rec)} с — превышена", 16)
+                        BrakeDensity.Verdict.FAIL -> VuVerdict(false, "Записано: ${fmt(rec)} с — " + (if (kind == TimerKind.ROUTE && !passenger) "отличается от записанного более чем на 20 %" else "недостаточно"), 16)
                         BrakeDensity.Verdict.NO_NORM -> Text("Записано: ${fmt(rec)} с — оценка недоступна", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.muted)
                     }
                     val left = if (a.verdict == BrakeDensity.Verdict.NO_NORM) 0.dp else 28.dp
@@ -1438,18 +1432,6 @@ private fun TimerCard(
             }
             if (passenger) {
                 Box(Modifier.padding(top = 16.dp)) { VuInput("Падение давления в ТМ, кгс/см²", timer.dropText, onChange = { vm.setDrop(kind, it) }, sunk = true) }
-            } else if (!hideGr) {
-                Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    VuInput("ГР в начале", timer.grStartText, Modifier.weight(1f), onChange = { vm.setGrStart(kind, it) }, unit = "кгс/см²", sunk = true)
-                    VuInput("ГР в конце", timer.grEndText, Modifier.weight(1f), onChange = { vm.setGrEnd(kind, it) }, unit = "кгс/см²", sunk = true)
-                }
-                val a = timer.grStartText.toFiniteDoubleOrNull()
-                val b = timer.grEndText.toFiniteDoubleOrNull()
-                if (a != null && b != null) {
-                    val drop = a - b
-                    val okDrop = kotlin.math.abs(drop - 0.5) <= 0.05
-                    VuHint("Снижение: ${fmt(drop, 2)} кгс/см²" + if (okDrop) "" else " — по нормативу замер на снижении 0,5 кгс/см²", Modifier.padding(top = 6.dp), color = if (okDrop) null else t.danger)
-                }
             }
         }
     }

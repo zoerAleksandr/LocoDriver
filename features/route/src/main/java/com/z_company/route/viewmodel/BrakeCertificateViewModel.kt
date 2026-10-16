@@ -68,8 +68,6 @@ data class DensityTimerState(
     val startedAtMs: Long = 0L,
     val accumulatedMs: Long = 0L,
     val recordedSec: Double? = null,
-    val grStartText: String = "",
-    val grEndText: String = "",
     val dropText: String = "",
 ) {
     fun elapsedMs(nowMs: Long): Long = accumulatedMs + if (running) (nowMs - startedAtMs).coerceAtLeast(0) else 0L
@@ -592,11 +590,9 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     }
 
     fun resetTimer(k: TimerKind) = updateTimer(k) {
-        DensityTimerState(grStartText = it.grStartText, grEndText = it.grEndText, dropText = it.dropText)
+        DensityTimerState(dropText = it.dropText)
     }
 
-    fun setGrStart(k: TimerKind, v: String) = updateTimer(k) { it.copy(grStartText = v) }
-    fun setGrEnd(k: TimerKind, v: String) = updateTimer(k) { it.copy(grEndText = v) }
     fun setDrop(k: TimerKind, v: String) = updateTimer(k) { it.copy(dropText = v) }
 
     private fun ensureTicker() {
@@ -696,7 +692,7 @@ fun BrakeCertificateUiState.effectiveRows(): List<BrakeRowUi> =
 
 /** Единое сериализуемое состояние справки (без идущих секундомеров и UI-состояния). */
 fun BrakeCertificateUiState.toData(updatedAt: Long = 0L): BrakeCertificateData {
-    fun m(kind: TimerKind, t: DensityTimerState) = DensityMeasurementData(kind.name, t.recordedSec, t.grStartText, t.grEndText, t.dropText)
+    fun m(kind: TimerKind, t: DensityTimerState) = DensityMeasurementData(kind.name, t.recordedSec, drop = t.dropText)
     return BrakeCertificateData(
         routeId = routeId, trainId = trainId, categoryId = categoryId, grade = grade, slope = slope, autoblock3 = autoblock3, manualNorm = manualOverride,
         station = stationText, issueTime = issueTimeText, date = dateText, locoSeries = locoSeriesText, locoNumber = locoNumberText,
@@ -717,7 +713,7 @@ fun BrakeCertificateData.toUiState(base: BrakeCertificateUiState): BrakeCertific
         val m = measurements.firstOrNull { it.kind == kind.name } ?: return DensityTimerState()
         return DensityTimerState(
             accumulatedMs = ((m.seconds ?: 0.0) * 1000).toLong(), recordedSec = m.seconds,
-            grStartText = m.grStart, grEndText = m.grEnd, dropText = m.drop,
+            dropText = m.drop,
         )
     }
     var next = 0

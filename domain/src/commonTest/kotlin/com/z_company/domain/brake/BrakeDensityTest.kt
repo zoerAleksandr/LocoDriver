@@ -409,4 +409,46 @@ class BrakeTurnaroundTest {
         assertEquals(listOf("Норма плотности во II-м: укажите число осей"), BrakeDensity.normLines(DensityLocoGroup.G2, 0, null))
         assertEquals(1, BrakeDensity.normLines(DensityLocoGroup.G2, 600, null).size)
     }
+
+    @Test
+    fun oldSavedCertificate_withGrFields_stillReads() {
+        // давление ГР убрано из UI и расчётов, но старые справки с этими полями читаются (поля необязательные)
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        val old = """{"id":"x","categoryId":"FREIGHT_LOADED","grade":"UP_TO_006","measurements":[{"kind":"II","seconds":73.2,"grStart":"8,5","grEnd":"8,0"}]}"""
+        val d = json.decodeFromString(BrakeCertificateData.serializer(), old)
+        assertEquals(73.2, d.measurements[0].seconds)
+        val noGr = json.decodeFromString(BrakeCertificateData.serializer(), """{"id":"x","categoryId":"FREIGHT_LOADED","grade":"UP_TO_006","measurements":[{"kind":"IV","seconds":50.0}]}""")
+        assertEquals(50.0, noGr.measurements[0].seconds)
+    }
+
+    @Test
+    fun assessments_failTexts_andVerdicts() {
+        // замер ниже нормы: FAIL (в UI «недостаточно»), норма - OK
+        assertEquals(BrakeDensity.Verdict.FAIL, BrakeDensity.assessFreightII(45.0, 46.0).verdict)
+        assertEquals(BrakeDensity.Verdict.OK, BrakeDensity.assessFreightII(46.0, 46.0).verdict)
+        assertEquals(BrakeDensity.Verdict.FAIL, BrakeDensity.assessFreightIV(41.0, 46.0).verdict)
+        assertEquals(BrakeDensity.Verdict.FAIL, BrakeDensity.assessRoute(30.0, 46.0).verdict)
+        assertEquals(BrakeDensity.Verdict.NO_NORM, BrakeDensity.assessFreightII(45.0, null).verdict)
+    }
+
+    @Test
+    fun volumeFieldText_valueThenAuto() {
+        assertEquals("1800 л · авто", BrakeDensity.volumeFieldText("", DensityLocoGroup.G4, manuallySelected = false))
+        assertEquals("1800 л", BrakeDensity.volumeFieldText("", DensityLocoGroup.G4, manuallySelected = true))
+        assertEquals("Не выбрана", BrakeDensity.volumeFieldText("", null, false))
+        assertEquals("1450 л → 1200 л", BrakeDensity.volumeFieldText("1450", DensityLocoGroup.G2, true))
+        assertEquals("1500 л", BrakeDensity.volumeFieldText("1500", DensityLocoGroup.G3, true))
+        assertEquals("800 л · нет нормы", BrakeDensity.volumeFieldText("800", null, true))
+        // ВЛ10 по номеру: значение группы и «авто»
+        assertEquals("1800 л · авто", BrakeDensity.volumeFieldText("", BrakeDensity.groupForLoco("ВЛ10", "5"), false))
+        assertEquals("1500 л · авто", BrakeDensity.volumeFieldText("", BrakeDensity.groupForLoco("ВЛ10", "25"), false))
+    }
+
+    @Test
+    fun manualFieldText_valueThenAuto() {
+        assertEquals("0,6 · авто", BrakeNorms.manualFieldText(BrakeNorms.manualInfo(SlopeStep.S006, null)))
+        assertEquals("0,8 · авто", BrakeNorms.manualFieldText(BrakeNorms.manualInfo(SlopeStep.S010, null)))
+        assertEquals("0,8", BrakeNorms.manualFieldText(BrakeNorms.manualInfo(SlopeStep.S006, BrakeNorms.ManualBrakeNorm.SLOPE_010)))
+        assertEquals("1,2", BrakeNorms.manualFieldText(BrakeNorms.manualInfo(SlopeStep.S006, BrakeNorms.ManualBrakeNorm.SLOPE_014)))
+    }
 }

@@ -16,7 +16,7 @@ class BrakeCertificateMappingTest {
             rows = listOf(BrakeRowUi(0, "8,25", "100"), BrakeRowUi(1, "3,5", "28")), nextRowId = 2,
             compositeShare = CompositeShare.P75, flags = setOf("ЭПТ", "П"), dpvText = "4,8",
             chargePressureText = "5,4", densityGroup = DensityLocoGroup.G4, locoCountText = "2",
-            timerII = DensityTimerState(recordedSec = 73.2, grStartText = "8,5", grEndText = "8,0"),
+            timerII = DensityTimerState(recordedSec = 73.2, ),
         )
         val ui = src.toData(updatedAt = 5).toUiState(BrakeCertificateUiState())
         assertEquals("3040,5", ui.weightText)
@@ -28,7 +28,6 @@ class BrakeCertificateMappingTest {
         assertEquals(CompositeShare.P75, ui.compositeShare)
         assertEquals(DensityLocoGroup.G4, ui.densityGroup)
         assertEquals(73.2, ui.timerII.recordedSec!!, 1e-9)
-        assertEquals("8,5", ui.timerII.grStartText)
         assertTrue(!ui.timerII.running)
         assertEquals("2", ui.locoCountText)
     }

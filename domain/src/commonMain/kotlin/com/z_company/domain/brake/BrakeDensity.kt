@@ -211,6 +211,23 @@ object BrakeDensity {
         )
     }
 
+    /**
+     * Значение поля «Объём ГР»: свой объём - «1450 л → 1200 л» (равен строке - «1500 л»); выбрано вручную - «1800 л»;
+     * определено по серии - «1800 л · авто» (значение, затем «авто»); не выбрано - «Не выбрана».
+     */
+    fun volumeFieldText(customVolume: String, group: DensityLocoGroup?, manuallySelected: Boolean): String {
+        if (customVolume.isNotBlank()) return when (val r = groupByVolume(customVolume)) {
+            is VolumeGroup.Found -> if (r.liters == r.group.liters.toDouble()) r.group.title else "${fmtL(r.liters)} л → ${r.group.title}"
+            is VolumeGroup.BelowTable -> "${fmtL(r.liters)} л · нет нормы"
+            VolumeGroup.Invalid -> "Не выбрана"
+        }
+        return when {
+            group == null -> "Не выбрана"
+            manuallySelected -> group.title
+            else -> "${group.title} · авто"
+        }
+    }
+
     private fun fmtL(v: Double): String = (if (v % 1.0 == 0.0) v.toLong().toString() else v.toString()).replace('.', ',')
 
     /** Поправка на зарядное давление ТМ грузового поезда (прим. 1 к табл. IV.1 и М.3: 0,52-0,54 МПа, т.е. 5,3-5,5 кгс/см2 - минус 10 %). Других поправок в Правилах нет. */
