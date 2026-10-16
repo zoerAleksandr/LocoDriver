@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -169,6 +170,7 @@ fun StationEditBottomSheet(
     }
 
     ModalBottomSheet(
+        dragHandle = { AppDragHandle() },
         onDismissRequest = saveAndDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.secondary,
@@ -599,6 +601,7 @@ fun SegmentEditBottomSheet(
     }
 
     ModalBottomSheet(
+        dragHandle = { AppDragHandle() },
         onDismissRequest = saveAndDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.secondary,

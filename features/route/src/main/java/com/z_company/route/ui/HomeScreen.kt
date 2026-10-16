@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.ui.zIndex
 import com.z_company.route.component.reorderStep
 import com.z_company.route.component.detectReorderDrag
@@ -607,6 +608,7 @@ fun HomeScreen(
     if (showMonthSheetVisible) {
         currentMonthOfYear?.let { current ->
             ModalBottomSheet(
+                dragHandle = { AppDragHandle() },
                 onDismissRequest = { showMonthSheetVisible = false },
                 sheetState = monthSheetState,
                 containerColor = MaterialTheme.colorScheme.surface,
@@ -695,6 +697,7 @@ fun HomeScreen(
     if (unitsSheetType != null) {
         currentRoute?.let { route ->
             ModalBottomSheet(
+                dragHandle = { AppDragHandle() },
                 onDismissRequest = { unitsSheetType = null },
                 sheetState = unitsSheetState,
                 containerColor = MaterialTheme.colorScheme.background,

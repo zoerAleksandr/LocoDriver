@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalOverscrollFactory
@@ -74,6 +75,7 @@ fun RouteLegendSheet(
     )
 
     ModalBottomSheet(
+        dragHandle = { AppDragHandle() },
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         containerColor = cs.surface,

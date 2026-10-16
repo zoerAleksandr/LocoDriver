@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppDragHandle
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -683,6 +684,7 @@ private fun MetricInfoSheet(key: String, onDismiss: () -> Unit) {
         else -> return
     }
     ModalBottomSheet(
+        dragHandle = { AppDragHandle() },
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.background,
@@ -1264,6 +1266,7 @@ private fun SheetShell(
     content: @Composable () -> Unit,
 ) {
     ModalBottomSheet(
+        dragHandle = { AppDragHandle() },
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.background,

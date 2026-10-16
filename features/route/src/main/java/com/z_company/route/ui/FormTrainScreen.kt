@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppDragHandle
 import com.z_company.route.util.DeviceLocation
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.result.contract.ActivityResultContracts
@@ -427,6 +428,7 @@ fun FormTrainScreen(
 
         if (showTrainDataHistory) {
             ModalBottomSheet(
+                dragHandle = { AppDragHandle() },
                 onDismissRequest = { showTrainDataHistory = false },
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                 containerColor = MaterialTheme.colorScheme.background

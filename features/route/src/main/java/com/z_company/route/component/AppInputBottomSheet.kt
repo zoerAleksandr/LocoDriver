@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -86,6 +87,7 @@ fun AppInputBottomSheet(
     val canConfirm = isValid(fieldValue.text) && !isLoading
 
     ModalBottomSheet(
+        dragHandle = { AppDragHandle() },
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,

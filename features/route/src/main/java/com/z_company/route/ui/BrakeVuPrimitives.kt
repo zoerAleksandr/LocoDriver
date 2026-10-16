@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
@@ -109,6 +111,7 @@ internal fun VuTabs(items: List<String>, active: Int, onSelect: (Int) -> Unit, h
                     .weight(1f)
                     .height(h - 8.dp)
                     .background(if (on) t.accent else Color.Transparent, RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable { onSelect(i) }
                     .padding(horizontal = 4.dp),
                 contentAlignment = Alignment.Center,
@@ -131,6 +134,7 @@ internal fun VuHelp(onClick: () -> Unit, modifier: Modifier = Modifier, touch: D
     Box(
         modifier = modifier
             .size(touch)
+            .clip(CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -185,7 +189,7 @@ internal fun VuInput(
                 .then(if (!sunk && !focused && !error) Modifier.shadow(1.dp, shape) else Modifier)
                 .background(if (sunk) t.bgSubtle else t.surface, shape)
                 .border(2.dp, borderColor, shape)
-                .then(if (select) Modifier.clickable { onClick?.invoke() } else Modifier)
+                .then(if (select) Modifier.clip(shape).clickable { onClick?.invoke() } else Modifier)
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -236,6 +240,7 @@ internal fun VuChip(text: String, on: Boolean, onClick: () -> Unit, modifier: Mo
             .height(if (small) 40.dp else 48.dp)
             .then(if (!on) Modifier.shadow(1.dp, shape) else Modifier)
             .background(if (on) t.accent else t.surface, shape)
+            .clip(shape)
             .clickable(onClick = onClick)
             .padding(horizontal = if (small) 12.dp else 14.dp),
         contentAlignment = Alignment.Center,
@@ -270,6 +275,7 @@ internal fun VuBtn(
         modifier = modifier
             .height(h)
             .background(if (enabled) bg else bg.copy(alpha = bg.alpha * 0.4f), RoundedCornerShape(h / 2))
+            .clip(RoundedCornerShape(h / 2))
             .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = if (kind == VuBtnKind.Text) 12.dp else 22.dp),
         contentAlignment = Alignment.Center,
@@ -337,6 +343,7 @@ internal fun VuSheet(
 ) {
     val t = vuColors()
     ModalBottomSheet(
+        dragHandle = { AppDragHandle() },
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = t.bg,
@@ -473,6 +480,7 @@ internal fun VuCircled(items: List<String>, on: Set<String>, onToggle: (String) 
                     .widthIn(min = 48.dp)
                     .height(48.dp)
                     .border(BorderStroke(2.dp, if (s) t.accent else t.border), RoundedCornerShape(24.dp))
+                    .clip(RoundedCornerShape(24.dp))
                     .clickable { onToggle(x) }
                     .padding(horizontal = 10.dp),
                 contentAlignment = Alignment.Center,

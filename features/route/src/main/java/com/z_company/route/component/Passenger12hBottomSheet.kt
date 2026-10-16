@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -101,6 +102,7 @@ fun Passenger12hBottomSheet(
     } else null
 
     ModalBottomSheet(
+        dragHandle = { AppDragHandle() },
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.secondary,

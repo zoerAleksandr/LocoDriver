@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -563,6 +564,7 @@ fun CalendarScreen(
     if (showAddSheet) {
         val sheetState = rememberModalBottomSheetState()
         ModalBottomSheet(
+            dragHandle = { AppDragHandle() },
             onDismissRequest = { showAddSheet = false },
             sheetState = sheetState,
             containerColor = cs.surface,

@@ -1,5 +1,6 @@
 package com.z_company.core.ui.component.customDateTimePicker
 
+import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,7 +43,7 @@ fun MyWheelDateTimePickerView(
     containerColor: Color = MaterialTheme.colorScheme.surface,
     shape: Shape = RoundedCornerShape(10.dp),
     dateTimePickerView: DateTimePickerView = DateTimePickerView.BOTTOM_SHEET_VIEW,
-    dragHandle: @Composable (() -> Unit)? = { BottomSheetDefaults.DragHandle() },
+    dragHandle: @Composable (() -> Unit)? = { AppDragHandle() },
     selectorProperties: SelectorProperties = MyWheelPickerDefaults.selectorProperties(),
     onDoneClick: (snappedDate: LocalDateTime) -> Unit = {},
     onDateChangeListener: (snappedDate: LocalDateTime) -> Unit = {},
