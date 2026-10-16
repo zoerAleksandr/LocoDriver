@@ -75,7 +75,8 @@ object BrakeCertificateCalculator {
         val warnings = mutableListOf<String>()
         val loco = input.loco
         val totalWeight = input.compositionWeight + (loco?.weight ?: 0.0)
-        val required = cat.norm * totalWeight / 100.0
+        // п. 8 прил. М 808-2022 (особенности заполнения ВУ-45): при дробном числе требуемое нажатие - ближайшее БОЛЬШЕЕ целое
+        val required = ceil(cat.norm * totalWeight / 100.0 - EPS)
         val actual = input.rows.sumOf { it.pressurePerAxle * it.axles } +
             (loco?.let { it.pressurePerAxle * it.axles } ?: 0.0)
         val axlesFromRows = input.rows.sumOf { it.axles }
@@ -191,9 +192,15 @@ object BrakeCertificateCalculator {
         val lack = cat.norm - per100
         val missing = ceil(lack - EPS).toInt().coerceAtLeast(1)
         val reduced = base - k * missing
-        val rounded = (floor(reduced / 5.0) * 5).toInt().coerceAtLeast(0)
+        val formulaSpeed = (floor(reduced / 5.0) * 5).toInt().coerceAtLeast(0)
+        // В точке допускаемого минимума табл. III.2 даёт скорость по своей строке; если она меньше формулы п. 35 (расхождение в самих Правилах,
+        // например «локомотивы в голове и хвосте»), принимается меньшая из двух - безопасная сторона.
+        val tableAtMin = if (missing >= cat.norm - minNorm) cat.minSpeeds.getOrNull(input.grade.ordinal) else null
+        val rounded = if (tableAtMin != null) minOf(formulaSpeed, tableAtMin) else formulaSpeed
+        val minNote = if (tableAtMin != null && tableAtMin < formulaSpeed)
+            "; в точке допускаемого минимума принята меньшая из двух скоростей: по формуле $formulaSpeed, по ${InstructionRef.table("III.2")} $tableAtMin км/ч" else ""
         val steps = "Не хватает ${fmtN(lack)} тс на каждые 100 тс (${cat.norm} - ${fmtN(per100)}) → $missing т (с округлением вверх); " +
-            "скорость = $base - $k×$missing = $reduced → до кратного 5 вниз: $rounded км/ч (${InstructionRef.p("35")})"
+            "скорость = $base - $k×$missing = $reduced → до кратного 5 вниз: $formulaSpeed км/ч (${InstructionRef.p("35")})$minNote"
         return SpeedLimit.Allowed(
             rounded,
             steps,

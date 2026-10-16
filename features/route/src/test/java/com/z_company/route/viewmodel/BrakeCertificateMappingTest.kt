@@ -32,4 +32,11 @@ class BrakeCertificateMappingTest {
         assertTrue(!ui.timerII.running)
         assertEquals("2", ui.locoCountText)
     }
+
+    @Test
+    fun defaults_compositeIsK100_autoblockOff() {
+        assertEquals(com.z_company.domain.brake.CompositeShare.P100, BrakeCertificateViewModel.DEFAULT_COMPOSITE)
+        assertEquals(com.z_company.domain.brake.CompositeShare.P100, BrakeCertificateUiState().compositeShare)
+        assertEquals(false, BrakeCertificateViewModel.DEFAULT_AUTOBLOCK)
+    }
 }

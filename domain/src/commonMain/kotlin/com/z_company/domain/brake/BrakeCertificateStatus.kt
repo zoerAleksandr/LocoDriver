@@ -18,6 +18,11 @@ enum class StatusLevel {
 data class BrakeStatus(val level: StatusLevel, val headline: String)
 
 object BrakeStatusResolver {
+    /** Расчёт скорости выполнен: введены вес, оси и нажатие на ось (фактическое нажатие и вес больше нуля). */
+    fun isCalculated(result: BrakeCertificateResult?): Boolean =
+        result != null && result.actualPressure > 0.0 && result.totalWeight > 0.0
+
+
     private fun fmt(v: Double): String {
         val r = kotlin.math.round(v * 100) / 100
         val s = if (r % 1.0 == 0.0) r.toLong().toString() else r.toString()

@@ -238,11 +238,14 @@ fun BrakeCertificateScreen(
             },
         )
         BrakeSheet.DensityGroup -> SettingsPickerSheet(
-            title = "Группа локомотива",
-            hint = "По общему объёму главных резервуаров (прим. 3 к табл. IV.1 прил. 2 ${InstructionRef.GENITIVE}); серия -> группа по прежней Инструкции 277",
+            title = "Группа локомотива по объёму ГР",
+            hint = "Строка табл. IV.1 - общий объём главных резервуаров локомотива; при другом объёме - ближайший наименьший (прим. 3 к табл. IV.1 прил. 2 ${InstructionRef.GENITIVE}). Примеры серий ориентировочные, проверьте по паспорту локомотива.",
             onDismiss = { sheet = null },
-            options = DensityLocoGroup.values().map { g ->
-                SettingsPickerOption(label = g.title, selected = g == state.densityGroup, onSelect = { viewModel.setDensityGroup(g) })
+            options = buildList {
+                DensityLocoGroup.values().forEach { g ->
+                    add(SettingsPickerOption(label = g.title, sub = g.examplesText, selected = g == state.densityGroup, onSelect = { viewModel.setDensityGroup(g) }))
+                }
+                add(SettingsPickerOption(label = "Не выбрана", sub = "По серии локомотива из маршрута, если она есть в примерах", selected = state.densityGroup == null, onSelect = { viewModel.setDensityGroup(null) }))
             },
         )
         BrakeSheet.Other -> OtherSheet(state, category, viewModel, onDismiss = { sheet = null })
@@ -275,7 +278,8 @@ private fun CalcTab(
     onOpenBlank: () -> Unit,
 ) {
     val t = vuColors()
-    val low = result != null && result.actualPressure > 0 && !result.enough &&
+    val calculated = BrakeStatusResolver.isCalculated(result)
+    val low = calculated && result != null && !result.enough &&
         BrakeStatusResolver.resolve(result, true).level == StatusLevel.DANGER
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { VuSpeedBar(result) }
@@ -335,8 +339,9 @@ private fun CalcTab(
                 state, applicable = category.vFlatAutoblock != null && (state.grade == GradeClass.UP_TO_006 || state.grade == GradeClass.OVER_006_TO_010),
                 onChange = vm::setAutoblock, onHelp = { onSheet(BrakeSheet.Help("autoblock")) },
             )
+            if (category.group != TrainGroup.PASSENGER) DensityCard(state, vm, onGroup = { onSheet(BrakeSheet.DensityGroup) }, onHelp = onSheet)
             FillFromRoute(state, vm)
-            ResultCard(result, state, category, onOpenBlank)
+            if (calculated) ResultCard(result, state, category, onOpenBlank)
             if (low && result != null && BrakeStatusResolver.resolve(result, true).level == StatusLevel.DANGER) DeficitBlock(result, category, onHelp = { onSheet(BrakeSheet.Help("deficit")) })
         }
     }
@@ -377,6 +382,37 @@ private fun AutoblockRow(state: BrakeCertificateUiState, applicable: Boolean, on
                     checkedThumbColor = t.accentInk, checkedTrackColor = t.accent, checkedBorderColor = t.accent,
                     uncheckedThumbColor = MaterialTheme.colorScheme.outline, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant, uncheckedBorderColor = MaterialTheme.colorScheme.outline,
                 ),
+            )
+        }
+    }
+}
+
+/** Параметры плотности тормозной сети (общее состояние «Расчёта», «Бланка» и «Замеров»): зарядное давление, число локомотивов (СМЕ), группа по объёму ГР. */
+@Composable
+private fun DensityCard(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onGroup: () -> Unit, onHelp: (BrakeSheet) -> Unit) {
+    val group = state.densityGroup ?: BrakeDensity.groupBySeries(state.locoSeriesText)
+    val charge = state.chargePressureText.toFiniteDoubleOrNull()
+    val axles = axlesForNorm(state)
+    val locoCount = state.locoCountText.trim().toIntOrNull() ?: 1
+    val minTime = group?.let { BrakeDensity.minTimeSeconds(it, axles, charge, locoCount) }
+    VuCard {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            VuTag("Плотность тормозной сети")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                VuInput("Зарядное давление", state.chargePressureText, Modifier.weight(1f), onChange = vm::setChargePressure, unit = "кгс/см²", sunk = true, onHelp = { onHelp(BrakeSheet.Help("charge")) })
+                VuInput("Локомотивов (СМЕ)", state.locoCountText, Modifier.weight(1f), onChange = vm::setLocoCount, sunk = true, keyboard = KeyboardType.Number, onHelp = { onHelp(BrakeSheet.Help("sme")) })
+            }
+            VuInput(
+                "Группа локомотива (объём ГР)",
+                group?.let { it.title + (if (state.densityGroup == null) " · по серии" else "") } ?: "Не выбрана",
+                onClick = onGroup, sunk = true, onHelp = { onHelp(BrakeSheet.Help("group")) },
+            )
+            VuHint(
+                when {
+                    group == null -> "Без группы норма плотности (табл. IV.1) не определяется: выберите группу по объёму главных резервуаров локомотива."
+                    minTime == null -> "Норма II положения: длина состава должна быть 1-530 осей (сейчас: $axles)."
+                    else -> "Норма II положения по табл. IV.1: не менее ${fmt(minTime)} с (${group.title}, $axles осей" + (if (BrakeDensity.chargeFactor(charge) < 1.0) ", с поправкой на зарядное давление" else "") + ")."
+                },
             )
         }
     }
@@ -536,10 +572,17 @@ private fun DeficitBlock(result: BrakeCertificateResult, category: BrakeCategory
 @Composable
 private fun VuSpeedBar(result: BrakeCertificateResult?) {
     val t = vuColors()
-    val has = (result?.actualPressure ?: 0.0) > 0.0
+    val has = BrakeStatusResolver.isCalculated(result)
     val status = BrakeStatusResolver.resolve(result, has)
     val sp = result?.speed
     val shape = RoundedCornerShape(16.dp)
+    if (!has) {
+        // Расчёт ещё не выполнен: без прочерка и «— км/ч», на всю плашку - пояснение нейтральным цветом
+        Box(Modifier.fillMaxWidth().heightIn(min = 56.dp).background(t.surface, shape).padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.CenterStart) {
+            Text("Расчёт скорости будет выполнен после ввода веса, осей и нажатия на ось", fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 18.sp, color = t.muted)
+        }
+        return
+    }
     val belowMin = (sp as? SpeedLimit.NotDetermined)?.kind == SpeedLimit.Kind.BELOW_MIN
     val warn = status.level == StatusLevel.WARNING
     val danger = status.level == StatusLevel.DANGER
@@ -1083,45 +1126,51 @@ private fun TurnaroundSheet(
 // ───────────────────────────── Шторки бланка ─────────────────────────────
 
 @Composable
-private fun SheetLabel(text: String) {
+private fun SheetLabel(text: String, onHelp: (() -> Unit)? = null) {
     val t = vuColors()
-    Text(text.uppercase(), Modifier.padding(top = 14.dp, bottom = 6.dp), fontFamily = VuMono, fontSize = 11.sp, letterSpacing = 1.sp, color = t.muted)
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(text.uppercase(), Modifier.weight(1f), fontFamily = VuMono, fontSize = 11.sp, letterSpacing = 1.sp, color = t.muted)
+        if (onHelp != null) VuHelp(onHelp, touch = 32.dp)
+    }
 }
 
 @Composable
 private fun OtherSheet(state: BrakeCertificateUiState, category: BrakeCategory, vm: BrakeCertificateViewModel, onDismiss: () -> Unit) {
     val t = vuColors()
+    var help by remember { mutableStateOf<String?>(null) }
+    help?.let { key -> HelpSheet(key, state, category, null, onDismiss = { help = null }) }
     VuSheet(title = "Другие данные", sub = "Графа справа от таблицы", onDismiss = onDismiss, footer = { VuBtn("Готово", onDismiss, Modifier.fillMaxWidth(), h = 56.dp) }) {
-        SheetLabel("Композиционные колодки")
+        SheetLabel("Композиционные колодки", onHelp = { help = "composite" })
         val share = when (state.compositeShare) { CompositeShare.P50 -> "К-50"; CompositeShare.P75 -> "К-75"; CompositeShare.P100 -> "К-100"; CompositeShare.NONE -> "" }
         VuCircled(listOf("К-50", "К-75", "К-100"), setOf(share)) { x ->
             val v = when (x) { "К-50" -> CompositeShare.P50; "К-75" -> CompositeShare.P75; else -> CompositeShare.P100 }
             vm.setCompositeShare(if (state.compositeShare == v) CompositeShare.NONE else v)
         }
-        SheetLabel("Тормоза в составе")
+        SheetLabel("Тормоза в составе", onHelp = { help = "flags" })
         VuCircled(listOf("Г", "ЭПТ", "ЭПП", "ДТ", "МРТ", "П", "В10", "РИЦ"), state.flags) { vm.toggleFlag(it) }
         Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                VuInput("ТЦПВ, мм", state.tcpvText, Modifier.weight(1f), onChange = vm::setTcpv, sunk = true)
-                VuInput("Встр. (вагон)", state.vstrText, Modifier.weight(1f), onChange = vm::setVstr, sunk = true, text = true)
+                VuInput("ТЦПВ, мм", state.tcpvText, Modifier.weight(1f), onChange = vm::setTcpv, sunk = true, onHelp = { help = "tcpv" })
+                VuInput("Встр. (вагон)", state.vstrText, Modifier.weight(1f), onChange = vm::setVstr, sunk = true, text = true, onHelp = { help = "vstr" })
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                VuInput("ДПВ, кгс/см²", state.dpvText, Modifier.weight(1f), onChange = vm::setDpv, sunk = true)
+                VuInput("ДПВ, кгс/см²", state.dpvText, Modifier.weight(1f), onChange = vm::setDpv, sunk = true, onHelp = { help = "dpv" })
                 if (category.group == TrainGroup.FREIGHT || category.group == TrainGroup.FREIGHT_PASSENGER) {
-                    VuInput("ВО2ХВ, с", state.vo2hvText, Modifier.weight(1f), onChange = vm::setVo2hv, sunk = true)
+                    VuInput("ВО2ХВ, с", state.vo2hvText, Modifier.weight(1f), onChange = vm::setVo2hv, sunk = true, onHelp = { help = "vo2hv" })
                 } else Spacer(Modifier.weight(1f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                VuInput("Напряжение в хвосте, В", state.tailVoltageText, Modifier.weight(1f), onChange = vm::setTailVoltage, sunk = true)
-                VuInput("Пит. сеть", state.feedDensityText, Modifier.weight(1f), onChange = vm::setFeedDensity, sunk = true, text = true)
+                VuInput("Напряжение в хвосте, В", state.tailVoltageText, Modifier.weight(1f), onChange = vm::setTailVoltage, sunk = true, onHelp = { help = "tail_voltage" })
+                VuInput("Пит. сеть", state.feedDensityText, Modifier.weight(1f), onChange = vm::setFeedDensity, sunk = true, text = true, onHelp = { help = "feed" })
             }
+            VuInput("Зарядное давление, кгс/см²", state.chargePressureText, onChange = vm::setChargePressure, unit = "кгс/см²", sunk = true, onHelp = { help = "charge" })
             if (category.group == TrainGroup.FREIGHT || category.group == TrainGroup.FREIGHT_PASSENGER) {
                 val axles = axlesForNorm(state)
                 val charge = state.chargePressureText.toFiniteDoubleOrNull()
                 val min = BrakeDensity.minTailPressure(charge, axles)
                 val dpv = state.dpvText.toFiniteDoubleOrNull()
                 when {
-                    min == null -> VuHint("Норма ДПВ: укажите зарядное давление локомотива 4,8-5,8 (вкладка «Замеры») и число осей.")
+                    min == null -> VuHint("Норма ДПВ: укажите зарядное давление локомотива (поле выше или вкладка «Расчёт», 4,8-5,8) и число осей.")
                     dpv == null -> VuHint("Норма в хвосте: не менее ${fmt(min)} кгс/см² (п. 48 прил. 2 Правил ТО тормозного оборудования)")
                     else -> VuVerdict(dpv + 1e-9 >= min, if (dpv + 1e-9 >= min) "ДПВ в норме (не менее ${fmt(min)})" else "ДПВ ниже нормы: нужно не менее ${fmt(min)} кгс/см²", 14)
                 }
@@ -1270,22 +1319,7 @@ private fun MeasureTab(
         if (active == TimerKind.ROUTE && TurnaroundPlanner.applies(category)) {
             VuBtn("К отметкам оборота ›", onBackToTurnaround, kind = VuBtnKind.Text)
         }
-        if (!passenger) {
-            VuCard {
-                Column(Modifier.padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    VuInput("Зарядное давление ТМ", state.chargePressureText, onChange = vm::setChargePressure, unit = "кгс/см²", sunk = true, onHelp = { onHelp("charge") })
-                    VuInput("Локомотивов (СМЕ)", state.locoCountText, onChange = vm::setLocoCount, sunk = true, keyboard = KeyboardType.Number, onHelp = { onHelp("group") })
-                    VuInput("Группа локомотива", group?.let { "№ ${it.name.removePrefix("G")}: ${it.title}" } ?: "Не выбрана", onClick = onGroupClick, sunk = true)
-                    VuHint(
-                        when {
-                            group == null -> "Без группы норма по табл. IV.1 не определяется."
-                            minTime == null -> "Норма II положения: длина состава должна быть 1-530 осей (сейчас: $axles)."
-                            else -> "Норма II положения по табл. IV.1: не менее ${fmt(minTime)} с (группа ${group.name.removePrefix("G")}, $axles осей" + (if (BrakeDensity.chargeFactor(charge) < 1.0) ", с поправкой на зарядное давление" else "") + ")."
-                        },
-                    )
-                }
-            }
-        }
+        if (!passenger) VuHint("Зарядное давление, число локомотивов (СМЕ) и группа локомотива (объём ГР) задаются на вкладке «Расчёт» - здесь они используются для нормы.", Modifier.padding(horizontal = 4.dp))
         VuHint("Результаты замеров автоматически попадают во вкладку «Бланк». Хранятся только на экране. Экран не гаснет, пока идёт замер.", Modifier.padding(horizontal = 4.dp))
     }
 }

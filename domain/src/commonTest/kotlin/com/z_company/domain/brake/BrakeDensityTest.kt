@@ -27,8 +27,12 @@ class BrakeDensityTest {
 
     @Test
     fun chargePressureReducesNorm() {
-        assertEquals(46.0 * 0.8, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.7))
+        // Правила: только 0,52-0,54 МПа (5,3-5,5 кгс/см2) -> минус 10 %; поправка «-20 % при 5,6-5,8» из Инструкции 277 удалена
+        assertEquals(46.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.7))
+        assertEquals(46.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.8))
         assertEquals(46.0 * 0.9, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.4))
+        assertEquals(46.0 * 0.9, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.3))
+        assertEquals(46.0 * 0.9, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.5))
         assertEquals(46.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.0))
     }
 
@@ -188,5 +192,42 @@ class BrakeTurnaroundTest {
         val json = kotlinx.serialization.json.Json { encodeDefaults = true }
         val back = json.decodeFromString(BrakeCertificateData.serializer(), json.encodeToString(BrakeCertificateData.serializer(), d))
         assertEquals(d, back)
+    }
+
+    @Test
+    fun autoGroupBySeries_onlyForKnownVolumes() {
+        assertEquals(DensityLocoGroup.G1, BrakeDensity.groupBySeries("ЭП1"))
+        assertEquals(DensityLocoGroup.G1, BrakeDensity.groupBySeries("ЧС7"))
+        assertEquals(DensityLocoGroup.G1, BrakeDensity.groupBySeries("ТЭП70"))
+        assertEquals(DensityLocoGroup.G1, BrakeDensity.groupBySeries("ТЭМ2"))
+        assertEquals(DensityLocoGroup.G1, BrakeDensity.groupBySeries("ЧМЭ3"))
+        assertEquals(DensityLocoGroup.G1, BrakeDensity.groupBySeries("ВЛ65"))
+        assertEquals(DensityLocoGroup.G2, BrakeDensity.groupBySeries("ВЛ60К"))
+        assertEquals(DensityLocoGroup.G3, BrakeDensity.groupBySeries("ВЛ10У"))
+        assertEquals(DensityLocoGroup.G5, BrakeDensity.groupBySeries("2ТЭ116"))
+        assertEquals(DensityLocoGroup.G5, BrakeDensity.groupBySeries("ВЛ85"))
+        // ВЛ10: объём зависит от номера (№ 1-18 - 1960 л, с № 19 - 1500 л) - автоподбора нет
+        assertNull(BrakeDensity.groupBySeries("ВЛ10"))
+        // серия без подтверждённого объёма (ЧС2: диапазон 980-1080 л) - «Не выбрана»
+        assertNull(BrakeDensity.groupBySeries("ЧС2"))
+        assertNull(BrakeDensity.groupBySeries("2ЭС5К"))
+    }
+
+    @Test
+    fun examplesFollowNearestSmallerRowRule() {
+        val rows = DensityLocoGroup.values().map { it.liters }
+        for (g in DensityLocoGroup.values()) for (e in g.examples) {
+            val minVolume = Regex("""\d+""").find(e.volume)!!.value.toInt()
+            val expected = rows.filter { it <= minVolume }.maxOrNull()
+            assertEquals(expected, g.liters, "${e.series} ${e.volume}")
+        }
+        assertTrue(DensityLocoGroup.G1.examplesText.contains("ЭП1"))
+        assertEquals("1000 л", DensityLocoGroup.G1.title)
+    }
+
+    @Test
+    fun noMinusTwentyPercentCorrection() {
+        for (c in listOf(4.8, 5.2, 5.6, 5.7, 5.8)) assertEquals(1.0, BrakeDensity.chargeFactor(c), "$c")
+        assertEquals(0.9, BrakeDensity.chargeFactor(5.4))
     }
 }

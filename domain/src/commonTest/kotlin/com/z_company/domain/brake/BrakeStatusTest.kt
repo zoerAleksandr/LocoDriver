@@ -70,4 +70,17 @@ class BrakeStatusTest {
         assertTrue(7.5 in BrakeNorms.blankAxlePressures && 9.5 in BrakeNorms.blankAxlePressures)
         assertEquals(27, BrakeNorms.blankAxlePressures.size)
     }
+
+    @Test fun isCalculated_needsWeightAndPressure() {
+        assertTrue(!BrakeStatusResolver.isCalculated(null))
+        val cat = freight()
+        val noPressure = BrakeCertificateCalculator.calculate(BrakeCertificateInput(cat, 1000.0, emptyList()))
+        assertTrue(!BrakeStatusResolver.isCalculated(noPressure))
+        val noWeight = BrakeCertificateCalculator.calculate(BrakeCertificateInput(cat, 0.0, listOf(AxleRow(5.0, 10))))
+        assertTrue(!BrakeStatusResolver.isCalculated(noWeight))
+        val ok = BrakeCertificateCalculator.calculate(BrakeCertificateInput(cat, 1000.0, listOf(AxleRow(5.0, 100))))
+        assertTrue(BrakeStatusResolver.isCalculated(ok))
+        // до расчёта плашка нейтральная, без прочерка
+        assertEquals(StatusLevel.NONE, BrakeStatusResolver.resolve(noPressure, false).level)
+    }
 }

@@ -29,9 +29,9 @@ class BrakeCertificateCalculatorTest {
 
     @Test
     fun requiredPressure_exampleFromInstruction() {
-        // Пример из учебного материала: Q = 3040 тс, 33 тс на 100 тс -> 1003,2 тс
+        // Пример из учебного материала: Q = 3040 тс, 33 тс на 100 тс -> 1003,2 тс; по 808-2022 (прил. М, п. 8) округляется вверх до 1004
         val r = freight(3040.0, 128, 8.5)
-        near(r.requiredPressure, 1003.2)
+        near(r.requiredPressure, 1004.0)
         near(r.actualPressure, 1088.0)
         assertTrue(r.enough)
         assertEquals(80, speed(r))
@@ -95,9 +95,8 @@ class BrakeCertificateCalculatorTest {
                     ),
                 )
                 val s = r.speed
-                // Расхождение в самих Правилах: табл. III.2 для «локомотивы в голове и хвосте» даёт 50 км/ч при спуске круче 0,006,
-                // а по формуле п. 35 из табл. III.1 получается 65 (до 0,010) / 55 (круче 0,010). Расчёт идёт по формуле, вопрос владельцу.
-                if (c.id == "HEAD_TAIL_12" && g != GradeClass.UP_TO_006) continue
+                // Расхождение в самих Правилах для «локомотивы в голове и хвосте» (табл. III.2: 50 при спуске круче 0,006, формула п. 35: 65 / 55):
+                // в точке минимума принимается меньшая из двух скоростей, поэтому результат равен таблице.
                 if (c.id == "REEFER" && g == GradeClass.OVER_010_TO_015) {
                     assertEquals(80, (s as SpeedLimit.Allowed).kmh)
                     continue
@@ -119,7 +118,7 @@ class BrakeCertificateCalculatorTest {
             ),
         )
         near(r.totalWeight, 984.0)
-        near(r.requiredPressure, 590.4)
+        near(r.requiredPressure, 591.0) // 590,4 -> 591
         near(r.actualPressure, 640.0 + 112.0)
         assertTrue(r.enough)
         assertEquals(120, speed(r))
@@ -220,7 +219,7 @@ class BrakeCertificateCalculatorTest {
         val r = BrakeCertificateCalculator.calculate(
             BrakeCertificateInput(cat("FREIGHT_LOADED"), 3040.5, listOf(AxleRow(8.25, 128))),
         )
-        near(r.requiredPressure, 3040.5 * 33 / 100)
+        near(r.requiredPressure, 1004.0) // 1003,365 -> ближайшее большее целое (808-2022, прил. М, п. 8)
         near(r.actualPressure, 8.25 * 128)
         assertTrue(r.enough)
     }
@@ -329,5 +328,47 @@ class AxleCheckTest {
         val rows = listOf(AxleRow(8.25, 100), AxleRow(3.5, 28))
         val sum = rows.sumOf { it.axles }
         assertEquals(AxleSumCheck.Equal(128), AxleCheck.compare(128, sum))
+    }
+}
+
+class RequiredPressureRoundingTest {
+    private fun req(w: Double) = BrakeCertificateCalculator.calculate(
+        BrakeCertificateInput(BrakeNorms.category("FREIGHT_LOADED")!!, w, listOf(AxleRow(1.0, 1))),
+    ).requiredPressure
+
+    @Test fun fractionalRoundsUp() {
+        assertEquals(1004.0, req(3040.0)) // 1003,2
+        assertEquals(1003.0, req(3039.39)) // 1002,99 -> 1003
+        assertEquals(330.0, req(1000.0)) // целое остаётся
+    }
+
+    @Test fun enoughComparesWithRoundedRequired() {
+        // 1000,5 тс: 330,165 -> 331; фактическое 330,5 меньше 331 -> не хватает
+        val r = BrakeCertificateCalculator.calculate(BrakeCertificateInput(BrakeNorms.category("FREIGHT_LOADED")!!, 1000.5, listOf(AxleRow(330.5, 1))))
+        assertEquals(331.0, r.requiredPressure)
+        assertTrue(!r.enough)
+    }
+}
+
+class HeadTailMinimumPointTest {
+    private fun speedAt(per100: Double, grade: GradeClass): SpeedLimit.Allowed {
+        val c = BrakeNorms.category("HEAD_TAIL_12")!!
+        return BrakeCertificateCalculator.calculate(
+            BrakeCertificateInput(c, 1000.0, listOf(AxleRow(per100 * 10.0, 1)), grade = grade),
+        ).speed as SpeedLimit.Allowed
+    }
+
+    @Test fun atMinimum_takesSmallerOfFormulaAndTable() {
+        // 28 тс: формула 75 - 2*5 = 65 (до 0,006: таблица 65 - равны), 0,006-0,010: формула 65, табл. III.2 - 50 -> 50
+        assertEquals(65, speedAt(28.0, GradeClass.UP_TO_006).kmh)
+        val mid = speedAt(28.0, GradeClass.OVER_006_TO_010)
+        assertEquals(50, mid.kmh)
+        assertTrue(mid.steps!!.contains("меньшая из двух скоростей"), mid.steps)
+        assertEquals(50, speedAt(28.0, GradeClass.OVER_010_TO_015).kmh) // формула 55, табл. 50
+    }
+
+    @Test fun aboveMinimum_formulaOnly() {
+        // 29 тс: не хватает 4 т -> 75 - 8 = 67 -> 65 (до 0,010) - таблица не ограничивает
+        assertEquals(65, speedAt(29.0, GradeClass.OVER_006_TO_010).kmh)
     }
 }

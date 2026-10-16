@@ -102,7 +102,7 @@ data class BrakeCertificateUiState(
     val locoAuto: Boolean = false,
     val locoNote: String? = null,
     // Другие данные
-    val compositeShare: CompositeShare = CompositeShare.NONE,
+    val compositeShare: CompositeShare = CompositeShare.P100,
     val flags: Set<String> = emptySet(),
     val tcpvText: String = "",
     val vstrText: String = "",
@@ -171,6 +171,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         BrakeCertificateUiState(
             manualOverride = loadManualOverride(),
             autoblock3 = prefs.getBoolean(KEY_AUTOBLOCK, DEFAULT_AUTOBLOCK),
+            compositeShare = loadCompositeShare(),
             dateText = LocalDate.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
         ),
     )
@@ -401,7 +402,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     // ── Параметры расчёта ──
     fun setCategory(id: String) = _state.update {
         val cat = BrakeNorms.category(id) ?: return@update it
-        it.copy(categoryId = id, locoEnabled = cat.locoCountedByDefault, compositeShare = CompositeShare.NONE)
+        it.copy(categoryId = id, locoEnabled = cat.locoCountedByDefault)
     }
 
     fun setSlope(step: SlopeStep) = _state.update { it.copy(slope = step) }
@@ -510,7 +511,14 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     fun setLocoPressure(v: String) = _state.update { it.copy(locoPressureText = v, locoAuto = false, locoNote = null) }
 
     // ── Другие данные ──
-    fun setCompositeShare(v: CompositeShare) = _state.update { it.copy(compositeShare = v) }
+    /** Запоминается (SharedPreferences), по умолчанию К-100; общее состояние «Расчёта» и «Бланка». */
+    fun setCompositeShare(v: CompositeShare) {
+        prefs.edit().putString(KEY_COMPOSITE, v.name).apply()
+        _state.update { it.copy(compositeShare = v) }
+    }
+
+    private fun loadCompositeShare(): CompositeShare =
+        runCatching { CompositeShare.valueOf(prefs.getString(KEY_COMPOSITE, null) ?: "") }.getOrDefault(DEFAULT_COMPOSITE)
     fun toggleFlag(f: String) = _state.update { it.copy(flags = if (f in it.flags) it.flags - f else it.flags + f) }
     fun setTcpv(v: String) = _state.update { it.copy(tcpvText = v) }
     fun setVstr(v: String) = _state.update { it.copy(vstrText = v) }
@@ -599,6 +607,8 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         private const val KEY_MANUAL_NORM = "manual_norm"
         private const val KEY_AUTOBLOCK = "autoblock3"
         const val DEFAULT_AUTOBLOCK = false
+        private const val KEY_COMPOSITE = "composite_share"
+        val DEFAULT_COMPOSITE = CompositeShare.P100
 
         fun fmtNum(p: Double): String =
             if (p % 1.0 == 0.0) p.toLong().toString() else p.toString().replace('.', ',')
