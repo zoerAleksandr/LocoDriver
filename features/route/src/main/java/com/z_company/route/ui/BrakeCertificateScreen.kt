@@ -1099,7 +1099,7 @@ private fun OtherSheet(state: BrakeCertificateUiState, category: BrakeCategory, 
             vm.setCompositeShare(if (state.compositeShare == v) CompositeShare.NONE else v)
         }
         SheetLabel("Тормоза в составе")
-        VuCircled(listOf("ЭПТ", "ЭПП", "ДТ", "МРТ", "П", "В10", "РИЦ"), state.flags) { vm.toggleFlag(it) }
+        VuCircled(listOf("Г", "ЭПТ", "ЭПП", "ДТ", "МРТ", "П", "В10", "РИЦ"), state.flags) { vm.toggleFlag(it) }
         Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 VuInput("ТЦПВ, мм", state.tcpvText, Modifier.weight(1f), onChange = vm::setTcpv, sunk = true)
@@ -1279,7 +1279,7 @@ private fun MeasureTab(
                     VuHint(
                         when {
                             group == null -> "Без группы норма по табл. 9.1 не определяется."
-                            minTime == null -> "Норма II положения: длина состава должна быть 1-480 осей (сейчас: $axles)."
+                            minTime == null -> "Норма II положения: длина состава должна быть 1-530 осей (сейчас: $axles)."
                             else -> "Норма II положения по табл. 9.1: не менее ${fmt(minTime)} с (группа ${group.name.removePrefix("G")}, $axles осей" + (if (BrakeDensity.chargeFactor(charge) < 1.0) ", с поправкой на зарядное давление" else "") + ")."
                         },
                     )

@@ -13,12 +13,16 @@ class BrakeDensityTest {
         assertEquals(46.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, null))
         assertEquals(98.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 100, null))
         assertEquals(45.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G7, 480, null))
-        assertNull(BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 481, null))
+        // колонка 481-530 (табл. IV.1 Правил): 1000 л -> 11 с, 1800 л -> 20 с, 3000 л -> 33 с
+        assertEquals(20.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 481, null))
+        assertEquals(11.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G1, 530, null))
+        assertEquals(33.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G7, 500, null))
+        assertNull(BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 531, null))
     }
 
     @Test
-    fun table91_allRowsHaveNineColumns() {
-        for (g in DensityLocoGroup.values()) assertEquals(9, g.minTimes.size, g.name)
+    fun table91_allRowsHaveTenColumns() {
+        for (g in DensityLocoGroup.values()) assertEquals(10, g.minTimes.size, g.name)
     }
 
     @Test
@@ -86,11 +90,14 @@ class BrakeDensityTest {
 
     @Test
     fun tailPressure() {
-        assertEquals(4.5, BrakeDensity.minTailPressure(5.0, 200))
-        assertEquals(4.3, BrakeDensity.minTailPressure(5.0, 320))
-        assertEquals(5.0, BrakeDensity.minTailPressure(5.4, 200))
-        assertEquals(4.8, BrakeDensity.minTailPressure(5.4, 320))
-        assertEquals(5.0, BrakeDensity.minTailPressure(5.7, 400))
+        // п. 48 а)-в) Правил: отклонение от зарядного не более 0,3 (до 300 осей), 0,5 (300-400), 0,7 (более 400)
+        assertEquals(4.7, BrakeDensity.minTailPressure(5.0, 200))
+        assertEquals(4.7, BrakeDensity.minTailPressure(5.0, 300))
+        assertEquals(4.5, BrakeDensity.minTailPressure(5.0, 301))
+        assertEquals(4.5, BrakeDensity.minTailPressure(5.0, 400))
+        assertEquals(4.3, BrakeDensity.minTailPressure(5.0, 401))
+        assertEquals(5.1, BrakeDensity.minTailPressure(5.4, 200))
+        assertEquals(5.2, BrakeDensity.minTailPressure(5.7, 350))
         assertNull(BrakeDensity.minTailPressure(4.0, 100))
     }
 

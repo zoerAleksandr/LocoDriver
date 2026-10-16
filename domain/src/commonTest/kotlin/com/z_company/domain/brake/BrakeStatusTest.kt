@@ -48,4 +48,26 @@ class BrakeStatusTest {
         assertEquals(StatusLevel.DANGER, st.level)
         assertTrue(st.headline.contains("ниже минимального"))
     }
+
+    @Test fun composite50_boundary32() {
+        // п. 31 Правил: К-50 - не менее 32 тс на 100 тс веса, скорость не снижается (до 80)
+        assertEquals(StatusLevel.WARNING, BrakeStatusResolver.resolve(calc(32.0, CompositeShare.P50), true).level)
+        assertEquals(StatusLevel.DANGER, BrakeStatusResolver.resolve(calc(31.9, CompositeShare.P50), true).level)
+        // К-75: 31, К-100: 30
+        assertEquals(StatusLevel.WARNING, BrakeStatusResolver.resolve(calc(31.0, CompositeShare.P75), true).level)
+        assertEquals(StatusLevel.DANGER, BrakeStatusResolver.resolve(calc(30.9, CompositeShare.P75), true).level)
+    }
+
+    @Test fun headAndTailJoinedTrain_minSpeeds() {
+        // табл. III.2 Правил, «28 | 65 | 50 | (50)»
+        val c = BrakeNorms.category("HEAD_TAIL_12")!!
+        assertEquals(listOf<Int?>(65, 50, 50), c.minSpeeds)
+        assertEquals(28, c.minNorm)
+    }
+
+    @Test fun blankAxlePressures_haveFormRows() {
+        // форма ВУ-45 (808-2017 прил. К): в том числе 7,5 и 9,5
+        assertTrue(7.5 in BrakeNorms.blankAxlePressures && 9.5 in BrakeNorms.blankAxlePressures)
+        assertEquals(27, BrakeNorms.blankAxlePressures.size)
+    }
 }

@@ -154,10 +154,12 @@ object BrakeCertificateCalculator {
         }
         // п. 3.3: тяжёлая нагрузка на ось + композиционные колодки
         if (cat.isLoadedFreight && input.compositeShare != CompositeShare.NONE) {
+            // п. 31 прил. 2 Правил: К-50 - не менее 32 тс, К-75 - не менее 31, К-100 - не менее 30 тс на 100 тс веса
             val ok = when (input.compositeShare) {
+                CompositeShare.P50 -> per100 >= 32.0 - EPS
                 CompositeShare.P75 -> per100 >= 31.0 - EPS
                 CompositeShare.P100 -> per100 >= 30.0 - EPS
-                CompositeShare.NONE, CompositeShare.P50 -> false
+                CompositeShare.NONE -> false
             }
             if (ok) {
                 val v = minOf(80, base)

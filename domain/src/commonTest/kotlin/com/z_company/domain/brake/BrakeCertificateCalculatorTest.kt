@@ -82,7 +82,7 @@ class BrakeCertificateCalculatorTest {
 
     @Test
     fun table2_consistency_minNormGivesTable2Speeds() {
-        // На допускаемом минимуме п. 4.4 должен давать скорости табл. 2 (проверка переноса таблиц).
+        // На допускаемом минимуме п. 35 должен давать скорости табл. III.2 (проверка переноса таблиц).
         // Известное расхождение в самих Нормах: рефрижераторный (REEFER), спуск круче 0,010: формула 80, табл. 2 - 90.
         for (c in BrakeNorms.categories) {
             val min = c.minNorm ?: continue
@@ -95,6 +95,9 @@ class BrakeCertificateCalculatorTest {
                     ),
                 )
                 val s = r.speed
+                // Расхождение в самих Правилах: табл. III.2 для «локомотивы в голове и хвосте» даёт 50 км/ч при спуске круче 0,006,
+                // а по формуле п. 35 из табл. III.1 получается 65 (до 0,010) / 55 (круче 0,010). Расчёт идёт по формуле, вопрос владельцу.
+                if (c.id == "HEAD_TAIL_12" && g != GradeClass.UP_TO_006) continue
                 if (c.id == "REEFER" && g == GradeClass.OVER_010_TO_015) {
                     assertEquals(80, (s as SpeedLimit.Allowed).kmh)
                     continue
