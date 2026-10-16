@@ -63,7 +63,39 @@ data class BrakeCategory(
     val locoCountedByDefault: Boolean,
     val manualBrakesRequired: Boolean,
     val isLoadedFreight: Boolean = false,
-)
+) {
+    companion object {
+        /** Номер поезда из строки: ведущие цифры после «№»/пробелов/дефиса («2604», «№ 2604», «2604А», «2604-А»); не число - null. */
+        fun parseTrainNumber(raw: String?): Int? {
+            val t = raw?.trim()?.trimStart('№', '#', ' ', '-', '.') ?: return null
+            val digits = Regex("^\\d+").find(t)?.value ?: return null
+            return digits.toIntOrNull()?.takeIf { it in 1..9999 }
+        }
+
+        /**
+         * Категория табл. III.1 по НОМЕРУ поезда (распоряжение ОАО «РЖД» от 05.04.2014 № 859р «О нумерации поездов для графика движения», прил., в ред. 2017).
+         * ОСТОРОЖНО: категория возвращается только если номер определяет её ОДНОЗНАЧНО; иначе null (текущая категория не меняется):
+         * - 961-970 «Грузопассажирские» -> грузопассажирский (44);
+         * - 9301-9398 «порожние, 330-348 осей» -> порожний до 350 осей (55);
+         * - 9401-9498 «порожние, 350-520 осей» -> 350-400 осей (44) или 401-520 осей (33) - только если число осей [axles] известно и в 350..520.
+         * НЕ определяются (null): пассажирские (подвид по скорости/тормозам не следует из номера), пригородные, рефрижераторные (55 или 60 - зависит от состава и скорости),
+         * соединённые и тяжеловесные (строки 14.3-14.7 различаются по составу), сквозные/участковые/сборные/вывозные/передаточные (груженый или порожний - из номера не видно).
+         */
+        fun byTrainNumber(number: String?, axles: Int? = null): BrakeCategory? {
+            val n = parseTrainNumber(number) ?: return null
+            return when (n) {
+                in 961..970 -> BrakeNorms.category("FREIGHT_PASS")
+                in 9301..9398 -> BrakeNorms.category("EMPTY_350")
+                in 9401..9498 -> when (axles) {
+                    in 350..400 -> BrakeNorms.category("EMPTY_350_400")
+                    in 401..520 -> BrakeNorms.category("EMPTY_400_520")
+                    else -> null
+                }
+                else -> null
+            }
+        }
+    }
+}
 
 object BrakeNorms {
     val categories: List<BrakeCategory> = listOf(

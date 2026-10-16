@@ -28,6 +28,7 @@ import org.koin.core.component.inject
 import kotlinx.coroutines.flow.first
 import com.z_company.domain.brake.BrakeCertificateInput
 import com.z_company.domain.brake.BrakeLocoCatalog
+import com.z_company.domain.brake.BrakeCategory
 import com.z_company.domain.brake.BrakeNorms
 import com.z_company.domain.brake.BrakePrefill
 import com.z_company.domain.brake.CompositeShare
@@ -159,6 +160,8 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             manualOverride = loadManualOverride(),
             autoblock3 = prefs.getBoolean(KEY_AUTOBLOCK, DEFAULT_AUTOBLOCK),
             compositeShare = loadCompositeShare(),
+            categoryId = loadCategoryId(),
+            locoEnabled = BrakeNorms.category(loadCategoryId())?.locoCountedByDefault ?: false,
             dateText = LocalDate.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
         ),
     )
@@ -246,6 +249,11 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
                 )
             }
             setLocoSeries(lf.series)
+            if (!onOpen) {
+                // категория по номеру поезда из маршрута - только если номер определяет её однозначно (иначе текущая остаётся)
+                val st = _state.value
+                BrakeCategory.byTrainNumber(q.trainNumber, st.totalAxlesText.trim().toIntOrNull())?.let { applyCategory(it.id) }
+            }
             applyStopCandidates(train?.stations.orEmpty())
         }
     }
@@ -384,10 +392,21 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         runCatching { BrakeNorms.ManualBrakeNorm.valueOf(prefs.getString(KEY_MANUAL_NORM, null) ?: "") }.getOrNull()
 
     // ── Параметры расчёта ──
-    fun setCategory(id: String) = _state.update {
+    /** Выбор категории пользователем запоминается и становится значением по умолчанию для новой справки (у сохранённой справки своя категория). */
+    fun setCategory(id: String) {
+        if (BrakeNorms.category(id) == null) return
+        prefs.edit().putString(KEY_CATEGORY, id).apply()
+        applyCategory(id)
+    }
+
+    /** Категория без запоминания (подбор по номеру поезда при «Заполнить из маршрута»). */
+    private fun applyCategory(id: String) = _state.update {
         val cat = BrakeNorms.category(id) ?: return@update it
         it.copy(categoryId = id, locoEnabled = cat.locoCountedByDefault)
     }
+
+    private fun loadCategoryId(): String =
+        prefs.getString(KEY_CATEGORY, null)?.takeIf { BrakeNorms.category(it) != null } ?: "FREIGHT_LOADED"
 
     fun setSlope(step: SlopeStep) = _state.update { it.copy(slope = step) }
 
@@ -613,6 +632,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         private const val KEY_AUTOBLOCK = "autoblock3"
         const val DEFAULT_AUTOBLOCK = false
         private const val KEY_COMPOSITE = "composite_share"
+        private const val KEY_CATEGORY = "last_category"
         val DEFAULT_COMPOSITE = CompositeShare.P100
 
         fun fmtNum(p: Double): String =

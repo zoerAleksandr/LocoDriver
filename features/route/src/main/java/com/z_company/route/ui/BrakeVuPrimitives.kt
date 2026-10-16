@@ -237,8 +237,8 @@ internal fun VuChip(text: String, on: Boolean, onClick: () -> Unit, modifier: Mo
     Box(
         modifier = modifier
             .height(if (small) 40.dp else 48.dp)
-            .then(if (!on) Modifier.shadow(1.dp, shape) else Modifier)
-            .background(if (on) t.accent else t.surface, shape)
+            .background(if (on) t.accent else t.bgSubtle, shape)
+            .then(if (!on) Modifier.border(1.dp, t.borderStrong, shape) else Modifier)
             .clip(shape)
             .clickable(onClick = onClick)
             .padding(horizontal = if (small) 12.dp else 14.dp),

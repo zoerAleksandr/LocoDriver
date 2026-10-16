@@ -95,4 +95,45 @@ class BrakeStatusTest {
     @Test fun sourceRefs_point_to_808_2022() {
         assertEquals("Инструкция 808-2022 ПКБ ЦВ, прил. М", InstructionRef.FORM_DOC)
     }
+
+    @Test fun byTrainNumber_unambiguousRanges() {
+        assertEquals("FREIGHT_PASS", BrakeCategory.byTrainNumber("961")?.id)
+        assertEquals("FREIGHT_PASS", BrakeCategory.byTrainNumber("970")?.id)
+        assertEquals(null, BrakeCategory.byTrainNumber("960")) // людские
+        assertEquals(null, BrakeCategory.byTrainNumber("971")) // почтово-багажные
+        assertEquals("EMPTY_350", BrakeCategory.byTrainNumber("9301")?.id)
+        assertEquals("EMPTY_350", BrakeCategory.byTrainNumber("9398")?.id)
+        assertEquals(null, BrakeCategory.byTrainNumber("9399"))
+        assertEquals(null, BrakeCategory.byTrainNumber("9300"))
+        // 350-520 осей: по числу осей, иначе не определяется
+        assertEquals(null, BrakeCategory.byTrainNumber("9401"))
+        assertEquals("EMPTY_350_400", BrakeCategory.byTrainNumber("9401", axles = 350)?.id)
+        assertEquals("EMPTY_350_400", BrakeCategory.byTrainNumber("9498", axles = 400)?.id)
+        assertEquals("EMPTY_400_520", BrakeCategory.byTrainNumber("9450", axles = 401)?.id)
+        assertEquals("EMPTY_400_520", BrakeCategory.byTrainNumber("9450", axles = 520)?.id)
+        assertEquals(null, BrakeCategory.byTrainNumber("9450", axles = 349))
+        assertEquals(null, BrakeCategory.byTrainNumber("9450", axles = 521))
+        assertEquals(null, BrakeCategory.byTrainNumber("9499", axles = 400))
+    }
+
+    @Test fun byTrainNumber_notDetermined() {
+        for (n in listOf("2604", "3001", "3405", "3501", "3601", "1001", "9201", "9501", "101", "301", "701", "6001", "7101", "8201")) {
+            assertEquals(null, BrakeCategory.byTrainNumber(n, axles = 400), n)
+        }
+    }
+
+    @Test fun byTrainNumber_formats() {
+        assertEquals("FREIGHT_PASS", BrakeCategory.byTrainNumber("№ 965")?.id)
+        assertEquals("FREIGHT_PASS", BrakeCategory.byTrainNumber("№965")?.id)
+        assertEquals("FREIGHT_PASS", BrakeCategory.byTrainNumber("965А")?.id)
+        assertEquals("FREIGHT_PASS", BrakeCategory.byTrainNumber(" 965 ")?.id)
+        assertEquals("EMPTY_350", BrakeCategory.byTrainNumber("9310Б")?.id)
+        assertEquals(null, BrakeCategory.byTrainNumber(""))
+        assertEquals(null, BrakeCategory.byTrainNumber(null))
+        assertEquals(null, BrakeCategory.byTrainNumber("abc"))
+        assertEquals(null, BrakeCategory.byTrainNumber("А965"))
+        assertEquals(null, BrakeCategory.byTrainNumber("0"))
+        assertEquals(null, BrakeCategory.byTrainNumber("12345"))
+        assertEquals(2604, BrakeCategory.parseTrainNumber("№ 2604А"))
+    }
 }

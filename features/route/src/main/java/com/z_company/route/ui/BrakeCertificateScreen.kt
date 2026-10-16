@@ -323,7 +323,7 @@ private fun CalcTab(
                         is PressureField.Single -> VuInput("Нажатие на ось, тс", pf.text, Modifier.weight(1f), onChange = vm::setPressureField, unit = "тс", placeholder = "0", error = low, sunk = true, onHelp = { onSheet(BrakeSheet.Help("row")) })
                         PressureField.Empty -> VuInput("Нажатие на ось, тс", state.avgPressureText, Modifier.weight(1f), onChange = vm::setPressureField, unit = "тс", placeholder = "0", error = low, sunk = true, onHelp = { onSheet(BrakeSheet.Help("row")) })
                     }
-                    Spacer(Modifier.weight(1f))
+                    if (density) VuInput("Зарядное давление", state.chargePressureText, Modifier.weight(1f), onChange = vm::setChargePressure, unit = "кгс/см²", placeholder = "0", sunk = true, onHelp = { onSheet(BrakeSheet.Help("charge")) })
                 }
                 if (state.rowsMode) AxleSumWarning(state, vm)
                 Box(Modifier.padding(start = 0.dp)) { VuBtn("Разное нажатие на вагонах ›", onClick = onOpenBlank, kind = VuBtnKind.Text, h = 40.dp) }
@@ -455,7 +455,7 @@ private fun CustomVolumeSheet(state: BrakeCertificateUiState, vm: BrakeCertifica
     }
 }
 
-/** Блок «Расчёт плотности»: [Зарядное давление | Кол-во локомотивов], «Объём ГР» на всю ширину, строки норм II и IV. */
+/** Блок «Расчёт плотности»: [Кол-во локомотивов | Объём ГР] в одну строку и строки норм II и IV (зарядное давление - в блоке «Данные»). */
 @Composable
 private fun DensityFields(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onGroup: () -> Unit, onHelp: (BrakeSheet) -> Unit) {
     val group = state.effectiveDensityGroup()
@@ -463,14 +463,13 @@ private fun DensityFields(state: BrakeCertificateUiState, vm: BrakeCertificateVi
     val axles = axlesForNorm(state)
     val locoCount = state.locoCountText.trim().toIntOrNull() ?: 1
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        VuInput("Зарядное давление", state.chargePressureText, Modifier.weight(1f), onChange = vm::setChargePressure, unit = "кгс/см²", placeholder = "0", sunk = true, onHelp = { onHelp(BrakeSheet.Help("charge")) })
         VuInput("Кол-во локомотивов", state.locoCountText, Modifier.weight(1f), onChange = vm::setLocoCount, keyboard = KeyboardType.Number, placeholder = "1", sunk = true, onHelp = { onHelp(BrakeSheet.Help("sme")) })
+        VuInput(
+            "Объём ГР",
+            BrakeDensity.volumeFieldText(state.customVolumeText, group, manuallySelected = state.densityGroup != null),
+            Modifier.weight(1f), sunk = true, onClick = onGroup, onHelp = { onHelp(BrakeSheet.Help("group")) },
+        )
     }
-    VuInput(
-        "Объём ГР",
-        BrakeDensity.volumeFieldText(state.customVolumeText, group, manuallySelected = state.densityGroup != null),
-        Modifier.fillMaxWidth(), sunk = true, onClick = onGroup, onHelp = { onHelp(BrakeSheet.Help("group")) },
-    )
     if (state.customVolumeText.isNotBlank() && group == null) VuNormLine(BrakeDensity.volumeCaption(state.customVolumeText))
     else BrakeDensity.normLines(group, axles, charge, locoCount).forEach { VuNormLine(it) }
 }
