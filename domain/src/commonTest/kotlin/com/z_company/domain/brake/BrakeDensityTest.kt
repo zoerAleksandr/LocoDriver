@@ -222,6 +222,9 @@ class BrakeTurnaroundTest {
             assertEquals(expected, g.liters, "${e.series} ${e.volume}")
         }
         assertTrue(DensityLocoGroup.G1.examplesText.contains("ЭП1"))
+        // в UI только названия серий: без объёмов, пометок и сомнительных (ВЛ10 с зависимостью объёма от номера)
+        for (g in DensityLocoGroup.values()) assertTrue(!g.examplesText.contains("л)") && !g.examplesText.contains("ВЛ10 ") && !g.examplesText.contains("ориент"), g.examplesText)
+        assertEquals("ВЛ60", DensityLocoGroup.G2.examplesText)
         assertEquals("1000 л", DensityLocoGroup.G1.title)
     }
 

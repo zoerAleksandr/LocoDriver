@@ -17,7 +17,7 @@ package com.z_company.domain.brake
  * данные ориентировочные, проверяйте по паспорту локомотива.
  */
 data class SeriesExample(val series: String, val volume: String, val note: String? = null, val auto: Boolean = true) {
-    val label: String get() = "$series ($volume)" + (note?.let { ", $it" } ?: "")
+    val label: String get() = series
 }
 
 /**
@@ -75,8 +75,8 @@ enum class DensityLocoGroup(val liters: Int, val examples: List<SeriesExample>, 
     /** Название строки: «1000 л». */
     val title: String get() = "$liters л"
 
-    /** Подпись примеров серий для пикера и шторки «?». */
-    val examplesText: String get() = if (examples.isEmpty()) "примеры серий не подтверждены" else examples.joinToString(", ") { it.label }
+    /** Серии для показа в пикере и шторке: только названия серий с однозначным объёмом (без пометок и источников - они в docs/VU45_SPEC.md). */
+    val examplesText: String get() = examples.filter { it.auto }.joinToString(", ") { it.series }
 }
 
 object BrakeDensity {

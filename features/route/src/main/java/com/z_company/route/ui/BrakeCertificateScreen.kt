@@ -239,13 +239,13 @@ fun BrakeCertificateScreen(
         )
         BrakeSheet.DensityGroup -> SettingsPickerSheet(
             title = "Группа локомотива по объёму ГР",
-            hint = "Строка табл. IV.1 - общий объём главных резервуаров локомотива; при другом объёме - ближайший наименьший (прим. 3 к табл. IV.1 прил. 2 ${InstructionRef.GENITIVE}). Примеры серий ориентировочные, проверьте по паспорту локомотива.",
+            hint = "Строка табл. IV.1 по общему объёму главных резервуаров локомотива",
             onDismiss = { sheet = null },
             options = buildList {
                 DensityLocoGroup.values().forEach { g ->
-                    add(SettingsPickerOption(label = g.title, sub = g.examplesText, selected = g == state.densityGroup, onSelect = { viewModel.setDensityGroup(g) }))
+                    add(SettingsPickerOption(label = g.title, sub = g.examplesText.ifBlank { null }, selected = g == state.densityGroup, onSelect = { viewModel.setDensityGroup(g) }))
                 }
-                add(SettingsPickerOption(label = "Не выбрана", sub = "По серии локомотива из маршрута, если она есть в примерах", selected = state.densityGroup == null, onSelect = { viewModel.setDensityGroup(null) }))
+                add(SettingsPickerOption(label = "Не выбрана", selected = state.densityGroup == null, onSelect = { viewModel.setDensityGroup(null) }))
             },
         )
         BrakeSheet.Other -> OtherSheet(state, category, viewModel, onDismiss = { sheet = null })
