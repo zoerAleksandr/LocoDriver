@@ -157,7 +157,7 @@
 - `features/route/.../ui/BrakeCertificateScreen.kt` (Compose, бланк, примитивы `SettingsUnifiedUi`), `BrakeCertificateHelp.kt` (подсказки и справочник), `viewmodel/BrakeCertificateViewModel.kt`,
   `navigation/BrakeCertificateDestination.kt`, `BrakeCertificateRoute` (query-аргументы `weight`, `axles` для предзаполнения).
 - `Router.showBrakeCertificate(BrakePrefill?)` (по умолчанию no-op; реализация в `RouterImpl`), карточка «ВУ-45» в `HomeScreen` после «Статистики» и кнопка «ВУ-45» в нижней панели формы «Поезд».
-- Хранение: **нет** (только SharedPreferences `brake_certificate_prefs`: норма ручных тормозов). Сервер/JSON/БД не затронуты. Для всех пользователей.
+- Хранение: справка поезда сохраняется на устройстве (`BrakeCertificate.db`, автосохранение) и уходит на сервер в составе рейса (`brakeCertificates`, флаг `REMOTE_CERTIFICATES_ENABLED`); SharedPreferences `brake_certificate_prefs` - норма ручных тормозов, автоблокировка, композиция. Для всех пользователей.
 - iOS: не реализовано (метод Router по умолчанию no-op; логика в `domain` готова для переиспользования).
 
 ## 8. Не покрыто / допущения

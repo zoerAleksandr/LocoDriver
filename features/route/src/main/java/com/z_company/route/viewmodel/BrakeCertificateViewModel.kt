@@ -143,7 +143,7 @@ data class FillReport(val note: String? = null) {
     val text: String get() = note.orEmpty()
 }
 
-/** Экран-калькулятор «Справка ВУ-45»: данные не сохраняются (кроме выбранной нормы ручных тормозов). */
+/** Экран «Справка ВУ-45»: справка поезда сохраняется на устройстве (BrakeCertificate.db) и синхронизируется с сервером в составе рейса; запоминаются также норма ручных тормозов, автоблокировка и композиция. */
 class BrakeCertificateViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val certificates: BrakeCertificateUseCase by inject()

@@ -1098,7 +1098,7 @@ private fun BackBody(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
             Spacer(Modifier.weight(1f))
             if (state.routeId != null) VuBtn("Обновить по стоянкам", { vm.refreshStops() }, kind = VuBtnKind.Text, h = 48.dp)
         }
-        VuHint("Отметки живут, пока открыт экран. «Плотность» можно ввести или замерить секундомером во вкладке «Замеры».", Modifier.padding(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 14.dp))
+        VuHint("«Плотность» можно ввести или замерить секундомером во вкладке «Замеры».", Modifier.padding(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 14.dp))
     }
 }
 
@@ -1363,7 +1363,6 @@ private fun MeasureTab(
         if (active == TimerKind.ROUTE && TurnaroundPlanner.applies(category)) {
             VuBtn("К отметкам оборота ›", onBackToTurnaround, kind = VuBtnKind.Text)
         }
-        if (!passenger) VuHint("Зарядное давление, кол-во локомотивов и объём ГР задаются на вкладке «Расчёт» - здесь они используются для нормы.", Modifier.padding(horizontal = 4.dp))
         VuHint("Результаты замеров автоматически попадают во вкладку «Бланк». Экран не гаснет, пока идёт замер.", Modifier.padding(horizontal = 4.dp))
     }
 }
