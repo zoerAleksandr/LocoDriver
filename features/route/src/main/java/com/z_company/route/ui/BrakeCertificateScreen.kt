@@ -88,6 +88,7 @@ import com.z_company.domain.brake.SlopeStep
 import com.z_company.domain.brake.SpeedLimit
 import com.z_company.domain.brake.StopClass
 import com.z_company.domain.brake.TrainGroup
+import com.z_company.domain.brake.TimeOfDayInput
 import com.z_company.domain.brake.TurnaroundDensityCheck
 import com.z_company.domain.brake.TurnaroundEntry
 import com.z_company.domain.brake.TurnaroundPick
@@ -1138,7 +1139,7 @@ private fun BackBody(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
                         }
                     }
                     Box(Modifier.weight(0.7f).fillMaxHeight().padding(horizontal = 6.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-                        Text(e.readinessTime, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
+                        Text(TimeOfDayInput.display(e.readinessTime), fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
                     }
                 }
                 e.compositionSummary?.let { Text(it, Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(bottom = 8.dp), fontSize = 12.sp, color = t.muted, lineHeight = 16.sp) }
@@ -1233,7 +1234,15 @@ private fun TurnaroundSheet(
             }
             VuTag("Подпись и время")
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                VuInput("Время опробования", e.readinessTime, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(readinessTime = v) } }, text = true, sunk = true, placeholder = "ЧЧ:ММ")
+                var timeText by remember(entryId) { mutableStateOf(TimeOfDayInput.display(e.readinessTime)) }
+                val timeBad = timeText.isNotEmpty() && TimeOfDayInput.normalize(timeText) == null
+                VuInput("Время опробования", timeText, Modifier.weight(1f), onChange = { v ->
+                    val f = TimeOfDayInput.filter(v)
+                    timeText = f
+                    // сохраняется только пустое или корректное «ЧЧ:ММ»
+                    if (f.isEmpty()) vm.updateTurnaround(entryId) { it.copy(readinessTime = "") }
+                    else TimeOfDayInput.normalize(f)?.takeIf { f.length >= 4 }?.let { n -> vm.updateTurnaround(entryId) { it.copy(readinessTime = n) } }
+                }, text = true, sunk = true, placeholder = "ЧЧ:ММ", keyboard = KeyboardType.Number, error = timeBad)
                 VuInput("Подпись (таб. №)", e.inspectorTab, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(inspectorTab = v) } }, keyboard = KeyboardType.Number, sunk = true)
             }
             Spacer(Modifier.height(2.dp))

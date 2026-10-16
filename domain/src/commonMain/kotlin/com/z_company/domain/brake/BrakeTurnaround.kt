@@ -184,3 +184,36 @@ object TurnaroundDensityCheck {
         return Result(if (ok) Verdict.OK else Verdict.EXCEEDED, (densitySec - referenceIISec) / referenceIISec * 100.0, lo, hi)
     }
 }
+
+/** Время суток «ЧЧ:ММ» для поля времени оборота: ввод, проверка диапазона, приведение старых значений («1245» -> «12:45»). */
+object TimeOfDayInput {
+    /** Фильтр ввода: только цифры и двоеточие (не более одного), до 5 символов; ровно 4 цифры без двоеточия -> «ЧЧ:ММ». */
+    fun filter(raw: String): String {
+        var colon = false
+        val kept = buildString {
+            for (c in raw) {
+                if (c in '0'..'9') append(c)
+                else if (c == ':' && !colon && isNotEmpty()) { append(c); colon = true }
+            }
+        }.take(5)
+        return if (!kept.contains(':') && kept.length == 4) kept.substring(0, 2) + ":" + kept.substring(2) else kept
+    }
+
+    /** Нормализованное «ЧЧ:ММ» (часы 0-23, минуты 0-59) для «9:05», «905», «1245», «12:45»; иначе null. */
+    fun normalize(s: String): String? {
+        val t = s.trim()
+        val (h, m) = when {
+            t.contains(':') -> t.split(':').let { if (it.size == 2) it[0] to it[1] else return null }
+            t.length == 3 -> t.substring(0, 1) to t.substring(1)
+            t.length == 4 -> t.substring(0, 2) to t.substring(2)
+            else -> return null
+        }
+        if (h.isEmpty() || h.length > 2 || m.length != 2 || !h.all { it in '0'..'9' } || !m.all { it in '0'..'9' }) return null
+        val hh = h.toInt(); val mm = m.toInt()
+        if (hh > 23 || mm > 59) return null
+        return hh.toString().padStart(2, '0') + ":" + m
+    }
+
+    /** Для показа: старое значение без двоеточия приводится к «ЧЧ:ММ», нераспознанное показывается как есть. */
+    fun display(stored: String): String = normalize(stored) ?: stored
+}
