@@ -170,6 +170,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     private val _state = MutableStateFlow(
         BrakeCertificateUiState(
             manualOverride = loadManualOverride(),
+            autoblock3 = prefs.getBoolean(KEY_AUTOBLOCK, DEFAULT_AUTOBLOCK),
             dateText = LocalDate.now().format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
         ),
     )
@@ -398,8 +399,13 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         it.copy(categoryId = id, locoEnabled = cat.locoCountedByDefault, compositeShare = CompositeShare.NONE)
     }
 
-    fun setSlope(step: SlopeStep) = _state.update { it.copy(slope = step, autoblock3 = if (step.grade == GradeClass.OVER_010_TO_015 || step.grade == GradeClass.OVER_015) false else it.autoblock3) }
-    fun setAutoblock(v: Boolean) = _state.update { it.copy(autoblock3 = v) }
+    fun setSlope(step: SlopeStep) = _state.update { it.copy(slope = step) }
+
+    /** Запоминается (SharedPreferences), по умолчанию выключено; на результат влияет только при спуске до 0,010 (калькулятор). */
+    fun setAutoblock(v: Boolean) {
+        prefs.edit().putBoolean(KEY_AUTOBLOCK, v).apply()
+        _state.update { it.copy(autoblock3 = v) }
+    }
 
     /** null - вернуться на «Авто (по уклону)». */
     fun setManualOverride(norm: BrakeNorms.ManualBrakeNorm?) {
@@ -586,6 +592,8 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     companion object {
         private const val PREFS = "brake_certificate_prefs"
         private const val KEY_MANUAL_NORM = "manual_norm"
+        private const val KEY_AUTOBLOCK = "autoblock3"
+        const val DEFAULT_AUTOBLOCK = false
 
         fun fmtNum(p: Double): String =
             if (p % 1.0 == 0.0) p.toLong().toString() else p.toString().replace('.', ',')
@@ -666,7 +674,7 @@ fun BrakeCertificateData.toUiState(base: BrakeCertificateUiState): BrakeCertific
     var next = 0
     val rowUi = rows.map { BrakeRowUi(id = next++, pressureText = it.pressure, axlesText = it.axles) }.ifEmpty { listOf(BrakeRowUi(id = next++)) }
     return base.copy(
-        categoryId = categoryId, slope = slope, autoblock3 = autoblock3, manualOverride = manualNorm ?: base.manualOverride,
+        categoryId = categoryId, slope = slope, autoblock3 = base.autoblock3, manualOverride = manualNorm ?: base.manualOverride,
         stationText = station, issueTimeText = issueTime, dateText = date.ifBlank { base.dateText },
         locoSeriesText = locoSeries, locoNumberText = locoNumber, trainNumberText = trainNumber,
         weightText = weight, totalAxlesText = totalAxles, avgPressureText = avgPressure, rowsMode = rowsMode,

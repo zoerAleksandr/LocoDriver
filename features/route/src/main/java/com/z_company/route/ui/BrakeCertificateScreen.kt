@@ -56,6 +56,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
@@ -328,12 +329,12 @@ private fun CalcTab(
                             VuChip(step.slopeText.removePrefix("0,0").removePrefix("до ").let { if (step == SlopeStep.S006) "≤ 6" else it.trimStart('0') }, state.slope == step, { vm.setSlope(step) }, Modifier.widthIn(min = 56.dp))
                         }
                     }
-                    if (ab) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        VuChip("Автоблокировка (3-значная)", state.autoblock3, { vm.setAutoblock(!state.autoblock3) })
-                    }
-                    if (ab) VuHint("Автоблокировка - отдельный переключатель, сочетается с выбранным спуском: автоблокировка с 3-значной сигнализацией (зелёный огонь АЛСН), скорости в скобках табл. 1 (${InstructionRef.p("3.1")}).", Modifier.padding(horizontal = 4.dp))
                 }
             }
+            AutoblockRow(
+                state, applicable = category.vFlatAutoblock != null && (state.grade == GradeClass.UP_TO_006 || state.grade == GradeClass.OVER_006_TO_010),
+                onChange = vm::setAutoblock, onHelp = { onSheet(BrakeSheet.Help("autoblock")) },
+            )
             FillFromRoute(state, vm)
             ResultCard(result, state, category, onOpenBlank)
             if (low && result != null && BrakeStatusResolver.resolve(result, true).level == StatusLevel.DANGER) DeficitBlock(result, category, onHelp = { onSheet(BrakeSheet.Help("deficit")) })
@@ -355,6 +356,28 @@ private fun CompositeRow(state: BrakeCertificateUiState, vm: BrakeCertificateVie
             listOf("К-50" to CompositeShare.P50, "К-75" to CompositeShare.P75, "К-100" to CompositeShare.P100).forEach { (label, v) ->
                 VuChip(label, state.compositeShare == v, { vm.setCompositeShare(v) }, Modifier.widthIn(min = 56.dp))
             }
+        }
+    }
+}
+
+/** Автоблокировка с 3-значной сигнализацией: отдельный переключатель (вне ряда уклонов); приглушён там, где значения в скобках табл. 1 нет. */
+@Composable
+private fun AutoblockRow(state: BrakeCertificateUiState, applicable: Boolean, onChange: (Boolean) -> Unit, onHelp: () -> Unit) {
+    val t = vuColors()
+    VuCard {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp).alpha(if (applicable) 1f else 0.5f),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Автоблокировка", Modifier.weight(1f), fontSize = 16.sp, color = t.text)
+            VuHelp(onHelp, touch = 40.dp)
+            Switch(
+                checked = state.autoblock3, onCheckedChange = onChange, modifier = Modifier.padding(horizontal = 8.dp),
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = t.accentInk, checkedTrackColor = t.accent, checkedBorderColor = t.accent,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.outline, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant, uncheckedBorderColor = MaterialTheme.colorScheme.outline,
+                ),
+            )
         }
     }
 }
