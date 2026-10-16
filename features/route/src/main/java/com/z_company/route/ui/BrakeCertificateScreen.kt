@@ -220,7 +220,7 @@ fun BrakeCertificateScreen(
             options = BrakeNorms.categories.map { c ->
                 SettingsPickerOption(
                     label = c.title,
-                    sub = "табл. 1 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277, п. ${c.tableRow}: ${c.norm} тс на 100 тс веса, до ${c.vFlat} км/ч",
+                    sub = "табл. III.1 прил. 2 Правил ТО тормозного оборудования, строка ${c.tableRow}: ${c.norm} тс на 100 тс веса, до ${c.vFlat} км/ч",
                     selected = c.id == state.categoryId,
                     onSelect = { viewModel.setCategory(c.id) },
                 )
@@ -228,7 +228,7 @@ fun BrakeCertificateScreen(
         )
         BrakeSheet.ManualNorm -> SettingsPickerSheet(
             title = "Ручные тормозные оси на 100 тс веса",
-            hint = InstructionRef.annotate("«Авто» берёт значение из табл. 6 по руководящему уклону, но не менее единого наименьшего 0,6 (п. 7). Ручное значение запоминается и от уклона не зависит."),
+            hint = InstructionRef.annotate("«Авто» берёт значение из табл. III.4 по руководящему уклону, но не менее единого наименьшего 0,6 (п. 45). Ручное значение запоминается и от уклона не зависит."),
             onDismiss = { sheet = null },
             options = buildList {
                 add(SettingsPickerOption(label = "Авто (по уклону)", sub = InstructionRef.annotate(BrakeNorms.manualInfo(state.slope, null).text), selected = state.manualOverride == null, onSelect = { viewModel.setManualOverride(null) }))
@@ -239,7 +239,7 @@ fun BrakeCertificateScreen(
         )
         BrakeSheet.DensityGroup -> SettingsPickerSheet(
             title = "Группа локомотива",
-            hint = "По серии или по объёму главных резервуаров (прим. 1 к табл. 9.1 ${InstructionRef.GENITIVE})",
+            hint = "По общему объёму главных резервуаров (прим. 3 к табл. IV.1 прил. 2 ${InstructionRef.GENITIVE}); серия -> группа по прежней Инструкции 277",
             onDismiss = { sheet = null },
             options = DensityLocoGroup.values().map { g ->
                 SettingsPickerOption(label = g.title, selected = g == state.densityGroup, onSelect = { viewModel.setDensityGroup(g) })
@@ -342,7 +342,7 @@ private fun CalcTab(
     }
 }
 
-/** Доля вагонов с композиционными колодками (п. 3.3): то же состояние, что и в «Бланк» - «Другие данные». */
+/** Доля вагонов с композиционными колодками (п. 31 прил. 2 Правил): то же состояние, что и в «Бланк» - «Другие данные». */
 @Composable
 private fun CompositeRow(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onHelp: () -> Unit) {
     val t = vuColors()
@@ -360,7 +360,7 @@ private fun CompositeRow(state: BrakeCertificateUiState, vm: BrakeCertificateVie
     }
 }
 
-/** Автоблокировка с 3-значной сигнализацией: отдельный переключатель (вне ряда уклонов); приглушён там, где значения в скобках табл. 1 нет. */
+/** Автоблокировка с 3-значной сигнализацией: отдельный переключатель (вне ряда уклонов); приглушён там, где значения в скобках табл. III.1 нет. */
 @Composable
 private fun AutoblockRow(state: BrakeCertificateUiState, applicable: Boolean, onChange: (Boolean) -> Unit, onHelp: () -> Unit) {
     val t = vuColors()
@@ -461,7 +461,7 @@ private fun ResultCard(result: BrakeCertificateResult?, state: BrakeCertificateU
     }
 }
 
-/** Пояснение скорости: одна короткая красная строка + «Подробнее» (шаги расчёта по п. 4.4 / условия / причина). */
+/** Пояснение скорости: одна короткая красная строка + «Подробнее» (шаги расчёта по п. 35 / условия / причина). */
 @Composable
 private fun SpeedExplanation(sp: SpeedLimit?, warn: Boolean = false) {
     val t = vuColors()
@@ -471,7 +471,7 @@ private fun SpeedExplanation(sp: SpeedLimit?, warn: Boolean = false) {
             val steps = sp.steps
             if (steps != null) {
                 Column(Modifier.padding(top = 8.dp).fillMaxWidth().background(t.danger.copy(alpha = 0.12f), RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Нажатие ниже нормы: скорость снижена до ${sp.kmh} км/ч, п. 4.4 ${InstructionRef.GENITIVE}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.danger, lineHeight = 20.sp)
+                    Text("Нажатие ниже нормы: скорость снижена до ${sp.kmh} км/ч, ${InstructionRef.p("35")}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.danger, lineHeight = 20.sp)
                     Text(if (open) "Свернуть ▴" else "Подробнее ▾", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.clickable { open = !open }.padding(vertical = 4.dp))
                     if (open) {
                         VuTag("Расчёт скорости")
@@ -481,17 +481,17 @@ private fun SpeedExplanation(sp: SpeedLimit?, warn: Boolean = false) {
                 }
             } else if (warn) {
                 Column(Modifier.padding(top = 8.dp).fillMaxWidth().background(t.warning.copy(alpha = 0.18f), RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Скорость табл. 1 сохранена: нажатия не хватает, но условие ${InstructionRef.p("3.3")} выполнено", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.text, lineHeight = 20.sp)
+                    Text("Скорость табл. III.1 сохранена: нажатия не хватает, но условие ${InstructionRef.p("31")} выполнено", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.text, lineHeight = 20.sp)
                     Text(if (open) "Свернуть ▴" else "Подробнее ▾", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.clickable { open = !open }.padding(vertical = 4.dp))
-                    if (open) Text(InstructionRef.annotate(sp.note) + (sp.reducedFrom?.let { " Было бы по табл. 1: $it км/ч." } ?: ""), fontSize = 14.sp, lineHeight = 20.sp, color = t.text)
+                    if (open) Text(InstructionRef.annotate(sp.note) + (sp.reducedFrom?.let { " Было бы по табл. III.1: $it км/ч." } ?: ""), fontSize = 14.sp, lineHeight = 20.sp, color = t.text)
                 }
-            } else VuHint(sp.note + (sp.reducedFrom?.let { " Было бы по табл. 1: $it км/ч." } ?: ""), Modifier.padding(top = 8.dp))
+            } else VuHint(sp.note + (sp.reducedFrom?.let { " Было бы по табл. III.1: $it км/ч." } ?: ""), Modifier.padding(top = 8.dp))
         }
         is SpeedLimit.NotDetermined -> {
             Column(Modifier.padding(top = 8.dp).fillMaxWidth().background(t.danger.copy(alpha = 0.14f), RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (sp.kind == SpeedLimit.Kind.BELOW_MIN) {
                     Text("Нажатие ниже минимального", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = t.danger)
-                    Text("Нажатие ниже минимального (табл. 2 ${InstructionRef.GENITIVE}). Скорость по таблицам не определена.", fontSize = 14.sp, lineHeight = 20.sp, color = t.text)
+                    Text("Нажатие ниже минимального (${InstructionRef.table("III.2")}). Скорость по таблицам не определена.", fontSize = 14.sp, lineHeight = 20.sp, color = t.text)
                 } else {
                     Text("Скорость по таблицам не определена", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = t.danger)
                 }
@@ -508,7 +508,7 @@ private fun DeficitBlock(result: BrakeCertificateResult, category: BrakeCategory
     val t = vuColors()
     val k = if (category.group == TrainGroup.FREIGHT) "2 км/ч" else "1 км/ч (спуск до 0,006) или 2 км/ч (круче)"
     val items = listOf(
-        "Если нажатие не ниже допускаемого минимума ${InstructionRef.table("2")}, скорость табл. 1 снижается на $k за каждую недостающую тонну на 100 тс веса, результат округляется вниз до кратного 5 (${InstructionRef.p("4.4")}).",
+        "Если нажатие не ниже допускаемого минимума ${InstructionRef.table("III.2")}, скорость табл. III.1 снижается на $k за каждую недостающую тонну на 100 тс веса, результат округляется вниз до кратного 5 (${InstructionRef.p("35")}).",
         "Снижение допустимо только в случаях, указанных в ${InstructionRef.p("4.2-4.3")} (выключены неисправные автотормоза в пути; особые составы).",
         "Если нажатие ниже допускаемого минимума, в исключительных случаях допускаемую скорость устанавливает начальник железной дороги по номограммам, на 20 % ниже определённой по ним (${InstructionRef.p("5.1")}). Подробнее - «Справочник».",
     )
@@ -940,7 +940,7 @@ private fun LocoCard(state: BrakeCertificateUiState, category: BrakeCategory, vm
             Column(Modifier.weight(1f)) {
                 Text("Учитывать локомотив", fontSize = 16.sp, color = t.text)
                 Text(
-                    if (category.group == TrainGroup.FREIGHT) InstructionRef.annotate("В грузовых поездах не учитывается (п. 6.3)") else InstructionRef.annotate("Вес по табл. 5, нажатие по табл. 4"),
+                    if (category.group == TrainGroup.FREIGHT) InstructionRef.annotate("В грузовых поездах не учитывается (п. 41)") else "Вес и нажатие - по данным владельца инфраструктуры (п. 40 прил. 2 Правил)",
                     fontSize = 13.sp, color = t.muted, modifier = Modifier.padding(top = 2.dp),
                 )
             }
@@ -960,7 +960,7 @@ private fun LocoCard(state: BrakeCertificateUiState, category: BrakeCategory, vm
                     VuInput("тс/ось", state.locoPressureText, Modifier.weight(0.9f), onChange = vm::setLocoPressure, sunk = true)
                 }
                 VuHint(
-                    if (state.locoAuto) "По табл. 4-5 ${InstructionRef.GENITIVE} для серии «${state.locoSeriesText}»" + (state.locoNote?.let { ": $it" } ?: "") + ". Можно править."
+                    if (state.locoAuto) "Справочник серий (прежняя Инструкция 277; по Правилам данные локомотивов утверждает владелец инфраструктуры) для серии «${state.locoSeriesText}»" + (state.locoNote?.let { ": $it" } ?: "") + ". Можно править."
                     else if (state.locoSeriesText.isNotBlank()) "Серии «${state.locoSeriesText}» нет в справочнике - введите вручную."
                     else "Серия локомотива - в «Реквизитах» бланка; значения можно ввести вручную.",
                 )
@@ -1122,7 +1122,7 @@ private fun OtherSheet(state: BrakeCertificateUiState, category: BrakeCategory, 
                 val dpv = state.dpvText.toFiniteDoubleOrNull()
                 when {
                     min == null -> VuHint("Норма ДПВ: укажите зарядное давление локомотива 4,8-5,8 (вкладка «Замеры») и число осей.")
-                    dpv == null -> VuHint("Норма в хвосте: не менее ${fmt(min)} кгс/см² (п. 9.2.6)")
+                    dpv == null -> VuHint("Норма в хвосте: не менее ${fmt(min)} кгс/см² (п. 48 прил. 2 Правил ТО тормозного оборудования)")
                     else -> VuVerdict(dpv + 1e-9 >= min, if (dpv + 1e-9 >= min) "ДПВ в норме (не менее ${fmt(min)})" else "ДПВ ниже нормы: нужно не менее ${fmt(min)} кгс/см²", 14)
                 }
             }
@@ -1170,7 +1170,7 @@ private fun RowSheet(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
 private fun HelpSheet(key: String, state: BrakeCertificateUiState, category: BrakeCategory, result: BrakeCertificateResult?, onDismiss: () -> Unit) {
     val t = vuColors()
     val hint = brakeHints[key] ?: if (key == "deficit") BrakeHint(
-        "Что делать при недостатке нажатия", "Нажатие ниже нормы табл. 1 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277. Если оно не ниже допускаемого минимума табл. 2 и случай относится к п. 4.2-4.3, скорость снижают: 2 км/ч за каждую недостающую тонну для грузовых, 1-2 км/ч для пассажирских, результат округляют вниз до кратного 5.", "Инструкция 277, прил. 2, п. 4.2-4.5, 5.1",
+        "Что делать при недостатке нажатия", "Нажатие ниже нормы табл. III.1 Правил ТО тормозного оборудования. Если оно не ниже допускаемого минимума табл. III.2 и случай относится к п. 33-34, скорость снижают: 2 км/ч за каждую недостающую тонну для грузовых, 1-2 км/ч для пассажирских, результат округляют вниз до кратного 5.", "Правила ТО тормозного оборудования, прил. 2, п. 33-35, 37",
     ) else null
     if (hint == null) { onDismiss(); return }
     val calc = when (key) {
@@ -1278,9 +1278,9 @@ private fun MeasureTab(
                     VuInput("Группа локомотива", group?.let { "№ ${it.name.removePrefix("G")}: ${it.title}" } ?: "Не выбрана", onClick = onGroupClick, sunk = true)
                     VuHint(
                         when {
-                            group == null -> "Без группы норма по табл. 9.1 не определяется."
+                            group == null -> "Без группы норма по табл. IV.1 не определяется."
                             minTime == null -> "Норма II положения: длина состава должна быть 1-530 осей (сейчас: $axles)."
-                            else -> "Норма II положения по табл. 9.1: не менее ${fmt(minTime)} с (группа ${group.name.removePrefix("G")}, $axles осей" + (if (BrakeDensity.chargeFactor(charge) < 1.0) ", с поправкой на зарядное давление" else "") + ")."
+                            else -> "Норма II положения по табл. IV.1: не менее ${fmt(minTime)} с (группа ${group.name.removePrefix("G")}, $axles осей" + (if (BrakeDensity.chargeFactor(charge) < 1.0) ", с поправкой на зарядное давление" else "") + ")."
                         },
                     )
                 }
@@ -1410,7 +1410,7 @@ private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory
             }
         }
         VuHint(
-            "Расчёт по Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277 (прил. 2, ред. 1994 г.). Справочный инструмент: официальной справкой ВУ-45 является документ, выданный осмотрщиком вагонов. Нормы могли измениться - сверяйте с действующими документами.",
+            "Расчёт по Правилам технического обслуживания тормозного оборудования и управления тормозами (СЖТ, протокол № 60 от 6-7.05.2014, с изменениями до 2017 г.), прил. 2. Форма ВУ-45 - Инструкция 808-2017 ПКБ ЦВ, прил. К. Справочный инструмент: официальной справкой ВУ-45 является документ, выданный осмотрщиком вагонов. Нормы могут меняться - сверяйте с действующими документами.",
             Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
         )
     }

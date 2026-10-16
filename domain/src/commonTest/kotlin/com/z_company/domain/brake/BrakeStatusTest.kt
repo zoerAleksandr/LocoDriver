@@ -26,7 +26,7 @@ class BrakeStatusTest {
         val st = BrakeStatusResolver.resolve(r, true)
         assertEquals(StatusLevel.WARNING, st.level)
         assertTrue(st.headline.startsWith("Не хватает 1,5 тс на 100 тс веса; скорость не снижена"), st.headline)
-        assertTrue(st.headline.contains("п. 3.3 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"))
+        assertTrue(st.headline.contains("п. 31 прил. 2 Правил ТО тормозного оборудования"))
     }
 
     @Test fun shortButSpeedKept_composite100_boundary30() {

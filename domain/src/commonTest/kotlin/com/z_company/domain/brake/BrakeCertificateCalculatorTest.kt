@@ -228,14 +228,18 @@ class BrakeCertificateCalculatorTest {
 
 class InstructionRefTest {
     @Test
-    fun annotateAddsInstructionAfterFirstRef() {
-        assertEquals("п. 4.4 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277: снижение", InstructionRef.annotate("п. 4.4: снижение"))
-        assertEquals("(п. 3.2.2, 9.2.3 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277)", InstructionRef.annotate("(п. 3.2.2, 9.2.3)"))
-        assertEquals("по табл. 6 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277 для уклона", InstructionRef.annotate("по табл. 6 для уклона"))
+    fun annotateAddsDocumentAfterFirstRef() {
+        val g = InstructionRef.GENITIVE
+        assertEquals("п. 35 прил. 2 $g: снижение", InstructionRef.annotate("п. 35: снижение"))
+        assertEquals("(п. 48, 50 прил. 2 $g)", InstructionRef.annotate("(п. 48, 50)"))
+        assertEquals("по табл. III.4 прил. 2 $g для уклона", InstructionRef.annotate("по табл. III.4 для уклона"))
+        assertEquals("п. 133 $g", InstructionRef.annotate("п. 133"))
         assertEquals("без ссылок", InstructionRef.annotate("без ссылок"))
-        val already = "п. 4.4 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"
+        val already = "п. 35 прил. 2 $g"
         assertEquals(already, InstructionRef.annotate(already))
-        assertEquals("п. 4.4 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277", InstructionRef.p("4.4"))
+        assertEquals("п. 35 прил. 2 $g", InstructionRef.p("35"))
+        assertEquals("табл. III.1 прил. 2 $g", InstructionRef.table("III.1"))
+        assertEquals("п. 133 $g", InstructionRef.main("133"))
     }
 }
 
@@ -250,7 +254,7 @@ class SpeedBranchesTest {
         val s = r("FREIGHT_LOADED", 1000.0, 400.0) as SpeedLimit.Allowed
         assertEquals(80, s.kmh)
         assertEquals(false, s.conditional)
-        assertTrue(s.note.contains("Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"))
+        assertTrue(s.note.contains("Правил ТО тормозного оборудования"))
     }
 
     @Test
@@ -263,15 +267,15 @@ class SpeedBranchesTest {
         val steps = s.steps!!
         assertTrue(steps.contains("80 - 2×4 = 72"), steps)
         assertTrue(steps.contains("до кратного 5"), steps)
-        assertTrue(steps.contains("п. 4.4 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"), steps)
-        assertTrue(s.condition!!.contains("п. 4.2-4.3 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"))
+        assertTrue(steps.contains("п. 35 прил. 2 Правил ТО тормозного оборудования"), steps)
+        assertTrue(s.condition!!.contains("п. 33-34 прил. 2 Правил ТО тормозного оборудования"))
     }
 
     @Test
-    fun belowMinimum_notAllowedByTables_citesP51() {
+    fun belowMinimum_notAllowedByTables_citesP37() {
         val s = r("FREIGHT_LOADED", 1000.0, 270.0) as SpeedLimit.NotDetermined // 27 < 28
         assertEquals(SpeedLimit.Kind.BELOW_MIN, s.kind)
-        assertTrue(s.reason.contains("п. 5.1 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"), s.reason)
+        assertTrue(s.reason.contains("п. 37 прил. 2 Правил ТО тормозного оборудования"), s.reason)
         assertTrue(s.reason.contains("начальник железной дороги"), s.reason)
         assertTrue(s.reason.contains("20 %"), s.reason)
     }
@@ -289,7 +293,7 @@ class SpeedBranchesTest {
         assertEquals(SpeedLimit.Kind.NO_NORM_STEEP, a.kind)
         val b = r("FREIGHT_LOADED", 1000.0, 400.0, GradeClass.OVER_015) as SpeedLimit.NotDetermined
         assertEquals(SpeedLimit.Kind.NO_NORM_STEEP, b.kind)
-        assertTrue(b.reason.contains("п. 5.2 Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277"))
+        assertTrue(b.reason.contains("п. 38 прил. 2 Правил ТО тормозного оборудования"))
     }
 
     @Test

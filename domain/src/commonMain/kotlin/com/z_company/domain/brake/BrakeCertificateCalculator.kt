@@ -6,10 +6,10 @@ import kotlin.math.floor
 /** Строка таблицы справки: число осей с одинаковым расчётным нажатием на ось (тс). */
 data class AxleRow(val pressurePerAxle: Double, val axles: Int)
 
-/** Локомотив, учитываемый в подсчёте (табл. 4 и 5 Норм): учётный вес, число тормозных осей, нажатие на ось. */
+/** Локомотив, учитываемый в подсчёте (приложение владельца инфраструктуры, п. 40 прил. 2 Правил): учётный вес, число тормозных осей, нажатие на ось. */
 data class LocoBrakeInput(val weight: Double, val axles: Int, val pressurePerAxle: Double)
 
-/** Доля вагонов с композиционными колодками при нагрузке на ось более 21 тс (п. 3.3 Норм). */
+/** Доля вагонов с композиционными колодками при нагрузке на ось более 21 тс (п. 31 прил. 2 Правил). */
 enum class CompositeShare { NONE, P50, P75, P100 }
 
 data class BrakeCertificateInput(
@@ -19,10 +19,10 @@ data class BrakeCertificateInput(
     val rows: List<AxleRow>,
     val loco: LocoBrakeInput? = null,
     val grade: GradeClass = GradeClass.UP_TO_006,
-    /** Автоблокировка с трёхзначной сигнализацией, зелёный огонь АЛСН (значения в скобках табл. 1). */
+    /** Автоблокировка с трёхзначной сигнализацией, зелёный огонь АЛСН (значения в скобках табл. III.1). */
     val autoblock3: Boolean = false,
     val compositeShare: CompositeShare = CompositeShare.NONE,
-    /** Ручное переопределение нормы ручных осей (null - «Авто» по уклону [slope], табл. 6 с нижней границей 0,6). */
+    /** Ручное переопределение нормы ручных осей (null - «Авто» по уклону [slope], табл. III.4 с нижней границей 0,6 по п. 45). */
     val manualNorm: BrakeNorms.ManualBrakeNorm? = null,
     val slope: SlopeStep = SlopeStep.S006,
     /** Фактическое число ручных тормозных осей, если задано. */
@@ -33,8 +33,8 @@ data class BrakeCertificateInput(
 
 sealed interface SpeedLimit {
     /**
-     * Допускаемая скорость, км/ч. [reducedFrom] - скорость табл. 1 до снижения (п. 4.4). [steps] - шаги расчёта для показа.
-     * [conditional] - результат применим только при условиях, указанных в [condition] (п. 4.2-4.3 Инструкции).
+     * Допускаемая скорость, км/ч. [reducedFrom] - скорость табл. III.1 до снижения (п. 35). [steps] - шаги расчёта для показа.
+     * [conditional] - результат применим только при условиях, указанных в [condition] (п. 33-34 прил. 2 Правил).
      */
     data class Allowed(
         val kmh: Int,
@@ -87,7 +87,7 @@ object BrakeCertificateCalculator {
             if (it != axlesFromRows) warnings += "Осей в таблице: $axlesFromRows, в поезде указано: $it"
         }
         if (cat.group == TrainGroup.FREIGHT && loco != null) {
-            warnings += "Для грузовых поездов вес и нажатие локомотива не учитываются (${InstructionRef.p("6.3")}, прил. 2)"
+            warnings += "Для грузовых поездов вес и нажатие локомотива не учитываются (${InstructionRef.p("41")})"
         }
 
         val speed = if (totalWeight <= 0) {
@@ -130,8 +130,8 @@ object BrakeCertificateCalculator {
     ): SpeedLimit {
         if (input.grade == GradeClass.OVER_015) {
             return SpeedLimit.NotDetermined(
-                "Спуск круче 0,015: норм табл. 1 и 2 нет, допускаемые скорости устанавливает начальник железной дороги, " +
-                    "руководствуясь номограммами Правил тяговых расчётов (${InstructionRef.p("5.2")}, прил. 2).",
+                "Спуск круче 0,015: норм табл. III.1 и III.2 нет, допускаемые скорости устанавливает начальник железной дороги, " +
+                    "руководствуясь номограммами Правил тяговых расчётов (${InstructionRef.p("38")}).",
                 SpeedLimit.Kind.NO_NORM_STEEP,
             )
         }
@@ -139,20 +139,20 @@ object BrakeCertificateCalculator {
         val base: Int? = if (steep) cat.vSteep else cat.vFlat
         if (base == null) {
             return SpeedLimit.NotDetermined(
-                "Для этой категории и спуска круче 0,010 норм табл. 1 нет: допускаемые скорости устанавливает начальник " +
-                    "железной дороги (${InstructionRef.table("1")}, прим. 1 к табл. 2).",
+                "Для этой категории и спуска круче 0,010 норм табл. III.1 нет: допускаемые скорости устанавливает начальник " +
+                    "железной дороги (${InstructionRef.table("III.1")}, прим. 1 к табл. III.2).",
                 SpeedLimit.Kind.NO_NORM_STEEP,
             )
         }
         if (enough) {
             val bracket = cat.vFlatAutoblock
             return if (!steep && input.autoblock3 && bracket != null) {
-                SpeedLimit.Allowed(bracket, "${InstructionRef.table("1")}, автоблокировка с 3-значной сигнализацией (значение в скобках, ${InstructionRef.p("3.1")})")
+                SpeedLimit.Allowed(bracket, "${InstructionRef.table("III.1")}, автоблокировка с 3-значной сигнализацией (значение в скобках, ${InstructionRef.p("29-30")})")
             } else {
-                SpeedLimit.Allowed(base, "${InstructionRef.table("1")}: нажатие не менее нормы ${cat.norm} тс на каждые 100 тс веса")
+                SpeedLimit.Allowed(base, "${InstructionRef.table("III.1")}: нажатие не менее нормы ${cat.norm} тс на каждые 100 тс веса")
             }
         }
-        // п. 3.3: тяжёлая нагрузка на ось + композиционные колодки
+        // п. 31: тяжёлая нагрузка на ось + композиционные колодки
         if (cat.isLoadedFreight && input.compositeShare != CompositeShare.NONE) {
             // п. 31 прил. 2 Правил: К-50 - не менее 32 тс, К-75 - не менее 31, К-100 - не менее 30 тс на 100 тс веса
             val ok = when (input.compositeShare) {
@@ -165,7 +165,7 @@ object BrakeCertificateCalculator {
                 val v = minOf(80, base)
                 return SpeedLimit.Allowed(
                     v,
-                    "${InstructionRef.p("3.3")}: нагрузка на ось более 21 тс, композиционные колодки, ВР на среднем режиме - до 80 км/ч",
+                    "${InstructionRef.p("31")}: нагрузка на ось более 21 тс, композиционные колодки, ВР на среднем режиме - до 80 км/ч",
                     reducedFrom = if (v < base) base else null,
                 )
             }
@@ -173,14 +173,14 @@ object BrakeCertificateCalculator {
         val minNorm = cat.minNorm
             ?: return SpeedLimit.NotDetermined(
                 "Нажатие ${fmtN(per100)} тс на каждые 100 тс веса ниже нормы ${cat.norm}; для этой категории допускаемый минимум " +
-                    "в ${InstructionRef.table("2")} не задан - скорость таблицами не определяется.",
+                    "в ${InstructionRef.table("III.2")} не задан - скорость таблицами не определяется.",
                 SpeedLimit.Kind.NO_MIN_IN_TABLE,
             )
         if (per100 + EPS < minNorm) {
             return SpeedLimit.NotDetermined(
-                "Нажатие ${fmtN(per100)} тс на каждые 100 тс веса ниже допускаемого минимума $minNorm (${InstructionRef.table("2")}). " +
+                "Нажатие ${fmtN(per100)} тс на каждые 100 тс веса ниже допускаемого минимума $minNorm (${InstructionRef.table("III.2")}). " +
                     "Скорость по таблицам не определяется: в исключительных случаях допускаемые скорости устанавливает начальник " +
-                    "железной дороги по номограммам, на 20 % ниже определённых по ним (${InstructionRef.p("5.1")}).",
+                    "железной дороги по номограммам, на 20 % ниже определённых по ним (${InstructionRef.p("37")}).",
                 SpeedLimit.Kind.BELOW_MIN,
             )
         }
@@ -193,15 +193,15 @@ object BrakeCertificateCalculator {
         val reduced = base - k * missing
         val rounded = (floor(reduced / 5.0) * 5).toInt().coerceAtLeast(0)
         val steps = "Не хватает ${fmtN(lack)} тс на каждые 100 тс (${cat.norm} - ${fmtN(per100)}) → $missing т (с округлением вверх); " +
-            "скорость = $base - $k×$missing = $reduced → до кратного 5 вниз: $rounded км/ч (${InstructionRef.p("4.4")})"
+            "скорость = $base - $k×$missing = $reduced → до кратного 5 вниз: $rounded км/ч (${InstructionRef.p("35")})"
         return SpeedLimit.Allowed(
             rounded,
             steps,
             reducedFrom = base,
             steps = steps,
             conditional = true,
-            condition = "Допустимо только в случаях, указанных в ${InstructionRef.p("4.2-4.3")} (выключены неисправные автотормоза у отдельных вагонов в пути - " +
-                "до первой станции с пунктом ТО вагонов; особые составы и поезда по п. 4.3); при тормозном нажатии не менее допускаемого минимума ${InstructionRef.table("2")}.",
+            condition = "Допустимо только в случаях, указанных в ${InstructionRef.p("33-34")} (выключены неисправные автотормоза у отдельных вагонов в пути - " +
+                "до первой станции с пунктом ТО вагонов; особые составы и поезда по п. 34); при тормозном нажатии не менее допускаемого минимума ${InstructionRef.table("III.2")}.",
         )
     }
 }

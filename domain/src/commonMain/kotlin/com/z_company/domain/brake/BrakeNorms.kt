@@ -2,9 +2,10 @@ package com.z_company.domain.brake
 
 /**
  * Нормативные таблицы для расчёта справки ВУ-45.
- * Источник: Инструкция ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277 (МПС, 16.05.1994), приложение 2 «Нормы обеспечения поездов
- * тормозами и допускаемые скорости движения» (табл. 1, 2, 3, 6; п. 3.3, 4.4, 6.4, 7). Редакция 1994 г. —
- * актуальность перед использованием в работе нужно сверять с действующими документами ОАО «РЖД».
+ * Источник: Правила технического обслуживания тормозного оборудования и управления тормозами железнодорожного подвижного состава
+ * (СЖТ государств-участников Содружества, протокол № 60 от 6-7.05.2014, ред. до 2017), приложение 2, разд. III «Нормы обеспечения поездов
+ * тормозами и допускаемые скорости движения поездов»: табл. III.1-III.4, п. 29-31, 35, 43-46. Прежняя Инструкция 277 не действует;
+ * таблица соответствий и непроверенные места - docs/VU45_INSTRUCTION_ACTUALITY.md.
  */
 
 /** Крутизна руководящего спуска. */
@@ -12,13 +13,13 @@ enum class GradeClass(val title: String) {
     UP_TO_006("до 0,006"),
     OVER_006_TO_010("круче 0,006 до 0,010"),
     OVER_010_TO_015("круче 0,010 до 0,015"),
-    /** Круче 0,015: норм табл. 1/2 нет, скорость устанавливает начальник дороги. */
+    /** Круче 0,015: норм табл. III.1/III.2 нет, скорость устанавливает владелец инфраструктуры (п. 38). */
     OVER_015("круче 0,015"),
 }
 
 /**
- * Ступени руководящего уклона по табл. 6 Норм (оси ручных тормозов на 100 тс). Для диапазона берётся верхняя граница ступени
- * (безопасная сторона). Класс [grade] определяет скорости табл. 1/2; ступени круче 0,015 норм скорости не имеют.
+ * Ступени руководящего уклона по табл. III.4 (п. 44 прил. 2 Правил) (оси ручных тормозов на 100 тс). Для диапазона берётся верхняя граница ступени
+ * (безопасная сторона). Класс [grade] определяет скорости табл. III.1/III.2; ступени круче 0,015 норм скорости не имеют.
  */
 enum class SlopeStep(val slopeText: String, val grade: GradeClass, val table6: Double) {
     S006("до 0,006", GradeClass.UP_TO_006, 0.4),
@@ -31,11 +32,11 @@ enum class SlopeStep(val slopeText: String, val grade: GradeClass, val table6: D
     S020("0,020", GradeClass.OVER_015, 1.8),
 }
 
-/** Группа поезда (определяет правило снижения скорости по п. 4.4 и учёт локомотива). */
+/** Группа поезда (определяет правило снижения скорости по п. 35 и учёт локомотива). */
 enum class TrainGroup {
     PASSENGER,
     FREIGHT_PASSENGER,
-    REEFER_FAST, // рефрижераторный, скорости более 90 км/ч — п. 4.4 как для пассажирских
+    REEFER_FAST, // рефрижераторный, скорости более 90 км/ч — п. 35 как для пассажирских
     FREIGHT,
 }
 
@@ -43,10 +44,10 @@ enum class TrainGroup {
  * Строка таблицы 1 (единое наименьшее тормозное нажатие) вместе с соответствующей строкой таблицы 2
  * (допускаемое минимальное нажатие), если она есть.
  *
- * Скорости: [vFlat] — числитель табл. 1 (спуск до 0,010 включительно), [vSteep] — знаменатель
- * (круче 0,010 до 0,015; для п. 11.3-11.6 — до 0,012), null — прочерк в таблице.
+ * Скорости: [vFlat] — числитель табл. III.1 (спуск до 0,010 включительно), [vSteep] — знаменатель
+ * (круче 0,010 до 0,015; для строк 14.3-14.7 (в ред. 2014 - 13.3-13.6) — до 0,012), null — прочерк в таблице.
  * [vFlatAutoblock] — значение в скобках (автоблокировка с трёхзначной сигнализацией, зелёный огонь АЛСН).
- * [minNorm]/[minSpeeds] — табл. 2: нажатие и скорости для трёх классов спуска (null — прочерк/нет строки).
+ * [minNorm]/[minSpeeds] — табл. III.2: нажатие и скорости для трёх классов спуска (null — прочерк/нет строки).
  */
 data class BrakeCategory(
     val id: String,
@@ -72,29 +73,29 @@ object BrakeNorms {
         BrakeCategory("PASS_160", "4", "Пассажирский, до 160 км/ч (композит, ЭПТ)", TrainGroup.PASSENGER, 80, 160, null, null, 70, listOf(150, 140, null), true, false),
         BrakeCategory("PASS_RIC_140", "5", "Пассажирский с вагонами РИЦ (тормоз КЕ), до 140 км/ч", TrainGroup.PASSENGER, 70, 140, null, null, null, listOf(null, null, null), true, false),
         BrakeCategory("PASS_RIC_160", "6", "Пассажирский с вагонами РИЦ (тормоз КЕ), до 160 км/ч", TrainGroup.PASSENGER, 80, 160, null, null, null, listOf(null, null, null), true, false),
-        BrakeCategory("EMPTY_350", "7", "Порожний грузовой до 350 осей / рефрижераторный (композит)", TrainGroup.FREIGHT, 55, 100, null, 90, 50, listOf(90, 90, 80), false, true),
-        BrakeCategory("REEFER", "8", "Рефрижераторный поезд (композит), до 120 км/ч", TrainGroup.REEFER_FAST, 60, 120, null, 100, 50, listOf(110, 100, 90), false, false),
-        BrakeCategory("FREIGHT_LOADED", "9", "Груженый грузовой / рефрижераторный / хозяйственный", TrainGroup.FREIGHT, 33, 80, 90, 70, 28, listOf(70, 70, 60), false, true, isLoadedFreight = true),
-        BrakeCategory("FREIGHT_PASS", "10", "Грузопассажирский", TrainGroup.FREIGHT_PASSENGER, 44, 90, null, 80, 38, listOf(80, 75, 65), true, true),
-        BrakeCategory("EMPTY_350_400", "11.1", "Порожний, 350-400 осей включительно", TrainGroup.FREIGHT, 44, 90, null, 80, null, listOf(null, null, null), false, true),
-        BrakeCategory("EMPTY_400_520", "11.2", "Порожний, более 400 до 520 осей включительно", TrainGroup.FREIGHT, 33, 80, 90, 70, null, listOf(null, null, null), false, true),
-        BrakeCategory("JOINED_UNITED", "11.3", "Соединённый до 12 тыс. тс, объединённая ТМ", TrainGroup.FREIGHT, 33, 65, 75, 60, 28, listOf(55, 55, 50), false, true),
-        BrakeCategory("JOINED_SEPARATE", "11.4", "Соединённый до 12 тыс. тс, необъединённая ТМ", TrainGroup.FREIGHT, 33, 60, null, 60, 28, listOf(50, 50, 50), false, true),
-        BrakeCategory("HEAD_TAIL_12", "11.5", "До 12 тыс. тс, локомотивы в голове и хвосте", TrainGroup.FREIGHT, 33, 75, 85, 65, 28, listOf(65, 50, 50), false, true),
-        BrakeCategory("HEAD_THIRD_16", "11.6", "До 16 тыс. тс, локомотивы в голове и последней трети", TrainGroup.FREIGHT, 33, 70, 80, 65, 28, listOf(60, 60, 55), false, true),
+        BrakeCategory("EMPTY_350", "9", "Порожний грузовой до 350 осей / рефрижераторный (композит)", TrainGroup.FREIGHT, 55, 100, null, 90, 50, listOf(90, 90, 80), false, true),
+        BrakeCategory("REEFER", "10", "Рефрижераторный поезд (композит), до 120 км/ч", TrainGroup.REEFER_FAST, 60, 120, null, 100, 50, listOf(110, 100, 90), false, false),
+        BrakeCategory("FREIGHT_LOADED", "11", "Груженый грузовой / рефрижераторный / хозяйственный", TrainGroup.FREIGHT, 33, 80, 90, 70, 28, listOf(70, 70, 60), false, true, isLoadedFreight = true),
+        BrakeCategory("FREIGHT_PASS", "12", "Грузопассажирский", TrainGroup.FREIGHT_PASSENGER, 44, 90, null, 80, 38, listOf(80, 75, 65), true, true),
+        BrakeCategory("EMPTY_350_400", "14.1", "Порожний, 350-400 осей включительно", TrainGroup.FREIGHT, 44, 90, null, 80, null, listOf(null, null, null), false, true),
+        BrakeCategory("EMPTY_400_520", "14.2", "Порожний, более 400 до 520 осей включительно", TrainGroup.FREIGHT, 33, 80, 90, 70, null, listOf(null, null, null), false, true),
+        BrakeCategory("JOINED_UNITED", "14.3", "Соединённый до 12 тыс. тс, объединённая ТМ", TrainGroup.FREIGHT, 33, 65, 75, 60, 28, listOf(55, 55, 50), false, true),
+        BrakeCategory("JOINED_SEPARATE", "14.4", "Соединённый до 12 тыс. тс, необъединённая ТМ", TrainGroup.FREIGHT, 33, 60, null, 60, 28, listOf(50, 50, 50), false, true),
+        BrakeCategory("HEAD_TAIL_12", "14.5", "До 12 тыс. тс, локомотивы в голове и хвосте", TrainGroup.FREIGHT, 33, 75, 85, 65, 28, listOf(65, 50, 50), false, true),
+        BrakeCategory("HEAD_THIRD_16", "14.7", "До 16 тыс. тс, локомотивы в голове и последней трети", TrainGroup.FREIGHT, 33, 70, 80, 65, 28, listOf(60, 60, 55), false, true),
     )
 
-    /** Значения «Тормозное нажатие на ось, тс» в первой графе бланка ВУ-45 (форма по Инструкции 808-2017 ПКБ ЦВ, прил. К). */
+    /** Значения «Тормозное нажатие на ось, тс» в первой графе бланка ВУ-45 (форма по Инструкции 808-2017 ПКБ ЦВ, прил. К, 27 строк). */
     val blankAxlePressures: List<Double> = listOf(
         1.25, 3.0, 3.5, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 11.0, 11.5, 12.0, 12.5, 13.0, 14.0, 15.0, 16.0, 18.0, 19.0, 20.0, 21.0,
     )
 
-    /** Типы вагонов табл. 3 с данным нажатием на ось (подсказка к значению бланка). */
+    /** Типы вагонов табл. III.3 (п. 39) с данным нажатием на ось (подсказка к значению бланка). */
     fun presetsFor(pressure: Double): List<AxlePreset> = axlePresets.filter { it.pressure == pressure }
 
     fun category(id: String): BrakeCategory? = categories.firstOrNull { it.id == id }
 
-    /** Табл. 6: единая норма и нормы по крутизне уклона — число ручных тормозных осей на 100 тс веса состава. */
+    /** Табл. III.4 (п. 44): единая норма и нормы по крутизне уклона — число ручных тормозных осей на 100 тс веса состава. */
     enum class ManualBrakeNorm(val perHundred: Double, val title: String) {
         UNIFIED_06(0.6, "0,6 - единое наименьшее (по умолчанию)"),
         SLOPE_006(0.4, "0,4 - уклон до 0,006"),
@@ -107,7 +108,7 @@ object BrakeNorms {
         SLOPE_020(1.8, "1,8 - уклон 0,020"),
     }
 
-    /** Единое наименьшее число ручных осей на 100 тс веса (п. 7: поезда в пределах двух и более дорог). */
+    /** Единое наименьшее число ручных осей на 100 тс веса (п. 45: поезда в пределах двух и более дорог). */
     const val UNIFIED_MANUAL = 0.6
 
     /** Число ручных осей на 100 тс веса и пояснение, откуда оно получено. [override] != null - ручное значение пользователя. */
@@ -117,14 +118,14 @@ object BrakeNorms {
         if (override != null) return ManualInfo(override.perHundred, "вручную: ${fmtK(override.perHundred)} оси на 100 тс веса", false)
         val t6 = slope.table6
         val v = maxOf(UNIFIED_MANUAL, t6)
-        val text = if (t6 < UNIFIED_MANUAL) "по табл. 6 для уклона ${slope.slopeText} - ${fmtK(t6)}, но не менее единого наименьшего ${fmtK(UNIFIED_MANUAL)} (п. 7)"
-        else "по табл. 6 для уклона ${slope.slopeText} - ${fmtK(t6)}"
+        val text = if (t6 < UNIFIED_MANUAL) "по табл. III.4 для уклона ${slope.slopeText} - ${fmtK(t6)}, но не менее единого наименьшего ${fmtK(UNIFIED_MANUAL)} (п. 45)"
+        else "по табл. III.4 для уклона ${slope.slopeText} - ${fmtK(t6)}"
         return ManualInfo(v, text, true)
     }
 
     private fun fmtK(v: Double): String = v.toString().replace('.', ',')
 
-    /** Табл. 3: расчётные нажатия колодок на ось вагонов (в пересчёте на чугунные), тс. */
+    /** Табл. III.3 (п. 39): расчётные нажатия колодок на ось вагонов (в пересчёте на чугунные), тс. */
     data class AxlePreset(val title: String, val pressure: Double)
 
     val axlePresets: List<AxlePreset> = listOf(

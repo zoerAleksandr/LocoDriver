@@ -78,7 +78,7 @@ data class BrakeCertificateUiState(
     val categoryId: String = "FREIGHT_LOADED",
     val slope: SlopeStep = SlopeStep.S006,
     val autoblock3: Boolean = false,
-    /** Ручное переопределение нормы ручных осей (запоминается); null - «Авто» по уклону (табл. 6, не менее 0,6). */
+    /** Ручное переопределение нормы ручных осей (запоминается); null - «Авто» по уклону (табл. III.4, не менее 0,6). */
     val manualOverride: BrakeNorms.ManualBrakeNorm? = null,
     // Шапка бланка
     val stationText: String = "",
