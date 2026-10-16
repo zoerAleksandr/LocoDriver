@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.ui.zIndex
 import com.z_company.route.component.reorderStep
@@ -607,7 +608,7 @@ fun HomeScreen(
 
     if (showMonthSheetVisible) {
         currentMonthOfYear?.let { current ->
-            ModalBottomSheet(
+            AppModalBottomSheet(
                 dragHandle = { AppDragHandle() },
                 onDismissRequest = { showMonthSheetVisible = false },
                 sheetState = monthSheetState,
@@ -696,7 +697,7 @@ fun HomeScreen(
     // Шторка со списком единиц текущего маршрута (несколько локо/поездов/пассажиров)
     if (unitsSheetType != null) {
         currentRoute?.let { route ->
-            ModalBottomSheet(
+            AppModalBottomSheet(
                 dragHandle = { AppDragHandle() },
                 onDismissRequest = { unitsSheetType = null },
                 sheetState = unitsSheetState,

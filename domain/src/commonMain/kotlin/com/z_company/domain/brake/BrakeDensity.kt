@@ -182,9 +182,10 @@ object BrakeDensity {
 
     /**
      * Норма времени в IV положении по норме II: плотность в положении IV (перекрыша с питанием) не должна отличаться от плотности при поездном положении
-     * более чем на 10 % в сторону уменьшения (п. 48 прил. 2 Правил; прил. М 808-2022), т.е. время не менее 0,9 от времени II.
+     * более чем на 10 % в сторону уменьшения (п. 48 прил. 2 Правил; прил. М 808-2022), т.е. время не менее 0,9 от времени II;
+     * порог «не менее» округляется до ЦЕЛОГО в меньшую сторону (решение владельца): II = 69 -> 62,1 -> 62; II = 70 -> 63.
      */
-    fun normIvSeconds(normII: Double): Double = normII * 0.9
+    fun normIvSeconds(normII: Double): Double = kotlin.math.floor(normII * 0.9 + 1e-9)
 
     /** Округление нормы «не менее» ВВЕРХ до 0,1 с (безопасная сторона), как при показе норм II и IV. */
     fun ceilTenth(v: Double): Double = kotlin.math.ceil(v * 10.0 - 1e-9) / 10.0
@@ -242,7 +243,7 @@ object BrakeDensity {
     /** IV положение (перекрыша с питанием, через >=2 мин после ступени): плотность не должна уменьшиться более чем на 10 % от II. */
     fun assessFreightIV(timeIVSec: Double, timeIISec: Double?): Assessment {
         if (timeIISec == null) return Assessment(Verdict.NO_NORM, "Сначала запишите замер II положения")
-        val min = timeIISec * 0.9
+        val min = normIvSeconds(timeIISec)
         return if (timeIVSec + 1e-9 >= min) Assessment(Verdict.OK, "Допуск: не менее ${fmt(min)} с (90 % от II)")
         else Assessment(Verdict.FAIL, "Плотность упала более чем на 10 %: ${fmt(timeIVSec)} с, нужно не менее ${fmt(min)} с")
     }

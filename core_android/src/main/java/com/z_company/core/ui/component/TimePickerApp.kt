@@ -65,7 +65,7 @@ fun TimePickerApp(
     val viewModel = remember { TimePickerViewModel(initialTimeMillis) }
     val uiState by viewModel.uiState.collectAsState()
 
-    ModalBottomSheet(
+    AppModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         sheetGesturesEnabled = swipeToDismiss,

@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -101,7 +102,7 @@ fun Passenger12hBottomSheet(
         "Время следования должно быть в пределах рабочего времени"
     } else null
 
-    ModalBottomSheet(
+    AppModalBottomSheet(
         dragHandle = { AppDragHandle() },
         onDismissRequest = onDismiss,
         sheetState = sheetState,

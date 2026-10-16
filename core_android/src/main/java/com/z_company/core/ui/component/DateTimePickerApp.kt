@@ -54,7 +54,7 @@ fun DateTimePickerBottomSheet(
     val uiState by viewModel.uiState.collectAsState()
     val timeZoneStr by viewModel.timeZone.collectAsState()
 
-    ModalBottomSheet(
+    AppModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         sheetGesturesEnabled = false,

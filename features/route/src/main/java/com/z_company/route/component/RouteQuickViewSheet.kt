@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import androidx.compose.animation.core.animate
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -199,7 +200,7 @@ fun RouteQuickViewSheet(
         }
     }
 
-    ModalBottomSheet(
+    AppModalBottomSheet(
         onDismissRequest = onDismiss,
         // Смещаем ВСЮ панель шторки (а не внутренний контент): иначе над сдвинутым
         // контентом внутри панели оставался её собственный фон (белый прогал).

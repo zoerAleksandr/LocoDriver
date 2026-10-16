@@ -1,5 +1,6 @@
 package com.z_company.route.ui.settings
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.core.ui.component.AppDragHandle
 import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.foundation.background
@@ -331,7 +332,7 @@ internal fun SettingsPickerSheet(
     onDismiss: () -> Unit,
     hint: String? = null,
 ) {
-    ModalBottomSheet(
+    AppModalBottomSheet(
         dragHandle = { AppDragHandle() },
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),

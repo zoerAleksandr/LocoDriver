@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.core.ui.component.AppDragHandle
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -551,7 +552,7 @@ private fun SalaryMonthSheet(
     val monthList = monthYearList.map { it.second }.distinct().sorted()
     val yearList = monthYearList.map { it.first }.distinct().sorted()
 
-    ModalBottomSheet(
+    AppModalBottomSheet(
         dragHandle = { AppDragHandle() },
         onDismissRequest = onDismiss,
         sheetState = sheetState,

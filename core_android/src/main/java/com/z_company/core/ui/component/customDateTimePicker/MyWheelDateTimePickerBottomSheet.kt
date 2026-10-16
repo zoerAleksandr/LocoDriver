@@ -1,6 +1,7 @@
 package com.z_company.core.ui.component.customDateTimePicker
 
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,7 +53,7 @@ fun MyWheelDateTimePickerBottomSheet(
     if (showDatePicker) {
         val modalBottomSheetState = rememberModalBottomSheetState()
 
-        ModalBottomSheet(
+        AppModalBottomSheet(
             onDismissRequest = { onDismiss() },
             sheetState = modalBottomSheetState,
             dragHandle = dragHandle,

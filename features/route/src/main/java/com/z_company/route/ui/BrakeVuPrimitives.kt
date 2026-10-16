@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -342,7 +343,7 @@ internal fun VuSheet(
     content: @Composable () -> Unit,
 ) {
     val t = vuColors()
-    ModalBottomSheet(
+    AppModalBottomSheet(
         dragHandle = { AppDragHandle() },
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),

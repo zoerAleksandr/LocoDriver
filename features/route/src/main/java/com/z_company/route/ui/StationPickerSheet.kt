@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.route.component.separateSheetFromScroll
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
@@ -128,7 +129,7 @@ fun StationPickerSheet(
         if (initialEditStation != null) editingStation = initialEditStation
     }
 
-    ModalBottomSheet(
+    AppModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.background,

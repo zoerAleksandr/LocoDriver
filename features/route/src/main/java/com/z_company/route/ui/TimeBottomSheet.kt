@@ -2,6 +2,7 @@
 
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -690,7 +691,7 @@ fun TimeBottomSheet(
     )
 
     // ── Sheet ──
-    ModalBottomSheet(
+    AppModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,

@@ -1,5 +1,6 @@
 package com.z_company.route.ui.settings
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -141,7 +142,7 @@ private fun NightRangeSheet(
         )
     }
 
-    ModalBottomSheet(
+    AppModalBottomSheet(
         dragHandle = { AppDragHandle() },
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),

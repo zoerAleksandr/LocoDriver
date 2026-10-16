@@ -58,8 +58,11 @@ class BrakeDensityTest {
         assertEquals(BrakeDensity.Verdict.FAIL, BrakeDensity.assessFreightII(45.9, 46.0).verdict)
         assertEquals(BrakeDensity.Verdict.NO_NORM, BrakeDensity.assessFreightII(50.0, null).verdict)
         // IV: не менее 90 % от II
+        // порог IV - целое вниз: 0,9 x 46 = 41,4 -> 41
         assertEquals(BrakeDensity.Verdict.OK, BrakeDensity.assessFreightIV(41.4, 46.0).verdict)
-        assertEquals(BrakeDensity.Verdict.FAIL, BrakeDensity.assessFreightIV(41.0, 46.0).verdict)
+        assertEquals(BrakeDensity.Verdict.OK, BrakeDensity.assessFreightIV(41.0, 46.0).verdict)
+        assertEquals(BrakeDensity.Verdict.FAIL, BrakeDensity.assessFreightIV(40.9, 46.0).verdict)
+        assertTrue(BrakeDensity.assessFreightIV(41.0, 46.0).text.contains("не менее 41 с"), BrakeDensity.assessFreightIV(41.0, 46.0).text)
         // в пути: +-20 %
         assertEquals(BrakeDensity.Verdict.OK, BrakeDensity.assessRoute(55.2, 46.0).verdict)
         assertEquals(BrakeDensity.Verdict.FAIL, BrakeDensity.assessRoute(55.3, 46.0).verdict)
@@ -356,12 +359,18 @@ class BrakeTurnaroundTest {
     }
 
     @Test
-    fun normIV_isNinetyPercentOfII_roundedUpToTenth() {
-        assertEquals(62.1, BrakeDensity.ceilTenth(BrakeDensity.normIvSeconds(69.0)))
-        assertEquals("62,1", BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(69.0)))
-        assertEquals("37,3", BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(46.0 * 0.9))) // 37,26 -> вверх до 0,1
+    fun normIV_isNinetyPercentOfII_flooredToInteger() {
+        assertEquals(62.0, BrakeDensity.normIvSeconds(69.0)) // 62,1 -> 62
+        assertEquals(63.0, BrakeDensity.normIvSeconds(70.0)) // ровно 63
+        assertEquals(9.0, BrakeDensity.normIvSeconds(10.0))
+        assertEquals(26.0, BrakeDensity.normIvSeconds(29.0)) // 26,1
+        assertEquals(55.0, BrakeDensity.normIvSeconds(62.1)) // 55,89 -> вниз
+        assertEquals(37.0, BrakeDensity.normIvSeconds(41.4)) // 37,26
+        assertEquals(0.0, BrakeDensity.normIvSeconds(1.0)) // 0,9 -> 0
+        assertEquals("62", BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(69.0)))
+        // норма II - как раньше: «не менее» вверх до 0,1 с, без лишнего «,0»
         assertEquals("69", BrakeDensity.formatNormSeconds(69.0))
-        assertEquals("41,4", BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(46.0)))
+        assertEquals("62,1", BrakeDensity.formatNormSeconds(62.1))
     }
 
     @Test
@@ -369,13 +378,13 @@ class BrakeTurnaroundTest {
         // группа 1200 л, 230 осей (201-250): 29 с -> IV не менее 26,1
         val lines = BrakeDensity.normLines(DensityLocoGroup.G2, 230, null)
         assertEquals("Норма плотности во II положении: 29 сек", lines[0])
-        assertEquals("Норма плотности в IV положении: не менее 26,1 сек", lines[1])
+        assertEquals("Норма плотности в IV положении: не менее 26 сек", lines[1])
         // 1200 л, до 100 осей: 69 -> 62,1
-        assertEquals("Норма плотности в IV положении: не менее 62,1 сек", BrakeDensity.normLines(DensityLocoGroup.G2, 100, null)[1])
-        // поправка -10 % при 5,4: II = 69*0.9 = 62,1; IV = 55,89 -> 55,9
+        assertEquals("Норма плотности в IV положении: не менее 62 сек", BrakeDensity.normLines(DensityLocoGroup.G2, 100, null)[1])
+        // поправка -10 % при 5,4: II = 69*0.9 = 62,1; IV = 55,89 -> 55
         val corr = BrakeDensity.normLines(DensityLocoGroup.G2, 100, 5.4)
         assertEquals("Норма плотности во II положении: 62,1 сек", corr[0])
-        assertEquals("Норма плотности в IV положении: не менее 55,9 сек", corr[1])
+        assertEquals("Норма плотности в IV положении: не менее 55 сек", corr[1])
         assertEquals(listOf("Норма плотности во II положении: укажите группу"), BrakeDensity.normLines(null, 100, null))
         assertEquals(listOf("Норма плотности во II положении: укажите число осей"), BrakeDensity.normLines(DensityLocoGroup.G2, 0, null))
         assertEquals(1, BrakeDensity.normLines(DensityLocoGroup.G2, 600, null).size)

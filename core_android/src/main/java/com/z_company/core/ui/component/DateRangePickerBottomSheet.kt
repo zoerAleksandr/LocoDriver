@@ -46,7 +46,7 @@ fun DateRangePickerBottomSheet(
         remember { DateRangePickerViewModel(initialTimestamp = startDate, singleMode = singleMode) }
     val uiState by viewModel.uiState.collectAsState()
 
-    ModalBottomSheet(
+    AppModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         dragHandle = {

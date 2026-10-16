@@ -1,5 +1,6 @@
 package com.z_company.route.component
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.core.ui.component.AppDragHandle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -169,7 +170,7 @@ fun StationEditBottomSheet(
         }
     }
 
-    ModalBottomSheet(
+    AppModalBottomSheet(
         dragHandle = { AppDragHandle() },
         onDismissRequest = saveAndDismiss,
         sheetState = sheetState,
@@ -600,7 +601,7 @@ fun SegmentEditBottomSheet(
         onDismiss()
     }
 
-    ModalBottomSheet(
+    AppModalBottomSheet(
         dragHandle = { AppDragHandle() },
         onDismissRequest = saveAndDismiss,
         sheetState = sheetState,

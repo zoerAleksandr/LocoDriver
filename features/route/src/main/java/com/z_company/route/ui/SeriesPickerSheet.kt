@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -81,7 +82,7 @@ fun SeriesPickerSheet(
         if (initialEditSeries != null) editingSeries = initialEditSeries
     }
 
-    ModalBottomSheet(
+    AppModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.background,

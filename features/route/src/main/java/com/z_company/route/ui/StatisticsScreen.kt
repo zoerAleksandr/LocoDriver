@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.core.ui.component.AppDragHandle
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
@@ -683,7 +684,7 @@ private fun MetricInfoSheet(key: String, onDismiss: () -> Unit) {
             "Единица — млн ткм (миллионы тонно-километров)."
         else -> return
     }
-    ModalBottomSheet(
+    AppModalBottomSheet(
         dragHandle = { AppDragHandle() },
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -1265,7 +1266,7 @@ private fun SheetShell(
     onBack: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
-    ModalBottomSheet(
+    AppModalBottomSheet(
         dragHandle = { AppDragHandle() },
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),

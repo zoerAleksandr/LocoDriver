@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.core.ui.component.AppDragHandle
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -298,7 +299,7 @@ fun AllRouteScreen(
         // Month selection bottom sheet
         if (isMonthSheetVisible) {
             state.currentMonthOfYear?.let { monthOfYear ->
-                ModalBottomSheet(
+                AppModalBottomSheet(
                     dragHandle = { AppDragHandle() },
                     onDismissRequest = { isMonthSheetVisible = false },
                     sheetState = sheetState,
@@ -383,7 +384,7 @@ fun AllRouteScreen(
 
         // Sort options bottom sheet
         if (isSortSheetVisible) {
-            ModalBottomSheet(
+            AppModalBottomSheet(
                 dragHandle = { AppDragHandle() },
                 onDismissRequest = { isSortSheetVisible = false },
                 sheetState = sheetState,
@@ -660,7 +661,7 @@ fun AllRouteScreen(
 
         // фильтры маршрутов
         if (isFilterSheetVisible) {
-            ModalBottomSheet(
+            AppModalBottomSheet(
                 dragHandle = { AppDragHandle() },
                 onDismissRequest = { isFilterSheetVisible = false },
                 sheetState = sheetState,

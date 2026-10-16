@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.core.ui.component.AppModalBottomSheet
 import com.z_company.core.ui.component.AppDragHandle
 import com.z_company.route.util.DeviceLocation
 import androidx.compose.ui.platform.LocalContext
@@ -427,7 +428,7 @@ fun FormTrainScreen(
         }
 
         if (showTrainDataHistory) {
-            ModalBottomSheet(
+            AppModalBottomSheet(
                 dragHandle = { AppDragHandle() },
                 onDismissRequest = { showTrainDataHistory = false },
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -506,7 +507,7 @@ fun FormTrainScreen(
             val settingsSheetState = rememberModalBottomSheetState(
                 skipPartiallyExpanded = true
             )
-            ModalBottomSheet(
+            AppModalBottomSheet(
                 onDismissRequest = {
                     showSettingsSheet = false
                     viewModel.saveAssistSeries()
@@ -695,7 +696,7 @@ fun FormTrainScreen(
             val createPhaseSheetState = rememberModalBottomSheetState(
                 skipPartiallyExpanded = true
             )
-            ModalBottomSheet(
+            AppModalBottomSheet(
                 onDismissRequest = { viewModel.cancelCreateServicePhaseSheet() },
                 sheetState = createPhaseSheetState,
                 containerColor = MaterialTheme.colorScheme.secondary,
@@ -808,7 +809,7 @@ fun FormTrainScreen(
         }
 
         if (showSelectServicePhase) {
-            ModalBottomSheet(
+            AppModalBottomSheet(
                 onDismissRequest = { showSelectServicePhase = false },
                 sheetState = sheetState,
                 containerColor = MaterialTheme.colorScheme.secondary,
