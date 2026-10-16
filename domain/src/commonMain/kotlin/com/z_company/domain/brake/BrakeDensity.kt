@@ -168,11 +168,45 @@ object BrakeDensity {
         return VolumeGroup.Found(v, g)
     }
 
-    /** Подпись выбранной строки при своём объёме: «Свой объём 1700 л → группа 1500 л». */
+    /**
+     * Подпись выбранной строки при своём объёме: «1450 л - округляем до 1200 л» (ближайший наименьший объём из строк табл. IV.1);
+     * объём равен строке - «1500 л - группа 1500 л»; меньше 1000 л - норма не задана.
+     */
     fun volumeCaption(text: String?): String = when (val r = groupByVolume(text)) {
-        is VolumeGroup.Found -> "Свой объём ${fmtL(r.liters)} л → группа ${r.group.title}"
-        is VolumeGroup.BelowTable -> "Свой объём ${fmtL(r.liters)} л меньше наименьшей строки таблицы (${DensityLocoGroup.G1.title}): норма Правилами не задана, оценка недоступна"
+        is VolumeGroup.Found ->
+            if (r.liters == r.group.liters.toDouble()) "${fmtL(r.liters)} л - группа ${r.group.title}"
+            else "${fmtL(r.liters)} л - округляем до ${r.group.title}"
+        is VolumeGroup.BelowTable -> "${fmtL(r.liters)} л меньше наименьшей строки таблицы (${DensityLocoGroup.G1.title}): норма Правилами не задана, оценка недоступна"
         VolumeGroup.Invalid -> "Введите объём в литрах"
+    }
+
+    /**
+     * Норма времени в IV положении по норме II: плотность в положении IV (перекрыша с питанием) не должна отличаться от плотности при поездном положении
+     * более чем на 10 % в сторону уменьшения (п. 48 прил. 2 Правил; прил. М 808-2022), т.е. время не менее 0,9 от времени II.
+     */
+    fun normIvSeconds(normII: Double): Double = normII * 0.9
+
+    /** Округление нормы «не менее» ВВЕРХ до 0,1 с (безопасная сторона), как при показе норм II и IV. */
+    fun ceilTenth(v: Double): Double = kotlin.math.ceil(v * 10.0 - 1e-9) / 10.0
+
+    /** Норма для показа: «69», «62,1» (вверх до 0,1 с, без лишнего «,0»). */
+    fun formatNormSeconds(v: Double): String {
+        val r = ceilTenth(v)
+        return (if (r % 1.0 == 0.0) r.toLong().toString() else r.toString()).replace('.', ',')
+    }
+
+    /**
+     * Две строки норм для показа: «Норма плотности во II положении: 69 сек» и «Норма плотности в IV положении: не менее 62,1 сек».
+     * Нет группы или числа осей - подпись «укажите группу» / «укажите число осей» (одна строка). Вне таблицы (больше 530 осей) - «число осей вне таблицы».
+     */
+    fun normLines(group: DensityLocoGroup?, axles: Int, chargePressure: Double?, locoCount: Int = 1): List<String> {
+        if (group == null) return listOf("Норма плотности во II положении: укажите группу")
+        if (axles <= 0) return listOf("Норма плотности во II положении: укажите число осей")
+        val t = minTimeSeconds(group, axles, chargePressure, locoCount) ?: return listOf("Норма плотности во II положении: число осей вне таблицы (1-530)")
+        return listOf(
+            "Норма плотности во II положении: ${formatNormSeconds(t)} сек",
+            "Норма плотности в IV положении: не менее ${formatNormSeconds(normIvSeconds(t))} сек",
+        )
     }
 
     private fun fmtL(v: Double): String = (if (v % 1.0 == 0.0) v.toLong().toString() else v.toString()).replace('.', ',')

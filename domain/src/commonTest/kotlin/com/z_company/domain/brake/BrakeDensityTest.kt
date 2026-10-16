@@ -294,8 +294,11 @@ class BrakeTurnaroundTest {
         assertTrue(BrakeDensity.groupByVolume("abc") is BrakeDensity.VolumeGroup.Invalid)
         assertTrue(BrakeDensity.groupByVolume("0") is BrakeDensity.VolumeGroup.Invalid)
         assertTrue(BrakeDensity.groupByVolume("-5") is BrakeDensity.VolumeGroup.Invalid)
-        assertEquals("Свой объём 1700 л → группа 1500 л", BrakeDensity.volumeCaption("1700"))
-        assertEquals("Свой объём 1700,5 л → группа 1500 л", BrakeDensity.volumeCaption("1700,5"))
+        assertEquals("1700 л - округляем до 1500 л", BrakeDensity.volumeCaption("1700"))
+        assertEquals("1450 л - округляем до 1200 л", BrakeDensity.volumeCaption("1450"))
+        assertEquals("1500 л - группа 1500 л", BrakeDensity.volumeCaption("1500"))
+        assertEquals("4500 л - округляем до 3000 л", BrakeDensity.volumeCaption("4500"))
+        assertEquals("1700,5 л - округляем до 1500 л", BrakeDensity.volumeCaption("1700,5"))
         assertTrue(BrakeDensity.volumeCaption("800").contains("оценка недоступна"))
     }
 
@@ -350,5 +353,31 @@ class BrakeTurnaroundTest {
         assertTrue(!BrakeFillResolver.shouldReplace("2900", "3100", lastAutoFilled = "3000", force = false))
         assertTrue(BrakeFillResolver.shouldReplace("2900", "3100", lastAutoFilled = "3000", force = true))
         assertTrue(BrakeFillResolver.shouldReplace("", "3100", null, false))
+    }
+
+    @Test
+    fun normIV_isNinetyPercentOfII_roundedUpToTenth() {
+        assertEquals(62.1, BrakeDensity.ceilTenth(BrakeDensity.normIvSeconds(69.0)))
+        assertEquals("62,1", BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(69.0)))
+        assertEquals("37,3", BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(46.0 * 0.9))) // 37,26 -> вверх до 0,1
+        assertEquals("69", BrakeDensity.formatNormSeconds(69.0))
+        assertEquals("41,4", BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(46.0)))
+    }
+
+    @Test
+    fun normLines_iiAndIv_orHints() {
+        // группа 1200 л, 230 осей (201-250): 29 с -> IV не менее 26,1
+        val lines = BrakeDensity.normLines(DensityLocoGroup.G2, 230, null)
+        assertEquals("Норма плотности во II положении: 29 сек", lines[0])
+        assertEquals("Норма плотности в IV положении: не менее 26,1 сек", lines[1])
+        // 1200 л, до 100 осей: 69 -> 62,1
+        assertEquals("Норма плотности в IV положении: не менее 62,1 сек", BrakeDensity.normLines(DensityLocoGroup.G2, 100, null)[1])
+        // поправка -10 % при 5,4: II = 69*0.9 = 62,1; IV = 55,89 -> 55,9
+        val corr = BrakeDensity.normLines(DensityLocoGroup.G2, 100, 5.4)
+        assertEquals("Норма плотности во II положении: 62,1 сек", corr[0])
+        assertEquals("Норма плотности в IV положении: не менее 55,9 сек", corr[1])
+        assertEquals(listOf("Норма плотности во II положении: укажите группу"), BrakeDensity.normLines(null, 100, null))
+        assertEquals(listOf("Норма плотности во II положении: укажите число осей"), BrakeDensity.normLines(DensityLocoGroup.G2, 0, null))
+        assertEquals(1, BrakeDensity.normLines(DensityLocoGroup.G2, 600, null).size)
     }
 }

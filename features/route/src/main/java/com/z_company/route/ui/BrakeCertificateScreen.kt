@@ -297,6 +297,7 @@ private fun CalcTab(
                 .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            FillFromRoute(state, vm)
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 VuInput(
                     "Категория поезда", "${category.title.substringBefore(" / ").substringBefore(" (")} · ${category.norm} тс на 100 тс веса",
@@ -325,7 +326,7 @@ private fun CalcTab(
                 }
                 if (state.rowsMode) AxleSumWarning(state, vm)
                 Box(Modifier.padding(start = 0.dp)) { VuBtn("Оси по типам вагонов ›", onClick = onOpenBlank, kind = VuBtnKind.Text, h = 40.dp) }
-                if (category.manualBrakesRequired) VuHint(state.manualInfo.text.replaceFirstChar { it.uppercase() }, Modifier.padding(horizontal = 4.dp))
+                if (category.group != TrainGroup.PASSENGER) DensityFields(state, vm, onGroup = { onSheet(BrakeSheet.DensityGroup) }, onHelp = onSheet)
                 CompositeRow(state, vm, onHelp = { onSheet(BrakeSheet.Help("composite")) })
                 // Руководящий спуск
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -345,8 +346,6 @@ private fun CalcTab(
                 state, applicable = category.vFlatAutoblock != null && (state.grade == GradeClass.UP_TO_006 || state.grade == GradeClass.OVER_006_TO_010),
                 onChange = vm::setAutoblock, onHelp = { onSheet(BrakeSheet.Help("autoblock")) },
             )
-            if (category.group != TrainGroup.PASSENGER) DensityCard(state, vm, onGroup = { onSheet(BrakeSheet.DensityGroup) }, onHelp = onSheet)
-            FillFromRoute(state, vm)
             if (calculated) ResultCard(result, state, category, onOpenBlank)
             if (low && result != null && BrakeStatusResolver.resolve(result, true).level == StatusLevel.DANGER) DeficitBlock(result, category, onHelp = { onSheet(BrakeSheet.Help("deficit")) })
         }
@@ -410,44 +409,39 @@ private fun CustomVolumeSheet(state: BrakeCertificateUiState, vm: BrakeCertifica
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             VuInput("Объём ГР, л", text, onChange = { text = it }, unit = "л", sunk = true, placeholder = "например 1700")
             VuHint(BrakeDensity.volumeCaption(text))
-            VuHint("При объёме, которого нет в таблице, берётся ближайший наименьший (прим. 3 к табл. IV.1 прил. 2 ${InstructionRef.GENITIVE}).")
+            val g = (result as? BrakeDensity.VolumeGroup.Found)?.group
+            if (g != null) BrakeDensity.normLines(
+                g, axlesForNorm(state), state.chargePressureText.toFiniteDoubleOrNull(), state.locoCountText.trim().toIntOrNull() ?: 1,
+            ).forEach { VuHint(it) }
         }
     }
 }
 
-/** Параметры плотности тормозной сети (общее состояние «Расчёта», «Бланка» и «Замеров»): зарядное давление, число локомотивов (СМЕ), группа по объёму ГР. */
+/** Поля плотности тормозной сети в стиле «Вес состава»: зарядное давление | локомотивов (СМЕ), группа локомотива (объём ГР) и нормы II/IV (без карточки и заголовка). */
 @Composable
-private fun DensityCard(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onGroup: () -> Unit, onHelp: (BrakeSheet) -> Unit) {
+private fun DensityFields(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onGroup: () -> Unit, onHelp: (BrakeSheet) -> Unit) {
     val group = state.effectiveDensityGroup()
     val charge = state.chargePressureText.toFiniteDoubleOrNull()
     val axles = axlesForNorm(state)
     val locoCount = state.locoCountText.trim().toIntOrNull() ?: 1
-    val minTime = group?.let { BrakeDensity.minTimeSeconds(it, axles, charge, locoCount) }
-    VuCard {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            VuTag("Плотность тормозной сети")
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                VuInput("Зарядное давление", state.chargePressureText, Modifier.weight(1f), onChange = vm::setChargePressure, unit = "кгс/см²", sunk = true, onHelp = { onHelp(BrakeSheet.Help("charge")) })
-                VuInput("Локомотивов (СМЕ)", state.locoCountText, Modifier.weight(1f), onChange = vm::setLocoCount, sunk = true, keyboard = KeyboardType.Number, onHelp = { onHelp(BrakeSheet.Help("sme")) })
-            }
-            VuInput(
-                "Группа локомотива (объём ГР)",
-                if (state.customVolumeText.isNotBlank()) BrakeDensity.volumeCaption(state.customVolumeText).let { c -> if (group == null) "Свой объём ${state.customVolumeText} л" else c }
-                else group?.let { it.title + (if (state.densityGroup == null) " · по серии" else "") } ?: "Не выбрана",
-                onClick = onGroup, sunk = true, onHelp = { onHelp(BrakeSheet.Help("group")) },
-            )
-            VuHint(
-                when {
-                    state.customVolumeText.isNotBlank() && group == null -> BrakeDensity.volumeCaption(state.customVolumeText)
-                    group == null -> "Без группы норма плотности (табл. IV.1) не определяется: выберите группу по объёму главных резервуаров локомотива."
-                    minTime == null -> "Норма II положения: длина состава должна быть 1-530 осей (сейчас: $axles)."
-                    else -> "Норма II положения по табл. IV.1: не менее ${fmt(minTime)} с (${group.title}, $axles осей" + (if (BrakeDensity.chargeFactor(charge) < 1.0) ", с поправкой на зарядное давление" else "") + ")."
-                },
-            )
-        }
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        VuInput("Зарядное давление", state.chargePressureText, Modifier.weight(1f), onChange = vm::setChargePressure, unit = "кгс/см²", placeholder = "0", onHelp = { onHelp(BrakeSheet.Help("charge")) })
+        VuInput("Локомотивов (СМЕ)", state.locoCountText, Modifier.weight(1f), onChange = vm::setLocoCount, keyboard = KeyboardType.Number, placeholder = "1", onHelp = { onHelp(BrakeSheet.Help("sme")) })
     }
+    VuInput(
+        "Группа локомотива (объём ГР)",
+        when {
+            state.customVolumeText.isNotBlank() -> BrakeDensity.volumeCaption(state.customVolumeText)
+            group != null -> group.title + (if (state.densityGroup == null) " · по серии" else "")
+            else -> "Не выбрана"
+        },
+        onClick = onGroup, onHelp = { onHelp(BrakeSheet.Help("group")) },
+    )
+    if (state.customVolumeText.isNotBlank() && group == null) VuHint(BrakeDensity.volumeCaption(state.customVolumeText), Modifier.padding(horizontal = 4.dp))
+    else BrakeDensity.normLines(group, axles, charge, locoCount).forEach { VuHint(it, Modifier.padding(horizontal = 4.dp)) }
 }
 
+/** «Заполнить из маршрута»: итог подстановки не показывается; только короткая ошибка (нет маршрута, маршрут не найден) и кнопка замены при расхождении с введённым. */
 @Composable
 private fun FillFromRoute(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel) {
     val t = vuColors()
@@ -456,12 +450,12 @@ private fun FillFromRoute(state: BrakeCertificateUiState, vm: BrakeCertificateVi
             if (state.filling) "Заполняю…" else "Заполнить из маршрута", { vm.fillFromRoute() },
             Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, enabled = !state.filling,
         )
-        val text = state.fillReport?.text
-        if (text != null) VuHint(text, Modifier.padding(horizontal = 4.dp), color = t.muted)
+        val error = state.fillReport?.note
+        if (error != null) VuHint(error, Modifier.padding(horizontal = 4.dp), color = t.danger)
+        else if (state.routeId == null) VuHint("Нет маршрута: введите данные вручную.", Modifier.padding(horizontal = 4.dp))
         if (state.fillReport?.conflicts?.isNotEmpty() == true) {
             VuBtn("Заменить введённое данными маршрута", { vm.fillFromRoute(force = true) }, Modifier.fillMaxWidth(), kind = VuBtnKind.Text, h = 44.dp)
         }
-        else if (state.routeId == null) VuHint("Экран открыт без маршрута - данные поезда и локомотива можно ввести вручную.", Modifier.padding(horizontal = 4.dp))
     }
 }
 
@@ -1351,8 +1345,9 @@ private fun MeasureTab(
                 else -> null
             },
             normText = when (active) {
-                TimerKind.II -> if (!passenger && minTime != null) "Норма: не менее ${fmt(minTime)} с" else null
-                TimerKind.IV -> state.timerII.recordedSec?.let { "Допуск: не менее ${fmt(it * 0.9)} с (90 % от II)" }
+                TimerKind.II -> if (!passenger && minTime != null) "Норма: не менее ${BrakeDensity.formatNormSeconds(minTime)} с" else null
+                TimerKind.IV -> state.timerII.recordedSec?.let { "Допуск: не менее ${BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(it))} с (90 % от II)" }
+                    ?: minTime?.let { "Норма: не менее ${BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(it))} с" }
                 TimerKind.ROUTE -> state.timerII.recordedSec?.let { "Допуск ±20 %: ${fmt(it * 0.8)}–${fmt(it * 1.2)} с" }
             },
             assess = { sec ->
