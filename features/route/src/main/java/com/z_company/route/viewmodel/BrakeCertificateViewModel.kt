@@ -253,6 +253,9 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
                 // категория по номеру поезда из маршрута - только если номер определяет её однозначно (иначе текущая остаётся)
                 val st = _state.value
                 BrakeCategory.byTrainNumber(q.trainNumber, st.totalAxlesText.trim().toIntOrNull())?.let { applyCategory(it.id) }
+                // «Учитывать локомотив» следует категории: в пассажирских и грузопассажирских включено, в грузовых выключено (ручная правка действует до следующего заполнения)
+                val cat = BrakeNorms.category(_state.value.categoryId)
+                if (cat != null) _state.update { it.copy(locoEnabled = cat.locoCountedByDefault) }
             }
             applyStopCandidates(train?.stations.orEmpty())
         }

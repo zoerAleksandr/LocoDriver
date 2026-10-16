@@ -136,4 +136,26 @@ class BrakeStatusTest {
         assertEquals(null, BrakeCategory.byTrainNumber("12345"))
         assertEquals(2604, BrakeCategory.parseTrainNumber("№ 2604А"))
     }
+
+    @Test fun speedBar_speedShownOnlyWhenDetermined() {
+        // OK
+        assertEquals(80, BrakeStatusResolver.speedKmh(calc(freight().norm + 1.0)))
+        // WARNING: нажатия не хватает, скорость не снижена - скорость есть
+        assertEquals(80, BrakeStatusResolver.speedKmh(calc(31.5, CompositeShare.P75)))
+        // снижена до N
+        assertEquals(70, BrakeStatusResolver.speedKmh(calc(29.5)))
+        // ниже минимума - скорости нет (плашка только с текстом)
+        assertEquals(null, BrakeStatusResolver.speedKmh(calc(freight().minNorm!! - 1.0)))
+        // до расчёта
+        assertEquals(null, BrakeStatusResolver.speedKmh(null))
+    }
+
+    @Test fun locoCounted_byCategory() {
+        for (c in BrakeNorms.categories) {
+            val passengerLike = c.group == TrainGroup.PASSENGER || c.group == TrainGroup.FREIGHT_PASSENGER
+            assertEquals(passengerLike, c.locoCountedByDefault, c.id)
+        }
+        assertTrue(BrakeCategory.byTrainNumber("965")!!.locoCountedByDefault)
+        assertTrue(!BrakeCategory.byTrainNumber("9310")!!.locoCountedByDefault)
+    }
 }

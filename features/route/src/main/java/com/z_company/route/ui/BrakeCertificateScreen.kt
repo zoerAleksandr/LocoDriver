@@ -640,6 +640,16 @@ private fun VuSpeedBar(result: BrakeCertificateResult?) {
     val belowMin = (sp as? SpeedLimit.NotDetermined)?.kind == SpeedLimit.Kind.BELOW_MIN
     val warn = status.level == StatusLevel.WARNING
     val danger = status.level == StatusLevel.DANGER
+    if (BrakeStatusResolver.speedKmh(result) == null) {
+        // Скорость не определена (ниже минимума / нет норм): без «— км/ч» и разделителя, на всю плашку только текст (цвет по уровню)
+        Box(Modifier.fillMaxWidth().heightIn(min = 56.dp).background(if (danger) t.danger.copy(alpha = 0.14f) else t.surface, shape).padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.CenterStart) {
+            Text(
+                InstructionRef.annotate(status.headline), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, lineHeight = 18.sp,
+                color = when (status.level) { StatusLevel.NONE -> t.muted; StatusLevel.OK -> t.success; StatusLevel.WARNING -> t.text; StatusLevel.DANGER -> t.danger },
+            )
+        }
+        return
+    }
     val tone = when (status.level) { StatusLevel.NONE -> t.faint; StatusLevel.OK -> t.accent; StatusLevel.WARNING -> t.warning; StatusLevel.DANGER -> t.danger }
     val bg = when { danger -> t.danger.copy(alpha = 0.14f); warn -> t.warning.copy(alpha = 0.18f); else -> t.surface }
     Row(
@@ -997,6 +1007,7 @@ private fun AxleRowCells(label: String, axles: String, product: String, filled: 
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun OtherColumn(state: BrakeCertificateUiState, onEdit: () -> Unit) {
     val t = vuColors()
@@ -1016,10 +1027,13 @@ private fun OtherColumn(state: BrakeCertificateUiState, onEdit: () -> Unit) {
         if (state.feedDensityText.isNotBlank()) add("Пит." to state.feedDensityText)
     }
     Column(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        items.forEach { (k, v) ->
-            Column(Modifier.padding(bottom = 4.dp)) {
-                Text(k, fontSize = 11.sp, color = t.muted, lineHeight = 13.sp)
-                Text(v, fontFamily = VuMono, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 17.sp)
+        // Пары «подпись - значение» в строку, если помещаются по ширине графы и размеру шрифта; иначе переносятся (пара не разрывается)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            items.forEach { (k, v) ->
+                Column(Modifier.padding(bottom = 4.dp)) {
+                    Text(k, fontSize = 11.sp, color = t.muted, lineHeight = 13.sp, softWrap = false)
+                    Text(v, fontFamily = VuMono, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 17.sp, softWrap = false)
+                }
             }
         }
         Text(
@@ -1035,7 +1049,10 @@ private fun LocoCard(state: BrakeCertificateUiState, category: BrakeCategory, vm
     VuCard {
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Учитывать локомотив", fontSize = 16.sp, color = t.text)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Учитывать локомотив", fontSize = 16.sp, color = t.text)
+                    VuHelp({ onHelp("loco_brake") }, touch = 32.dp)
+                }
                 Text(
                     if (category.group == TrainGroup.FREIGHT) InstructionRef.annotate("В грузовых поездах не учитывается (п. 41)") else "Вес и нажатие - по данным владельца инфраструктуры (п. 40 прил. 2 Правил)",
                     fontSize = 13.sp, color = t.muted, modifier = Modifier.padding(top = 2.dp),
@@ -1052,9 +1069,9 @@ private fun LocoCard(state: BrakeCertificateUiState, category: BrakeCategory, vm
         if (state.locoEnabled) {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    VuInput("Вес, тс", state.locoWeightText, Modifier.weight(1f), onChange = vm::setLocoWeight, unit = "тс", sunk = true, onHelp = { onHelp("loco_brake") })
-                    VuInput("Осей", state.locoAxlesText, Modifier.weight(0.8f), onChange = vm::setLocoAxles, sunk = true, keyboard = KeyboardType.Number)
-                    VuInput("тс/ось", state.locoPressureText, Modifier.weight(0.9f), onChange = vm::setLocoPressure, sunk = true)
+                    VuInput("Вес, т", state.locoWeightText, Modifier.weight(1f), onChange = vm::setLocoWeight, unit = "т", sunk = true)
+                    VuInput("Осей", state.locoAxlesText, Modifier.weight(1f), onChange = vm::setLocoAxles, sunk = true, keyboard = KeyboardType.Number)
+                    VuInput("Нажатие, тс/ось", state.locoPressureText, Modifier.weight(1f), onChange = vm::setLocoPressure, sunk = true)
                 }
                 VuHint(
                     if (state.locoAuto) "Справочник серий (прежняя Инструкция 277; по Правилам данные локомотивов утверждает владелец инфраструктуры) для серии «${state.locoSeriesText}»" + (state.locoNote?.let { ": $it" } ?: "") + ". Можно править."

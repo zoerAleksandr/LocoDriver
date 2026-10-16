@@ -29,6 +29,10 @@ object BrakeStatusResolver {
         return s.replace('.', ',')
     }
 
+    /** Скорость для показа в плашке: есть только когда расчёт выполнен и скорость определена (OK, не снижена или снижена до N); иначе null - плашка показывает только текст. */
+    fun speedKmh(result: BrakeCertificateResult?): Int? =
+        if (isCalculated(result)) (result!!.speed as? SpeedLimit.Allowed)?.kmh else null
+
     /** Вердикт и короткая формулировка для закреплённого блока. [hasData] - введены вес и нажатие. */
     fun resolve(result: BrakeCertificateResult?, hasData: Boolean): BrakeStatus {
         if (result == null || !hasData) return BrakeStatus(StatusLevel.NONE, "Введите вес и оси")
